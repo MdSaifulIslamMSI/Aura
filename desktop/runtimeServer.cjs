@@ -21,6 +21,33 @@ const DESKTOP_AUTH_TOKEN_MAX_LENGTH = 8192;
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 
+const parseBooleanEnv = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
+const isLoopbackBackendOrigin = (backendOrigin = '') => {
+    try {
+        const hostname = new URL(backendOrigin).hostname.toLowerCase();
+        return hostname === 'localhost'
+            || hostname === '::1'
+            || hostname === '[::1]'
+            || hostname === '0.0.0.0'
+            || hostname.startsWith('127.');
+    } catch {
+        return false;
+    }
+};
+
+const shouldAllowInsecureBackendProxy = (backendOrigin = '') => (
+    process.env.NODE_ENV !== 'production'
+    && parseBooleanEnv(process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY, false)
+    && isLoopbackBackendOrigin(backendOrigin)
+);
+
 const resolveBackendOrigin = () => {
     const configured = String(
         process.env.AURA_DESKTOP_BACKEND_ORIGIN
@@ -73,7 +100,7 @@ const buildProxyOptions = (backendOrigin) => ({
     changeOrigin: true,
     ws: true,
     xfwd: true,
-    secure: false,
+    secure: !shouldAllowInsecureBackendProxy(backendOrigin),
     cookieDomainRewrite: '',
     logLevel: 'warn',
     on: {
@@ -456,12 +483,14 @@ module.exports = {
     RUNTIME_LISTEN_HOST,
     RUNTIME_PUBLIC_HOST,
     buildProxyOptions,
+    isLoopbackBackendOrigin,
     applyLocalFrontendCachePolicy,
     createDesktopAuthBroker,
     buildRuntimeUrl,
     resolveAllowedDesktopAuthOrigins,
     resolveBackendOrigin,
     resolveDesktopAuthFrontendOrigin,
+    shouldAllowInsecureBackendProxy,
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
 };

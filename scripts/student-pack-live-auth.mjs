@@ -197,7 +197,7 @@ const authChecks = [
       };
     }
     const auth = Buffer.from(`${username}:${key}`).toString('base64');
-    const result = await fetchJson('https://api.lambdatest.com/automation/api/v1/platforms', {
+    const result = await fetchJson('https://api.lambdatest.com/automation/api/v1/sessions?limit=1', {
       headers: { Authorization: `Basic ${auth}` },
       timeoutMs: 8000,
     });
@@ -206,7 +206,7 @@ const authChecks = [
       name: 'LambdaTest',
       status: result.ok ? 'ready' : 'partial',
       detail: result.ok ? 'LambdaTest API accepted credentials' : `LambdaTest API HTTP ${result.status || 'unreachable'}`,
-      command: 'LambdaTest platforms API + tunnel package',
+      command: 'LambdaTest sessions API + tunnel package',
     };
   },
   async () => {

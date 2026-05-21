@@ -20,6 +20,35 @@ const sanitizeFirebaseValue = (value) => {
         .trim();
 };
 
+const parseFirebaseConfigEnv = (value) => {
+    const sanitized = sanitizeFirebaseValue(value);
+    if (!sanitized) return {};
+
+    try {
+        const parsed = JSON.parse(sanitized);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+};
+
+const aggregateFirebaseConfig = {
+    ...parseFirebaseConfigEnv(import.meta.env.VITE_FIREBASE_CONFIG),
+    ...parseFirebaseConfigEnv(import.meta.env.VITE_FIREBASE_WEB_CONFIG),
+};
+
+const getFirebaseConfigValue = (envKey, configKey, sanitizer = sanitizeFirebaseValue) => {
+    const directValue = sanitizer(import.meta.env[envKey]);
+    if (directValue) return directValue;
+    return sanitizer(aggregateFirebaseConfig[configKey]);
+};
+
+const deriveDefaultAuthDomain = (projectId) => {
+    const sanitizedProjectId = sanitizeFirebaseValue(projectId);
+    if (!sanitizedProjectId || !/^[a-z0-9-]+$/i.test(sanitizedProjectId)) return undefined;
+    return `${sanitizedProjectId}.firebaseapp.com`;
+};
+
 const isHostedDeploymentHost = (host = '') => {
     const normalizedHost = String(host || '').trim().toLowerCase();
     return normalizedHost === 'aurapilot.aws.app'
@@ -99,21 +128,20 @@ const isElectronDesktopRuntime = () => {
 };
 
 export const firebaseConfig = {
-    apiKey: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_API_KEY),
-    authDomain: sanitizeHostValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
-    projectId: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_PROJECT_ID),
-    storageBucket: sanitizeHostValue(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
-    messagingSenderId: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
-    appId: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_APP_ID),
-    measurementId: sanitizeFirebaseValue(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID)
+    apiKey: getFirebaseConfigValue('VITE_FIREBASE_API_KEY', 'apiKey'),
+    authDomain: getFirebaseConfigValue('VITE_FIREBASE_AUTH_DOMAIN', 'authDomain', sanitizeHostValue)
+        || deriveDefaultAuthDomain(getFirebaseConfigValue('VITE_FIREBASE_PROJECT_ID', 'projectId')),
+    projectId: getFirebaseConfigValue('VITE_FIREBASE_PROJECT_ID', 'projectId'),
+    storageBucket: getFirebaseConfigValue('VITE_FIREBASE_STORAGE_BUCKET', 'storageBucket', sanitizeHostValue),
+    messagingSenderId: getFirebaseConfigValue('VITE_FIREBASE_MESSAGING_SENDER_ID', 'messagingSenderId'),
+    appId: getFirebaseConfigValue('VITE_FIREBASE_APP_ID', 'appId'),
+    measurementId: getFirebaseConfigValue('VITE_FIREBASE_MEASUREMENT_ID', 'measurementId')
 };
 
 const requiredConfigKeys = [
     'apiKey',
     'authDomain',
     'projectId',
-    'storageBucket',
-    'messagingSenderId',
     'appId',
 ];
 

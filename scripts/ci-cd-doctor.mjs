@@ -30,6 +30,8 @@ const production = read('.github/workflows/production-cicd.yml');
 const desktop = read('.github/workflows/desktop-release.yml');
 const mobile = read('.github/workflows/mobile-release.yml');
 const gateway = read('.github/workflows/deploy-gateway-vercel.yml');
+const packageJson = JSON.parse(read('package.json') || '{}');
+const securityRunner = read('scripts/security-runner.mjs');
 
 const checks = [];
 
@@ -138,6 +140,14 @@ addCheck(
     production.includes(needle)
   ),
   'secret scan, npm audit, SBOM'
+);
+
+addCheck(
+  'security harness contract remains wired',
+  packageJson.scripts?.['security:harness'] === 'node scripts/security-harness-check.mjs'
+    && securityRunner.includes("['harness', 'npm run security:harness']")
+    && production.includes('uses: ./.github/workflows/ci.yml'),
+  'security:harness script, security:all category, production CI reuse'
 );
 
 const nameWidth = Math.max(...checks.map((check) => check.name.length), 'Check'.length);

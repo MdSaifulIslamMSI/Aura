@@ -167,6 +167,102 @@ const chooseWorstDayStatus = (statuses = []) => {
     return filtered.sort((a, b) => (DAY_STATUS_RANK[b] || 0) - (DAY_STATUS_RANK[a] || 0))[0];
 };
 
+const clampScore = (value = 0) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+
+const scoreRatio = (value = 0, target = 1) => {
+    const numericValue = Number(value || 0);
+    const numericTarget = Math.max(Number(target || 1), 1);
+    return Math.min(numericValue / numericTarget, 1);
+};
+
+const resolvePowerLevel = (score = 0) => {
+    if (score >= 90) return 'powerhouse';
+    if (score >= 75) return 'strong';
+    if (score >= 60) return 'building';
+    return 'thin';
+};
+
+const measureStatusPagePower = ({
+    groups = [],
+    components = [],
+    publicGroups = [],
+    securityHarness = null,
+} = {}) => {
+    const publicComponents = publicGroups.flatMap((group) => Array.isArray(group.components) ? group.components : []);
+    const componentCount = components.length || publicComponents.length;
+    const groupCount = groups.length || publicGroups.length;
+    const healthSignals = new Set(components
+        .map((component) => String(component?.metadata?.healthSignal || '').trim().toLowerCase())
+        .filter(Boolean));
+    const checkTypes = new Set(components
+        .map((component) => String(component?.checkType || '').trim().toLowerCase())
+        .filter(Boolean));
+    const componentsWithFullHistory = publicComponents
+        .filter((component) => Array.isArray(component.history90d) && component.history90d.length >= HISTORY_DAYS)
+        .length;
+    const maxMeasuredDays = publicGroups.reduce((max, group) => Math.max(max, Number(group.measuredDays90d || 0)), 0);
+    const surfaceScore = clampScore((scoreRatio(groupCount, 10) * 45) + (scoreRatio(componentCount, 14) * 55));
+    const signalScore = clampScore((scoreRatio(healthSignals.size, 10) * 65) + (scoreRatio(checkTypes.size, 4) * 35));
+    const historyScore = clampScore((scoreRatio(maxMeasuredDays, HISTORY_DAYS) * 55) + (scoreRatio(componentsWithFullHistory, componentCount || 1) * 45));
+    const operationsScore = 100;
+    const securityScore = securityHarness?.enabled
+        ? clampScore(securityHarness.readinessPercent)
+        : clampScore(scoreRatio(healthSignals.size, 10) * 100);
+    const score = clampScore(
+        (surfaceScore * 0.25)
+        + (signalScore * 0.25)
+        + (historyScore * 0.25)
+        + (operationsScore * 0.15)
+        + (securityScore * 0.10)
+    );
+
+    return {
+        score,
+        level: resolvePowerLevel(score),
+        summary: `${score}/100 status power across ${groupCount} groups and ${componentCount} components`,
+        coverage: {
+            groups: groupCount,
+            components: componentCount,
+            healthSignals: healthSignals.size,
+            checkTypes: [...checkTypes].sort(),
+            measuredDays90d: maxMeasuredDays,
+            componentsWithFullHistory,
+        },
+        dimensions: [
+            {
+                id: 'surface_coverage',
+                label: 'Surface coverage',
+                score: surfaceScore,
+                detail: `${groupCount} groups / ${componentCount} components`,
+            },
+            {
+                id: 'health_signal_depth',
+                label: 'Health signal depth',
+                score: signalScore,
+                detail: `${healthSignals.size} internal signals / ${checkTypes.size} check types`,
+            },
+            {
+                id: 'history_depth',
+                label: '90-day history depth',
+                score: historyScore,
+                detail: `${maxMeasuredDays}/${HISTORY_DAYS} measured days`,
+            },
+            {
+                id: 'incident_operations',
+                label: 'Incident operations',
+                score: operationsScore,
+                detail: 'Public incidents, maintenance, timelines, RSS, and subscriber alerts',
+            },
+            {
+                id: 'security_posture',
+                label: 'Security posture',
+                score: securityScore,
+                detail: securityHarness?.enabled ? 'Security harness readiness' : 'Auth, admin, upload, payment, and status signals',
+            },
+        ],
+    };
+};
+
 const componentStatusToDayStatus = (status) => {
     switch (status) {
         case 'degraded_performance':
@@ -769,6 +865,12 @@ const buildPublicStatusPayload = async () => {
         activeIncidents,
         activeMaintenance,
         securityHarness,
+        statusPower: measureStatusPagePower({
+            groups,
+            components,
+            publicGroups,
+            securityHarness,
+        }),
     };
 };
 
@@ -1750,6 +1852,7 @@ module.exports = {
     getStatusAdminDashboard,
     getStatusHistory,
     invalidatePublicStatusCache,
+    measureStatusPagePower,
     resolveIncident,
     runStatusCheckForComponent,
     runStatusMonitorCycle,

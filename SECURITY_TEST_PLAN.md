@@ -61,6 +61,8 @@ No-go zones:
 | Cloudflare | WAF/rate-limit/origin-protection/Turnstile deployment contract | CI-safe edge readiness gate passes without live Cloudflare secrets |
 | Cisco Duo | Universal Prompt MFA runtime contract | CI-safe readiness gate passes without live Duo secrets |
 | CI | Install, root/backend tests, security suite, audit, pinned Gitleaks-backed secret scan, artifact upload | No production services required |
+| Harness Contract | Static audit of required security scripts, CI wiring, production gates, secret/dependency scanners, report ignores, container excludes, and desktop proxy TLS defaults | Pipeline fails when the security suite or release gates drift out of policy |
+| Status Power | Public status page score across surface coverage, health signals, 90-day history, incident operations, and security posture | Status page strength is visible in the payload and UI, not inferred by copy |
 | Reporting | Summary markdown and JSON results | Repro commands, changed files, limitations, failures recorded |
 
 ## Commands Added
@@ -69,6 +71,7 @@ No-go zones:
 - `npm run test:server:regression`
 - `npm run test:server:full`
 - `npm run security:all`
+- `npm run security:harness`
 - `npm run security:secrets`
 - `npm run security:deps`
 - `npm run security:auth`
@@ -93,6 +96,8 @@ No-go zones:
 
 - `npm test` still passes for the existing project scope.
 - `npm run security:all` passes in CI with local test databases and fake fixtures only.
+- `npm run security:harness` fails if required security scripts, CI security jobs, production security gates, pinned Gitleaks install, report ignores, Docker secret exclusions, or desktop proxy TLS defaults are removed.
+- Public status payloads include a `statusPower` score and the UI renders its measured dimensions.
 - Tests fail if a user can read or mutate another user private resource.
 - Tests fail if a normal user can set privileged fields such as `isAdmin`, `adminRoles`, `paymentState`, or `orderStatus`.
 - Tests fail if fake frontend payment success can mark an order paid without server/provider verification.

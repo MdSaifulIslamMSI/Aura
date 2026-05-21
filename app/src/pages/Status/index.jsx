@@ -94,6 +94,56 @@ function IncidentStrip({ title, items = [] }) {
   );
 }
 
+export function StatusPowerCard({ power = null }) {
+  if (!power) return null;
+  const score = Number(power.score || 0);
+  const level = String(power.level || 'unknown').replace(/_/g, ' ');
+  const dimensions = Array.isArray(power.dimensions) ? power.dimensions : [];
+  const coverage = power.coverage || {};
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="status-power-heading">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-normal text-slate-600">
+            <Gauge className="h-4 w-4" />
+            Status power
+          </div>
+          <h2 id="status-power-heading" className="mt-3 text-xl font-extrabold tracking-normal text-slate-950">
+            {score}/100 {level}
+          </h2>
+          <p className="mt-2 text-sm font-semibold text-slate-600">
+            {Number(coverage.groups || 0)} groups, {Number(coverage.components || 0)} components, {Number(coverage.healthSignals || 0)} health signals
+          </p>
+        </div>
+        <div className="min-w-[10rem] rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">
+          <span className="text-3xl font-black leading-none">{score}</span>
+          <span className="ml-1 text-sm font-black uppercase tracking-normal">power</span>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.max(0, Math.min(score, 100))}%` }} />
+          </div>
+        </div>
+      </div>
+      {dimensions.length ? (
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          {dimensions.map((dimension) => (
+            <div key={dimension.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-extrabold text-slate-950">{dimension.label}</p>
+                <span className="text-sm font-black text-slate-700">{Number(dimension.score || 0)}/100</span>
+              </div>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{dimension.detail}</p>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white">
+                <div className="h-full rounded-full bg-slate-950" style={{ width: `${Math.max(0, Math.min(Number(dimension.score || 0), 100))}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function StatusGroupRow({ group, expanded, onToggle }) {
   const meta = statusMeta(group.status);
   const Chevron = expanded ? ChevronDown : ChevronRight;
@@ -564,6 +614,7 @@ export default function StatusPage() {
             <OverallStatusBanner status={payload.overallStatus} message={payload.message} />
             <IncidentStrip title="Active incidents" items={payload.activeIncidents || []} />
             <IncidentStrip title="Scheduled maintenance" items={payload.activeMaintenance || []} />
+            <StatusPowerCard power={payload.statusPower} />
             <SecurityHarnessCard harness={payload.securityHarness} />
             <SystemStatusCard
               groups={payload.groups || []}

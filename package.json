@@ -60,6 +60,7 @@
     "security:attack-smoke": "npm --prefix server test -- --runTestsByPath tests/loginAttackSmoke.test.js",
     "security:auth-tests": "npm --prefix server test -- --runTestsByPath tests/authRoutes.integration.test.js tests/otpRoutes.test.js tests/authMiddleware.cookie.test.js tests/browserSessionService.test.js tests/trustedDeviceChallengeService.test.js tests/authSessionService.test.js tests/csrfMiddleware.test.js tests/distributedRateLimit.test.js tests/authRecoveryCodeService.test.js tests/authMiddleware.admin.test.js tests/authSecurityTelemetryService.test.js tests/metricsAuth.test.js",
     "security:all": "node scripts/security-runner.mjs",
+    "security:harness": "node scripts/security-harness-check.mjs",
     "security:secrets": "node scripts/security-secret-scan.mjs",
     "security:deps": "node scripts/security-dependency-audit.mjs",
     "security:auth": "npm --prefix server test -- --runTestsByPath tests/authRoutes.integration.test.js tests/loginAttackSmoke.test.js tests/authMiddleware.test.js tests/authMiddleware.cookie.test.js tests/authSessionService.test.js --forceExit",

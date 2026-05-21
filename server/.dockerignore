@@ -1,7 +1,19 @@
 node_modules
 npm-debug.log*
 .env
+.env.*
+.env*
+*.env
+*.env.*
 .env.local
+.aws
+.gcp
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
 .vercel
 .cache
 .mongodb-binaries
@@ -17,6 +29,4 @@ seeders
 test_output*
 *.log
 *.md
-.env.azure-secrets
-.env.azure-secrets.example
 Dockerfile*
