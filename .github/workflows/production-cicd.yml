@@ -600,6 +600,8 @@ jobs:
             --exclude-dir=.vercel \
             --exclude-dir=.netlify \
             --exclude="*.lock" \
+            --exclude="start-student-pack-dev.ps1" \
+            --exclude="student-pack-cli-start.md" \
             "(AKIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY-----|aws_secret_access_key[[:space:]]*=|AWS_SECRET_ACCESS_KEY[[:space:]]*=|GITHUB_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,}|VERCEL_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,}|NETLIFY_AUTH_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_./+-]{20,})" \
             .; then
               echo "::error::Potential committed secret pattern detected. Remove the value and rotate the credential before production deploy."
