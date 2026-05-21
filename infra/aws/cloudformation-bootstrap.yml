@@ -1,0 +1,144 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Aura IAM + S3 bootstrap. Deploys once from the AWS Console or CLI with
+  admin credentials to grant the aura-local-emergency-ops role full access
+  to Aura S3 buckets, IAM resources, EC2, and Parameter Store.
+
+Parameters:
+  MediaBucketName:
+    Type: String
+    Default: aura-review-media
+    Description: S3 bucket for user-uploaded review media
+  DeployBucketName:
+    Type: String
+    Default: aura-backend-deployments
+    Description: S3 bucket for backend deployment artifacts
+  RoleName:
+    Type: String
+    Default: aura-local-emergency-ops
+    Description: Existing IAM role name to receive permissions
+  AwsRegion:
+    Type: String
+    Default: ap-south-1
+
+Resources:
+  # ── S3 Buckets ────────────────────────────────────────────────────────────────
+  ReviewMediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref MediaBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: App
+          Value: Aura
+        - Key: Purpose
+          Value: review-media
+
+  DeployBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref DeployBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireDeployArtifacts
+            Status: Enabled
+            Prefix: releases/
+            ExpirationInDays: 14
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: App
+          Value: Aura
+        - Key: Purpose
+          Value: deploy-artifacts
+
+  # ── IAM Policy for the existing role ──────────────────────────────────────────
+  AuraResourcePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AuraResourceAccess
+      Roles:
+        - !Ref RoleName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AuraS3Full
+            Effect: Allow
+            Action:
+              - s3:*
+            Resource:
+              - !Sub 'arn:aws:s3:::${MediaBucketName}'
+              - !Sub 'arn:aws:s3:::${MediaBucketName}/*'
+              - !Sub 'arn:aws:s3:::${DeployBucketName}'
+              - !Sub 'arn:aws:s3:::${DeployBucketName}/*'
+          - Sid: AuraIAMBootstrap
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:GetRole
+              - iam:PutRolePolicy
+              - iam:AttachRolePolicy
+              - iam:CreateInstanceProfile
+              - iam:GetInstanceProfile
+              - iam:AddRoleToInstanceProfile
+              - iam:ListAttachedRolePolicies
+              - iam:ListRolePolicies
+              - iam:PassRole
+            Resource:
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/aura-*'
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/aura-*'
+          - Sid: AuraEC2Bootstrap
+            Effect: Allow
+            Action:
+              - ec2:DescribeVpcs
+              - ec2:DescribeSubnets
+              - ec2:DescribeSecurityGroups
+              - ec2:CreateSecurityGroup
+              - ec2:AuthorizeSecurityGroupIngress
+              - ec2:RevokeSecurityGroupIngress
+              - ec2:DescribeInstanceTypes
+              - ec2:DescribeInstances
+              - ec2:RunInstances
+              - ec2:StartInstances
+              - ec2:CreateTags
+            Resource: '*'
+          - Sid: AuraSSM
+            Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+              - ssm:PutParameter
+              - ssm:DeleteParameter
+            Resource: !Sub 'arn:aws:ssm:${AwsRegion}:${AWS::AccountId}:parameter/aura/*'
+
+Outputs:
+  ReviewMediaBucketArn:
+    Value: !GetAtt ReviewMediaBucket.Arn
+  DeployBucketArn:
+    Value: !GetAtt DeployBucket.Arn
+  PolicyName:
+    Value: AuraResourceAccess

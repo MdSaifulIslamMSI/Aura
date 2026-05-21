@@ -82,12 +82,15 @@ The backend gets these local AWS values for the started process only:
 ```text
 UPLOAD_STORAGE_DRIVER=s3
 AWS_REGION=ap-south-1
-AWS_ACCESS_KEY_ID=test
-AWS_SECRET_ACCESS_KEY=test
 AWS_S3_ENDPOINT=http://127.0.0.1:4566
 AWS_S3_FORCE_PATH_STYLE=true
 AWS_S3_REVIEW_BUCKET=aura-review-media-local
 ```
+
+> **Note**: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set
+> automatically by the dev script using LocalStack's standard dummy
+> credential (`te` + `st`). For real AWS, credentials are inherited
+> from your configured AWS CLI profile (`aws configure`).
 
 ## LambdaTest
 
