@@ -346,28 +346,134 @@ export const apiFetch = async (path, options = {}) => {
     };
 };
 
+const DPOP_DB_NAME = 'aura_dpop_keys';
+const DPOP_STORE_NAME = 'keys';
+const DPOP_KEY_ID = 'browser-session-binding-v1';
+
 let dpopKeyPair = null;
+let dpopKeyPairPromise = null;
+let dpopDbPromise = null;
+
+const canUseDpopCrypto = () => (
+    typeof window !== 'undefined'
+    && window.crypto
+    && window.crypto.subtle
+);
+
+const openDpopDatabase = () => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+        return Promise.resolve(null);
+    }
+    if (dpopDbPromise) return dpopDbPromise;
+
+    dpopDbPromise = new Promise((resolve) => {
+        let request;
+        try {
+            request = window.indexedDB.open(DPOP_DB_NAME, 1);
+        } catch {
+            resolve(null);
+            return;
+        }
+
+        request.onerror = () => resolve(null);
+        request.onblocked = () => resolve(null);
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(DPOP_STORE_NAME)) {
+                db.createObjectStore(DPOP_STORE_NAME, { keyPath: 'id' });
+            }
+        };
+        request.onsuccess = () => resolve(request.result);
+    });
+
+    return dpopDbPromise;
+};
+
+const readStoredDpopKeyPair = async () => {
+    const db = await openDpopDatabase();
+    if (!db) return null;
+
+    return new Promise((resolve) => {
+        try {
+            const tx = db.transaction(DPOP_STORE_NAME, 'readonly');
+            const store = tx.objectStore(DPOP_STORE_NAME);
+            const request = store.get(DPOP_KEY_ID);
+            request.onerror = () => resolve(null);
+            request.onsuccess = () => {
+                const keyPair = request.result?.keyPair || null;
+                if (keyPair?.privateKey && keyPair?.publicKey) {
+                    resolve(keyPair);
+                    return;
+                }
+                resolve(null);
+            };
+        } catch {
+            resolve(null);
+        }
+    });
+};
+
+const writeStoredDpopKeyPair = async (keyPair) => {
+    const db = await openDpopDatabase();
+    if (!db || !keyPair?.privateKey || !keyPair?.publicKey) return;
+
+    await new Promise((resolve) => {
+        try {
+            const tx = db.transaction(DPOP_STORE_NAME, 'readwrite');
+            const store = tx.objectStore(DPOP_STORE_NAME);
+            const request = store.put({
+                id: DPOP_KEY_ID,
+                keyPair,
+                createdAt: new Date().toISOString(),
+            });
+            request.onerror = () => resolve();
+            request.onsuccess = () => resolve();
+        } catch {
+            resolve();
+        }
+    });
+};
+
+const generateDpopKeyPair = () => window.crypto.subtle.generateKey(
+    {
+        name: 'ECDSA',
+        namedCurve: 'P-256'
+    },
+    false,
+    ['sign', 'verify']
+);
 
 const getOrCreateDpopKeyPair = async () => {
-    if (typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
+    if (!canUseDpopCrypto()) {
         return null;
     }
     if (dpopKeyPair) {
         return dpopKeyPair;
     }
+    if (dpopKeyPairPromise) {
+        return dpopKeyPairPromise;
+    }
+
     try {
-        dpopKeyPair = await window.crypto.subtle.generateKey(
-            {
-                name: 'ECDSA',
-                namedCurve: 'P-256'
-            },
-            false,
-            ['sign', 'verify']
-        );
-        return dpopKeyPair;
+        dpopKeyPairPromise = (async () => {
+            const storedKeyPair = await readStoredDpopKeyPair();
+            if (storedKeyPair) {
+                dpopKeyPair = storedKeyPair;
+                return dpopKeyPair;
+            }
+
+            const generatedKeyPair = await generateDpopKeyPair();
+            dpopKeyPair = generatedKeyPair;
+            await writeStoredDpopKeyPair(generatedKeyPair);
+            return dpopKeyPair;
+        })();
+
+        return await dpopKeyPairPromise;
     } catch (err) {
         console.warn('Failed to generate DPoP key pair:', err);
         return null;
+    } finally {
+        dpopKeyPairPromise = null;
     }
 };
 

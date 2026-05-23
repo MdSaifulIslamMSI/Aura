@@ -140,6 +140,11 @@ export const buildInternationalPhoneNumber = (
   return `${selectedOption.dialCode}${digits}`;
 };
 
+export const resolveSubmitPhone = (
+  phoneInput = '',
+  countryCode = DEFAULT_PHONE_COUNTRY_CODE
+) => normalizePhone(buildInternationalPhoneNumber(phoneInput, countryCode));
+
 export const buildGenericOtpFlowError = (t) => ({
   message: t(
     'login.error.genericOtpFlow',

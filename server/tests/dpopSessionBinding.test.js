@@ -5,6 +5,7 @@ const User = require('../models/User');
 const browserSessionService = require('../services/browserSessionService');
 const { SESSION_COOKIE_NAME } = require('../services/browserSessionService');
 const { createTestUser } = require('./helpers/securityTestHelpers');
+const { verifyDpopProof } = require('../utils/dpop');
 
 const generateClientKeyPair = () => {
     return crypto.generateKeyPairSync('ec', {
@@ -247,6 +248,82 @@ describe('DPoP Session Binding Integration Security', () => {
         expect(res.body.message).toContain('DPoP jti replay detected');
 
         await browserSessionService.revokeBrowserSession(session.sessionId);
+    });
+
+    test('5b. A proof verified once can be reused by later guards in the same request only', async () => {
+        const proof = generateDpopProof(
+            clientKeyPair.privateKey,
+            clientKeyPair.publicKey,
+            'POST',
+            'http://localhost/api/auth/sync'
+        );
+        const req = {
+            method: 'POST',
+            originalUrl: '/api/auth/sync',
+            headers: { dpop: proof },
+            get: (name) => (String(name).toLowerCase() === 'dpop' ? proof : ''),
+        };
+
+        const firstVerification = await verifyDpopProof(req);
+        expect(firstVerification).toMatchObject({ success: true });
+
+        const sameRequestVerification = await verifyDpopProof(req, firstVerification.jwk);
+        expect(sameRequestVerification).toMatchObject({ success: true });
+
+        const replayedRequest = {
+            method: 'POST',
+            originalUrl: '/api/auth/sync',
+            headers: { dpop: proof },
+            get: (name) => (String(name).toLowerCase() === 'dpop' ? proof : ''),
+        };
+        const replayVerification = await verifyDpopProof(replayedRequest, firstVerification.jwk);
+        expect(replayVerification).toMatchObject({
+            success: false,
+            reason: 'DPoP jti replay detected',
+        });
+    });
+
+    test('5c. Session bootstrap followed by same-request rotation does not self-replay DPoP', async () => {
+        const proof = generateDpopProof(
+            clientKeyPair.privateKey,
+            clientKeyPair.publicKey,
+            'POST',
+            'http://localhost/api/auth/sync'
+        );
+        const req = {
+            method: 'POST',
+            originalUrl: '/api/auth/sync',
+            headers: { dpop: proof },
+            get: (name) => (String(name).toLowerCase() === 'dpop' ? proof : ''),
+            secure: false,
+        };
+
+        const session = await browserSessionService.createBrowserSession({
+            req,
+            user: testUser,
+            authUid: testUser.authUid,
+            authToken: {
+                exp: Math.floor(Date.now() / 1000) + 3600,
+                firebase: { sign_in_provider: 'password' },
+            },
+        });
+
+        await expect(browserSessionService.rotateBrowserSession({
+            req,
+            currentSession: session,
+            user: testUser,
+            authUid: testUser.authUid,
+            authToken: {
+                exp: Math.floor(Date.now() / 1000) + 3600,
+                firebase: { sign_in_provider: 'password' },
+            },
+        })).resolves.toMatchObject({
+            userId: String(testUser._id),
+            dpopJwk: expect.objectContaining({
+                kty: 'EC',
+                crv: 'P-256',
+            }),
+        });
     });
 
     test('6. Request with expired DPoP proof (iat too old) is rejected', async () => {

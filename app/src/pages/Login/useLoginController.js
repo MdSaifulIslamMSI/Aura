@@ -38,6 +38,7 @@ import {
   OTP_STAGE,
   OTP_TRANSPORT,
   resolvePhoneCountryCode,
+  resolveSubmitPhone,
   resolveLaunchMode,
   resolveLaunchPrefill,
   shouldKeepSpecificOtpError,
@@ -395,6 +396,10 @@ export const useLoginController = () => {
     () => getPhoneNationalInputValue(formData.phone, phoneCountryCode),
     [formData.phone, phoneCountryCode]
   );
+  const currentPhoneE164 = useMemo(
+    () => resolveSubmitPhone(formData.phone, phoneCountryCode),
+    [formData.phone, phoneCountryCode]
+  );
 
   const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr));
   const turnstileEnabled = isTurnstileEnabled();
@@ -696,7 +701,7 @@ export const useLoginController = () => {
     }
 
     const email = normalizeEmail(formData.email);
-    const phone = normalizePhone(formData.phone);
+    const phone = currentPhoneE164;
     const name = formData.name.trim();
     const hasIdentity = Boolean(email || phone || name);
 
@@ -718,6 +723,7 @@ export const useLoginController = () => {
     });
   }, [
     countdown,
+    currentPhoneE164,
     currentUser,
     firebasePhoneFallback?.disableFirebasePhoneOtp,
     formData.email,
@@ -998,7 +1004,7 @@ export const useLoginController = () => {
 
     await loginWithPhoneCredential(verifiedPhoneFactor.credential, {
       email,
-      phone: verifiedPhoneFactor.phoneE164 || formData.phone,
+      phone: verifiedPhoneFactor.phoneE164 || currentPhoneE164,
       loginFlowToken: resolvedFlowToken,
     });
   };
@@ -1015,11 +1021,11 @@ export const useLoginController = () => {
   };
 
   const validateForm = () => {
-    if (!formData.phone) {
+    if (!currentPhoneE164) {
       setErr({ message: t('login.error.phoneRequired', {}, 'Phone number is required') });
       return false;
     }
-    if (!validatePhone(formData.phone)) {
+    if (!validatePhone(currentPhoneE164)) {
       setErr({ message: t('login.error.phoneValid', {}, 'Use international phone format with country code, for example +1 202 555 0142') });
       return false;
     }
@@ -1060,7 +1066,7 @@ export const useLoginController = () => {
 
     try {
       const email = normalizeEmail(formData.email);
-      const phone = normalizePhone(formData.phone);
+      const phone = currentPhoneE164;
       const purpose = getAuthPurpose(mode);
       let backendSuccessOverride = null;
 
@@ -1122,7 +1128,7 @@ export const useLoginController = () => {
 
     try {
       const email = normalizeEmail(formData.email);
-      const phone = normalizePhone(formData.phone);
+      const phone = currentPhoneE164;
       const purpose = getAuthPurpose(mode);
 
       if (isEmailOtpStage) {
@@ -1256,7 +1262,7 @@ export const useLoginController = () => {
 
     try {
       const email = normalizeEmail(formData.email);
-      const phone = normalizePhone(formData.phone);
+      const phone = currentPhoneE164;
       const purpose = getAuthPurpose(mode);
       let backendSuccessOverride = null;
 

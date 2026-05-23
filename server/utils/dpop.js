@@ -33,10 +33,39 @@ const jwkMatches = (jwk1, jwk2) => {
     return false;
 };
 
+const getCachedRequestVerification = (req, dpopHeader, expectedJwk) => {
+    const cached = req?._dpopVerification;
+    if (!cached || cached.dpopHeader !== dpopHeader || !cached.jwk) {
+        return null;
+    }
+
+    if (expectedJwk && !jwkMatches(cached.jwk, expectedJwk)) {
+        return { success: false, reason: 'DPoP key binding mismatch' };
+    }
+
+    return {
+        success: true,
+        jwk: cached.jwk,
+    };
+};
+
+const cacheRequestVerification = (req, dpopHeader, jwk) => {
+    if (!req || !dpopHeader || !jwk) return;
+    req._dpopVerification = {
+        dpopHeader,
+        jwk,
+    };
+};
+
 const verifyDpopProof = async (req, expectedJwk) => {
     const dpopHeader = req.headers?.dpop || req.headers?.DPoP || req.get?.('DPoP');
     if (!dpopHeader) {
         return { success: false, reason: 'DPoP header is required' };
+    }
+
+    const cachedVerification = getCachedRequestVerification(req, dpopHeader, expectedJwk);
+    if (cachedVerification) {
+        return cachedVerification;
     }
 
     const parts = dpopHeader.split('.');
@@ -145,6 +174,7 @@ const verifyDpopProof = async (req, expectedJwk) => {
         seenJtis.set(payload.jti, Date.now() + 60000);
     }
 
+    cacheRequestVerification(req, dpopHeader, header.jwk);
     return { success: true, jwk: header.jwk };
 };
 

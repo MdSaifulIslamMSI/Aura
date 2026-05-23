@@ -140,4 +140,15 @@ describe('resolveAuthError', () => {
         expect(resolved.title).toBeDefined();
         expect(typeof resolved.title).toBe('string');
     });
+
+    it('maps DPoP replay failures to a recoverable secure sign-in retry', () => {
+        const resolved = resolveAuthError({
+            status: 401,
+            message: 'DPoP verification failed: DPoP jti replay detected',
+        });
+
+        expect(resolved.title).toBe('Secure Sign-In Needs Retry');
+        expect(resolved.detail).toContain('repeated browser proof');
+        expect(resolved.action).toBe('signin');
+    });
 });

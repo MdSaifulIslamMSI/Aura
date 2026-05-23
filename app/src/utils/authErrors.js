@@ -580,6 +580,20 @@ export const AUTH_ERRORS = {
         action: null,
         actionLabel: null
     },
+    'dpop jti replay detected': {
+        title: 'Secure Sign-In Needs Retry',
+        detail: 'Aura rejected a repeated browser proof while opening your session.',
+        hint: 'Refresh the page once and sign in again. Your password and OTP remain protected.',
+        action: 'signin',
+        actionLabel: 'Try sign-in again'
+    },
+    'dpop verification failed': {
+        title: 'Secure Sign-In Needs Retry',
+        detail: 'Aura could not verify the browser proof for this sign-in attempt.',
+        hint: 'Refresh the page once and sign in again. If it repeats, clear this site session and retry.',
+        action: 'signin',
+        actionLabel: 'Try sign-in again'
+    },
     'google sign-in failed': {
         title: 'Google Sign-In Failed',
         detail: 'We couldn\'t complete Google authentication.',

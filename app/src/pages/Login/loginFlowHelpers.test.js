@@ -10,6 +10,7 @@ import {
   normalizeEmail,
   normalizePhone,
   OTP_LENGTH,
+  resolveSubmitPhone,
   resolvePhoneCountryCode,
   resolveLaunchMode,
   resolveLaunchPrefill,
@@ -61,6 +62,13 @@ describe('loginFlowHelpers', () => {
     expect(buildInternationalPhoneNumber('+971 50 123 4567', 'IN')).toBe('+971501234567');
     expect(getPhoneNationalInputValue('+919876543210', 'IN')).toBe('9876543210');
     expect(getPhoneNationalInputValue('+447911123456', 'IN')).toBe('7911123456');
+  });
+
+  test('resolves canonical submit phones from displayed national input', () => {
+    expect(resolveSubmitPhone('70447 13002', 'IN')).toBe('+917044713002');
+    expect(resolveSubmitPhone('202-555-0142', 'US')).toBe('+12025550142');
+    expect(resolveSubmitPhone('+44 7911 123456', 'IN')).toBe('+447911123456');
+    expect(resolveSubmitPhone('', 'IN')).toBe('');
   });
 
   test('creates resettable empty auth form state', () => {
