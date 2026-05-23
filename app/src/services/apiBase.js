@@ -214,6 +214,10 @@ export const requestWithTrace = async (input, options = {}) => {
             ...getActiveMarketHeaders(),
             ...headers,
         });
+        const dpopProof = await createDpopProof(requestMethod, url);
+        if (dpopProof) {
+            trace.headers.set('DPoP', dpopProof);
+        }
         const startedAt = Date.now();
 
         // Default to JSON if body is present and it's a string, and Content-Type is not set
@@ -340,4 +344,104 @@ export const apiFetch = async (path, options = {}) => {
         response,
         data: await parseJsonSafely(response),
     };
+};
+
+let dpopKeyPair = null;
+
+const getOrCreateDpopKeyPair = async () => {
+    if (typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
+        return null;
+    }
+    if (dpopKeyPair) {
+        return dpopKeyPair;
+    }
+    try {
+        dpopKeyPair = await window.crypto.subtle.generateKey(
+            {
+                name: 'ECDSA',
+                namedCurve: 'P-256'
+            },
+            false,
+            ['sign', 'verify']
+        );
+        return dpopKeyPair;
+    } catch (err) {
+        console.warn('Failed to generate DPoP key pair:', err);
+        return null;
+    }
+};
+
+const base64url = (bufferOrString) => {
+    let binary = '';
+    if (typeof bufferOrString === 'string') {
+        binary = bufferOrString;
+    } else {
+        const bytes = new Uint8Array(bufferOrString);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+    }
+    return btoa(binary)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+};
+
+const createDpopJti = () => {
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    return base64url(bytes);
+};
+
+const createDpopProof = async (method, url) => {
+    const keyPair = await getOrCreateDpopKeyPair();
+    if (!keyPair) return null;
+
+    try {
+        const publicKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.publicKey);
+        const header = {
+            typ: 'dpop+jwt',
+            alg: 'ES256',
+            jwk: {
+                kty: publicKeyJwk.kty,
+                crv: publicKeyJwk.crv,
+                x: publicKeyJwk.x,
+                y: publicKeyJwk.y
+            }
+        };
+
+        let htu = url;
+        try {
+            const parsedUrl = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+            htu = `${parsedUrl.origin}${parsedUrl.pathname}`;
+        } catch {
+            // fallback
+        }
+
+        const payload = {
+            jti: createDpopJti(),
+            htm: method.toUpperCase(),
+            htu,
+            iat: Math.floor(Date.now() / 1000)
+        };
+
+        const headerBase64 = base64url(new TextEncoder().encode(JSON.stringify(header)));
+        const payloadBase64 = base64url(new TextEncoder().encode(JSON.stringify(payload)));
+        const signingInput = `${headerBase64}.${payloadBase64}`;
+
+        const signatureBuffer = await window.crypto.subtle.sign(
+            {
+                name: 'ECDSA',
+                hash: { name: 'SHA-256' }
+            },
+            keyPair.privateKey,
+            new TextEncoder().encode(signingInput)
+        );
+
+        const signatureBase64 = base64url(signatureBuffer);
+        return `${signingInput}.${signatureBase64}`;
+    } catch (err) {
+        console.warn('Failed to sign DPoP proof:', err);
+        return null;
+    }
 };

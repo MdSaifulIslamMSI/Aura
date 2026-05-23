@@ -100,6 +100,99 @@ describe('authMiddleware cookie session authentication', () => {
         expect(next).toHaveBeenCalledWith();
     });
 
+    test('protect uses cached browser-session user snapshot before Mongo lookup', async () => {
+        let protect;
+        let findById;
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const sessionRecord = {
+            sessionId: 'session-cookie-cache',
+            userId: '507f1f77bcf86cd799439012',
+            firebaseUid: 'firebase-cookie-cache',
+            email: 'cached-user@example.com',
+            emailVerified: true,
+            displayName: 'Cached User',
+            phoneNumber: '+919876543211',
+            providerIds: ['password'],
+            authTimeSeconds: nowSeconds - 30,
+            issuedAtSeconds: nowSeconds - 30,
+            firebaseExpiresAtSeconds: nowSeconds + 3600,
+            amr: ['trusted_device'],
+            deviceMethod: 'browser_key',
+        };
+        const cachedUser = {
+            _id: '507f1f77bcf86cd799439012',
+            email: 'cached-user@example.com',
+            name: 'Cached User',
+            phone: '+919876543211',
+            isAdmin: false,
+            isVerified: true,
+            authAssurance: 'none',
+            authAssuranceAt: null,
+            authAssuranceAuthTime: null,
+            loginOtpAssuranceExpiresAt: null,
+            isSeller: false,
+            accountState: 'active',
+            softDeleted: false,
+            moderation: {},
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({
+                    verifyIdToken: jest.fn(),
+                    getUser: jest.fn(),
+                }),
+            }));
+            findById = jest.fn();
+            jest.doMock('../models/User', () => ({
+                findById,
+                findOne: jest.fn(),
+                findOneAndUpdate: jest.fn(),
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => ({
+                    get: jest.fn().mockResolvedValue(JSON.stringify(cachedUser)),
+                    setEx: jest.fn(),
+                }),
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                getBrowserSessionFromRequest: jest.fn().mockResolvedValue(sessionRecord),
+                resolveSessionIdFromRequest: jest.fn().mockReturnValue('session-cookie-cache'),
+                revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
+                touchBrowserSession: jest.fn().mockResolvedValue(sessionRecord),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: 'device-cookie-cache', deviceLabel: 'Cached Browser' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: true }),
+            }));
+            jest.doMock('../config/authTrustedDeviceFlags', () => ({
+                flags: { authDeviceChallengeMode: 'off' },
+                shouldRequireTrustedDevice: jest.fn().mockReturnValue(false),
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const req = {
+            headers: {
+                cookie: 'aura_sid=session-cookie-cache',
+            },
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await protect(req, {}, next);
+
+        expect(findById).not.toHaveBeenCalled();
+        expect(req.user).toMatchObject({
+            email: 'cached-user@example.com',
+            name: 'Cached User',
+        });
+        expect(next).toHaveBeenCalledWith();
+    });
+
     test('protect requires CSRF for cookie-session writes outside auth routes', async () => {
         let protect;
         let csrfTokenValidator;

@@ -411,11 +411,57 @@ export const authApi = {
         });
     },
 };
+const solvePow = async (token, difficulty) => {
+    const prefix = '0'.repeat(difficulty);
+    let nonce = 0;
 
+    if (typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
+        throw new Error('Proof-of-Work requires browser Web Crypto support');
+    }
+
+    const encoder = new TextEncoder();
+    while (true) {
+        const dataStr = `${token}.${nonce}`;
+        const dataBuffer = encoder.encode(dataStr);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', dataBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+        if (hashHex.startsWith(prefix)) {
+            return nonce;
+        }
+        nonce++;
+        if (nonce % 500 === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+    }
+};
 
 export const otpApi = {
     sendOtp: async (email, phone, purpose, options = {}) => {
         const candidatePaths = ['/auth/otp/send', '/otp/send'];
+
+        let powToken = null;
+        let powNonce = null;
+
+        const isTestEnv = typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test';
+        const shouldFetchChallenge = !isTestEnv || options.enablePowChallenge === true;
+
+        if (shouldFetchChallenge) {
+            try {
+                const challengeRes = await apiFetch(`/otp/challenge?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`, {
+                    method: 'GET'
+                });
+                if (challengeRes?.data?.powToken) {
+                    powToken = challengeRes.data.powToken;
+                    const difficulty = Number(challengeRes.data.difficulty || 3);
+                    powNonce = await solvePow(powToken, difficulty);
+                }
+            } catch (err) {
+                console.warn('PoW challenge fetch or solve failed:', err.message);
+            }
+        }
+
         const trustedDeviceChallenge = ['login', 'forgot-password'].includes(String(purpose || '').trim().toLowerCase())
             ? await requestBootstrapDeviceChallenge({
               scope: `otp-send:${purpose}`,
@@ -430,6 +476,8 @@ export const otpApi = {
                     email,
                     phone,
                     purpose,
+                    powToken,
+                    powNonce,
                     ...options,
                     ...getTurnstileRequestFields(options),
                     ...(trustedDeviceChallenge ? { trustedDeviceChallenge } : {}),

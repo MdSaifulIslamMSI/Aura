@@ -7,16 +7,21 @@ const {
     resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
 const { extractTrustedDeviceContext } = require('./trustedDeviceChallengeService');
+const { verifyDpopProof } = require('../utils/dpop');
 
 const SESSION_COOKIE_NAME = String(process.env.AUTH_SESSION_COOKIE_NAME || 'aura_sid').trim() || 'aura_sid';
-const SESSION_PREFIX = `${redisFlags.redisPrefix}:auth:session:`;
-const GLOBAL_SESSION_REVOKED_AFTER_KEY = `${redisFlags.redisPrefix}:auth:session:global_revoked_after`;
+const SESSION_PREFIX = `{${redisFlags.redisPrefix}:auth}:session:`;
+const GLOBAL_SESSION_REVOKED_AFTER_KEY = `{${redisFlags.redisPrefix}:auth}:session:global_revoked_after`;
 const NODE_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase();
 const IS_PRODUCTION = NODE_ENV === 'production';
 const SESSION_IDLE_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_IDLE_TTL_MS || (8 * 60 * 60 * 1000)), 5 * 60 * 1000);
 const SESSION_ABSOLUTE_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_ABSOLUTE_TTL_MS || (7 * 24 * 60 * 60 * 1000)), SESSION_IDLE_TTL_MS);
 const SESSION_TOUCH_INTERVAL_MS = Math.max(Number(process.env.AUTH_SESSION_TOUCH_INTERVAL_MS || (5 * 60 * 1000)), 30 * 1000);
 const SESSION_STEP_UP_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_STEP_UP_TTL_MS || (10 * 60 * 1000)), 60 * 1000);
+const GLOBAL_SESSION_REVOCATION_CACHE_MS = Math.max(
+    Number(process.env.AUTH_GLOBAL_SESSION_REVOCATION_CACHE_MS || 1000),
+    100
+);
 const SESSION_DEFAULT_SAME_SITE = String(process.env.AUTH_SESSION_SAME_SITE || 'lax').trim().toLowerCase();
 const SESSION_ADMIN_HOSTS = new Set(
     String(process.env.AUTH_SESSION_ADMIN_HOSTS || '')
@@ -27,6 +32,7 @@ const SESSION_ADMIN_HOSTS = new Set(
 
 const inMemorySessionStore = new Map();
 let inMemoryGlobalSessionRevokedAfter = 0;
+let globalSessionRevocationCacheExpiresAt = 0;
 
 const parseBooleanEnv = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -49,6 +55,7 @@ const shouldSetSecureSessionCookie = () => parseBooleanEnv(
 
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeUserId = (value) => String(value || '').trim();
+const getUserSessionsKey = (userId) => `{${redisFlags.redisPrefix}:auth}:user_sessions:${normalizeUserId(userId)}`;
 
 const normalizeHost = (value = '') => String(value || '')
     .trim()
@@ -436,7 +443,17 @@ const persistSessionRecord = async (record = {}) => {
     const normalizedSessionId = String(record.sessionId || '').trim();
 
     try {
-        await redisClient.setEx(getRedisKey(normalizedSessionId), calculateTtlSeconds(record), JSON.stringify(record));
+        const ttlSeconds = calculateTtlSeconds(record);
+        await redisClient.setEx(getRedisKey(normalizedSessionId), ttlSeconds, JSON.stringify(record));
+
+        // Track the session ID in the user's active sessions Redis Set
+        if (record.userId) {
+            const normalizedUserId = normalizeUserId(record.userId);
+            const userSessionsKey = getUserSessionsKey(normalizedUserId);
+            await redisClient.sAdd(userSessionsKey, normalizedSessionId);
+            await redisClient.expire(userSessionsKey, ttlSeconds);
+        }
+
         deleteMemorySessionRecord(normalizedSessionId);
         return record;
     } catch (error) {
@@ -573,6 +590,7 @@ const buildBrowserSessionRecord = ({
     stepUpUntil = null,
     additionalAmr = [],
     riskState = '',
+    dpopJwk = null,
 } = {}) => {
     const now = new Date();
     const previousCreatedAt = previousSession?.createdAt ? new Date(previousSession.createdAt).getTime() : 0;
@@ -622,6 +640,7 @@ const buildBrowserSessionRecord = ({
         rotatedAt: now.toISOString(),
         revokedAt: null,
         absoluteExpiresAt,
+        dpopJwk: dpopJwk || previousSession?.dpopJwk || null,
     };
 };
 
@@ -649,7 +668,20 @@ async function revokeBrowserSession(sessionId = '') {
     }
 
     try {
-        await getRedisClient().del(getRedisKey(normalizedSessionId));
+        const client = getRedisClient();
+        // Load the session first to find the user ID so we can clean up the tracking set
+        const raw = await client.get(getRedisKey(normalizedSessionId));
+        if (raw) {
+            try {
+                const record = JSON.parse(raw);
+                if (record && record.userId) {
+                    const normalizedUserId = normalizeUserId(record.userId);
+                    const userSessionsKey = getUserSessionsKey(normalizedUserId);
+                    await client.sRem(userSessionsKey, normalizedSessionId);
+                }
+            } catch (err) { /* ignore parser or redis failures */ }
+        }
+        await client.del(getRedisKey(normalizedSessionId));
     } catch (error) {
         const logPayload = {
             sessionId: normalizedSessionId,
@@ -680,30 +712,41 @@ async function revokeBrowserSessionsForUser(userId = '') {
     }
 
     const redisClient = getRedisClient();
+    const userSessionsKey = getUserSessionsKey(normalizedUserId);
     const keysToDelete = [];
 
     try {
-        if (typeof redisClient.scanIterator !== 'function') {
-            throw new Error('Redis scanIterator is unavailable');
-        }
+        // Retrieve all session IDs from the user's sessions set (O(1) lookup)
+        const sessionIds = await redisClient.sMembers(userSessionsKey);
 
-        for await (const key of redisClient.scanIterator({ MATCH: `${SESSION_PREFIX}*`, COUNT: 100 })) {
-            const raw = await redisClient.get(key);
-            if (!raw) continue;
-            let record = null;
-            try {
-                record = JSON.parse(raw);
-            } catch {
-                continue;
+        if (sessionIds && sessionIds.length > 0) {
+            for (const id of sessionIds) {
+                keysToDelete.push(getRedisKey(id));
             }
-            if (normalizeUserId(record?.userId) === normalizedUserId) {
-                keysToDelete.push(key);
-            }
-        }
-
-        if (keysToDelete.length > 0) {
+            keysToDelete.push(userSessionsKey);
             await redisClient.del(keysToDelete);
-            revoked += keysToDelete.length;
+            revoked += sessionIds.length;
+        } else {
+            // Fallback scan if the tracking set is empty/missing
+            if (typeof redisClient.scanIterator === 'function') {
+                for await (const key of redisClient.scanIterator({ MATCH: `${SESSION_PREFIX}*`, COUNT: 100 })) {
+                    const raw = await redisClient.get(key);
+                    if (!raw) continue;
+                    let record = null;
+                    try {
+                        record = JSON.parse(raw);
+                    } catch {
+                        continue;
+                    }
+                    if (normalizeUserId(record?.userId) === normalizedUserId) {
+                        keysToDelete.push(key);
+                    }
+                }
+                if (keysToDelete.length > 0) {
+                    await redisClient.del(keysToDelete);
+                    revoked += keysToDelete.length;
+                }
+            }
         }
         return { revoked };
     } catch (error) {
@@ -723,6 +766,7 @@ async function revokeBrowserSessionsForUser(userId = '') {
 async function setGlobalSessionRevokedAfter(value = new Date()) {
     const revokedAfterMs = normalizeRevocationMs(value) || Date.now();
     inMemoryGlobalSessionRevokedAfter = revokedAfterMs;
+    globalSessionRevocationCacheExpiresAt = Date.now() + GLOBAL_SESSION_REVOCATION_CACHE_MS;
 
     const redisClient = getRedisClient();
     if (!redisClient) {
@@ -746,16 +790,22 @@ async function getGlobalSessionRevokedAfter() {
         return inMemoryGlobalSessionRevokedAfter;
     }
 
+    if (Date.now() < globalSessionRevocationCacheExpiresAt) {
+        return inMemoryGlobalSessionRevokedAfter;
+    }
+
     try {
         const raw = await redisClient.get(GLOBAL_SESSION_REVOKED_AFTER_KEY);
         const revokedAfterMs = normalizeRevocationMs(raw);
         if (revokedAfterMs) {
             inMemoryGlobalSessionRevokedAfter = Math.max(inMemoryGlobalSessionRevokedAfter, revokedAfterMs);
         }
+        globalSessionRevocationCacheExpiresAt = Date.now() + GLOBAL_SESSION_REVOCATION_CACHE_MS;
     } catch (error) {
         logger.warn('browser_session.global_revocation_read_failed', {
             error: error?.message || 'unknown',
         });
+        globalSessionRevocationCacheExpiresAt = Date.now() + Math.min(GLOBAL_SESSION_REVOCATION_CACHE_MS, 1000);
     }
 
     return inMemoryGlobalSessionRevokedAfter;
@@ -816,6 +866,19 @@ const createBrowserSession = async ({
     additionalAmr = [],
     riskState = '',
 } = {}) => {
+    let dpopJwk = null;
+    const dpopHeader = req.headers?.dpop || req.headers?.DPoP || (typeof req.get === 'function' ? req.get('DPoP') : '');
+    if (dpopHeader) {
+        const verification = await verifyDpopProof(req);
+        if (verification.success) {
+            dpopJwk = verification.jwk;
+        } else if (process.env.AUTH_DPOP_REQUIRED === 'true') {
+            const err = new Error(`DPoP verification failed: ${verification.reason}`);
+            err.statusCode = 401;
+            throw err;
+        }
+    }
+
     const sessionRecord = await storeSessionRecord(buildBrowserSessionRecord({
         sessionId: generateSessionId(),
         user,
@@ -826,6 +889,7 @@ const createBrowserSession = async ({
         stepUpUntil,
         additionalAmr,
         riskState,
+        dpopJwk,
     }));
 
     if (res) {
@@ -848,6 +912,20 @@ const rotateBrowserSession = async ({
     riskState = '',
 } = {}) => {
     const previousSession = currentSession || null;
+    let dpopJwk = previousSession?.dpopJwk || null;
+
+    const dpopHeader = req.headers?.dpop || req.headers?.DPoP || (typeof req.get === 'function' ? req.get('DPoP') : '');
+    if (dpopHeader) {
+        const verification = await verifyDpopProof(req, dpopJwk);
+        if (verification.success) {
+            dpopJwk = verification.jwk;
+        } else if (process.env.AUTH_DPOP_REQUIRED === 'true' || dpopJwk) {
+            const err = new Error(`DPoP verification failed: ${verification.reason}`);
+            err.statusCode = 401;
+            throw err;
+        }
+    }
+
     const nextSession = await storeSessionRecord(buildBrowserSessionRecord({
         sessionId: generateSessionId(),
         user,
@@ -859,6 +937,7 @@ const rotateBrowserSession = async ({
         stepUpUntil,
         additionalAmr,
         riskState,
+        dpopJwk,
     }));
 
     if (previousSession?.sessionId) {
@@ -936,6 +1015,19 @@ const refreshBrowserSession = async ({
         });
     }
 
+    let dpopJwk = currentSession?.dpopJwk || null;
+    const dpopHeader = req.headers?.dpop || req.headers?.DPoP || (typeof req.get === 'function' ? req.get('DPoP') : '');
+    if (dpopHeader) {
+        const verification = await verifyDpopProof(req, dpopJwk);
+        if (verification.success) {
+            dpopJwk = verification.jwk;
+        } else if (process.env.AUTH_DPOP_REQUIRED === 'true' || dpopJwk) {
+            const err = new Error(`DPoP verification failed: ${verification.reason}`);
+            err.statusCode = 401;
+            throw err;
+        }
+    }
+
     const nextRecord = await storeSessionRecord(buildBrowserSessionRecord({
         sessionId: currentSession.sessionId,
         user,
@@ -947,6 +1039,7 @@ const refreshBrowserSession = async ({
         stepUpUntil,
         additionalAmr,
         riskState,
+        dpopJwk,
     }));
 
     if (res) {

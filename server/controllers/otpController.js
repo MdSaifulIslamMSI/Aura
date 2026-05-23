@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const firebaseAdmin = require('../config/firebase');
 const User = require('../models/User');
 const OtpSession = require('../models/OtpSession');
+const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const { sendOtpEmail } = require('../services/emailService');
 const { sendOtpSms, normalizePhoneE164 } = require('../services/sms');
 const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail } = require('../services/authProfileVault');
@@ -28,6 +29,7 @@ const {
 } = require('../services/authAssurancePolicyService');
 const { revokeBrowserSessionsForUser } = require('../services/browserSessionService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { generatePowChallenge, verifyPowChallenge } = require('../utils/powChallenge');
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
@@ -286,9 +288,43 @@ const audit = (event, data) => {
     }
 };
 
-const computeSignupIdentifierRateState = ({ email, phone }) => {
+const computeSignupIdentifierRateState = async ({ email, phone }) => {
     const now = Date.now();
     const key = `${normalizeEmail(email)}|${normalizePhone(phone)}`;
+
+    // Try Redis first for distributed rate limiting
+    const client = getRedisClient();
+    if (client) {
+        try {
+            const storeKey = `${redisFlags.redisPrefix}:rl:signup_identifier:${key}`;
+            const tx = client.multi();
+            tx.incr(storeKey);
+            tx.pTTL(storeKey);
+            const [countRaw, ttlRaw] = await tx.exec();
+            const count = Number(countRaw) || 0;
+            let ttlMs = Number(ttlRaw);
+
+            if (ttlMs < 0) {
+                if (typeof client.pExpire === 'function') {
+                    await client.pExpire(storeKey, SIGNUP_IDENTIFIER_WINDOW_MS);
+                } else {
+                    await client.sendCommand(['PEXPIRE', storeKey, String(SIGNUP_IDENTIFIER_WINDOW_MS)]);
+                }
+                ttlMs = SIGNUP_IDENTIFIER_WINDOW_MS;
+            }
+
+            return {
+                key,
+                count,
+                resetAt: now + ttlMs,
+                ttlMs: Math.max(ttlMs, 0),
+            };
+        } catch (err) {
+            logger.warn('otp.signup_identifier_redis_failed', { key, error: err?.message || 'unknown' });
+        }
+    }
+
+    // Fallback to local memory map
     const current = signupIdentifierRateStore.get(key);
 
     if (!current || current.resetAt <= now) {
@@ -354,7 +390,21 @@ const getAssuranceForPurpose = (purpose) => AUTH_ASSURANCE_BY_PURPOSE[purpose] |
 
 const generateOtp = () => crypto.randomInt(100000, 999999).toString();
 const hashOtp = (otp) => bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
-const compareOtp = (otp, hash) => bcrypt.compare(otp, hash);
+const compareOtp = async (otp, storedHash) => {
+    if (!storedHash) return false;
+    if (!storedHash.startsWith('sha256:')) {
+        return bcrypt.compare(otp, storedHash);
+    }
+    const parts = storedHash.split(':');
+    if (parts.length !== 3) return false;
+    const [, salt, hash] = parts;
+    const computedHash = crypto.createHmac('sha256', salt).update(otp).digest('hex');
+    try {
+        return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(computedHash, 'hex'));
+    } catch (err) {
+        return false;
+    }
+};
 
 const verifyLoginCredentialProof = async ({ credentialProofToken, expectedEmail }) => {
     const token = String(credentialProofToken || '').trim();
@@ -620,6 +670,30 @@ const rollbackOtpStateAfterDeliveryFailure = async ({
  * @route   POST /api/otp/send
  * @access  Public
  */
+const getOtpChallenge = asyncHandler(async (req, res, next) => {
+    const rawEmail = req.query?.email || req.body?.email || '';
+    const rawPhone = req.query?.phone || req.body?.phone || '';
+
+    if (typeof rawEmail !== 'string' || typeof rawPhone !== 'string') {
+        return next(new AppError('Email and phone parameters must be strings', 400));
+    }
+
+    const email = normalizeEmail(rawEmail);
+    const phone = normalizePhone(rawPhone);
+    const clientIp = extractClientIp(req);
+
+    if (!email || !phone) {
+        return next(new AppError('Email and phone parameters are required to bind the challenge', 400));
+    }
+
+    const challenge = generatePowChallenge(clientIp, email, phone);
+    res.status(200).json({
+        success: true,
+        powToken: challenge.powToken,
+        difficulty: challenge.difficulty
+    });
+});
+
 const sendOtp = asyncHandler(async (req, res, next) => {
     const rawEmail = req.body?.email;
     const rawPhone = req.body?.phone;
@@ -681,6 +755,34 @@ const sendOtp = asyncHandler(async (req, res, next) => {
         return next(new AppError('Use international phone format with country code, for example +12025550142', 400));
     }
 
+    if (process.env.OTP_POW_REQUIRED === 'true') {
+        const rawPowToken = req.body?.powToken;
+        const rawPowNonce = req.body?.powNonce;
+
+        if (!rawPowToken || rawPowNonce === undefined || rawPowNonce === null) {
+            return next(new AppError('Proof-of-Work challenge token and nonce are required', 400));
+        }
+        if (typeof rawPowToken !== 'string') {
+            return next(new AppError('Proof-of-Work challenge token must be a string', 400));
+        }
+        const numericNonce = Number(rawPowNonce);
+        if (Number.isNaN(numericNonce)) {
+            return next(new AppError('Proof-of-Work nonce must be a number', 400));
+        }
+
+        const isVerified = verifyPowChallenge(
+            rawPowToken,
+            numericNonce,
+            clientIp,
+            email,
+            phone
+        );
+
+        if (!isVerified) {
+            return next(new AppError('Cryptographic Proof-of-Work verification failed or challenge expired', 400));
+        }
+    }
+
     const purposeIsFormatted = rawPurpose === purpose;
     if (!purposeIsFormatted || !ALLOWED_PURPOSES.includes(purpose)) {
         return next(new AppError('Invalid OTP purpose. Must be: signup, login, forgot-password, or payment-challenge', 400));
@@ -718,7 +820,7 @@ const sendOtp = asyncHandler(async (req, res, next) => {
     };
 
     if (purpose === 'signup') {
-        const signupRateState = computeSignupIdentifierRateState({ email, phone });
+        const signupRateState = await computeSignupIdentifierRateState({ email, phone });
         if (signupRateState.count >= SIGNUP_IDENTIFIER_TELEMETRY_THRESHOLD) {
             audit('SEND_ABUSE_SIGNAL', {
                 phone,
@@ -1881,4 +1983,4 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
     return sendGenericAccountDiscoveryResponse(res, responseStartedAt);
 });
 
-module.exports = { sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists };
+module.exports = { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists };

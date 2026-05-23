@@ -18,6 +18,7 @@ const {
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
 const browserSessionService = require('../services/browserSessionService');
+const { verifyDpopProof } = require('../utils/dpop');
 const {
     getBrowserSessionFromRequest,
     resolveSessionIdFromRequest,
@@ -52,6 +53,7 @@ const {
 
 const CACHE_BUFFER_SECONDS = 60;
 const AUTH_CACHE_PREFIX = `${redisFlags.redisPrefix}:auth:cache:`;
+const SESSION_USER_CACHE_TTL_SECONDS = Math.max(Number(process.env.AUTH_SESSION_USER_CACHE_TTL_SECONDS || 60), 5);
 
 const getCachedUser = async (uid) => {
     try {
@@ -75,6 +77,31 @@ const setCachedUser = async (uid, user, tokenExp) => {
     } catch (err) {
         logger.warn('auth.cache_write_failed', { uid, error: err?.message });
     }
+};
+
+const getSessionUserCacheUid = (session = {}) => normalizeUid(
+    session.firebaseUid
+    || session.authUid
+    || ''
+);
+
+const getCachedUserForBrowserSession = async (session = {}) => {
+    const cacheUid = getSessionUserCacheUid(session);
+    if (!cacheUid) return null;
+    const cachedUser = await getCachedUser(cacheUid);
+    if (!cachedUser) return null;
+    if (String(cachedUser._id || '') !== String(session.userId || '')) {
+        return null;
+    }
+    return cachedUser;
+};
+
+const setCachedUserForBrowserSession = async (session = {}, user = null) => {
+    const cacheUid = getSessionUserCacheUid(session);
+    if (!cacheUid || !user) return;
+    const sessionExp = Number(session.firebaseExpiresAtSeconds || 0);
+    const fallbackExp = Math.floor(Date.now() / 1000) + SESSION_USER_CACHE_TTL_SECONDS + CACHE_BUFFER_SECONDS;
+    await setCachedUser(cacheUid, user, Number.isFinite(sessionExp) && sessionExp > 0 ? sessionExp : fallbackExp);
 };
 
 // Projection for auth — excludes cart/wishlist arrays (large payloads)
@@ -282,7 +309,7 @@ const enforceUserAccountAccess = (user) => {
     if (user.softDeleted || user.accountState === 'deleted') {
         throw new AppError('Your account is not active. Contact support for account recovery.', 403);
     }
-    
+
     // As per new strict chat policy: Suspended users CAN log in to negotiate
     // via Appeals Chat. They are only blocked at the commercial API level
     // using the new requireActiveAccount middleware below.
@@ -806,7 +833,22 @@ const authenticateWithBrowserSession = async (req, res) => {
         throw new AppError('Not authorized, session expired', 401);
     }
 
-    const user = await User.findById(session.userId, AUTH_PROJECTION).lean();
+    // Verify DPoP proof if session is bound or globally required
+    if (session.dpopJwk || process.env.AUTH_DPOP_REQUIRED === 'true') {
+        const verification = await verifyDpopProof(req, session.dpopJwk);
+        if (!verification.success) {
+            recordLoginFailure(req, 'dpop_verification_failed');
+            throw new AppError(`Not authorized, DPoP validation failed: ${verification.reason}`, 401);
+        }
+    }
+
+    let user = await getCachedUserForBrowserSession(session);
+    if (!user) {
+        user = await User.findById(session.userId, AUTH_PROJECTION).lean();
+        if (user) {
+            await setCachedUserForBrowserSession(session, user);
+        }
+    }
     if (!user) {
         await revokeBrowserSession(session.sessionId);
         recordLoginFailure(req, 'session_user_not_found');
@@ -1013,12 +1055,12 @@ const requireActiveAccount = asyncHandler(async (req, res, next) => {
     if (!req.user) {
         return next(new AppError('Not authorized', 401));
     }
-    
+
     const suspendedUntil = getSuspendedUntilDate(req.user);
     const isSuspended = req.user.accountState === 'suspended'
         && Boolean(suspendedUntil)
         && suspendedUntil.getTime() > Date.now();
-        
+
     if (isSuspended) {
         return next(new AppError(
             `Your account is temporarily suspended until ${suspendedUntil.toISOString()}. Contact support for urgent review.`,
@@ -1055,22 +1097,29 @@ const invalidateUserCacheByEmail = async (email) => {
     try {
         const client = getRedisClient();
         if (!client) return;
-        // SCAN for all auth cache keys and check email field
-        let cursor = 0;
-        do {
-            const scanResult = await client.scan(cursor, { MATCH: `${AUTH_CACHE_PREFIX}*`, COUNT: 100 });
-            cursor = scanResult.cursor;
-            for (const key of scanResult.keys) {
-                try {
-                    const raw = await client.get(key);
-                    if (!raw) continue;
-                    const parsed = JSON.parse(raw);
-                    if (normalizeEmail(parsed?.email) === normalizedEmail) {
-                        await client.del(key);
-                    }
-                } catch { /* skip malformed entries */ }
-            }
-        } while (cursor !== 0);
+
+        // Fetch user from DB using the unique email index to get their authUid
+        const user = await User.findOne({ email: normalizedEmail }, 'authUid').lean();
+        if (user && user.authUid) {
+            await invalidateUserCache(user.authUid);
+        } else {
+            // Fallback scan if user is not in DB or doesn't have authUid
+            let cursor = 0;
+            do {
+                const scanResult = await client.scan(cursor, { MATCH: `${AUTH_CACHE_PREFIX}*`, COUNT: 100 });
+                cursor = scanResult.cursor;
+                for (const key of scanResult.keys) {
+                    try {
+                        const raw = await client.get(key);
+                        if (!raw) continue;
+                        const parsed = JSON.parse(raw);
+                        if (normalizeEmail(parsed?.email) === normalizedEmail) {
+                            await client.del(key);
+                        }
+                    } catch { /* skip malformed entries */ }
+                }
+            } while (cursor !== 0);
+        }
     } catch (err) {
         logger.warn('auth.cache_invalidate_by_email_failed', { email: normalizedEmail, error: err?.message });
     }
