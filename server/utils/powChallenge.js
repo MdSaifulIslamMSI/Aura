@@ -1,11 +1,16 @@
 const crypto = require('crypto');
-
-const SERVER_SECRET = process.env.AUTH_SESSION_SECRET
-    || process.env.JWT_SECRET
-    || crypto.randomBytes(32).toString('hex');
+const AppError = require('./AppError');
 
 const DEFAULT_DIFFICULTY = Number(process.env.OTP_POW_DIFFICULTY || 3);
 const CHALLENGE_TTL_MS = 60 * 1000; // 60 seconds
+
+const getServerSecret = () => {
+    const secret = String(process.env.OTP_CHALLENGE_SECRET || '').trim();
+    if (!secret) {
+        throw new AppError('OTP_CHALLENGE_SECRET is required for OTP Proof-of-Work challenges', 500);
+    }
+    return secret;
+};
 
 const timingSafeCompare = (str1, str2) => {
     const h1 = crypto.createHash('sha256').update(String(str1)).digest();
@@ -39,7 +44,7 @@ const generatePowChallenge = (ip, email, phone) => {
     };
 
     const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    const signature = crypto.createHmac('sha256', SERVER_SECRET)
+    const signature = crypto.createHmac('sha256', getServerSecret())
         .update(payloadB64)
         .digest('base64url');
 
@@ -61,7 +66,7 @@ const verifyPowChallenge = (token, nonce, ip, email, phone) => {
     const [payloadB64, signature] = parts;
 
     // 1. Verify signature timing-safely
-    const expectedSig = crypto.createHmac('sha256', SERVER_SECRET)
+    const expectedSig = crypto.createHmac('sha256', getServerSecret())
         .update(payloadB64)
         .digest('base64url');
 

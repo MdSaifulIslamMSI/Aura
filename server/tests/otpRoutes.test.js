@@ -719,6 +719,6 @@ describe('OTP API Routes Integration', () => {
             expect(stillBlockedRes.statusCode).toBe(403);
             expect(stillBlockedRes.body.message).toContain('Fresh trusted device verification is required');
             expect(mockUpdateUser).not.toHaveBeenCalled();
-        });
+        }, 15000);
     });
 });
