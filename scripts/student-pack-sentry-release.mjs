@@ -12,6 +12,7 @@ const release = process.env.SENTRY_RELEASE
   || process.env.VITE_RELEASE_ID
   || process.env.GITHUB_SHA
   || spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).stdout.trim();
+const sentryCommand = process.platform === 'win32' ? 'sentry-cli.cmd' : 'sentry-cli';
 
 const missing = ['SENTRY_AUTH_TOKEN', 'SENTRY_ORG', 'SENTRY_PROJECT'].filter((key) => !process.env[key]);
 if (missing.length) {
@@ -25,10 +26,9 @@ if (!release) {
 }
 
 const run = (args) => {
-  const result = spawnSync('sentry-cli', args, {
+  const result = spawnSync(sentryCommand, args, {
     cwd: repoRoot,
     stdio: 'inherit',
-    shell: process.platform === 'win32',
   });
   if (result.status !== 0) {
     process.exit(result.status || 1);

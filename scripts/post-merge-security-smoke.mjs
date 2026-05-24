@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
@@ -11,29 +11,48 @@ if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
 }
 
 const commands = [
-  ['observability', 'npm run observability:validate'],
-  ['malware-runtime', 'npm run security:malware-runtime'],
-  ['edge-assets', 'npm run security:edge-assets'],
-  ['free-scanners', 'npm run security:free-scanners'],
-  ['harness', 'npm run security:harness'],
-  ['deps', 'npm run security:deps'],
-  ['secrets', 'npm run security:secrets'],
+  { name: 'observability', args: ['run', 'observability:validate'] },
+  { name: 'malware-runtime', args: ['run', 'security:malware-runtime'] },
+  { name: 'edge-assets', args: ['run', 'security:edge-assets'] },
+  { name: 'free-scanners', args: ['run', 'security:free-scanners'] },
+  { name: 'harness', args: ['run', 'security:harness'] },
+  { name: 'deps', args: ['run', 'security:deps'] },
+  { name: 'secrets', args: ['run', 'security:secrets'] },
 ];
+
+const resolveNpmInvocation = () => {
+  if (process.platform !== 'win32') {
+    return { command: 'npm', argsPrefix: [], display: 'npm' };
+  }
+
+  const bundledNpmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  const npmCli = [process.env.npm_execpath, bundledNpmCli]
+    .filter(Boolean)
+    .find((candidate) => existsSync(candidate));
+
+  if (!npmCli) {
+    throw new Error('Unable to locate npm-cli.js for shell-free npm execution on Windows');
+  }
+
+  return { command: process.execPath, argsPrefix: [npmCli], display: 'npm' };
+};
+
+const npmInvocation = resolveNpmInvocation();
 
 const shouldRunStagingSmoke = Boolean(String(process.env.SMOKE_BASE_URL || '').trim());
 if (shouldRunStagingSmoke) {
-  commands.push(['staging-smoke', 'npm --prefix server run smoke:staging']);
+  commands.push({ name: 'staging-smoke', args: ['--prefix', 'server', 'run', 'smoke:staging'] });
 }
 
 const results = [];
 
-for (const [name, command] of commands) {
+for (const { name, args } of commands) {
+  const command = `${npmInvocation.display} ${args.join(' ')}`;
   console.log(`\n[post-merge-smoke] ${name}: ${command}`);
   const startedAt = Date.now();
-  const result = spawnSync(command, {
+  const result = spawnSync(npmInvocation.command, [...npmInvocation.argsPrefix, ...args], {
     cwd: repoRoot,
     encoding: 'utf8',
-    shell: true,
     env: {
       ...process.env,
       NODE_ENV: process.env.NODE_ENV && process.env.NODE_ENV !== 'production' ? process.env.NODE_ENV : 'test',
@@ -42,6 +61,9 @@ for (const [name, command] of commands) {
 
   process.stdout.write(result.stdout || '');
   process.stderr.write(result.stderr || '');
+  if (result.error) {
+    console.error(`[post-merge-smoke] ${name}: ${result.error.message}`);
+  }
 
   results.push({
     name,

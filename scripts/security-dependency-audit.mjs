@@ -30,9 +30,27 @@ const isExcepted = ({ workspace, name, severity }) => exceptions.some((exception
   return true;
 });
 
+const resolveNpmInvocation = () => {
+  if (process.platform !== 'win32') {
+    return { command: 'npm', argsPrefix: [] };
+  }
+
+  const bundledNpmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  const npmCli = [process.env.npm_execpath, bundledNpmCli]
+    .filter(Boolean)
+    .find((candidate) => existsSync(candidate));
+
+  if (!npmCli) {
+    throw new Error('Unable to locate npm-cli.js for shell-free npm audit execution on Windows');
+  }
+
+  return { command: process.execPath, argsPrefix: [npmCli] };
+};
+
+const npmInvocation = resolveNpmInvocation();
+
 const runAudit = ({ name, cwd }) => {
-  const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const result = spawnSync(npmCommand, ['audit', '--audit-level=high', '--json'], {
+  const result = spawnSync(npmInvocation.command, [...npmInvocation.argsPrefix, 'audit', '--audit-level=high', '--json'], {
     cwd,
     encoding: 'utf8',
     shell: false,
@@ -65,6 +83,7 @@ const runAudit = ({ name, cwd }) => {
     workspace: name,
     cwd,
     exitCode: result.status,
+    error: result.error?.message || '',
     metadata: parsed.metadata || {},
     vulnerabilities,
     raw: parsed,
@@ -74,6 +93,7 @@ const runAudit = ({ name, cwd }) => {
 const audits = workspaces.map(runAudit);
 const unexcepted = audits.flatMap((audit) => audit.vulnerabilities
   .filter((advisory) => !isExcepted(advisory)));
+const failedAudits = audits.filter((audit) => audit.error || (audit.exitCode !== 0 && audit.vulnerabilities.length === 0));
 
 const report = {
   generatedAt: new Date().toISOString(),
@@ -84,6 +104,11 @@ const report = {
 };
 
 writeFileSync(path.join(reportsDir, 'dependency-audit.json'), `${JSON.stringify(report, null, 2)}\n`);
+
+if (failedAudits.length > 0) {
+  console.error(`Dependency audit failed to execute for ${failedAudits.length} workspace(s). Report: security-reports/dependency-audit.json`);
+  process.exit(1);
+}
 
 if (unexcepted.length > 0 || audits.some((audit) => audit.raw.parseError)) {
   console.error(`Dependency audit failed with ${unexcepted.length} unexcepted high/critical finding(s). Report: security-reports/dependency-audit.json`);

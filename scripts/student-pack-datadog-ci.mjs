@@ -9,12 +9,12 @@ const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 loadStudentPackEnv();
 const command = process.argv[2] || 'doctor';
 const datadogEnvReady = Boolean(process.env.DATADOG_API_KEY || process.env.DD_API_KEY);
+const datadogCommand = process.platform === 'win32' ? 'datadog-ci.cmd' : 'datadog-ci';
 
-const run = (args, options = {}) => spawnSync('datadog-ci', args, {
+const run = (args, options = {}) => spawnSync(datadogCommand, args, {
   cwd: repoRoot,
   stdio: options.stdio || 'inherit',
   encoding: options.encoding,
-  shell: process.platform === 'win32',
 });
 
 if (command === 'doctor') {

@@ -54,7 +54,7 @@ const deriveEncryptionKey = () => crypto.createHash('sha256')
 
 const encryptPayload = (payload) => {
     const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv(OTP_FLOW_TOKEN_ALGORITHM, deriveEncryptionKey(), iv);
+    const cipher = crypto.createCipheriv(OTP_FLOW_TOKEN_ALGORITHM, deriveEncryptionKey(), iv, { authTagLength: 16 });
     const plaintext = Buffer.from(JSON.stringify(payload), 'utf8');
     const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
     const tag = cipher.getAuthTag();
@@ -71,7 +71,7 @@ const decryptPayload = (encodedPayload) => {
         const iv = buffer.subarray(0, 12);
         const tag = buffer.subarray(12, 28);
         const ciphertext = buffer.subarray(28);
-        const decipher = crypto.createDecipheriv(OTP_FLOW_TOKEN_ALGORITHM, deriveEncryptionKey(), iv);
+        const decipher = crypto.createDecipheriv(OTP_FLOW_TOKEN_ALGORITHM, deriveEncryptionKey(), iv, { authTagLength: 16 });
         decipher.setAuthTag(tag);
         const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
         return JSON.parse(plaintext.toString('utf8'));

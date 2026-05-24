@@ -8,6 +8,7 @@ const { scanUploadBuffer } = require('../services/malwareScanService');
 const {
     validateAssistantAudioDataUriUpload,
     validateImageDataUriUpload,
+    __private,
 } = require('../services/uploadSecurityPipeline');
 
 const pngBuffer = Buffer.from(
@@ -53,6 +54,48 @@ describe('uploadSecurityPipeline', () => {
             message: 'Uploaded file content does not match declared media type.',
             statusCode: 400,
         });
+        expect(scanUploadBuffer).not.toHaveBeenCalled();
+    });
+
+    test('rejects wrong and double extensions before malware scan', async () => {
+        await expect(validateImageDataUriUpload({
+            dataUrl: toDataUrl('image/png', pngBuffer),
+            fileName: 'avatar.gif',
+            maxBytes: 1024,
+            purpose: 'avatar',
+        })).rejects.toMatchObject({
+            statusCode: 400,
+        });
+
+        await expect(validateImageDataUriUpload({
+            dataUrl: toDataUrl('image/png', pngBuffer),
+            fileName: 'image.jpg.exe',
+            maxBytes: 1024,
+            purpose: 'avatar',
+        })).rejects.toMatchObject({
+            statusCode: 400,
+        });
+        expect(scanUploadBuffer).not.toHaveBeenCalled();
+    });
+
+    test('rejects path traversal upload filenames before malware scan', async () => {
+        await expect(validateImageDataUriUpload({
+            dataUrl: toDataUrl('image/png', pngBuffer),
+            fileName: '../avatar.png',
+            maxBytes: 1024,
+            purpose: 'avatar',
+        })).rejects.toMatchObject({
+            statusCode: 400,
+        });
+        await expect(validateImageDataUriUpload({
+            dataUrl: toDataUrl('image/png', pngBuffer),
+            fileName: '..\\avatar.png',
+            maxBytes: 1024,
+            purpose: 'avatar',
+        })).rejects.toMatchObject({
+            statusCode: 400,
+        });
+        expect(__private.hasUnsafeUploadFileName('../avatar.png')).toBe(true);
         expect(scanUploadBuffer).not.toHaveBeenCalled();
     });
 

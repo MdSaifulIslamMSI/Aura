@@ -100,8 +100,8 @@ const requiredRunnerCategories = [
 for (const category of requiredRunnerCategories) {
   addCheck(
     `security runner category ${category}`,
-    securityRunner.includes(`['${category}', 'npm run security:${category}']`)
-      || (category === 'harness' && securityRunner.includes("['harness', 'npm run security:harness']")),
+    securityRunner.includes(`name: '${category}'`)
+      && securityRunner.includes(`args: ['run', 'security:${category}']`),
     `scripts/security-runner.mjs includes ${category}`
   );
 }

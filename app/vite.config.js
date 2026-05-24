@@ -132,6 +132,18 @@ const createProxyConfig = (target) => ({
   secure: false,
 })
 
+const DEV_SECURITY_HEADERS = Object.freeze({
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtrhsolhec1s.cloudfront.net wss://dbtrhsolhec1s.cloudfront.net http://localhost:* http://127.0.0.1:* http://host.docker.internal:* https://api.github.com https://api.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firebaselogging.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app https://*.livekit.cloud wss://*.livekit.cloud; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()',
+  'Cache-Control': 'no-store',
+})
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const devApiProxyTarget = resolveDevApiProxyTarget(mode)
@@ -177,6 +189,8 @@ export default defineConfig(({ mode }) => {
     },
   },
   server: {
+    allowedHosts: ['host.docker.internal'],
+    headers: DEV_SECURITY_HEADERS,
     proxy: {
       '/api': createProxyConfig(devApiProxyTarget),
       '/health': createProxyConfig(devApiProxyTarget),

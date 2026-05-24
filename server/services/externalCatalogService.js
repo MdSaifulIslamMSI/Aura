@@ -90,14 +90,21 @@ const slugifyDataset = (dataset) => safeLower(dataset)
 const escapePowerShell = (value) => String(value || '').replace(/'/g, "''");
 
 const DATASET_REGEX = /^[a-z0-9-]+\/[a-z0-9-]+$/i;
+const ALLOWED_EXTERNAL_COMMANDS = new Set(['kaggle', 'kaggle.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe', 'unzip']);
 
 const runCommand = ({ command, args, cwd }) => {
     // Basic argument validation for security
     if (args.some(arg => arg.includes(';') || arg.includes('&&') || arg.includes('|') || arg.includes('`'))) {
         throw new AppError('Invalid characters in external command arguments', 400);
     }
+    const commandName = path.basename(String(command || '')).toLowerCase();
+    if (!ALLOWED_EXTERNAL_COMMANDS.has(commandName)) {
+        throw new AppError(`External command is not allowed: ${commandName || 'unknown'}`, 400);
+    }
 
-    const result = spawnSync(command, args, {
+    // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+    // Commands are restricted to ALLOWED_EXTERNAL_COMMANDS, arguments reject shell metacharacters, and shell is disabled.
+    const result = spawnSync(command, args, { // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
         cwd,
         env: {
             ...process.env,

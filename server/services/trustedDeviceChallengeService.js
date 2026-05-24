@@ -174,7 +174,7 @@ const deriveTokenKey = (secret) => crypto.scryptSync(String(secret || ''), TOKEN
 
 const encryptPayload = (payload, secret) => {
     const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv('aes-256-gcm', deriveTokenKey(secret), iv);
+    const cipher = crypto.createCipheriv('aes-256-gcm', deriveTokenKey(secret), iv, { authTagLength: 16 });
     const encoded = Buffer.from(JSON.stringify(payload));
     const ciphertext = Buffer.concat([cipher.update(encoded), cipher.final()]);
     const tag = cipher.getAuthTag();
@@ -186,7 +186,7 @@ const decryptPayload = (encodedToken, secret) => {
     const iv = buffer.subarray(0, 12);
     const tag = buffer.subarray(12, 28);
     const ciphertext = buffer.subarray(28);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', deriveTokenKey(secret), iv);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', deriveTokenKey(secret), iv, { authTagLength: 16 });
     decipher.setAuthTag(tag);
     const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     return JSON.parse(plaintext.toString('utf8'));

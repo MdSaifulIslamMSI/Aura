@@ -72,17 +72,11 @@ const TIER_CONFIG = {
 
 function runStep(step, env = {}) {
     console.log(`\n> ${step.cmd} ${step.args.join(' ')}`);
-    const command = process.platform === 'win32' && step.cmd === npmCommand
-        ? {
-            cmd: process.env.ComSpec || 'cmd.exe',
-            args: ['/d', '/c', [step.cmd, ...step.args].map((arg, index) => {
-                const value = String(arg);
-                if (index === 0 || !/\s/.test(value)) return value;
-                return `"${value.replace(/"/g, '""')}"`;
-            }).join(' ')],
-        }
-        : step;
-    const result = spawnSync(command.cmd, command.args, {
+    if (![npmCommand, nodeCommand].includes(step.cmd)) {
+        throw new Error(`Unsupported auth runner command: ${step.cmd}`);
+    }
+
+    const result = spawnSync(step.cmd, step.args, { // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
         cwd: ROOT_DIR,
         stdio: 'inherit',
         env: { ...process.env, ...env },

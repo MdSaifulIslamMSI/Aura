@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
@@ -46,6 +46,56 @@ const dockerAvailable = dockerServerAvailable();
 
 const dockerImage = (image) => dockerImagePrefix ? `${dockerImagePrefix}${image}` : image;
 
+const shouldCopyToScannerSource = (relativePath) => {
+  const normalized = String(relativePath || '').replace(/\\/g, '/');
+  if (!normalized || normalized.startsWith('../') || path.isAbsolute(normalized)) return false;
+  return ![
+    '.agents/',
+    '.git/',
+    '.trivycache/',
+    'security-reports/',
+    'node_modules/',
+    'app/node_modules/',
+    'server/node_modules/',
+    'app/dist/',
+    'app/android/.gradle/',
+    'desktop-release/',
+    'generated/',
+    'output/',
+    'server/data/',
+    'server/uploads/',
+  ].some((prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix));
+};
+
+const prepareScannerSource = () => {
+  const scanRoot = path.join(reportsDir, 'free-scanner-source');
+  rmSync(scanRoot, { recursive: true, force: true });
+  mkdirSync(scanRoot, { recursive: true });
+
+  const result = run('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z']);
+  if (result.error || result.status !== 0) {
+    throw new Error(result.error?.message || 'git ls-files failed while preparing free scanner source');
+  }
+
+  const files = Buffer.from(result.stdout || '', 'utf8')
+    .toString('utf8')
+    .split('\0')
+    .filter(shouldCopyToScannerSource);
+
+  for (const relativePath of files) {
+    const sourcePath = path.join(repoRoot, relativePath);
+    const destinationPath = path.join(scanRoot, relativePath);
+    if (!existsSync(sourcePath) || !statSync(sourcePath).isFile()) continue;
+    mkdirSync(path.dirname(destinationPath), { recursive: true });
+    copyFileSync(sourcePath, destinationPath);
+  }
+
+  return scanRoot;
+};
+
+const scannerSource = prepareScannerSource();
+const scannerSourceMount = `${scannerSource}:/scan:ro`;
+
 const scanners = [
   {
     name: 'osv-scanner',
@@ -56,8 +106,8 @@ const scanners = [
   {
     name: 'trivy',
     binary: 'trivy',
-    binaryArgs: ['fs', '.'],
-    dockerArgs: ['run', '--rm', '-v', dockerMount, dockerImage(scannerImages.trivy), 'fs', '/src'],
+    binaryArgs: ['fs', scannerSource],
+    dockerArgs: ['run', '--rm', '-v', scannerSourceMount, dockerImage(scannerImages.trivy), 'fs', '/scan'],
   },
   {
     name: 'semgrep',
