@@ -1,0 +1,225 @@
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+
+const repoRoot = process.cwd();
+const reportsDir = path.join(repoRoot, 'security-reports');
+mkdirSync(reportsDir, { recursive: true });
+
+if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
+  throw new Error('Refusing to run free security scanners with NODE_ENV=production');
+}
+
+const isTruthy = (value) => ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+const isCi = isTruthy(process.env.CI) || isTruthy(process.env.GITHUB_ACTIONS);
+const scannersRequired = isTruthy(process.env.FREE_SECURITY_SCANNERS_REQUIRED) || isCi;
+const dockerImagePrefix = String(process.env.FREE_SECURITY_SCANNER_IMAGE_PREFIX || '').trim();
+const stagingUrl = String(process.env.STAGING_URL || '').trim();
+
+const run = (command, args, options = {}) => spawnSync(command, args, {
+  cwd: options.cwd || repoRoot,
+  encoding: 'utf8',
+  shell: false,
+  env: process.env,
+});
+
+const hasCommand = (command) => {
+  const lookup = process.platform === 'win32' ? 'where.exe' : 'which';
+  const result = run(lookup, [command]);
+  return result.status === 0;
+};
+
+const dockerServerAvailable = () => {
+  if (!hasCommand('docker')) return false;
+  const result = run('docker', ['version', '--format', '{{.Server.Version}}']);
+  return result.status === 0;
+};
+
+const dockerMount = `${repoRoot}:/src:ro`;
+const dockerAvailable = dockerServerAvailable();
+
+const dockerImage = (image) => dockerImagePrefix ? `${dockerImagePrefix}${image}` : image;
+
+const scanners = [
+  {
+    name: 'osv-scanner',
+    binary: 'osv-scanner',
+    binaryArgs: ['-r', '.'],
+    dockerArgs: ['run', '--rm', '-v', dockerMount, dockerImage('ghcr.io/google/osv-scanner:latest'), '-r', '/src'],
+  },
+  {
+    name: 'trivy',
+    binary: 'trivy',
+    binaryArgs: ['fs', '.'],
+    dockerArgs: ['run', '--rm', '-v', dockerMount, dockerImage('aquasec/trivy:latest'), 'fs', '/src'],
+  },
+  {
+    name: 'semgrep',
+    binary: 'semgrep',
+    binaryArgs: ['--config', 'p/owasp-top-ten', '.'],
+    dockerArgs: ['run', '--rm', '-v', dockerMount, '-w', '/src', dockerImage('semgrep/semgrep:latest'), '--config', 'p/owasp-top-ten', '/src'],
+  },
+];
+
+const isUnsafeZapTarget = (value) => {
+  if (!value) return false;
+  if (isTruthy(process.env.ZAP_TARGET_IS_PRODUCTION)) return true;
+
+  const productionCandidates = [
+    process.env.PRODUCTION_URL,
+    process.env.PUBLIC_PRODUCTION_URL,
+    process.env.APP_PRODUCTION_URL,
+  ].map((entry) => String(entry || '').trim()).filter(Boolean);
+
+  try {
+    const target = new URL(value);
+    return productionCandidates.some((candidate) => {
+      try {
+        const production = new URL(candidate);
+        return production.hostname && production.hostname === target.hostname;
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return true;
+  }
+};
+
+const writeScannerOutput = (scanner, result) => {
+  writeFileSync(path.join(reportsDir, `${scanner.name}.stdout.txt`), result.stdout || '');
+  writeFileSync(path.join(reportsDir, `${scanner.name}.stderr.txt`), result.stderr || '');
+};
+
+const results = scanners.map((scanner) => {
+  const hasBinary = hasCommand(scanner.binary);
+  if (hasBinary) {
+    const result = run(scanner.binary, scanner.binaryArgs);
+    writeScannerOutput(scanner, result);
+    return {
+      name: scanner.name,
+      command: `${scanner.binary} ${scanner.binaryArgs.join(' ')}`,
+      status: result.status === 0 ? 'passed' : 'failed',
+      exitCode: result.status,
+      runner: 'binary',
+    };
+  }
+
+  if (dockerAvailable) {
+    const result = run('docker', scanner.dockerArgs);
+    writeScannerOutput(scanner, result);
+    return {
+      name: scanner.name,
+      command: `docker ${scanner.dockerArgs.join(' ')}`,
+      status: result.status === 0 ? 'passed' : 'failed',
+      exitCode: result.status,
+      runner: 'docker',
+    };
+  }
+
+  return {
+    name: scanner.name,
+    command: `${scanner.binary} ${scanner.binaryArgs.join(' ')}`,
+    status: scannersRequired ? 'failed' : 'skipped',
+    exitCode: scannersRequired ? 127 : 0,
+    runner: 'unavailable',
+    reason: 'No local scanner binary and Docker engine is unavailable',
+  };
+});
+
+const runZapBaseline = () => {
+  const scanner = {
+    name: 'zap-baseline',
+    binary: 'zap-baseline.py',
+    binaryArgs: ['-t', stagingUrl],
+    dockerArgs: ['run', '--rm', dockerImage('ghcr.io/zaproxy/zaproxy:stable'), 'zap-baseline.py', '-t', stagingUrl],
+  };
+
+  if (!stagingUrl) {
+    return {
+      name: scanner.name,
+      command: 'zap-baseline.py -t $STAGING_URL',
+      status: 'skipped',
+      exitCode: 0,
+      runner: 'unavailable',
+      reason: 'STAGING_URL is not set; OWASP ZAP baseline skipped. Never run ZAP against production by default.',
+    };
+  }
+
+  if (isUnsafeZapTarget(stagingUrl)) {
+    return {
+      name: scanner.name,
+      command: `zap-baseline.py -t ${stagingUrl}`,
+      status: 'failed',
+      exitCode: 2,
+      runner: 'guard',
+      reason: 'Refusing OWASP ZAP baseline because the target looks like production or is invalid.',
+    };
+  }
+
+  if (hasCommand(scanner.binary)) {
+    const result = run(scanner.binary, scanner.binaryArgs);
+    writeScannerOutput(scanner, result);
+    return {
+      name: scanner.name,
+      command: `${scanner.binary} ${scanner.binaryArgs.join(' ')}`,
+      status: result.status === 0 ? 'passed' : 'failed',
+      exitCode: result.status,
+      runner: 'binary',
+    };
+  }
+
+  if (dockerAvailable) {
+    const result = run('docker', scanner.dockerArgs);
+    writeScannerOutput(scanner, result);
+    return {
+      name: scanner.name,
+      command: `docker ${scanner.dockerArgs.join(' ')}`,
+      status: result.status === 0 ? 'passed' : 'failed',
+      exitCode: result.status,
+      runner: 'docker',
+    };
+  }
+
+  return {
+    name: scanner.name,
+    command: `zap-baseline.py -t ${stagingUrl}`,
+    status: scannersRequired ? 'failed' : 'skipped',
+    exitCode: scannersRequired ? 127 : 0,
+    runner: 'unavailable',
+    reason: 'STAGING_URL is set, but neither zap-baseline.py nor Docker engine is available',
+  };
+};
+
+results.push(runZapBaseline());
+
+const report = {
+  generatedAt: new Date().toISOString(),
+  required: scannersRequired,
+  dockerAvailable,
+  repoRoot,
+  results,
+};
+
+writeFileSync(path.join(reportsDir, 'free-security-scanners.json'), `${JSON.stringify(report, null, 2)}\n`);
+
+const failed = results.filter((result) => result.status === 'failed');
+const skipped = results.filter((result) => result.status === 'skipped');
+
+for (const result of results) {
+  console.log(`[free-scanners] ${result.name}: ${result.status} via ${result.runner}`);
+  if (result.reason) console.log(`[free-scanners] ${result.name}: ${result.reason}`);
+}
+
+if (skipped.length > 0 && !scannersRequired) {
+  console.log('[free-scanners] skipped scanners are recorded in security-reports/free-security-scanners.json');
+}
+
+if (failed.length > 0) {
+  console.error(`[free-scanners] ${failed.length} scanner(s) failed. See security-reports/free-security-scanners.json`);
+  process.exit(1);
+}
+
+if (!existsSync(path.join(reportsDir, 'free-security-scanners.json'))) {
+  throw new Error('Scanner report was not written');
+}

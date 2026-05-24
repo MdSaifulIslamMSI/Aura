@@ -15,6 +15,7 @@ const {
     buildRealListingsFilter,
     isRealListingDoc,
 } = require('../services/marketplaceIntegrityService');
+const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
 const { buildSellerTrustPassport } = require('../services/sellerTrustService');
 const { assessFraudDecision } = require('../services/fraudDecisioningService');
 const { awardLoyaltyPoints } = require('../services/loyaltyService');
@@ -58,6 +59,7 @@ const {
 
 const MAX_ACTIVE_LISTINGS = 10;
 const MAX_CHAT_MESSAGE_LENGTH = 1200;
+const LISTING_IMAGE_MAX_BYTES = Number(process.env.LISTING_IMAGE_MAX_BYTES || 2.5 * 1024 * 1024);
 
 const buildFraudRequestMeta = (req) => ({
     ip: req.ip || req.connection?.remoteAddress || '',
@@ -91,6 +93,7 @@ const ESCROW_PAYMENT_PURPOSE = 'marketplace_escrow';
 const CITY_MAX_LENGTH = 80;
 const CITY_ALLOWED_CHARS_REGEX = /^[A-Za-z\s-]+$/;
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const isListingDataImage = (value = '') => /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(String(value || ''));
 
 const diff = (a, b) => Math.abs(Number(a) - Number(b));
 const isIntentExpired = (intent) => intent?.expiresAt && new Date(intent.expiresAt).getTime() < Date.now();
@@ -106,6 +109,34 @@ const loadListingForLiveInspection = async (listingId) => {
     }
 
     return listing;
+};
+
+const validateListingImages = async ({ images = [], req }) => {
+    const securedImages = [];
+    for (const [index, image] of images.entries()) {
+        if (!isListingDataImage(image)) {
+            securedImages.push(image);
+            continue;
+        }
+
+        const validatedImage = await validateImageDataUriUpload({
+            dataUrl: image,
+            fileName: `listing-image-${index + 1}`,
+            maxBytes: LISTING_IMAGE_MAX_BYTES,
+            purpose: 'marketplace-listing-image',
+            userId: String(req.user?._id || ''),
+            eventPrefix: 'listing.image',
+            invalidFormatMessage: 'Invalid listing image format. Must be a data URI.',
+            unsupportedMessage: 'Unsupported listing image type. Only JPEG, PNG, and WebP are allowed.',
+            oversizedMessage: 'Listing image is too large. Please upload a smaller photo.',
+            emptyMessage: 'Listing image data is empty',
+            mismatchMessage: 'Listing image content does not match declared image type',
+            infectedMessage: 'Listing image failed malware scan',
+            scanFailedMessage: 'Listing image malware scan unavailable. Please try again later.',
+        });
+        securedImages.push(validatedImage.dataUrl);
+    }
+    return securedImages;
 };
 
 const getListingLiveInspectionParticipants = (listing) => {
@@ -464,11 +495,17 @@ const createListing = asyncHandler(async (req, res, next) => {
         return next(new AppError('Add a valid phone number in profile before creating a listing.', 400));
     }
 
+    if (images.length > 5) {
+        return next(new AppError('Maximum 5 images allowed', 400));
+    }
+
+    const securedImages = await validateListingImages({ images, req });
+
     const fraudDecision = await assessFraudDecision({
         action: 'marketplace_listing_create',
         user: req.user,
         sellerId: req.user._id,
-        listingInput: { title, description, images },
+        listingInput: { title, description, images: securedImages },
         requestMeta: buildFraudRequestMeta(req),
         subject: { type: 'listing', id: 'new' },
         metadata: { category, price },
@@ -480,10 +517,6 @@ const createListing = asyncHandler(async (req, res, next) => {
         return next(new AppError(fraudDecision.message || 'Listing requires marketplace review before publishing.', 403));
     }
 
-    if (images.length > 5) {
-        return next(new AppError('Maximum 5 images allowed', 400));
-    }
-
     // Check max active listings per user
     const activeCount = await Listing.countDocuments({ seller: req.user._id, status: 'active' });
     if (activeCount >= MAX_ACTIVE_LISTINGS) {
@@ -493,7 +526,7 @@ const createListing = asyncHandler(async (req, res, next) => {
     const listing = await Listing.create({
         seller: req.user._id,
         title, description, price, negotiable: negotiable !== false,
-        condition, category, images,
+        condition, category, images: securedImages,
         location: {
             city: location.city,
             state: location.state,
@@ -823,6 +856,14 @@ const updateListing = asyncHandler(async (req, res, next) => {
         location: updates.location ?? listing.location,
     });
 
+    if (normalized.images.length > 5) {
+        return next(new AppError('Maximum 5 images allowed', 400));
+    }
+
+    const securedImages = updates.images !== undefined
+        ? await validateListingImages({ images: normalized.images, req })
+        : normalized.images;
+
     const fraudDecision = await assessFraudDecision({
         action: 'marketplace_listing_update',
         user: req.user,
@@ -830,7 +871,7 @@ const updateListing = asyncHandler(async (req, res, next) => {
         listingInput: {
             title: normalized.title,
             description: normalized.description,
-            images: normalized.images,
+            images: securedImages,
         },
         requestMeta: buildFraudRequestMeta(req),
         subject: { type: 'listing', id: listing._id },
@@ -852,7 +893,7 @@ const updateListing = asyncHandler(async (req, res, next) => {
     if (updates.negotiable !== undefined) updates.negotiable = normalized.negotiable;
     if (updates.condition !== undefined) updates.condition = normalized.condition;
     if (updates.category !== undefined) updates.category = normalized.category;
-    if (updates.images !== undefined) updates.images = normalized.images;
+    if (updates.images !== undefined) updates.images = securedImages;
     if (updates.location !== undefined) updates.location = normalized.location;
     if (updates.escrowOptIn !== undefined) updates.escrowOptIn = Boolean(updates.escrowOptIn);
 

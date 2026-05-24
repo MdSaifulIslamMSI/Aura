@@ -77,6 +77,7 @@
     "security:cloudflare": "node scripts/security-cloudflare-readiness.mjs && npm --prefix server test -- --runTestsByPath tests/turnstileMiddleware.test.js --forceExit",
     "security:duo": "node scripts/security-duo-readiness.mjs && npm --prefix server test -- --runTestsByPath tests/duoFlags.test.js tests/auth.duo-oidc.security.test.js --forceExit",
     "security:logging": "npm --prefix server test -- --runTestsByPath tests/logging.alert-safety.security.test.js tests/authSecurityEventOutboxService.test.js --forceExit",
+    "security:free-scanners": "node scripts/security-free-scanners.mjs",
     "security:report": "node scripts/security-report.mjs",
     "seed:emergency-flags": "npm --prefix server run seed:emergency-flags",
     "test:emergency-controls": "npm --prefix server run test:emergency-controls && npm --prefix app test -- EmergencyStatusContext.test.jsx",

@@ -15,6 +15,11 @@ const {
     getCartSnapshot: getDedicatedCartSnapshot,
     buildLegacyCartResponse: buildDedicatedLegacyCartResponse,
 } = require('../services/cartService');
+const {
+    AVATAR_UPLOAD_MAX_BYTES,
+    AVATAR_UPLOAD_ALLOWED_MIME,
+} = require('../utils/avatarValidation');
+const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty';
@@ -595,6 +600,36 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         updates.phone = normalizedPhone || undefined;
         if (!updates.phone) {
             delete updates.phone;
+        }
+    }
+
+    // Handle avatar updates with security validation
+    if (updates.avatar !== undefined) {
+        if (typeof updates.avatar !== 'string') {
+            return next(new AppError('Avatar must be a string', 400));
+        }
+
+        // Empty string is allowed (clears avatar)
+        if (updates.avatar === '') {
+            updates.avatar = '';
+        } else {
+            const validatedAvatar = await validateImageDataUriUpload({
+                dataUrl: updates.avatar,
+                fileName: 'avatar',
+                allowedMimeTypes: AVATAR_UPLOAD_ALLOWED_MIME,
+                maxBytes: AVATAR_UPLOAD_MAX_BYTES,
+                purpose: 'avatar',
+                userId: String(req.user?._id),
+                eventPrefix: 'user.avatar',
+                invalidFormatMessage: 'Invalid avatar format. Must be a data URI.',
+                unsupportedMessage: 'Unsupported avatar image type. Only JPEG, PNG, and WebP are allowed.',
+                oversizedMessage: `Avatar too large. Max upload size is ${Math.floor(AVATAR_UPLOAD_MAX_BYTES / (1024 * 1024))}MB`,
+                emptyMessage: 'Avatar data is empty',
+                mismatchMessage: 'Avatar content does not match declared image type',
+                infectedMessage: 'Avatar failed malware scan',
+                scanFailedMessage: 'Avatar malware scan unavailable. Please try again later.',
+            });
+            updates.avatar = validatedAvatar.dataUrl;
         }
     }
 
