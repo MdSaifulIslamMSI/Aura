@@ -57,7 +57,7 @@ const scanners = [
     name: 'semgrep',
     binary: 'semgrep',
     binaryArgs: ['--config', 'p/owasp-top-ten', '.'],
-    dockerArgs: ['run', '--rm', '-v', dockerMount, '-w', '/src', dockerImage('semgrep/semgrep:latest'), '--config', 'p/owasp-top-ten', '/src'],
+    dockerArgs: ['run', '--rm', '-v', dockerMount, '-w', '/src', dockerImage('semgrep/semgrep:latest'), 'semgrep', '--config', 'p/owasp-top-ten', '/src'],
   },
 ];
 
