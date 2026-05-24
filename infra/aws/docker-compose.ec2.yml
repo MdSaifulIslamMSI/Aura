@@ -28,12 +28,20 @@ services:
       AUTH_DEVICE_CHALLENGE_MODE: always
       AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK: "true"
       ADMIN_REQUIRE_PASSKEY: "true"
+      UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
+      UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      YARA_ENABLED: ${YARA_ENABLED:-false}
+      YARA_RULES_PATH: ${YARA_RULES_PATH:-/security/yara-rules}
     depends_on:
       - redis
     ports:
       - "127.0.0.1:5000:5000"
     volumes:
       - aura-uploads:/app/uploads
+      - /opt/aura/security/yara-rules:/security/yara-rules:ro
 
   edge:
     image: caddy:2-alpine
@@ -73,10 +81,25 @@ services:
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-all-minilm}
       OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-300000}
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-15m}
+      UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
+      UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      YARA_ENABLED: ${YARA_ENABLED:-false}
+      YARA_RULES_PATH: ${YARA_RULES_PATH:-/security/yara-rules}
     depends_on:
       - redis
     volumes:
       - aura-uploads:/app/uploads
+      - /opt/aura/security/yara-rules:/security/yara-rules:ro
+
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: ["malware-scan"]
+    restart: unless-stopped
+    volumes:
+      - aura-clamav-db:/var/lib/clamav
 
   ollama:
     image: ollama/ollama:latest
@@ -117,5 +140,6 @@ volumes:
   aura-redis:
   aura-ollama:
   aura-uploads:
+  aura-clamav-db:
   aura-caddy-data:
   aura-caddy-config:

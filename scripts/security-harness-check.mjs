@@ -30,6 +30,14 @@ const statusPageTests = read('app/src/pages/Status/Status.test.jsx');
 const frontendAwsDeploy = read('.github/workflows/deploy-frontend-aws.yml');
 const netlifyDeploy = read('.github/workflows/deploy-netlify.yml');
 const desktopRelease = read('.github/workflows/desktop-release.yml');
+const freeScannerWorkflow = read('.github/workflows/free-security-scanners.yml');
+const freeScannerScript = read('scripts/security-free-scanners.mjs');
+const edgeNginx = read('infra/edge/nginx/auth-rate-limit.conf');
+const edgeCrsCompose = read('infra/edge/modsecurity-crs/docker-compose.example.yml');
+const edgeCrowdsec = read('infra/edge/crowdsec/acquis.yaml');
+const splitRuntimeCompose = read('docker-compose.split-runtime.yml');
+const awsRuntimeCompose = read('infra/aws/docker-compose.ec2.yml');
+const observabilityAlerts = read('infra/observability/prometheus/alerts/login-security.yml');
 
 const checks = [];
 
@@ -53,6 +61,9 @@ const requiredScripts = [
   ['security:cloudflare', 'node scripts/security-cloudflare-readiness.mjs'],
   ['security:duo', 'node scripts/security-duo-readiness.mjs'],
   ['security:report', 'node scripts/security-report.mjs'],
+  ['security:malware-runtime', 'node scripts/validate-upload-malware-runtime.mjs'],
+  ['security:edge-assets', 'node scripts/validate-edge-security-assets.mjs'],
+  ['security:post-merge-smoke', 'node scripts/post-merge-security-smoke.mjs'],
 ];
 
 for (const [scriptName, expectedCommand] of requiredScripts) {
@@ -79,6 +90,8 @@ const requiredRunnerCategories = [
   'cloudflare',
   'duo',
   'logging',
+  'edge-assets',
+  'malware-runtime',
   'free-scanners',
   'secrets',
   'deps',
@@ -208,8 +221,73 @@ addCheck(
 
 addCheck(
   'CI path filters include security harness changes',
-  includesAll(ciWorkflow, ["scripts/security-*.mjs", "security-audit-exceptions.json", ".gitleaks.toml"]),
+  includesAll(ciWorkflow, [
+    "scripts/security-*.mjs",
+    "scripts/validate-edge-security-assets.mjs",
+    "scripts/validate-upload-malware-runtime.mjs",
+    "infra/edge/**",
+    "infra/security/**",
+    "security-audit-exceptions.json",
+    ".gitleaks.toml",
+  ]),
   'security changes trigger backend/security surfaces'
+);
+
+addCheck(
+  'free scanner Docker fallbacks are pinned',
+  includesAll(freeScannerScript, [
+    'ghcr.io/google/osv-scanner:v2.3.6',
+    'aquasec/trivy:0.69.3',
+    'semgrep/semgrep:1.163.0',
+    'FREE_SECURITY_OSV_IMAGE',
+    'FREE_SECURITY_TRIVY_IMAGE',
+    'FREE_SECURITY_SEMGREP_IMAGE',
+  ]),
+  'OSV, Trivy, and Semgrep images avoid mutable latest defaults'
+);
+
+addCheck(
+  'weekly free scanner workflow is scheduled',
+  includesAll(freeScannerWorkflow, [
+    'schedule:',
+    'FREE_SECURITY_SCANNERS_REQUIRED: "true"',
+    'npm run security:free-scanners',
+    'free-security-scanner-reports',
+  ]),
+  '.github/workflows/free-security-scanners.yml'
+);
+
+addCheck(
+  'upload malware runtime validation is wired',
+  includesAll(rootPackage.scripts?.['security:malware-runtime'] || '', ['validate-upload-malware-runtime.mjs'])
+    && includesAll(splitRuntimeCompose, ['clamav/clamav:1.4', 'UPLOAD_MALWARE_SCAN_FAIL_CLOSED', 'YARA_RULES_PATH'])
+    && includesAll(awsRuntimeCompose, ['clamav/clamav:1.4', 'UPLOAD_MALWARE_SCAN_FAIL_CLOSED', 'YARA_RULES_PATH']),
+  'ClamAV/YARA config and runtime self-check'
+);
+
+addCheck(
+  'upload security telemetry has Prometheus alerts',
+  includesAll(observabilityAlerts, [
+    'aura_upload_security_events_total',
+    'AuraUploadMalwareBlocked',
+    'AuraUploadScanUnavailable',
+    'AuraUploadMimeMismatchBurst',
+  ]),
+  'infected, scan_failed, and mismatch upload alerts'
+);
+
+addCheck(
+  'self-hosted edge security assets are present',
+  includesAll(edgeNginx, ['limit_req_zone', 'aura_login_ip', 'aura_admin_ip', 'proxy_pass http://aura_waf'])
+    && includesAll(edgeCrsCompose, ['owasp/modsecurity-crs:nginx', 'MODSEC_RULE_ENGINE', 'BLOCKING_PARANOIA'])
+    && includesAll(edgeCrowdsec, ['type: nginx', 'type: caddy']),
+  'NGINX limits, OWASP CRS, and CrowdSec templates'
+);
+
+addCheck(
+  'production admin access requires passkey in runtime compose',
+  includesAll(awsRuntimeCompose, ['ADMIN_REQUIRE_PASSKEY: "true"', 'AUTH_DEVICE_CHALLENGE_MODE: always']),
+  'admin passkey enforcement remains enabled for EC2 runtime'
 );
 
 addCheck(

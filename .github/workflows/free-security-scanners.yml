@@ -1,0 +1,46 @@
+name: Free Security Scanners
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-security-scanners-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scanners:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      FREE_SECURITY_SCANNERS_REQUIRED: "true"
+      FREE_SECURITY_OSV_IMAGE: ghcr.io/google/osv-scanner:v2.3.6
+      FREE_SECURITY_TRIVY_IMAGE: aquasec/trivy:0.69.3
+      FREE_SECURITY_SEMGREP_IMAGE: semgrep/semgrep:1.163.0
+      FREE_SECURITY_ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable
+      STAGING_URL: ${{ vars.STAGING_URL || '' }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL || '' }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Run free scanner suite
+        run: npm run security:free-scanners
+
+      - name: Upload scanner reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: free-security-scanner-reports
+          path: security-reports/
+          retention-days: 14

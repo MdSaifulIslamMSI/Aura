@@ -44,17 +44,21 @@ if (!Array.isArray(dashboard.panels) || dashboard.panels.length < 6) {
 
 requireText('dashboard', dashboardText, [
   /aura_auth_security_events_total/,
+  /aura_upload_security_events_total/,
   /login_failure/,
   /otp_verify/,
   /csrf_rejected/,
   /admin_access_blocked/,
   /recovery_code/,
+  /Upload Security Blocks/,
+  /Upload Malware And Scan Failures/,
 ]);
 
 const alertText = read(paths.alerts);
 requireText('Prometheus login security alerts', alertText, [
   /groups:/,
   /aura_auth_security_events_total/,
+  /aura_upload_security_events_total/,
   /AuraAuthLoginFailureSpike/,
   /AuraAuthOtpVerifyFailureSpike/,
   /AuraAuthRecoveryCodeAbuse/,
@@ -62,6 +66,9 @@ requireText('Prometheus login security alerts', alertText, [
   /AuraAuthCsrfRejectionBurst/,
   /AuraAuthTrustedDeviceVerifyFailureSpike/,
   /AuraAuthStepUpPressure/,
+  /AuraUploadMalwareBlocked/,
+  /AuraUploadScanUnavailable/,
+  /AuraUploadMimeMismatchBurst/,
 ]);
 
 requireText('local Prometheus config', read(paths.prometheusLocal), [
