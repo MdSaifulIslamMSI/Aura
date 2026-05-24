@@ -15,6 +15,12 @@ const isCi = isTruthy(process.env.CI) || isTruthy(process.env.GITHUB_ACTIONS);
 const scannersRequired = isTruthy(process.env.FREE_SECURITY_SCANNERS_REQUIRED) || isCi;
 const dockerImagePrefix = String(process.env.FREE_SECURITY_SCANNER_IMAGE_PREFIX || '').trim();
 const stagingUrl = String(process.env.STAGING_URL || '').trim();
+const scannerImages = {
+  osv: process.env.FREE_SECURITY_OSV_IMAGE || 'ghcr.io/google/osv-scanner:v2.3.6',
+  trivy: process.env.FREE_SECURITY_TRIVY_IMAGE || 'aquasec/trivy:0.69.3',
+  semgrep: process.env.FREE_SECURITY_SEMGREP_IMAGE || 'semgrep/semgrep:1.163.0',
+  zap: process.env.FREE_SECURITY_ZAP_IMAGE || 'ghcr.io/zaproxy/zaproxy:stable',
+};
 
 const run = (command, args, options = {}) => spawnSync(command, args, {
   cwd: options.cwd || repoRoot,
@@ -45,19 +51,19 @@ const scanners = [
     name: 'osv-scanner',
     binary: 'osv-scanner',
     binaryArgs: ['-r', '.'],
-    dockerArgs: ['run', '--rm', '-v', dockerMount, dockerImage('ghcr.io/google/osv-scanner:latest'), '-r', '/src'],
+    dockerArgs: ['run', '--rm', '-v', dockerMount, dockerImage(scannerImages.osv), '-r', '/src'],
   },
   {
     name: 'trivy',
     binary: 'trivy',
     binaryArgs: ['fs', '.'],
-    dockerArgs: ['run', '--rm', '-v', dockerMount, dockerImage('aquasec/trivy:latest'), 'fs', '/src'],
+    dockerArgs: ['run', '--rm', '-v', dockerMount, dockerImage(scannerImages.trivy), 'fs', '/src'],
   },
   {
     name: 'semgrep',
     binary: 'semgrep',
     binaryArgs: ['--config', 'p/owasp-top-ten', '.'],
-    dockerArgs: ['run', '--rm', '-v', dockerMount, '-w', '/src', dockerImage('semgrep/semgrep:latest'), 'semgrep', '--config', 'p/owasp-top-ten', '/src'],
+    dockerArgs: ['run', '--rm', '-v', dockerMount, '-w', '/src', dockerImage(scannerImages.semgrep), 'semgrep', '--config', 'p/owasp-top-ten', '/src'],
   },
 ];
 
@@ -132,7 +138,7 @@ const runZapBaseline = () => {
     name: 'zap-baseline',
     binary: 'zap-baseline.py',
     binaryArgs: ['-t', stagingUrl],
-    dockerArgs: ['run', '--rm', dockerImage('ghcr.io/zaproxy/zaproxy:stable'), 'zap-baseline.py', '-t', stagingUrl],
+    dockerArgs: ['run', '--rm', dockerImage(scannerImages.zap), 'zap-baseline.py', '-t', stagingUrl],
   };
 
   if (!stagingUrl) {
@@ -198,6 +204,7 @@ const report = {
   required: scannersRequired,
   dockerAvailable,
   repoRoot,
+  scannerImages,
   results,
 };
 

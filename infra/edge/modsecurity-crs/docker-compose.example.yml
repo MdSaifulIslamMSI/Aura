@@ -1,0 +1,22 @@
+services:
+  waf:
+    image: owasp/modsecurity-crs:nginx
+    restart: unless-stopped
+    environment:
+      BACKEND: http://api:5000
+      BLOCKING_PARANOIA: "1"
+      DETECTION_PARANOIA: "1"
+      MODSEC_RULE_ENGINE: "On"
+      ANOMALY_INBOUND: "5"
+      ANOMALY_OUTBOUND: "4"
+      REPORTING_LEVEL: "2"
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./crs-overrides.conf:/etc/nginx/templates/conf.d/crs-overrides.conf.template:ro
+    networks:
+      - aura-edge
+
+networks:
+  aura-edge:
+    external: true

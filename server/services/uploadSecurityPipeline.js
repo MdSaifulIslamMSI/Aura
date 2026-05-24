@@ -6,6 +6,7 @@ const {
     detectReviewMediaMime,
     isReviewMediaMimeCompatible,
 } = require('../utils/reviewMediaMagicBytes');
+const { recordUploadSecurityEvent } = require('./uploadSecurityTelemetryService');
 
 const IMAGE_UPLOAD_ALLOWED_MIME = new Set([
     'image/jpeg',
@@ -118,8 +119,19 @@ const serializeScanEngines = (engines = []) => (
         : []
 );
 
+const getEventReason = (eventName = '') => String(eventName || '').split('.').pop() || 'upload_event';
+
 const rejectUpload = ({ message, statusCode = 400, eventName = '', eventLevel = 'warn', event = {} }) => {
     if (eventName) {
+        const reason = getEventReason(eventName);
+        recordUploadSecurityEvent({
+            event: reason,
+            outcome: statusCode >= 500 ? 'failure' : 'blocked',
+            reason,
+            purpose: event.purpose,
+            level: eventLevel,
+            meta: event,
+        });
         const log = eventLevel === 'error' ? logger.error : logger.warn;
         log(eventName, event);
     }

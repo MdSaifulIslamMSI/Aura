@@ -9,10 +9,13 @@ on:
       - "gateway/**"
       - "server/**"
       - "scripts/security-*.mjs"
+      - "scripts/post-merge-security-smoke.mjs"
       - "scripts/duo-activate.mjs"
       - "scripts/cloudflare-free-security-activate.mjs"
       - "scripts/smoke-origin-protection.mjs"
       - "scripts/smoke-production-login.mjs"
+      - "scripts/validate-edge-security-assets.mjs"
+      - "scripts/validate-upload-malware-runtime.mjs"
       - "scripts/validate-login-*.mjs"
       - "scripts/run-auth-*.js"
       - "scripts/auth-runner.js"
@@ -32,6 +35,10 @@ on:
       - ".gitleaks.toml"
       - "security-audit-exceptions.json"
       - "infra/cloudflare/**"
+      - "infra/edge/**"
+      - "infra/observability/**"
+      - "infra/security/**"
+      - "docker-compose.split-runtime.yml"
       - "infra/aws/**"
       - "netlify.toml"
       - ".netlifyignore"
@@ -316,10 +323,13 @@ jobs:
             'server/*' \
             'infra/aws/*' \
             'scripts/security-*.mjs' \
+            'scripts/post-merge-security-smoke.mjs' \
             'scripts/duo-activate.mjs' \
             'scripts/cloudflare-free-security-activate.mjs' \
             'scripts/smoke-origin-protection.mjs' \
             'scripts/smoke-production-login.mjs' \
+            'scripts/validate-edge-security-assets.mjs' \
+            'scripts/validate-upload-malware-runtime.mjs' \
             'scripts/validate-login-*.mjs' \
             'scripts/run-auth-*.js' \
             'scripts/auth-runner.js' \
@@ -337,6 +347,10 @@ jobs:
             'security_best_practices_report.md' \
             '.gitleaks.toml' \
             'security-audit-exceptions.json' \
+            'infra/edge/*' \
+            'infra/observability/*' \
+            'infra/security/*' \
+            'docker-compose.split-runtime.yml' \
             '.github/workflows/ci.yml' \
             '.github/workflows/deploy-backend-aws.yml' \
             '.github/workflows/rollback-backend-aws.yml' \

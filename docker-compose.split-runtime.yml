@@ -43,6 +43,15 @@ services:
       timeout: 5s
       retries: 20
 
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: ["malware-scan"]
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    restart: unless-stopped
+
   backend:
     build:
       context: ./server
@@ -80,11 +89,19 @@ services:
       STUDENT_PACK_SECURITY_HARNESS_ENABLED: "true"
       STUDENT_PACK_SECURITY_HARNESS_PUBLIC: "true"
       STUDENT_PACK_LIVE_AUTH_REPORT_PATH: /workspace/.run-logs/student-pack-live-auth.json
+      UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
+      UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      YARA_ENABLED: ${YARA_ENABLED:-false}
+      YARA_RULES_PATH: ${YARA_RULES_PATH:-/security/yara-rules}
     ports:
       - "5000:5000"
     volumes:
       - ./server:/app
       - ./.run-logs:/workspace/.run-logs:ro
+      - ./infra/security/yara-rules:/security/yara-rules:ro
     restart: unless-stopped
 
   worker:
@@ -122,11 +139,20 @@ services:
       STUDENT_PACK_SECURITY_HARNESS_ENABLED: "true"
       STUDENT_PACK_SECURITY_HARNESS_PUBLIC: "true"
       STUDENT_PACK_LIVE_AUTH_REPORT_PATH: /workspace/.run-logs/student-pack-live-auth.json
+      UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
+      UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      YARA_ENABLED: ${YARA_ENABLED:-false}
+      YARA_RULES_PATH: ${YARA_RULES_PATH:-/security/yara-rules}
     volumes:
       - ./server:/app
       - ./.run-logs:/workspace/.run-logs:ro
+      - ./infra/security/yara-rules:/security/yara-rules:ro
     restart: unless-stopped
 
 volumes:
   mongo-data:
   redis-data:
+  clamav-db:

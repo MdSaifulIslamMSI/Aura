@@ -15,6 +15,8 @@ Labels:
 
 The same helper emits a structured JSON log named `auth.security_event` with request ID, HTTP method, normalized path, surface, event, outcome, reason, and safe metadata.
 
+Upload validation and malware gates emit `aura_upload_security_events_total` plus structured `upload.security_event` logs. The labels are bounded to event, outcome, reason, and purpose so Prometheus cardinality stays predictable.
+
 ## Event Coverage
 
 | Surface | Events |
@@ -74,6 +76,9 @@ Use short windows for page-worthy spikes and longer windows for trend dashboards
 | CSRF rejection burst | `sum(increase(aura_auth_security_events_total{event="csrf_rejected"}[5m])) > 25` | warning |
 | Trusted-device verification failures | `sum(increase(aura_auth_security_events_total{event="trusted_device_verify",outcome="failure"}[10m])) > 10` | warning |
 | Step-up pressure | `sum(increase(aura_auth_security_events_total{event="step_up_required"}[10m])) > 25` | info |
+| Malware upload blocked | `sum(increase(aura_upload_security_events_total{event="malware_blocked"}[15m])) > 0` | page |
+| Upload scan unavailable | `sum(increase(aura_upload_security_events_total{event="malware_scan_unavailable"}[10m])) > 0` | page |
+| Upload MIME/magic mismatch burst | `sum(increase(aura_upload_security_events_total{event=~"magic_mismatch|mime_mismatch|unsupported_mime|unsupported_extension"}[10m])) > 10` | warning |
 
 ## Triage Notes
 

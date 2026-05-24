@@ -12,9 +12,9 @@ Scope: local repository audit for authentication, bot protection, upload malware
 | Bot challenge | Yes | Turnstile middleware at `server/middleware/turnstileMiddleware.js:27`; OTP routes require Turnstile at `server/routes/otpRoutes.js:40`; PoW challenge code is in `server/controllers/otpController.js:32`. | Keep Turnstile optional/free SaaS; add Anubis or Coraza/NGINX edge PoW if self-hosting. |
 | Session rotation | Partial | Redis/browser session storage, revoke, and rotate paths are in `server/services/browserSessionService.js:427`, `server/services/browserSessionService.js:659`, and `server/services/browserSessionService.js:902`. | This is an opaque browser session model, not classic hashed refresh-token-family storage. Add explicit refresh-token reuse detection only if a refresh-token API is introduced. |
 | CSRF protection | Yes | Redis-backed one-time CSRF tokens at `server/middleware/csrfMiddleware.js:75`; auth routes validate cookie sessions at `server/routes/authRoutes.js:32` and `server/routes/authRoutes.js:142`. | Keep Redis required for production cookie-auth CSRF. |
-| Antivirus scan for uploads | Yes | Common data-URI scan gate at `server/services/uploadSecurityPipeline.js`; review uploads use `server/services/malwareScanService.js` from `server/controllers/uploadController.js`; avatar, listing image, assistant media, visual search, and Gemini remote-media fetch paths now block MIME/magic mismatch, malware, and scan errors before persistence/provider use. | Add quarantine-first async workers if high-volume KYC/support/admin uploads are introduced. |
-| Security logs | Yes | Structured auth security event metrics/outbox at `server/services/authSecurityTelemetryService.js:90`; outbox model at `server/models/AuthSecurityEventOutbox.js:3`. | Ship outbox to Loki/OpenSearch/Wazuh in deployed environments. |
-| WAF / CRS | Partial | Cloudflare and AWS WAF readiness/docs exist at `docs/cloudflare-security-hardening.md` and `infra/aws/waf-login-security-cloudfront.yml`. | OWASP CRS with ModSecurity/Coraza is not repo-visible. Add self-hosted NGINX + CRS/Coraza config when not relying on Cloudflare/AWS WAF. |
+| Antivirus scan for uploads | Yes | Common data-URI scan gate at `server/services/uploadSecurityPipeline.js`; review uploads use `server/services/malwareScanService.js` from `server/controllers/uploadController.js`; avatar, listing image, assistant media, visual search, and Gemini remote-media fetch paths now block MIME/magic mismatch, malware, and scan errors before persistence/provider use. Runtime activation docs live at `docs/upload-security-operations.md`; compose templates include `clamav/clamav:1.4`. | Add quarantine-first async workers if high-volume KYC/support/admin uploads are introduced. |
+| Security logs | Yes | Structured auth security event metrics/outbox at `server/services/authSecurityTelemetryService.js:90`; upload security metrics/logs at `server/services/uploadSecurityTelemetryService.js`; outbox model at `server/models/AuthSecurityEventOutbox.js:3`. | Ship outbox to Loki/OpenSearch/Wazuh in deployed environments. |
+| WAF / CRS | Yes | Cloudflare and AWS WAF readiness/docs exist at `docs/cloudflare-security-hardening.md` and `infra/aws/waf-login-security-cloudfront.yml`; self-hosted NGINX auth limits, OWASP CRS/ModSecurity template, and CrowdSec acquisition config live under `infra/edge`. | Tune CRS exclusions in staging before production blocking. |
 | Dependency scanning | Partial | npm audit gate at `scripts/security-dependency-audit.mjs`; CI security suite at `.github/workflows/ci.yml:356`; added free scanner runner at `scripts/security-free-scanners.mjs`. | Local OSV-Scanner, Trivy, and Semgrep binaries were missing; Docker engine was not running locally. CI can run them through Docker when available. |
 
 ## Upload Path Security Audit
@@ -47,12 +47,15 @@ Commands attempted or nearest repo-visible gates:
 | `npm run security:deps` | Passed: dependency audit passed for root, app, and server workspaces. |
 | `npm run security:cloudflare` | Passed: Cloudflare readiness and Turnstile middleware tests passed. |
 | `npm run observability:validate` | Passed: Prometheus alerts, scrape configs, Grafana provisioning, and dashboard are wired. |
+| `npm run security:malware-runtime` | Added: verifies built-in EICAR blocking and configured ClamAV/YARA runtime health. |
+| `npm run security:edge-assets` | Added: verifies repo-owned NGINX rate limit, OWASP CRS, and CrowdSec templates. |
+| `npm run security:post-merge-smoke` | Added: runs safe post-merge gates and only runs live staging smoke when `SMOKE_BASE_URL` is set. |
 | `npm test` | Passed: 29 suites / 317 tests in the server regression tracer. |
 
 ## Immediate Follow-Up Backlog
 
-1. Configure ClamAV daemon for staging and set `UPLOAD_MALWARE_SCAN_ENABLED=true`, `CLAMAV_ENABLED=true`, `CLAMAV_HOST`, and `CLAMAV_PORT`.
-2. Add `YARA_RULES_PATH` for custom YARA rules after rules are reviewed.
+1. Turn on the `malware-scan` compose profile in staging and set `UPLOAD_MALWARE_SCAN_ENABLED=true`, `CLAMAV_ENABLED=true`, and `UPLOAD_MALWARE_SCAN_FAIL_CLOSED=true`.
+2. Replace the staging EICAR-only YARA rule set with reviewed custom rules before relying on YARA for production detections.
 3. Keep support/admin/KYC uploads disabled until they can be added through `uploadSecurityPipeline` or a quarantine-first async worker.
 4. Provide a staging URL before running OWASP ZAP baseline.
-5. Add OWASP CRS with ModSecurity/Coraza for self-hosted edge deployments, or document the managed WAF equivalence when using Cloudflare/AWS WAF.
+5. Tune OWASP CRS exclusions in staging before production blocking.

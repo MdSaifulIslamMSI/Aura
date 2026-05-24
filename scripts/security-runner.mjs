@@ -25,6 +25,8 @@ const categories = [
   ['cloudflare', 'npm run security:cloudflare'],
   ['duo', 'npm run security:duo'],
   ['logging', 'npm run security:logging'],
+  ['edge-assets', 'npm run security:edge-assets'],
+  ['malware-runtime', 'npm run security:malware-runtime'],
   ['free-scanners', 'npm run security:free-scanners'],
   ['secrets', 'npm run security:secrets'],
   ['deps', 'npm run security:deps'],

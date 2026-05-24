@@ -78,3 +78,36 @@ groups:
         annotations:
           summary: Aura step-up requirements are elevated
           description: More than 25 step-up requirements were recorded in the last 10 minutes.
+
+      - alert: AuraUploadMalwareBlocked
+        expr: sum(increase(aura_upload_security_events_total{event="malware_blocked"}[15m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          domain: uploads
+          runbook: upload-security-observability
+        annotations:
+          summary: Aura blocked an infected upload
+          description: At least one upload was blocked by the malware scan gate in the last 15 minutes.
+
+      - alert: AuraUploadScanUnavailable
+        expr: sum(increase(aura_upload_security_events_total{event="malware_scan_unavailable"}[10m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          domain: uploads
+          runbook: upload-security-observability
+        annotations:
+          summary: Aura upload malware scanning is unavailable
+          description: The upload scan gate failed closed for at least one upload in the last 10 minutes.
+
+      - alert: AuraUploadMimeMismatchBurst
+        expr: sum(increase(aura_upload_security_events_total{event=~"magic_mismatch|mime_mismatch|unsupported_mime|unsupported_extension"}[10m])) > 10
+        for: 2m
+        labels:
+          severity: warning
+          domain: uploads
+          runbook: upload-security-observability
+        annotations:
+          summary: Aura upload validation mismatches are elevated
+          description: More than 10 MIME, extension, or magic-byte upload mismatches were blocked in the last 10 minutes.
