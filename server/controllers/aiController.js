@@ -9,11 +9,17 @@ const {
     synthesizeSpeech,
 } = require('../services/ai/providerRegistry');
 const { assertPrivateChatQuota } = require('../services/chatQuotaService');
+const {
+    validateAssistantAudioDataUriUpload,
+    validateImageDataUriUpload,
+} = require('../services/uploadSecurityPipeline');
 const logger = require('../utils/logger');
 
 const DEFAULT_AI_CHAT_TIMEOUT_MS = 25000;
 const MIN_AI_CHAT_TIMEOUT_MS = 2000;
 const MAX_AI_CHAT_TIMEOUT_MS = 60000;
+const ASSISTANT_IMAGE_MAX_BYTES = Number(process.env.ASSISTANT_IMAGE_MAX_BYTES || 8 * 1024 * 1024);
+const ASSISTANT_AUDIO_MAX_BYTES = Number(process.env.ASSISTANT_AUDIO_MAX_BYTES || 8 * 1024 * 1024);
 
 const safeString = (value = '', fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
@@ -35,6 +41,72 @@ const resolveAssistantPayload = (req = {}) => ({
     images: req.body?.images || [],
     audio: req.body?.audio || [],
 });
+
+const validateAssistantMediaPayload = async (payload = {}, req = {}) => {
+    const userId = String(req.user?._id || '');
+    const images = [];
+    for (const [index, image] of (Array.isArray(payload.images) ? payload.images : []).entries()) {
+        if (!safeString(image?.dataUrl || '')) {
+            images.push(image);
+            continue;
+        }
+        const securedImage = await validateImageDataUriUpload({
+            dataUrl: image.dataUrl,
+            declaredMimeType: image.mimeType || '',
+            fileName: image.fileName || `assistant-image-${index + 1}`,
+            maxBytes: ASSISTANT_IMAGE_MAX_BYTES,
+            purpose: 'assistant-image',
+            userId,
+            eventPrefix: 'assistant.image_upload',
+            invalidFormatMessage: 'Invalid assistant image format. Must be a data URI.',
+            unsupportedMessage: 'Unsupported assistant image type. Only JPEG, PNG, and WebP are allowed.',
+            oversizedMessage: 'Assistant image is too large.',
+            emptyMessage: 'Assistant image data is empty',
+            mismatchMessage: 'Assistant image content does not match declared image type',
+            infectedMessage: 'Assistant image failed malware scan',
+            scanFailedMessage: 'Assistant image malware scan unavailable. Please try again later.',
+        });
+        images.push({
+            ...image,
+            dataUrl: securedImage.dataUrl,
+            mimeType: securedImage.mimeType,
+        });
+    }
+
+    const audio = [];
+    for (const [index, item] of (Array.isArray(payload.audio) ? payload.audio : []).entries()) {
+        if (!safeString(item?.dataUrl || '')) {
+            audio.push(item);
+            continue;
+        }
+        const securedAudio = await validateAssistantAudioDataUriUpload({
+            dataUrl: item.dataUrl,
+            declaredMimeType: item.mimeType || '',
+            fileName: item.fileName || `assistant-audio-${index + 1}`,
+            maxBytes: ASSISTANT_AUDIO_MAX_BYTES,
+            purpose: 'assistant-audio',
+            userId,
+            eventPrefix: 'assistant.audio_upload',
+            invalidFormatMessage: 'Invalid assistant audio format. Must be a data URI.',
+            oversizedMessage: 'Assistant audio is too large.',
+            emptyMessage: 'Assistant audio data is empty',
+            mismatchMessage: 'Assistant audio content does not match declared audio type',
+            infectedMessage: 'Assistant audio failed malware scan',
+            scanFailedMessage: 'Assistant audio malware scan unavailable. Please try again later.',
+        });
+        audio.push({
+            ...item,
+            dataUrl: securedAudio.dataUrl,
+            mimeType: securedAudio.mimeType,
+        });
+    }
+
+    return {
+        ...payload,
+        images,
+        audio,
+    };
+};
 
 const buildTimeoutAssistantResponse = ({ payload = {}, startedAt = Date.now(), timeoutMs = DEFAULT_AI_CHAT_TIMEOUT_MS } = {}) => {
     const sessionId = safeString(payload.sessionId || payload.context?.clientSessionId || '');
@@ -124,11 +196,13 @@ const runAssistantWithTimeout = async ({ work, payload, traceLabel = 'assistant.
 
 const handleAiChat = asyncHandler(async (req, res, next) => {
     req.clearTimeout?.();
-    const payload = resolveAssistantPayload(req);
+    let payload = resolveAssistantPayload(req);
     const { message, confirmation, actionRequest } = payload;
     if (!message && !confirmation && !actionRequest && payload.images.length === 0 && payload.audio.length === 0) {
         return next(new AppError('Message, media, confirmation, or actionRequest is required', 400));
     }
+
+    payload = await validateAssistantMediaPayload(payload, req);
 
     if (payload.user?._id) {
         await assertPrivateChatQuota(payload.user._id);
@@ -145,11 +219,13 @@ const handleAiChat = asyncHandler(async (req, res, next) => {
 
 const handleAiChatStream = asyncHandler(async (req, res, next) => {
     req.clearTimeout?.();
-    const payload = resolveAssistantPayload(req);
+    let payload = resolveAssistantPayload(req);
     const { message, confirmation, actionRequest } = payload;
     if (!message && !confirmation && !actionRequest && payload.images.length === 0 && payload.audio.length === 0) {
         return next(new AppError('Message, media, confirmation, or actionRequest is required', 400));
     }
+
+    payload = await validateAssistantMediaPayload(payload, req);
 
     if (payload.user?._id) {
         await assertPrivateChatQuota(payload.user._id);

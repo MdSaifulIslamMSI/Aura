@@ -10,6 +10,11 @@ const {
     getStorageDriver,
     storeReviewMedia,
 } = require('../services/reviewMediaStorageService');
+const { scanUploadBuffer } = require('../services/malwareScanService');
+const {
+    detectReviewMediaMime,
+    isReviewMediaMimeCompatible,
+} = require('../utils/reviewMediaMagicBytes');
 const REVIEW_UPLOAD_MAX_BYTES = Number(process.env.REVIEW_UPLOAD_MAX_BYTES || 7 * 1024 * 1024);
 const REVIEW_UPLOAD_ALLOWED_MIME = new Set([
     'image/jpeg',
@@ -137,6 +142,48 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
         return next(new AppError('Uploaded file exceeds max size', 400));
     }
 
+    const detectedMimeType = detectReviewMediaMime(fileBuffer);
+    if (!isReviewMediaMimeCompatible(mimeType, detectedMimeType)) {
+        logger.warn('reviews.media_magic_mismatch', {
+            userId: String(userId),
+            declaredMimeType: mimeType,
+            detectedMimeType: detectedMimeType || 'unknown',
+        });
+        return next(new AppError('Uploaded file content does not match declared media type', 400));
+    }
+
+    const scanResult = await scanUploadBuffer({
+        fileBuffer,
+        fileName,
+        mimeType,
+        userId: String(userId),
+        purpose: 'review-media',
+    });
+    if (scanResult.status === 'infected') {
+        logger.warn('reviews.media_malware_blocked', {
+            userId: String(userId),
+            mimeType,
+            engines: scanResult.engines?.map((engine) => ({
+                engine: engine.engine,
+                signature: engine.signature || '',
+                status: engine.status,
+            })) || [],
+        });
+        return next(new AppError('Uploaded file failed malware scan', 400));
+    }
+    if (scanResult.status === 'error') {
+        logger.error('reviews.media_malware_scan_unavailable', {
+            userId: String(userId),
+            mimeType,
+            engines: scanResult.engines?.map((engine) => ({
+                engine: engine.engine,
+                status: engine.status,
+                detail: engine.detail || '',
+            })) || [],
+        });
+        return next(new AppError('Upload malware scan unavailable. Please try again later.', 503));
+    }
+
     await ensureReviewUploadStorageReady();
     const storedMedia = await storeReviewMedia({
         fileBuffer,
@@ -150,6 +197,8 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
         userId: String(userId),
         bytes: fileBuffer.length,
         mimeType,
+        detectedMimeType,
+        scanStatus: scanResult.status,
         storageDriver: getStorageDriver(),
         storageKey: storedMedia.storageKey,
         url: storedMedia.url,

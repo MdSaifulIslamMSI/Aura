@@ -3,6 +3,14 @@ const net = require('net');
 const fetch = require('node-fetch');
 const { getBreaker } = require('../../utils/circuitBreaker');
 const logger = require('../../utils/logger');
+const {
+    ASSISTANT_AUDIO_ALLOWED_EXTENSIONS,
+    ASSISTANT_AUDIO_ALLOWED_MIME,
+    IMAGE_UPLOAD_ALLOWED_EXTENSIONS,
+    IMAGE_UPLOAD_ALLOWED_MIME,
+    normalizeMimeType,
+    validateUploadBuffer,
+} = require('../uploadSecurityPipeline');
 
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 const DEFAULT_CHAT_MODEL = 'models/gemma-4-31b-it';
@@ -762,8 +770,30 @@ const fetchRemoteInlineData = async ({ url = '', mimeType = '', timeoutMs = DEFA
     }
 
     const buffer = await readResponseBodyWithLimit(response);
+    const responseMimeType = normalizeMimeType(mimeType || response.headers.get('content-type') || 'application/octet-stream');
+    const isAudio = responseMimeType.startsWith('audio/');
+    const isImage = responseMimeType.startsWith('image/');
+    const validatedMedia = await validateUploadBuffer({
+        fileBuffer: buffer,
+        fileName: new URL(validatedUrl).pathname || 'remote-media',
+        mimeType: responseMimeType,
+        allowedMimeTypes: isAudio ? ASSISTANT_AUDIO_ALLOWED_MIME : IMAGE_UPLOAD_ALLOWED_MIME,
+        allowedExtensions: isAudio ? ASSISTANT_AUDIO_ALLOWED_EXTENSIONS : IMAGE_UPLOAD_ALLOWED_EXTENSIONS,
+        allowMissingExtension: true,
+        maxBytes: MAX_INLINE_MEDIA_BYTES,
+        purpose: isAudio ? 'assistant-remote-audio' : 'assistant-remote-image',
+        eventPrefix: isAudio ? 'assistant.remote_audio' : 'assistant.remote_image',
+        unsupportedMessage: isImage || isAudio
+            ? 'Unsupported remote assistant media type.'
+            : 'Remote assistant media must be an image or audio file.',
+        oversizedMessage: 'Remote assistant media is too large.',
+        emptyMessage: 'Remote assistant media is empty',
+        mismatchMessage: 'Remote assistant media content does not match declared media type',
+        infectedMessage: 'Remote assistant media failed malware scan',
+        scanFailedMessage: 'Remote assistant media malware scan unavailable. Please try again later.',
+    });
     return {
-        mimeType: safeString(mimeType || response.headers.get('content-type') || 'application/octet-stream'),
+        mimeType: validatedMedia.mimeType,
         data: buffer.toString('base64'),
         byteLength: buffer.byteLength,
     };

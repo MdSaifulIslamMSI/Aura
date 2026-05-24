@@ -22,6 +22,7 @@ const {
     buildSmartBundle,
 } = require('../services/commerceIntelligenceService');
 const { runMultimodalVisualSearch } = require('../services/ai/multimodalVisualSearchService');
+const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
 const { buildProductRecommendations } = require('../services/productRecommendationService');
 const { renderCatalogArtworkSvg } = require('../services/catalogArtworkService');
 const { assessFraudDecision } = require('../services/fraudDecisioningService');
@@ -38,6 +39,7 @@ const REVIEW_LIMIT_MAX = 20;
 const REVIEW_VIDEO_MAX = 3;
 const REVIEW_MEDIA_MAX = 8;
 const PRODUCT_IMAGE_PROXY_TIMEOUT_MS = 15000;
+const VISUAL_SEARCH_IMAGE_MAX_BYTES = Number(process.env.VISUAL_SEARCH_IMAGE_MAX_BYTES || 8 * 1024 * 1024);
 
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || min, min), max);
 
@@ -741,12 +743,40 @@ const buildAuthenticityHints = ({ product, dealDna, priceGap }) => {
 const visualSearchProducts = asyncHandler(async (req, res, next) => {
     try {
         const limit = Number(req.body.limit) || 12;
+        let imageDataUrl = req.body.imageDataUrl;
+        let imageMeta = req.body.imageMeta;
+
+        if (imageDataUrl) {
+            const securedImage = await validateImageDataUriUpload({
+                dataUrl: imageDataUrl,
+                declaredMimeType: imageMeta?.mimeType || '',
+                fileName: req.body.fileName || 'visual-search-image',
+                maxBytes: VISUAL_SEARCH_IMAGE_MAX_BYTES,
+                purpose: 'visual-search-image',
+                userId: String(req.user?._id || ''),
+                eventPrefix: 'visual_search.image_upload',
+                invalidFormatMessage: 'Invalid visual search image format. Must be a data URI.',
+                unsupportedMessage: 'Unsupported visual search image type. Only JPEG, PNG, and WebP are allowed.',
+                oversizedMessage: 'Visual search image is too large.',
+                emptyMessage: 'Visual search image data is empty',
+                mismatchMessage: 'Visual search image content does not match declared image type',
+                infectedMessage: 'Visual search image failed malware scan',
+                scanFailedMessage: 'Visual search image malware scan unavailable. Please try again later.',
+            });
+            imageDataUrl = securedImage.dataUrl;
+            imageMeta = {
+                ...(imageMeta || {}),
+                mimeType: securedImage.mimeType,
+                sizeBytes: securedImage.sizeBytes,
+            };
+        }
+
         const multimodal = await runMultimodalVisualSearch({
             imageUrl: req.body.imageUrl,
-            imageDataUrl: req.body.imageDataUrl,
+            imageDataUrl,
             fileName: req.body.fileName,
             hints: req.body.hints,
-            imageMeta: req.body.imageMeta,
+            imageMeta,
             message: req.body.hints || req.body.fileName || '',
             limit,
         });
@@ -782,7 +812,7 @@ const visualSearchProducts = asyncHandler(async (req, res, next) => {
         res.json({
             querySignals: {
                 ...(multimodal.querySignals || {}),
-                imageMeta: req.body.imageMeta || multimodal.querySignals?.imageMeta || null,
+                imageMeta: imageMeta || multimodal.querySignals?.imageMeta || null,
             },
             marketSnapshot: {
                 topMatchPrice: topPrice,

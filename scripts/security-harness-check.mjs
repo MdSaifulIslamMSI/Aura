@@ -49,6 +49,7 @@ const requiredScripts = [
   ['security:harness', 'node scripts/security-harness-check.mjs'],
   ['security:secrets', 'node scripts/security-secret-scan.mjs'],
   ['security:deps', 'node scripts/security-dependency-audit.mjs'],
+  ['security:free-scanners', 'node scripts/security-free-scanners.mjs'],
   ['security:cloudflare', 'node scripts/security-cloudflare-readiness.mjs'],
   ['security:duo', 'node scripts/security-duo-readiness.mjs'],
   ['security:report', 'node scripts/security-report.mjs'],
@@ -78,6 +79,7 @@ const requiredRunnerCategories = [
   'cloudflare',
   'duo',
   'logging',
+  'free-scanners',
   'secrets',
   'deps',
 ];
