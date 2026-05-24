@@ -60,4 +60,38 @@ describe('clientObservability ingestion', () => {
             status: 0,
         });
     });
+
+    it('backs off instead of retrying diagnostics when ingestion rejects auth', async () => {
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(JSON.stringify({ message: 'Unauthorized' }), {
+                status: 401,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Request-Id': 'srv-ingest-auth',
+                },
+            })
+        );
+
+        initClientObservability();
+        pushClientDiagnostic('api.response_error', {
+            url: 'https://aurapilot.vercel.app/api/cart',
+            method: 'GET',
+            requestId: 'req-client-auth-1',
+            serverRequestId: 'srv-cart-1',
+            status: 403,
+        }, 'warn');
+
+        await expect(flushBufferedClientDiagnostics({ force: true })).resolves.toBe(false);
+
+        pushClientDiagnostic('api.response_error', {
+            url: 'https://aurapilot.vercel.app/api/users/wishlist',
+            method: 'GET',
+            requestId: 'req-client-auth-2',
+            serverRequestId: 'srv-wishlist-1',
+            status: 403,
+        }, 'warn');
+
+        await expect(flushBufferedClientDiagnostics()).resolves.toBe(false);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
 });

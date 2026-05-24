@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { pushClientDiagnostic } from '../services/clientObservability';
 import { userApi } from '../services/api';
+import { isTrustedDeviceChallengeError } from '../utils/authStepUp';
 
 export const GUEST_CART_STORAGE_KEY = 'aura_cart_guest_v2';
 export const GUEST_WISHLIST_STORAGE_KEY = 'aura_wishlist_guest_v2';
@@ -1048,6 +1049,26 @@ export const useCommerceStore = create((set, get) => {
             } catch (error) {
                 if (get().sync.authGeneration !== effectiveGeneration || get().authUser?.uid !== currentAuthUser.uid) {
                     return getEntityItems(entityKey, get()[entityKey]);
+                }
+
+                if (isTrustedDeviceChallengeError(error)) {
+                    const currentEntity = get()[entityKey];
+                    updateEntityState(set, entityKey, {
+                        ...currentEntity,
+                        source: 'user',
+                        status: 'ready',
+                        error: null,
+                    });
+                    emitCommerceDiagnostic('commerce_step_up_required', {
+                        entity: entityKey,
+                        authMode: 'user',
+                        userId: currentAuthUser.uid,
+                        revision: currentEntity.revision,
+                        pendingOps: (currentEntity.pendingOps || []).length,
+                        itemCount: getEntityItems(entityKey, currentEntity).length,
+                        requestId,
+                    }, 'info');
+                    return getEntityItems(entityKey, currentEntity);
                 }
 
                 updateEntityState(set, entityKey, {

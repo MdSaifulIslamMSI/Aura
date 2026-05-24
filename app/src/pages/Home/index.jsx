@@ -36,6 +36,7 @@ import { useMarket } from '@/context/MarketContext';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { getBaseAmount, getBaseCurrency } from '@/utils/pricing';
+import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
 
 const HOME_SECTION_REQUEST = {
   limit: 8,
@@ -90,7 +91,7 @@ const Home = () => {
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [recommendationCopy, setRecommendationCopy] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { currentUser = null } = useContext(AuthContext) || {};
+  const { currentUser = null, isAuthenticated = false } = useContext(AuthContext) || {};
   const { cartItems = [], isLoading: cartLoading = false } = useContext(CartContext) || {};
   const { wishlistItems = [], isLoading: wishlistLoading = false } = useContext(WishlistContext) || {};
   const { colorMode } = useColorMode();
@@ -329,7 +330,7 @@ const Home = () => {
     };
 
     const loadRecommendations = async () => {
-      if (currentUser && (cartLoading || wishlistLoading)) {
+      if (currentUser && isAuthenticated && (cartLoading || wishlistLoading)) {
         return;
       }
 
@@ -340,7 +341,7 @@ const Home = () => {
       let nextCopy = localCopy;
 
       try {
-        {
+        if (!currentUser || isAuthenticated) {
           const serverResponse = await recommendationApi.getHomeRecommendations({ limit: 6 });
           nextProducts = (serverResponse?.recommendations || []).map(decorateRecommendedProduct);
           nextCopy = {
@@ -354,7 +355,9 @@ const Home = () => {
         const localProducts = await loadLocalRecommendations();
         nextProducts = mergeUniqueProducts(nextProducts, localProducts);
       } catch (error) {
-        console.error('Personalized recommendations failed:', error);
+        if (!isTrustedDeviceChallengeError(error)) {
+          console.error('Personalized recommendations failed:', error);
+        }
         nextProducts = await loadLocalRecommendations();
       }
 
@@ -374,7 +377,7 @@ const Home = () => {
     return () => {
       active = false;
     };
-  }, [currentUser?.uid, recommendationSignals, localizedRecommendationCopy, cartLoading, wishlistLoading]);
+  }, [currentUser?.uid, isAuthenticated, recommendationSignals, localizedRecommendationCopy, cartLoading, wishlistLoading]);
 
   // Category icons - updated with modern styling
   const categories = useMemo(() => [

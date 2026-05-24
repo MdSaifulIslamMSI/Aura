@@ -52,7 +52,7 @@ describe('CartProvider', () => {
       syncedAt: null,
     });
 
-    renderCartProvider({ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false });
+    renderCartProvider({ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false, isAuthenticated: true });
 
     await waitFor(() => {
       expect(userApi.getCart).toHaveBeenCalledTimes(1);
@@ -81,7 +81,7 @@ describe('CartProvider', () => {
       syncedAt: null,
     });
 
-    renderCartProvider({ currentUser: { uid: 'user-2', email: 'guestmerge@example.com' }, loading: false });
+    renderCartProvider({ currentUser: { uid: 'user-2', email: 'guestmerge@example.com' }, loading: false, isAuthenticated: true });
 
     await waitFor(() => {
       expect(mergeCartSpy).toHaveBeenCalledWith({
@@ -127,7 +127,7 @@ describe('CartProvider', () => {
     expect(getCartSpy).not.toHaveBeenCalled();
 
     view.rerender(
-      <AuthContext.Provider value={{ currentUser: authUser, loading: false }}>
+      <AuthContext.Provider value={{ currentUser: authUser, loading: false, isAuthenticated: true }}>
         <CommerceProvider>
           <CartProbe />
         </CommerceProvider>
@@ -174,7 +174,7 @@ describe('CartProvider', () => {
     vi.spyOn(userApi, 'getCart').mockImplementation(() => new Promise(() => {}));
     vi.spyOn(userApi, 'getWishlist').mockImplementation(() => new Promise(() => {}));
 
-    renderCartProvider({ currentUser: { uid: 'user-4', email: 'restore@example.com' }, loading: false });
+    renderCartProvider({ currentUser: { uid: 'user-4', email: 'restore@example.com' }, loading: false, isAuthenticated: true });
 
     await waitFor(() => {
       expect(screen.getByTestId('item-ids')).toHaveTextContent('404');

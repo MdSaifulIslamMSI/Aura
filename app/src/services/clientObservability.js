@@ -13,6 +13,7 @@ const MAX_PENDING_DIAGNOSTICS = 30;
 const DIAGNOSTIC_FLUSH_BATCH_SIZE = 10;
 const DIAGNOSTIC_FLUSH_INTERVAL_MS = 15000;
 const DIAGNOSTIC_FLUSH_MIN_GAP_MS = 3000;
+const DIAGNOSTIC_AUTH_BACKOFF_MS = 10 * 60 * 1000;
 const MAX_EVENTS_PER_MINUTE = 50;
 let eventCounter = 0;
 let lastCounterReset = Date.now();
@@ -168,6 +169,10 @@ export const flushBufferedClientDiagnostics = async ({ useBeacon = false, force 
     }
 
     const now = Date.now();
+    if (!force && Number(debugStore.diagnosticIngestBackoffUntil || 0) > now) {
+        return false;
+    }
+
     if (!force && (now - Number(debugStore.lastDiagnosticsFlushAt || 0)) < DIAGNOSTIC_FLUSH_MIN_GAP_MS) {
         scheduleDiagnosticsFlush(DIAGNOSTIC_FLUSH_MIN_GAP_MS);
         return false;
@@ -209,6 +214,12 @@ export const flushBufferedClientDiagnostics = async ({ useBeacon = false, force 
                 keepalive: true,
                 credentials: 'include',
             });
+
+            if ([401, 403].includes(Number(response?.status || 0))) {
+                debugStore.diagnosticIngestBackoffUntil = Date.now() + DIAGNOSTIC_AUTH_BACKOFF_MS;
+                debugStore.pendingDiagnostics = debugStore.pendingDiagnostics.slice(batch.length);
+                return false;
+            }
 
             flushed = Boolean(response?.ok);
         }

@@ -60,7 +60,7 @@ describe('WishlistProvider', () => {
       syncedAt: null,
     });
 
-    renderWishlistProvider({ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false });
+    renderWishlistProvider({ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false, isAuthenticated: true });
 
     await waitFor(() => {
       expect(userApi.getWishlist).toHaveBeenCalledTimes(1);

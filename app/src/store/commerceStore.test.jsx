@@ -67,6 +67,40 @@ describe('commerceStore', () => {
         ]);
     });
 
+    it('keeps commerce hydration quiet when trusted-device verification is required', async () => {
+        const existingItem = {
+            id: 42,
+            title: 'Protected Cart Item',
+            price: 100,
+            originalPrice: 120,
+            discountPercentage: 17,
+            image: '/protected.png',
+            stock: 5,
+            deliveryTime: '2-3 days',
+            quantity: 1,
+        };
+        const trustedDeviceError = new Error('Trusted device verification required for this account');
+        trustedDeviceError.status = 403;
+
+        vi.spyOn(userApi, 'getCart').mockRejectedValue(trustedDeviceError);
+        useCommerceStore.setState({
+            authUser: { uid: 'user-step-up', email: 'step-up@example.com' },
+            cart: createUserCartState({
+                itemsById: { '42': existingItem },
+                orderedIds: ['42'],
+                status: 'ready',
+            }),
+        });
+
+        const result = await useCommerceStore.getState().hydrateCart({ force: true });
+        const cartState = useCommerceStore.getState().cart;
+
+        expect(result).toEqual([expect.objectContaining({ id: 42 })]);
+        expect(cartState.status).toBe('ready');
+        expect(cartState.error).toBeNull();
+        expect(cartState.orderedIds).toEqual(['42']);
+    });
+
     it('ignores older hydration payloads that resolve after a newer cart add succeeds', async () => {
         let resolveCartSnapshot;
         vi.spyOn(userApi, 'getCart').mockImplementation(() => new Promise((resolve) => {
