@@ -47,6 +47,7 @@ server/uploads/
 # Coverage
 coverage/
 security-reports/
+.trivycache/
 
 # Firebase
 .firebase/

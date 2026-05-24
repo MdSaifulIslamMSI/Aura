@@ -108,6 +108,9 @@ jobs:
       - name: Resolve hosted backend origin
         working-directory: .
         id: backend
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_TARGET_INPUT: ${{ inputs.target || '' }}
         run: |
           set -euo pipefail
           ERROR_LOG="${RUNNER_TEMP}/hosted-backend-origin.err"
@@ -116,7 +119,7 @@ jobs:
             exit 0
           fi
 
-          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ inputs.target }}" = "preview" ]; then
+          if [ "${EVENT_NAME}" = "pull_request" ] || [ "${DEPLOY_TARGET_INPUT}" = "preview" ]; then
             echo "Hosted backend origin is not configured. The shared preview build will use same-origin /api, and the Vercel prebuilt proxy artifact will be skipped."
             cat "${ERROR_LOG}" >&2 || true
             echo "origin=" >> "$GITHUB_OUTPUT"

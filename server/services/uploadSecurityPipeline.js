@@ -50,6 +50,15 @@ const canonicalMimeType = (value) => {
 
 const normalizeExtension = (value) => String(path.extname(String(value || '')).toLowerCase() || '').trim();
 
+const hasUnsafeUploadFileName = (value = '') => {
+    const fileName = String(value || '').trim();
+    if (!fileName) return false;
+    return fileName.includes('\0')
+        || fileName.includes('/')
+        || fileName.includes('\\')
+        || path.basename(fileName) !== fileName;
+};
+
 const getDataUrlParts = (dataUrl = '') => {
     const match = String(dataUrl || '').match(/^data:([^;]+);base64,([\s\S]+)$/i);
     if (!match) return null;
@@ -161,6 +170,18 @@ const validateUploadBuffer = async ({
         rejectUpload({
             message: unsupportedMessage,
             eventName: `${eventPrefix}.unsupported_mime`,
+            event: {
+                userId: String(userId || ''),
+                purpose,
+                mimeType: normalizedMimeType,
+            },
+        });
+    }
+
+    if (hasUnsafeUploadFileName(fileName)) {
+        rejectUpload({
+            message: unsupportedMessage,
+            eventName: `${eventPrefix}.unsafe_filename`,
             event: {
                 userId: String(userId || ''),
                 purpose,
@@ -330,6 +351,18 @@ const validateDataUriUpload = async ({
         });
     }
 
+    if (hasUnsafeUploadFileName(fileName)) {
+        rejectUpload({
+            message: unsupportedMessage,
+            eventName: `${eventPrefix}.unsafe_filename`,
+            event: {
+                userId: String(userId || ''),
+                purpose,
+                mimeType: parsedMimeType,
+            },
+        });
+    }
+
     const extension = normalizeExtension(fileName);
     if (extension && allowedExtensions && !allowedExtensions.has(extension)) {
         rejectUpload({
@@ -466,4 +499,7 @@ module.exports = {
     validateDataUriUpload,
     validateImageDataUriUpload,
     validateUploadBuffer,
+    __private: {
+        hasUnsafeUploadFileName,
+    },
 };

@@ -38,7 +38,8 @@ const duoActivation = hasFile('scripts/duo-activate.mjs')
 addCheck('npm script security:duo exists',
   packageJson.scripts?.['security:duo']?.includes('scripts/security-duo-readiness.mjs'));
 addCheck('security runner includes Duo category',
-  read('scripts/security-runner.mjs').includes("['duo', 'npm run security:duo']"));
+  read('scripts/security-runner.mjs').includes("name: 'duo'")
+    && read('scripts/security-runner.mjs').includes("args: ['run', 'security:duo']"));
 addCheck('CI runs Duo readiness through security:all',
   ciWorkflow.includes('npm run security:all'));
 addCheck('Cisco Duo hardening doc exists',

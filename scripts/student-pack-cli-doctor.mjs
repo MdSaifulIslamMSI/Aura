@@ -191,7 +191,9 @@ const localstackHealth = async () => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 1500);
   try {
-    const response = await fetch('http://127.0.0.1:4566/_localstack/health', {
+    // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
+    // LocalStack only exposes a local development health endpoint on loopback.
+    const response = await fetch('http://127.0.0.1:4566/_localstack/health', { // nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
       signal: controller.signal,
     });
     if (!response.ok) {

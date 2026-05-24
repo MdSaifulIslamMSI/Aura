@@ -1,5 +1,6 @@
 const dns = require('dns').promises;
 const net = require('net');
+const path = require('path');
 const fetch = require('node-fetch');
 const { getBreaker } = require('../../utils/circuitBreaker');
 const logger = require('../../utils/logger');
@@ -775,7 +776,7 @@ const fetchRemoteInlineData = async ({ url = '', mimeType = '', timeoutMs = DEFA
     const isImage = responseMimeType.startsWith('image/');
     const validatedMedia = await validateUploadBuffer({
         fileBuffer: buffer,
-        fileName: new URL(validatedUrl).pathname || 'remote-media',
+        fileName: path.basename(new URL(validatedUrl).pathname) || 'remote-media',
         mimeType: responseMimeType,
         allowedMimeTypes: isAudio ? ASSISTANT_AUDIO_ALLOWED_MIME : IMAGE_UPLOAD_ALLOWED_MIME,
         allowedExtensions: isAudio ? ASSISTANT_AUDIO_ALLOWED_EXTENSIONS : IMAGE_UPLOAD_ALLOWED_EXTENSIONS,

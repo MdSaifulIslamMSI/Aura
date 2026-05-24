@@ -1398,22 +1398,34 @@ jobs:
 
     steps:
       - name: Explain rollback decisions
+        env:
+          SHOULD_ROLLBACK_BACKEND: ${{ needs.plan.outputs.should_rollback_backend }}
+          ROLLBACK_BACKEND_RESULT: ${{ needs.rollback-backend.result }}
+          SHOULD_ROLLBACK_FRONTEND_NETLIFY: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
+          ROLLBACK_FRONTEND_NETLIFY_RESULT: ${{ needs.rollback-frontend-netlify.result }}
+          SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_aws }}
+          ROLLBACK_FRONTEND_AWS_RESULT: ${{ needs.rollback-frontend-aws.result }}
+          SHOULD_ROLLBACK_GATEWAY: ${{ needs.plan.outputs.should_rollback_gateway }}
+          ROLLBACK_GATEWAY_RESULT: ${{ needs.rollback-gateway.result }}
+          IS_WORKFLOW_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+          AUTO_ROLLBACK_INPUT: ${{ inputs.auto_rollback_on_smoke_failure || false }}
+          SMOKE_TESTS_RESULT: ${{ needs.smoke-tests.result }}
         run: |
           {
             echo "## Rollback Decisions"
             echo
             echo "| Rollback | Planned/manual | Result |"
             echo "|---|---:|---|"
-            echo "| Backend | ${{ needs.plan.outputs.should_rollback_backend }} | ${{ needs.rollback-backend.result }} |"
-            echo "| Netlify frontend | ${{ needs.plan.outputs.should_rollback_frontend_netlify }} | ${{ needs.rollback-frontend-netlify.result }} |"
-            echo "| AWS frontend | ${{ needs.plan.outputs.should_rollback_frontend_aws }} | ${{ needs.rollback-frontend-aws.result }} |"
-            echo "| Gateway | ${{ needs.plan.outputs.should_rollback_gateway }} | ${{ needs.rollback-gateway.result }} |"
+            echo "| Backend | ${SHOULD_ROLLBACK_BACKEND} | ${ROLLBACK_BACKEND_RESULT} |"
+            echo "| Netlify frontend | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_NETLIFY_RESULT} |"
+            echo "| AWS frontend | ${SHOULD_ROLLBACK_FRONTEND_AWS} | ${ROLLBACK_FRONTEND_AWS_RESULT} |"
+            echo "| Gateway | ${SHOULD_ROLLBACK_GATEWAY} | ${ROLLBACK_GATEWAY_RESULT} |"
             echo
             echo "| Auto rollback condition | Value |"
             echo "|---|---|"
-            echo "| Workflow dispatch | ${{ github.event_name == 'workflow_dispatch' }} |"
-            echo "| Auto rollback input | ${{ inputs.auto_rollback_on_smoke_failure || false }} |"
-            echo "| Smoke result | ${{ needs.smoke-tests.result }} |"
+            echo "| Workflow dispatch | ${IS_WORKFLOW_DISPATCH} |"
+            echo "| Auto rollback input | ${AUTO_ROLLBACK_INPUT} |"
+            echo "| Smoke result | ${SMOKE_TESTS_RESULT} |"
             echo
             echo "Rollbacks only run for confirmed manual rollback requests or for workflow_dispatch smoke failures when auto rollback is explicitly enabled."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -1675,6 +1687,60 @@ jobs:
 
     steps:
       - name: Write production summary
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR_NAME: ${{ github.actor }}
+          REF_NAME: ${{ github.ref }}
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          REQUESTED_PRODUCTION_ACTION: ${{ needs.plan.outputs.requested_production_action }}
+          PLANNED_PRODUCTION_ACTION: ${{ needs.plan.outputs.planned_production_action }}
+          MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
+          SHOULD_RUN_SMOKE_TESTS: ${{ needs.plan.outputs.should_run_smoke_tests }}
+          BACKEND_READY: ${{ needs.plan.outputs.backend_ready }}
+          BACKEND_MISSING: ${{ needs.plan.outputs.backend_missing }}
+          FRONTEND_NETLIFY_READY: ${{ needs.plan.outputs.frontend_netlify_ready }}
+          FRONTEND_NETLIFY_MISSING: ${{ needs.plan.outputs.frontend_netlify_missing }}
+          FRONTEND_AWS_READY: ${{ needs.plan.outputs.frontend_aws_ready }}
+          FRONTEND_AWS_MISSING: ${{ needs.plan.outputs.frontend_aws_missing }}
+          GATEWAY_READY: ${{ needs.plan.outputs.gateway_ready }}
+          GATEWAY_MISSING: ${{ needs.plan.outputs.gateway_missing }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          PRODUCTION_APPROVAL_RESULT: ${{ needs.production-approval.result }}
+          RELEASE_MANIFEST_RESULT: ${{ needs.release-manifest.result }}
+          SHOULD_DEPLOY_BACKEND: ${{ needs.plan.outputs.should_deploy_backend }}
+          DEPLOY_BACKEND_RESULT: ${{ needs.deploy-backend.result }}
+          DEPLOY_BACKEND_NOOP_RESULT: ${{ needs.deploy-backend-noop.result }}
+          SHOULD_DEPLOY_FRONTEND_NETLIFY: ${{ needs.plan.outputs.should_deploy_frontend_netlify }}
+          DEPLOY_FRONTEND_NETLIFY_RESULT: ${{ needs.deploy-frontend-netlify.result }}
+          DEPLOY_FRONTEND_NETLIFY_NOOP_RESULT: ${{ needs.deploy-frontend-netlify-noop.result }}
+          SHOULD_DEPLOY_FRONTEND_AWS: ${{ needs.plan.outputs.should_deploy_frontend_aws }}
+          DEPLOY_FRONTEND_AWS_RESULT: ${{ needs.deploy-frontend-aws.result }}
+          DEPLOY_FRONTEND_AWS_NOOP_RESULT: ${{ needs.deploy-frontend-aws-noop.result }}
+          SHOULD_DEPLOY_GATEWAY: ${{ needs.plan.outputs.should_deploy_gateway }}
+          DEPLOY_GATEWAY_RESULT: ${{ needs.deploy-gateway.result }}
+          DEPLOY_GATEWAY_NOOP_RESULT: ${{ needs.deploy-gateway-noop.result }}
+          SMOKE_TESTS_RESULT: ${{ needs.smoke-tests.result }}
+          SMOKE_TESTS_NOOP_RESULT: ${{ needs.smoke-tests-noop.result }}
+          SHOULD_ROLLBACK_BACKEND: ${{ needs.plan.outputs.should_rollback_backend }}
+          ROLLBACK_BACKEND_RESULT: ${{ needs.rollback-backend.result }}
+          SHOULD_ROLLBACK_FRONTEND_NETLIFY: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
+          ROLLBACK_FRONTEND_NETLIFY_RESULT: ${{ needs.rollback-frontend-netlify.result }}
+          SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_aws }}
+          ROLLBACK_FRONTEND_AWS_RESULT: ${{ needs.rollback-frontend-aws.result }}
+          SHOULD_ROLLBACK_GATEWAY: ${{ needs.plan.outputs.should_rollback_gateway }}
+          ROLLBACK_GATEWAY_RESULT: ${{ needs.rollback-gateway.result }}
+          SHOULD_RELEASE_DESKTOP: ${{ needs.plan.outputs.should_release_desktop }}
+          RELEASE_DESKTOP_RESULT: ${{ needs.release-desktop.result }}
+          RELEASE_DESKTOP_NOOP_RESULT: ${{ needs.release-desktop-noop.result }}
+          SHOULD_RELEASE_MOBILE: ${{ needs.plan.outputs.should_release_mobile }}
+          RELEASE_MOBILE_RESULT: ${{ needs.release-mobile.result }}
+          RELEASE_MOBILE_NOOP_RESULT: ${{ needs.release-mobile-noop.result }}
+          SIGNING_ENABLED: ${{ needs.plan.outputs.signing_enabled }}
+          STORE_PUBLISH_ENABLED: ${{ needs.plan.outputs.store_publish_enabled }}
+          PRODUCTION_TAG_RESULT: ${{ needs.production-tag.result }}
+          PRODUCTION_TAG: ${{ needs.production-tag.outputs.tag }}
         run: |
           {
             echo "## Aura Production Release Summary"
@@ -1683,90 +1749,90 @@ jobs:
             echo
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Event | ${{ github.event_name }} |"
-            echo "| Actor | ${{ github.actor }} |"
-            echo "| Ref | ${{ github.ref }} |"
-            echo "| SHA | ${{ github.sha }} |"
-            echo "| Run | ${{ github.run_id }} |"
+            echo "| Event | ${EVENT_NAME} |"
+            echo "| Actor | ${ACTOR_NAME} |"
+            echo "| Ref | ${REF_NAME} |"
+            echo "| SHA | ${COMMIT_SHA} |"
+            echo "| Run | ${RUN_ID} |"
             echo
             echo "### B. Plan decisions"
             echo
             echo "| Decision | Value |"
             echo "|---|---|"
-            echo "| Requested production action | ${{ needs.plan.outputs.requested_production_action }} |"
-            echo "| Planned production action | ${{ needs.plan.outputs.planned_production_action }} |"
-            echo "| Manual confirmed | ${{ needs.plan.outputs.manual_confirmed }} |"
-            echo "| Should run smoke tests | ${{ needs.plan.outputs.should_run_smoke_tests }} |"
+            echo "| Requested production action | ${REQUESTED_PRODUCTION_ACTION} |"
+            echo "| Planned production action | ${PLANNED_PRODUCTION_ACTION} |"
+            echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
+            echo "| Should run smoke tests | ${SHOULD_RUN_SMOKE_TESTS} |"
             echo
             echo "### C. Provider readiness"
             echo
             echo "| Provider | Ready | Missing config names |"
             echo "|---|---:|---|"
-            echo "| Backend AWS | ${{ needs.plan.outputs.backend_ready }} | ${{ needs.plan.outputs.backend_missing }} |"
-            echo "| Frontend Netlify | ${{ needs.plan.outputs.frontend_netlify_ready }} | ${{ needs.plan.outputs.frontend_netlify_missing }} |"
-            echo "| Frontend AWS | ${{ needs.plan.outputs.frontend_aws_ready }} | ${{ needs.plan.outputs.frontend_aws_missing }} |"
-            echo "| Gateway Vercel | ${{ needs.plan.outputs.gateway_ready }} | ${{ needs.plan.outputs.gateway_missing }} |"
+            echo "| Backend AWS | ${BACKEND_READY} | ${BACKEND_MISSING} |"
+            echo "| Frontend Netlify | ${FRONTEND_NETLIFY_READY} | ${FRONTEND_NETLIFY_MISSING} |"
+            echo "| Frontend AWS | ${FRONTEND_AWS_READY} | ${FRONTEND_AWS_MISSING} |"
+            echo "| Gateway Vercel | ${GATEWAY_READY} | ${GATEWAY_MISSING} |"
             echo
             echo "### D. CI/security/approval results"
             echo
             echo "| Gate | Result |"
             echo "|---|---|"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Production approval | ${{ needs.production-approval.result }} |"
-            echo "| Release manifest | ${{ needs.release-manifest.result }} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Production approval | ${PRODUCTION_APPROVAL_RESULT} |"
+            echo "| Release manifest | ${RELEASE_MANIFEST_RESULT} |"
             echo
             echo "### E. Deploy decisions/results"
             echo
             echo "| Deploy | Planned | Result | No-op job |"
             echo "|---|---:|---|---|"
-            echo "| Backend AWS | ${{ needs.plan.outputs.should_deploy_backend }} | ${{ needs.deploy-backend.result }} | ${{ needs.deploy-backend-noop.result }} |"
-            echo "| Frontend Netlify | ${{ needs.plan.outputs.should_deploy_frontend_netlify }} | ${{ needs.deploy-frontend-netlify.result }} | ${{ needs.deploy-frontend-netlify-noop.result }} |"
-            echo "| Frontend AWS | ${{ needs.plan.outputs.should_deploy_frontend_aws }} | ${{ needs.deploy-frontend-aws.result }} | ${{ needs.deploy-frontend-aws-noop.result }} |"
-            echo "| Gateway Vercel | ${{ needs.plan.outputs.should_deploy_gateway }} | ${{ needs.deploy-gateway.result }} | ${{ needs.deploy-gateway-noop.result }} |"
+            echo "| Backend AWS | ${SHOULD_DEPLOY_BACKEND} | ${DEPLOY_BACKEND_RESULT} | ${DEPLOY_BACKEND_NOOP_RESULT} |"
+            echo "| Frontend Netlify | ${SHOULD_DEPLOY_FRONTEND_NETLIFY} | ${DEPLOY_FRONTEND_NETLIFY_RESULT} | ${DEPLOY_FRONTEND_NETLIFY_NOOP_RESULT} |"
+            echo "| Frontend AWS | ${SHOULD_DEPLOY_FRONTEND_AWS} | ${DEPLOY_FRONTEND_AWS_RESULT} | ${DEPLOY_FRONTEND_AWS_NOOP_RESULT} |"
+            echo "| Gateway Vercel | ${SHOULD_DEPLOY_GATEWAY} | ${DEPLOY_GATEWAY_RESULT} | ${DEPLOY_GATEWAY_NOOP_RESULT} |"
             echo
             echo "### F. Smoke test result"
             echo
             echo "| Job | Result |"
             echo "|---|---|"
-            echo "| Smoke tests | ${{ needs.smoke-tests.result }} |"
-            echo "| Smoke tests no-op | ${{ needs.smoke-tests-noop.result }} |"
+            echo "| Smoke tests | ${SMOKE_TESTS_RESULT} |"
+            echo "| Smoke tests no-op | ${SMOKE_TESTS_NOOP_RESULT} |"
             echo
             echo "### G. Rollback decisions/results"
             echo
             echo "| Rollback | Planned | Result |"
             echo "|---|---:|---|"
-            echo "| Backend | ${{ needs.plan.outputs.should_rollback_backend }} | ${{ needs.rollback-backend.result }} |"
-            echo "| Frontend Netlify | ${{ needs.plan.outputs.should_rollback_frontend_netlify }} | ${{ needs.rollback-frontend-netlify.result }} |"
-            echo "| Frontend AWS | ${{ needs.plan.outputs.should_rollback_frontend_aws }} | ${{ needs.rollback-frontend-aws.result }} |"
-            echo "| Gateway | ${{ needs.plan.outputs.should_rollback_gateway }} | ${{ needs.rollback-gateway.result }} |"
+            echo "| Backend | ${SHOULD_ROLLBACK_BACKEND} | ${ROLLBACK_BACKEND_RESULT} |"
+            echo "| Frontend Netlify | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_NETLIFY_RESULT} |"
+            echo "| Frontend AWS | ${SHOULD_ROLLBACK_FRONTEND_AWS} | ${ROLLBACK_FRONTEND_AWS_RESULT} |"
+            echo "| Gateway | ${SHOULD_ROLLBACK_GATEWAY} | ${ROLLBACK_GATEWAY_RESULT} |"
             echo
             echo "### H. Desktop/mobile release result"
             echo
             echo "| Release | Planned | Result | No-op job |"
             echo "|---|---:|---|---|"
-            echo "| Desktop | ${{ needs.plan.outputs.should_release_desktop }} | ${{ needs.release-desktop.result }} | ${{ needs.release-desktop-noop.result }} |"
-            echo "| Mobile | ${{ needs.plan.outputs.should_release_mobile }} | ${{ needs.release-mobile.result }} | ${{ needs.release-mobile-noop.result }} |"
+            echo "| Desktop | ${SHOULD_RELEASE_DESKTOP} | ${RELEASE_DESKTOP_RESULT} | ${RELEASE_DESKTOP_NOOP_RESULT} |"
+            echo "| Mobile | ${SHOULD_RELEASE_MOBILE} | ${RELEASE_MOBILE_RESULT} | ${RELEASE_MOBILE_NOOP_RESULT} |"
             echo
             echo "### I. Signing status"
             echo
             echo "| Platform | Required | Enabled |"
             echo "|---|---:|---:|"
-            echo "| Windows | false | ${{ needs.plan.outputs.signing_enabled }} |"
-            echo "| macOS | false | ${{ needs.plan.outputs.signing_enabled }} |"
-            echo "| Android | false | ${{ needs.plan.outputs.signing_enabled }} |"
-            echo "| iOS | false | ${{ needs.plan.outputs.signing_enabled }} |"
+            echo "| Windows | false | ${SIGNING_ENABLED} |"
+            echo "| macOS | false | ${SIGNING_ENABLED} |"
+            echo "| Android | false | ${SIGNING_ENABLED} |"
+            echo "| iOS | false | ${SIGNING_ENABLED} |"
             echo
             echo "### J. Store publishing status"
             echo
             echo "| Store publishing | Enabled |"
             echo "|---|---:|"
-            echo "| Microsoft Store / Mac App Store / Google Play / App Store | ${{ needs.plan.outputs.store_publish_enabled }} |"
+            echo "| Microsoft Store / Mac App Store / Google Play / App Store | ${STORE_PUBLISH_ENABLED} |"
             echo
             echo "### K. Production tag"
             echo
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Tag job result | ${{ needs.production-tag.result }} |"
-            echo "| Tag | ${{ needs.production-tag.outputs.tag }} |"
+            echo "| Tag job result | ${PRODUCTION_TAG_RESULT} |"
+            echo "| Tag | ${PRODUCTION_TAG} |"
           } >> "$GITHUB_STEP_SUMMARY"

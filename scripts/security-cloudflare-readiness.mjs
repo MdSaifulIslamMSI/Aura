@@ -4,6 +4,7 @@ import path from 'node:path';
 
 const repoRoot = process.cwd();
 const reportsDir = path.join(repoRoot, 'security-reports');
+const npxCommand = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 mkdirSync(reportsDir, { recursive: true });
 
 if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
@@ -26,10 +27,9 @@ const run = (command, args) => spawnSync(command, args, {
   shell: false,
 });
 
-const runConstantShellCommand = (command) => spawnSync(command, {
+const runNpx = (args) => spawnSync(npxCommand, args, {
   cwd: repoRoot,
   encoding: 'utf8',
-  shell: true,
   timeout: 15000,
 });
 
@@ -63,7 +63,8 @@ const freeRules = hasFile('infra/cloudflare/free-security-rules.json')
 addCheck('npm script security:cloudflare exists',
   packageJson.scripts?.['security:cloudflare']?.includes('node scripts/security-cloudflare-readiness.mjs'));
 addCheck('security runner includes Cloudflare category',
-  securityRunner.includes("['cloudflare', 'npm run security:cloudflare']"));
+  securityRunner.includes("name: 'cloudflare'")
+    && securityRunner.includes("args: ['run', 'security:cloudflare']"));
 addCheck('CI runs Cloudflare security readiness',
   ciWorkflow.includes('npm run security:cloudflare'));
 addCheck('Cloudflare hardening doc exists',
@@ -101,8 +102,8 @@ addCheck('authenticated API surfaces are covered by no-store header tests',
 addCheck('Cloudflare live credentials are not required for CI',
   !ciWorkflow.includes('CLOUDFLARE_API_TOKEN'));
 
-const wranglerVersion = runConstantShellCommand('npx wrangler --version');
-const wranglerWhoami = runConstantShellCommand('npx wrangler whoami');
+const wranglerVersion = runNpx(['wrangler', '--version']);
+const wranglerWhoami = runNpx(['wrangler', 'whoami']);
 const wranglerAuthenticated = wranglerWhoami.status === 0 && /You are logged in/i.test(`${wranglerWhoami.stdout}\n${wranglerWhoami.stderr}`);
 
 addCheck('Wrangler CLI visibility is optional for local readiness',

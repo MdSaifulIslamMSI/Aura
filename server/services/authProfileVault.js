@@ -70,7 +70,7 @@ const encrypt = (text, secret) => {
     try {
         const iv = crypto.randomBytes(12);
         const key = crypto.scryptSync(secret, KEY_DERIVATION_SALT, 32);
-        const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+        const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
         let encrypted = cipher.update(text, 'utf8', 'hex');
         encrypted += cipher.final('hex');
         const authTag = cipher.getAuthTag().toString('hex');
@@ -88,7 +88,7 @@ const decrypt = (data, secret) => {
         const iv = Buffer.from(ivHex, 'hex');
         const authTag = Buffer.from(authTagHex, 'hex');
         const key = crypto.scryptSync(secret, KEY_DERIVATION_SALT, 32);
-        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
         decipher.setAuthTag(authTag);
         let decrypted = decipher.update(encrypted, 'hex', 'utf8');
         decrypted += decipher.final('utf8');

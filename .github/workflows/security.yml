@@ -1,0 +1,95 @@
+name: Security Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      STAGING_URL: ${{ vars.STAGING_URL || '' }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
+
+      - name: Install app dependencies
+        run: npm --prefix app ci
+
+      - name: Run regression tests
+        run: npm test
+
+      - name: Run high/critical dependency gate
+        run: npm run security:deps
+
+      - name: Run Gitleaks secret scan
+        run: npm run security:gitleaks
+
+      - name: Run Semgrep static analysis
+        run: npm run security:semgrep
+
+      - name: Run Trivy filesystem scan
+        run: npm run security:trivy
+
+      - name: Run Hadolint Dockerfile scan
+        run: npm run security:hadolint
+
+      - name: Run OWASP ZAP baseline against staging
+        if: ${{ env.STAGING_URL != '' }}
+        run: npm run security:zap -- "$STAGING_URL"
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: security-gate-reports
+          path: security-reports/
+          retention-days: 14
+
+  docker-image-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: security
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Run Trivy image scan
+        run: npm run security:trivy:image
+
+      - name: Upload image security reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: docker-image-security-reports
+          path: security-reports/
+          retention-days: 14

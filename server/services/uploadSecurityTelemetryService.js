@@ -13,6 +13,7 @@ const REASONS = new Set([
     'malware_scan_unavailable',
     'missing_extension',
     'oversized',
+    'unsafe_filename',
     'unsupported_extension',
     'unsupported_mime',
 ]);

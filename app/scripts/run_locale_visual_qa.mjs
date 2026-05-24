@@ -12,14 +12,11 @@ const args = [
     '--config',
     'playwright.locale-qa.config.js',
 ];
-const command = process.platform === 'win32'
-    ? `npx ${args.join(' ')}`
-    : 'npx';
+const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
-const child = spawn(command, process.platform === 'win32' ? [] : args, {
+const child = spawn(command, args, {
     cwd: appDir,
     stdio: 'inherit',
-    shell: process.platform === 'win32',
     env: {
         ...process.env,
         LOCALE_VISUAL_QA: '1',
