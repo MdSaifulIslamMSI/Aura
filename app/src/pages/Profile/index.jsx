@@ -27,6 +27,7 @@ import { getFirebaseSocialAuthStatus } from '@/config/firebase';
 import { paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
+import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
 import { openStripeSetupModal } from '@/utils/stripe';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 
@@ -82,6 +83,7 @@ export default function Profile() {
         linkAppleProvider,
         updateProfile: updateProfileInContext,
         generateRecoveryCodes,
+        isAuthenticated,
     } = useContext(AuthContext);
     const { cartItems } = useContext(CartContext);
     const { wishlistItems } = useContext(WishlistContext);
@@ -131,6 +133,7 @@ export default function Profile() {
     const fileInputRef = useRef(null);
     const editModeRef = useRef(false);
     const tabs = useMemo(() => buildTabs(t), [t]);
+    const canUseProtectedProfileApis = Boolean(currentUser?.uid && isAuthenticated);
     const socialAuthStatus = useMemo(() => getFirebaseSocialAuthStatus(), [currentUser?.uid]);
     const linkedProviderIds = useMemo(() => (
         Array.isArray(currentUser?.providerData)
@@ -156,6 +159,12 @@ export default function Profile() {
     }, []);
 
     const refreshPaymentMethods = useCallback(async ({ silent = false } = {}) => {
+        if (!canUseProtectedProfileApis) {
+            setPaymentMethods([]);
+            setPaymentMethodsLoading(false);
+            return [];
+        }
+
         if (!silent) {
             setPaymentMethodsLoading(true);
         }
@@ -169,7 +178,9 @@ export default function Profile() {
             setPaymentMethods(nextMethods);
             return nextMethods;
         } catch (error) {
-            console.error('Failed to load payment methods', error);
+            if (!isTrustedDeviceChallengeError(error)) {
+                console.error('Failed to load payment methods', error);
+            }
             setPaymentMethods([]);
             return [];
         } finally {
@@ -177,10 +188,10 @@ export default function Profile() {
                 setPaymentMethodsLoading(false);
             }
         }
-    }, []);
+    }, [canUseProtectedProfileApis]);
 
     const refreshNetbankingCatalog = useCallback(async ({ silent = false } = {}) => {
-        if (!currentUser?.uid) {
+        if (!canUseProtectedProfileApis) {
             setNetbankingCatalog(null);
             setNetbankingCatalogLoading(false);
             return null;
@@ -195,7 +206,9 @@ export default function Profile() {
             setNetbankingCatalog(catalog || { banks: [], featuredBanks: [] });
             return catalog;
         } catch (error) {
-            console.error('Failed to load netbanking catalog', error);
+            if (!isTrustedDeviceChallengeError(error)) {
+                console.error('Failed to load netbanking catalog', error);
+            }
             if (!silent) {
                 showMsg('error', error.message || t('profile.message.netbankingCatalogFailed', {}, 'Failed to load netbanking banks.'));
             }
@@ -206,10 +219,10 @@ export default function Profile() {
                 setNetbankingCatalogLoading(false);
             }
         }
-    }, [currentUser?.uid, showMsg, t]);
+    }, [canUseProtectedProfileApis, showMsg, t]);
 
     const refreshTrustStatus = useCallback(async ({ silent = false } = {}) => {
-        if (!currentUser?.uid) {
+        if (!canUseProtectedProfileApis) {
             setTrustStatus(DEFAULT_TRUST_STATUS);
             setTrustLoading(false);
             return DEFAULT_TRUST_STATUS;
@@ -222,7 +235,9 @@ export default function Profile() {
             const nextStatus = await trustApi.getHealthStatus();
             setTrustStatus(nextStatus || DEFAULT_TRUST_STATUS);
         } catch (error) {
-            console.error('Trust status fetch failed:', error);
+            if (!isTrustedDeviceChallengeError(error)) {
+                console.error('Trust status fetch failed:', error);
+            }
             setTrustStatus((previous) => ({
                 ...previous,
                 derivedStatus: 'degraded',
@@ -233,10 +248,10 @@ export default function Profile() {
                 setTrustLoading(false);
             }
         }
-    }, [currentUser?.uid]);
+    }, [canUseProtectedProfileApis]);
 
     const refreshIntelligence = useCallback(async ({ silent = false } = {}) => {
-        if (!currentUser?.uid) {
+        if (!canUseProtectedProfileApis) {
             setIntelligenceData(null);
             setIntelligenceLoading(false);
             return null;
@@ -249,7 +264,7 @@ export default function Profile() {
             const nextData = await intelligenceApi.getLatestRewards();
             setIntelligenceData(nextData || null);
         } catch (error) {
-            if (!isNotFoundError(error)) {
+            if (!isNotFoundError(error) && !isTrustedDeviceChallengeError(error)) {
                 console.error('Intelligence fetch failed:', error);
             }
             setIntelligenceData(null);
@@ -258,10 +273,10 @@ export default function Profile() {
                 setIntelligenceLoading(false);
             }
         }
-    }, [currentUser?.uid]);
+    }, [canUseProtectedProfileApis]);
 
     const refreshRewards = useCallback(async ({ silent = false } = {}) => {
-        if (!currentUser?.uid) {
+        if (!canUseProtectedProfileApis) {
             setRewards(null);
             setRewardsLoading(false);
             return null;
@@ -276,7 +291,9 @@ export default function Profile() {
             setRewards(result?.rewards || result || null);
             return result?.rewards || result || null;
         } catch (error) {
-            console.error('Rewards fetch failed:', error);
+            if (!isTrustedDeviceChallengeError(error)) {
+                console.error('Rewards fetch failed:', error);
+            }
             setRewards(null);
             return null;
         } finally {
@@ -284,10 +301,10 @@ export default function Profile() {
                 setRewardsLoading(false);
             }
         }
-    }, [currentUser?.uid]);
+    }, [canUseProtectedProfileApis]);
 
     const refreshProfileDeck = useCallback(async ({ silent = false } = {}) => {
-        if (!currentUser?.uid) {
+        if (!canUseProtectedProfileApis) {
             setProfile(dbUser || null);
             setDashboard(null);
             setLoading(false);
@@ -312,7 +329,9 @@ export default function Profile() {
 
             return { profileData, dashData };
         } catch (error) {
-            console.error('Profile fetch failed:', error);
+            if (!isTrustedDeviceChallengeError(error)) {
+                console.error('Profile fetch failed:', error);
+            }
             if (dbUser) {
                 setProfile((previous) => ({ ...(previous || {}), ...dbUser }));
                 if (!editModeRef.current) {
@@ -325,11 +344,11 @@ export default function Profile() {
                 setLoading(false);
             }
         }
-    }, [createEditForm, currentUser, dbUser]);
+    }, [canUseProtectedProfileApis, createEditForm, currentUser, dbUser]);
 
     useEffect(() => {
         void refreshProfileDeck();
-    }, [currentUser?.uid, refreshProfileDeck]);
+    }, [canUseProtectedProfileApis, refreshProfileDeck]);
 
     useEffect(() => {
         if (!dbUser) return;
@@ -343,24 +362,24 @@ export default function Profile() {
 
     useEffect(() => {
         void refreshPaymentMethods();
-    }, [currentUser?.uid, refreshPaymentMethods]);
+    }, [canUseProtectedProfileApis, refreshPaymentMethods]);
 
     useEffect(() => {
-        if (activeTab !== 'payments' || !currentUser?.uid || netbankingCatalog) return;
+        if (activeTab !== 'payments' || !canUseProtectedProfileApis || netbankingCatalog) return;
         void refreshNetbankingCatalog({ silent: true });
-    }, [activeTab, currentUser?.uid, netbankingCatalog, refreshNetbankingCatalog]);
+    }, [activeTab, canUseProtectedProfileApis, netbankingCatalog, refreshNetbankingCatalog]);
 
     useEffect(() => {
         void refreshRewards();
-    }, [currentUser?.uid, refreshRewards]);
+    }, [canUseProtectedProfileApis, refreshRewards]);
 
     useEffect(() => {
         void refreshTrustStatus();
-    }, [currentUser?.uid, refreshTrustStatus]);
+    }, [canUseProtectedProfileApis, refreshTrustStatus]);
 
     useEffect(() => {
         void refreshIntelligence();
-    }, [currentUser?.uid, refreshIntelligence]);
+    }, [canUseProtectedProfileApis, refreshIntelligence]);
 
     useActiveWindowRefresh(
         () => Promise.all([
@@ -372,7 +391,7 @@ export default function Profile() {
             refreshIntelligence({ silent: true }),
         ]),
         {
-            enabled: Boolean(currentUser?.uid),
+            enabled: canUseProtectedProfileApis,
             intervalMs: 45 * 1000,
         }
     );

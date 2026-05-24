@@ -63,7 +63,7 @@ describe('CommerceProvider', () => {
     });
 
     render(
-      <AuthContext.Provider value={{ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false }}>
+      <AuthContext.Provider value={{ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false, isAuthenticated: true }}>
         <CommerceProvider>
           <div>Commerce Ready</div>
         </CommerceProvider>
@@ -91,7 +91,7 @@ describe('CommerceProvider', () => {
     });
 
     render(
-      <AuthContext.Provider value={{ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false }}>
+      <AuthContext.Provider value={{ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false, isAuthenticated: true }}>
         <CommerceProvider>
           <div>Commerce Ready</div>
         </CommerceProvider>
@@ -145,7 +145,7 @@ describe('CommerceProvider', () => {
     });
 
     render(
-      <AuthContext.Provider value={{ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false }}>
+      <AuthContext.Provider value={{ currentUser: { uid: 'user-1', email: 'user@example.com' }, loading: false, isAuthenticated: true }}>
         <CommerceProvider>
           <div>Commerce Ready</div>
         </CommerceProvider>
@@ -165,5 +165,51 @@ describe('CommerceProvider', () => {
       expect(userApi.getCart).toHaveBeenCalledTimes(2);
       expect(userApi.getWishlist).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('does not poll protected commerce APIs during trusted-device challenge', async () => {
+    const getCartSpy = vi.spyOn(userApi, 'getCart').mockResolvedValue({
+      items: [],
+      revision: 0,
+      syncedAt: null,
+    });
+    const getWishlistSpy = vi.spyOn(userApi, 'getWishlist').mockResolvedValue({
+      items: [],
+      revision: 0,
+      syncedAt: null,
+    });
+
+    const originalBindAuthUser = useCommerceStore.getState().bindAuthUser;
+    const bindAuthUserSpy = vi.fn((...args) => originalBindAuthUser(...args));
+    useCommerceStore.setState({
+      bindAuthUser: bindAuthUserSpy,
+    });
+
+    render(
+      <AuthContext.Provider
+        value={{
+          currentUser: { uid: 'user-1', email: 'user@example.com' },
+          loading: false,
+          isAuthenticated: false,
+          status: 'device_challenge_required',
+        }}
+      >
+        <CommerceProvider>
+          <div>Commerce Ready</div>
+        </CommerceProvider>
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(bindAuthUserSpy).toHaveBeenCalledWith(null);
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+    });
+
+    expect(getCartSpy).not.toHaveBeenCalled();
+    expect(getWishlistSpy).not.toHaveBeenCalled();
+    expect(socketMock.on).not.toHaveBeenCalledWith('cart.updated', expect.any(Function));
   });
 });

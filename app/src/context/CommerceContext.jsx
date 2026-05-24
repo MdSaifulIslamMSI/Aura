@@ -6,12 +6,13 @@ import { useSocket } from './SocketContext';
 import { initializeCommerceSync, useCommerceStore } from '../store/commerceStore';
 
 export const CommerceProvider = ({ children }) => {
-  const { currentUser, loading: isAuthLoading } = useContext(AuthContext);
+  const { currentUser, loading: isAuthLoading, isAuthenticated } = useContext(AuthContext);
   const { socket } = useSocket() || {};
   const bindAuthUser = useCommerceStore((state) => state.bindAuthUser);
   const hydrateCart = useCommerceStore((state) => state.hydrateCart);
   const hydrateWishlist = useCommerceStore((state) => state.hydrateWishlist);
   const receiveExternalSnapshot = useCommerceStore((state) => state.receiveExternalSnapshot);
+  const canUseProtectedCommerce = Boolean(currentUser?.uid && isAuthenticated);
 
   useEffect(() => {
     const cleanup = initializeCommerceSync();
@@ -23,11 +24,11 @@ export const CommerceProvider = ({ children }) => {
       return;
     }
 
-    bindAuthUser(currentUser || null).catch(() => {});
-  }, [bindAuthUser, currentUser?.email, currentUser?.uid, isAuthLoading]);
+    bindAuthUser(canUseProtectedCommerce ? currentUser : null).catch(() => {});
+  }, [bindAuthUser, canUseProtectedCommerce, currentUser?.email, currentUser?.uid, isAuthLoading]);
 
   useEffect(() => {
-    if (!socket || !currentUser?.uid) {
+    if (!socket || !canUseProtectedCommerce) {
       return undefined;
     }
 
@@ -39,10 +40,10 @@ export const CommerceProvider = ({ children }) => {
     return () => {
       socket.off('cart.updated', handleCartUpdated);
     };
-  }, [currentUser?.uid, receiveExternalSnapshot, socket]);
+  }, [canUseProtectedCommerce, currentUser?.uid, receiveExternalSnapshot, socket]);
 
   useEffect(() => {
-    if (isAuthLoading || !currentUser?.uid || typeof window === 'undefined' || typeof document === 'undefined') {
+    if (isAuthLoading || !canUseProtectedCommerce || typeof window === 'undefined' || typeof document === 'undefined') {
       return undefined;
     }
 
@@ -51,8 +52,8 @@ export const CommerceProvider = ({ children }) => {
         return;
       }
 
-      void hydrateCart({ force: true });
-      void hydrateWishlist({ force: true });
+      void hydrateCart({ force: true }).catch(() => {});
+      void hydrateWishlist({ force: true }).catch(() => {});
     };
 
     const handleVisibilityChange = () => {
@@ -78,7 +79,7 @@ export const CommerceProvider = ({ children }) => {
       window.removeEventListener('online', refreshCommerce);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [currentUser?.uid, hydrateCart, hydrateWishlist, isAuthLoading]);
+  }, [canUseProtectedCommerce, hydrateCart, hydrateWishlist, isAuthLoading]);
 
   return (
     <CartProvider>
