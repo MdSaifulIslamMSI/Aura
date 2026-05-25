@@ -69,15 +69,16 @@ const images = {
 
 const runDocker = (args, options = {}) => run('docker', args, options);
 
-const runDockerReportOnly = (args, reportPath) => {
+const runDockerReportOnly = (args, reportPath, options = {}) => {
   const result = spawnSync('docker', args, {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
   const output = `${result.stdout || ''}${result.stderr || ''}`;
-  if (reportPath && output.trim()) {
-    fs.writeFileSync(reportPath, output);
+  const reportOutput = options.stdoutOnly ? (result.stdout || '') : output;
+  if (reportPath && reportOutput.trim()) {
+    fs.writeFileSync(reportPath, reportOutput);
   }
   process.stdout.write(output);
 
@@ -350,22 +351,14 @@ const runIac = () => {
   runDockerReportOnly([
     'run', '--rm',
     '-v', iacScanMount,
-    '-v', iacReportMount,
     images.checkov,
     '-d', '/repo',
     '--quiet',
     '--compact',
     '--framework', 'cloudformation,dockerfile,github_actions,secrets,kubernetes',
     '--output', 'json',
-    '--output-file-path', '/reports/checkov-report.json',
     '--soft-fail',
-  ]);
-  const checkovNestedReport = path.join(checkovReport, 'results_json.json');
-  if (fs.existsSync(checkovNestedReport)) {
-    const report = fs.readFileSync(checkovNestedReport);
-    fs.rmSync(checkovReport, { recursive: true, force: true });
-    fs.writeFileSync(checkovReport, report);
-  }
+  ], checkovReport, { stdoutOnly: true });
 
   runDockerReportOnly([
     'run', '--rm',
