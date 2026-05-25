@@ -1,0 +1,19 @@
+* @MdSaifulIslamMSI
+
+/.github/ @MdSaifulIslamMSI
+/docs/security/ @MdSaifulIslamMSI
+/security/ @MdSaifulIslamMSI
+/scripts/security/ @MdSaifulIslamMSI
+/server/middleware/authMiddleware.js @MdSaifulIslamMSI
+/server/middleware/csrfMiddleware.js @MdSaifulIslamMSI
+/server/middleware/distributedRateLimit.js @MdSaifulIslamMSI
+/server/middleware/securityMiddleware.js @MdSaifulIslamMSI
+/server/services/uploadSecurityPipeline.js @MdSaifulIslamMSI
+/server/services/malwareScanService.js @MdSaifulIslamMSI
+/server/services/authSessionService.js @MdSaifulIslamMSI
+/server/services/authSecurityTelemetryService.js @MdSaifulIslamMSI
+/server/services/payments/ @MdSaifulIslamMSI
+/server/routes/admin*.js @MdSaifulIslamMSI
+/server/routes/*auth*.js @MdSaifulIslamMSI
+/server/routes/*upload*.js @MdSaifulIslamMSI
+/infra/ @MdSaifulIslamMSI
