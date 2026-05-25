@@ -1,0 +1,20 @@
+- rule: Aura Unexpected Shell In Container
+  desc: Detect shell execution inside Aura runtime containers
+  condition: spawned_process and container and proc.name in (sh, bash, ash, zsh)
+  output: "Unexpected shell in container (user=%user.name command=%proc.cmdline container=%container.name)"
+  priority: WARNING
+  tags: [runtime, container, aura]
+
+- rule: Aura Sensitive File Read
+  desc: Detect reads of local env or credential files inside Aura containers
+  condition: open_read and container and fd.name contains ".env"
+  output: "Sensitive file read in container (file=%fd.name command=%proc.cmdline container=%container.name)"
+  priority: CRITICAL
+  tags: [runtime, secrets, aura]
+
+- rule: Aura Package Manager In Runtime
+  desc: Detect package manager use in production runtime containers
+  condition: spawned_process and container and proc.name in (npm, npx, yarn, pnpm, apk, apt, apt-get)
+  output: "Package manager executed in runtime container (command=%proc.cmdline container=%container.name)"
+  priority: WARNING
+  tags: [runtime, supply-chain, aura]

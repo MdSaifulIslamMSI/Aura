@@ -1,0 +1,56 @@
+groups:
+  - name: aura-security-alerts
+    rules:
+      - alert: AuraFailedLoginSpikeByAccount
+        expr: increase(aura_security_events_total{event="auth.login.failed"}[10m]) >= 10
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: Many failed logins for one or more accounts
+          playbook: security/playbooks/account-takeover.md
+
+      - alert: AuraFailedLoginSpikeByIp
+        expr: increase(aura_security_events_total{event="auth.login.failed"}[10m]) >= 50
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: Many failed logins from a source IP
+          playbook: security/playbooks/account-takeover.md
+
+      - alert: AuraUploadMalwareDetected
+        expr: increase(aura_security_events_total{event="upload.malware_detected"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Malware upload detected
+          playbook: security/playbooks/malware-upload.md
+
+      - alert: AuraWebhookSignatureFailures
+        expr: increase(aura_security_events_total{event="webhook.signature_invalid"}[10m]) >= 5
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: Webhook signature failures spiking
+          playbook: security/playbooks/production-regression.md
+
+      - alert: AuraTenantCrossAccessDeniedSpike
+        expr: increase(aura_security_events_total{event="tenant.cross_access.denied"}[10m]) >= 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Tenant cross-access denials spiking
+          playbook: security/playbooks/tenant-data-leak.md
+
+      - alert: AuraPrivateIpEgressBlocked
+        expr: increase(aura_security_events_total{event="egress.private_ip_blocked"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: SSRF/private IP egress attempt blocked
+          playbook: security/playbooks/ssrf-attempt.md

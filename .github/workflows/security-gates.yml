@@ -1,0 +1,212 @@
+name: Security Gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  id-token: write
+
+concurrency:
+  group: security-gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run regression tests
+        run: npm test
+
+  evidence:
+    name: Evidence Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify security evidence map
+        run: npm run security:evidence
+
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run high and critical dependency audit
+        run: npm run security:deps
+
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Gitleaks
+        run: npm run security:gitleaks
+      - name: Upload secret scan report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: gitleaks-report
+          path: security-reports/gitleaks-report.json
+          retention-days: 30
+
+  sast:
+    name: SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Semgrep
+        run: npm run security:semgrep
+      - name: Upload Semgrep report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: semgrep-report
+          path: security-reports/semgrep-report.json
+          retention-days: 30
+
+  trivy-fs:
+    name: Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run Trivy filesystem scan
+        run: npm run security:trivy
+      - name: Upload Trivy filesystem reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: trivy-fs-reports
+          path: |
+            security-reports/trivy-fs.json
+            security-reports/trivy-fs-table.txt
+          retention-days: 30
+
+  sbom:
+    name: SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: sbom.spdx.json
+          retention-days: 90
+
+  zap-baseline:
+    name: DAST - OWASP ZAP Baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [tests]
+    if: ${{ vars.STAGING_URL != '' }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ZAP baseline against staging
+        run: npm run security:zap -- "${{ vars.STAGING_URL }}"
+      - name: Upload ZAP reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: zap-baseline-report
+          path: |
+            security-reports/zap-baseline.html
+            security-reports/zap-baseline.json
+            security-reports/zap-baseline.md
+          retention-days: 30
+
+  security-suite:
+    name: Focused Security Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [tests]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci
+      - name: Install server dependencies
+        run: npm --prefix server ci
+      - name: Run auth, authorization, upload, webhook, rate-limit, header, and logging tests
+        run: |
+          npm run security:auth
+          npm run security:access-control
+          npm run security:tokens
+          npm run security:rate-limit
+          npm run security:cors-csrf
+          npm run security:admin
+          npm run security:webhooks
+          npm run security:headers
+          npm run security:logging
+          npm run security:malware-runtime

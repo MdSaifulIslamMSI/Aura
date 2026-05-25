@@ -93,6 +93,7 @@
     "security:edge-assets": "node scripts/validate-edge-security-assets.mjs",
     "security:post-merge-smoke": "node scripts/post-merge-security-smoke.mjs",
     "security:report": "node scripts/security-report.mjs",
+    "security:evidence": "node scripts/security/check-security-evidence.mjs",
     "seed:emergency-flags": "npm --prefix server run seed:emergency-flags",
     "test:emergency-controls": "npm --prefix server run test:emergency-controls && npm --prefix app test -- EmergencyStatusContext.test.jsx",
     "security:login-gates": "npm run security:deprecated && npm run security:audit && npm run security:prod-hardening-audit && npm run security:prod-env-audit && npm run security:login-next10 && npm run security:attack-smoke && npm run security:auth-tests",
