@@ -10,10 +10,14 @@ This inventory records what is visible in the repository at the time of the zero
 | Uploads | Yes | Upload token checks, size/MIME/extension checks, magic-byte verification, unsafe filename block, malware scan integration, upload telemetry, runtime malware validation script | Prove production ClamAV/YARA availability and quarantine storage policy | Critical |
 | API | Yes | Helmet/CSP, CORS allowlist, request IDs, body limits, Redis-backed rate limiting, origin protection, timeout middleware, validation helpers | Per-route proof matrix for every public/admin/AI/search endpoint | High |
 | Database | Partial | Mongoose models, owner checks in security tests, Redis health checks, production DB contract audits | DB-level RLS is not applicable to Mongo; document app-layer tenant guarantees, backup encryption, restore evidence, DB audit export | High |
-| CI/CD | Yes | Existing security workflow, free scanner workflow, dependency audit scripts, secret scan script, Semgrep, Trivy, ZAP, Hadolint, security test suites | SBOM artifact gate, CODEOWNERS, explicit high-risk manual review gate | Critical |
+| CI/CD | Yes | Existing security workflow, free scanner workflow, dependency audit scripts, secret scan script, Semgrep, Trivy, ZAP, Hadolint, Checkov/tfsec/Terrascan reports, SBOM, supply-chain pin check, security test suites | Cosign signature verification before deploy, external staging DAST URL, explicit high-risk manual review proof | Critical |
 | Logs | Yes | Request IDs, HTTP request logs, auth security events, upload security telemetry, admin notifications, Prometheus metrics | SIEM export proof, tamper-resistant storage, alert delivery evidence | High |
 | Runtime | Partial | Dockerfile, compose files, observability compose, edge assets, Trivy image scan script | Non-root/read-only/container capability proof and Falco runtime detection deployment | High |
 | Incident Response | Partial | Incident and emergency docs, rollback workflows, status-watch workflow | Security-specific playbooks mapped to every critical alert | High |
+| Threat Modeling | Yes | Assets, trust boundaries, abuse cases, STRIDE matrix, risk register mapping | Review cadence evidence | High |
+| Zero Trust Internal | Partial | Service mesh policy, egress/SSRF policy targets, least-privilege requirements | mTLS/service identity deployment proof | High |
+| Data Governance | Partial | Data classification, PII map, DLP/tokenization policy | DLP test, export/delete test, field-level encryption review | High |
+| Vulnerability Management | Partial | Patch SLA and review cadence policy | Weekly review records and retest artifacts | High |
 
 ## Edge
 
@@ -66,8 +70,11 @@ This inventory records what is visible in the repository at the time of the zero
 - Secret scanning: Present via Gitleaks scripts/workflows.
 - Container scanning: Present via Trivy scripts/workflows.
 - SBOM: Added to security-gates workflow in this branch.
-- Image signing: Missing; track as a gap.
-- DAST: Present via ZAP baseline script/workflow when staging URL is configured.
+- Provenance: Partial; SBOM provenance attestation is configured for main branch pushes.
+- Image signing: Policy added; Cosign/Sigstore signature verification remains a release gap.
+- IaC scanning: Present via Trivy config plus Checkov, tfsec, and Terrascan report artifacts.
+- Action/image pinning: Partial; mutable workflow refs and latest scanner image tags are checked.
+- DAST: Present via ZAP baseline with local preview fallback; external staging URL improves live coverage.
 - Manual review gate: Partial; CODEOWNERS and branch protection still need GitHub activation.
 
 ## Runtime
@@ -76,7 +83,8 @@ This inventory records what is visible in the repository at the time of the zero
 - Read-only filesystem: Not proven.
 - Seccomp/AppArmor: Not proven.
 - Network policies: Not proven.
-- Runtime detection: Missing Falco deployment evidence.
+- Runtime detection: Falco-style rules exist; deployment and alert evidence still required.
+- Container escape detection: Rules exist; tabletop/drill evidence still required.
 
 ## Monitoring
 
@@ -88,3 +96,30 @@ This inventory records what is visible in the repository at the time of the zero
 - SIEM: Not proven.
 - Alerts: Partial; Prometheus alert files exist for login/upload security.
 - Incident playbooks: Added in this branch.
+
+## Threat Modeling
+
+- Assets: Present in threat model.
+- Trust boundaries: Present in threat model.
+- Abuse cases: Present for account takeover, tenant crossing, upload bypass, SSRF, webhooks, signup/OTP abuse, admin misuse, supply-chain tampering, and runtime escape.
+- STRIDE: Present in threat model.
+- Risk register: Present and mapped to threat areas.
+
+## Zero Trust Internal Security
+
+- mTLS between services: Policy target; production proof missing.
+- Service identity: Policy target; service account inventory needed.
+- Network segmentation: Policy target; security group/compose/network-policy proof needed.
+- Egress control: Partial through SSRF requirements and tests.
+- Internal API authorization: Policy target; service caller tests needed.
+- Least-privilege service accounts: Policy target; monthly access review required.
+
+## Vulnerability Management
+
+- Scheduled dependency scans: Present in CI; scheduled review evidence needed.
+- Weekly vulnerability review: Policy target.
+- CVE triage: Policy target.
+- Patch SLA: Present in policy.
+- Exploitability ranking: Policy target.
+- Security backlog: Required for open/accepted findings.
+- Retesting after fixes: Required before closing findings.

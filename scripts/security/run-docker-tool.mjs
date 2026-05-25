@@ -62,9 +62,34 @@ const images = {
   trivy: process.env.TRIVY_IMAGE || 'aquasec/trivy:0.69.3',
   zap: process.env.ZAP_IMAGE || 'ghcr.io/zaproxy/zaproxy:stable',
   hadolint: process.env.HADOLINT_IMAGE || 'hadolint/hadolint:latest-debian',
+  checkov: process.env.CHECKOV_IMAGE || 'bridgecrew/checkov:3.2.485',
+  tfsec: process.env.TFSEC_IMAGE || 'aquasec/tfsec:v1.28.14',
+  terrascan: process.env.TERRASCAN_IMAGE || 'tenable/terrascan:1.19.9',
 };
 
 const runDocker = (args, options = {}) => run('docker', args, options);
+
+const runDockerReportOnly = (args, reportPath, options = {}) => {
+  const result = spawnSync('docker', args, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  const output = `${result.stdout || ''}${result.stderr || ''}`;
+  const reportOutput = options.stdoutOnly ? (result.stdout || '') : output;
+  if (reportPath && reportOutput.trim()) {
+    fs.writeFileSync(reportPath, reportOutput);
+  }
+  process.stdout.write(output);
+
+  if (result.error) {
+    console.error(`docker failed: ${result.error.message}`);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    console.warn(`IaC scanner exited with status ${result.status}; report captured for triage.`);
+  }
+};
 
 const runGitleaks = () => {
   const args = [
@@ -123,22 +148,34 @@ const shouldCopyToTrivyScanRoot = (relativePath) => {
   ].some((prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix));
 };
 
-const prepareTrivyScanRoot = () => {
-  const scanRoot = path.join(reportDir, 'trivy-source');
+const shouldCopyToIacScanRoot = (relativePath) => {
+  const normalized = String(relativePath || '').replace(/\\/g, '/');
+  if (!normalized || normalized.startsWith('../') || path.isAbsolute(normalized)) return false;
+  if (normalized.startsWith('.github/workflows/')) return true;
+  if (normalized.startsWith('infra/')) return true;
+  if (normalized === 'Dockerfile' || normalized.endsWith('/Dockerfile')) return true;
+  if (/(^|\/)(docker-compose|compose)(\.[^.]+)?\.ya?ml$/i.test(normalized)) return true;
+  if (/\.(tf|tfvars)$/i.test(normalized)) return true;
+  if (/(^|\/)(k8s|kubernetes|helm)\//i.test(normalized)) return true;
+  return false;
+};
+
+const prepareScanRoot = (directoryName, shouldCopy) => {
+  const scanRoot = path.join(reportDir, directoryName);
   fs.rmSync(scanRoot, { recursive: true, force: true });
   fs.mkdirSync(scanRoot, { recursive: true });
 
   // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
-  // Fixed git command lists source files; copied paths are constrained below before filesystem writes.
+  // Fixed git command lists source files; copied paths are constrained before filesystem writes.
   const result = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
     cwd: repoRoot,
     encoding: 'buffer',
   });
   if (result.error || result.status !== 0) {
-    throw new Error(result.error?.message || 'git ls-files failed while preparing Trivy source scan');
+    throw new Error(result.error?.message || 'git ls-files failed while preparing scan root');
   }
 
-  const files = result.stdout.toString('utf8').split('\0').filter(shouldCopyToTrivyScanRoot);
+  const files = result.stdout.toString('utf8').split('\0').filter(shouldCopy);
   for (const relativePath of files) {
     const sourcePath = path.join(repoRoot, relativePath);
     const destinationPath = path.join(scanRoot, relativePath);
@@ -147,6 +184,10 @@ const prepareTrivyScanRoot = () => {
     fs.copyFileSync(sourcePath, destinationPath);
   }
   return scanRoot;
+};
+
+const prepareTrivyScanRoot = () => {
+  return prepareScanRoot('trivy-source', shouldCopyToTrivyScanRoot);
 };
 
 const trivyCommon = [
@@ -294,6 +335,62 @@ const runHadolint = () => {
   }
 };
 
+const runIac = () => {
+  const checkovReport = path.join(reportDir, 'checkov-report.json');
+  const tfsecReport = path.join(reportDir, 'tfsec-report.json');
+  const terrascanReport = path.join(reportDir, 'terrascan-report.json');
+  const scanRoot = prepareScanRoot('iac-source', shouldCopyToIacScanRoot);
+  const iacScanMount = `${hostPath(scanRoot)}:/repo:ro`;
+  const iacSrcMount = `${hostPath(scanRoot)}:/src:ro`;
+  const iacReportMount = `${hostPath(reportDir)}:/reports`;
+
+  for (const reportPath of [checkovReport, tfsecReport, terrascanReport]) {
+    fs.rmSync(reportPath, { recursive: true, force: true });
+  }
+
+  runDockerReportOnly([
+    'run', '--rm',
+    '-v', iacScanMount,
+    images.checkov,
+    '-d', '/repo',
+    '--quiet',
+    '--compact',
+    '--framework', 'cloudformation,dockerfile,github_actions,secrets,kubernetes',
+    '--output', 'json',
+    '--soft-fail',
+  ], checkovReport, { stdoutOnly: true });
+
+  runDockerReportOnly([
+    'run', '--rm',
+    '-v', iacSrcMount,
+    '-v', iacReportMount,
+    images.tfsec,
+    '/src',
+    '--format', 'json',
+    '--out', '/reports/tfsec-report.json',
+    '--soft-fail',
+  ]);
+
+  runDockerReportOnly([
+    'run', '--rm',
+    '-v', iacScanMount,
+    images.terrascan,
+    'scan',
+    '-d', '/repo',
+    '-o', 'json',
+  ], terrascanReport);
+
+  for (const reportPath of [checkovReport, tfsecReport, terrascanReport]) {
+    if (!fs.existsSync(reportPath)) {
+      fs.writeFileSync(reportPath, JSON.stringify({
+        tool: path.basename(reportPath, '.json'),
+        status: 'no-report-produced',
+        generatedAt: new Date().toISOString(),
+      }, null, 2));
+    }
+  }
+};
+
 const commands = {
   gitleaks: runGitleaks,
   semgrep: runSemgrep,
@@ -301,6 +398,7 @@ const commands = {
   'trivy:image': runTrivyImage,
   zap: runZap,
   hadolint: runHadolint,
+  iac: runIac,
 };
 
 if (!commands[tool]) {

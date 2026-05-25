@@ -2,6 +2,7 @@
 
 Run date: 2026-05-25
 Branch: `security/zero-trust-production-architecture`
+Latest 10/10 evidence branch: `codex/enterprise-security-10-layers`
 
 ## Local Results
 
@@ -21,6 +22,19 @@ Branch: `security/zero-trust-production-architecture`
 | Token/session tests | `npm run security:tokens` | Passed | 43 tests passed |
 | Access-control tests | `npm run security:access-control` | Passed | IDOR and admin tests passed |
 | Admin privilege tests | `npm run security:admin` | Passed | 67 tests passed |
+| Expanded evidence manifest | `npm run security:evidence` | Passed | 33 required evidence files present after adding 10/10 layer policies |
+| Supply-chain pin check | `npm run security:supply-chain-pins` | Passed | Checked 148 workflow action refs and 8 scanner image refs |
+| IaC scanner wrapper | `npm run security:iac` | Completed with findings | Checkov, tfsec, and Terrascan reports generated under `security-reports/`; raw reports are gitignored |
+
+## New IaC Findings To Triage
+
+The local `security:iac` run generated evidence and surfaced baseline findings that should be triaged before the IaC scan becomes a hard finding gate:
+
+- Checkov: S3 access logging missing for `ReviewMediaBucket` and `DeployBucket` in `infra/aws/cloudformation-bootstrap.yml`.
+- Checkov: IAM write access constraints need review for `AuraResourcePolicy` in `infra/aws/cloudformation-bootstrap.yml`.
+- Checkov: workflow posture findings include manual dispatch/permission review items.
+- Terrascan: medium Dockerfile findings for `COPY --chown` usage in `server/Dockerfile`.
+- tfsec: no Terraform configuration found; report artifact generated for evidence continuity.
 
 ## Local Scanner Blockers
 
@@ -41,7 +55,9 @@ The security gates workflow should produce retained artifacts for:
 - Gitleaks report.
 - Semgrep report.
 - Trivy filesystem report.
+- Checkov/tfsec/Terrascan IaC reports.
 - SBOM.
+- SBOM provenance attestation on main branch pushes.
 - ZAP baseline report against `STAGING_URL` when configured, or against the CI-local Vite preview fallback when no staging URL is configured.
 
 Do not commit raw scanner reports if they contain sensitive findings or local paths. Prefer CI artifacts plus this summary.

@@ -57,6 +57,8 @@
     "security:trivy:image": "node scripts/security/run-docker-tool.mjs trivy:image",
     "security:zap": "node scripts/security/run-docker-tool.mjs zap",
     "security:hadolint": "node scripts/security/run-docker-tool.mjs hadolint",
+    "security:iac": "node scripts/security/run-docker-tool.mjs iac",
+    "security:supply-chain-pins": "node scripts/security/check-supply-chain-pins.mjs",
     "security:toolchain": "npm run security:gitleaks && npm run security:semgrep && npm run security:trivy && npm run security:hadolint",
     "security:all:free-tools": "npm test && npm run security:deps && npm run security:toolchain",
     "security:prod-hardening-audit": "node server/scripts/audit_production_hardening_contract.js",
