@@ -1,0 +1,38 @@
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: aura-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+
+  grafana:
+    image: grafana/grafana
+    container_name: aura-grafana
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  loki:
+    image: grafana/loki
+    container_name: aura-loki
+    ports:
+      - "3100:3100"
+
+  promtail:
+    image: grafana/promtail
+    container_name: aura-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - ./monitoring/promtail.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+volumes:
+  grafana-data:

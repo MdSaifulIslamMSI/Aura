@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const CHECK_STATUSES = [
     'operational',
+    'degraded',
     'degraded_performance',
     'partial_outage',
     'major_outage',

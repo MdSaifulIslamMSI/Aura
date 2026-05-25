@@ -6,6 +6,7 @@ const {
     createAdminStatusComponentController,
     createAdminStatusIncidentController,
     createAdminStatusMaintenanceController,
+    generateAdminStatusPostmortemController,
     getAdminStatusController,
     listAdminStatusChecksController,
     listAdminStatusSubscribersController,
@@ -20,6 +21,7 @@ const {
     adminStatusComponentCreateSchema,
     adminStatusComponentUpdateSchema,
     adminStatusIncidentCreateSchema,
+    adminStatusIncidentPostmortemSchema,
     adminStatusIncidentResolveSchema,
     adminStatusIncidentTimelineSchema,
     adminStatusIncidentUpdateSchema,
@@ -37,6 +39,7 @@ router.post('/incidents', validate(adminStatusIncidentCreateSchema), createAdmin
 router.patch('/incidents/:id', validate(adminStatusIncidentUpdateSchema), updateAdminStatusIncidentController);
 router.post('/incidents/:id/updates', validate(adminStatusIncidentTimelineSchema), addAdminStatusIncidentUpdateController);
 router.post('/incidents/:id/resolve', validate(adminStatusIncidentResolveSchema), resolveAdminStatusIncidentController);
+router.post('/incidents/:id/postmortem', validate(adminStatusIncidentPostmortemSchema), generateAdminStatusPostmortemController);
 router.post('/maintenance', validate(adminStatusMaintenanceCreateSchema), createAdminStatusMaintenanceController);
 router.get('/subscribers', listAdminStatusSubscribersController);
 router.get('/checks', validate(adminStatusChecksSchema), listAdminStatusChecksController);

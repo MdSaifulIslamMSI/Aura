@@ -48,6 +48,69 @@ const httpErrorsTotal = new client.Counter({
     registers: [registry],
 });
 
+const statusComponentState = new client.Gauge({
+    name: 'status_component_state',
+    help: 'Status component state by component slug and state. Value is 1 for current state.',
+    labelNames: ['component', 'status'],
+    registers: [registry],
+});
+
+const statusIncidentsActive = new client.Gauge({
+    name: 'status_incidents_active',
+    help: 'Number of active status incidents.',
+    registers: [registry],
+});
+
+const statusMonitorFailuresTotal = new client.Counter({
+    name: 'status_monitor_failures_total',
+    help: 'Total monitor failures ingested by status source.',
+    labelNames: ['component', 'source'],
+    registers: [registry],
+});
+
+const statusPublicPageRenderMs = new client.Gauge({
+    name: 'status_public_page_render_ms',
+    help: 'Last public status payload render duration in milliseconds.',
+    registers: [registry],
+});
+
+const statusSubscriberNotificationsTotal = new client.Counter({
+    name: 'status_subscriber_notifications_total',
+    help: 'Subscriber notification outbox events by event type and result status.',
+    labelNames: ['event_type', 'status'],
+    registers: [registry],
+});
+
+const setStatusComponentMetric = ({ component = 'unknown', status = 'unknown', knownStatuses = [] } = {}) => {
+    const statuses = knownStatuses.length ? knownStatuses : [
+        'operational',
+        'degraded',
+        'degraded_performance',
+        'partial_outage',
+        'major_outage',
+        'maintenance',
+    ];
+    statuses.forEach((entry) => {
+        statusComponentState.set({ component, status: entry }, entry === status ? 1 : 0);
+    });
+};
+
+const setStatusIncidentsActive = (count = 0) => {
+    statusIncidentsActive.set(Number(count || 0));
+};
+
+const incrementStatusMonitorFailure = ({ component = 'unknown', source = 'unknown' } = {}) => {
+    statusMonitorFailuresTotal.inc({ component, source });
+};
+
+const setStatusPublicPageRenderMs = (durationMs = 0) => {
+    statusPublicPageRenderMs.set(Number(durationMs || 0));
+};
+
+const incrementStatusSubscriberNotification = ({ eventType = 'unknown', status = 'queued' } = {}) => {
+    statusSubscriberNotificationsTotal.inc({ event_type: eventType, status });
+};
+
 // ── Route normaliser ───────────────────────────────────────────────────────
 // Collapse dynamic path segments (ObjectIDs, UUIDs) into placeholders so the
 // histogram doesn't explode with a new label per product ID.
@@ -133,4 +196,13 @@ const metricsAuth = (req, res, next) => {
     return next();
 };
 
-module.exports = { metricsMiddleware, metricsAuth, registry };
+module.exports = {
+    incrementStatusMonitorFailure,
+    incrementStatusSubscriberNotification,
+    metricsMiddleware,
+    metricsAuth,
+    registry,
+    setStatusComponentMetric,
+    setStatusIncidentsActive,
+    setStatusPublicPageRenderMs,
+};
