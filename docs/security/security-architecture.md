@@ -15,8 +15,87 @@ Every security box must map to evidence before it is treated as production-ready
 | Data | TLS, encryption, tenant checks, backups | DB audit logs | Restore, revoke access, retention action | Restore drill, access review |
 | Runtime | Non-root, read-only FS, resource limits | Falco/runtime detections | Restart, isolate, rollback | Runtime policy, alert evidence |
 | Supply chain | SAST, SCA, secrets, SBOM, container scan | CI failure and artifact reports | Block merge, rotate secret, patch | Workflow run artifacts |
+| Threat Modeling | STRIDE, abuse cases, trust boundaries, risk review | Risk register drift and high-risk change review | Manual security review and backlog owner | Threat model, risk register, control map |
+| Zero Trust Service Mesh | mTLS, service identity, internal authz, egress allowlist | Service authz and egress denial logs | Revoke service account, isolate segment | Mesh/network/IAM config, policy tests |
+| IaC Security | Checkov, tfsec, Terrascan, Trivy config scans | IaC report artifacts and posture findings | Fix, rollback infra change, accept risk | CI artifacts, cloud posture review |
+| Artifact Provenance | SBOM, provenance, Cosign/Sigstore signing, action pins | Signature/provenance verification logs | Block deploy, rebuild, rotate token | SBOM, attestation, signature evidence |
+| Data Governance | Classification, DLP, retention, right-to-delete, tokenization | DLP alerts and sensitive-read audit logs | Purge, legal hold, user notification | Data flow map, deletion/export proof |
+| Abuse Detection | ATO, impossible travel, spraying, signup/OTP abuse rules | Fraud/auth anomaly events | Step-up, lock, rate limit, edge block | Detection rules and abuse playbooks |
+| Vulnerability Loop | Scheduled scans, CVE triage, patch SLA, retest | Weekly review and aged-risk dashboards | Hotfix, dependency override, compensating control | Backlog, scanner rerun, risk acceptance |
+| Security Testing | Fuzzing, auth bypass, tenant, SSRF, upload, business logic tests | Test failures and coverage trend | Block merge and add regression test | Security test suite reports |
+| Post-Incident Review | Severity, on-call, timeline, forensics, tabletop drills | Incident metrics and action item tracking | Lessons learned, follow-up fixes | Postmortem, evidence bundle, drill record |
 
 See [control-gap-tracker.md](./control-gap-tracker.md) for the current threat-to-evidence traceability map.
+
+## Enterprise 10/10 Overlay
+
+This overlay shows the missing layers required to move from strong SaaS security to a zero-trust, supply-chain-verified, runtime-monitored security program.
+
+```mermaid
+flowchart TD
+    Threat["Threat Modeling"] --> Assets["Assets"]
+    Threat --> Boundaries["Trust Boundaries"]
+    Threat --> Abuse["Abuse Cases"]
+    Threat --> Stride["STRIDE"]
+    Threat --> Risks["Risk Register"]
+    Risks --> Controls["Control Gap Tracker"]
+    Controls --> Tests["Security Regression Tests"]
+
+    Mesh["Zero Trust Service Mesh"] --> Identity["Service Identity"]
+    Mesh --> Mtls["mTLS Between Services"]
+    Mesh --> InternalAuthz["Internal API Authorization"]
+    Mesh --> Segmentation["Network Segmentation"]
+    Mesh --> Egress["Egress Control"]
+    Mesh --> ServiceAccounts["Least-Privilege Service Accounts"]
+
+    Runtime10["Runtime Container Security"] --> NonRoot["Non-Root Containers"]
+    Runtime10 --> ReadOnly["Read-Only Filesystem"]
+    Runtime10 --> Profiles["Seccomp and AppArmor Profiles"]
+    Runtime10 --> Limits["CPU, Memory, and PID Limits"]
+    Runtime10 --> Falco["Runtime Anomaly Detection"]
+    Runtime10 --> Escape["Container Escape Detection"]
+
+    Iac["IaC Security Scanning"] --> Checkov["Checkov"]
+    Iac --> Tfsec["tfsec"]
+    Iac --> Terrascan["Terrascan"]
+    Iac --> K8s["Kubernetes and Compose Scans"]
+    Iac --> CloudPosture["Cloud Security Posture Checks"]
+
+    Supply["SBOM, Cosign, and SLSA Provenance"] --> Sbom["SBOM Generation"]
+    Supply --> Provenance["SLSA-Style Build Provenance"]
+    Supply --> Signing["Sigstore or Cosign Signing"]
+    Supply --> Verify["Verify Signature Before Deploy"]
+    Supply --> Pinning["Pinned Actions and Docker Images"]
+
+    DataGov["Data Classification and DLP"] --> Classification["Data Classification"]
+    DataGov --> Pii["PII Detection"]
+    DataGov --> DlpRules["DLP Rules"]
+    DataGov --> Retention["Retention Policy"]
+    DataGov --> Delete["Right-To-Delete Workflow"]
+    DataGov --> Encrypt["Field-Level Encryption and Tokenization"]
+
+    AbuseLayer["Abuse Detection"] --> Ato["Account Takeover Detection"]
+    AbuseLayer --> Travel["Impossible Travel"]
+    AbuseLayer --> Spray["Password Spraying"]
+    AbuseLayer --> Signup["Signup Abuse"]
+    AbuseLayer --> Otp["OTP Abuse Rate Limits"]
+    AbuseLayer --> Replay["Webhook Replay Protection"]
+
+    Vuln["Vulnerability Management Loop"] --> Scheduled["Scheduled Scans"]
+    Vuln --> Weekly["Weekly Review"]
+    Vuln --> Cve["CVE Triage"]
+    Vuln --> Sla["Patch SLA"]
+    Vuln --> Exploit["Exploitability Ranking"]
+    Vuln --> Retest["Retesting After Fixes"]
+
+    Incident["Post-Incident Review"] --> Severity["Severity Levels"]
+    Incident --> OnCall["On-Call Routing"]
+    Incident --> Timeline["Incident Timeline"]
+    Incident --> Evidence["Evidence Preservation"]
+    Incident --> Forensics["Forensics Logs"]
+    Incident --> Notices["Customer/Admin Notification Templates"]
+    Incident --> Tabletop["Tabletop Exercises"]
+```
 
 ## End-to-End Security Architecture
 

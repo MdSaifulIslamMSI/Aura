@@ -17,6 +17,13 @@ const requiredFiles = [
   'security/policies/security-evidence-standard.md',
   'security/policies/branch-protection.md',
   'security/policies/runtime-hardening.md',
+  'security/policies/zero-trust-service-mesh.md',
+  'security/policies/iac-security.md',
+  'security/policies/supply-chain-provenance.md',
+  'security/policies/data-governance-dlp.md',
+  'security/policies/vulnerability-management.md',
+  'security/policies/security-testing-depth.md',
+  'security/policies/abuse-fraud-detection.md',
   'security/detections/security-alert-rules.yml',
   'security/detections/falco-runtime-rules.yml',
   '.github/CODEOWNERS',
@@ -49,7 +56,15 @@ const contentChecks = [
   },
   {
     file: '.github/workflows/security-gates.yml',
-    needles: ['Security Gates', 'SBOM', 'Secret Scan', 'Evidence Check'],
+    needles: ['Security Gates', 'SBOM', 'Secret Scan', 'Evidence Check', 'IaC Security Scan', 'Supply Chain Integrity'],
+  },
+  {
+    file: 'docs/security/security-architecture.md',
+    needles: ['Threat Modeling', 'Zero Trust Service Mesh', 'Runtime Container Security', 'Data Governance'],
+  },
+  {
+    file: 'docs/security/threat-model.md',
+    needles: ['## Abuse Cases', '## STRIDE Matrix', '## Threat To Risk Register Map'],
   },
 ];
 

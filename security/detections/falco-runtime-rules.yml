@@ -18,3 +18,24 @@
   output: "Package manager executed in runtime container (command=%proc.cmdline container=%container.name)"
   priority: WARNING
   tags: [runtime, supply-chain, aura]
+
+- rule: Aura Privilege Escalation Attempt
+  desc: Detect privilege escalation tools or setuid changes in Aura runtime containers
+  condition: spawned_process and container and proc.name in (su, sudo, doas, setpriv, chmod, chown) and proc.cmdline contains "4755"
+  output: "Privilege escalation indicator in container (command=%proc.cmdline container=%container.name user=%user.name)"
+  priority: CRITICAL
+  tags: [runtime, container-escape, aura]
+
+- rule: Aura Write To Read Only Runtime Path
+  desc: Detect writes to runtime application or system paths that should be read-only
+  condition: open_write and container and (fd.name startswith /app or fd.name startswith /usr or fd.name startswith /bin or fd.name startswith /etc)
+  output: "Unexpected write to read-only runtime path (file=%fd.name command=%proc.cmdline container=%container.name)"
+  priority: WARNING
+  tags: [runtime, read-only-fs, aura]
+
+- rule: Aura Container Escape Indicator
+  desc: Detect access to host namespaces, Docker socket, or proc paths commonly used during container escape attempts
+  condition: open_read and container and (fd.name contains "/var/run/docker.sock" or fd.name contains "/proc/1/root" or fd.name contains "/proc/sys/kernel")
+  output: "Container escape indicator (file=%fd.name command=%proc.cmdline container=%container.name user=%user.name)"
+  priority: CRITICAL
+  tags: [runtime, container-escape, aura]

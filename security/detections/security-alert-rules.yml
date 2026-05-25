@@ -54,3 +54,57 @@ groups:
         annotations:
           summary: SSRF/private IP egress attempt blocked
           playbook: security/playbooks/ssrf-attempt.md
+
+      - alert: AuraImpossibleTravelDetected
+        expr: increase(aura_security_events_total{event="auth.impossible_travel.detected"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: Account takeover signal from impossible travel
+          playbook: security/playbooks/account-takeover.md
+
+      - alert: AuraPasswordSprayingDetected
+        expr: increase(aura_security_events_total{event="auth.password_spraying.detected"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: Password spraying behavior detected
+          playbook: security/playbooks/account-takeover.md
+
+      - alert: AuraSignupOrOtpAbuseDetected
+        expr: increase(aura_security_events_total{event=~"signup.abuse_detected|otp.rate_limit.triggered"}[10m]) >= 5
+        for: 2m
+        labels:
+          severity: medium
+        annotations:
+          summary: Signup or OTP abuse threshold reached
+          playbook: security/playbooks/account-takeover.md
+
+      - alert: AuraWebhookReplayDetected
+        expr: increase(aura_security_events_total{event="webhook.replay_detected"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: Webhook replay attempt detected
+          playbook: security/playbooks/production-regression.md
+
+      - alert: AuraDlpMatchDetected
+        expr: increase(aura_security_events_total{event="dlp.match.detected"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: high
+        annotations:
+          summary: DLP rule matched sensitive data
+          playbook: security/playbooks/tenant-data-leak.md
+
+      - alert: AuraSensitiveReadSpike
+        expr: increase(aura_security_events_total{event="db.sensitive_read"}[10m]) >= 10
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: Sensitive database reads spiking
+          playbook: security/playbooks/admin-abuse.md

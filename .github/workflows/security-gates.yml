@@ -11,6 +11,7 @@ permissions:
   security-events: write
   actions: read
   id-token: write
+  attestations: write
 
 concurrency:
   group: security-gates-${{ github.workflow }}-${{ github.ref }}
@@ -138,6 +139,45 @@ jobs:
             security-reports/trivy-fs-table.txt
           retention-days: 30
 
+  iac-security:
+    name: IaC Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Run Checkov, tfsec, and Terrascan
+        run: npm run security:iac
+      - name: Upload IaC security reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: iac-security-reports
+          path: |
+            security-reports/checkov-report.json
+            security-reports/tfsec-report.json
+            security-reports/terrascan-report.json
+          if-no-files-found: error
+          retention-days: 30
+
+  supply-chain-integrity:
+    name: Supply Chain Integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Verify action and scanner image pins
+        run: npm run security:supply-chain-pins
+
   sbom:
     name: SBOM
     runs-on: ubuntu-latest
@@ -149,6 +189,11 @@ jobs:
         with:
           format: spdx-json
           output-file: sbom.spdx.json
+      - name: Attest SBOM provenance
+        if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: sbom.spdx.json
       - name: Upload SBOM
         uses: actions/upload-artifact@v7
         with:
