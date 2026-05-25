@@ -28,10 +28,25 @@ const STATUS_OPTIONS = [
   { value: 'maintenance', label: 'Maintenance' },
 ];
 
+const SEVERITY_OPTIONS = [
+  { value: 'SEV1', label: 'SEV1' },
+  { value: 'SEV2', label: 'SEV2' },
+  { value: 'SEV3', label: 'SEV3' },
+  { value: 'SEV4', label: 'SEV4' },
+];
+
 const IMPACT_OPTIONS = [
+  { value: 'none', label: 'None' },
   { value: 'minor', label: 'Minor' },
   { value: 'major', label: 'Major' },
   { value: 'critical', label: 'Critical' },
+];
+
+const INCIDENT_STATUS_OPTIONS = [
+  { value: 'investigating', label: 'Investigating' },
+  { value: 'identified', label: 'Identified' },
+  { value: 'monitoring', label: 'Monitoring' },
+  { value: 'resolved', label: 'Resolved' },
 ];
 
 const blankComponentForm = {
@@ -47,11 +62,18 @@ const blankComponentForm = {
 
 const blankIncidentForm = {
   title: '',
+  severity: 'SEV3',
   description: '',
   impact: 'minor',
   status: 'investigating',
+  commander: '',
+  source: 'manual',
+  isPublic: true,
   affectedComponentIds: [],
   updateMessage: '',
+  updateType: 'detected',
+  updatePublic: true,
+  customerImpact: '',
   confirmMajor: false,
 };
 
@@ -157,6 +179,7 @@ export default function AdminStatusDashboard() {
   const components = dashboard?.components || [];
   const incidents = dashboard?.incidents || [];
   const activeIncidents = incidents.filter((incident) => incident.status !== 'resolved');
+  const templates = dashboard?.templates || {};
 
   const componentGroupNames = useMemo(() => {
     const names = groups.map((group) => group.name);
@@ -204,6 +227,16 @@ export default function AdminStatusDashboard() {
       });
       setMaintenanceForm(blankMaintenanceForm);
     }, 'Maintenance scheduled');
+  };
+
+  const renderTemplate = (status, incident = null) => {
+    const componentNames = (incident?.affectedComponentIds || [])
+      .map((id) => components.find((component) => component.id === id)?.name)
+      .filter(Boolean)
+      .join(', ') || 'Aura systems';
+    return String(templates[status] || '')
+      .replace('{components}', componentNames)
+      .replace('{minutes}', status === 'investigating' ? '30' : '15');
   };
 
   const stats = dashboard?.overview ? [
@@ -345,14 +378,40 @@ export default function AdminStatusDashboard() {
                   <FormField label="Title">
                     <ControlInput required value={incidentForm.title} onChange={(event) => setIncidentForm((prev) => ({ ...prev, title: event.target.value }))} />
                   </FormField>
+                  <FormField label="Severity">
+                    <ControlSelect value={incidentForm.severity} onChange={(event) => setIncidentForm((prev) => ({ ...prev, severity: event.target.value }))}>
+                      {SEVERITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </ControlSelect>
+                  </FormField>
                   <FormField label="Impact">
                     <ControlSelect value={incidentForm.impact} onChange={(event) => setIncidentForm((prev) => ({ ...prev, impact: event.target.value }))}>
                       {IMPACT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </ControlSelect>
                   </FormField>
+                  <FormField label="Status">
+                    <ControlSelect value={incidentForm.status} onChange={(event) => setIncidentForm((prev) => ({ ...prev, status: event.target.value }))}>
+                      {INCIDENT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </ControlSelect>
+                  </FormField>
+                  <FormField label="Commander">
+                    <ControlInput value={incidentForm.commander} onChange={(event) => setIncidentForm((prev) => ({ ...prev, commander: event.target.value }))} placeholder="Incident commander" />
+                  </FormField>
+                  <FormField label="Source">
+                    <ControlSelect value={incidentForm.source} onChange={(event) => setIncidentForm((prev) => ({ ...prev, source: event.target.value }))}>
+                      <option value="manual">Manual</option>
+                      <option value="uptime_kuma">Uptime Kuma</option>
+                      <option value="gatus">Gatus</option>
+                      <option value="sentry">Sentry</option>
+                      <option value="github_actions">GitHub Actions</option>
+                      <option value="synthetic">Synthetic</option>
+                    </ControlSelect>
+                  </FormField>
                 </div>
                 <FormField label="Description">
                   <ControlTextarea value={incidentForm.description} onChange={(event) => setIncidentForm((prev) => ({ ...prev, description: event.target.value }))} />
+                </FormField>
+                <FormField label="Customer impact">
+                  <ControlTextarea value={incidentForm.customerImpact} onChange={(event) => setIncidentForm((prev) => ({ ...prev, customerImpact: event.target.value }))} />
                 </FormField>
                 <FormField label="Affected components">
                   <ComponentMultiSelect components={components} value={incidentForm.affectedComponentIds} onChange={(next) => setIncidentForm((prev) => ({ ...prev, affectedComponentIds: next }))} />
@@ -360,7 +419,28 @@ export default function AdminStatusDashboard() {
                 <FormField label="Timeline update">
                   <ControlTextarea value={incidentForm.updateMessage} onChange={(event) => setIncidentForm((prev) => ({ ...prev, updateMessage: event.target.value }))} />
                 </FormField>
+                <div className="flex flex-wrap gap-2">
+                  {INCIDENT_STATUS_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setIncidentForm((prev) => ({
+                        ...prev,
+                        status: option.value,
+                        updateType: option.value === 'resolved' ? 'resolved' : 'status_update',
+                        updateMessage: renderTemplate(option.value),
+                      }))}
+                      className="admin-premium-button px-3 py-2 text-xs font-black"
+                    >
+                      Use {option.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex flex-wrap items-center gap-3">
+                  <label className="admin-premium-button flex items-center gap-2 px-3 py-2 text-sm font-bold">
+                    <input type="checkbox" checked={incidentForm.isPublic} onChange={(event) => setIncidentForm((prev) => ({ ...prev, isPublic: event.target.checked, updatePublic: event.target.checked }))} />
+                    Public incident
+                  </label>
                   <label className="admin-premium-button flex items-center gap-2 px-3 py-2 text-sm font-bold">
                     <input type="checkbox" checked={incidentForm.confirmMajor} onChange={(event) => setIncidentForm((prev) => ({ ...prev, confirmMajor: event.target.checked }))} />
                     Confirm major publication
@@ -412,11 +492,36 @@ export default function AdminStatusDashboard() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-black text-slate-950">{incident.title}</p>
-                        <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">{incident.impact} - {incident.status}</p>
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                          {incident.severity || 'SEV3'} - {incident.impact} - {incident.status}
+                        </p>
+                        {incident.commander ? <p className="mt-1 text-xs font-bold text-slate-500">Commander: {incident.commander}</p> : null}
                       </div>
-                      <button type="button" onClick={() => runAction(`resolve-${incident.id}`, () => adminStatusApi.resolveIncident(incident.id, { message: 'Resolved by admin.' }), 'Incident resolved')} className="admin-premium-button px-3 py-2 text-xs font-black">
-                        Resolve
-                      </button>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button type="button" onClick={() => runAction(`postmortem-${incident.id}`, () => adminStatusApi.generatePostmortem(incident.id), 'Postmortem generated')} className="admin-premium-button px-3 py-2 text-xs font-black">
+                          Postmortem
+                        </button>
+                        <button type="button" onClick={() => runAction(`resolve-${incident.id}`, () => adminStatusApi.resolveIncident(incident.id, { message: renderTemplate('resolved', incident), actor: incident.commander }), 'Incident resolved')} className="admin-premium-button px-3 py-2 text-xs font-black">
+                          Resolve
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {['investigating', 'identified', 'monitoring', 'resolved'].map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => runAction(`move-${incident.id}-${status}`, () => adminStatusApi.updateIncident(incident.id, {
+                            status,
+                            updateMessage: renderTemplate(status, incident),
+                            updateType: status === 'resolved' ? 'resolved' : 'status_update',
+                            updatePublic: incident.isPublic !== false,
+                          }), `Incident moved to ${status}`)}
+                          className="admin-premium-button px-3 py-2 text-xs font-black"
+                        >
+                          {status}
+                        </button>
+                      ))}
                     </div>
                     <textarea
                       value={updateDrafts[incident.id] || ''}
@@ -424,19 +529,62 @@ export default function AdminStatusDashboard() {
                       className="admin-premium-control mt-3 min-h-20 w-full"
                       placeholder="Post update..."
                     />
-                    <button
-                      type="button"
-                      onClick={() => runAction(`update-${incident.id}`, async () => {
-                        await adminStatusApi.addIncidentUpdate(incident.id, {
-                          status: incident.status,
-                          message: updateDrafts[incident.id] || 'Status update posted.',
-                        });
-                        setUpdateDrafts((prev) => ({ ...prev, [incident.id]: '' }));
-                      }, 'Timeline update posted')}
-                      className="admin-premium-button admin-premium-button-accent mt-2 px-3 py-2 text-xs font-black"
-                    >
-                      Post update
-                    </button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => runAction(`update-${incident.id}`, async () => {
+                          await adminStatusApi.addIncidentUpdate(incident.id, {
+                            status: incident.status,
+                            type: 'status_update',
+                            message: updateDrafts[incident.id] || 'Status update posted.',
+                            public: true,
+                            actor: incident.commander,
+                          });
+                          setUpdateDrafts((prev) => ({ ...prev, [incident.id]: '' }));
+                        }, 'Public update posted')}
+                        className="admin-premium-button admin-premium-button-accent px-3 py-2 text-xs font-black"
+                      >
+                        Public update
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => runAction(`note-${incident.id}`, async () => {
+                          await adminStatusApi.addIncidentUpdate(incident.id, {
+                            status: incident.status,
+                            type: 'internal_note',
+                            message: updateDrafts[incident.id] || 'Internal timeline note.',
+                            public: false,
+                            actor: incident.commander,
+                          });
+                          setUpdateDrafts((prev) => ({ ...prev, [incident.id]: '' }));
+                        }, 'Internal note added')}
+                        className="admin-premium-button px-3 py-2 text-xs font-black"
+                      >
+                        Internal note
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => runAction(`mitigation-${incident.id}`, () => adminStatusApi.addIncidentUpdate(incident.id, {
+                          status: 'monitoring',
+                          type: 'mitigation',
+                          message: renderTemplate('monitoring', incident),
+                          public: incident.isPublic !== false,
+                          actor: incident.commander,
+                        }), 'Mitigation marked')}
+                        className="admin-premium-button px-3 py-2 text-xs font-black"
+                      >
+                        Mark mitigation
+                      </button>
+                    </div>
+                    {incident.timeline?.length ? (
+                      <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+                        {incident.timeline.slice(-5).map((entry, index) => (
+                          <div key={`${incident.id}-timeline-${index}`} className="text-xs leading-5 text-slate-600">
+                            <span className="font-black uppercase text-slate-500">{entry.type}</span> {entry.message}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </AdminPremiumSubpanel>
                 ))}
               </div>
@@ -479,6 +627,22 @@ export default function AdminStatusDashboard() {
                 <p className="text-sm font-semibold text-slate-600">
                   Subscriber count is included in overview. Detailed subscriber list is available from the admin API.
                 </p>
+              </div>
+            </AdminPremiumPanel>
+
+            <AdminPremiumPanel>
+              <h2 className="text-xl font-black text-slate-950">Severity policy</h2>
+              <div className="mt-4 space-y-2">
+                {Object.entries(dashboard.severityPolicy || {}).map(([severity, policy]) => (
+                  <div key={severity} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-black text-slate-950">{severity}</p>
+                      <span className="text-xs font-black uppercase tracking-widest text-slate-500">{policy.publicStatus}</span>
+                    </div>
+                    <p className="mt-1 text-xs font-semibold text-slate-600">{policy.meaning}</p>
+                    <p className="mt-2 text-xs text-slate-500">{policy.requiredAction}</p>
+                  </div>
+                ))}
               </div>
             </AdminPremiumPanel>
           </div>

@@ -1,0 +1,27 @@
+name: Status Watch
+
+on:
+  workflow_run:
+    workflows: ["Deploy", "CI"]
+    types:
+      - completed
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Aura status system
+        run: |
+          curl -X POST "$STATUS_WEBHOOK_URL" \
+            -H "Authorization: Bearer $STATUS_WEBHOOK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "source": "github_actions",
+              "workflow": "${{ github.event.workflow_run.name }}",
+              "conclusion": "${{ github.event.workflow_run.conclusion }}",
+              "sha": "${{ github.event.workflow_run.head_sha }}",
+              "url": "${{ github.event.workflow_run.html_url }}"
+            }'
+        env:
+          STATUS_WEBHOOK_URL: ${{ secrets.STATUS_WEBHOOK_URL }}
+          STATUS_WEBHOOK_TOKEN: ${{ secrets.STATUS_WEBHOOK_TOKEN }}

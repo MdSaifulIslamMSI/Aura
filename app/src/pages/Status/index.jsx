@@ -71,10 +71,14 @@ function IncidentStrip({ title, items = [] }) {
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-extrabold tracking-normal text-slate-950">{title}</h2>
       <div className="mt-3 space-y-3">
-        {items.map((incident) => (
+        {items.map((incident) => {
+          const target = incident.type === 'maintenance' && !incident.latestUpdate
+            ? '/status'
+            : `/status/incidents/${incident.slug}`;
+          return (
           <Link
             key={incident.id}
-            to={`/status/incidents/${incident.slug}`}
+            to={target}
             className="block rounded-lg border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -88,9 +92,28 @@ function IncidentStrip({ title, items = [] }) {
               Started {formatDate(incident.startedAt, { year: true, time: true })}
             </p>
           </Link>
-        ))}
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+function ResponseTimeSparkline({ values = [] }) {
+  const safeValues = values.map(Number).filter((value) => Number.isFinite(value) && value >= 0).slice(-30);
+  if (safeValues.length < 2) return null;
+  const max = Math.max(...safeValues, 1);
+  const points = safeValues.map((value, index) => {
+    const x = (index / Math.max(safeValues.length - 1, 1)) * 120;
+    const y = 32 - ((value / max) * 28);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return (
+    <div className="h-9 w-32" aria-label="Response time sparkline">
+      <svg viewBox="0 0 120 36" role="img" className="h-full w-full overflow-visible">
+        <polyline points={points} fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
   );
 }
 
@@ -198,6 +221,9 @@ function StatusGroupRow({ group, expanded, onToggle }) {
                   </div>
                   <div className="flex-1" style={{ minWidth: '14rem' }}>
                     <UptimeBars history={component.history90d} compact label={`${component.name} 90 day uptime`} />
+                    <div className="mt-2 flex items-center justify-end">
+                      <ResponseTimeSparkline values={component.responseTimeSparkline || []} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -584,6 +610,11 @@ export default function StatusPage() {
                 Updated {relativeTime(payload.lastUpdatedAt)}
               </span>
             ) : null}
+            {payload?.fallbackSource && payload.fallbackSource !== 'live' ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
+                Last known status
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={() => loadStatus({ silent: true })}
@@ -636,7 +667,7 @@ export default function StatusPage() {
         <footer className="flex flex-col items-center justify-center gap-2 pb-4 text-sm text-slate-500 sm:flex-row">
           <span>Powered by Aura status</span>
           <span className="hidden sm:inline">-</span>
-          <a href="/api/status/rss" className="font-semibold text-slate-700">RSS</a>
+          <a href="/api/status/rss.xml" className="font-semibold text-slate-700">RSS</a>
         </footer>
       </div>
     </div>

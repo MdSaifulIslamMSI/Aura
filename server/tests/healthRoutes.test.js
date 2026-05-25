@@ -48,4 +48,29 @@ describe('Health routes', () => {
         expect(['miss', 'shared']).toContain(first.headers['x-health-cache']);
         expect(['hit', 'shared']).toContain(second.headers['x-health-cache']);
     });
+
+    test('GET /api/health/deep returns structured dependency checks without secrets', async () => {
+        const res = await request(app).get('/api/health/deep');
+
+        expect([200, 503]).toContain(res.statusCode);
+        expect(res.body).toHaveProperty('status');
+        expect(res.body).toHaveProperty('timestamp');
+        expect(res.body).toHaveProperty('correlationId');
+        expect(res.body.checks).toHaveProperty('database');
+        expect(res.body.checks).toHaveProperty('redis');
+        expect(res.body.checks).toHaveProperty('email');
+        expect(res.body.checks).toHaveProperty('payments');
+        expect(res.body.checks).toHaveProperty('ai');
+        expect(res.body.checks).toHaveProperty('uploads');
+        expect(JSON.stringify(res.body)).not.toMatch(/secret|token|mongodb:\/\//i);
+        expect(res.headers['cache-control']).toBe('no-store');
+    });
+
+    test('GET /api/health/live is timeout-safe process liveness', async () => {
+        const res = await request(app).get('/api/health/live');
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.status).toBe('healthy');
+        expect(res.body.checks.process.status).toBe('healthy');
+    });
 });

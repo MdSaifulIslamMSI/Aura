@@ -57,6 +57,7 @@ const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const adminFraudRoutes = require('./routes/adminFraudRoutes');
 const statusRoutes = require('./routes/statusRoutes');
 const adminStatusRoutes = require('./routes/adminStatusRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
@@ -421,6 +422,7 @@ if (process.env.NODE_ENV !== 'test') {
         skip: (req) => {
             const path = String(req.path || req.originalUrl || '').trim().toLowerCase();
             return path === '/health'
+                || path.startsWith('/api/health')
                 || path === '/metrics'
                 || path.startsWith('/api/email-webhooks')
                 || path.startsWith('/api/observability');
@@ -431,6 +433,7 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Routes
+app.use('/api/health', healthRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use(globalEmergencyMiddleware);
 app.use(readOnlyMiddleware);

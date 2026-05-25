@@ -3,14 +3,23 @@ const StatusCheck = require('../models/StatusCheck');
 const StatusSubscriber = require('../models/StatusSubscriber');
 const AppError = require('../utils/AppError');
 const {
+    assertWebhookSignature,
+    handleStatusWebhook,
+} = require('../services/statusWebhookService');
+const {
     addIncidentUpdate,
     createMaintenance,
     createStatusComponent,
     createStatusIncident,
+    generateIncidentPostmortem,
+    getActiveStatusIncidents,
     getIncidentBySlug,
+    getPublicStatusComponents,
     getPublicStatus,
     getStatusAdminDashboard,
     getStatusHistory,
+    getStatusMaintenance,
+    getStatusSummary,
     resolveIncident,
     runStatusMonitorCycle,
     seedDefaultStatusCatalog,
@@ -18,6 +27,7 @@ const {
     unsubscribeFromStatus,
     updateStatusComponent,
     updateStatusIncident,
+    verifyStatusSubscription,
 } = require('../services/statusService');
 
 const escapeXml = (value = '') => String(value || '')
@@ -31,19 +41,43 @@ const publicBaseUrl = () => String(process.env.APP_PUBLIC_URL || 'http://localho
 
 const getPublicStatusController = asyncHandler(async (req, res) => {
     const payload = await getPublicStatus();
-    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=30');
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
+    res.json(payload);
+});
+
+const getStatusComponentsController = asyncHandler(async (req, res) => {
+    const payload = await getPublicStatusComponents();
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
+    res.json(payload);
+});
+
+const getActiveStatusIncidentsController = asyncHandler(async (req, res) => {
+    const payload = await getActiveStatusIncidents();
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(payload);
 });
 
 const getStatusHistoryController = asyncHandler(async (req, res) => {
     const result = await getStatusHistory(req.query || {});
-    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(result);
+});
+
+const getStatusMaintenanceController = asyncHandler(async (req, res) => {
+    const payload = await getStatusMaintenance({ includePast: req.query.includePast === 'true' });
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
+    res.json(payload);
+});
+
+const getStatusSummaryController = asyncHandler(async (req, res) => {
+    const payload = await getStatusSummary();
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
+    res.json(payload);
 });
 
 const getStatusIncidentController = asyncHandler(async (req, res) => {
     const result = await getIncidentBySlug(req.params.slug);
-    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(result);
 });
 
@@ -79,7 +113,7 @@ const getStatusRssController = asyncHandler(async (req, res) => {
         '</rss>',
     ].join('');
     res.set('Content-Type', 'application/rss+xml; charset=utf-8');
-    res.set('Cache-Control', 'public, max-age=60');
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.send(xml);
 });
 
@@ -94,6 +128,11 @@ const subscribeStatusController = asyncHandler(async (req, res) => {
 
 const unsubscribeStatusController = asyncHandler(async (req, res) => {
     const result = await unsubscribeFromStatus(req.body || {});
+    res.json({ success: true, ...result });
+});
+
+const verifyStatusSubscriptionController = asyncHandler(async (req, res) => {
+    const result = await verifyStatusSubscription({ token: req.query.token });
     res.json({ success: true, ...result });
 });
 
@@ -135,6 +174,11 @@ const resolveAdminStatusIncidentController = asyncHandler(async (req, res) => {
 const createAdminStatusMaintenanceController = asyncHandler(async (req, res) => {
     const incident = await createMaintenance(req.body || {}, req.user?._id || null);
     res.status(201).json({ success: true, incidentId: String(incident._id), slug: incident.slug });
+});
+
+const generateAdminStatusPostmortemController = asyncHandler(async (req, res) => {
+    const result = await generateIncidentPostmortem(req.params.id, req.body || {}, req.user?._id || null);
+    res.status(201).json({ success: true, postmortem: result });
 });
 
 const listAdminStatusSubscribersController = asyncHandler(async (req, res) => {
@@ -197,23 +241,42 @@ const seedAdminStatusController = asyncHandler(async (req, res) => {
     res.json({ success: true, result });
 });
 
+const createStatusWebhookController = (source) => asyncHandler(async (req, res) => {
+    const rawBody = req.rawBody || JSON.stringify(req.body || {});
+    assertWebhookSignature({ source, req, rawBody });
+    const result = await handleStatusWebhook({
+        source,
+        payload: req.body || {},
+        rawBody,
+        req,
+    });
+    res.status(result.duplicate ? 202 : 200).json({ success: true, source, ...result });
+});
+
 module.exports = {
     addAdminStatusIncidentUpdateController,
     createAdminStatusComponentController,
     createAdminStatusIncidentController,
     createAdminStatusMaintenanceController,
+    generateAdminStatusPostmortemController,
+    getActiveStatusIncidentsController,
     getAdminStatusController,
     getPublicStatusController,
+    getStatusComponentsController,
     getStatusHistoryController,
     getStatusIncidentController,
+    getStatusMaintenanceController,
     getStatusRssController,
+    getStatusSummaryController,
     listAdminStatusChecksController,
     listAdminStatusSubscribersController,
     resolveAdminStatusIncidentController,
     runAdminStatusMonitorController,
     seedAdminStatusController,
     subscribeStatusController,
+    createStatusWebhookController,
     unsubscribeStatusController,
+    verifyStatusSubscriptionController,
     updateAdminStatusComponentController,
     updateAdminStatusIncidentController,
 };

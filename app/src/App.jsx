@@ -299,6 +299,7 @@ function AppContent() {
               <Route path="/admin/support" element={renderCriticalRoute(<AdminRoute><AdminSupport /></AdminRoute>)} />
               <Route path="/admin/emergency-controls" element={renderCriticalRoute(<AdminRoute><AdminEmergencyControls /></AdminRoute>)} />
               <Route path="/admin/status" element={renderCriticalRoute(<AdminRoute><AdminStatusDashboard /></AdminRoute>)} />
+              <Route path="/admin/status/incidents" element={renderCriticalRoute(<AdminRoute><AdminStatusDashboard /></AdminRoute>)} />
             </Routes>
           </RouteTransitionShell>
         </Suspense>

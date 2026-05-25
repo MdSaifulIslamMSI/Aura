@@ -1,0 +1,19 @@
+endpoints:
+  - name: website
+    url: https://your-domain.com/
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+
+  - name: api-health
+    url: https://your-domain.com/api/health
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].status == healthy"
+
+  - name: status-api
+    url: https://your-domain.com/api/status/public
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
