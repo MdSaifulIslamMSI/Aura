@@ -214,6 +214,7 @@ jobs:
             security-reports/zap-baseline.html
             security-reports/zap-baseline.json
             security-reports/zap-baseline.md
+          if-no-files-found: error
           retention-days: 30
 
   security-suite:

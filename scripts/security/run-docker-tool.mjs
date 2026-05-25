@@ -250,6 +250,7 @@ const runZap = () => {
   runDocker([
     'run', '--rm',
     '--add-host=host.docker.internal:host-gateway',
+    '--user', '0:0',
     '-v', reportMount,
     images.zap,
     'zap-baseline.py',
