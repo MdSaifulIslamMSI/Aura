@@ -24,6 +24,10 @@ jobs:
       FREE_SECURITY_SEMGREP_IMAGE: semgrep/semgrep:1.163.0
       FREE_SECURITY_ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable
       STAGING_URL: ${{ vars.STAGING_URL || '' }}
+      STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL || '' }}
+      STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL || '' }}
+      STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL || '' }}
+      STAGING_SSM_PREFIX: ${{ vars.STAGING_SSM_PREFIX || '' }}
       PRODUCTION_URL: ${{ vars.PRODUCTION_URL || '' }}
 
     steps:

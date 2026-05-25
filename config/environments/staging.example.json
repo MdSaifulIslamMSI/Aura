@@ -1,0 +1,9 @@
+{
+  "environment": "staging",
+  "baseUrl": "https://staging.example.com",
+  "apiBaseUrl": "https://staging-api.example.com",
+  "healthUrl": "https://staging-api.example.com/health",
+  "ssmPrefix": "/aura/staging",
+  "allowProductionFallback": false,
+  "backendIsolationRequired": true
+}

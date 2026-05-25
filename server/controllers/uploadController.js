@@ -8,7 +8,10 @@ const {
 const {
     ensureReviewUploadStorageReady,
     getStorageDriver,
-    storeReviewMedia,
+    markReviewMediaScanState,
+    promoteReviewMediaFromQuarantine,
+    quarantineReviewMedia,
+    REVIEW_MEDIA_SCAN_STATES,
 } = require('../services/reviewMediaStorageService');
 const { scanUploadBuffer } = require('../services/malwareScanService');
 const {
@@ -36,6 +39,35 @@ const getDataUrlParts = (dataUrl = '') => {
         mimeType: normalizeMimeType(match[1]),
         base64: match[2],
     };
+};
+
+const markReviewMediaScanStateSafely = async ({
+    quarantinedMedia,
+    scanStatus,
+    mimeType,
+    sizeBytes,
+    scanResult,
+    detail = '',
+    userId = '',
+} = {}) => {
+    try {
+        await markReviewMediaScanState({
+            storageKey: quarantinedMedia?.storageKey,
+            quarantineKey: quarantinedMedia?.quarantineKey,
+            scanStatus,
+            mimeType,
+            sizeBytes,
+            scanResult,
+            detail,
+        });
+    } catch (error) {
+        logger.error('reviews.media_quarantine_state_update_failed', {
+            userId: String(userId || ''),
+            storageKey: quarantinedMedia?.storageKey || '',
+            scanStatus,
+            error: error?.message || 'unknown error',
+        });
+    }
 };
 
 // @desc    Sign review media upload request
@@ -152,6 +184,13 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
         return next(new AppError('Uploaded file content does not match declared media type', 400));
     }
 
+    await ensureReviewUploadStorageReady();
+    const quarantinedMedia = await quarantineReviewMedia({
+        fileBuffer,
+        fileName,
+        mimeType,
+    });
+
     const scanResult = await scanUploadBuffer({
         fileBuffer,
         fileName,
@@ -160,6 +199,14 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
         purpose: 'review-media',
     });
     if (scanResult.status === 'infected') {
+        await markReviewMediaScanStateSafely({
+            quarantinedMedia,
+            scanStatus: REVIEW_MEDIA_SCAN_STATES.INFECTED,
+            mimeType,
+            sizeBytes: fileBuffer.length,
+            scanResult,
+            userId,
+        });
         logger.warn('reviews.media_malware_blocked', {
             userId: String(userId),
             mimeType,
@@ -172,6 +219,15 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
         return next(new AppError('Uploaded file failed malware scan', 400));
     }
     if (scanResult.status === 'error') {
+        await markReviewMediaScanStateSafely({
+            quarantinedMedia,
+            scanStatus: REVIEW_MEDIA_SCAN_STATES.PENDING,
+            mimeType,
+            sizeBytes: fileBuffer.length,
+            scanResult,
+            detail: 'malware scan unavailable',
+            userId,
+        });
         logger.error('reviews.media_malware_scan_unavailable', {
             userId: String(userId),
             mimeType,
@@ -184,10 +240,9 @@ const uploadReviewMedia = asyncHandler(async (req, res, next) => {
         return next(new AppError('Upload malware scan unavailable. Please try again later.', 503));
     }
 
-    await ensureReviewUploadStorageReady();
-    const storedMedia = await storeReviewMedia({
-        fileBuffer,
-        fileName,
+    const storedMedia = await promoteReviewMediaFromQuarantine({
+        storageKey: quarantinedMedia.storageKey,
+        quarantineKey: quarantinedMedia.quarantineKey,
         mimeType,
     });
 

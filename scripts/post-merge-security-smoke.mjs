@@ -11,6 +11,9 @@ if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
 }
 
 const commands = [
+  { name: 'environment-contract', args: ['run', 'env:validate'] },
+  { name: 'smoke-preflight', args: ['run', 'smoke:preflight'] },
+  { name: 'prod-fallback-scan', args: ['run', 'scan:prod-fallbacks'] },
   { name: 'observability', args: ['run', 'observability:validate'] },
   { name: 'malware-runtime', args: ['run', 'security:malware-runtime'] },
   { name: 'edge-assets', args: ['run', 'security:edge-assets'] },

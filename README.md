@@ -78,6 +78,8 @@ The assistant can use the recommendation APIs as a backend tool, so product sugg
 
 ## Frontend CI/CD
 - GitHub Actions deploys the same frontend artifact to Netlify, Vercel, and AWS S3 through [`deploy-netlify.yml`](.github/workflows/deploy-netlify.yml).
+- Preview deployments are frontend previews only unless an isolated staging backend is configured. They must not be used as backend staging while `/api`, `/health`, `/uploads`, or `/socket.io` route to production CloudFront.
+- Staging smoke is fail-closed. Use `npm run staging:readiness` before live smoke; current status is documented in [`docs/environment-contract.md`](docs/environment-contract.md) and [`docs/staging-bootstrap.md`](docs/staging-bootstrap.md).
 - AWS S3 static hosting setup lives in [`deploy-frontend-aws.yml`](.github/workflows/deploy-frontend-aws.yml) and [`docs/aws-frontend-deployment.md`](docs/aws-frontend-deployment.md). The production path stays low-spend and publishes from the shared storefront release flow.
 - The workflow builds `app/dist` once, uploads that exact artifact to Netlify and AWS S3, and prepares Vercel Build Output from the same built files so all three hosts publish the same frontend release inputs.
 - Required GitHub setup:

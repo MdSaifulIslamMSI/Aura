@@ -17,11 +17,20 @@ services:
       STATUS_WEBHOOK_SECRET: local-demo-status-webhook-secret-change-me
       STATUS_WEBHOOK_TOKEN: local-demo-status-webhook-token-change-me
       STATUS_MONITOR_ALLOWED_HOSTS: aura-api,localhost,127.0.0.1
+      UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
+      UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      YARA_ENABLED: ${YARA_ENABLED:-false}
+      YARA_RULES_PATH: ${YARA_RULES_PATH:-/security/yara-rules}
     ports:
       - "5000:5000"
     depends_on:
       - mongo
       - redis
+    volumes:
+      - ./infra/security/yara-rules:/security/yara-rules:ro
 
   mongo:
     image: mongo:7
@@ -37,5 +46,15 @@ services:
     ports:
       - "6379:6379"
 
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: aura-clamav
+    profiles: ["malware-scan"]
+    ports:
+      - "3310:3310"
+    volumes:
+      - aura-clamav-db:/var/lib/clamav
+
 volumes:
   aura-mongo-data:
+  aura-clamav-db:
