@@ -12,6 +12,10 @@ on:
       - "server/**"
       - "scripts/security-*.mjs"
       - "scripts/post-merge-security-smoke.mjs"
+      - "scripts/validate-env-contract.mjs"
+      - "scripts/smoke-preflight.mjs"
+      - "scripts/scan-prod-fallbacks.mjs"
+      - "scripts/env-contract-lib.mjs"
       - "scripts/duo-activate.mjs"
       - "scripts/cloudflare-free-security-activate.mjs"
       - "scripts/smoke-origin-protection.mjs"
@@ -29,6 +33,9 @@ on:
       - "docs/critical-invariants.md"
       - "docs/emergency-controls.md"
       - "docs/login-staging-production-activation.md"
+      - "docs/environment-contract.md"
+      - "docs/staging-bootstrap.md"
+      - "docs/staging-readiness-inventory.md"
       - "docs/privileged-access-management.md"
       - "SECURITY_TEST_PLAN.md"
       - "security_best_practices_report.md"
@@ -39,6 +46,7 @@ on:
       - "infra/observability/**"
       - "infra/security/**"
       - "docker-compose.split-runtime.yml"
+      - "config/environments/**"
       - "docs/desktop-app.md"
       - "infra/aws/bootstrap-instance-user-data.sh"
       - "infra/aws/deploy-release.sh"
@@ -99,6 +107,10 @@ jobs:
               - 'server/**'
               - 'scripts/security-*.mjs'
               - 'scripts/post-merge-security-smoke.mjs'
+              - 'scripts/validate-env-contract.mjs'
+              - 'scripts/smoke-preflight.mjs'
+              - 'scripts/scan-prod-fallbacks.mjs'
+              - 'scripts/env-contract-lib.mjs'
               - 'scripts/duo-activate.mjs'
               - 'scripts/cloudflare-free-security-activate.mjs'
               - 'scripts/smoke-origin-protection.mjs'
@@ -116,6 +128,9 @@ jobs:
               - 'docs/critical-invariants.md'
               - 'docs/emergency-controls.md'
               - 'docs/login-staging-production-activation.md'
+              - 'docs/environment-contract.md'
+              - 'docs/staging-bootstrap.md'
+              - 'docs/staging-readiness-inventory.md'
               - 'docs/privileged-access-management.md'
               - 'SECURITY_TEST_PLAN.md'
               - 'security_best_practices_report.md'
@@ -126,6 +141,7 @@ jobs:
               - 'infra/observability/**'
               - 'infra/security/**'
               - 'docker-compose.split-runtime.yml'
+              - 'config/environments/**'
               - 'infra/aws/bootstrap-instance-user-data.sh'
               - 'infra/aws/deploy-release.sh'
               - 'infra/aws/docker-compose.ec2.yml'
@@ -167,6 +183,15 @@ jobs:
 
       - name: Guard production hardening contract
         run: node server/scripts/audit_production_hardening_contract.js
+
+      - name: Validate environment contract
+        run: npm run env:validate
+
+      - name: Run smoke preflight without live target
+        run: npm run smoke:preflight
+
+      - name: Scan for unsafe production fallbacks
+        run: npm run scan:prod-fallbacks
 
   backend-regression:
     needs: changes
@@ -242,6 +267,8 @@ jobs:
           tests/modelGatewayService.test.js
           tests/ollamaGatewayService.test.js
           tests/runtimeConfig.test.js
+          tests/stagingSmokeSafety.test.js
+          tests/envContractScripts.test.js
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_ci
           TEST_USE_IN_MEMORY_MONGO: "false"

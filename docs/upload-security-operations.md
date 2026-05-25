@@ -15,6 +15,13 @@ Support/contact, admin product images, analytics CSV, and catalog imports are cu
 
 ## Runtime Scanner Activation
 
+Default local Docker runtime:
+
+```sh
+UPLOAD_MALWARE_SCAN_ENABLED=true CLAMAV_ENABLED=true YARA_ENABLED=true docker compose --profile malware-scan up
+npm run security:malware-runtime
+```
+
 Local split runtime:
 
 ```sh
@@ -34,7 +41,9 @@ YARA_ENABLED=true
 YARA_RULES_PATH=/security/yara-rules
 ```
 
-Start the compose stack with the `malware-scan` profile so the `clamav/clamav:1.4` service is present. Keep `UPLOAD_MALWARE_SCAN_FAIL_CLOSED=true` outside local experiments.
+Start the compose stack with the `malware-scan` profile so the `clamav/clamav:1.4` service is present. The API reads `UPLOAD_MALWARE_SCAN_ENABLED`, `CLAMAV_ENABLED`, `CLAMAV_HOST`, `CLAMAV_PORT`, `YARA_ENABLED`, and `YARA_RULES_PATH` from compose environment in both the default local stack and split runtime stack. The backend image installs the `yara` binary; local and staging compose mounts should provide rules at `/security/yara-rules`. Keep `UPLOAD_MALWARE_SCAN_FAIL_CLOSED=true` outside local experiments.
+
+Review media uploads are now quarantine-first: new files are written with `pending` scan state, promoted to the public review media path only after a `clean` result, and kept blocked from `/uploads/reviews/...` while `pending` or `infected`.
 
 ## Validation
 

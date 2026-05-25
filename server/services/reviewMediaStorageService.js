@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const {
+    CopyObjectCommand,
+    DeleteObjectCommand,
     GetObjectCommand,
     HeadBucketCommand,
     PutObjectCommand,
@@ -20,6 +22,13 @@ const AWS_S3_REVIEW_PREFIX = String(
     process.env.AWS_S3_REVIEW_PREFIX
     || 'review-media'
 ).trim().replace(/^\/+|\/+$/g, '');
+const REVIEW_QUARANTINE_DIR = path.join(REVIEW_UPLOAD_DIR, '.quarantine');
+const REVIEW_SCAN_STATE_DIR = path.join(REVIEW_UPLOAD_DIR, '.scan-state');
+const REVIEW_MEDIA_SCAN_STATES = Object.freeze({
+    PENDING: 'pending',
+    CLEAN: 'clean',
+    INFECTED: 'infected',
+});
 
 const MIME_EXTENSION_MAP = {
     'image/jpeg': '.jpg',
@@ -75,11 +84,79 @@ const ensureLocalStorageReady = async () => {
     await fs.promises.mkdir(REVIEW_UPLOAD_DIR, { recursive: true });
 };
 
+const ensureLocalQuarantineReady = async () => {
+    await Promise.all([
+        fs.promises.mkdir(REVIEW_UPLOAD_DIR, { recursive: true }),
+        fs.promises.mkdir(REVIEW_QUARANTINE_DIR, { recursive: true }),
+        fs.promises.mkdir(REVIEW_SCAN_STATE_DIR, { recursive: true }),
+    ]);
+};
+
 const sanitizeObjectKeySegment = (value) => String(value || '')
     .trim()
     .replace(/[^\w.\-() ]+/g, '')
     .replace(/\s+/g, '-')
     .slice(0, 220);
+
+const normalizeScanState = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return Object.values(REVIEW_MEDIA_SCAN_STATES).includes(normalized)
+        ? normalized
+        : REVIEW_MEDIA_SCAN_STATES.PENDING;
+};
+
+const sanitizeScanDetail = (value) => String(value || '').trim().slice(0, 500);
+
+const buildScanStatePayload = ({
+    storageKey,
+    quarantineKey = '',
+    scanStatus = REVIEW_MEDIA_SCAN_STATES.PENDING,
+    mimeType = '',
+    sizeBytes = 0,
+    scanResult = null,
+    detail = '',
+} = {}) => ({
+    storageKey: path.basename(String(storageKey || '')),
+    quarantineKey: path.basename(String(quarantineKey || storageKey || '')),
+    scanStatus: normalizeScanState(scanStatus),
+    mimeType: String(mimeType || '').trim().toLowerCase(),
+    sizeBytes: Number(sizeBytes || 0),
+    detail: sanitizeScanDetail(detail),
+    engines: Array.isArray(scanResult?.engines)
+        ? scanResult.engines.map((engine) => ({
+            engine: String(engine.engine || ''),
+            status: String(engine.status || ''),
+            signature: String(engine.signature || ''),
+            detail: sanitizeScanDetail(engine.detail || ''),
+        }))
+        : [],
+    updatedAt: new Date().toISOString(),
+});
+
+const buildScanStatePath = (storageKey = '') => {
+    const safeName = path.basename(String(storageKey || '').trim());
+    return safeName ? path.join(REVIEW_SCAN_STATE_DIR, `${safeName}.json`) : '';
+};
+
+const writeLocalScanState = async (state) => {
+    await ensureLocalQuarantineReady();
+    const targetPath = buildScanStatePath(state.storageKey);
+    if (!targetPath) return null;
+    await fs.promises.writeFile(targetPath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+    return state;
+};
+
+const readLocalScanState = async (storageKey = '') => {
+    const targetPath = buildScanStatePath(storageKey);
+    if (!targetPath) return null;
+    try {
+        const raw = await fs.promises.readFile(targetPath, 'utf8');
+        return JSON.parse(raw);
+    } catch (error) {
+        if (error?.code === 'ENOENT') return null;
+        throw error;
+    }
+};
 
 const buildStoredFileName = (fileName, mimeType) => {
     const extension = MIME_EXTENSION_MAP[mimeType]
@@ -110,6 +187,27 @@ const buildS3ObjectKey = (fileName = '') => {
     return `${AWS_S3_REVIEW_PREFIX}/${safeFileName}`;
 };
 
+const buildS3QuarantineObjectKey = (fileName = '') => {
+    const safeFileName = path.basename(String(fileName || '').trim());
+    if (!safeFileName) {
+        return '';
+    }
+    const quarantinePrefix = AWS_S3_REVIEW_PREFIX
+        ? `${AWS_S3_REVIEW_PREFIX}/quarantine`
+        : 'quarantine';
+    return `${quarantinePrefix}/${safeFileName}`;
+};
+
+const encodeS3CopySource = (bucket, key) => `${bucket}/${String(key || '')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/')}`;
+
+const buildS3ScanMetadata = (state) => ({
+    'scan-status': state.scanStatus,
+    'scan-updated-at': state.updatedAt,
+});
+
 const buildPublicUrl = (storageDriver, storageKey) => {
     if (!['local', 's3'].includes(storageDriver)) {
         throw new Error(`Unsupported storage driver: ${storageDriver}`);
@@ -126,6 +224,71 @@ const storeReviewMediaLocally = async ({ fileBuffer, fileName }) => {
         storageDriver: 'local',
         storageKey: fileName,
         url: buildPublicUrl('local', fileName),
+    };
+};
+
+const quarantineReviewMediaLocally = async ({ fileBuffer, fileName, mimeType }) => {
+    await ensureLocalQuarantineReady();
+    const targetPath = path.join(REVIEW_QUARANTINE_DIR, fileName);
+    await fs.promises.writeFile(targetPath, fileBuffer, { mode: 0o600 });
+    const state = buildScanStatePayload({
+        storageKey: fileName,
+        quarantineKey: fileName,
+        scanStatus: REVIEW_MEDIA_SCAN_STATES.PENDING,
+        mimeType,
+        sizeBytes: fileBuffer.length,
+    });
+    await writeLocalScanState(state);
+
+    return {
+        storageDriver: 'local',
+        storageKey: fileName,
+        quarantineKey: fileName,
+        scanStatus: state.scanStatus,
+        url: buildPublicUrl('local', fileName),
+    };
+};
+
+const markReviewMediaScanStateLocally = async ({
+    storageKey,
+    quarantineKey = storageKey,
+    scanStatus,
+    mimeType = '',
+    sizeBytes = 0,
+    scanResult = null,
+    detail = '',
+} = {}) => writeLocalScanState(buildScanStatePayload({
+    storageKey,
+    quarantineKey,
+    scanStatus,
+    mimeType,
+    sizeBytes,
+    scanResult,
+    detail,
+}));
+
+const promoteReviewMediaFromLocalQuarantine = async ({ storageKey, quarantineKey = storageKey, mimeType = '' }) => {
+    await ensureLocalQuarantineReady();
+    const safeStorageKey = path.basename(String(storageKey || '').trim());
+    const safeQuarantineKey = path.basename(String(quarantineKey || safeStorageKey).trim());
+    const sourcePath = path.join(REVIEW_QUARANTINE_DIR, safeQuarantineKey);
+    const targetPath = path.join(REVIEW_UPLOAD_DIR, safeStorageKey);
+    await fs.promises.rename(sourcePath, targetPath);
+    const stats = await fs.promises.stat(targetPath);
+    await markReviewMediaScanStateLocally({
+        storageKey: safeStorageKey,
+        quarantineKey: safeQuarantineKey,
+        scanStatus: REVIEW_MEDIA_SCAN_STATES.CLEAN,
+        mimeType,
+        sizeBytes: stats.size,
+    });
+
+    return {
+        storageDriver: 'local',
+        storageKey: safeStorageKey,
+        quarantineKey: safeQuarantineKey,
+        scanStatus: REVIEW_MEDIA_SCAN_STATES.CLEAN,
+        url: buildPublicUrl('local', safeStorageKey),
     };
 };
 
@@ -166,6 +329,100 @@ const storeReviewMediaInS3 = async ({ fileBuffer, fileName, mimeType }) => {
         storageDriver: 's3',
         storageKey: fileName,
         url: buildPublicUrl('s3', fileName),
+    };
+};
+
+const quarantineReviewMediaInS3 = async ({ fileBuffer, fileName, mimeType }) => {
+    await ensureS3StorageReady();
+    const client = getS3Client();
+    const state = buildScanStatePayload({
+        storageKey: fileName,
+        quarantineKey: fileName,
+        scanStatus: REVIEW_MEDIA_SCAN_STATES.PENDING,
+        mimeType,
+        sizeBytes: fileBuffer.length,
+    });
+    await client.send(new PutObjectCommand({
+        Bucket: AWS_S3_REVIEW_BUCKET,
+        Key: buildS3QuarantineObjectKey(fileName),
+        Body: fileBuffer,
+        ContentType: mimeType || undefined,
+        Metadata: buildS3ScanMetadata(state),
+    }));
+
+    return {
+        storageDriver: 's3',
+        storageKey: fileName,
+        quarantineKey: fileName,
+        scanStatus: state.scanStatus,
+        url: buildPublicUrl('s3', fileName),
+    };
+};
+
+const markReviewMediaScanStateInS3 = async ({
+    storageKey,
+    quarantineKey = storageKey,
+    scanStatus,
+    mimeType = '',
+    sizeBytes = 0,
+    scanResult = null,
+    detail = '',
+} = {}) => {
+    await ensureS3StorageReady();
+    const client = getS3Client();
+    const state = buildScanStatePayload({
+        storageKey,
+        quarantineKey,
+        scanStatus,
+        mimeType,
+        sizeBytes,
+        scanResult,
+        detail,
+    });
+    const key = buildS3QuarantineObjectKey(quarantineKey || storageKey);
+    await client.send(new CopyObjectCommand({
+        Bucket: AWS_S3_REVIEW_BUCKET,
+        Key: key,
+        CopySource: encodeS3CopySource(AWS_S3_REVIEW_BUCKET, key),
+        ContentType: mimeType || undefined,
+        MetadataDirective: 'REPLACE',
+        Metadata: buildS3ScanMetadata(state),
+    }));
+    return state;
+};
+
+const promoteReviewMediaFromS3Quarantine = async ({ storageKey, quarantineKey = storageKey, mimeType = '' }) => {
+    await ensureS3StorageReady();
+    const client = getS3Client();
+    const sourceKey = buildS3QuarantineObjectKey(quarantineKey || storageKey);
+    const targetKey = buildS3ObjectKey(storageKey);
+    const state = buildScanStatePayload({
+        storageKey,
+        quarantineKey,
+        scanStatus: REVIEW_MEDIA_SCAN_STATES.CLEAN,
+        mimeType,
+    });
+
+    await client.send(new CopyObjectCommand({
+        Bucket: AWS_S3_REVIEW_BUCKET,
+        Key: targetKey,
+        CopySource: encodeS3CopySource(AWS_S3_REVIEW_BUCKET, sourceKey),
+        ContentType: mimeType || undefined,
+        CacheControl: 'public, max-age=31536000, immutable',
+        MetadataDirective: 'REPLACE',
+        Metadata: buildS3ScanMetadata(state),
+    }));
+    await client.send(new DeleteObjectCommand({
+        Bucket: AWS_S3_REVIEW_BUCKET,
+        Key: sourceKey,
+    }));
+
+    return {
+        storageDriver: 's3',
+        storageKey,
+        quarantineKey,
+        scanStatus: REVIEW_MEDIA_SCAN_STATES.CLEAN,
+        url: buildPublicUrl('s3', storageKey),
     };
 };
 
@@ -215,6 +472,55 @@ const storeReviewMedia = async ({ fileBuffer, fileName, mimeType }) => {
     });
 };
 
+const quarantineReviewMedia = async ({ fileBuffer, fileName, mimeType }) => {
+    const normalizedMimeType = String(mimeType || '').trim().toLowerCase();
+    const normalizedFileName = sanitizeObjectKeySegment(fileName || 'review-media');
+    const storedFileName = buildStoredFileName(normalizedFileName, normalizedMimeType);
+
+    if (getStorageDriver() === 's3') {
+        return quarantineReviewMediaInS3({
+            fileBuffer,
+            fileName: storedFileName,
+            mimeType: normalizedMimeType,
+        });
+    }
+
+    return quarantineReviewMediaLocally({
+        fileBuffer,
+        fileName: storedFileName,
+        mimeType: normalizedMimeType,
+    });
+};
+
+const markReviewMediaScanState = async (options = {}) => {
+    const scanStatus = normalizeScanState(options.scanStatus);
+    if (getStorageDriver() === 's3') {
+        return markReviewMediaScanStateInS3({
+            ...options,
+            scanStatus,
+        });
+    }
+
+    return markReviewMediaScanStateLocally({
+        ...options,
+        scanStatus,
+    });
+};
+
+const promoteReviewMediaFromQuarantine = async (options = {}) => {
+    if (getStorageDriver() === 's3') {
+        return promoteReviewMediaFromS3Quarantine(options);
+    }
+
+    return promoteReviewMediaFromLocalQuarantine(options);
+};
+
+const buildBlockedReviewMediaError = () => {
+    const blockedError = new Error('Upload not found');
+    blockedError.code = 404;
+    return blockedError;
+};
+
 const getReviewMediaObject = async ({ storageKey }) => {
     const safeStorageKey = buildReviewMediaStorageKey(storageKey);
     if (!safeStorageKey) {
@@ -230,6 +536,10 @@ const getReviewMediaObject = async ({ storageKey }) => {
                 Bucket: AWS_S3_REVIEW_BUCKET,
                 Key: buildS3ObjectKey(path.basename(safeStorageKey)),
             }));
+            const scanStatus = normalizeScanState(downloadResponse.Metadata?.['scan-status'] || '');
+            if (downloadResponse.Metadata?.['scan-status'] && scanStatus !== REVIEW_MEDIA_SCAN_STATES.CLEAN) {
+                throw buildBlockedReviewMediaError();
+            }
             return {
                 body: downloadResponse.Body,
                 contentType: downloadResponse.ContentType || '',
@@ -248,6 +558,11 @@ const getReviewMediaObject = async ({ storageKey }) => {
             }
             throw error;
         }
+    }
+
+    const scanState = await readLocalScanState(safeStorageKey);
+    if (scanState?.scanStatus && normalizeScanState(scanState.scanStatus) !== REVIEW_MEDIA_SCAN_STATES.CLEAN) {
+        throw buildBlockedReviewMediaError();
     }
 
     const targetPath = path.join(REVIEW_UPLOAD_DIR, path.basename(safeStorageKey));
@@ -272,10 +587,14 @@ const getReviewMediaObject = async ({ storageKey }) => {
 };
 
 module.exports = {
+    REVIEW_MEDIA_SCAN_STATES,
     buildReviewMediaStorageKey,
     ensureReviewUploadStorageReady,
     getStorageDriver,
     getReviewUploadStorageHealth,
     getReviewMediaObject,
+    markReviewMediaScanState,
+    promoteReviewMediaFromQuarantine,
+    quarantineReviewMedia,
     storeReviewMedia,
 };

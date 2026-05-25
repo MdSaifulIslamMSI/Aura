@@ -8,10 +8,13 @@ const STAGING_VALUES = new Set(['stage', 'staging', 'smoke-staging']);
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 const KNOWN_PRODUCTION_HOSTS = [
+    'dbtrhsolhec1s.cloudfront.net',
     'aurapilot.vercel.app',
     'aura-gateway.vercel.app',
     'aurapilot.netlify.app',
 ];
+const BACKEND_PROXY_PATHS = ['/api', '/health', '/uploads', '/socket.io'];
+const STAGING_SSM_PREFIX = '/aura/staging';
 
 const PRODUCTION_TOKEN_PATTERN = /(^|[^a-z0-9])(prod|production|live)([^a-z0-9]|$)/i;
 
@@ -49,6 +52,29 @@ const isKnownProductionHost = (value) => {
     const host = getUrlHost(value);
     if (!host) return false;
     return KNOWN_PRODUCTION_HOSTS.some((knownHost) => host === knownHost || host.endsWith(`.${knownHost}`));
+};
+
+const isPreviewUrl = (value) => {
+    const host = getUrlHost(value);
+    return Boolean(host && host.endsWith('.vercel.app') && !isKnownProductionHost(value));
+};
+
+const vercelPreviewProxiesBackendToProduction = () => {
+    try {
+        const repoRoot = path.resolve(__dirname, '..', '..');
+        const raw = require('fs').readFileSync(path.join(repoRoot, 'vercel.json'), 'utf8');
+        const parsed = JSON.parse(raw);
+        const rewrites = Array.isArray(parsed.rewrites) ? parsed.rewrites : [];
+        return rewrites.some((route) => {
+            const source = normalizeLower(route.source);
+            const backendPath = BACKEND_PROXY_PATHS.some((prefix) => source === prefix
+                || source.startsWith(`${prefix}/`)
+                || source.startsWith(`${prefix}:`));
+            return backendPath && isKnownProductionHost(route.destination);
+        });
+    } catch (error) {
+        return false;
+    }
 };
 
 const looksProductionLike = (value) => {
@@ -133,7 +159,11 @@ const evaluateStagingSmokeSafety = ({
     const normalizedPurpose = normalizeLower(purpose || 'smoke');
     const flowMode = normalizeLower(env.SMOKE_FLOW_MODE || 'public') || 'public';
     const baseUrl = normalize(env.SMOKE_BASE_URL || 'http://127.0.0.1:5000');
-    const localPublicSmoke = normalizedPurpose === 'smoke' && flowMode === 'public' && isLocalUrl(baseUrl);
+    const explicitTargetEnv = normalizeLower(env.SMOKE_TARGET_ENV || env.SMOKE_ENV || env.APP_ENV);
+    const localPublicSmoke = normalizedPurpose === 'smoke'
+        && flowMode === 'public'
+        && isLocalUrl(baseUrl)
+        && (!explicitTargetEnv || explicitTargetEnv === 'local');
     const mutating = normalizedPurpose === 'bootstrap' || ['customer', 'full'].includes(flowMode);
 
     const failures = [];
@@ -161,6 +191,28 @@ const evaluateStagingSmokeSafety = ({
 
     if (!hasExplicitStagingIntent(env)) {
         failures.push('Set SMOKE_TARGET_ENV=staging before running smoke against external or mutating targets.');
+    }
+
+    if (STAGING_VALUES.has(normalizeLower(env.SMOKE_TARGET_ENV))) {
+        if (!normalize(env.SMOKE_BASE_URL)) {
+            failures.push('SMOKE_BASE_URL is required when SMOKE_TARGET_ENV=staging.');
+        }
+        if (!normalize(env.STAGING_API_BASE_URL) && !normalize(env.STAGING_BACKEND_BASE_URL)) {
+            failures.push('STAGING_API_BASE_URL is required when SMOKE_TARGET_ENV=staging.');
+        }
+        if (!normalize(env.STAGING_HEALTH_URL)) {
+            failures.push('STAGING_HEALTH_URL is required when SMOKE_TARGET_ENV=staging.');
+        }
+        if (normalize(env.STAGING_SSM_PREFIX || env.AWS_PARAMETER_STORE_PATH_PREFIX) !== STAGING_SSM_PREFIX) {
+            failures.push(`STAGING_SSM_PREFIX must be ${STAGING_SSM_PREFIX} when SMOKE_TARGET_ENV=staging.`);
+        }
+        if (isPreviewUrl(baseUrl) && vercelPreviewProxiesBackendToProduction()) {
+            failures.push('Vercel Preview URL cannot be used as backend staging while backend routes proxy to production.');
+        }
+    }
+
+    if (normalizeLower(env.SMOKE_TARGET_ENV) === 'production' && !isTruthy(env.ALLOW_PRODUCTION_SMOKE)) {
+        failures.push('Production smoke requires ALLOW_PRODUCTION_SMOKE=true.');
     }
 
     if (mutating && !isTruthy(env.SMOKE_STAGING_ISOLATED)) {

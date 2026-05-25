@@ -1,0 +1,35 @@
+# Environment Contract
+
+This repo fails closed when an environment is ambiguous. Preview is not staging unless it has an isolated backend, database/cache/storage, and SSM prefix.
+
+## Production
+
+- `PROD_BASE_URL`: production storefront URL.
+- `PROD_API_BASE_URL`: production API/backend URL.
+- `PROD_SSM_PREFIX=/aura/prod`.
+- Production may use production CloudFront/backend URLs only in production deploy and explicitly guarded production smoke paths.
+
+## Staging
+
+- `STAGING_BASE_URL`: staging storefront or full-stack URL.
+- `STAGING_API_BASE_URL`: isolated staging backend URL.
+- `STAGING_HEALTH_URL`: staging backend health URL, normally `${STAGING_API_BASE_URL}/health`.
+- `STAGING_SSM_PREFIX=/aura/staging`.
+- `SMOKE_TARGET_ENV=staging`.
+- `SMOKE_BASE_URL` must equal the staging URL and must never equal a known production URL.
+- Staging must never proxy `/api`, `/health`, `/uploads`, or `/socket.io` to production.
+
+## Preview
+
+- Preview may exist for frontend review.
+- Preview is not staging unless `STAGING_API_BASE_URL` points at an isolated backend and the preflight confirms backend routes do not proxy to production.
+- Vercel Preview URLs are blocked for backend staging smoke when their backend paths route to production CloudFront.
+
+## Local
+
+- Local smoke may use only localhost, `127.0.0.1`, or `::1`.
+- Local must never silently switch to production.
+
+## Current Status
+
+Code is staging-safe, but live staging infrastructure is not present yet.

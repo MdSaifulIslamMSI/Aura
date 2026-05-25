@@ -16,7 +16,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=5000
 
+# hadolint ignore=DL3018
 RUN apk upgrade --no-cache \
+    && apk add --no-cache yara \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules

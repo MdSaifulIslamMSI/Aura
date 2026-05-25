@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { validateContract } from './env-contract-lib.mjs';
 
 const repoRoot = process.cwd();
 const reportsDir = path.join(repoRoot, 'security-reports');
@@ -199,6 +200,29 @@ const runZapBaseline = () => {
       exitCode: 0,
       runner: 'unavailable',
       reason: 'STAGING_URL is not set; OWASP ZAP baseline skipped. Never run ZAP against production by default.',
+    };
+  }
+
+  const preflight = validateContract({
+    env: {
+      ...process.env,
+      SMOKE_TARGET_ENV: 'staging',
+      SMOKE_BASE_URL: stagingUrl,
+      STAGING_BASE_URL: process.env.STAGING_BASE_URL || stagingUrl,
+      STAGING_API_BASE_URL: process.env.STAGING_API_BASE_URL || '',
+      STAGING_HEALTH_URL: process.env.STAGING_HEALTH_URL || '',
+      STAGING_SSM_PREFIX: process.env.STAGING_SSM_PREFIX || '',
+    },
+  });
+
+  if (!preflight.safe) {
+    return {
+      name: scanner.name,
+      command: `zap-baseline.py -t ${stagingUrl}`,
+      status: 'failed',
+      exitCode: 2,
+      runner: 'preflight',
+      reason: `Refusing OWASP ZAP baseline before network access: ${preflight.failures.join('; ')}`,
     };
   }
 

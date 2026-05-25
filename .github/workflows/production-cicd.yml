@@ -1211,6 +1211,23 @@ jobs:
       )
 
     steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Preflight production smoke target
+        env:
+          SMOKE_TARGET_ENV: production
+          ALLOW_PRODUCTION_SMOKE: "true"
+          SMOKE_BASE_URL: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || vars.AWS_FRONTEND_PUBLIC_URL || vars.NETLIFY_PRODUCTION_URL || vars.GATEWAY_PRODUCTION_URL || '' }}
+          PROD_BASE_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || vars.NETLIFY_PRODUCTION_URL || vars.GATEWAY_PRODUCTION_URL || '' }}
+          PROD_API_BASE_URL: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
+          PROD_SSM_PREFIX: /aura/prod
+        run: node scripts/smoke-preflight.mjs
+
       - name: Run production smoke checks
         env:
           BACKEND_DEPLOY_RESULT: ${{ needs.deploy-backend.result }}

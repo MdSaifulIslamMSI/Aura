@@ -36,6 +36,26 @@ jobs:
       - name: Run regression tests
         run: npm test
 
+  environment-contract:
+    name: Environment Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate default environment contract
+        run: npm run env:validate
+      - name: Run non-live smoke preflight
+        run: npm run smoke:preflight
+      - name: Scan for unsafe production fallbacks
+        run: npm run scan:prod-fallbacks
+
   evidence:
     name: Evidence Check
     runs-on: ubuntu-latest
@@ -220,8 +240,16 @@ jobs:
       - name: Resolve ZAP target
         id: zap-target
         shell: bash
+        env:
+          SMOKE_TARGET_ENV: ${{ env.STAGING_URL != '' && 'staging' || 'local' }}
+          SMOKE_BASE_URL: ${{ env.STAGING_URL != '' && env.STAGING_URL || 'http://127.0.0.1:4173' }}
+          STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL || '' }}
+          STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL || '' }}
+          STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL || '' }}
+          STAGING_SSM_PREFIX: ${{ vars.STAGING_SSM_PREFIX || '' }}
         run: |
           if [ -n "$STAGING_URL" ]; then
+            npm run smoke:preflight
             echo "target=$STAGING_URL" >> "$GITHUB_OUTPUT"
             echo "mode=external-staging" >> "$GITHUB_OUTPUT"
           else
@@ -250,6 +278,13 @@ jobs:
           exit 1
       - name: Run ZAP baseline against staging
         run: npm run security:zap -- "${{ steps.zap-target.outputs.target }}"
+        env:
+          SMOKE_TARGET_ENV: ${{ env.STAGING_URL != '' && 'staging' || 'local' }}
+          SMOKE_BASE_URL: ${{ env.STAGING_URL != '' && env.STAGING_URL || 'http://127.0.0.1:4173' }}
+          STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL || '' }}
+          STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL || '' }}
+          STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL || '' }}
+          STAGING_SSM_PREFIX: ${{ vars.STAGING_SSM_PREFIX || '' }}
       - name: Upload ZAP reports
         uses: actions/upload-artifact@v7
         if: always()

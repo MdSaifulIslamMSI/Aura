@@ -7,7 +7,9 @@ const assertAbsoluteHttpUrl = (value) => {
 };
 
 // Durable production backend edge used by local desktop builds and generated
-// hosted routing files when CI variables are unavailable.
+// hosted production routing files when CI variables are unavailable. Preview
+// deployments that use this origin are frontend previews only, not backend
+// staging; staging smoke must use an isolated STAGING_API_BASE_URL instead.
 export const DEFAULT_HOSTED_BACKEND_ORIGIN = 'https://dbtrhsolhec1s.cloudfront.net';
 
 export const assertDeployableHostedBackendOrigin = (origin) => {

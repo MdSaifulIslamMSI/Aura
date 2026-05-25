@@ -20,6 +20,10 @@ jobs:
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       STAGING_URL: ${{ vars.STAGING_URL || '' }}
+      STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL || '' }}
+      STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL || '' }}
+      STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL || '' }}
+      STAGING_SSM_PREFIX: ${{ vars.STAGING_SSM_PREFIX || '' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -42,6 +46,15 @@ jobs:
       - name: Run regression tests
         run: npm test
 
+      - name: Validate environment contract
+        run: npm run env:validate
+
+      - name: Run smoke preflight without live requests
+        run: npm run smoke:preflight
+
+      - name: Scan for production fallback regressions
+        run: npm run scan:prod-fallbacks
+
       - name: Run high/critical dependency gate
         run: npm run security:deps
 
@@ -59,7 +72,12 @@ jobs:
 
       - name: Run OWASP ZAP baseline against staging
         if: ${{ env.STAGING_URL != '' }}
-        run: npm run security:zap -- "$STAGING_URL"
+        env:
+          SMOKE_TARGET_ENV: staging
+          SMOKE_BASE_URL: ${{ env.STAGING_URL }}
+        run: |
+          npm run smoke:preflight
+          npm run security:zap -- "$STAGING_URL"
 
       - name: Upload security reports
         uses: actions/upload-artifact@v7

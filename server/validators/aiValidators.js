@@ -1,21 +1,93 @@
 const { z } = require('zod');
 
+const ASSISTANT_IMAGE_MAX_BYTES = Number(process.env.ASSISTANT_IMAGE_MAX_BYTES || 8 * 1024 * 1024);
+const ASSISTANT_AUDIO_MAX_BYTES = Number(process.env.ASSISTANT_AUDIO_MAX_BYTES || 8 * 1024 * 1024);
+const ASSISTANT_IMAGE_DATA_URI_MAX_CHARS = Math.ceil(ASSISTANT_IMAGE_MAX_BYTES * 4 / 3) + 128;
+const ASSISTANT_AUDIO_DATA_URI_MAX_CHARS = Math.ceil(ASSISTANT_AUDIO_MAX_BYTES * 4 / 3) + 128;
+const ASSISTANT_IMAGE_ALLOWED_MIME = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+]);
+const ASSISTANT_AUDIO_ALLOWED_MIME = new Set([
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/webm',
+    'audio/ogg',
+    'audio/mp4',
+    'audio/m4a',
+]);
+
+const normalizeMimeType = (value) => String(value || '').split(';', 1)[0].trim().toLowerCase();
+
+const getDataUriMimeType = (value = '') => {
+    const match = String(value || '').match(/^data:([^;,]+);base64,/i);
+    return match ? normalizeMimeType(match[1]) : '';
+};
+
+const addAssistantMediaIssues = ({ value, ctx, allowedMimeTypes, label }) => {
+    const metadataMimeType = normalizeMimeType(value.mimeType);
+    if (metadataMimeType && !allowedMimeTypes.has(metadataMimeType)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['mimeType'],
+            message: `Unsupported assistant ${label} MIME type`,
+        });
+    }
+
+    if (!value.dataUrl) return;
+
+    const dataUriMimeType = getDataUriMimeType(value.dataUrl);
+    if (!dataUriMimeType) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['dataUrl'],
+            message: `Assistant ${label} dataUrl must be a base64 data URI`,
+        });
+        return;
+    }
+    if (!allowedMimeTypes.has(dataUriMimeType)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['dataUrl'],
+            message: `Unsupported assistant ${label} data URI MIME type`,
+        });
+    }
+};
+
 const assistantImageSchema = z.object({
     url: z.string().trim().url().optional(),
-    dataUrl: z.string().trim().max(12_000_000).optional(),
+    dataUrl: z.string().trim().max(ASSISTANT_IMAGE_DATA_URI_MAX_CHARS).optional(),
     fileName: z.string().trim().max(240).optional(),
     mimeType: z.string().trim().max(120).optional(),
 }).refine((value) => Boolean(value.url || value.dataUrl), {
     message: 'Each image must include a url or dataUrl',
+}).superRefine((value, ctx) => {
+    addAssistantMediaIssues({
+        value,
+        ctx,
+        allowedMimeTypes: ASSISTANT_IMAGE_ALLOWED_MIME,
+        label: 'image',
+    });
 });
 
 const assistantAudioSchema = z.object({
     url: z.string().trim().url().optional(),
-    dataUrl: z.string().trim().max(16_000_000).optional(),
+    dataUrl: z.string().trim().max(ASSISTANT_AUDIO_DATA_URI_MAX_CHARS).optional(),
     fileName: z.string().trim().max(240).optional(),
     mimeType: z.string().trim().max(120).optional(),
 }).refine((value) => Boolean(value.url || value.dataUrl), {
     message: 'Each audio item must include a url or dataUrl',
+}).superRefine((value, ctx) => {
+    addAssistantMediaIssues({
+        value,
+        ctx,
+        allowedMimeTypes: ASSISTANT_AUDIO_ALLOWED_MIME,
+        label: 'audio',
+    });
 });
 
 const conversationEntrySchema = z.object({
