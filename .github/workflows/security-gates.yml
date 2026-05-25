@@ -161,7 +161,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [tests]
-    if: ${{ vars.STAGING_URL != '' }}
+    env:
+      STAGING_URL: ${{ vars.STAGING_URL || '' }}
     steps:
       - uses: actions/checkout@v6
       - name: Use Node.js 24.x
@@ -171,8 +172,39 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Resolve ZAP target
+        id: zap-target
+        shell: bash
+        run: |
+          if [ -n "$STAGING_URL" ]; then
+            echo "target=$STAGING_URL" >> "$GITHUB_OUTPUT"
+            echo "mode=external-staging" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=http://127.0.0.1:4173" >> "$GITHUB_OUTPUT"
+            echo "mode=local-preview" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install frontend dependencies
+        if: steps.zap-target.outputs.mode == 'local-preview'
+        run: npm --prefix app ci
+      - name: Build local frontend preview
+        if: steps.zap-target.outputs.mode == 'local-preview'
+        run: npm --prefix app run build
+      - name: Start local frontend preview
+        if: steps.zap-target.outputs.mode == 'local-preview'
+        shell: bash
+        run: |
+          npm --prefix app run preview -- --host 0.0.0.0 --port 4173 > "$RUNNER_TEMP/aura-vite-preview.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/aura-vite-preview.pid"
+          for attempt in {1..30}; do
+            if curl -fsS "http://127.0.0.1:4173" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/aura-vite-preview.log"
+          exit 1
       - name: Run ZAP baseline against staging
-        run: npm run security:zap -- "${{ vars.STAGING_URL }}"
+        run: npm run security:zap -- "${{ steps.zap-target.outputs.target }}"
       - name: Upload ZAP reports
         uses: actions/upload-artifact@v7
         if: always()

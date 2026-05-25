@@ -249,6 +249,7 @@ const runZap = () => {
   console.log(`Running OWASP ZAP baseline against ${scanTarget}`);
   runDocker([
     'run', '--rm',
+    '--add-host=host.docker.internal:host-gateway',
     '-v', reportMount,
     images.zap,
     'zap-baseline.py',

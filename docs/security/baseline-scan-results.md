@@ -32,7 +32,7 @@ Branch: `security/zero-trust-production-architecture`
 - Docker CLI exists, but Docker Desktop became unstable during WSL bootstrap after briefly starting.
 - `npx semgrep` and `npx gitleaks` could not determine an executable to run.
 - `npx osv-scanner` is not an npm package.
-- `STAGING_URL` is unset, so OWASP ZAP baseline is intentionally skipped.
+- `STAGING_URL` is unset locally, so the free scanner wrapper skips OWASP ZAP; the CI security gates now fall back to a local Vite preview target for DAST evidence without scanning production.
 
 ## Required CI Evidence
 
@@ -42,6 +42,6 @@ The security gates workflow should produce retained artifacts for:
 - Semgrep report.
 - Trivy filesystem report.
 - SBOM.
-- ZAP baseline report when staging URL is configured.
+- ZAP baseline report against `STAGING_URL` when configured, or against the CI-local Vite preview fallback when no staging URL is configured.
 
 Do not commit raw scanner reports if they contain sensitive findings or local paths. Prefer CI artifacts plus this summary.
