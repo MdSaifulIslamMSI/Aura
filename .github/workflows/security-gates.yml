@@ -30,6 +30,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Install server dependencies
+        run: npm --prefix server ci
       - name: Run regression tests
         run: npm test
 
