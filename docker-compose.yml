@@ -8,6 +8,14 @@ services:
       PORT: 5000
       MONGO_URI: mongodb://mongo:27017/aura
       REDIS_URL: redis://redis:6379
+      OTP_FLOW_SECRET: local-demo-otp-flow-secret-change-me
+      OTP_CHALLENGE_SECRET: local-demo-otp-challenge-secret-change-me
+      UPLOAD_SIGNING_SECRET: local-demo-upload-signing-secret-change-me
+      AUTH_VAULT_SECRET: local-demo-auth-vault-key-0123456789abcdef
+      RAZORPAY_WEBHOOK_SECRET: local-demo-razorpay-webhook-secret-change-me
+      STRIPE_WEBHOOK_SECRET: local-demo-stripe-webhook-secret-change-me
+      STATUS_WEBHOOK_SECRET: local-demo-status-webhook-secret-change-me
+      STATUS_WEBHOOK_TOKEN: local-demo-status-webhook-token-change-me
       STATUS_MONITOR_ALLOWED_HOSTS: aura-api,localhost,127.0.0.1
     ports:
       - "5000:5000"
