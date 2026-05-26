@@ -8,6 +8,7 @@ node_modules/
 **/.env
 **/.env.local
 **/.env.production
+**/.env.staging
 **/.env.*.local
 server/.env.aws-secrets
 server/.env.aws-secrets.*
@@ -80,6 +81,7 @@ server/.mongodb-binaries/
 
 # Generated runtime/test artifacts
 .codex/
+.staging/
 output/
 server/test_output.txt
 **/test_output*.txt

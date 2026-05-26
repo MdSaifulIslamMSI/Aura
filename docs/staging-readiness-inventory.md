@@ -1,6 +1,6 @@
 # Staging Readiness Inventory
 
-Current status: Code is staging-safe, but live staging infrastructure is not present yet.
+Current status: Code is staging-safe, and live staging infrastructure is present.
 
 | Source | Classification | Safe? | Production fallback? | Required change |
 | --- | --- | --- | --- | --- |
@@ -49,9 +49,16 @@ Current status: Code is staging-safe, but live staging infrastructure is not pre
 | `docs/auth-free-security-inventory-2026-05-24.md` | Security inventory | Mixed local/staging/production notes | No smoke fallback | Current status points staging URL as missing. |
 | `docs/upload-security-operations.md` | Upload malware runtime docs | Local/staging-ready | No production fallback | ClamAV/YARA runtime documented without secrets. |
 | `config/environments/staging.example.json` | Staging contract example | Safe | `allowProductionFallback=false` | Replace example URLs with real staging values when staging exists. |
-| GitHub repository variables | External config | Not fully configured for staging | Current known variables are production-focused | Add `STAGING_BASE_URL`, `STAGING_API_BASE_URL`, `STAGING_HEALTH_URL`, `STAGING_SSM_PREFIX=/aura/staging` before live staging smoke. |
-| Vercel Preview deployments | External preview evidence | Frontend-only | Backend paths proxy to production CloudFront | Must fail backend staging smoke until isolated backend routing exists. |
-| AWS SSM Parameter Store | External runtime config | Production prefix exists; staging missing | `/aura/prod` exists, `/aura/staging` absent | Provision `/aura/staging` before staging deploy/smoke. |
+| `config/environments/staging.example.env` | AWS Free Tier bootstrap example | Safe | No | Fill required values in local/CI env; never commit secrets. |
+| `infra/staging/**` | Staging EC2 Docker/Nginx/cloud-init templates | Safe | No | Used only by `scripts/staging/*`; keeps backend, database, cache, and scanner isolated from production. |
+| `scripts/staging/*` | Staging AWS bootstrap automation | Safe when env is explicit | No | Provisions tagged staging resources, `/aura/staging` SSM, private S3, and guarded teardown. |
+| `scripts/staging/00-create-iam-auth.sh` | Staging IAM operator bootstrap | Safe when run by an admin profile | No | Creates a staging-only operator role and EC2 instance profile; fails closed if current profile lacks IAM. |
+| `scripts/smoke/assert-staging-contract.mjs` | Live staging smoke preflight | Safe | No | Blocks missing staging vars, production URLs, and `/aura/prod` before any network request. |
+| `scripts/smoke/staging-route-smoke.mjs` | Live route smoke | Safe behind contract assert | No | Checks `/health`, `/api/health`, `/uploads`, and `/socket.io` for staging-only origin behavior. |
+| `.github/workflows/staging-smoke.yml` | Staging smoke workflow | Safe/fail-closed | No | Requires GitHub environment `staging` vars and runs guarded live smoke only after contract assertion. |
+| GitHub repository variables | External config | Safe | No | GitHub environment `staging` variables are configured for the live AWS staging URL and guarded smoke contract. |
+| Vercel Preview deployments | External preview evidence | Frontend-only | Backend paths proxy to production CloudFront | Must fail backend staging smoke until a Vercel `staging` custom target exists and routes to the isolated staging backend. |
+| AWS SSM Parameter Store | External runtime config | Safe | No | `/aura/staging` is provisioned for staging runtime; `/aura/prod` remains production-only. |
 
 ## Discovered Preview Reality
 
@@ -59,4 +66,6 @@ Recent GitHub deployment records include Vercel Preview URLs, but the checked-in
 
 ## Current Status
 
-Code is staging-safe, but live staging infrastructure is not present yet.
+Code is staging-safe, and live staging infrastructure is present.
+
+Live route smoke passed against the AWS EC2 staging backend. Vercel custom target setup is still blocked by a 403 from the Vercel API, so Vercel Preview must remain frontend-only and must not be used as backend staging.

@@ -100,6 +100,7 @@ const { flags: catalogFlags } = require('./config/catalogFlags');
 const {
     assertProductionCorsConfig,
     isOriginAllowed,
+    isStagingRuntime: isCorsStagingRuntime,
     allowedOrigins,
 } = require('./config/corsFlags');
 const { assertSigningSecretsConfig } = require('./config/signingSecrets');
@@ -112,6 +113,7 @@ const {
 const {
     getCachedHealthSnapshot,
 } = require('./services/healthService');
+const { checkClamAvReady } = require('./services/malwareScanService');
 const {
     buildStartupReadinessFailure,
     getReadinessGraceState,
@@ -141,12 +143,16 @@ const app = express();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
 const AUTH_BODY_LIMIT = process.env.AUTH_BODY_LIMIT || '64kb';
 const runtimeNodeEnv = process.env.NODE_ENV || 'production';
+const STAGING_HEALTH_SSM_PREFIX = '/aura/staging';
 const toWebSocketOrigin = (origin = '') => String(origin || '').replace(/\/+$/, '').replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
+const productionBackendCspSources = isCorsStagingRuntime ? [] : [
+    'https://dbtrhsolhec1s.cloudfront.net',
+    'wss://dbtrhsolhec1s.cloudfront.net',
+];
 const cspConnectSources = Array.from(new Set([
     "'self'",
     ...allowedOrigins,
-    'https://dbtrhsolhec1s.cloudfront.net',
-    'wss://dbtrhsolhec1s.cloudfront.net',
+    ...productionBackendCspSources,
     ...allowedOrigins.map(toWebSocketOrigin),
     'https://api.github.com',
     'https://api.stripe.com',
@@ -478,6 +484,46 @@ app.use('/api/support', supportRoutes);
 app.use('/api/notifications', userNotificationRoutes);
 app.use('/metrics', metricsRoute);
 
+const isStagingRuntime = () => (
+    String(process.env.APP_ENV || process.env.SMOKE_TARGET_ENV || '').trim().toLowerCase() === 'staging'
+    || String(process.env.STAGING_SSM_PREFIX || process.env.AWS_PARAMETER_STORE_PATH_PREFIX || '').trim() === STAGING_HEALTH_SSM_PREFIX
+);
+
+const getStagingStorageFingerprint = () => {
+    const bucket = String(process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || process.env.STAGING_BUCKET_NAME || '').toLowerCase();
+    if (!bucket) return 'not_ready';
+    if (bucket.includes('prod') || bucket.includes('production')) return 'invalid';
+    return 'staging';
+};
+
+const buildStagingHealthFingerprint = async (core) => {
+    if (!isStagingRuntime()) return {};
+
+    const ssmPrefix = String(process.env.STAGING_SSM_PREFIX || process.env.AWS_PARAMETER_STORE_PATH_PREFIX || '').trim();
+    const scannerHealth = await checkClamAvReady({ timeoutMs: 1000 }).catch((error) => ({
+        ready: false,
+        detail: error?.message || 'scanner readiness failed',
+    }));
+    const database = core.dbConnected ? 'staging' : 'not_ready';
+    const cache = core.redisConnected ? 'staging' : 'not_ready';
+    const storage = getStagingStorageFingerprint();
+    const scanner = scannerHealth.ready ? 'ready' : 'not_ready';
+
+    return {
+        ok: ssmPrefix === STAGING_HEALTH_SSM_PREFIX
+            && database === 'staging'
+            && cache === 'staging'
+            && storage === 'staging'
+            && scanner === 'ready',
+        env: 'staging',
+        ssmPrefix,
+        database,
+        cache,
+        storage,
+        scanner,
+    };
+};
+
 // Health Check
 app.get('/health', async (req, res) => {
     const snapshot = await getCachedHealthSnapshot();
@@ -494,12 +540,16 @@ app.get('/health', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.set('X-Health-Cache', snapshot.cacheState);
     if (!exposeDetailedHealth) {
-        return res.status(status === 'ok' ? 200 : 503).json(buildPublicHealthPayload({
-            status,
-            core,
-            uptime,
-            timestamp,
-        }));
+        const stagingHealthFingerprint = await buildStagingHealthFingerprint(core);
+        return res.status(status === 'ok' ? 200 : 503).json({
+            ...buildPublicHealthPayload({
+                status,
+                core,
+                uptime,
+                timestamp,
+            }),
+            ...stagingHealthFingerprint,
+        });
     }
 
     const workerGaps = getSplitRuntimeWorkerGaps({
@@ -508,11 +558,13 @@ app.get('/health', async (req, res) => {
         catalog: services.catalog,
         reconciliation: services.reconciliation,
     });
+    const stagingHealthFingerprint = await buildStagingHealthFingerprint(core);
     const detailedHealthPayload = {
         status,
         db: core.dbConnected ? 'connected' : 'disconnected',
         uptime,
         timestamp,
+        ...stagingHealthFingerprint,
         redis: {
             connected: core.redisConnected,
         },

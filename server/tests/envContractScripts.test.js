@@ -19,6 +19,27 @@ const validate = (env) => runModuleJson(`
     console.log(JSON.stringify({ safe: result.safe, failures: result.failures }));
 `);
 
+const runScript = (script, env) => {
+    try {
+        const stdout = execFileSync(
+            process.execPath,
+            [script],
+            {
+                cwd: repoRoot,
+                encoding: 'utf8',
+                env: { ...process.env, ...env },
+                stdio: ['ignore', 'pipe', 'pipe'],
+            }
+        );
+        return { status: 0, output: stdout };
+    } catch (error) {
+        return {
+            status: error.status || 1,
+            output: `${error.stdout || ''}${error.stderr || ''}`,
+        };
+    }
+};
+
 describe('repo environment contract scripts', () => {
     test('staging env validation fails when SMOKE_BASE_URL is missing', () => {
         const result = validate({
@@ -108,5 +129,56 @@ describe('repo environment contract scripts', () => {
         expect(result).toEqual(expect.arrayContaining([
             expect.objectContaining({ reason: expect.stringMatching(/falls back/) }),
         ]));
+    });
+
+    test('staging smoke contract script fails when staging URL is missing', () => {
+        const result = runScript('scripts/smoke/assert-staging-contract.mjs', {
+            SMOKE_TARGET_ENV: 'staging',
+            STAGING_SSM_PREFIX: '/aura/staging',
+            SMOKE_REQUIRE_BACKEND_STAGING: 'true',
+            SMOKE_FORBID_PRODUCTION_ORIGINS: 'true',
+            PROD_BASE_URL: 'https://prod.example.test',
+            PROD_API_BASE_URL: 'https://api.prod.example.test',
+            PROD_SSM_PREFIX: '/aura/prod',
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/STAGING_BASE_URL is required/);
+    });
+
+    test('staging smoke contract script rejects /aura/prod for staging', () => {
+        const result = runScript('scripts/smoke/assert-staging-contract.mjs', {
+            SMOKE_TARGET_ENV: 'staging',
+            STAGING_BASE_URL: 'https://staging.example.test',
+            STAGING_API_BASE_URL: 'https://api.staging.example.test',
+            STAGING_HEALTH_URL: 'https://api.staging.example.test/health',
+            STAGING_SSM_PREFIX: '/aura/prod',
+            SMOKE_REQUIRE_BACKEND_STAGING: 'true',
+            SMOKE_FORBID_PRODUCTION_ORIGINS: 'true',
+            PROD_BASE_URL: 'https://prod.example.test',
+            PROD_API_BASE_URL: 'https://api.prod.example.test',
+            PROD_SSM_PREFIX: '/aura/prod',
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/STAGING_SSM_PREFIX must be \/aura\/staging/);
+    });
+
+    test('staging smoke contract script passes with isolated staging values', () => {
+        const result = runScript('scripts/smoke/assert-staging-contract.mjs', {
+            SMOKE_TARGET_ENV: 'staging',
+            STAGING_BASE_URL: 'https://staging.example.test',
+            STAGING_API_BASE_URL: 'https://api.staging.example.test',
+            STAGING_HEALTH_URL: 'https://api.staging.example.test/health',
+            STAGING_SSM_PREFIX: '/aura/staging',
+            SMOKE_REQUIRE_BACKEND_STAGING: 'true',
+            SMOKE_FORBID_PRODUCTION_ORIGINS: 'true',
+            PROD_BASE_URL: 'https://prod.example.test',
+            PROD_API_BASE_URL: 'https://api.prod.example.test',
+            PROD_SSM_PREFIX: '/aura/prod',
+        });
+
+        expect(result.status).toBe(0);
+        expect(result.output).toMatch(/PASS: staging smoke contract is safe/);
     });
 });

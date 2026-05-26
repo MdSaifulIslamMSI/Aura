@@ -6,6 +6,7 @@ RUN apk upgrade --no-cache \
     && npm install -g npm@11.6.2
 
 COPY package*.json ./
+COPY vendor ./vendor
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 

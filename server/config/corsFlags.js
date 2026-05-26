@@ -23,6 +23,8 @@ const parseOrigins = (value) => {
 
 const nodeEnv = String(process.env.NODE_ENV || 'development').trim().toLowerCase();
 const isProduction = nodeEnv === 'production';
+const isStagingRuntime = String(process.env.APP_ENV || '').trim().toLowerCase() === 'staging'
+    && String(process.env.STAGING_SSM_PREFIX || '').trim() === '/aura/staging';
 const defaultDevOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 const hostedProductionOrigins = [
     'https://aurapilot.vercel.app',
@@ -42,7 +44,9 @@ const collectConfiguredOrigins = () => {
         normalizeOrigin(process.env.S3_FRONTEND_URL),
     ].filter(Boolean);
 
-    const fallbackOrigins = isProduction ? hostedProductionOrigins : defaultDevOrigins;
+    const fallbackOrigins = isProduction
+        ? (isStagingRuntime ? [] : hostedProductionOrigins)
+        : defaultDevOrigins;
     return Array.from(new Set([
         ...configuredOrigins,
         ...fallbackOrigins.map((origin) => normalizeOrigin(origin)).filter(Boolean),
@@ -52,7 +56,7 @@ const collectConfiguredOrigins = () => {
 const allowedOrigins = collectConfiguredOrigins();
 
 const assertProductionCorsConfig = () => {
-    if (!isProduction) return;
+    if (!isProduction || isStagingRuntime) return;
     if (allowedOrigins.length === 0) {
         throw new Error('CORS_ORIGIN must be configured in production');
     }
@@ -69,6 +73,7 @@ const isOriginAllowed = (origin) => {
 module.exports = {
     nodeEnv,
     isProduction,
+    isStagingRuntime,
     allowedOrigins,
     assertProductionCorsConfig,
     isOriginAllowed,

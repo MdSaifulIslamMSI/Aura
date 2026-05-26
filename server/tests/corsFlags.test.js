@@ -11,6 +11,8 @@ const loadCorsFlags = ({ nodeEnv = 'production', env = {} } = {}) => {
         NETLIFY_FRONTEND_URL: '',
         AWS_FRONTEND_URL: '',
         S3_FRONTEND_URL: '',
+        APP_ENV: '',
+        STAGING_SSM_PREFIX: '',
         ...env,
     };
 
@@ -39,5 +41,26 @@ describe('corsFlags', () => {
         const { isOriginAllowed } = loadCorsFlags();
 
         expect(isOriginAllowed('https://example.com')).toBe(false);
+    });
+
+    test('does not add hosted production origins in explicit staging runtime', () => {
+        const { allowedOrigins, isOriginAllowed, isStagingRuntime } = loadCorsFlags({
+            env: {
+                APP_ENV: 'staging',
+                STAGING_SSM_PREFIX: '/aura/staging',
+                CORS_ORIGIN: 'http://staging-api.example.test',
+            },
+        });
+
+        expect(isStagingRuntime).toBe(true);
+        expect(allowedOrigins).toContain('http://staging-api.example.test');
+        expect(allowedOrigins).not.toEqual(expect.arrayContaining([
+            'https://aurapilot.vercel.app',
+            'https://aurapilot.netlify.app',
+            'https://dbtrhsolhec1s.cloudfront.net',
+            'https://aurapilot.aws.app',
+        ]));
+        expect(isOriginAllowed('http://staging-api.example.test')).toBe(true);
+        expect(isOriginAllowed('https://dbtrhsolhec1s.cloudfront.net')).toBe(false);
     });
 });
