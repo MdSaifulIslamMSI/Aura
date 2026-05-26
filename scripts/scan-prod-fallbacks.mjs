@@ -69,6 +69,9 @@ const ALLOWED_PRODUCTION_FILES = new Set([
   'docs/staging-free-aws-bootstrap.md',
   'docs/staging-readiness-inventory.md',
   'docs/staging-runbook.md',
+  'docs/staging-vercel-frontend.md',
+  'docs/staging-vercel-pr-summary.md',
+  'docs/staging-vercel-blocker-report.md',
   'config/environments/staging.example.env',
   'docs/aws-backend-deployment.md',
   'docs/aws-frontend-deployment.md',
@@ -85,6 +88,11 @@ const ALLOWED_PRODUCTION_FILES = new Set([
   '.github/workflows/rollback-gateway-vercel.yml',
   'scripts/smoke/assert-staging-contract.mjs',
   'scripts/smoke/staging-route-smoke.mjs',
+  'scripts/smoke/assert-frontend-staging-target.mjs',
+  'scripts/smoke/assert-no-staging-prod-fallbacks.mjs',
+  'scripts/staging/vercel-staging-autopilot.mjs',
+  'scripts/staging/12-deploy-frontend-docker.sh',
+  '.github/workflows/staging-frontend-smoke.yml',
 ]);
 
 const toRepoPath = (absolutePath) => path.relative(REPO_ROOT, absolutePath).replace(/\\/g, '/');

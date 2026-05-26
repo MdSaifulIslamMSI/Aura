@@ -11,6 +11,7 @@ ensure_state
 staging_base_url="${STAGING_BASE_URL:-$(state_get staging_base_url)}"
 staging_api_base_url="${STAGING_API_BASE_URL:-$(state_get staging_api_base_url)}"
 staging_health_url="${STAGING_HEALTH_URL:-$(state_get staging_health_url)}"
+staging_frontend_url="${STAGING_FRONTEND_URL:-$(state_get staging_frontend_url)}"
 
 export STAGING_BASE_URL="$staging_base_url"
 export STAGING_API_BASE_URL="$staging_api_base_url"
@@ -20,9 +21,24 @@ export SMOKE_TARGET_ENV="staging"
 export SMOKE_REQUIRE_BACKEND_STAGING="true"
 export SMOKE_FORBID_PRODUCTION_ORIGINS="true"
 export PROD_SSM_PREFIX="/aura/prod"
+if [ -n "$staging_frontend_url" ]; then
+  export STAGING_FRONTEND_URL="$staging_frontend_url"
+fi
 
 node "$(node_path "$REPO_ROOT/scripts/smoke/assert-staging-contract.mjs")"
 node "$(node_path "$REPO_ROOT/scripts/smoke/staging-route-smoke.mjs")"
+
+frontend_smoke="not_configured"
+frontend_mode="not_configured"
+if [ -n "$staging_frontend_url" ]; then
+  node "$(node_path "$REPO_ROOT/scripts/smoke/assert-frontend-staging-target.mjs")"
+  frontend_smoke="PASS"
+  if [ "$staging_frontend_url" = "$STAGING_API_BASE_URL" ]; then
+    frontend_mode="Docker static frontend on AWS staging"
+  else
+    frontend_mode="external staging frontend"
+  fi
+fi
 
 curl -fsS "$STAGING_HEALTH_URL" >/tmp/aura-staging-health.json
 aws_cli s3api get-public-access-block --bucket "$STAGING_BUCKET_NAME" >/tmp/aura-staging-s3-public-access.json
@@ -65,6 +81,9 @@ Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 | EC2 public DNS | $(state_get public_dns) |
 | Staging API base URL | $STAGING_API_BASE_URL |
 | Staging health URL | $STAGING_HEALTH_URL |
+| Frontend staging URL | ${staging_frontend_url:-not configured} |
+| Frontend staging mode | $frontend_mode |
+| Frontend staging smoke | $frontend_smoke |
 | S3 bucket | $STAGING_BUCKET_NAME |
 | SSM prefix | /aura/staging |
 | GitHub staging vars configured | $github_vars_configured |

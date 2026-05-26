@@ -48,10 +48,10 @@ export const HOSTED_BACKEND_ORIGIN = resolveHostedBackendOrigin(process.env, {
 
 const toWebSocketOrigin = (origin = '') => trimTrailingSlash(origin).replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
 
-export const FRONTEND_CONNECT_SRC = [
+export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN) => [
     "'self'",
-    HOSTED_BACKEND_ORIGIN,
-    toWebSocketOrigin(HOSTED_BACKEND_ORIGIN),
+    trimTrailingSlash(origin),
+    toWebSocketOrigin(origin),
     'http://localhost:*',
     'http://127.0.0.1:*',
     'https://api.github.com',
@@ -77,7 +77,9 @@ export const FRONTEND_CONNECT_SRC = [
     'wss://*.livekit.cloud',
 ].filter(Boolean);
 
-export const FRONTEND_CONTENT_SECURITY_POLICY = [
+export const FRONTEND_CONNECT_SRC = buildFrontendConnectSrc(HOSTED_BACKEND_ORIGIN);
+
+export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGIN) => [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
@@ -86,17 +88,19 @@ export const FRONTEND_CONTENT_SECURITY_POLICY = [
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https:",
-    `connect-src ${FRONTEND_CONNECT_SRC.join(' ')}`,
+    `connect-src ${buildFrontendConnectSrc(origin).join(' ')}`,
     "frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "frame-ancestors 'none'",
 ].join('; ');
 
-export const FRONTEND_SECURITY_HEADERS = [
+export const FRONTEND_CONTENT_SECURITY_POLICY = buildFrontendContentSecurityPolicy(HOSTED_BACKEND_ORIGIN);
+
+export const buildFrontendSecurityHeaderValues = (origin = HOSTED_BACKEND_ORIGIN) => [
     {
         key: 'Content-Security-Policy',
-        value: FRONTEND_CONTENT_SECURITY_POLICY,
+        value: buildFrontendContentSecurityPolicy(origin),
     },
     {
         key: 'X-Frame-Options',
@@ -123,6 +127,8 @@ export const FRONTEND_SECURITY_HEADERS = [
         value: 'camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()',
     },
 ];
+
+export const FRONTEND_SECURITY_HEADERS = buildFrontendSecurityHeaderValues(HOSTED_BACKEND_ORIGIN);
 
 const HOSTED_PROXY_ROUTE_SUFFIXES = [
     {
@@ -209,10 +215,10 @@ export const buildHostedBackendRewrites = (origin = HOSTED_BACKEND_ORIGIN) => {
     ];
 };
 
-export const buildFrontendSecurityHeaders = () => [
+export const buildFrontendSecurityHeaders = (origin = HOSTED_BACKEND_ORIGIN) => [
     {
         source: '/(.*)',
-        headers: FRONTEND_SECURITY_HEADERS,
+        headers: buildFrontendSecurityHeaderValues(origin),
     },
 ];
 

@@ -181,4 +181,46 @@ describe('repo environment contract scripts', () => {
         expect(result.status).toBe(0);
         expect(result.output).toMatch(/PASS: staging smoke contract is safe/);
     });
+
+    test('frontend staging target script fails closed when frontend URL is missing', () => {
+        const result = runScript('scripts/smoke/assert-frontend-staging-target.mjs', {
+            STAGING_API_BASE_URL: 'https://api.staging.example.test',
+            STAGING_HEALTH_URL: 'https://api.staging.example.test/health',
+            PROD_BASE_URL: 'https://prod.example.test',
+            PROD_API_BASE_URL: 'https://api.prod.example.test',
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/STAGING_FRONTEND_URL is required/);
+    });
+
+    test('frontend staging target script rejects production frontend URL', () => {
+        const result = runScript('scripts/smoke/assert-frontend-staging-target.mjs', {
+            STAGING_FRONTEND_URL: 'https://prod.example.test',
+            STAGING_API_BASE_URL: 'https://api.staging.example.test',
+            STAGING_HEALTH_URL: 'https://api.staging.example.test/health',
+            PROD_BASE_URL: 'https://prod.example.test',
+            PROD_API_BASE_URL: 'https://api.prod.example.test',
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/must not equal PROD_BASE_URL/);
+    });
+
+    test('staging production fallback scanner flags production CloudFront in staging context', () => {
+        const findings = runModuleJson(`
+            import { scanNoStagingProdFallbacks } from './scripts/smoke/assert-no-staging-prod-fallbacks.mjs';
+            import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+            import { tmpdir } from 'node:os';
+            import { join } from 'node:path';
+            const root = mkdtempSync(join(tmpdir(), 'aura-staging-fallback-'));
+            mkdirSync(join(root, 'scripts', 'staging'), { recursive: true });
+            writeFileSync(join(root, 'scripts', 'staging', 'bad.mjs'), 'const stagingUrl = "https://dbtrhsolhec1s.cloudfront.net";\\n');
+            console.log(JSON.stringify(scanNoStagingProdFallbacks({ root })));
+        `);
+
+        expect(findings).toEqual(expect.arrayContaining([
+            expect.objectContaining({ reason: expect.stringMatching(/production host/) }),
+        ]));
+    });
 });

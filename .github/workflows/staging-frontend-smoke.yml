@@ -1,0 +1,113 @@
+name: staging-frontend-smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/staging-frontend-smoke.yml'
+      - 'app/**'
+      - 'config/**'
+      - 'docs/staging-*.md'
+      - 'docs/environment-contract.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/**'
+      - 'server/config/**'
+      - 'server/tests/**'
+      - 'vercel.json'
+  push:
+    branches: [main, staging]
+
+jobs:
+  staging-frontend-smoke:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL }}
+      STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+      STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+      STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
+      STAGING_SSM_PREFIX: ${{ vars.STAGING_SSM_PREFIX }}
+      SMOKE_TARGET_ENV: ${{ vars.SMOKE_TARGET_ENV }}
+      SMOKE_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+      SMOKE_REQUIRE_BACKEND_STAGING: ${{ vars.SMOKE_REQUIRE_BACKEND_STAGING }}
+      SMOKE_FORBID_PRODUCTION_ORIGINS: ${{ vars.SMOKE_FORBID_PRODUCTION_ORIGINS }}
+      PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}
+      PROD_API_BASE_URL: ${{ vars.PROD_API_BASE_URL }}
+      PROD_SSM_PREFIX: ${{ vars.PROD_SSM_PREFIX }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm --prefix server install --no-audit --no-fund
+
+      - name: Validate environment contract
+        run: npm run env:validate
+
+      - name: Scan for production fallback regressions
+        run: npm run scan:prod-fallbacks
+
+      - name: Verify backend staging
+        run: npm run smoke:staging
+
+      - name: Resolve latest Vercel staging frontend URL
+        if: ${{ env.STAGING_FRONTEND_URL == '' }}
+        run: |
+          node --input-type=module <<'NODE'
+          const required = ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'];
+          const missing = required.filter((name) => !process.env[name]);
+          if (missing.length) {
+            console.error(`STAGING_FRONTEND_URL is missing and cannot be resolved without ${missing.join(', ')}.`);
+            process.exit(1);
+          }
+          const endpoint = new URL(`https://api.vercel.com/v6/deployments`);
+          endpoint.searchParams.set('teamId', process.env.VERCEL_ORG_ID);
+          endpoint.searchParams.set('projectId', process.env.VERCEL_PROJECT_ID);
+          endpoint.searchParams.set('limit', '20');
+          const response = await fetch(endpoint, {
+            headers: { authorization: `Bearer ${process.env.VERCEL_TOKEN}` },
+          });
+          if (!response.ok) {
+            console.error(`Unable to read Vercel deployments: ${response.status}`);
+            process.exit(1);
+          }
+          const data = await response.json();
+          const deployments = data.deployments || [];
+          const staging = deployments.find((deployment) => (
+            deployment.readyState === 'READY'
+            && (
+              deployment.target === 'staging'
+              || deployment.meta?.githubCommitRef === 'staging'
+              || String(deployment.name || '').includes('staging')
+            )
+          ));
+          if (!staging?.url) {
+            console.error('STAGING_FRONTEND_URL is missing and no ready staging Vercel deployment could be resolved.');
+            process.exit(1);
+          }
+          console.log(`STAGING_FRONTEND_URL=https://${staging.url}`);
+          await import('node:fs').then(({ appendFileSync }) => {
+            appendFileSync(process.env.GITHUB_ENV, `STAGING_FRONTEND_URL=https://${staging.url}\n`);
+          });
+          NODE
+
+      - name: Verify frontend staging target
+        run: npm run smoke:staging:frontend
+
+      - name: Verify staging CORS contract
+        run: npm --prefix server test -- --runTestsByPath tests/corsFlags.test.js tests/stagingFrontendCors.test.js

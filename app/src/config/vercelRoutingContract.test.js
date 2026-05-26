@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+    buildFrontendSecurityHeaders,
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
     DEFAULT_HOSTED_BACKEND_ORIGIN,
@@ -68,6 +69,17 @@ describe('vercel routing contract', () => {
         expect(() => resolveHostedBackendOrigin({})).toThrow(/AURA_BACKEND_ORIGIN|AWS_BACKEND_BASE_URL/);
         expect(resolveHostedBackendOrigin({}, { allowCommittedFallback: true })).toBe(DEFAULT_HOSTED_BACKEND_ORIGIN);
         expect(() => resolveHostedBackendOrigin({ AURA_BACKEND_ORIGIN: '/' })).toThrow(/absolute http/);
+    });
+
+    it('can render staging deployment headers for the isolated AWS backend', () => {
+        const stagingOrigin = 'http://ec2-13-201-55-118.ap-south-1.compute.amazonaws.com';
+        const headers = buildFrontendSecurityHeaders(stagingOrigin);
+        const csp = headers[0].headers.find(({ key }) => key === 'Content-Security-Policy')?.value || '';
+        const stagingSocketOrigin = stagingOrigin.replace(/^http:/, 'ws:');
+
+        expect(csp).toContain(stagingOrigin);
+        expect(csp).toContain(stagingSocketOrigin);
+        expect(csp).not.toContain(DEFAULT_HOSTED_BACKEND_ORIGIN);
     });
 
     it('does not allow stale backend origins back into committed proxy routes', async () => {

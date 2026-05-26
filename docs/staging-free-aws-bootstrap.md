@@ -6,11 +6,12 @@ This bootstrap provisions a small isolated staging backend on AWS using the AWS 
 
 - One EC2 instance running Docker Compose.
 - Docker Postgres, Redis, MongoDB, and ClamAV on the private Compose network. Postgres is provisioned for the staging contract; MongoDB is included because the current backend runtime still requires `MONGO_URI`.
-- Host Nginx proxying only HTTP/HTTPS traffic to the backend on localhost.
+- Host Nginx proxying HTTP/HTTPS traffic to the backend on localhost and, when enabled, the Docker-hosted staging frontend.
 - A private S3 bucket for staging uploads.
 - SSM Parameter Store values under `/aura/staging`.
 - GitHub staging environment variables.
-- Optional Vercel staging or preview variables that point to the isolated staging backend when a Vercel custom target exists and the token has project write permission.
+- Optional Vercel staging frontend deployment that points to the isolated staging backend through `npm run staging:vercel:autopilot`.
+- Docker-hosted staging frontend fallback through `npm run staging:frontend:docker` when Vercel custom staging or Preview env writes are blocked.
 - A monthly AWS Budget guardrail.
 
 It intentionally avoids NAT Gateway, ALB, RDS, ElastiCache, CloudFront, and Route53 unless explicitly enabled later. It never uses production DB, cache, storage, API, CloudFront, or SSM values as staging.
@@ -104,7 +105,7 @@ If live staging is missing or unsafe, the expected status remains:
 Code is staging-safe, but live staging infrastructure is not present yet.
 ```
 
-Latest run note: AWS staging infrastructure and GitHub staging variables are configured and `npm run staging:verify` passed. Vercel custom target setup returned 403, so Vercel variables remain unconfigured until project write permission or a pre-created `staging` custom target is available.
+Latest run note: AWS staging infrastructure and GitHub staging variables are configured and `npm run staging:verify` passed. Vercel custom frontend staging is blocked by the current Vercel project capability, so the active live staging frontend is Docker-hosted on the AWS staging origin and verified with `npm run smoke:staging:frontend`.
 
 ## Teardown
 
@@ -137,4 +138,8 @@ CONFIRM_DESTROY_STAGING=true DELETE_STAGING_BUCKET=true DELETE_STAGING_SSM=true 
 
 ## Vercel Preview Rule
 
-The existing `vercel.json` may still proxy frontend preview backend paths to the production CloudFront origin for production deployment compatibility. That is not backend staging. The staging smoke scripts reject any preview URL whose `/api`, `/health`, `/uploads`, or `/socket.io` paths resolve to production. After this bootstrap creates an isolated staging backend, `scripts/staging/09-set-vercel-vars.sh` sets public Vercel variables so staging or preview clients can call the isolated staging API directly.
+The committed `vercel.json` files may proxy production frontend backend paths to the production CloudFront origin for production deployment compatibility. That is not backend staging. The frontend staging autopilot generates deployment-specific Vercel routing that points backend paths at AWS staging, then `npm run smoke:staging:frontend` rejects any URL whose `/api`, `/health`, `/uploads`, or `/socket.io` paths resolve to production.
+
+## Docker Frontend Rule
+
+When Vercel cannot provide a usable staging target, `npm run staging:frontend:docker` builds `app/dist` with `VITE_API_URL=/api`, refuses to deploy if the bundle contains production hosts or `/aura/prod`, runs `nginx:alpine` on `127.0.0.1:8080`, and reloads host Nginx so the AWS staging origin serves the frontend at `/` while backend paths remain on the staging backend.

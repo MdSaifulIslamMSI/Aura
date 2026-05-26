@@ -21,12 +21,17 @@ const getDirectiveSources = (policy = '', name = '') => getDirective(policy, nam
   .split(/\s+/)
   .slice(1);
 
-const expectHardenedConnectSrc = (policy = '') => {
+const expectHardenedConnectSrc = (policy = '', { requiresHostedBackend = true } = {}) => {
   const sources = getDirectiveSources(policy, 'connect-src');
 
   expect(sources).toContain("'self'");
-  expect(sources).toContain('https://dbtrhsolhec1s.cloudfront.net');
-  expect(sources).toContain('wss://dbtrhsolhec1s.cloudfront.net');
+  if (requiresHostedBackend) {
+    expect(sources).toContain('https://dbtrhsolhec1s.cloudfront.net');
+    expect(sources).toContain('wss://dbtrhsolhec1s.cloudfront.net');
+  } else {
+    expect(sources).not.toContain('https://dbtrhsolhec1s.cloudfront.net');
+    expect(sources).not.toContain('wss://dbtrhsolhec1s.cloudfront.net');
+  }
   expect(sources).toContain('http://localhost:*');
   expect(sources).toContain('http://127.0.0.1:*');
   expect(sources).toContain('https://api.stripe.com');
@@ -77,7 +82,7 @@ describe('auth CSP allowlists', () => {
 
     const html = readProjectFile('index.html');
     const htmlCsp = html.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]+)"/)?.[1] || '';
-    expectHardenedConnectSrc(htmlCsp);
+    expectHardenedConnectSrc(htmlCsp, { requiresHostedBackend: false });
   });
 
   it('keeps generated deployment CSP headers aligned with the hardened connect-src policy', () => {
