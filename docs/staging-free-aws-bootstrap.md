@@ -13,6 +13,7 @@ This bootstrap provisions a small isolated staging backend on AWS using the AWS 
 - Optional Vercel staging frontend deployment that points to the isolated staging backend through `npm run staging:vercel:autopilot`.
 - Docker-hosted staging frontend fallback through `npm run staging:frontend:docker` when Vercel custom staging or Preview env writes are blocked.
 - A monthly AWS Budget guardrail.
+- Optional staging operations: `npm run staging:deploy`, `npm run staging:backup`, `npm run staging:observability`, `npm run staging:cost-watch`, and fail-closed `npm run staging:https`.
 
 It intentionally avoids NAT Gateway, ALB, RDS, ElastiCache, CloudFront, and Route53 unless explicitly enabled later. It never uses production DB, cache, storage, API, CloudFront, or SSM values as staging.
 
@@ -57,8 +58,14 @@ STAGING_JWT_SECRET=generated-if-missing
 STAGING_DATABASE_PASSWORD=generated-if-missing
 STAGING_ADMIN_EMAIL=ops@example.com
 ENABLE_CERTBOT=false
+ENABLE_STAGING_HTTPS=false
 ENABLE_EIP=false
 ENABLE_ROUTE53=false
+ENABLE_CLOUDWATCH_AGENT=false
+STAGING_BACKUP_RETENTION_DAYS=14
+STAGING_BACKUP_TRANSPORT=auto
+ALLOW_NO_COST_WATCH=false
+STAGING_DEPLOY_ENABLED=false
 ```
 
 ## Bootstrap
@@ -106,6 +113,31 @@ Code is staging-safe, but live staging infrastructure is not present yet.
 ```
 
 Latest run note: AWS staging infrastructure and GitHub staging variables are configured and `npm run staging:verify` passed. Vercel custom frontend staging is blocked by the current Vercel project capability, so the active live staging frontend is Docker-hosted on the AWS staging origin and verified with `npm run smoke:staging:frontend`.
+
+## Operate
+
+Use these commands after bootstrap:
+
+```sh
+npm run staging:deploy
+npm run staging:backup
+npm run staging:observability
+npm run staging:cost-watch
+```
+
+If SSH is blocked or timing out during backups, force the AWS SSM control-plane path:
+
+```sh
+STAGING_BACKUP_TRANSPORT=ssm npm run staging:backup
+```
+
+HTTPS is intentionally separate. It runs only when a real staging host points at the staging EC2 public IP:
+
+```sh
+ENABLE_STAGING_HTTPS=true npm run staging:https
+```
+
+The operations layer is documented in `docs/staging-operations-upgrades.md`.
 
 ## Teardown
 
