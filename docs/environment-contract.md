@@ -32,4 +32,6 @@ This repo fails closed when an environment is ambiguous. Preview is not staging 
 
 ## Current Status
 
-Code is staging-safe, but live staging infrastructure is not present yet.
+Code is staging-safe, and live staging infrastructure is present.
+
+The Free Tier bootstrap contract is documented in `docs/staging-free-aws-bootstrap.md` and `docs/staging-runbook.md`. The latest live verification is recorded in `docs/staging-live-verification.md`. Vercel custom target variable setup is still blocked by Vercel project permissions, so Vercel Preview remains frontend-only until a `staging` target can be created or granted.

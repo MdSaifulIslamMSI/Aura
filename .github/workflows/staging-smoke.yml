@@ -1,0 +1,37 @@
+name: staging-smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+jobs:
+  staging-smoke:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+      STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+      STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
+      STAGING_SSM_PREFIX: ${{ vars.STAGING_SSM_PREFIX }}
+      SMOKE_TARGET_ENV: ${{ vars.SMOKE_TARGET_ENV }}
+      SMOKE_REQUIRE_BACKEND_STAGING: ${{ vars.SMOKE_REQUIRE_BACKEND_STAGING }}
+      SMOKE_FORBID_PRODUCTION_ORIGINS: ${{ vars.SMOKE_FORBID_PRODUCTION_ORIGINS }}
+      PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}
+      PROD_API_BASE_URL: ${{ vars.PROD_API_BASE_URL }}
+      PROD_SSM_PREFIX: ${{ vars.PROD_SSM_PREFIX }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run guarded staging smoke
+        run: npm run smoke:staging

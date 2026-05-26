@@ -1,6 +1,8 @@
 # Staging Bootstrap
 
-Current status: Code is staging-safe, but live staging infrastructure is not present yet.
+Current status: Code is staging-safe, and live staging infrastructure is present.
+
+For the automated AWS Free Tier bootstrap, use `docs/staging-free-aws-bootstrap.md` and `docs/staging-runbook.md`.
 
 ## Required Resources
 
@@ -20,6 +22,7 @@ Current status: Code is staging-safe, but live staging infrastructure is not pre
   - `SMOKE_TARGET_ENV=staging`
   - `SMOKE_BASE_URL=${STAGING_BASE_URL}`
 - Vercel preview may remain frontend-only. It must not be labeled backend staging while `/api`, `/health`, `/uploads`, or `/socket.io` route to production.
+- Current Vercel custom target setup is blocked by Vercel project permissions; the backend staging contract is verified on AWS and GitHub staging variables are configured.
 
 ## Smoke Command
 
@@ -35,7 +38,7 @@ npm run staging:readiness
 Only after preflight passes should a live staging smoke run:
 
 ```sh
-npm --prefix server run smoke:staging
+npm run smoke:staging
 ```
 
 ## Rollback

@@ -66,7 +66,10 @@ const ALLOWED_PRODUCTION_FILES = new Set([
   'server/tests/envContractScripts.test.js',
   'docs/environment-contract.md',
   'docs/staging-bootstrap.md',
+  'docs/staging-free-aws-bootstrap.md',
   'docs/staging-readiness-inventory.md',
+  'docs/staging-runbook.md',
+  'config/environments/staging.example.env',
   'docs/aws-backend-deployment.md',
   'docs/aws-frontend-deployment.md',
   'docs/login-staging-production-activation.md',
@@ -80,6 +83,8 @@ const ALLOWED_PRODUCTION_FILES = new Set([
   '.github/workflows/rollback-frontend-aws.yml',
   '.github/workflows/rollback-netlify.yml',
   '.github/workflows/rollback-gateway-vercel.yml',
+  'scripts/smoke/assert-staging-contract.mjs',
+  'scripts/smoke/staging-route-smoke.mjs',
 ]);
 
 const toRepoPath = (absolutePath) => path.relative(REPO_ROOT, absolutePath).replace(/\\/g, '/');

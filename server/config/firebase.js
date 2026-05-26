@@ -20,6 +20,11 @@ const readEnv = (name) => {
 const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test' || process.argv.includes('--test');
 const isE2eTest = process.argv.some((arg) => arg.includes('playwright') || arg.includes('e2e'));
+const isStagingRuntime = process.env.APP_ENV === 'staging'
+    && process.env.STAGING_SSM_PREFIX === '/aura/staging';
+const allowStagingCredentialStub = isProduction
+    && isStagingRuntime
+    && process.env.STAGING_ALLOW_FIREBASE_ADMIN_STUB === 'true';
 
 const buildProjectIdFallback = () => {
     if (isTest || isE2eTest) {
@@ -132,7 +137,7 @@ try {
         projectId = buildProjectIdFallback();
     }
 
-    if (isProduction && !credential) {
+    if (isProduction && !credential && !allowStagingCredentialStub) {
         const errorMsg =
             'FATAL: Firebase Admin credentials are missing in production.\n'
             + 'Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY.';
@@ -158,7 +163,7 @@ try {
     } else if (isProduction) {
         logger.warn('firebase.initialized_without_admin_credential', {
             projectId,
-            reason: 'credential_unavailable',
+            reason: allowStagingCredentialStub ? 'staging_stub_explicitly_enabled' : 'credential_unavailable',
         });
     }
 

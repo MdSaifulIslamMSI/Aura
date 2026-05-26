@@ -1,0 +1,79 @@
+services:
+  backend:
+    image: ${STAGING_BACKEND_IMAGE:-aura-staging-backend:local}
+    build:
+      context: ${STAGING_BACKEND_BUILD_CONTEXT:-../../server}
+      dockerfile: Dockerfile
+    env_file:
+      - .env.staging
+    environment:
+      PORT: ${STAGING_BACKEND_PORT:-3000}
+      BACKEND_PORT: ${STAGING_BACKEND_PORT:-3000}
+    depends_on:
+      - mongo
+      - postgres
+      - redis
+      - scanner
+    expose:
+      - "${STAGING_BACKEND_PORT:-3000}"
+    ports:
+      - "127.0.0.1:${STAGING_BACKEND_PORT:-3000}:${STAGING_BACKEND_PORT:-3000}"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/health/live').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1));\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 5
+    networks:
+      - aura-staging
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aura_staging
+      POSTGRES_USER: aura_staging
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - aura-staging
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    command: ["mongod", "--bind_ip_all"]
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - aura-staging
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - aura-staging
+    restart: unless-stopped
+
+  scanner:
+    image: clamav/clamav:stable
+    expose:
+      - "3310"
+    volumes:
+      - clamav-data:/var/lib/clamav
+    networks:
+      - aura-staging
+    restart: unless-stopped
+
+networks:
+  aura-staging:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  mongo-data:
+  redis-data:
+  clamav-data:
