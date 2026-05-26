@@ -24,6 +24,8 @@ This repo fails closed when an environment is ambiguous. Preview is not staging 
 - Preview may exist for frontend review.
 - Preview is not staging unless `STAGING_API_BASE_URL` points at an isolated backend and the preflight confirms backend routes do not proxy to production.
 - Vercel Preview URLs are blocked for backend staging smoke when their backend paths route to production CloudFront.
+- Vercel frontend staging may use a custom environment named `staging` or a Preview deployment generated from the `staging` branch. In both modes, `/api`, `/health`, `/uploads`, and `/socket.io` must route to the AWS staging backend and frontend smoke must pass before the URL is treated as staging.
+- If Vercel cannot provide an unambiguous staging frontend, staging may use the Docker-hosted frontend on the AWS staging origin. In that mode `STAGING_FRONTEND_URL` may equal `STAGING_API_BASE_URL` only because `/` serves the static frontend and backend paths are same-origin staging routes.
 
 ## Local
 
@@ -34,4 +36,4 @@ This repo fails closed when an environment is ambiguous. Preview is not staging 
 
 Code is staging-safe, and live staging infrastructure is present.
 
-The Free Tier bootstrap contract is documented in `docs/staging-free-aws-bootstrap.md` and `docs/staging-runbook.md`. The latest live verification is recorded in `docs/staging-live-verification.md`. Vercel custom target variable setup is still blocked by Vercel project permissions, so Vercel Preview remains frontend-only until a `staging` target can be created or granted.
+The Free Tier bootstrap contract is documented in `docs/staging-free-aws-bootstrap.md` and `docs/staging-runbook.md`. The latest live verification is recorded in `docs/staging-live-verification.md`. The active frontend staging mode is Docker-hosted on the AWS staging origin. Vercel frontend staging remains guarded by `npm run staging:vercel:autopilot`; generic Preview remains frontend-only unless `npm run smoke:staging:frontend` proves the URL routes backend paths to AWS staging.

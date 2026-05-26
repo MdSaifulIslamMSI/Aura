@@ -8,6 +8,9 @@ const loadCorsFlags = ({ nodeEnv = 'production', env = {} } = {}) => {
         FRONTEND_URL: '',
         APP_PUBLIC_URL: '',
         VERCEL_FRONTEND_URL: '',
+        STAGING_FRONTEND_URL: '',
+        STAGING_BASE_URL: '',
+        VERCEL_STAGING_FRONTEND_URL: '',
         NETLIFY_FRONTEND_URL: '',
         AWS_FRONTEND_URL: '',
         S3_FRONTEND_URL: '',
@@ -62,5 +65,26 @@ describe('corsFlags', () => {
         ]));
         expect(isOriginAllowed('http://staging-api.example.test')).toBe(true);
         expect(isOriginAllowed('https://dbtrhsolhec1s.cloudfront.net')).toBe(false);
+    });
+
+    test('allows explicitly configured staging frontend origins in staging runtime', () => {
+        const { allowedOrigins, isOriginAllowed, isStagingRuntime } = loadCorsFlags({
+            env: {
+                APP_ENV: 'staging',
+                STAGING_SSM_PREFIX: '/aura/staging',
+                STAGING_FRONTEND_URL: 'https://aura-staging-preview.vercel.app',
+                STAGING_BASE_URL: 'https://staging.aura.example.test',
+                VERCEL_STAGING_FRONTEND_URL: 'https://aura-staging-branch.vercel.app',
+            },
+        });
+
+        expect(isStagingRuntime).toBe(true);
+        expect(allowedOrigins).toEqual(expect.arrayContaining([
+            'https://aura-staging-preview.vercel.app',
+            'https://staging.aura.example.test',
+            'https://aura-staging-branch.vercel.app',
+        ]));
+        expect(isOriginAllowed('https://aura-staging-preview.vercel.app')).toBe(true);
+        expect(isOriginAllowed('https://evil.example.test')).toBe(false);
     });
 });

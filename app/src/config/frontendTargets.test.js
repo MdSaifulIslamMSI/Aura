@@ -50,15 +50,16 @@ describe('frontendTargets', () => {
     });
 
     expect(gatewayTarget.id).toBe('gateway');
-    expect(gatewayTarget.href).toBe(DEFAULT_GATEWAY_FRONTEND_URL);
+    expect(gatewayTarget.href).toBe('');
     expect(gatewayTarget.isCurrent).toBe(false);
     expect(vercelTarget.isCurrent).toBe(true);
     expect(netlifyTarget.href).toBe('https://aurapilot.netlify.app');
   });
 
-  it('gives the gateway current-host priority when the app runs on the gateway domain', () => {
+  it('gives the gateway current-host priority when an explicit gateway url matches current origin', () => {
     const [gatewayTarget, vercelTarget] = resolveFrontendNavigationTargets({
-      currentOrigin: DEFAULT_GATEWAY_FRONTEND_URL,
+      gatewayUrl: 'https://aura-gateway.vercel.app',
+      currentOrigin: 'https://aura-gateway.vercel.app',
     });
 
     expect(gatewayTarget.isCurrent).toBe(true);

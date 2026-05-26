@@ -59,7 +59,14 @@ npm run staging:verify
 
 This repackages the current commit, updates Docker Compose, reloads Nginx, and re-runs live route smoke.
 
-Vercel note: `scripts/staging/09-set-vercel-vars.sh` creates or reuses a Vercel custom target named `staging`. If the Vercel API returns 403, do not use Preview as backend staging; grant project write permission or create the custom target in Vercel, then rerun the script.
+Frontend staging note: Vercel custom staging is attempted first with `npm run staging:vercel:autopilot`. On this project, Vercel custom environments and branch-scoped Preview env writes are blocked, so the operational staging frontend is the Docker-hosted static frontend on the AWS staging instance.
+
+```sh
+npm run staging:frontend:docker
+STAGING_FRONTEND_URL=$STAGING_API_BASE_URL npm run smoke:staging:frontend
+```
+
+The Docker frontend serves `/` from `nginx:alpine` on localhost and keeps `/api`, `/health`, `/uploads`, and `/socket.io` routed to the isolated AWS staging backend. A generated Vercel Preview URL is staging only after `npm run smoke:staging:frontend` proves those backend paths route to AWS staging instead of production.
 
 ## Teardown
 
@@ -79,7 +86,8 @@ CONFIRM_DESTROY_STAGING=true DELETE_STAGING_BUCKET=true DELETE_STAGING_SSM=true 
 - Confirm the security group exposes only ports 22, 80, and 443.
 - Confirm S3 public access block is enabled.
 - Confirm GitHub environment `staging` variables point to staging URLs only.
-- Confirm Vercel staging or preview public variables point to the staging backend only.
+- Confirm Vercel staging or preview public variables point to the staging backend only, or confirm Docker frontend staging is the active frontend mode.
+- Confirm `STAGING_FRONTEND_URL` is set only after frontend smoke passes.
 
 ## Rollback
 

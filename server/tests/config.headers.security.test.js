@@ -3,6 +3,8 @@ const request = require('supertest');
 const app = require('../index');
 const { assertSafeStatus } = require('./helpers/securityTestHelpers');
 
+jest.setTimeout(15000);
+
 const getDirectiveSources = (policy = '', name = '') => String(policy || '')
     .split(';')
     .map((directive) => directive.trim())

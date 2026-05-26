@@ -1,5 +1,5 @@
 export const FRONTEND_LAUNCH_HUB_PATH = '/launch';
-export const DEFAULT_GATEWAY_FRONTEND_URL = 'https://aura-gateway.vercel.app';
+export const DEFAULT_GATEWAY_FRONTEND_URL = '';
 
 const SUPPORTED_PROTOCOLS = new Set(['http:', 'https:']);
 
