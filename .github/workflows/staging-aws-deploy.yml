@@ -73,9 +73,11 @@ jobs:
         run: npm ci
 
       - name: Fail closed unless staging deploy is explicitly enabled
+        env:
+          DEPLOY_ENABLED_INPUT: ${{ inputs.deploy_enabled }}
         run: |
           set -euo pipefail
-          test "${{ inputs.deploy_enabled }}" = "true" || { echo "deploy_enabled input must be true."; exit 1; }
+          test "${DEPLOY_ENABLED_INPUT}" = "true" || { echo "deploy_enabled input must be true."; exit 1; }
           test "${STAGING_DEPLOY_ENABLED}" = "true" || { echo "Set staging environment variable STAGING_DEPLOY_ENABLED=true to deploy."; exit 1; }
           test "${STAGING_SSM_PREFIX}" = "/aura/staging" || { echo "STAGING_SSM_PREFIX must be /aura/staging."; exit 1; }
           test "${PROD_SSM_PREFIX}" = "/aura/prod" || { echo "PROD_SSM_PREFIX must be /aura/prod."; exit 1; }
