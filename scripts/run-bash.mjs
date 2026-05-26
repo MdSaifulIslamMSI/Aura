@@ -27,9 +27,15 @@ const findBash = () => {
   return 'bash';
 };
 
+const bashEnv = {
+  ...process.env,
+  MSYS_NO_PATHCONV: process.env.MSYS_NO_PATHCONV || '1',
+  MSYS2_ARG_CONV_EXCL: process.env.MSYS2_ARG_CONV_EXCL || '*',
+};
+
 const result = spawnSync(findBash(), args, {
   stdio: 'inherit',
-  env: process.env,
+  env: bashEnv,
   shell: false,
 });
 
