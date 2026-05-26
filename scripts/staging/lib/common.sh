@@ -145,6 +145,34 @@ dns.lookup(process.argv[1], { family: 4 }, (error, address) => {
 ' "$host"
 }
 
+nginx_staging_server_name() {
+  local explicit="${STAGING_API_HOST:-}"
+  local source_url="${1:-}"
+  local host
+
+  if [ -n "$explicit" ] && [ "$explicit" != "_" ]; then
+    printf '%s' "$explicit"
+    return 0
+  fi
+
+  host="$(node -e '
+const input = process.argv[1] || "";
+try {
+  const host = new URL(input).hostname;
+  const ec2PublicDns = host.match(/^ec2-(\d+)-(\d+)-(\d+)-(\d+)\./);
+  if (ec2PublicDns) {
+    process.stdout.write(ec2PublicDns.slice(1).join("."));
+  } else if (host) {
+    process.stdout.write(host);
+  }
+} catch {
+  // Fail below with the staging script error message.
+}
+' "$source_url")"
+  [ -n "$host" ] || die "Could not derive concrete Nginx server_name; set STAGING_API_HOST or a staging URL with a host."
+  printf '%s' "$host"
+}
+
 ensure_state() {
   mkdir -p "$STATE_DIR"
   if [ ! -f "$STATE_FILE" ]; then

@@ -83,6 +83,12 @@ cat > "$operator_policy" <<JSON
       "Resource": "*"
     },
     {
+      "Sid": "ReadStagingCostExplorerUsage",
+      "Effect": "Allow",
+      "Action": "ce:GetCostAndUsage",
+      "Resource": "*"
+    },
+    {
       "Sid": "RunStagingInstanceCommands",
       "Effect": "Allow",
       "Action": [

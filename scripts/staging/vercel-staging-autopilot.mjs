@@ -70,7 +70,8 @@ const writeBlocker = (summary, details = []) => {
     ...details.map((detail) => `- ${detail}`),
     '',
     'Required fix:',
-    '- Provide a Vercel token or local CLI authentication that can inspect the project, write branch-scoped Preview variables, and create Preview deployments.',
+    '- Keep `npm run staging:deploy` on the Docker-hosted AWS staging frontend path while Vercel staging is blocked.',
+    '- Provide a Vercel token or local CLI authentication that can inspect the project and write the required staging or branch-scoped Preview variables before creating Preview deployments.',
     '- Re-run `npm run staging:vercel:autopilot` after credentials are corrected.',
   ].join('\n');
   fs.writeFileSync(blockerReportPath, `${body}\n`);
@@ -431,10 +432,28 @@ const publicVars = {
 
 let envWriteOk = true;
 for (const [key, value] of Object.entries(publicVars)) {
-  envWriteOk = setVercelEnv(key, value, envTarget, envBranch) && envWriteOk;
+  if (!setVercelEnv(key, value, envTarget, envBranch)) {
+    envWriteOk = false;
+    break;
+  }
 }
 if (!envWriteOk) {
-  warnings.push('One or more branch-scoped Vercel env writes failed; deployment still uses explicit build env and smoke must pass.');
+  const message = mode === 'preview-branch'
+    ? 'Preview branch staging requires successful branch-scoped Vercel env writes; stopping before deploying a Preview URL.'
+    : 'Vercel staging requires successful environment writes; stopping before deployment.';
+  warnings.push('One or more Vercel staging env writes failed; stopping before deployment.');
+  writeBlocker(message, warnings);
+  writeJson(resultPath, {
+    mode,
+    frontendUrl: '',
+    backendUrl: env.stagingApiBaseUrl,
+    domainAssigned: false,
+    warnings,
+    blocked: true,
+    blocker: message,
+  });
+  console.error(message);
+  process.exit(1);
 }
 
 let frontendUrl = '';

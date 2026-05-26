@@ -59,14 +59,14 @@ npm run staging:deploy
 
 This repackages the current commit, updates Docker Compose, deploys the Docker-hosted staging frontend, reloads Nginx, and re-runs live route smoke. Use `npm run staging:verify` when you only want to verify the already deployed staging instance.
 
-Frontend staging note: Vercel custom staging is attempted first with `npm run staging:vercel:autopilot`. On this project, Vercel custom environments and branch-scoped Preview env writes are blocked, so the operational staging frontend is the Docker-hosted static frontend on the AWS staging instance.
+Frontend staging note: `npm run staging:deploy` bypasses Vercel and uses the Docker-hosted static frontend on the AWS staging instance. Run `npm run staging:vercel:autopilot` separately only after the Vercel project can safely write staging or branch-scoped Preview env values; otherwise the autopilot stops before creating a Preview URL.
 
 ```sh
 npm run staging:frontend:docker
 STAGING_FRONTEND_URL=$STAGING_API_BASE_URL npm run smoke:staging:frontend
 ```
 
-The Docker frontend serves `/` from `nginx:alpine` on localhost and keeps `/api`, `/health`, `/uploads`, and `/socket.io` routed to the isolated AWS staging backend. A generated Vercel Preview URL is staging only after `npm run smoke:staging:frontend` proves those backend paths route to AWS staging instead of production.
+The Docker frontend serves `/` from `nginx:alpine` on localhost and keeps `/api`, `/health`, `/uploads`, and `/socket.io` routed to the isolated AWS staging backend. A generated Vercel Preview URL is staging only after the autopilot proves the required env wiring and `npm run smoke:staging:frontend` proves those backend paths route to AWS staging instead of production.
 
 ## Operations
 
@@ -93,6 +93,8 @@ Check tagged staging spend against the monthly budget guard:
 ```sh
 npm run staging:cost-watch
 ```
+
+If an existing staging operator role predates cost watch, re-run `npm run staging:iam:bootstrap` so it receives the narrow `ce:GetCostAndUsage` read permission.
 
 Activate HTTPS only after a real staging hostname resolves to the staging EC2 public IP:
 

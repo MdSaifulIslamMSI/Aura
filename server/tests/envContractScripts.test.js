@@ -254,6 +254,36 @@ describe('repo environment contract scripts', () => {
         expect(deployScript).toMatch(/07-deploy-compose\.sh/);
         expect(deployScript).toMatch(/12-deploy-frontend-docker\.sh/);
         expect(deployScript).toMatch(/10-verify-staging\.sh/);
+        expect(deployScript).not.toMatch(/vercel-staging-autopilot/);
+
+        const commonScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', 'lib', 'common.sh'), 'utf8');
+        expect(commonScript).toMatch(/nginx_staging_server_name/);
+        expect(commonScript).toMatch(/Could not derive concrete Nginx server_name/);
+        expect(commonScript).toMatch(/ec2PublicDns/);
+
+        const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
+        expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);
+
+        const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
+        expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
+        expect(frontendDockerScript).toMatch(/curl -fsS .*2>\/dev\/null/);
+    });
+
+    test('staging IAM operator grants only the Cost Explorer read used by cost watch', () => {
+        const iamScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-create-iam-auth.sh'), 'utf8');
+
+        expect(iamScript).toMatch(/ReadStagingCostExplorerUsage/);
+        expect(iamScript).toMatch(/"Action": "ce:GetCostAndUsage"/);
+        expect(iamScript).not.toMatch(/ce:\*/);
+        expect(iamScript).not.toMatch(/ce:GetCostForecast/);
+    });
+
+    test('Vercel staging autopilot stops before Preview deploy when env writes fail', () => {
+        const autopilot = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', 'vercel-staging-autopilot.mjs'), 'utf8');
+
+        expect(autopilot).toMatch(/Preview branch staging requires successful branch-scoped Vercel env writes/);
+        expect(autopilot).toMatch(/stopping before deploying a Preview URL/);
+        expect(autopilot).not.toMatch(/deployment still uses explicit build env/);
     });
 
     test('staging AWS deploy workflow is manual and explicitly gated', () => {
