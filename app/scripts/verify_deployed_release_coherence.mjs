@@ -16,6 +16,15 @@ const expectedReleaseId = args.get('release-id') || process.env.AURA_EXPECTED_RE
 const expectedCommit = args.get('commit') || process.env.AURA_EXPECTED_COMMIT || '';
 const expectedTarget = args.get('target') || process.env.AURA_EXPECTED_TARGET || 'multi-host';
 const rawUrls = args.get('urls') || process.env.AURA_RELEASE_URLS || '[]';
+const builtAtMaxSkewSecondsRaw =
+    args.get('built-at-max-skew-seconds') ||
+    process.env.AURA_RELEASE_BUILT_AT_MAX_SKEW_SECONDS ||
+    '300';
+const builtAtMaxSkewSeconds = Number(builtAtMaxSkewSecondsRaw);
+
+if (!Number.isFinite(builtAtMaxSkewSeconds) || builtAtMaxSkewSeconds < 0) {
+    throw new Error('AURA_RELEASE_BUILT_AT_MAX_SKEW_SECONDS must be a non-negative number.');
+}
 
 const urls = JSON.parse(rawUrls);
 if (!Array.isArray(urls) || urls.length === 0) {
@@ -51,6 +60,14 @@ const readTargetHtml = async ({ name, url, htmlPath }) => {
     }
 
     return response.text();
+};
+
+const parseBuiltAt = (value, name) => {
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) {
+        throw new Error(`${name} builtAt=${value} is not a valid timestamp.`);
+    }
+    return timestamp;
 };
 
 const results = [];
@@ -96,11 +113,21 @@ for (const target of urls) {
 }
 
 const baseline = results[0];
+const baselineBuiltAt = parseBuiltAt(baseline.builtAt, baseline.name);
+let maxObservedBuiltAtSkewSeconds = 0;
 for (const result of results.slice(1)) {
-    for (const field of ['id', 'commit', 'target', 'channel', 'builtAt']) {
+    for (const field of ['id', 'commit', 'target', 'channel']) {
         if (result[field] !== baseline[field]) {
             throw new Error(`${result.name} ${field}=${result[field]} differs from ${baseline.name} ${field}=${baseline[field]}.`);
         }
+    }
+
+    const builtAtSkewSeconds = Math.abs(parseBuiltAt(result.builtAt, result.name) - baselineBuiltAt) / 1000;
+    maxObservedBuiltAtSkewSeconds = Math.max(maxObservedBuiltAtSkewSeconds, builtAtSkewSeconds);
+    if (builtAtSkewSeconds > builtAtMaxSkewSeconds) {
+        throw new Error(
+            `${result.name} builtAt=${result.builtAt} differs from ${baseline.name} builtAt=${baseline.builtAt} by ${builtAtSkewSeconds}s, exceeding ${builtAtMaxSkewSeconds}s.`
+        );
     }
 }
 
@@ -112,6 +139,8 @@ console.log(JSON.stringify({
         target: baseline.target,
         channel: baseline.channel,
         builtAt: baseline.builtAt,
+        builtAtMaxSkewSeconds,
+        maxObservedBuiltAtSkewSeconds,
     },
     hosts: results.map(({ name, url }) => ({ name, url })),
 }, null, 2));
