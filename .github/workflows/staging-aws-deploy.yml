@@ -1,0 +1,136 @@
+name: staging-aws-deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to deploy to isolated AWS staging
+        required: false
+        default: main
+      deploy_enabled:
+        description: Type true to allow staging deployment
+        required: true
+        default: "false"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: aws-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      PROJECT_NAME: ${{ vars.PROJECT_NAME || 'aura' }}
+      STAGING_NAME: ${{ vars.STAGING_NAME || 'staging' }}
+      STAGING_SSM_PREFIX: ${{ vars.STAGING_SSM_PREFIX }}
+      STAGING_BUCKET_NAME: ${{ vars.STAGING_BUCKET_NAME }}
+      STAGING_KEY_NAME: ${{ vars.STAGING_KEY_NAME }}
+      STAGING_INSTANCE_TYPE: ${{ vars.STAGING_INSTANCE_TYPE || 't3.micro' }}
+      STAGING_ROOT_VOLUME_GB: ${{ vars.STAGING_ROOT_VOLUME_GB || '20' }}
+      STAGING_BUDGET_EMAIL: ${{ vars.STAGING_BUDGET_EMAIL }}
+      STAGING_MONTHLY_BUDGET_USD: ${{ vars.STAGING_MONTHLY_BUDGET_USD || '5' }}
+      STAGING_BACKEND_PORT: ${{ vars.STAGING_BACKEND_PORT || '3000' }}
+      STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+      STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL || vars.STAGING_BASE_URL }}
+      STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+      STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
+      STAGING_DEPLOY_ENABLED: ${{ vars.STAGING_DEPLOY_ENABLED || 'false' }}
+      STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}
+      PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}
+      PROD_API_BASE_URL: ${{ vars.PROD_API_BASE_URL }}
+      PROD_SSM_PREFIX: ${{ vars.PROD_SSM_PREFIX }}
+      GH_REPO: ${{ github.repository }}
+      VERCEL_PROJECT_DIR: .
+      ENABLE_EIP: "false"
+      ENABLE_ROUTE53: "false"
+      ENABLE_STAGING_HTTPS: "false"
+      SMOKE_TARGET_ENV: staging
+      SMOKE_REQUIRE_BACKEND_STAGING: "true"
+      SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
+      STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail closed unless staging deploy is explicitly enabled
+        env:
+          DEPLOY_ENABLED_INPUT: ${{ inputs.deploy_enabled }}
+        run: |
+          set -euo pipefail
+          test "${DEPLOY_ENABLED_INPUT}" = "true" || { echo "deploy_enabled input must be true."; exit 1; }
+          test "${STAGING_DEPLOY_ENABLED}" = "true" || { echo "Set staging environment variable STAGING_DEPLOY_ENABLED=true to deploy."; exit 1; }
+          test "${STAGING_SSM_PREFIX}" = "/aura/staging" || { echo "STAGING_SSM_PREFIX must be /aura/staging."; exit 1; }
+          test "${PROD_SSM_PREFIX}" = "/aura/prod" || { echo "PROD_SSM_PREFIX must be /aura/prod."; exit 1; }
+          test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
+          test -n "${STAGING_SSH_PRIVATE_KEY}" || { echo "Missing STAGING_SSH_PRIVATE_KEY."; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-staging-github-deploy
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Resolve isolated staging EC2
+        run: |
+          set -euo pipefail
+          mkdir -p .staging
+          INSTANCE_JSON="$(aws ec2 describe-instances \
+            --region "${AWS_REGION}" \
+            --filters \
+              "Name=tag:Project,Values=${PROJECT_NAME}" \
+              "Name=tag:Environment,Values=staging" \
+              "Name=tag:ManagedBy,Values=codex-staging-bootstrap" \
+              "Name=instance-state-name,Values=running" \
+            --query 'Reservations[].Instances[0] | [0]' \
+            --output json)"
+          test "${INSTANCE_JSON}" != "null" || { echo "No running staging EC2 instance found."; exit 1; }
+          export INSTANCE_JSON
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const instance = JSON.parse(process.env.INSTANCE_JSON);
+          const state = {
+            instance_id: instance.InstanceId,
+            public_dns: instance.PublicDnsName,
+            public_ip: instance.PublicIpAddress,
+            staging_base_url: process.env.STAGING_BASE_URL,
+            staging_frontend_url: process.env.STAGING_FRONTEND_URL || process.env.STAGING_BASE_URL,
+            staging_api_base_url: process.env.STAGING_API_BASE_URL,
+            staging_health_url: process.env.STAGING_HEALTH_URL,
+            bucket: process.env.STAGING_BUCKET_NAME
+          };
+          fs.writeFileSync('.staging/state.json', `${JSON.stringify(state, null, 2)}\n`);
+          NODE
+
+      - name: Render SSH config
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${STAGING_SSH_PRIVATE_KEY}" > .staging/staging-key.pem
+          chmod 600 .staging/staging-key.pem
+          node scripts/smoke/assert-staging-contract.mjs
+          STAGING_KEY_PATH="$PWD/.staging/staging-key.pem" node scripts/run-bash.mjs scripts/staging/06-render-ssh-config.sh
+
+      - name: Deploy and verify isolated staging
+        run: STAGING_KEY_PATH="$PWD/.staging/staging-key.pem" npm run staging:deploy

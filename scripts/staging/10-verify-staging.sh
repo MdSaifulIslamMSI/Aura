@@ -45,8 +45,50 @@ aws_cli s3api get-public-access-block --bucket "$STAGING_BUCKET_NAME" >/tmp/aura
 aws_cli ssm get-parameter --region "$AWS_REGION" --name /aura/staging/APP_ENV --query 'Parameter.Value' --output text >/tmp/aura-staging-app-env.txt
 
 docker_status="not_checked"
+docker_status_command='for service in backend mongo postgres redis scanner; do cid="$(sudo docker compose ps -q "$service" 2>/dev/null || true)"; if [ -n "$cid" ]; then status="$(sudo docker inspect --format "{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}" "$cid" 2>/dev/null | xargs || printf unknown)"; else status="missing"; fi; printf "%s %s\n" "$service" "$status"; done'
 if [ -f "$STATE_DIR/ssh_config" ]; then
-  docker_status="$(ssh -F "$STATE_DIR/ssh_config" aura-staging 'cd /opt/aura-staging/src/infra/staging && sudo docker compose ps --format json' 2>/dev/null || true)"
+  if ssh -F "$STATE_DIR/ssh_config" -o BatchMode=yes -o ConnectTimeout=5 aura-staging true >/dev/null 2>&1; then
+    docker_status="$(ssh -F "$STATE_DIR/ssh_config" -o ConnectTimeout=5 aura-staging "cd /opt/aura-staging/src/infra/staging && $docker_status_command" 2>/dev/null || true)"
+  else
+    instance_id="$(state_get instance_id)"
+    ssm_status="$(aws_cli ssm describe-instance-information --region "$AWS_REGION" --filters "Key=InstanceIds,Values=$instance_id" --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null || true)"
+    if [ "$ssm_status" = "Online" ]; then
+      ssm_params="$STATE_DIR/verify-docker-status.json"
+      cat > "$ssm_params" <<'JSON'
+{
+    "commands": [
+      "set -euo pipefail",
+      "cd /opt/aura-staging/src/infra/staging",
+      "for service in backend mongo postgres redis scanner; do cid=\"$(sudo docker compose ps -q \"$service\" 2>/dev/null || true)\"; if [ -n \"$cid\" ]; then status=\"$(sudo docker inspect --format \"{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}\" \"$cid\" 2>/dev/null | xargs || printf unknown)\"; else status=\"missing\"; fi; printf \"%s %s\\n\" \"$service\" \"$status\"; done"
+    ]
+}
+JSON
+      command_id="$(aws_cli ssm send-command \
+        --region "$AWS_REGION" \
+        --instance-ids "$instance_id" \
+        --document-name AWS-RunShellScript \
+        --comment "Aura staging verify Docker status" \
+        --parameters "$(aws_file_uri "$ssm_params")" \
+        --query 'Command.CommandId' \
+        --output text)"
+      for _ in $(seq 1 30); do
+        status="$(aws_cli ssm get-command-invocation --region "$AWS_REGION" --command-id "$command_id" --instance-id "$instance_id" --query 'Status' --output text 2>/dev/null || true)"
+        case "$status" in
+          Success)
+            docker_status="$(aws_cli ssm get-command-invocation --region "$AWS_REGION" --command-id "$command_id" --instance-id "$instance_id" --query 'StandardOutputContent' --output text 2>/dev/null || true)"
+            break
+            ;;
+          Failed|Cancelled|TimedOut|Cancelling)
+            docker_status="ssm_docker_status_failed"
+            break
+            ;;
+        esac
+        sleep 5
+      done
+    else
+      docker_status="not_checked_ssh_unavailable_ssm_${ssm_status:-unknown}"
+    fi
+  fi
 fi
 
 github_vars_configured="unknown"
@@ -92,7 +134,7 @@ Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 Docker Compose status:
 
-\`\`\`json
+\`\`\`text
 $docker_status
 \`\`\`
 REPORT

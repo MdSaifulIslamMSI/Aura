@@ -37,3 +37,5 @@ This repo fails closed when an environment is ambiguous. Preview is not staging 
 Code is staging-safe, and live staging infrastructure is present.
 
 The Free Tier bootstrap contract is documented in `docs/staging-free-aws-bootstrap.md` and `docs/staging-runbook.md`. The latest live verification is recorded in `docs/staging-live-verification.md`. The active frontend staging mode is Docker-hosted on the AWS staging origin. Vercel frontend staging remains guarded by `npm run staging:vercel:autopilot`; generic Preview remains frontend-only unless `npm run smoke:staging:frontend` proves the URL routes backend paths to AWS staging.
+
+Staging operations are documented in `docs/staging-operations-upgrades.md`. The operations scripts inherit this same contract: backups use the staging S3 bucket, cost watch reads staging-tagged resources, observability writes only on the staging EC2 instance, and HTTPS activation refuses to run unless staging DNS resolves to the staging EC2 public IP.

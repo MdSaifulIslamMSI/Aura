@@ -54,10 +54,10 @@ If any field reports production, `/aura/prod`, a production host, or a not-ready
 After the first bootstrap, re-run:
 
 ```sh
-npm run staging:verify
+npm run staging:deploy
 ```
 
-This repackages the current commit, updates Docker Compose, reloads Nginx, and re-runs live route smoke.
+This repackages the current commit, updates Docker Compose, deploys the Docker-hosted staging frontend, reloads Nginx, and re-runs live route smoke. Use `npm run staging:verify` when you only want to verify the already deployed staging instance.
 
 Frontend staging note: Vercel custom staging is attempted first with `npm run staging:vercel:autopilot`. On this project, Vercel custom environments and branch-scoped Preview env writes are blocked, so the operational staging frontend is the Docker-hosted static frontend on the AWS staging instance.
 
@@ -67,6 +67,40 @@ STAGING_FRONTEND_URL=$STAGING_API_BASE_URL npm run smoke:staging:frontend
 ```
 
 The Docker frontend serves `/` from `nginx:alpine` on localhost and keeps `/api`, `/health`, `/uploads`, and `/socket.io` routed to the isolated AWS staging backend. A generated Vercel Preview URL is staging only after `npm run smoke:staging:frontend` proves those backend paths route to AWS staging instead of production.
+
+## Operations
+
+Run a staging backup:
+
+```sh
+npm run staging:backup
+```
+
+The backup path uses Docker on the staging EC2 instance and uploads directly from EC2 to the staging S3 bucket. If port 22 is blocked or timing out, force the SSM path:
+
+```sh
+STAGING_BACKUP_TRANSPORT=ssm npm run staging:backup
+```
+
+Install or refresh the local EC2 health monitor:
+
+```sh
+npm run staging:observability
+```
+
+Check tagged staging spend against the monthly budget guard:
+
+```sh
+npm run staging:cost-watch
+```
+
+Activate HTTPS only after a real staging hostname resolves to the staging EC2 public IP:
+
+```sh
+ENABLE_STAGING_HTTPS=true npm run staging:https
+```
+
+See `docs/staging-operations-upgrades.md` for the fail-closed details.
 
 ## Teardown
 

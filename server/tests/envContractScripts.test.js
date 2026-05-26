@@ -1,4 +1,5 @@
 const { execFileSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -222,5 +223,47 @@ describe('repo environment contract scripts', () => {
         expect(findings).toEqual(expect.arrayContaining([
             expect.objectContaining({ reason: expect.stringMatching(/production host/) }),
         ]));
+    });
+
+    test('staging operational scripts keep fail-closed staging guards', () => {
+        const scriptNames = [
+            '11-configure-https-domain.sh',
+            '13-backup-staging.sh',
+            '14-install-observability.sh',
+            '15-cost-watch.sh',
+            '16-deploy-all.sh',
+        ];
+
+        for (const scriptName of scriptNames) {
+            const text = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', scriptName), 'utf8');
+            expect(text).toMatch(/assert_staging_prefix/);
+        }
+
+        const httpsScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '11-configure-https-domain.sh'), 'utf8');
+        expect(httpsScript).toMatch(/ENABLE_STAGING_HTTPS/);
+        expect(httpsScript).toMatch(/resolve_dns_ipv4/);
+
+        const backupScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '13-backup-staging.sh'), 'utf8');
+        expect(backupScript).toMatch(/assert_staging_bucket_safe/);
+        expect(backupScript).toMatch(/backups\//);
+        expect(backupScript).toMatch(/STAGING_BACKUP_TRANSPORT/);
+        expect(backupScript).toMatch(/ssm send-command/);
+        expect(backupScript).toMatch(/ec2-direct-s3/);
+
+        const deployScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '16-deploy-all.sh'), 'utf8');
+        expect(deployScript).toMatch(/07-deploy-compose\.sh/);
+        expect(deployScript).toMatch(/12-deploy-frontend-docker\.sh/);
+        expect(deployScript).toMatch(/10-verify-staging\.sh/);
+    });
+
+    test('staging AWS deploy workflow is manual and explicitly gated', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-aws-deploy.yml'), 'utf8');
+
+        expect(workflow).toMatch(/workflow_dispatch/);
+        expect(workflow).toMatch(/environment: staging/);
+        expect(workflow).toMatch(/deploy_enabled/);
+        expect(workflow).toMatch(/STAGING_DEPLOY_ENABLED/);
+        expect(workflow).toMatch(/STAGING_SSM_PREFIX.*\/aura\/staging/);
+        expect(workflow).toMatch(/PROD_SSM_PREFIX.*\/aura\/prod/);
     });
 });

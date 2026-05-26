@@ -18,6 +18,10 @@ STATE_FILE="$STATE_DIR/state.json"
 : "${ENABLE_CERTBOT:=false}"
 : "${ENABLE_EIP:=false}"
 : "${ENABLE_ROUTE53:=false}"
+: "${ENABLE_STAGING_HTTPS:=false}"
+: "${ENABLE_CLOUDWATCH_AGENT:=false}"
+: "${STAGING_BACKUP_RETENTION_DAYS:=14}"
+: "${STAGING_DEPLOY_ENABLED:=false}"
 
 log() {
   printf '[staging] %s\n' "$*" >&2
@@ -113,6 +117,32 @@ require_no_prod_value() {
       die "$name looks production-like: $value"
       ;;
   esac
+}
+
+assert_staging_prefix() {
+  [ "${STAGING_SSM_PREFIX:-}" = "/aura/staging" ] || die "STAGING_SSM_PREFIX must be /aura/staging"
+  [ "${PROD_SSM_PREFIX:-/aura/prod}" = "/aura/prod" ] || die "PROD_SSM_PREFIX must be /aura/prod"
+}
+
+assert_staging_bucket_safe() {
+  local bucket="$1"
+  require_no_prod_value "STAGING_BUCKET_NAME" "$bucket" ""
+  local env_tag managed_tag
+  env_tag="$(aws_cli s3api get-bucket-tagging --bucket "$bucket" --query "TagSet[?Key=='Environment'].Value | [0]" --output text 2>/dev/null || true)"
+  managed_tag="$(aws_cli s3api get-bucket-tagging --bucket "$bucket" --query "TagSet[?Key=='ManagedBy'].Value | [0]" --output text 2>/dev/null || true)"
+  [ "$env_tag" = "staging" ] || die "Refusing to use bucket $bucket because Environment tag is not staging"
+  [ "$managed_tag" = "codex-staging-bootstrap" ] || die "Refusing to use bucket $bucket because ManagedBy tag is not codex-staging-bootstrap"
+}
+
+resolve_dns_ipv4() {
+  local host="$1"
+  node -e '
+const dns = require("dns");
+dns.lookup(process.argv[1], { family: 4 }, (error, address) => {
+  if (error) process.exit(1);
+  process.stdout.write(address || "");
+});
+' "$host"
 }
 
 ensure_state() {
