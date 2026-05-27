@@ -1,0 +1,115 @@
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    proxy_cache_path /var/cache/nginx/aura levels=1:2 keys_zone=aura_public:50m max_size=512m inactive=30m use_temp_path=off;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        "" close;
+    }
+
+    map $request_method $cache_method_bypass {
+        default 1;
+        GET 0;
+        HEAD 0;
+    }
+
+    map $http_authorization $cache_auth_bypass {
+        default 1;
+        "" 0;
+    }
+
+    map $http_cookie $cache_cookie_bypass {
+        default 1;
+        "" 0;
+    }
+
+    map $uri $cache_private_path_bypass {
+        default 0;
+        ~^/api/auth 1;
+        ~^/api/admin 1;
+        ~^/api/user 1;
+        ~^/api/users 1;
+        ~^/api/me 1;
+        ~^/api/payment 1;
+        ~^/api/payments 1;
+        ~^/api/upload 1;
+        ~^/api/uploads 1;
+        ~^/api/webhooks 1;
+        ~^/api/email-webhooks 1;
+        ~^/uploads 1;
+    }
+
+    map $uri $cache_public_path_allowed {
+        default 0;
+        ~^/api/public 1;
+        ~^/api/status/public 1;
+        ~^/api/status/components 1;
+        ~^/api/status/incidents 1;
+        ~^/api/status/history 1;
+        ~^/api/status/maintenance 1;
+        ~^/api/status/rss 1;
+        ~^/status 1;
+    }
+
+    map "$cache_method_bypass$cache_auth_bypass$cache_cookie_bypass$cache_private_path_bypass$cache_public_path_allowed" $proxy_cache_bypass {
+        default 1;
+        "00001" 0;
+    }
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript application/xml image/svg+xml;
+
+    upstream aura_app {
+        server ${APP_UPSTREAM_HOST:-app}:${APP_UPSTREAM_PORT:-5000};
+    }
+
+    server {
+        listen ${NGINX_PORT:-8080};
+        server_name _;
+
+        location = /nginx-health {
+            access_log off;
+            add_header Cache-Control "no-store";
+            return 200 "ok\n";
+        }
+
+        location ~* \.(?:js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|otf)$ {
+            proxy_pass http://aura_app;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            add_header Cache-Control "public, max-age=31536000, immutable" always;
+        }
+
+        location / {
+            proxy_pass http://aura_app;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+
+            # Safety: proxy cache is allowed only for public GET/HEAD requests
+            # with no Authorization header, no Cookie header, no private path,
+            # and a known public prefix. Upstream Set-Cookie/private responses
+            # are never stored.
+            proxy_cache aura_public;
+            proxy_cache_methods GET HEAD;
+            proxy_cache_valid 200 120s;
+            proxy_cache_bypass $proxy_cache_bypass;
+            proxy_no_cache $proxy_cache_bypass $upstream_http_set_cookie;
+            proxy_ignore_headers Expires;
+            add_header X-Proxy-Cache $upstream_cache_status always;
+        }
+    }
+}

@@ -130,6 +130,15 @@ const { createDistributedRateLimit } = require('./middleware/distributedRateLimi
 const { metricsMiddleware } = require('./middleware/metrics');
 const { createRequestTimeout } = require('./middleware/requestTimeout');
 const {
+    createPublicCacheMiddleware,
+    publicCacheInvalidationMiddleware,
+} = require('./performance/cache');
+const {
+    performanceMiddleware,
+    staticAssetHeaders,
+} = require('./performance/middleware');
+const { initOtel } = require('./performance/otel');
+const {
     emergencyRoutePolicyMiddleware,
     globalEmergencyMiddleware,
     readOnlyMiddleware,
@@ -140,6 +149,7 @@ const metricsRoute = require('./routes/metricsRoute');
 const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./services/socketService');
 
 const app = express();
+initOtel();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
 const AUTH_BODY_LIMIT = process.env.AUTH_BODY_LIMIT || '64kb';
 const runtimeNodeEnv = process.env.NODE_ENV || 'production';
@@ -214,6 +224,9 @@ const contentSecurityPolicyDirectives = {
     manifestSrc: ["'self'"],
 };
 const splitRuntimeEnabled = String(process.env.SPLIT_RUNTIME_ENABLED || 'false').trim().toLowerCase() === 'true';
+const metricsEnabled = String(process.env.METRICS_ENABLED || 'true').trim().toLowerCase() !== 'false';
+const rawMetricsPath = String(process.env.METRICS_PATH || '/metrics').trim() || '/metrics';
+const metricsPath = rawMetricsPath.startsWith('/') ? rawMetricsPath : `/${rawMetricsPath}`;
 logger.info('config.split_runtime_env_check', { 
     raw: process.env.SPLIT_RUNTIME_ENABLED, 
     parsed: splitRuntimeEnabled,
@@ -284,6 +297,7 @@ const getSplitRuntimeWorkerGaps = ({
 };
 
 app.disable('x-powered-by');
+app.set('etag', 'weak');
 app.set('trust proxy', 1);
 
 const uploadAssetLimiter = createDistributedRateLimit({
@@ -329,6 +343,7 @@ app.get('/health/live', (req, res) => {
 
 // Request ID for tracing
 app.use(requestId);
+app.use(performanceMiddleware());
 
 // Prometheus metrics â€” register before any other middleware so durations
 // include the full request lifecycle (auth, rate-limit, route handlers).
@@ -384,7 +399,7 @@ app.use(cors({
         return callback(new AppError('Origin not allowed by CORS policy', 403));
     },
     credentials: true,
-    exposedHeaders: ['X-CSRF-Token', 'X-Request-Id'],
+    exposedHeaders: ['X-CSRF-Token', 'X-Request-Id', 'X-Cache', 'Server-Timing'],
 }));
 const captureRawBody = (req, res, buf) => {
     req.rawBody = buf.toString('utf8');
@@ -429,7 +444,7 @@ if (process.env.NODE_ENV !== 'test') {
             const path = String(req.path || req.originalUrl || '').trim().toLowerCase();
             return path === '/health'
                 || path.startsWith('/api/health')
-                || path === '/metrics'
+                || path === metricsPath
                 || path.startsWith('/api/email-webhooks')
                 || path.startsWith('/api/observability');
         },
@@ -437,6 +452,9 @@ if (process.env.NODE_ENV !== 'test') {
     });
     app.use(limiter);
 }
+
+app.use(publicCacheInvalidationMiddleware());
+app.use(createPublicCacheMiddleware());
 
 // Routes
 app.use('/api/health', healthRoutes);
@@ -482,7 +500,9 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/notifications', userNotificationRoutes);
-app.use('/metrics', metricsRoute);
+if (metricsEnabled) {
+    app.use(metricsPath, metricsRoute);
+}
 
 const isStagingRuntime = () => (
     String(process.env.APP_ENV || process.env.SMOKE_TARGET_ENV || '').trim().toLowerCase() === 'staging'
@@ -756,9 +776,12 @@ app.get('/health/ready', healthReadyLimiter, requireHealthReadyAccess, async (re
 });
 
 // Serve Frontend
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+    etag: true,
+    setHeaders: staticAssetHeaders,
+}));
 app.get('{*path}', (req, res, next) => {
-    if (req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/health') || req.originalUrl.startsWith('/metrics')) {
+    if (req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/health') || req.originalUrl.startsWith(metricsPath)) {
         return next();
     }
     res.sendFile(path.resolve(__dirname, 'public', 'index.html'));

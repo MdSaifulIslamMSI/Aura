@@ -616,7 +616,12 @@ const Home = () => {
               >
                 <div className="aura-home-spotlight-media">
                   {heroSpotlight?.image ? (
-                    <img src={heroSpotlight.image} alt={heroSpotlight.displayTitle || heroSpotlight.title || t('home.hero.stageTitle', {}, 'Catalog signal board')} />
+                    <img
+                      src={heroSpotlight.image}
+                      alt={heroSpotlight.displayTitle || heroSpotlight.title || t('home.hero.stageTitle', {}, 'Catalog signal board')}
+                      loading="eager"
+                      decoding="async"
+                    />
                   ) : (
                     <div className="aura-home-spotlight-placeholder">
                       <PackageCheck className="h-14 w-14" />
@@ -635,7 +640,14 @@ const Home = () => {
                   return (
                     <Link key={productId || product.title} to={productId ? `/product/${productId}` : '/products'} className="aura-home-stage-row">
                       <span className="aura-home-stage-row-thumb">
-                        {product?.image ? <img src={product.image} alt={product.displayTitle || product.title || ''} /> : <Truck className="h-5 w-5" />}
+                        {product?.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.displayTitle || product.title || ''}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : <Truck className="h-5 w-5" />}
                       </span>
                       <span className="min-w-0">
                         <span className={cn('block truncate text-sm font-black', titleClass)}>{product?.displayTitle || product?.title}</span>

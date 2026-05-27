@@ -1,0 +1,89 @@
+services:
+  app:
+    profiles: ["app"]
+    build:
+      context: ../../server
+    environment:
+      PORT: 5000
+      NODE_ENV: development
+      PERFORMANCE_STACK_ENABLED: "true"
+      CACHE_ENABLED: "true"
+      CACHE_PROVIDER: redis
+      REDIS_URL: redis://redis:6379
+      MONGO_URI: ${MONGO_URI:-}
+      METRICS_SECRET: ${METRICS_SECRET:-local-metrics}
+    depends_on:
+      - redis
+    ports:
+      - "5000:5000"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  pgbouncer:
+    profiles: ["pgbouncer"]
+    image: edoburu/pgbouncer:1.24.1
+    environment:
+      DB_USER: ${PGBOUNCER_DB_USER:-app}
+      DB_PASSWORD: ${PGBOUNCER_DB_PASSWORD:-password}
+      DB_HOST: ${PGBOUNCER_DB_HOST:-postgres}
+      DB_NAME: ${PGBOUNCER_DB_NAME:-app}
+      POOL_MODE: transaction
+    ports:
+      - "6432:5432"
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt.example:/etc/pgbouncer/userlist.txt:ro
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      NGINX_PORT: 8080
+      APP_UPSTREAM_HOST: app
+      APP_UPSTREAM_PORT: 5000
+    depends_on:
+      - redis
+
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.63.0
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    command: ["--config=/etc/otelcol-contrib/collector.yml"]
+    ports:
+      - "4319:4318"
+      - "8889:8889"
+    volumes:
+      - ./otel/collector.yml:/etc/otelcol-contrib/collector.yml:ro
+    depends_on:
+      - jaeger
+
+volumes:
+  redis-data:

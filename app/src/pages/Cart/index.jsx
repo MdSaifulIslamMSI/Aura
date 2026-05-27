@@ -208,6 +208,8 @@ const Cart = () => {
                       src={item.image}
                       alt={item.title}
                       className="h-full w-full object-contain p-3 transition-transform duration-500 group-hover:scale-[1.05]"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </Link>
 

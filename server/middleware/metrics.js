@@ -48,6 +48,57 @@ const httpErrorsTotal = new client.Counter({
     registers: [registry],
 });
 
+const httpRequestDurationStandard = new client.Histogram({
+    name: 'http_request_duration_seconds',
+    help: 'Duration of HTTP requests in seconds',
+    labelNames: ['method', 'route', 'status_code'],
+    buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
+    registers: [registry],
+});
+
+const httpRequestsTotalStandard = new client.Counter({
+    name: 'http_requests_total',
+    help: 'Total number of HTTP requests',
+    labelNames: ['method', 'route', 'status_code'],
+    registers: [registry],
+});
+
+const cacheHitsTotal = new client.Counter({
+    name: 'cache_hits_total',
+    help: 'Total number of public response cache hits',
+    labelNames: ['route'],
+    registers: [registry],
+});
+
+const cacheMissesTotal = new client.Counter({
+    name: 'cache_misses_total',
+    help: 'Total number of public response cache misses',
+    labelNames: ['route'],
+    registers: [registry],
+});
+
+const cacheBypassTotal = new client.Counter({
+    name: 'cache_bypass_total',
+    help: 'Total number of cache bypass decisions',
+    labelNames: ['reason'],
+    registers: [registry],
+});
+
+const cacheErrorsTotal = new client.Counter({
+    name: 'cache_errors_total',
+    help: 'Total number of public response cache errors',
+    labelNames: ['reason'],
+    registers: [registry],
+});
+
+const dbQueryDurationSeconds = new client.Histogram({
+    name: 'db_query_duration_seconds',
+    help: 'Duration of DB queries when instrumented by call sites',
+    labelNames: ['operation'],
+    buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
+    registers: [registry],
+});
+
 const statusComponentState = new client.Gauge({
     name: 'status_component_state',
     help: 'Status component state by component slug and state. Value is 1 for current state.',
@@ -144,6 +195,8 @@ const metricsMiddleware = (req, res, next) => {
 
         httpRequestDuration.observe(labels, durationSeconds);
         httpRequestsTotal.inc(labels);
+        httpRequestDurationStandard.observe(labels, durationSeconds);
+        httpRequestsTotalStandard.inc(labels);
         httpActiveRequests.dec();
 
         if (res.statusCode >= 500) {
@@ -152,6 +205,26 @@ const metricsMiddleware = (req, res, next) => {
     });
 
     next();
+};
+
+const recordCacheHit = ({ route = 'unknown' } = {}) => {
+    cacheHitsTotal.inc({ route });
+};
+
+const recordCacheMiss = ({ route = 'unknown' } = {}) => {
+    cacheMissesTotal.inc({ route });
+};
+
+const recordCacheBypass = ({ reason = 'unknown' } = {}) => {
+    cacheBypassTotal.inc({ reason });
+};
+
+const recordCacheError = ({ reason = 'unknown' } = {}) => {
+    cacheErrorsTotal.inc({ reason });
+};
+
+const observeDbQueryDuration = ({ operation = 'unknown', durationSeconds = 0 } = {}) => {
+    dbQueryDurationSeconds.observe({ operation }, Number(durationSeconds || 0));
 };
 
 const safeEqual = (left, right) => {
@@ -201,6 +274,11 @@ module.exports = {
     incrementStatusSubscriberNotification,
     metricsMiddleware,
     metricsAuth,
+    observeDbQueryDuration,
+    recordCacheBypass,
+    recordCacheError,
+    recordCacheHit,
+    recordCacheMiss,
     registry,
     setStatusComponentMetric,
     setStatusIncidentsActive,

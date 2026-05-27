@@ -47,6 +47,8 @@ const ProductCardInline = ({
                             src={product.image}
                             alt={translatedProductTitle}
                             className="h-full w-full object-contain"
+                            loading="lazy"
+                            decoding="async"
                         />
                     ) : null}
                 </div>
