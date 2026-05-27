@@ -169,6 +169,10 @@ export default defineConfig(({ mode }) => {
           if (id.includes('/node_modules/lucide-react')) return 'vendor-icons';
           if (id.includes('/node_modules/sonner')) return 'vendor-toasts';
           if (id.includes('/node_modules/firebase')) return 'vendor-firebase';
+          if (id.includes('/node_modules/framer-motion')) return 'vendor-motion';
+          if (id.includes('/node_modules/livekit-client')) return 'vendor-livekit';
+          if (id.includes('/node_modules/react-markdown') || id.includes('/node_modules/remark-gfm')) return 'vendor-markdown';
+          if (id.includes('/node_modules/@radix-ui')) return 'vendor-radix';
 
           const matchedInternalChunk = INTERNAL_CHUNK_MATCHERS.find(({ pattern }) => pattern.test(id));
           if (matchedInternalChunk) return matchedInternalChunk.chunk;

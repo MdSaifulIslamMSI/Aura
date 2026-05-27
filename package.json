@@ -7,6 +7,17 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "test": "npm run test:server:regression",
+    "perf:audit": "node scripts/performance/audit.mjs",
+    "perf:local": "node scripts/performance/local.mjs",
+    "perf:smoke": "node scripts/performance/smoke.mjs",
+    "perf:load": "node scripts/performance/run-k6.mjs load",
+    "perf:stress": "node scripts/performance/run-k6.mjs stress",
+    "perf:lighthouse": "node scripts/performance/lighthouse.mjs",
+    "perf:bundle": "npm --prefix app run build:budget",
+    "perf:budget": "node scripts/performance/budget.mjs",
+    "perf:all": "node scripts/performance/all.mjs",
+    "perf:watch": "node scripts/performance/watch.mjs",
+    "cloudflare:performance:plan": "node scripts/performance/cloudflare-cache-plan.mjs",
     "lint": "npm --prefix app run lint",
     "test:server:full": "npm --prefix server test",
     "test:server:regression": "npm --prefix server test -- --runTestsByPath tests/authMiddleware.test.js tests/profileSecurity.test.js tests/otpSystem.test.js tests/otpEmailFailClosed.test.js tests/paymentOrderIntegrity.test.js tests/userPhoneIndex.test.js tests/orderControllerCreate.test.js tests/communicationUtilities.test.js tests/communicationServices.test.js tests/adminUserControllerResilience.test.js tests/adminUserRoutes.integration.test.js tests/paymentSecurityGuards.test.js tests/adminProductRoutes.integration.test.js tests/paymentRefundState.test.js tests/adminPaymentRoutes.integration.test.js tests/adminAnalyticsRoutes.integration.test.js tests/adminNotificationRoutes.integration.test.js tests/aiRoutes.test.js tests/healthRoutes.test.js tests/healthReadinessService.test.js tests/adminFraudRoutes.test.js tests/fraudDecisioningService.test.js tests/marketplaceIntegrityService.test.js tests/orderPlacementService.test.js tests/commerceAssistantService.test.js tests/geminiGatewayService.test.js tests/modelGatewayService.test.js tests/ollamaGatewayService.test.js tests/runtimeConfig.test.js tests/stagingSmokeSafety.test.js tests/envContractScripts.test.js tests/stagingFrontendCors.test.js --forceExit",
@@ -153,7 +164,8 @@
     "lodash.isequal": "npm:fast-deep-equal@^3.1.3",
     "make-fetch-happen": "^15.0.5",
     "node-gyp": "^12.3.0",
-    "rimraf": "^6.1.3"
+    "rimraf": "^6.1.3",
+    "tmp": "0.2.6"
   },
   "build": {
     "appId": "com.aura.marketplace.desktop",

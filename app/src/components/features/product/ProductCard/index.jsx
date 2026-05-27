@@ -458,6 +458,9 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             src={imageError ? FALLBACK_IMAGE : product.image || FALLBACK_IMAGE}
             alt={translatedDisplayTitle}
             loading="lazy"
+            decoding="async"
+            width="400"
+            height="300"
             className={cn(
               'h-full w-full object-contain transition-transform duration-700 group-hover:scale-[1.045]',
               isWhiteMode
@@ -700,6 +703,9 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
             src={imageError ? FALLBACK_IMAGE : product.image || FALLBACK_IMAGE}
             alt={translatedDisplayTitle}
             loading="lazy"
+            decoding="async"
+            width="400"
+            height="300"
             className="aura-commerce-card__image h-full w-full object-contain transition-transform duration-700"
             onError={(event) => {
               event.target.onerror = null;

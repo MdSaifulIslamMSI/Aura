@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 39,
+  "title": "Aura App Performance",
+  "tags": ["aura", "performance"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP p95 latency",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))",
+          "legendFormat": "{{route}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP request rate",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[5m])) by (route, status_code)",
+          "legendFormat": "{{route}} {{status_code}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache decisions",
+      "targets": [
+        { "expr": "sum(rate(cache_hits_total[5m]))", "legendFormat": "hits" },
+        { "expr": "sum(rate(cache_misses_total[5m]))", "legendFormat": "misses" },
+        { "expr": "sum(rate(cache_bypass_total[5m]))", "legendFormat": "bypass" },
+        { "expr": "sum(rate(cache_errors_total[5m]))", "legendFormat": "errors" }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "DB query duration",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket[5m])) by (le, operation))",
+          "legendFormat": "{{operation}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+    }
+  ]
+}

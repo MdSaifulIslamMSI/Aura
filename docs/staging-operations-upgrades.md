@@ -23,6 +23,8 @@ This layer adds the remaining safe staging operations around the AWS Free Tier s
 - HTTPS activation refuses to run unless DNS resolves to the staging EC2 public IP.
 - `ENABLE_CLOUDWATCH_AGENT=true` is intentionally blocked until a retention and cost plan exists.
 - GitHub staging deployment requires both the workflow input and the staging environment variable `STAGING_DEPLOY_ENABLED=true`.
+- `npm run staging:deploy` keeps Vercel out of the deploy path and uses the Docker-hosted AWS frontend plus smoke checks. `npm run staging:vercel:autopilot` is separate and stops before creating a Preview URL if staging or branch-scoped Preview env writes fail.
+- The staging operator role grants Cost Explorer only the `ce:GetCostAndUsage` read needed by `npm run staging:cost-watch`.
 
 ## GitHub Workflows
 

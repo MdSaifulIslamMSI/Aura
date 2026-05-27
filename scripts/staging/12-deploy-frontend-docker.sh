@@ -75,7 +75,7 @@ host_nginx="$STATE_DIR/nginx-frontend.conf"
 
 tar -czf "$frontend_tar" -C "$REPO_ROOT/app/dist" .
 
-server_name="${STAGING_API_HOST:-_}"
+server_name="$(nginx_staging_server_name "$frontend_url")"
 client_max_body_size="${STAGING_CLIENT_MAX_BODY_SIZE:-25m}"
 sed \
   -e "s#__STAGING_BACKEND_PORT__#$STAGING_BACKEND_PORT#g" \
@@ -107,7 +107,7 @@ sudo docker run -d \
   -v /opt/aura-staging/frontend-container-nginx.conf:/etc/nginx/conf.d/default.conf:ro \
   nginx:alpine >/dev/null
 for attempt in $(seq 1 20); do
-  if curl -fsS "http://127.0.0.1:${STAGING_FRONTEND_PORT}/" >/dev/null; then
+  if curl -fsS "http://127.0.0.1:${STAGING_FRONTEND_PORT}/" >/dev/null 2>/dev/null; then
     break
   fi
   if [ "$attempt" -eq 20 ]; then

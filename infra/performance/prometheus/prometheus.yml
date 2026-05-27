@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: aura-app
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - app:5000
+    authorization:
+      credentials: local-metrics
+
+  - job_name: otel-collector
+    static_configs:
+      - targets:
+          - otel-collector:8889
