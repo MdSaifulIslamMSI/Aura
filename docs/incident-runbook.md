@@ -1,10 +1,22 @@
 # Incident Runbook
 
+## First Five Minutes
+
+- Name an incident owner and a communications owner.
+- Confirm whether the issue is staging or production.
+- Check Argo CD sync and Kubernetes rollout state.
+- Check public `GET /health` and liveness `GET /health/live`.
+- Inspect Grafana metrics, Prometheus alerts, and Loki logs.
+
 ## 1) API Availability Incident
 - Check public `GET /health`.
 - Check detailed `GET /health/ready` with the `x-health-token` header from the production readiness secret.
 - Validate DB connectivity and queue status.
 - Inspect request-id correlated error logs.
+- Kubernetes:
+  - `kubectl -n <namespace> rollout status deploy/aura-api`
+  - `kubectl -n <namespace> logs deploy/aura-api --since=15m`
+  - `kubectl -n <namespace> describe hpa aura-api`
 
 ## 2) OTP Delivery Incident
 - Confirm provider credentials and gateway errors.
@@ -25,3 +37,4 @@
 - Rotate exposed credentials immediately.
 - Restrict CORS allowlist and verify admin-only route protection.
 - Audit recent profile updates and privilege-related changes.
+- Disable compromised deploys by reverting Git desired state and syncing Argo CD.

@@ -1,0 +1,22 @@
+# DevOps Security Checklist
+
+- No secrets, tokens, kubeconfigs, private keys, or real env files are committed.
+- Example env files contain placeholders only.
+- Containers run as non-root.
+- Container privilege escalation is disabled.
+- Kubernetes pods use a least-privilege service account with automount disabled by default.
+- Read-only root filesystem is enabled with writable `emptyDir` mounts for uploads and `/tmp`.
+- NetworkPolicy restricts ingress to ingress/same-namespace traffic and documents egress tightening.
+- TLS terminates at ingress or an external load balancer.
+- CORS origins are explicit per environment.
+- Dependency scanning runs through npm audit and existing security scripts.
+- Secret scanning runs through Gitleaks.
+- Static analysis runs through Semgrep.
+- Dockerfile scanning runs through Hadolint.
+- Image and filesystem scanning run through Trivy.
+- Kubernetes manifests are rendered through Kustomize and Helm, then schema-checked with kubeconform in CI.
+- SBOM generation is available with `npm run sbom:generate`.
+- OpenTofu runs fmt/validate in CI only. Apply is manual.
+- Argo CD production sync is example-only until explicitly configured.
+- Rollback runbooks exist for Kubernetes and Argo CD.
+- Staging must not share production URLs, secrets, buckets, databases, or Redis instances.

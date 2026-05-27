@@ -70,6 +70,12 @@ jobs:
       - name: Run Hadolint Dockerfile scan
         run: npm run security:hadolint
 
+      - name: Run IaC scanner bundle
+        run: npm run security:iac
+
+      - name: Generate npm SBOMs
+        run: npm run sbom:generate
+
       - name: Run OWASP ZAP baseline against staging
         if: ${{ env.STAGING_URL != '' }}
         env:

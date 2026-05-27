@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aura-api
+  namespace: aura-staging
+  labels:
+    app.kubernetes.io/name: aura-api
+    app.kubernetes.io/part-of: aura-marketplace
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.staging.example.invalid
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aura-api
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - api.staging.example.invalid
+      secretName: aura-api-tls

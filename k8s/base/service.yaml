@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: aura-api
+  namespace: aura-staging
+  labels:
+    app.kubernetes.io/name: aura-api
+    app.kubernetes.io/part-of: aura-marketplace
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: aura-api
+    app.kubernetes.io/part-of: aura-marketplace
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

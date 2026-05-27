@@ -13,6 +13,13 @@ const paths = {
   prometheusEc2: 'infra/observability/prometheus/prometheus.ec2.yml',
   composeLocal: 'infra/observability/docker-compose.local.yml',
   composeEc2: 'infra/observability/docker-compose.ec2.yml',
+  devopsPrometheus: 'observability/prometheus/prometheus.yml',
+  devopsPrometheusRules: 'observability/prometheus/rules.yml',
+  devopsGrafanaDashboard: 'observability/grafana/dashboards/aura-api-starter.json',
+  devopsGrafanaDatasources: 'observability/grafana/provisioning/datasources/datasources.yaml',
+  devopsLoki: 'observability/loki/loki.yaml',
+  devopsOtel: 'observability/otel/collector.yaml',
+  devopsReadme: 'observability/README.md',
 };
 
 const read = (relativePath) => {
@@ -109,4 +116,44 @@ requireText('EC2 observability compose', read(paths.composeEc2), [
   /\/opt\/aura\/shared\/metrics-secret/,
 ]);
 
-console.log('Observability assets OK: Prometheus alerts, scrape configs, Grafana provisioning, and dashboard are wired.');
+requireText('DevOps Prometheus config', read(paths.devopsPrometheus), [
+  /scrape_configs:/,
+  /aura-api/,
+  /otel-collector/,
+]);
+
+requireText('DevOps Prometheus rules', read(paths.devopsPrometheusRules), [
+  /AuraApiDown/,
+  /AuraApiHighErrorRate/,
+]);
+
+const devopsDashboard = JSON.parse(read(paths.devopsGrafanaDashboard));
+if (devopsDashboard.uid !== 'aura-api-starter') {
+  throw new Error('DevOps dashboard uid must be aura-api-starter');
+}
+
+requireText('DevOps Grafana datasource provisioning', read(paths.devopsGrafanaDatasources), [
+  /uid:\s*prometheus/,
+  /uid:\s*loki/,
+]);
+
+requireText('DevOps Loki config', read(paths.devopsLoki), [
+  /auth_enabled:\s*false/,
+  /schema_config:/,
+]);
+
+requireText('DevOps OpenTelemetry Collector config', read(paths.devopsOtel), [
+  /receivers:/,
+  /otlp:/,
+  /exporters:/,
+  /prometheus:/,
+]);
+
+requireText('DevOps observability README', read(paths.devopsReadme), [
+  /OpenTelemetry Collector/,
+  /Prometheus/,
+  /Grafana/,
+  /Loki/,
+]);
+
+console.log('Observability assets OK: Prometheus, Grafana, Loki, and OpenTelemetry assets are wired.');

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aura-staging
+  labels:
+    app.kubernetes.io/name: aura-api
+    app.kubernetes.io/part-of: aura-marketplace
+    owner: platform
+    environment: staging

@@ -17,3 +17,9 @@
 /server/routes/*auth*.js @MdSaifulIslamMSI
 /server/routes/*upload*.js @MdSaifulIslamMSI
 /infra/ @MdSaifulIslamMSI
+/k8s/ @MdSaifulIslamMSI
+/charts/ @MdSaifulIslamMSI
+/gitops/ @MdSaifulIslamMSI
+/observability/ @MdSaifulIslamMSI
+/Dockerfile @MdSaifulIslamMSI
+/Makefile @MdSaifulIslamMSI
