@@ -102,3 +102,6 @@ server/public/
 # Added by ggshield
 .cache_ggshield
 
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*

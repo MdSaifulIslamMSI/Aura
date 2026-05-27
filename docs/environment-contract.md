@@ -2,6 +2,42 @@
 
 This repo fails closed when an environment is ambiguous. Preview is not staging unless it has an isolated backend, database/cache/storage, and SSM prefix.
 
+## Required Runtime Variables
+
+Every environment must define these values through checked-in example files, CI variables, a secret manager, or Kubernetes secrets. Example files must never contain real credentials.
+
+- `NODE_ENV` or `APP_ENV`
+- `PORT`
+- `APP_BASE_URL`
+- `API_BASE_URL`
+- `DATABASE_URL`
+- `REDIS_URL`
+- `OBJECT_STORAGE_BUCKET`
+- `OTEL_SERVICE_NAME`
+- `OTEL_EXPORTER_OTLP_ENDPOINT`
+- `LOG_LEVEL`
+- `CORS_ORIGINS`
+- `HEALTHCHECK_PATH=/health`
+
+Environment-specific URL contracts:
+
+- `STAGING_BASE_URL`
+- `STAGING_API_BASE_URL`
+- `STAGING_HEALTH_URL`
+- `PROD_BASE_URL`
+- `PROD_API_BASE_URL`
+- `PROD_HEALTH_URL`
+
+Validation:
+
+```sh
+npm run env:validate
+npm run env:validate:staging
+npm run env:validate:production
+```
+
+The validator reads `config/environments/*.example.env`, merges real process environment values over examples, and fails closed when required values are missing or staging points at production.
+
 ## Production
 
 - `PROD_BASE_URL`: production storefront URL.

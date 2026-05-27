@@ -1,0 +1,18 @@
+groups:
+  - name: aura-api
+    rules:
+      - alert: AuraApiDown
+        expr: up{job="aura-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Aura API metrics scrape is down.
+
+      - alert: AuraApiHighErrorRate
+        expr: sum(rate(http_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Aura API 5xx rate is above 5 percent.

@@ -119,6 +119,7 @@ const {
     getReadinessGraceState,
 } = require('./services/healthReadinessService');
 const {
+    buildHealthMetadata,
     buildPublicHealthPayload,
     shouldFailClosedMissingHealthReadyToken,
     shouldExposeDetailedHealth,
@@ -320,6 +321,7 @@ const healthReadyLimiter = createDistributedRateLimit({
 
 const buildLiveHealthPayload = () => ({
     alive: true,
+    ...buildHealthMetadata(),
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     topology: {
@@ -581,6 +583,7 @@ app.get('/health', async (req, res) => {
     const stagingHealthFingerprint = await buildStagingHealthFingerprint(core);
     const detailedHealthPayload = {
         status,
+        ...buildHealthMetadata(),
         db: core.dbConnected ? 'connected' : 'disconnected',
         uptime,
         timestamp,

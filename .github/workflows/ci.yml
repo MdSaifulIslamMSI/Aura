@@ -45,7 +45,16 @@ on:
       - "infra/edge/**"
       - "infra/observability/**"
       - "infra/security/**"
+      - "infra/opentofu/**"
+      - "k8s/**"
+      - "charts/**"
+      - "gitops/**"
+      - "observability/**"
       - "docker-compose.split-runtime.yml"
+      - "docker-compose.yml"
+      - "docker-compose.observability.yml"
+      - "Dockerfile"
+      - "Makefile"
       - "config/environments/**"
       - "docs/desktop-app.md"
       - "infra/aws/bootstrap-instance-user-data.sh"
@@ -140,7 +149,16 @@ jobs:
               - 'infra/edge/**'
               - 'infra/observability/**'
               - 'infra/security/**'
+              - 'infra/opentofu/**'
+              - 'k8s/**'
+              - 'charts/**'
+              - 'gitops/**'
+              - 'observability/**'
               - 'docker-compose.split-runtime.yml'
+              - 'docker-compose.yml'
+              - 'docker-compose.observability.yml'
+              - 'Dockerfile'
+              - 'Makefile'
               - 'config/environments/**'
               - 'infra/aws/bootstrap-instance-user-data.sh'
               - 'infra/aws/deploy-release.sh'
@@ -632,3 +650,70 @@ jobs:
 
       - name: Package Linux desktop directory smoke test
         run: npx electron-builder --linux dir --publish never
+
+  devops-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+            server/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Validate environment examples
+        run: |
+          npm run env:validate
+          npm run env:validate:staging
+          npm run env:validate:production
+
+      - name: Validate observability assets
+        run: npm run observability:validate
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate Kubernetes kustomize base
+        run: kubectl kustomize k8s/base > /tmp/k8s-base.yaml
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint and render Helm chart
+        run: |
+          npm run helm:lint
+          npm --silent run helm:template:staging > /tmp/helm-staging.yaml
+          npm --silent run helm:template:production > /tmp/helm-production.yaml
+
+      - name: Validate Kubernetes schemas with kubeconform
+        run: |
+          docker run --rm \
+            -v /tmp:/manifests:ro \
+            ghcr.io/yannh/kubeconform:v0.6.7 \
+            -strict \
+            -summary \
+            -ignore-missing-schemas \
+            /manifests/k8s-base.yaml \
+            /manifests/helm-staging.yaml \
+            /manifests/helm-production.yaml
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.8.8
+
+      - name: Validate OpenTofu
+        run: |
+          npm run tofu:fmt
+          tofu -chdir=infra/opentofu init -backend=false
+          tofu -chdir=infra/opentofu validate

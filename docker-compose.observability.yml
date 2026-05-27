@@ -1,38 +1,74 @@
 services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    container_name: aura-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    volumes:
+      - ./observability/otel/collector.yaml:/etc/otelcol/config.yaml:ro
+    networks:
+      - aura-observability
+
   prometheus:
-    image: prom/prometheus
+    image: prom/prometheus:v3.0.1
     container_name: aura-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+    networks:
+      - aura-observability
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:11.4.0
     container_name: aura-grafana
     ports:
       - "3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+      - loki
+    networks:
+      - aura-observability
 
   loki:
-    image: grafana/loki
+    image: grafana/loki:3.3.1
     container_name: aura-loki
+    command: ["-config.file=/etc/loki/config.yaml"]
     ports:
       - "3100:3100"
+    volumes:
+      - ./observability/loki/loki.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - aura-observability
 
   promtail:
-    image: grafana/promtail
+    image: grafana/promtail:3.3.1
     container_name: aura-promtail
     volumes:
       - /var/log:/var/log:ro
-      - ./monitoring/promtail.yml:/etc/promtail/config.yml:ro
-    command: -config.file=/etc/promtail/config.yml
+      - ./observability/loki/promtail.yaml:/etc/promtail/config.yaml:ro
+    command: ["-config.file=/etc/promtail/config.yaml"]
     depends_on:
       - loki
+    networks:
+      - aura-observability
 
 volumes:
   grafana-data:
+  loki-data:
+
+networks:
+  aura-observability:
+    driver: bridge

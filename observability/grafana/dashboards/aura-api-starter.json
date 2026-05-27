@@ -1,0 +1,52 @@
+{
+  "uid": "aura-api-starter",
+  "title": "Aura API Starter",
+  "schemaVersion": 40,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["aura", "api", "devops"],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[5m]))",
+          "legendFormat": "requests/sec"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "5xx Rate",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status_code=~\"5..\"}[5m]))",
+          "legendFormat": "5xx/sec"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "id": 3,
+      "title": "Recent API Logs",
+      "type": "logs",
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {
+          "expr": "{service=\"aura-marketplace-api\"}"
+        }
+      ],
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 8}
+    }
+  ]
+}

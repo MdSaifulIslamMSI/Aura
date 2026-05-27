@@ -5,6 +5,7 @@ const { getRedisHealth } = require('../config/redis');
 const { flags: emailFlags } = require('../config/emailFlags');
 const { flags: paymentFlags } = require('../config/paymentFlags');
 const { getCachedHealthSnapshot } = require('../services/healthService');
+const { buildHealthMetadata } = require('../services/healthDisclosureService');
 const { getReviewUploadStorageHealth } = require('../services/reviewMediaStorageService');
 
 const router = express.Router();
@@ -52,6 +53,7 @@ const sendHealth = (req, res, checks, extra = {}) => {
     res.set('X-Request-Id', req.requestId || req.headers['x-request-id'] || '');
     return res.status(status === 'healthy' ? 200 : 503).json({
         status,
+        ...buildHealthMetadata(),
         timestamp: new Date().toISOString(),
         correlationId: req.requestId || req.headers['x-request-id'] || '',
         checks,

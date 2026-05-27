@@ -17,6 +17,9 @@ describe('Health routes', () => {
         });
         expect(typeof res.body.uptime).toBe('number');
         expect(typeof res.body.timestamp).toBe('string');
+        expect(res.body.service).toBe('aura-marketplace-api');
+        expect(typeof res.body.version).toBe('string');
+        expect(res.body.environment).toBe('test');
         expect(res.headers).not.toHaveProperty('x-powered-by');
         expect(res.headers['cache-control']).toBe('no-store');
         expect(res.headers['content-security-policy']).toContain("default-src 'self'");
@@ -45,6 +48,11 @@ describe('Health routes', () => {
 
         expect([200, 503]).toContain(first.statusCode);
         expect([200, 503]).toContain(second.statusCode);
+        expect(first.body).toMatchObject({
+            service: 'aura-marketplace-api',
+            version: expect.any(String),
+            environment: 'test',
+        });
         expect(['miss', 'shared']).toContain(first.headers['x-health-cache']);
         expect(['hit', 'shared']).toContain(second.headers['x-health-cache']);
     });
@@ -54,6 +62,9 @@ describe('Health routes', () => {
 
         expect([200, 503]).toContain(res.statusCode);
         expect(res.body).toHaveProperty('status');
+        expect(res.body).toHaveProperty('service', 'aura-marketplace-api');
+        expect(res.body).toHaveProperty('version');
+        expect(res.body).toHaveProperty('environment', 'test');
         expect(res.body).toHaveProperty('timestamp');
         expect(res.body).toHaveProperty('correlationId');
         expect(res.body.checks).toHaveProperty('database');

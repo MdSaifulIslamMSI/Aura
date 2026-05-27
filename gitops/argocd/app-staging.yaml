@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aura-api-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: aura-api
+    app.kubernetes.io/part-of: aura-marketplace
+    environment: staging
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/MdSaifulIslamMSI/Aura.git
+    targetRevision: main
+    path: charts/app
+    helm:
+      releaseName: aura-api
+      valueFiles:
+        - values-staging.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aura-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true

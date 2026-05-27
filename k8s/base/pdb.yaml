@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aura-api
+  namespace: aura-staging
+  labels:
+    app.kubernetes.io/name: aura-api
+    app.kubernetes.io/part-of: aura-marketplace
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aura-api
+      app.kubernetes.io/part-of: aura-marketplace

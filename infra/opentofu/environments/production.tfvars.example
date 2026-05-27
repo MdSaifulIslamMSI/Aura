@@ -1,0 +1,13 @@
+region                    = "ap-south-1"
+app_name                  = "aura"
+environment               = "production"
+domain_name               = "www.example.invalid"
+container_image           = "ghcr.io/owner/aura-api:production"
+instance_type             = "t3.small"
+node_size                 = "medium"
+ami_id                    = ""
+ssh_ingress_cidr          = ""
+create_example_infra      = false
+create_container_registry = false
+enable_object_storage     = false
+monthly_budget_usd        = 25

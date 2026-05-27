@@ -67,6 +67,9 @@ describe('health disclosure service', () => {
 
         expect(payload).toEqual({
             status: 'degraded',
+            service: 'aura-marketplace-api',
+            version: expect.any(String),
+            environment: 'test',
             db: 'disconnected',
             uptime: 12.5,
             timestamp: '2026-05-04T00:00:00.000Z',

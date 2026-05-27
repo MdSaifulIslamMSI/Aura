@@ -1,0 +1,139 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/owner/aura-api
+  tag: "1.1.0"
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  automount: false
+  annotations: {}
+
+podAnnotations:
+  container.apparmor.security.beta.kubernetes.io/api: runtime/default
+  prometheus.io/scrape: "true"
+  prometheus.io/path: /metrics
+  prometheus.io/port: "5000"
+
+podLabels: {}
+
+env:
+  APP_ENV: staging
+  NODE_ENV: production
+  PORT: "5000"
+  APP_BASE_URL: https://staging.example.invalid
+  API_BASE_URL: https://api.staging.example.invalid
+  LOG_LEVEL: info
+  HEALTHCHECK_PATH: /health
+  CORS_ORIGINS: https://staging.example.invalid
+  OTEL_SERVICE_NAME: aura-marketplace-api
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability.svc.cluster.local:4318
+  METRICS_ENABLED: "true"
+  METRICS_PATH: /metrics
+
+secrets:
+  create: false
+  existingSecret: aura-api-secrets
+  stringData: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 5000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: api.staging.example.invalid
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: aura-api-tls
+      hosts:
+        - api.staging.example.invalid
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 768Mi
+
+probes:
+  readiness:
+    path: /api/health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  startup:
+    path: /health/live
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+volumeMounts:
+  - name: uploads
+    mountPath: /app/server/uploads
+  - name: tmp
+    mountPath: /tmp
+
+volumes:
+  - name: uploads
+    emptyDir: {}
+  - name: tmp
+    emptyDir: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

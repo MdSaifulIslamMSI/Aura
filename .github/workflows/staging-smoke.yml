@@ -33,5 +33,45 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check staging smoke target
+        id: staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${STAGING_HEALTH_URL}" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "STAGING_HEALTH_URL is not configured; skipping staging smoke."
+            exit 0
+          fi
+
+          lower_health="$(printf '%s' "${STAGING_HEALTH_URL}" | tr '[:upper:]' '[:lower:]')"
+          lower_prod_base="$(printf '%s' "${PROD_BASE_URL}" | sed 's#/*$##' | tr '[:upper:]' '[:lower:]')"
+          lower_prod_api="$(printf '%s' "${PROD_API_BASE_URL}" | sed 's#/*$##' | tr '[:upper:]' '[:lower:]')"
+          normalized_health="$(printf '%s' "${STAGING_HEALTH_URL}" | sed 's#/*$##' | tr '[:upper:]' '[:lower:]')"
+
+          if [[ "${lower_health}" =~ (^|[./-])prod(uction)?([./-]|$) ]]; then
+            echo "Refusing staging smoke: STAGING_HEALTH_URL looks production-like." >&2
+            exit 1
+          fi
+          if [[ -n "${lower_prod_base}" && ( "${normalized_health}" == "${lower_prod_base}" || "${normalized_health}" == "${lower_prod_base}/health" ) ]]; then
+            echo "Refusing staging smoke: STAGING_HEALTH_URL points at PROD_BASE_URL." >&2
+            exit 1
+          fi
+          if [[ -n "${lower_prod_api}" && ( "${normalized_health}" == "${lower_prod_api}" || "${normalized_health}" == "${lower_prod_api}/health" ) ]]; then
+            echo "Refusing staging smoke: STAGING_HEALTH_URL points at PROD_API_BASE_URL." >&2
+            exit 1
+          fi
+
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Validate staging environment contract
+        if: steps.staging.outputs.configured == 'true'
+        run: node scripts/env/validate-env.mjs --environment staging --env-file config/environments/staging.example.env
+
+      - name: Curl staging health
+        if: steps.staging.outputs.configured == 'true'
+        run: curl --fail --show-error --silent --connect-timeout 5 --max-time 20 "${STAGING_HEALTH_URL}" > /dev/null
+
       - name: Run guarded staging smoke
+        if: steps.staging.outputs.configured == 'true'
         run: npm run smoke:staging

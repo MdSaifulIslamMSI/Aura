@@ -1,0 +1,49 @@
+name: Docker
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build root Docker image
+        run: docker build -t aura-api-ci .
+
+      - name: Validate compose config
+        run: docker compose config
+
+      - name: Start local stack
+        run: docker compose up -d --build mongo redis aura-api
+
+      - name: Smoke liveness endpoint
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:5000/health/live >/dev/null; then
+              exit 0
+            fi
+            docker compose ps
+            sleep 5
+          done
+          docker compose logs aura-api
+          exit 1
+
+      - name: Stop local stack
+        if: always()
+        run: docker compose down -v

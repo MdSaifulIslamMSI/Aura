@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const packageJson = require('../package.json');
 
 const normalizeText = (value, fallback = '') => String(
     value === undefined || value === null ? fallback : value
@@ -46,6 +47,21 @@ const shouldFailClosedMissingHealthReadyToken = ({
     && !normalizeText(healthReadyToken)
 );
 
+const buildHealthMetadata = () => ({
+    service: normalizeText(
+        process.env.OTEL_SERVICE_NAME || process.env.SERVICE_NAME,
+        'aura-marketplace-api'
+    ),
+    version: normalizeText(
+        process.env.SERVICE_VERSION || packageJson.version,
+        packageJson.version
+    ),
+    environment: normalizeText(
+        process.env.APP_ENV || process.env.NODE_ENV,
+        'production'
+    ),
+});
+
 const buildPublicHealthPayload = ({
     status = 'degraded',
     core = {},
@@ -53,6 +69,7 @@ const buildPublicHealthPayload = ({
     timestamp = new Date().toISOString(),
 } = {}) => ({
     status,
+    ...buildHealthMetadata(),
     db: core.dbConnected ? 'connected' : 'disconnected',
     uptime,
     timestamp,
@@ -62,6 +79,7 @@ const buildPublicHealthPayload = ({
 });
 
 module.exports = {
+    buildHealthMetadata,
     buildPublicHealthPayload,
     hasDetailedHealthTokenAccess,
     isProductionRuntime,
