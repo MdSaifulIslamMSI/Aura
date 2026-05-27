@@ -21,6 +21,25 @@ if (version.status !== 0) {
   process.exit(0);
 }
 
+const baseUrl = String(process.env.PERF_BASE_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const controller = new AbortController();
+const timeout = setTimeout(() => controller.abort(), 2500);
+
+let reachable = false;
+try {
+  const response = await fetch(baseUrl, { signal: controller.signal });
+  reachable = response.status < 500;
+} catch {
+  reachable = false;
+} finally {
+  clearTimeout(timeout);
+}
+
+if (!reachable) {
+  console.warn(`k6 target not reachable (${baseUrl}); skipping optional k6 ${mode} run.`);
+  process.exit(0);
+}
+
 fs.mkdirSync('.run-logs', { recursive: true });
 
 const result = runCommand('k6', ['run', '--summary-export', `.run-logs/k6-${mode}.json`, script], {
