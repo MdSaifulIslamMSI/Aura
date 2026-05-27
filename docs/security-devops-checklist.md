@@ -19,4 +19,4 @@
 - OpenTofu runs fmt/validate in CI only. Apply is manual.
 - Argo CD production sync is example-only until explicitly configured.
 - Rollback runbooks exist for Kubernetes and Argo CD.
-- Staging and production URLs, secrets, buckets, databases, and Redis instances are isolated.
+- Staging must not share production URLs, secrets, buckets, databases, or Redis instances.

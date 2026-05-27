@@ -112,7 +112,12 @@ if (environment === 'staging') {
       return [normalized, `${normalized}/health`];
     });
   const normalizedStagingHealth = stagingHealth.replace(/\/+$/, '').toLowerCase();
-  if (prodUrls.includes(normalizedStagingHealth) || /(^|[./-])prod(uction)?([./-]|$)/i.test(stagingHealth)) {
+  const matchesProductionHealthUrl = prodUrls.includes(normalizedStagingHealth);
+  const containsProductionToken = /(^|[./-])prod(uction)?([./-]|$)/i.test(stagingHealth);
+  if (matchesProductionHealthUrl) {
+    failures.push('STAGING_HEALTH_URL must not point at production.');
+  }
+  if (containsProductionToken) {
     failures.push('STAGING_HEALTH_URL must not point at production.');
   }
 }
