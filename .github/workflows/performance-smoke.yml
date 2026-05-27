@@ -22,9 +22,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+            server/package-lock.json
 
       - name: Install
         run: npm ci
+
+      - name: Install app dependencies
+        run: npm --prefix app ci
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
 
       - name: Performance audit
         run: npm run perf:audit
