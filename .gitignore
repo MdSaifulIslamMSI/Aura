@@ -98,6 +98,9 @@ server/public/
 .env*.local
 .student-pack.local.env
 .sentryclirc
+.openbao-token
+*.payment.local.env
+payment-secrets*.env
 
 # Added by ggshield
 .cache_ggshield

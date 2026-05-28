@@ -1,0 +1,100 @@
+name: Payment Architecture
+
+on:
+  pull_request:
+    paths:
+      - "server/services/payments/foundation/**"
+      - "server/tests/paymentArchitectureFoundation.test.js"
+      - "server/scripts/validate_payment_env.js"
+      - "docs/payment*.md"
+      - "docs/ledger-model.md"
+      - "docs/billing-architecture.md"
+      - "docs/eventing-outbox.md"
+      - "docs/secrets-management.md"
+      - "config/payment.example.env"
+      - "docker-compose.payment.yml"
+      - "observability/prometheus/payment-rules.yml"
+      - "observability/grafana/dashboards/payment-architecture.json"
+      - "package.json"
+      - "server/package.json"
+      - ".github/workflows/payment-architecture.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "server/services/payments/foundation/**"
+      - "server/tests/paymentArchitectureFoundation.test.js"
+      - "server/scripts/validate_payment_env.js"
+      - "docs/payment*.md"
+      - "docs/ledger-model.md"
+      - "docs/billing-architecture.md"
+      - "docs/eventing-outbox.md"
+      - "docs/secrets-management.md"
+      - "config/payment.example.env"
+      - "docker-compose.payment.yml"
+      - "observability/prometheus/payment-rules.yml"
+      - "observability/grafana/dashboards/payment-architecture.json"
+      - "package.json"
+      - "server/package.json"
+      - ".github/workflows/payment-architecture.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  payment-architecture:
+    name: Payment foundation validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PAYMENT_PROVIDER: mock
+      PAYMENT_MODE: test
+      BILLING_PROVIDER: mock
+      EVENT_BUS: local
+      SECRETS_PROVIDER: env
+      ENABLE_PAYMENTS_UI: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            app/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix server ci
+          npm --prefix app ci
+
+      - name: Validate payment environment
+        run: npm run payment:env:validate
+
+      - name: Run payment foundation tests
+        run: npm run payment:test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck gate
+        run: npm run typecheck
+
+      - name: Root regression tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Secret scan
+        run: npm run security:secrets
+
+      - name: Validate payment compose
+        run: |
+          docker compose -f docker-compose.payment.yml config
+          docker compose -f docker-compose.payment.yml --profile postgres --profile kafka --profile temporal --profile openbao --profile observability config

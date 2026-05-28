@@ -1,0 +1,47 @@
+groups:
+  - name: payment-architecture
+    rules:
+      - alert: PaymentFailureRateHigh
+        expr: rate(payment_failure_total[5m]) / clamp_min(rate(payment_intent_created_total[5m]), 1) > 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment failure rate is high
+          description: More than 15 percent of recent payment intents are failing.
+
+      - alert: PaymentProviderLatencyHigh
+        expr: histogram_quantile(0.95, rate(payment_provider_latency_ms_bucket[5m])) > 3000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment provider latency is high
+          description: p95 provider latency is above 3 seconds.
+
+      - alert: PaymentWebhookFailuresHigh
+        expr: rate(payment_provider_error_total{operation="webhook"}[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment webhook processing is failing
+          description: Webhook verification or processing failures are elevated.
+
+      - alert: PaymentOutboxBacklogHigh
+        expr: outbox_pending_count > 100
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment outbox backlog is high
+          description: Payment outbox events are not draining quickly enough.
+
+      - alert: LedgerImbalanceDetected
+        expr: ledger_imbalance_total > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Ledger imbalance detected
+          description: Ledger transactions must always balance to zero.

@@ -1,5 +1,19 @@
 # Payment Architecture
 
+## Open-Source Foundation Increment
+
+The payment architecture foundation now adds safe adapter contracts for Hyperswitch, Lago/Kill Bill, Formance-style ledgering, Temporal-compatible workflows, Kafka-compatible outbox events, OpenBao-style secrets, Keycloak/OPA-style policy checks, and OpenTelemetry/Prometheus/Grafana observability. These contracts live beside the existing runtime path and do not enable live money movement by default.
+
+Foundation entrypoints:
+
+- Domain/provider/ledger/workflow modules: `server/services/payments/foundation/`
+- Focused tests: `server/tests/paymentArchitectureFoundation.test.js`
+- Env validation: `npm run payment:env:validate`
+- Foundation tests: `npm run payment:test`
+- Local infra profiles: `docker-compose.payment.yml`
+
+The current production checkout behavior remains Razorpay default with optional Stripe, as described below. Hyperswitch and Lago are adapter contracts until explicitly wired behind feature flags.
+
 This document maps what is present in the payment system today and separates backend/API capability from the features that are visible in the React frontend.
 
 ## Current Scope
