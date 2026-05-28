@@ -110,80 +110,81 @@ jobs:
       - name: Detect changed surfaces
         if: github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call'
         id: filter
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            backend:
-              - 'server/**'
-              - 'scripts/security-*.mjs'
-              - 'scripts/post-merge-security-smoke.mjs'
-              - 'scripts/validate-env-contract.mjs'
-              - 'scripts/smoke-preflight.mjs'
-              - 'scripts/scan-prod-fallbacks.mjs'
-              - 'scripts/env-contract-lib.mjs'
-              - 'scripts/duo-activate.mjs'
-              - 'scripts/cloudflare-free-security-activate.mjs'
-              - 'scripts/smoke-origin-protection.mjs'
-              - 'scripts/smoke-production-login.mjs'
-              - 'scripts/validate-edge-security-assets.mjs'
-              - 'scripts/validate-upload-malware-runtime.mjs'
-              - 'scripts/validate-login-*.mjs'
-              - 'scripts/run-auth-*.js'
-              - 'scripts/auth-runner.js'
-              - 'scripts/classify-auth-change-risk.js'
-              - 'scripts/count-auth-combinations.js'
-              - 'tests/auth/**'
-              - 'docs/*security*.md'
-              - 'docs/ci-cd.md'
-              - 'docs/critical-invariants.md'
-              - 'docs/emergency-controls.md'
-              - 'docs/login-staging-production-activation.md'
-              - 'docs/environment-contract.md'
-              - 'docs/staging-bootstrap.md'
-              - 'docs/staging-readiness-inventory.md'
-              - 'docs/privileged-access-management.md'
-              - 'SECURITY_TEST_PLAN.md'
-              - 'security_best_practices_report.md'
-              - '.gitleaks.toml'
-              - 'security-audit-exceptions.json'
-              - 'infra/cloudflare/**'
-              - 'infra/edge/**'
-              - 'infra/observability/**'
-              - 'infra/security/**'
-              - 'infra/opentofu/**'
-              - 'k8s/**'
-              - 'charts/**'
-              - 'gitops/**'
-              - 'observability/**'
-              - 'docker-compose.split-runtime.yml'
-              - 'docker-compose.yml'
-              - 'docker-compose.observability.yml'
-              - 'Dockerfile'
-              - 'Makefile'
-              - 'config/environments/**'
-              - 'infra/aws/bootstrap-instance-user-data.sh'
-              - 'infra/aws/deploy-release.sh'
-              - 'infra/aws/docker-compose.ec2.yml'
-              - 'infra/aws/render-runtime-secrets.sh'
-              - '.github/workflows/**'
-            desktop:
-              - 'app/**'
-              - 'desktop/**'
-              - 'docs/desktop-app.md'
-              - 'package.json'
-              - 'package-lock.json'
-              - '.github/workflows/**'
-            frontend:
-              - 'app/**'
-              - 'netlify.toml'
-              - '.netlifyignore'
-              - 'vercel.json'
-              - 'app/vercel.json'
-              - '.vercelignore'
-              - '.github/workflows/**'
-            gateway:
-              - 'gateway/**'
-              - '.github/workflows/**'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          backend=false
+          desktop=false
+          frontend=false
+          gateway=false
+
+          if ! changed_files="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"; then
+            echo "Primary diff failed; falling back to the checked out PR range."
+            changed_files="$(git diff --name-only "origin/${GITHUB_BASE_REF:-main}"...HEAD)"
+          fi
+
+          echo "Changed files:"
+          if [ -n "${changed_files}" ]; then
+            printf '%s\n' "${changed_files}"
+          else
+            echo "(none)"
+          fi
+
+          while IFS= read -r file; do
+            [ -z "${file}" ] && continue
+
+            case "${file}" in
+              .github/workflows/*)
+                backend=true
+                desktop=true
+                frontend=true
+                gateway=true
+                ;;
+            esac
+
+            case "${file}" in
+              server/*|scripts/security-*.mjs|scripts/post-merge-security-smoke.mjs|scripts/validate-env-contract.mjs|scripts/smoke-preflight.mjs|scripts/scan-prod-fallbacks.mjs|scripts/env-contract-lib.mjs|scripts/duo-activate.mjs|scripts/cloudflare-free-security-activate.mjs|scripts/smoke-origin-protection.mjs|scripts/smoke-production-login.mjs|scripts/validate-edge-security-assets.mjs|scripts/validate-upload-malware-runtime.mjs|scripts/validate-login-*.mjs|scripts/run-auth-*.js|scripts/auth-runner.js|scripts/classify-auth-change-risk.js|scripts/count-auth-combinations.js|tests/auth/*|docs/*security*.md|docs/ci-cd.md|docs/critical-invariants.md|docs/emergency-controls.md|docs/login-staging-production-activation.md|docs/environment-contract.md|docs/staging-bootstrap.md|docs/staging-readiness-inventory.md|docs/privileged-access-management.md|SECURITY_TEST_PLAN.md|security_best_practices_report.md|.gitleaks.toml|security-audit-exceptions.json|infra/cloudflare/*|infra/edge/*|infra/observability/*|infra/security/*|infra/opentofu/*|k8s/*|charts/*|gitops/*|observability/*|docker-compose.split-runtime.yml|docker-compose.yml|docker-compose.observability.yml|Dockerfile|Makefile|config/environments/*|infra/aws/bootstrap-instance-user-data.sh|infra/aws/deploy-release.sh|infra/aws/docker-compose.ec2.yml|infra/aws/render-runtime-secrets.sh)
+                backend=true
+                ;;
+            esac
+
+            case "${file}" in
+              app/*|desktop/*|docs/desktop-app.md|package.json|package-lock.json)
+                desktop=true
+                ;;
+            esac
+
+            case "${file}" in
+              app/*|netlify.toml|.netlifyignore|vercel.json|app/vercel.json|.vercelignore)
+                frontend=true
+                ;;
+            esac
+
+            case "${file}" in
+              gateway/*)
+                gateway=true
+                ;;
+            esac
+          done <<< "${changed_files}"
+
+          {
+            echo "backend=${backend}"
+            echo "desktop=${desktop}"
+            echo "frontend=${frontend}"
+            echo "gateway=${gateway}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Changed surfaces"
+            echo "- backend: ${backend}"
+            echo "- desktop: ${desktop}"
+            echo "- frontend: ${frontend}"
+            echo "- gateway: ${gateway}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   artifact-guard:
     runs-on: ubuntu-latest
