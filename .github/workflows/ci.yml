@@ -147,7 +147,52 @@ jobs:
             esac
 
             case "${file}" in
-              server/*|scripts/security-*.mjs|scripts/post-merge-security-smoke.mjs|scripts/validate-env-contract.mjs|scripts/smoke-preflight.mjs|scripts/scan-prod-fallbacks.mjs|scripts/env-contract-lib.mjs|scripts/duo-activate.mjs|scripts/cloudflare-free-security-activate.mjs|scripts/smoke-origin-protection.mjs|scripts/smoke-production-login.mjs|scripts/validate-edge-security-assets.mjs|scripts/validate-upload-malware-runtime.mjs|scripts/validate-login-*.mjs|scripts/run-auth-*.js|scripts/auth-runner.js|scripts/classify-auth-change-risk.js|scripts/count-auth-combinations.js|tests/auth/*|docs/*security*.md|docs/ci-cd.md|docs/critical-invariants.md|docs/emergency-controls.md|docs/login-staging-production-activation.md|docs/environment-contract.md|docs/staging-bootstrap.md|docs/staging-readiness-inventory.md|docs/privileged-access-management.md|SECURITY_TEST_PLAN.md|security_best_practices_report.md|.gitleaks.toml|security-audit-exceptions.json|infra/cloudflare/*|infra/edge/*|infra/observability/*|infra/security/*|infra/opentofu/*|k8s/*|charts/*|gitops/*|observability/*|docker-compose.split-runtime.yml|docker-compose.yml|docker-compose.observability.yml|Dockerfile|Makefile|config/environments/*|infra/aws/bootstrap-instance-user-data.sh|infra/aws/deploy-release.sh|infra/aws/docker-compose.ec2.yml|infra/aws/render-runtime-secrets.sh)
+              server/*)
+                backend=true
+                ;;
+              scripts/security-*.mjs|scripts/post-merge-security-smoke.mjs|scripts/validate-env-contract.mjs|scripts/smoke-preflight.mjs)
+                backend=true
+                ;;
+              scripts/scan-prod-fallbacks.mjs|scripts/env-contract-lib.mjs|scripts/duo-activate.mjs)
+                backend=true
+                ;;
+              scripts/cloudflare-free-security-activate.mjs|scripts/smoke-origin-protection.mjs|scripts/smoke-production-login.mjs)
+                backend=true
+                ;;
+              scripts/validate-edge-security-assets.mjs|scripts/validate-upload-malware-runtime.mjs|scripts/validate-login-*.mjs)
+                backend=true
+                ;;
+              scripts/run-auth-*.js|scripts/auth-runner.js|scripts/classify-auth-change-risk.js|scripts/count-auth-combinations.js)
+                backend=true
+                ;;
+              tests/auth/*)
+                backend=true
+                ;;
+              docs/*security*.md|docs/ci-cd.md|docs/critical-invariants.md|docs/emergency-controls.md)
+                backend=true
+                ;;
+              docs/login-staging-production-activation.md|docs/environment-contract.md|docs/staging-bootstrap.md)
+                backend=true
+                ;;
+              docs/staging-readiness-inventory.md|docs/privileged-access-management.md)
+                backend=true
+                ;;
+              SECURITY_TEST_PLAN.md|security_best_practices_report.md|.gitleaks.toml|security-audit-exceptions.json)
+                backend=true
+                ;;
+              infra/cloudflare/*|infra/edge/*|infra/observability/*|infra/security/*|infra/opentofu/*)
+                backend=true
+                ;;
+              k8s/*|charts/*|gitops/*|observability/*)
+                backend=true
+                ;;
+              docker-compose.split-runtime.yml|docker-compose.yml|docker-compose.observability.yml|Dockerfile|Makefile)
+                backend=true
+                ;;
+              config/environments/*)
+                backend=true
+                ;;
+              infra/aws/bootstrap-instance-user-data.sh|infra/aws/deploy-release.sh|infra/aws/docker-compose.ec2.yml|infra/aws/render-runtime-secrets.sh)
                 backend=true
                 ;;
             esac
