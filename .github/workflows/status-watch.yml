@@ -12,6 +12,11 @@ jobs:
     steps:
       - name: Notify Aura status system
         run: |
+          if [ -z "$STATUS_WEBHOOK_URL" ] || [ -z "$STATUS_WEBHOOK_TOKEN" ]; then
+            echo "Status webhook secrets are not configured; skipping status notification."
+            exit 0
+          fi
+
           curl -X POST "$STATUS_WEBHOOK_URL" \
             -H "Authorization: Bearer $STATUS_WEBHOOK_TOKEN" \
             -H "Content-Type: application/json" \
