@@ -1,0 +1,44 @@
+{
+  "title": "Payment Architecture Foundation",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Payment Intents",
+      "targets": [{ "expr": "sum(rate(payment_intent_created_total[5m]))" }],
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 }
+    },
+    {
+      "type": "stat",
+      "title": "Payment Success",
+      "targets": [{ "expr": "sum(rate(payment_success_total[5m]))" }],
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 }
+    },
+    {
+      "type": "stat",
+      "title": "Payment Failures",
+      "targets": [{ "expr": "sum(rate(payment_failure_total[5m]))" }],
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 }
+    },
+    {
+      "type": "stat",
+      "title": "Outbox Pending",
+      "targets": [{ "expr": "outbox_pending_count" }],
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider Latency p95",
+      "targets": [{ "expr": "histogram_quantile(0.95, rate(payment_provider_latency_ms_bucket[5m]))" }],
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Webhook Duplicates",
+      "targets": [{ "expr": "sum(rate(payment_webhook_duplicate_total[5m]))" }],
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 }
+    }
+  ]
+}

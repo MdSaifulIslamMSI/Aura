@@ -50,7 +50,18 @@ const shouldPreferInMemoryMongo = () => {
 
 const shouldFallbackToInMemoryMongo = () => parseBoolean(process.env.TEST_FALLBACK_TO_IN_MEMORY_MONGO, true);
 const shouldRequireTransactionMongo = () => parseBoolean(process.env.TEST_REQUIRE_TRANSACTION_MONGO, false);
-const shouldSkipDbSetup = () => parseBoolean(process.env.TEST_SKIP_DB_SETUP, false);
+const NO_DB_TEST_FILES = new Set([
+    'paymentArchitectureFoundation.test.js',
+    'stagingFrontendCors.test.js',
+]);
+
+const shouldSkipDbSetup = () => {
+    if (parseBoolean(process.env.TEST_SKIP_DB_SETUP, false)) {
+        return true;
+    }
+    const testPath = expect.getState().testPath || '';
+    return NO_DB_TEST_FILES.has(testPath.split(/[\\/]/).pop());
+};
 
 const isTransactionCapableUri = (uri) => {
     const normalized = normalizeUri(uri);
