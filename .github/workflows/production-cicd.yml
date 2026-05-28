@@ -464,12 +464,7 @@ jobs:
           rollback_gateway_requested="false"
 
           if [ "${EVENT_NAME}" = "push" ]; then
-            deploy_backend_requested="${backend_changed}"
-            deploy_frontend_netlify_requested="${frontend_netlify_changed}"
-            deploy_frontend_aws_requested="${frontend_aws_changed}"
-            deploy_gateway_requested="${gateway_changed}"
-            release_desktop_requested="${desktop_changed}"
-            release_mobile_requested="${mobile_changed}"
+            echo "Main push detected. Running production quality/security gates only; deploys, releases, and rollbacks require workflow_dispatch plus confirm_production=PRODUCTION."
           else
             deploy_backend_requested="${INPUT_DEPLOY_BACKEND}"
             deploy_frontend_netlify_requested="${INPUT_DEPLOY_FRONTEND_NETLIFY}"
@@ -495,12 +490,7 @@ jobs:
           should_rollback_gateway="false"
 
           if [ "${EVENT_NAME}" = "push" ]; then
-            [ "${backend_changed}" = "true" ] && [ "${backend_ready}" = "true" ] && should_deploy_backend="true"
-            [ "${frontend_netlify_changed}" = "true" ] && [ "${frontend_netlify_ready}" = "true" ] && should_deploy_frontend_netlify="true"
-            [ "${frontend_aws_changed}" = "true" ] && [ "${frontend_aws_ready}" = "true" ] && should_deploy_frontend_aws="true"
-            [ "${gateway_changed}" = "true" ] && [ "${gateway_ready}" = "true" ] && should_deploy_gateway="true"
-            [ "${desktop_changed}" = "true" ] && should_release_desktop="true"
-            [ "${mobile_changed}" = "true" ] && should_release_mobile="true"
+            echo "Skipping automatic production action planning for main push."
           elif [ "${manual_confirmed}" = "true" ]; then
             [ "${INPUT_DEPLOY_BACKEND}" = "true" ] && [ "${backend_ready}" = "true" ] && should_deploy_backend="true"
             [ "${INPUT_DEPLOY_FRONTEND_NETLIFY}" = "true" ] && [ "${frontend_netlify_ready}" = "true" ] && should_deploy_frontend_netlify="true"
