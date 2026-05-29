@@ -49,6 +49,12 @@ jobs:
       - name: Validate environment contract
         run: npm run env:validate
 
+      - name: Validate auth environment contract
+        run: npm run auth:env:validate
+
+      - name: Run auth smoke contract
+        run: npm run auth:smoke
+
       - name: Run smoke preflight without live requests
         run: npm run smoke:preflight
 

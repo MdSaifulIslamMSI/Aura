@@ -766,6 +766,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const signInWithEnterprise = async (options = {}) => authApi.startEnterpriseLogin({
+    returnTo: options.returnTo,
+    loginHint: options.loginHint || currentUser?.email || sessionStateRef.current.profile?.email || '',
+  });
+
   const signup = async (email, password, name, phone) => {
     assertFirebaseReady('Sign up');
     return completeControlledAuthFlow({
@@ -1203,6 +1208,7 @@ export const AuthProvider = ({ children }) => {
     signInWithMicrosoft,
     signInWithApple,
     signInWithX,
+    signInWithEnterprise,
     signInWithDesktopBrowser,
     linkMicrosoftProvider,
     linkAppleProvider,

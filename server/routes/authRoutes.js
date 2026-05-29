@@ -9,9 +9,11 @@ const {
     completePhoneFactorLogin,
     completePhoneFactorVerification,
     completeDuoLogin,
+    completeEnterpriseLogin,
     verifyBackupRecoveryCode,
     verifyDeviceChallenge,
     issueDesktopHandoffToken,
+    startEnterpriseLogin,
     startDuoLogin,
     startDuoStepUp,
 } = require('../controllers/authController');
@@ -119,6 +121,15 @@ const duoOidcLimiter = createDistributedRateLimit({
     keyGenerator: (req) => req.ip,
 });
 
+const enterpriseOidcLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    name: 'auth_enterprise_oidc',
+    windowMs: 5 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 60,
+    message: 'Too many enterprise login attempts, please try again after 5 minutes',
+    keyGenerator: (req) => req.ip,
+});
+
 const desktopHandoffLimiter = createDistributedRateLimit({
     securityCritical: true,
     allowInMemoryFallback: process.env.NODE_ENV !== 'production',
@@ -136,6 +147,8 @@ const desktopHandoffLimiter = createDistributedRateLimit({
 router.get('/duo/start', duoOidcLimiter, startDuoLogin);
 router.get('/duo/step-up', protect, establishSessionCookie, duoOidcLimiter, startDuoStepUp);
 router.get('/duo/callback', duoOidcLimiter, completeDuoLogin);
+router.get('/enterprise/start', enterpriseOidcLimiter, startEnterpriseLogin);
+router.get('/enterprise/callback', enterpriseOidcLimiter, completeEnterpriseLogin);
 router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, issueDesktopHandoffToken);
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);

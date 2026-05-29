@@ -41,6 +41,8 @@ const {
     DUO_STEP_UP_ACTIONS,
     requireDuoStepUp,
 } = require('../services/duoStepUpService');
+const { getAuthAdapter } = require('../services/auth/authProviderAdapter');
+const { hasRole } = require('../services/auth/authorizationService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -447,6 +449,29 @@ const hasSessionSecondFactor = (req = {}) => {
     ));
 };
 
+const getTokenAmr = (req = {}) => (
+    Array.isArray(req.authToken?.amr)
+        ? req.authToken.amr.map((entry) => String(entry || '').trim().toLowerCase()).filter(Boolean)
+        : []
+);
+
+const hasTokenAmr = (req = {}, acceptedValues = []) => {
+    const accepted = new Set(acceptedValues
+        .map((entry) => String(entry || '').trim().toLowerCase())
+        .filter(Boolean));
+    return accepted.size > 0 && getTokenAmr(req).some((entry) => accepted.has(entry));
+};
+
+const hasTokenSecondFactor = (req = {}) => hasTokenAmr(req, [
+    'firebase_mfa',
+    'mfa',
+    'otp',
+    'totp',
+    'sms',
+    'webauthn',
+    'passkey',
+]);
+
 const hasSessionPasskeyAmr = (req = {}) => {
     const sessionAmr = Array.isArray(req.authSession?.amr)
         ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
@@ -596,6 +621,10 @@ const hasPasskeySecondFactor = (req = {}) => {
         return true;
     }
 
+    if (hasTokenAmr(req, ['webauthn', 'passkey'])) {
+        return true;
+    }
+
     if (hasActivePasskeySessionStepUp(req)) {
         return true;
     }
@@ -632,6 +661,7 @@ const buildRequestPosture = (req = {}, options = {}) => {
     const elevatedAssurance = Boolean(
         hasOtpAssurance(req)
         || hasSessionSecondFactor(req)
+        || hasTokenSecondFactor(req)
         || trustedDeviceSessionVerified
         || req.authToken?.firebase?.sign_in_second_factor
         || (String(req.authSession?.aal || '').trim().toLowerCase() === 'aal2')
@@ -938,11 +968,15 @@ const protect = asyncHandler(async (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
 
             // ── Step 1: Verify Firebase token ──────────────────────
-            const decodedToken = await firebaseAdmin.auth().verifyIdToken(token, true);
+            const verifiedAccess = await getAuthAdapter().verifyAccessToken(token);
+            const decodedToken = verifiedAccess.authToken;
             await enforceGlobalSessionRevocationForToken(req, decodedToken);
-            const { uid, exp } = decodedToken;
-            const resolvedIdentity = await resolveDecodedTokenIdentity(decodedToken);
+            const uid = normalizeUid(verifiedAccess.authUid || decodedToken?.uid || '');
+            const exp = Number(decodedToken?.exp || 0);
+            const resolvedIdentity = verifiedAccess.identity || await resolveDecodedTokenIdentity(decodedToken);
+            const identityUid = normalizeUid(resolvedIdentity.uid || uid);
             req.authUid = uid;
+            req.authProvider = verifiedAccess.provider || 'legacy';
             req.authToken = {
                 ...decodedToken,
                 email: resolvedIdentity.email,
@@ -951,11 +985,12 @@ const protect = asyncHandler(async (req, res, next) => {
                 email_verified: resolvedIdentity.emailVerified,
             };
             req.authIdentity = {
-                uid,
+                uid: identityUid || uid,
                 email: resolvedIdentity.email,
                 displayName: resolvedIdentity.name,
                 phoneNumber: resolvedIdentity.phone,
                 emailVerified: resolvedIdentity.emailVerified,
+                providerIds: resolvedIdentity.providerIds || [req.authProvider].filter(Boolean),
             };
             const normalizedEmail = normalizeEmail(resolvedIdentity.email);
             const accountEmail = normalizedEmail || buildInternalAuthEmail(uid);
@@ -1030,11 +1065,13 @@ const protectPhoneFactorProof = asyncHandler(async (req, res, next) => {
 
     try {
         const token = req.headers.authorization.split(' ')[1];
-        const decodedToken = await firebaseAdmin.auth().verifyIdToken(token, true);
+        const verifiedAccess = await getAuthAdapter().verifyAccessToken(token);
+        const decodedToken = verifiedAccess.authToken;
         await enforceGlobalSessionRevocationForToken(req, decodedToken);
         const verifiedPhone = normalizePhone(decodedToken?.phone_number || '');
 
-        req.authUid = decodedToken?.uid || '';
+        req.authUid = verifiedAccess.authUid || decodedToken?.uid || '';
+        req.authProvider = verifiedAccess.provider || 'legacy';
         req.authToken = decodedToken;
 
         if (!verifiedPhone || !PHONE_REGEX.test(verifiedPhone)) {
@@ -1151,11 +1188,11 @@ const admin = asyncHandler(async (req, res, next) => {
 
     // Admin privilege can change while a session is still active. Re-check Mongo
     // before denying so a stale in-memory auth cache does not block promoted admins.
-    if (!effectiveUser?.isAdmin) {
+    if (!hasRole(effectiveUser, 'admin')) {
         effectiveUser = await resolveFreshAdminUser(req);
     }
 
-    if (!effectiveUser?.isAdmin) {
+    if (!hasRole(effectiveUser, 'admin')) {
         recordAdminBlock(req, 'not_admin');
         throw new AppError('Not authorized as an admin', 403);
     }
@@ -1186,7 +1223,8 @@ const admin = asyncHandler(async (req, res, next) => {
     const sessionAgeSeconds = authTime > 0 ? (nowSeconds - authTime) : Number.POSITIVE_INFINITY;
     const hasSecondFactor = Boolean(req.authToken?.firebase?.sign_in_second_factor)
         || hasTrustedDeviceSecondFactor(req)
-        || hasSessionSecondFactor(req);
+        || hasSessionSecondFactor(req)
+        || hasTokenSecondFactor(req);
 
     if (ADMIN_REQUIRE_EMAIL_VERIFIED && !emailVerified) {
         logger.warn('admin_access.blocked_unverified_email', {
@@ -1267,7 +1305,7 @@ const admin = asyncHandler(async (req, res, next) => {
 });
 
 const seller = (req, res, next) => {
-    if (req.user?.isSeller) {
+    if (hasRole(req.user, 'seller')) {
         enforceTrustedDevice(req);
         return next();
     }

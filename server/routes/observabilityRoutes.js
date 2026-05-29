@@ -1,6 +1,6 @@
 const express = require('express');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
-const { protect, protectOptional, admin } = require('../middleware/authMiddleware');
+const { protect, admin } = require('../middleware/authMiddleware');
 const { getAuthenticatedRateLimitIdentity } = require('../utils/requestIdentity');
 const {
     getClientDiagnostics,
@@ -20,8 +20,8 @@ const diagnosticsIngestLimiter = createDistributedRateLimit({
     keyGenerator: (req) => getAuthenticatedRateLimitIdentity(req),
 });
 
-// Clients should be able to send diagnostics even if not fully authenticated (e.g. before login)
-router.post('/client-diagnostics', protectOptional, diagnosticsIngestLimiter, ingestClientDiagnostics);
+// Clients should be able to send diagnostics even if auth state is missing or expired.
+router.post('/client-diagnostics', diagnosticsIngestLimiter, ingestClientDiagnostics);
 router.get('/client-diagnostics', protect, admin, getClientDiagnostics);
 
 module.exports = router;

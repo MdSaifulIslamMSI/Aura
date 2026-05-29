@@ -51,6 +51,10 @@ jobs:
         run: npm ci
       - name: Validate default environment contract
         run: npm run env:validate
+      - name: Validate auth environment contract
+        run: npm run auth:env:validate
+      - name: Run auth smoke contract
+        run: npm run auth:smoke
       - name: Run non-live smoke preflight
         run: npm run smoke:preflight
       - name: Scan for unsafe production fallbacks

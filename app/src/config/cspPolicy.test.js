@@ -82,7 +82,7 @@ describe('auth CSP allowlists', () => {
 
     const html = readProjectFile('index.html');
     const htmlCsp = html.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]+)"/)?.[1] || '';
-    expectHardenedConnectSrc(htmlCsp, { requiresHostedBackend: false });
+    expectHardenedConnectSrc(htmlCsp);
   });
 
   it('keeps generated deployment CSP headers aligned with the hardened connect-src policy', () => {

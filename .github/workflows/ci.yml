@@ -25,9 +25,11 @@ on:
       - "scripts/validate-login-*.mjs"
       - "scripts/run-auth-*.js"
       - "scripts/auth-runner.js"
+      - "scripts/auth/**"
       - "scripts/classify-auth-change-risk.js"
       - "scripts/count-auth-combinations.js"
       - "tests/auth/**"
+      - "docs/auth/**"
       - "docs/*security*.md"
       - "docs/ci-cd.md"
       - "docs/critical-invariants.md"
@@ -45,6 +47,7 @@ on:
       - "infra/edge/**"
       - "infra/observability/**"
       - "infra/security/**"
+      - "infra/auth/**"
       - "infra/opentofu/**"
       - "k8s/**"
       - "charts/**"
@@ -56,6 +59,7 @@ on:
       - "Dockerfile"
       - "Makefile"
       - "config/environments/**"
+      - "config/auth.example.env"
       - "docs/desktop-app.md"
       - "infra/aws/bootstrap-instance-user-data.sh"
       - "infra/aws/deploy-release.sh"
@@ -162,10 +166,10 @@ jobs:
               scripts/validate-edge-security-assets.mjs|scripts/validate-upload-malware-runtime.mjs|scripts/validate-login-*.mjs)
                 backend=true
                 ;;
-              scripts/run-auth-*.js|scripts/auth-runner.js|scripts/classify-auth-change-risk.js|scripts/count-auth-combinations.js)
+              scripts/run-auth-*.js|scripts/auth-runner.js|scripts/auth/*|scripts/classify-auth-change-risk.js|scripts/count-auth-combinations.js)
                 backend=true
                 ;;
-              tests/auth/*)
+              tests/auth/*|docs/auth/*)
                 backend=true
                 ;;
               docs/*security*.md|docs/ci-cd.md|docs/critical-invariants.md|docs/emergency-controls.md)
@@ -180,7 +184,7 @@ jobs:
               SECURITY_TEST_PLAN.md|security_best_practices_report.md|.gitleaks.toml|security-audit-exceptions.json)
                 backend=true
                 ;;
-              infra/cloudflare/*|infra/edge/*|infra/observability/*|infra/security/*|infra/opentofu/*)
+              infra/cloudflare/*|infra/edge/*|infra/observability/*|infra/security/*|infra/auth/*|infra/opentofu/*)
                 backend=true
                 ;;
               k8s/*|charts/*|gitops/*|observability/*)
@@ -189,7 +193,7 @@ jobs:
               docker-compose.split-runtime.yml|docker-compose.yml|docker-compose.observability.yml|Dockerfile|Makefile)
                 backend=true
                 ;;
-              config/environments/*)
+              config/environments/*|config/auth.example.env)
                 backend=true
                 ;;
               infra/aws/bootstrap-instance-user-data.sh|infra/aws/deploy-release.sh|infra/aws/docker-compose.ec2.yml|infra/aws/render-runtime-secrets.sh)

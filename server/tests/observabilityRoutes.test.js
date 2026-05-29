@@ -47,6 +47,26 @@ describe('Observability ingestion routes', () => {
         expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('"message":"client.diagnostic"'));
     });
 
+    test('POST /api/observability/client-diagnostics accepts diagnostics with stale auth cookies', async () => {
+        const response = await request(app)
+            .post('/api/observability/client-diagnostics')
+            .set('Cookie', ['aura_sid=stale-or-expired-session'])
+            .send({
+                events: [
+                    {
+                        type: 'api.network_error',
+                        severity: 'warn',
+                        url: '/api/auth/sync',
+                        method: 'POST',
+                        status: 500,
+                    },
+                ],
+            });
+
+        expect(response.statusCode).toBe(202);
+        expect(response.body.status).toBe('accepted');
+    });
+
     test('POST /api/observability/client-diagnostics rejects invalid payloads', async () => {
         const response = await request(app)
             .post('/api/observability/client-diagnostics')

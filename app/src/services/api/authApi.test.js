@@ -244,6 +244,12 @@ describe('authApi', () => {
     expect(authApi.getDuoLoginUrl('https://evil.example/steal')).toContain('/api/auth/duo/start?returnTo=%2F');
   });
 
+  it('builds an enterprise OIDC login redirect URL with a safe return path', async () => {
+    expect(authApi.getEnterpriseLoginUrl('/admin/dashboard?tab=users')).toContain('/api/auth/enterprise/start?returnTo=%2Fadmin%2Fdashboard%3Ftab%3Dusers');
+    expect(authApi.getEnterpriseLoginUrl('/profile', { loginHint: 'Admin@Example.COM' })).toContain('loginHint=admin%40example.com');
+    expect(authApi.getEnterpriseLoginUrl('https://evil.example/steal')).toContain('/api/auth/enterprise/start?returnTo=%2F');
+  });
+
   it('refreshes and retries CSRF-protected writes when the server reports an expired token', async () => {
     const expiredToken = 'e'.repeat(64);
     const freshToken = 'f'.repeat(64);

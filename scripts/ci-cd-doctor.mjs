@@ -145,7 +145,13 @@ addCheck(
 addCheck(
   'security harness contract remains wired',
   packageJson.scripts?.['security:harness'] === 'node scripts/security-harness-check.mjs'
-    && securityRunner.includes("['harness', 'npm run security:harness']")
+    && (
+      securityRunner.includes("['harness', 'npm run security:harness']")
+      || (
+        securityRunner.includes("name: 'harness'")
+        && securityRunner.includes("args: ['run', 'security:harness']")
+      )
+    )
     && production.includes('uses: ./.github/workflows/ci.yml'),
   'security:harness script, security:all category, production CI reuse'
 );

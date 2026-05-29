@@ -7,8 +7,31 @@ const { classifyFiles, getChangedFilesFromGit } = require('../tests/auth/helpers
 const { DEFAULT_LIMITS, MODE_EXPANSION_DEFAULTS } = require('../tests/auth/helpers/matrix-engine');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const nodeCommand = process.execPath;
+
+const resolveNpmInvocation = () => {
+    if (process.platform !== 'win32') {
+        return { command: 'npm', argsPrefix: [], display: 'npm' };
+    }
+
+    const bundledNpmCli = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+    const npmCli = [process.env.npm_execpath, bundledNpmCli]
+        .filter(Boolean)
+        .find((candidate) => fs.existsSync(candidate));
+
+    if (!npmCli) {
+        throw new Error('Unable to locate npm-cli.js for shell-free npm execution on Windows');
+    }
+
+    return {
+        command: process.execPath,
+        argsPrefix: [npmCli],
+        display: 'npm',
+    };
+};
+
+const npmInvocation = resolveNpmInvocation();
+const npmCommand = '__npm__';
 
 const TIER_CONFIG = {
     smoke: {
@@ -71,12 +94,21 @@ const TIER_CONFIG = {
 };
 
 function runStep(step, env = {}) {
-    console.log(`\n> ${step.cmd} ${step.args.join(' ')}`);
+    const isNpmStep = step.cmd === npmCommand;
+    const args = isNpmStep
+        ? [...npmInvocation.argsPrefix, ...step.args]
+        : step.args;
+    const displayCommand = isNpmStep
+        ? `${npmInvocation.display} ${step.args.join(' ')}`
+        : `${step.cmd} ${step.args.join(' ')}`;
+
+    console.log(`\n> ${displayCommand}`);
     if (![npmCommand, nodeCommand].includes(step.cmd)) {
         throw new Error(`Unsupported auth runner command: ${step.cmd}`);
     }
 
-    const result = spawnSync(step.cmd, step.args, { // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
+    const command = isNpmStep ? npmInvocation.command : step.cmd;
+    const result = spawnSync(command, args, { // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
         cwd: ROOT_DIR,
         stdio: 'inherit',
         env: { ...process.env, ...env },
@@ -86,7 +118,7 @@ function runStep(step, env = {}) {
     }
     if (result.status !== 0) {
         const detail = result.signal ? `signal ${result.signal}` : `exit code ${result.status}`;
-        throw new Error(`Command failed with ${detail}: ${step.cmd} ${step.args.join(' ')}`);
+        throw new Error(`Command failed with ${detail}: ${displayCommand}`);
     }
 }
 

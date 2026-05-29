@@ -38,6 +38,12 @@ const {
     exchangeCodeForClaims: exchangeDuoCodeForClaims,
 } = require('../services/duoOidcService');
 const {
+    buildAuthorizationUrl: buildKeycloakAuthorizationUrl,
+    clearStateCookie: clearKeycloakStateCookie,
+    consumeState: consumeKeycloakState,
+    exchangeCodeForAuthContext: exchangeKeycloakCodeForAuthContext,
+} = require('../services/auth/keycloakOidcService');
+const {
     DUO_STEP_UP_ACTIONS,
     assertDuoStepUpReady,
     buildDuoStepUpState,
@@ -107,6 +113,18 @@ const buildDuoFrontendRedirect = ({ returnTo = '/', status = 'success', reason =
     const baseUrl = resolveFrontendBaseUrl();
     const redirectUrl = new URL(safeReturnTo, baseUrl || 'http://aura.local');
     redirectUrl.searchParams.set('duo', status);
+    if (reason) {
+        redirectUrl.searchParams.set('reason', reason);
+    }
+    const pathWithQuery = `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`;
+    return baseUrl ? `${baseUrl}${pathWithQuery}` : pathWithQuery;
+};
+
+const buildEnterpriseFrontendRedirect = ({ returnTo = '/', status = 'success', reason = '' } = {}) => {
+    const safeReturnTo = normalizeRelativeReturnTo(returnTo);
+    const baseUrl = resolveFrontendBaseUrl();
+    const redirectUrl = new URL(safeReturnTo, baseUrl || 'http://aura.local');
+    redirectUrl.searchParams.set('enterprise', status);
     if (reason) {
         redirectUrl.searchParams.set('reason', reason);
     }
@@ -564,6 +582,139 @@ const getSession = asyncHandler(async (req, res) => {
         status,
         deviceChallenge,
     });
+});
+
+const startEnterpriseLogin = asyncHandler(async (req, res) => {
+    const authorizationUrl = await buildKeycloakAuthorizationUrl({
+        req,
+        res,
+        returnTo: normalizeRelativeReturnTo(req.query?.returnTo || '/'),
+        loginHint: req.query?.loginHint,
+    });
+
+    recordAuthSecurityEvent({
+        event: 'enterprise_oidc_login',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'auth',
+        req,
+        meta: { provider: 'keycloak' },
+    });
+
+    return res.redirect(302, authorizationUrl);
+});
+
+const completeEnterpriseLogin = asyncHandler(async (req, res) => {
+    const state = typeof req.query?.state === 'string' ? req.query.state.trim() : '';
+    const code = typeof req.query?.code === 'string' ? req.query.code.trim() : '';
+    const providerError = typeof req.query?.error === 'string' ? req.query.error.trim() : '';
+    clearKeycloakStateCookie(res, req);
+
+    if (providerError) {
+        recordAuthSecurityEvent({
+            event: 'enterprise_oidc_login',
+            outcome: 'failure',
+            reason: 'provider_error',
+            surface: 'auth',
+            req,
+            meta: { statusCode: 401, provider: 'keycloak' },
+        });
+        throw new AppError('Enterprise login was not completed.', 401);
+    }
+    if (!state || !code) {
+        recordAuthSecurityEvent({
+            event: 'enterprise_oidc_login',
+            outcome: 'failure',
+            reason: 'missing_code_or_state',
+            surface: 'auth',
+            req,
+            meta: { statusCode: 422, provider: 'keycloak' },
+        });
+        throw new AppError('Enterprise login callback is missing required parameters.', 422);
+    }
+
+    const statePayload = consumeKeycloakState({ req, state });
+    const verifiedAccess = await exchangeKeycloakCodeForAuthContext({ code, statePayload });
+    const authUid = verifiedAccess.authUid || verifiedAccess.authToken?.uid || '';
+    const email = normalizeEmail(verifiedAccess.identity?.email || verifiedAccess.authToken?.email || '');
+    if (!authUid || !email) {
+        throw new AppError('Enterprise identity is missing a stable subject or email.', 422);
+    }
+
+    const authTime = Number(verifiedAccess.authToken?.auth_time || verifiedAccess.authToken?.iat || Math.floor(Date.now() / 1000));
+    const displayName = verifiedAccess.identity?.displayName
+        || verifiedAccess.identity?.name
+        || verifiedAccess.authToken?.name
+        || email.split('@')[0];
+    const authUser = {
+        uid: authUid,
+        email,
+        name: displayName,
+        displayName,
+        emailVerified: Boolean(verifiedAccess.identity?.emailVerified || verifiedAccess.authToken?.email_verified),
+        providerIds: ['keycloak'],
+        signInProvider: 'keycloak',
+    };
+    const authToken = {
+        ...verifiedAccess.authToken,
+        uid: authUid,
+        email,
+        name: displayName,
+        email_verified: authUser.emailVerified,
+        auth_time: authTime,
+        firebase: {
+            ...(verifiedAccess.authToken?.firebase || {}),
+            sign_in_provider: 'keycloak',
+        },
+    };
+
+    const user = await syncAuthenticatedUser({
+        authUser,
+        email,
+        name: displayName,
+        awardLoginPoints: true,
+    });
+
+    req.user = user;
+    req.authUid = authUid;
+    req.authProvider = 'keycloak';
+    req.authToken = authToken;
+    req.authIdentity = {
+        uid: authUid,
+        email,
+        displayName,
+        emailVerified: authUser.emailVerified,
+        providerIds: ['keycloak'],
+    };
+
+    await invalidateUserCache(authUid);
+    await invalidateUserCacheByEmail(email);
+    const tokenAmr = Array.isArray(authToken.amr) ? authToken.amr : [];
+    const authSession = await refreshBrowserSession({
+        req,
+        res,
+        user,
+        authUid,
+        authToken,
+        rotate: false,
+        additionalAmr: Array.from(new Set(['keycloak', ...tokenAmr])),
+        riskState: user?.isAdmin ? 'privileged' : user?.isSeller ? 'heightened' : 'standard',
+    });
+    req.authSession = authSession;
+
+    recordAuthSecurityEvent({
+        event: 'enterprise_oidc_login',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'auth',
+        req,
+        meta: { provider: 'keycloak' },
+    });
+
+    return res.redirect(302, buildEnterpriseFrontendRedirect({
+        returnTo: statePayload.returnTo || '/',
+        status: 'success',
+    }));
 });
 
 const startDuoLogin = asyncHandler(async (req, res) => {
@@ -1472,6 +1623,7 @@ const logoutSession = asyncHandler(async (req, res) => {
 
 module.exports = {
     completeDuoLogin,
+    completeEnterpriseLogin,
     establishSessionCookie,
     generateBackupRecoveryCodes,
     getSession,
@@ -1479,6 +1631,7 @@ module.exports = {
     requestBootstrapDeviceChallenge,
     startDuoStepUp,
     startDuoLogin,
+    startEnterpriseLogin,
     verifyBackupRecoveryCode,
     syncSession,
     logoutSession,

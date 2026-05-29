@@ -193,6 +193,19 @@ export const getDuoLoginUrl = (returnTo = '/', options = {}) => {
     return buildServiceUrl(`/api/auth/duo/start?${params.toString()}`);
 };
 
+export const getEnterpriseLoginUrl = (returnTo = '/', options = {}) => {
+    const params = new URLSearchParams();
+    const normalizedReturnTo = String(returnTo || '/').trim();
+    params.set('returnTo', normalizedReturnTo.startsWith('/') && !normalizedReturnTo.startsWith('//')
+        ? normalizedReturnTo
+        : '/');
+    const loginHint = String(options.loginHint || '').trim();
+    if (loginHint && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginHint)) {
+        params.set('loginHint', loginHint.toLowerCase());
+    }
+    return buildServiceUrl(`/api/auth/enterprise/start?${params.toString()}`);
+};
+
 const requestBootstrapDeviceChallenge = async (payload, options = {}) => {
     if (!getTrustedDeviceSessionToken()) {
         return null;
@@ -227,6 +240,7 @@ const requestBootstrapDeviceChallenge = async (payload, options = {}) => {
 
 export const authApi = {
     getDuoLoginUrl,
+    getEnterpriseLoginUrl,
     startDuoLogin: (options = {}) => {
         const returnTo = options.returnTo || (
             typeof window !== 'undefined'
@@ -234,6 +248,21 @@ export const authApi = {
                 : '/'
         );
         const url = getDuoLoginUrl(returnTo, {
+            loginHint: options.loginHint,
+        });
+        if (typeof window === 'undefined' || !window.location?.assign) {
+            return { redirecting: true, url };
+        }
+        window.location.assign(url);
+        return { redirecting: true, url };
+    },
+    startEnterpriseLogin: (options = {}) => {
+        const returnTo = options.returnTo || (
+            typeof window !== 'undefined'
+                ? `${window.location?.pathname || '/'}${window.location?.search || ''}${window.location?.hash || ''}`
+                : '/'
+        );
+        const url = getEnterpriseLoginUrl(returnTo, {
             loginHint: options.loginHint,
         });
         if (typeof window === 'undefined' || !window.location?.assign) {
