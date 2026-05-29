@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
@@ -194,11 +195,20 @@ const gitleaksReportPath = path.join(reportsDir, 'gitleaks-report.json');
 let gitleaks = { available: false, status: 'not_run' };
 const gitleaksVersion = run(process.platform === 'win32' ? 'where.exe' : 'which', ['gitleaks']);
 if (gitleaksVersion.status === 0) {
+  const gitleaksScanRoot = mkdtempSync(path.join(os.tmpdir(), 'aura-gitleaks-'));
+  for (const file of files) {
+    const sourcePath = path.join(repoRoot, file);
+    const destinationPath = path.join(gitleaksScanRoot, file);
+    if (!existsSync(sourcePath)) continue;
+    mkdirSync(path.dirname(destinationPath), { recursive: true });
+    copyFileSync(sourcePath, destinationPath);
+  }
+
   const gitleaksArgs = [
     'detect',
     '--no-git',
     '--source',
-    repoRoot,
+    gitleaksScanRoot,
     '--redact',
     '--report-format',
     'json',
@@ -210,6 +220,7 @@ if (gitleaksVersion.status === 0) {
     gitleaksArgs.push('--config', gitleaksConfigPath);
   }
   const gitleaksRun = run('gitleaks', gitleaksArgs);
+  rmSync(gitleaksScanRoot, { recursive: true, force: true });
   gitleaks = {
     available: true,
     status: gitleaksRun.status === 0 ? 'passed' : 'failed',
