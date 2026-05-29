@@ -216,18 +216,18 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
-          CONFIRM_PRODUCTION: ${{ inputs.confirm_production || '' }}
-          INPUT_DEPLOY_BACKEND: ${{ inputs.deploy_backend || false }}
-          INPUT_DEPLOY_FRONTEND_NETLIFY: ${{ inputs.deploy_frontend_netlify || false }}
-          INPUT_DEPLOY_FRONTEND_AWS: ${{ inputs.deploy_frontend_aws || false }}
-          INPUT_DEPLOY_GATEWAY: ${{ inputs.deploy_gateway || false }}
-          INPUT_RELEASE_DESKTOP: ${{ inputs.release_desktop || false }}
-          INPUT_RELEASE_MOBILE: ${{ inputs.release_mobile || false }}
-          INPUT_ROLLBACK_BACKEND: ${{ inputs.rollback_backend || false }}
-          INPUT_ROLLBACK_FRONTEND_NETLIFY: ${{ inputs.rollback_frontend_netlify || false }}
-          INPUT_ROLLBACK_FRONTEND_AWS: ${{ inputs.rollback_frontend_aws || false }}
-          INPUT_ROLLBACK_GATEWAY: ${{ inputs.rollback_gateway || false }}
-          INPUT_AUTO_ROLLBACK_ON_SMOKE_FAILURE: ${{ inputs.auto_rollback_on_smoke_failure || false }}
+          CONFIRM_PRODUCTION: ${{ github.event.inputs.confirm_production || '' }}
+          INPUT_DEPLOY_BACKEND: ${{ github.event.inputs.deploy_backend == 'true' }}
+          INPUT_DEPLOY_FRONTEND_NETLIFY: ${{ github.event.inputs.deploy_frontend_netlify == 'true' }}
+          INPUT_DEPLOY_FRONTEND_AWS: ${{ github.event.inputs.deploy_frontend_aws == 'true' }}
+          INPUT_DEPLOY_GATEWAY: ${{ github.event.inputs.deploy_gateway == 'true' }}
+          INPUT_RELEASE_DESKTOP: ${{ github.event.inputs.release_desktop == 'true' }}
+          INPUT_RELEASE_MOBILE: ${{ github.event.inputs.release_mobile == 'true' }}
+          INPUT_ROLLBACK_BACKEND: ${{ github.event.inputs.rollback_backend == 'true' }}
+          INPUT_ROLLBACK_FRONTEND_NETLIFY: ${{ github.event.inputs.rollback_frontend_netlify == 'true' }}
+          INPUT_ROLLBACK_FRONTEND_AWS: ${{ github.event.inputs.rollback_frontend_aws == 'true' }}
+          INPUT_ROLLBACK_GATEWAY: ${{ github.event.inputs.rollback_gateway == 'true' }}
+          INPUT_AUTO_ROLLBACK_ON_SMOKE_FAILURE: ${{ github.event.inputs.auto_rollback_on_smoke_failure == 'true' }}
           AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
           AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
           AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
@@ -904,7 +904,7 @@ jobs:
       id-token: write
     with:
       git_ref: ${{ github.sha }}
-      skip_healthcheck: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_backend_healthcheck || false }}
+      skip_healthcheck: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_backend_healthcheck == 'true' || false }}
     secrets: inherit
 
   deploy-backend-noop:
@@ -927,7 +927,7 @@ jobs:
           MISSING: ${{ needs.plan.outputs.backend_missing }}
           SHOULD: ${{ needs.plan.outputs.should_deploy_backend }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ inputs.deploy_backend || false }}
+          MANUAL_REQUESTED: ${{ github.event.inputs.deploy_backend == 'true' }}
         run: |
           {
             echo "## Backend Deploy No-Op"
@@ -1003,7 +1003,7 @@ jobs:
           MISSING: ${{ needs.plan.outputs.frontend_netlify_missing }}
           SHOULD: ${{ needs.plan.outputs.should_deploy_frontend_netlify }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ inputs.deploy_frontend_netlify || false }}
+          MANUAL_REQUESTED: ${{ github.event.inputs.deploy_frontend_netlify == 'true' }}
         run: |
           {
             echo "## Netlify Frontend Deploy No-Op"
@@ -1077,7 +1077,7 @@ jobs:
           MISSING: ${{ needs.plan.outputs.frontend_aws_missing }}
           SHOULD: ${{ needs.plan.outputs.should_deploy_frontend_aws }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ inputs.deploy_frontend_aws || false }}
+          MANUAL_REQUESTED: ${{ github.event.inputs.deploy_frontend_aws == 'true' }}
         run: |
           {
             echo "## AWS Frontend Deploy No-Op"
@@ -1152,7 +1152,7 @@ jobs:
           MISSING: ${{ needs.plan.outputs.gateway_missing }}
           SHOULD: ${{ needs.plan.outputs.should_deploy_gateway }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ inputs.deploy_gateway || false }}
+          MANUAL_REQUESTED: ${{ github.event.inputs.deploy_gateway == 'true' }}
         run: |
           {
             echo "## Gateway Deploy No-Op"
@@ -1299,7 +1299,7 @@ jobs:
         needs.plan.outputs.should_rollback_backend == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.auto_rollback_on_smoke_failure == true &&
+          github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
           needs.deploy-backend.result == 'success' &&
           needs.smoke-tests.result == 'failure'
         )
@@ -1309,7 +1309,7 @@ jobs:
       contents: read
       id-token: write
     with:
-      rollback_ref: ${{ inputs.rollback_ref || '' }}
+      rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
     secrets: inherit
 
   rollback-frontend-netlify:
@@ -1326,7 +1326,7 @@ jobs:
         needs.plan.outputs.should_rollback_frontend_netlify == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.auto_rollback_on_smoke_failure == true &&
+          github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
           needs.deploy-frontend-netlify.result == 'success' &&
           needs.smoke-tests.result == 'failure'
         )
@@ -1335,7 +1335,7 @@ jobs:
     permissions:
       contents: read
     with:
-      rollback_ref: ${{ inputs.rollback_ref || '' }}
+      rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
     secrets: inherit
 
   rollback-frontend-aws:
@@ -1352,7 +1352,7 @@ jobs:
         needs.plan.outputs.should_rollback_frontend_aws == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.auto_rollback_on_smoke_failure == true &&
+          github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
           needs.deploy-frontend-aws.result == 'success' &&
           needs.smoke-tests.result == 'failure'
         )
@@ -1362,7 +1362,7 @@ jobs:
       contents: read
       id-token: write
     with:
-      rollback_ref: ${{ inputs.rollback_ref || '' }}
+      rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
     secrets: inherit
 
   rollback-gateway:
@@ -1379,7 +1379,7 @@ jobs:
         needs.plan.outputs.should_rollback_gateway == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.auto_rollback_on_smoke_failure == true &&
+          github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
           needs.deploy-gateway.result == 'success' &&
           needs.smoke-tests.result == 'failure'
         )
@@ -1388,7 +1388,7 @@ jobs:
     permissions:
       contents: read
     with:
-      rollback_ref: ${{ inputs.rollback_ref || '' }}
+      rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
     secrets: inherit
 
   rollback-decisions:
@@ -1415,7 +1415,7 @@ jobs:
           SHOULD_ROLLBACK_GATEWAY: ${{ needs.plan.outputs.should_rollback_gateway }}
           ROLLBACK_GATEWAY_RESULT: ${{ needs.rollback-gateway.result }}
           IS_WORKFLOW_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
-          AUTO_ROLLBACK_INPUT: ${{ inputs.auto_rollback_on_smoke_failure || false }}
+          AUTO_ROLLBACK_INPUT: ${{ github.event.inputs.auto_rollback_on_smoke_failure == 'true' }}
           SMOKE_TESTS_RESULT: ${{ needs.smoke-tests.result }}
         run: |
           {
@@ -1464,7 +1464,7 @@ jobs:
     permissions:
       contents: write
     with:
-      version: ${{ inputs.desktop_version || '' }}
+      version: ${{ github.event.inputs.desktop_version || '' }}
       require_windows_signing: false
       require_macos_signing: false
       publish_store_release: false
@@ -1493,7 +1493,7 @@ jobs:
           CHANGED: ${{ needs.plan.outputs.desktop_changed }}
           SHOULD: ${{ needs.plan.outputs.should_release_desktop }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ inputs.release_desktop || false }}
+          MANUAL_REQUESTED: ${{ github.event.inputs.release_desktop == 'true' }}
         run: |
           {
             echo "## Desktop Release No-Op"
@@ -1550,7 +1550,7 @@ jobs:
     permissions:
       contents: write
     with:
-      version: ${{ inputs.mobile_version || '' }}
+      version: ${{ github.event.inputs.mobile_version || '' }}
       require_android_signing: false
       require_ios_signing: false
       publish_store_release: false
@@ -1579,7 +1579,7 @@ jobs:
           CHANGED: ${{ needs.plan.outputs.mobile_changed }}
           SHOULD: ${{ needs.plan.outputs.should_release_mobile }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ inputs.release_mobile || false }}
+          MANUAL_REQUESTED: ${{ github.event.inputs.release_mobile == 'true' }}
         run: |
           {
             echo "## Mobile Release No-Op"
