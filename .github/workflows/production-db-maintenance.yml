@@ -1,0 +1,142 @@
+name: Production DB Maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Maintenance action to run
+        required: true
+        default: dry-run-demo-catalog-purge
+        type: choice
+        options:
+          - dry-run-demo-catalog-purge
+          - execute-demo-catalog-purge
+      git_ref:
+        description: Git ref whose scripts are expected in the deployed backend image
+        required: false
+        default: main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-db-maintenance
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
+  AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+  MAINTENANCE_ACTION: ${{ inputs.action }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Validate maintenance request
+        run: |
+          set -euo pipefail
+          test -n "${AWS_DEPLOY_ROLE_ARN}" || { echo "Missing secret AWS_DEPLOY_ROLE_ARN"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_KEY}" || { echo "Missing variable AWS_INSTANCE_TAG_KEY"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing variable AWS_INSTANCE_TAG_VALUE"; exit 1; }
+          case "${MAINTENANCE_ACTION}" in
+            dry-run-demo-catalog-purge|execute-demo-catalog-purge)
+              ;;
+            *)
+              echo "Unsupported production maintenance action: ${MAINTENANCE_ACTION}"
+              exit 1
+              ;;
+          esac
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-production-db-maintenance
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Resolve backend instance
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Run maintenance through SSM
+        id: ssm
+        run: |
+          set -euo pipefail
+          case "${MAINTENANCE_ACTION}" in
+            dry-run-demo-catalog-purge)
+              NODE_COMMAND="node scripts/purge_demo_catalog.js"
+              ;;
+            execute-demo-catalog-purge)
+              NODE_COMMAND="node scripts/purge_demo_catalog.js --execute"
+              ;;
+          esac
+
+          COMPOSE_COMMAND="docker compose --env-file /opt/aura/shared/base.env --env-file /opt/aura/shared/runtime-secrets.env --env-file /opt/aura/shared/release.env -f /opt/aura/current/infra/aws/docker-compose.ec2.yml exec -T api ${NODE_COMMAND}"
+          cat > "${RUNNER_TEMP}/ssm-commands.json" <<EOF
+          {
+            "commands": [
+              "set -euo pipefail",
+              "${COMPOSE_COMMAND}"
+            ]
+          }
+          EOF
+
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${{ steps.resolve_instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura production DB maintenance: ${MAINTENANCE_ACTION}" \
+            --parameters "file://${RUNNER_TEMP}/ssm-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for maintenance completion
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${{ steps.ssm.outputs.command_id }}" \
+              --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${{ steps.ssm.outputs.command_id }}" \
+                  --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${{ steps.ssm.outputs.command_id }}" \
+                  --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for production DB maintenance command."
+          exit 1
