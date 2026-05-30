@@ -15,6 +15,7 @@ const {
     getDefaultStatusCatalog,
     getPublicStatus,
     measureStatusPagePower,
+    pruneStatusChecks,
     resolveIncident,
     seedDefaultStatusCatalog,
     subscribeToStatus,
@@ -137,6 +138,66 @@ describe('statusService', () => {
             totalChecks: 1,
         });
         expect(publicComponent.uptimePercent90d).toBe(100);
+    });
+
+    test('prunes only raw status checks older than retention cutoff', async () => {
+        const group = await StatusComponentGroup.create({
+            name: 'Retention',
+            slug: 'retention-group',
+            isPublic: true,
+        });
+        const component = await StatusComponent.create({
+            groupId: group._id,
+            name: 'Retention API',
+            slug: 'retention-api',
+            isPublic: true,
+            isMonitored: true,
+            currentStatus: 'operational',
+        });
+        await StatusCheck.create([
+            {
+                componentId: component._id,
+                status: 'operational',
+                checkedAt: new Date('2026-05-01T00:00:00.000Z'),
+            },
+            {
+                componentId: component._id,
+                status: 'operational',
+                checkedAt: new Date('2026-05-08T00:00:00.000Z'),
+            },
+            {
+                componentId: component._id,
+                status: 'operational',
+                checkedAt: new Date('2026-05-10T00:00:00.000Z'),
+            },
+        ]);
+
+        const dryRun = await pruneStatusChecks({
+            dryRun: true,
+            force: true,
+            now: new Date('2026-05-10T00:00:00.000Z'),
+            retentionDays: 7,
+        });
+        expect(dryRun).toMatchObject({
+            dryRun: true,
+            staleBefore: 1,
+            deletedCount: 0,
+            remainingStaleCount: 1,
+        });
+        expect(await StatusCheck.countDocuments()).toBe(3);
+
+        const executed = await pruneStatusChecks({
+            force: true,
+            now: new Date('2026-05-10T00:00:00.000Z'),
+            retentionDays: 7,
+        });
+        expect(executed).toMatchObject({
+            dryRun: false,
+            staleBefore: 1,
+            deletedCount: 1,
+            remainingStaleCount: 0,
+        });
+        expect(await StatusCheck.countDocuments()).toBe(2);
     });
 
     test('production seed never creates fake historical metrics', async () => {

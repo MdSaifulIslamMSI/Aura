@@ -117,6 +117,19 @@ const HISTORY_DAYS = 90;
 const DEFAULT_MONITOR_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_MONITOR_INTERVAL_SECONDS || 60), 15);
 const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_SNAPSHOT_INTERVAL_SECONDS || 60), 30);
 const DEFAULT_NOTIFICATION_WORKER_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_NOTIFICATION_WORKER_INTERVAL_SECONDS || 30), 10);
+const DEFAULT_STATUS_CHECK_RETENTION_DAYS = 7;
+const STATUS_CHECK_RETENTION_DAYS = Math.min(
+    Math.max(Number(process.env.STATUS_CHECK_RETENTION_DAYS || DEFAULT_STATUS_CHECK_RETENTION_DAYS), 1),
+    HISTORY_DAYS
+);
+const STATUS_CHECK_RETENTION_BATCH_SIZE = Math.min(
+    Math.max(Number(process.env.STATUS_CHECK_RETENTION_BATCH_SIZE || 5000), 100),
+    50000
+);
+const STATUS_CHECK_RETENTION_SWEEP_INTERVAL_MS = Math.max(
+    Number(process.env.STATUS_CHECK_RETENTION_SWEEP_INTERVAL_MS || 6 * 60 * 60 * 1000),
+    5 * 60 * 1000
+);
 const PUBLIC_STATUS_PAGE_ENABLED = String(process.env.PUBLIC_STATUS_PAGE_ENABLED || 'true').trim().toLowerCase() !== 'false';
 const xssTextFilter = new xss.FilterXSS({ whiteList: {}, stripIgnoreTag: true, stripIgnoreTagBody: ['script', 'style'] });
 
@@ -127,6 +140,8 @@ let notificationTimer = null;
 let monitorRunning = false;
 let snapshotRunning = false;
 let notificationWorkerRunning = false;
+let statusCheckRetentionRunning = false;
+let statusCheckRetentionLastRunAt = 0;
 
 const toBool = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -2488,6 +2503,95 @@ const aggregateDailyMetric = async (componentId, date = getDateKey()) => {
     );
 };
 
+const normalizeStatusCheckRetentionDays = (value = STATUS_CHECK_RETENTION_DAYS) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return STATUS_CHECK_RETENTION_DAYS;
+    return Math.min(Math.max(Math.trunc(parsed), 1), HISTORY_DAYS);
+};
+
+const resolveStatusCheckRetentionCutoff = ({ now = new Date(), retentionDays = STATUS_CHECK_RETENTION_DAYS } = {}) => {
+    const safeDays = normalizeStatusCheckRetentionDays(retentionDays);
+    return new Date(new Date(now).getTime() - (safeDays * 24 * 60 * 60 * 1000));
+};
+
+const pruneStatusChecks = async ({
+    dryRun = false,
+    force = false,
+    now = new Date(),
+    retentionDays = STATUS_CHECK_RETENTION_DAYS,
+    batchSize = STATUS_CHECK_RETENTION_BATCH_SIZE,
+    maxDelete = Number.POSITIVE_INFINITY,
+} = {}) => {
+    const nowMs = new Date(now).getTime();
+    if (!force && statusCheckRetentionRunning) {
+        return { skipped: true, reason: 'already_running' };
+    }
+    if (!force && statusCheckRetentionLastRunAt > 0 && nowMs - statusCheckRetentionLastRunAt < STATUS_CHECK_RETENTION_SWEEP_INTERVAL_MS) {
+        return { skipped: true, reason: 'recently_pruned' };
+    }
+
+    statusCheckRetentionRunning = true;
+    try {
+        const safeRetentionDays = normalizeStatusCheckRetentionDays(retentionDays);
+        const safeBatchSize = Math.min(Math.max(Number(batchSize || STATUS_CHECK_RETENTION_BATCH_SIZE), 100), 50000);
+        const safeMaxDelete = Number.isFinite(Number(maxDelete)) && Number(maxDelete) >= 0
+            ? Math.trunc(Number(maxDelete))
+            : Number.POSITIVE_INFINITY;
+        const cutoff = resolveStatusCheckRetentionCutoff({ now, retentionDays: safeRetentionDays });
+        const staleFilter = { checkedAt: { $lt: cutoff } };
+        const [totalBefore, staleBefore, oldest, newest] = await Promise.all([
+            StatusCheck.countDocuments({}),
+            StatusCheck.countDocuments(staleFilter),
+            StatusCheck.findOne({}).sort({ checkedAt: 1 }).select('checkedAt').lean(),
+            StatusCheck.findOne({}).sort({ checkedAt: -1 }).select('checkedAt').lean(),
+        ]);
+        const summary = {
+            skipped: false,
+            dryRun: Boolean(dryRun),
+            retentionDays: safeRetentionDays,
+            cutoff: cutoff.toISOString(),
+            totalBefore,
+            staleBefore,
+            oldestCheckedAt: oldest?.checkedAt ? new Date(oldest.checkedAt).toISOString() : null,
+            newestCheckedAt: newest?.checkedAt ? new Date(newest.checkedAt).toISOString() : null,
+        };
+
+        if (dryRun || staleBefore === 0 || safeMaxDelete === 0) {
+            return {
+                ...summary,
+                deletedCount: 0,
+                remainingStaleCount: staleBefore,
+            };
+        }
+
+        let deletedCount = 0;
+        while (deletedCount < staleBefore && deletedCount < safeMaxDelete) {
+            const remainingLimit = Math.min(safeBatchSize, safeMaxDelete - deletedCount);
+            const staleIds = await StatusCheck.find(staleFilter)
+                .sort({ checkedAt: 1 })
+                .select('_id')
+                .limit(remainingLimit)
+                .lean();
+            if (!staleIds.length) break;
+
+            const result = await StatusCheck.deleteMany({ _id: { $in: staleIds.map((row) => row._id) } });
+            const batchDeleted = Number(result.deletedCount || 0);
+            deletedCount += batchDeleted;
+            if (batchDeleted < staleIds.length) break;
+        }
+
+        const remainingStaleCount = await StatusCheck.countDocuments(staleFilter);
+        return {
+            ...summary,
+            deletedCount,
+            remainingStaleCount,
+        };
+    } finally {
+        statusCheckRetentionLastRunAt = nowMs;
+        statusCheckRetentionRunning = false;
+    }
+};
+
 const runStatusCheckForComponent = async (component) => {
     const startedAt = new Date();
     let result;
@@ -2547,6 +2651,9 @@ const runStatusMonitorCycle = async () => {
         for (const component of components) {
             results.push(await runStatusCheckForComponent(component));
         }
+        pruneStatusChecks().catch((error) => {
+            logger.warn('status.check_retention_prune_failed', { error: error.message });
+        });
         invalidatePublicStatusCache();
         return { skipped: false, checked: results.length, results };
     } finally {
@@ -2629,6 +2736,7 @@ module.exports = {
     invalidatePublicStatusCache,
     measureStatusPagePower,
     processStatusNotificationOutbox,
+    pruneStatusChecks,
     resolveIncident,
     runStatusCheckForComponent,
     runStatusMonitorCycle,
@@ -2648,6 +2756,8 @@ module.exports = {
     writeStatusSnapshot,
     __testables: {
         enqueueStatusEmail,
+        normalizeStatusCheckRetentionDays,
+        resolveStatusCheckRetentionCutoff,
         resolveInternalHealthSignalStatus,
     },
 };
