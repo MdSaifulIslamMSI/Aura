@@ -9,6 +9,7 @@ on:
         default: dry-run-demo-catalog-purge
         type: choice
         options:
+          - storage-report
           - dry-run-demo-catalog-purge
           - execute-demo-catalog-purge
       git_ref:
@@ -49,7 +50,7 @@ jobs:
           test -n "${AWS_INSTANCE_TAG_KEY}" || { echo "Missing variable AWS_INSTANCE_TAG_KEY"; exit 1; }
           test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing variable AWS_INSTANCE_TAG_VALUE"; exit 1; }
           case "${MAINTENANCE_ACTION}" in
-            dry-run-demo-catalog-purge|execute-demo-catalog-purge)
+            storage-report|dry-run-demo-catalog-purge|execute-demo-catalog-purge)
               ;;
             *)
               echo "Unsupported production maintenance action: ${MAINTENANCE_ACTION}"
@@ -82,6 +83,9 @@ jobs:
         run: |
           set -euo pipefail
           case "${MAINTENANCE_ACTION}" in
+            storage-report)
+              NODE_COMMAND="node scripts/audit_mongo_storage.js"
+              ;;
             dry-run-demo-catalog-purge)
               NODE_COMMAND="node scripts/purge_demo_catalog.js"
               ;;
