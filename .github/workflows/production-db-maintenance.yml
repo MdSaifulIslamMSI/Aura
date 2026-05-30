@@ -84,7 +84,8 @@ jobs:
           set -euo pipefail
           case "${MAINTENANCE_ACTION}" in
             storage-report)
-              NODE_COMMAND="node scripts/audit_mongo_storage.js"
+              NODE_COMMAND=""
+              AUDIT_SCRIPT_B64="$(base64 -w 0 server/scripts/audit_mongo_storage.js)"
               ;;
             dry-run-demo-catalog-purge)
               NODE_COMMAND="node scripts/purge_demo_catalog.js"
@@ -94,15 +95,27 @@ jobs:
               ;;
           esac
 
-          COMPOSE_COMMAND="docker compose --env-file /opt/aura/shared/base.env --env-file /opt/aura/shared/runtime-secrets.env --env-file /opt/aura/shared/release.env -f /opt/aura/current/infra/aws/docker-compose.ec2.yml exec -T api ${NODE_COMMAND}"
-          cat > "${RUNNER_TEMP}/ssm-commands.json" <<EOF
-          {
-            "commands": [
-              "set -euo pipefail",
-              "${COMPOSE_COMMAND}"
-            ]
+          COMPOSE_PREFIX="docker compose --env-file /opt/aura/shared/base.env --env-file /opt/aura/shared/runtime-secrets.env --env-file /opt/aura/shared/release.env -f /opt/aura/current/infra/aws/docker-compose.ec2.yml"
+          export AUDIT_SCRIPT_B64="${AUDIT_SCRIPT_B64:-}"
+          export COMPOSE_PREFIX
+          export NODE_COMMAND
+          node <<'NODE' > "${RUNNER_TEMP}/ssm-commands.json"
+          const commands = ['set -euo pipefail'];
+          const action = process.env.MAINTENANCE_ACTION;
+          const compose = process.env.COMPOSE_PREFIX;
+
+          if (action === 'storage-report') {
+            commands.push(`printf '%s' '${process.env.AUDIT_SCRIPT_B64}' | base64 -d > /tmp/aura_audit_mongo_storage.js`);
+            commands.push(`API_CONTAINER="$(${compose} ps -q api)"`);
+            commands.push('test -n "${API_CONTAINER}" || { echo "API container not found"; exit 1; }');
+            commands.push('docker cp /tmp/aura_audit_mongo_storage.js "${API_CONTAINER}:/app/scripts/audit_mongo_storage.js"');
+            commands.push(`${compose} exec -T api node scripts/audit_mongo_storage.js`);
+          } else {
+            commands.push(`${compose} exec -T api ${process.env.NODE_COMMAND}`);
           }
-          EOF
+
+          console.log(JSON.stringify({ commands }, null, 2));
+          NODE
 
           COMMAND_ID="$(aws ssm send-command \
             --instance-ids "${{ steps.resolve_instance.outputs.instance_id }}" \
