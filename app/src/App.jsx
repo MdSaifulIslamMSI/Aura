@@ -1,13 +1,13 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { CommerceProvider } from './context/CommerceContext';
 import { ColorModeProvider } from './context/ColorModeContext';
 import { MarketProvider } from './context/MarketContext';
 import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
-import { AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
+import { AdminAccessLockedState, AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
 import { NotificationProvider } from './context/NotificationContext';
 import { EmergencyStatusProvider, useEmergencyStatus } from './context/EmergencyStatusContext';
 
@@ -30,6 +30,7 @@ import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDe
 import { trustRoutes } from './config/trustContent';
 import { FRONTEND_LAUNCH_HUB_PATH } from './config/frontendTargets';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
+import { ADMIN_ACCESS_LOCK_EVENT, getAdminAccessLockFromIntelligence } from './utils/adminAccessLock';
 import { getNativeMobilePlatform, isCapacitorNativeRuntime } from './utils/nativeRuntime';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { MultimodalAssistantProvider } from './context/MultimodalAssistantContext';
@@ -132,13 +133,21 @@ function AssistantDisabledNotice() {
 
 function AppContent() {
   const location = useLocation();
+  const { currentUser, refreshSession, sessionIntelligence } = useAuth();
   const { effectiveMotionMode } = useMotionMode();
   const [isNativeMobile, setIsNativeMobile] = useState(() => isCapacitorNativeRuntime());
+  const [reportedAdminAccessLock, setReportedAdminAccessLock] = useState(null);
   const pathname = location.pathname;
   const chromePathname = isDesktopAuthLoginRequest(location.pathname, location.search)
     ? DESKTOP_LOGIN_PATH
     : pathname;
   const routeRenderKey = `${location.pathname}${location.search}${location.hash}`;
+  const isAdminPath = chromePathname.startsWith('/admin');
+  const sessionAdminAccessLock = useMemo(
+    () => getAdminAccessLockFromIntelligence(sessionIntelligence),
+    [sessionIntelligence]
+  );
+  const adminAccessLock = isAdminPath ? (sessionAdminAccessLock || reportedAdminAccessLock) : null;
   const showSiteChrome = useMemo(
     () => shouldShowSiteChrome(chromePathname),
     [chromePathname]
@@ -153,6 +162,27 @@ function AppContent() {
     () => shouldShowBackendStatusBanner(chromePathname),
     [chromePathname]
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const handleAdminAccessLock = (event) => {
+      setReportedAdminAccessLock(event?.detail || null);
+    };
+
+    window.addEventListener(ADMIN_ACCESS_LOCK_EVENT, handleAdminAccessLock);
+    return () => {
+      window.removeEventListener(ADMIN_ACCESS_LOCK_EVENT, handleAdminAccessLock);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAdminPath && reportedAdminAccessLock) {
+      setReportedAdminAccessLock(null);
+    }
+  }, [isAdminPath, reportedAdminAccessLock]);
 
 
   useEffect(() => {
@@ -229,16 +259,27 @@ function AppContent() {
         </AppErrorBoundary>
       ) : null}
       <main id="main-content" className="relative z-10 flex-1 min-w-0 overflow-x-hidden" role="main" aria-label="Main content">
-        <Suspense
-          key={routeRenderKey}
-          fallback={(
-            <div className="flex h-[80vh] items-center justify-center">
-              <div className="w-12 h-12 border-4 border-flipkart-blue border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-        >
-          <RouteTransitionShell>
-            <Routes>
+        {adminAccessLock ? (
+          <AdminAccessLockedState
+            adminAccessLock={adminAccessLock}
+            onRetry={() => {
+              setReportedAdminAccessLock(null);
+              if (currentUser) {
+                refreshSession(currentUser, { force: true }).catch(() => {});
+              }
+            }}
+          />
+        ) : (
+          <Suspense
+            key={routeRenderKey}
+            fallback={(
+              <div className="flex h-[80vh] items-center justify-center">
+                <div className="w-12 h-12 border-4 border-flipkart-blue border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          >
+            <RouteTransitionShell>
+              <Routes>
               {/* Public Routes */}
               <Route path="/" element={renderRoute(<Home />)} />
               <Route path={FRONTEND_LAUNCH_HUB_PATH} element={renderCriticalRoute(<LaunchHub />)} />
@@ -300,9 +341,10 @@ function AppContent() {
               <Route path="/admin/emergency-controls" element={renderCriticalRoute(<AdminRoute><AdminEmergencyControls /></AdminRoute>)} />
               <Route path="/admin/status" element={renderCriticalRoute(<AdminRoute><AdminStatusDashboard /></AdminRoute>)} />
               <Route path="/admin/status/incidents" element={renderCriticalRoute(<AdminRoute><AdminStatusDashboard /></AdminRoute>)} />
-            </Routes>
-          </RouteTransitionShell>
-        </Suspense>
+              </Routes>
+            </RouteTransitionShell>
+          </Suspense>
+        )}
       </main>
       {showSiteChrome ? (
         <>
@@ -310,7 +352,7 @@ function AppContent() {
             <SecurePathDock />
           </AppErrorBoundary>
           <AppErrorBoundary>
-            <AuraTrustedDeviceChallenge />
+            <AuraTrustedDeviceChallenge disabled={Boolean(adminAccessLock)} />
           </AppErrorBoundary>
           {!isNativeMobile ? (
             <AppErrorBoundary>

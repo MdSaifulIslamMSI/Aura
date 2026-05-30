@@ -258,6 +258,49 @@ describe('authMiddleware admin second-factor enforcement', () => {
         });
     });
 
+    test('returns a machine-readable code when production admin allowlist is missing', async () => {
+        process.env.NODE_ENV = 'production';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'false';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'false';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'true';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = '';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'off';
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const admin = loadAdminMiddleware();
+        const req = {
+            user: {
+                _id: 'user-1',
+                isAdmin: true,
+                isVerified: true,
+                email: 'admin@example.com',
+            },
+            authUid: 'firebase-admin-uid',
+            authToken: {
+                email: 'admin@example.com',
+                email_verified: true,
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds - 60,
+            },
+            headers: {},
+            originalUrl: '/api/admin/dashboard',
+            get: () => '',
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            message: 'Admin access is locked: allowlist is not configured',
+            statusCode: 403,
+            code: 'ADMIN_ALLOWLIST_MISSING',
+        }));
+    });
+
     test('blocks admin access when no second factor is present', async () => {
         process.env.NODE_ENV = 'test';
         process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';

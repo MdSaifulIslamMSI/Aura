@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
-import { ProtectedRoute } from './ProtectedRoute';
+import { AdminRoute, ProtectedRoute } from './ProtectedRoute';
 
 const LocationProbe = () => {
     const location = useLocation();
@@ -35,6 +35,27 @@ const renderProtectedRoute = (authValue, initialEntries = ['/profile']) => {
                                 <ProtectedRoute>
                                     <div>Profile Screen</div>
                                 </ProtectedRoute>
+                            )}
+                        />
+                    </Routes>
+                </MemoryRouter>
+            </AuthContext.Provider>
+        </MarketProvider>
+    );
+};
+
+const renderAdminRoute = (authValue, initialEntries = ['/admin/dashboard']) => {
+    render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+            <AuthContext.Provider value={authValue}>
+                <MemoryRouter initialEntries={initialEntries}>
+                    <Routes>
+                        <Route
+                            path="*"
+                            element={(
+                                <AdminRoute>
+                                    <div>Admin Dashboard</div>
+                                </AdminRoute>
                             )}
                         />
                     </Routes>
@@ -126,5 +147,28 @@ describe('ProtectedRoute', () => {
         expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/contact"');
         expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?compose=1');
         expect(screen.getByTestId('location-probe')).toHaveTextContent('Session+sync+blocked+account+access');
+    });
+
+    it('renders a single admin lock state before trusted-device checks when the allowlist is missing', () => {
+        renderAdminRoute({
+            status: 'device_challenge_required',
+            sessionError: null,
+            sessionIntelligence: {
+                adminAccess: {
+                    locked: true,
+                    reason: 'allowlist_missing',
+                    code: 'ADMIN_ALLOWLIST_MISSING',
+                    message: 'Admin access is locked: allowlist is not configured',
+                },
+            },
+            roles: { isAdmin: true },
+            refreshSession: vi.fn().mockResolvedValue(null),
+            currentUser: { uid: 'u_admin', email: 'admin@example.com' },
+        });
+
+        expect(screen.getByText('Admin access is locked')).toBeInTheDocument();
+        expect(screen.getByText(/production admin allowlist configuration is missing/i)).toBeInTheDocument();
+        expect(screen.queryByText('Trusted device checkpoint')).not.toBeInTheDocument();
+        expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
     });
 });

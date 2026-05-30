@@ -1243,7 +1243,9 @@ const admin = asyncHandler(async (req, res, next) => {
                 path: req.originalUrl,
             });
             recordAdminBlock(req, 'allowlist_missing');
-            throw new AppError('Admin access is locked: allowlist is not configured', 403);
+            const error = new AppError('Admin access is locked: allowlist is not configured', 403);
+            error.code = 'ADMIN_ALLOWLIST_MISSING';
+            throw error;
         }
         if (!ADMIN_ALLOWLIST_EMAILS.has(actorEmail)) {
             logger.warn('admin_access.blocked_allowlist', {
@@ -1252,7 +1254,9 @@ const admin = asyncHandler(async (req, res, next) => {
                 path: req.originalUrl,
             });
             recordAdminBlock(req, 'allowlist_denied');
-            throw new AppError('Admin access denied for this account', 403);
+            const error = new AppError('Admin access denied for this account', 403);
+            error.code = 'ADMIN_ALLOWLIST_DENIED';
+            throw error;
         }
     } else if (ADMIN_ALLOWLIST_EMAILS.size > 0 && !ADMIN_ALLOWLIST_EMAILS.has(actorEmail)) {
         logger.warn('admin_access.blocked_optional_allowlist', {
@@ -1261,7 +1265,9 @@ const admin = asyncHandler(async (req, res, next) => {
             path: req.originalUrl,
         });
         recordAdminBlock(req, 'allowlist_denied');
-        throw new AppError('Admin access denied for this account', 403);
+        const error = new AppError('Admin access denied for this account', 403);
+        error.code = 'ADMIN_ALLOWLIST_DENIED';
+        throw error;
     }
 
     if (sessionAgeSeconds > (ADMIN_REQUIRE_FRESH_LOGIN_MINUTES * 60)) {
