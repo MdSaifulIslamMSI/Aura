@@ -58,14 +58,17 @@ jobs:
       - name: Dispatch and watch backend deployment
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REF_NAME: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_INPUTS: '{"git_ref":"${{ github.sha }}","skip_healthcheck":false}'
         run: >-
           node scripts/github/dispatch-workflow-and-watch.mjs
           --workflow deploy-backend-aws.yml
           --label "Backend production deploy"
-          --ref "${{ github.ref_name }}"
-          --sha "${{ github.sha }}"
+          --ref "$DEPLOY_REF_NAME"
+          --sha "$DEPLOY_SHA"
           --timeout-minutes 70
-          --inputs '{"git_ref":"${{ github.sha }}","skip_healthcheck":false}'
+          --inputs "$DEPLOY_INPUTS"
 
   deploy-storefront:
     name: Dispatch storefront production deploy
@@ -84,14 +87,17 @@ jobs:
       - name: Dispatch and watch storefront deployment
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REF_NAME: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_INPUTS: '{"target":"production"}'
         run: >-
           node scripts/github/dispatch-workflow-and-watch.mjs
           --workflow deploy-netlify.yml
           --label "Storefront multi-host production deploy"
-          --ref "${{ github.ref_name }}"
-          --sha "${{ github.sha }}"
+          --ref "$DEPLOY_REF_NAME"
+          --sha "$DEPLOY_SHA"
           --timeout-minutes 85
-          --inputs '{"target":"production"}'
+          --inputs "$DEPLOY_INPUTS"
 
   deploy-gateway:
     name: Dispatch gateway production deploy
@@ -110,11 +116,14 @@ jobs:
       - name: Dispatch and watch gateway deployment
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REF_NAME: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_INPUTS: '{"target":"production"}'
         run: >-
           node scripts/github/dispatch-workflow-and-watch.mjs
           --workflow deploy-gateway-vercel.yml
           --label "Gateway production deploy"
-          --ref "${{ github.ref_name }}"
-          --sha "${{ github.sha }}"
+          --ref "$DEPLOY_REF_NAME"
+          --sha "$DEPLOY_SHA"
           --timeout-minutes 40
-          --inputs '{"target":"production"}'
+          --inputs "$DEPLOY_INPUTS"
