@@ -10,8 +10,14 @@ on:
         type: choice
         options:
           - storage-report
+          - dry-run-status-check-retention
+          - execute-status-check-retention
           - dry-run-demo-catalog-purge
           - execute-demo-catalog-purge
+      retention_days:
+        description: Retention window for status check telemetry cleanup
+        required: false
+        default: "7"
       git_ref:
         description: Git ref whose scripts are expected in the deployed backend image
         required: false
@@ -32,6 +38,7 @@ env:
   AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
   AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
   MAINTENANCE_ACTION: ${{ inputs.action }}
+  STATUS_CHECK_RETENTION_DAYS: ${{ inputs.retention_days || '7' }}
 
 jobs:
   run:
@@ -50,10 +57,16 @@ jobs:
           test -n "${AWS_INSTANCE_TAG_KEY}" || { echo "Missing variable AWS_INSTANCE_TAG_KEY"; exit 1; }
           test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing variable AWS_INSTANCE_TAG_VALUE"; exit 1; }
           case "${MAINTENANCE_ACTION}" in
-            storage-report|dry-run-demo-catalog-purge|execute-demo-catalog-purge)
+            storage-report|dry-run-status-check-retention|execute-status-check-retention|dry-run-demo-catalog-purge|execute-demo-catalog-purge)
               ;;
             *)
               echo "Unsupported production maintenance action: ${MAINTENANCE_ACTION}"
+              exit 1
+              ;;
+          esac
+          case "${STATUS_CHECK_RETENTION_DAYS}" in
+            ''|*[!0-9]*)
+              echo "retention_days must be a positive integer"
               exit 1
               ;;
           esac
@@ -82,10 +95,23 @@ jobs:
         id: ssm
         run: |
           set -euo pipefail
+          INJECT_SCRIPT_SOURCE=""
+          INJECT_CONTAINER_PATH=""
           case "${MAINTENANCE_ACTION}" in
             storage-report)
-              NODE_COMMAND=""
-              AUDIT_SCRIPT_B64="$(base64 -w 0 server/scripts/audit_mongo_storage.js)"
+              NODE_COMMAND="node scripts/audit_mongo_storage.js"
+              INJECT_SCRIPT_SOURCE="server/scripts/audit_mongo_storage.js"
+              INJECT_CONTAINER_PATH="/app/scripts/audit_mongo_storage.js"
+              ;;
+            dry-run-status-check-retention)
+              NODE_COMMAND="node scripts/purge_status_checks.js --retention-days=${STATUS_CHECK_RETENTION_DAYS}"
+              INJECT_SCRIPT_SOURCE="server/scripts/purge_status_checks.js"
+              INJECT_CONTAINER_PATH="/app/scripts/purge_status_checks.js"
+              ;;
+            execute-status-check-retention)
+              NODE_COMMAND="node scripts/purge_status_checks.js --execute --retention-days=${STATUS_CHECK_RETENTION_DAYS}"
+              INJECT_SCRIPT_SOURCE="server/scripts/purge_status_checks.js"
+              INJECT_CONTAINER_PATH="/app/scripts/purge_status_checks.js"
               ;;
             dry-run-demo-catalog-purge)
               NODE_COMMAND="node scripts/purge_demo_catalog.js"
@@ -95,24 +121,27 @@ jobs:
               ;;
           esac
 
+          INJECT_SCRIPT_B64=""
+          if [ -n "${INJECT_SCRIPT_SOURCE}" ]; then
+            INJECT_SCRIPT_B64="$(base64 -w 0 "${INJECT_SCRIPT_SOURCE}")"
+          fi
+
           COMPOSE_PREFIX="docker compose --env-file /opt/aura/shared/base.env --env-file /opt/aura/shared/runtime-secrets.env --env-file /opt/aura/shared/release.env -f /opt/aura/current/infra/aws/docker-compose.ec2.yml"
-          export AUDIT_SCRIPT_B64="${AUDIT_SCRIPT_B64:-}"
+          export INJECT_SCRIPT_B64
+          export INJECT_CONTAINER_PATH
           export COMPOSE_PREFIX
           export NODE_COMMAND
           node <<'NODE' > "${RUNNER_TEMP}/ssm-commands.json"
           const commands = ['set -euo pipefail'];
-          const action = process.env.MAINTENANCE_ACTION;
           const compose = process.env.COMPOSE_PREFIX;
 
-          if (action === 'storage-report') {
-            commands.push(`printf '%s' '${process.env.AUDIT_SCRIPT_B64}' | base64 -d > /tmp/aura_audit_mongo_storage.js`);
+          if (process.env.INJECT_SCRIPT_B64) {
+            commands.push(`printf '%s' '${process.env.INJECT_SCRIPT_B64}' | base64 -d > /tmp/aura_maintenance_script.js`);
             commands.push(`API_CONTAINER="$(${compose} ps -q api)"`);
             commands.push('test -n "${API_CONTAINER}" || { echo "API container not found"; exit 1; }');
-            commands.push('docker cp /tmp/aura_audit_mongo_storage.js "${API_CONTAINER}:/app/scripts/audit_mongo_storage.js"');
-            commands.push(`${compose} exec -T api node scripts/audit_mongo_storage.js`);
-          } else {
-            commands.push(`${compose} exec -T api ${process.env.NODE_COMMAND}`);
+            commands.push(`docker cp /tmp/aura_maintenance_script.js "\${API_CONTAINER}:${process.env.INJECT_CONTAINER_PATH}"`);
           }
+          commands.push(`${compose} exec -T api ${process.env.NODE_COMMAND}`);
 
           console.log(JSON.stringify({ commands }, null, 2));
           NODE
