@@ -258,8 +258,8 @@ describe('authMiddleware admin second-factor enforcement', () => {
         });
     });
 
-    test('returns a machine-readable code when production admin allowlist is missing', async () => {
-        process.env.NODE_ENV = 'production';
+    test('returns a machine-readable code when required admin allowlist is missing', async () => {
+        process.env.NODE_ENV = 'test';
         process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
         process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
         process.env.ADMIN_REQUIRE_2FA = 'false';
