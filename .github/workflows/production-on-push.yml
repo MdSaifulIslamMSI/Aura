@@ -72,7 +72,7 @@ jobs:
 
   deploy-storefront:
     name: Dispatch storefront production deploy
-    needs: deploy-backend
+    needs: production-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -101,7 +101,7 @@ jobs:
 
   deploy-gateway:
     name: Dispatch gateway production deploy
-    needs: deploy-backend
+    needs: production-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
