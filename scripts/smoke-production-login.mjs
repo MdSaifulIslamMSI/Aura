@@ -6,9 +6,12 @@ import {
 } from '../app/config/vercelRoutingContract.mjs';
 
 const frontendOrigin = String(process.env.PROD_FRONTEND_URL || 'https://aurapilot.vercel.app').replace(/\/+$/, '');
-const hostedBackendOrigin = String(process.env.PROD_BACKEND_ORIGIN || resolveHostedBackendOrigin()).replace(/\/+$/, '');
+const hostedBackendOrigin = String(
+    process.env.PROD_BACKEND_ORIGIN
+    || resolveHostedBackendOrigin(process.env, { allowCommittedFallback: true })
+).replace(/\/+$/, '');
 assertDeployableHostedBackendOrigin(hostedBackendOrigin);
-const legacyHttpBackendOrigin = String(process.env.PROD_LEGACY_HTTP_BACKEND_ORIGIN || 'http://3.109.181.238:5000').replace(/\/+$/, '');
+const legacyHttpBackendOrigin = String(process.env.PROD_LEGACY_HTTP_BACKEND_ORIGIN || '').replace(/\/+$/, '');
 
 const checks = [];
 const addCheck = (name, ok, details = {}) => {
@@ -133,6 +136,14 @@ const hostedBackendTransport = async () => {
     addCheck('hosted backend origin uses HTTPS', /^https:\/\//i.test(hostedBackendOrigin), {
         hostedBackendOrigin,
     });
+
+    if (!legacyHttpBackendOrigin) {
+        addCheck('plain HTTP backend direct-origin probe is configured only when needed', true, {
+            skipped: true,
+            reason: 'PROD_LEGACY_HTTP_BACKEND_ORIGIN is not set',
+        });
+        return;
+    }
 
     const directLive = await request(`${legacyHttpBackendOrigin}/health/live`);
     const directHttpPublic = directLive.ok && directLive.status >= 200 && directLive.status < 500;
