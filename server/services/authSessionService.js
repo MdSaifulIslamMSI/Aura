@@ -39,6 +39,69 @@ const SENSITIVE_ACTION_FRESH_LOGIN_SECONDS = Math.max(
     60
 );
 
+const ADMIN_ALLOWLIST_MISSING_CODE = 'ADMIN_ALLOWLIST_MISSING';
+const ADMIN_ALLOWLIST_DENIED_CODE = 'ADMIN_ALLOWLIST_DENIED';
+
+const parseBooleanEnv = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value === 'boolean') return value;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
+const isProductionEnv = (env = process.env) => String(env.NODE_ENV || '')
+    .trim()
+    .toLowerCase() === 'production';
+
+const parseAdminAllowlistEmails = (value = '') => new Set(
+    String(value || '')
+        .split(',')
+        .map((entry) => normalizeEmail(entry))
+        .filter(Boolean)
+);
+
+const resolveAdminAccessState = (user = null, env = process.env) => {
+    const productionDefault = isProductionEnv(env);
+    const strictAccessEnabled = parseBooleanEnv(env.ADMIN_STRICT_ACCESS_ENABLED, true);
+    const required = parseBooleanEnv(env.ADMIN_REQUIRE_ALLOWLIST, productionDefault);
+    const allowlist = parseAdminAllowlistEmails(env.ADMIN_ALLOWLIST_EMAILS);
+    const configured = allowlist.size > 0;
+    const isAdmin = Boolean(user?.isAdmin);
+    const actorEmail = normalizeEmail(user?.email || '');
+    const allowlisted = Boolean(actorEmail && allowlist.has(actorEmail));
+    const shouldEnforceOptionalAllowlist = configured || required;
+
+    let locked = false;
+    let reason = '';
+    let code = '';
+    let message = '';
+
+    if (strictAccessEnabled && isAdmin && required && !configured) {
+        locked = true;
+        reason = 'allowlist_missing';
+        code = ADMIN_ALLOWLIST_MISSING_CODE;
+        message = 'Admin access is locked: allowlist is not configured';
+    } else if (strictAccessEnabled && isAdmin && shouldEnforceOptionalAllowlist && !allowlisted) {
+        locked = true;
+        reason = 'allowlist_denied';
+        code = ADMIN_ALLOWLIST_DENIED_CODE;
+        message = 'Admin access denied for this account';
+    }
+
+    return {
+        strictAccessEnabled,
+        required,
+        configured,
+        allowed: !strictAccessEnabled || !isAdmin || !shouldEnforceOptionalAllowlist || allowlisted,
+        locked,
+        reason,
+        code,
+        message,
+    };
+};
+
 const normalizePhone = (value) => (
     typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
 );
@@ -352,6 +415,7 @@ const toSessionIntelligence = (user = null, session = null) => {
     const assuranceLevel = normalizeText(user?.authAssurance) || 'none';
     const providerIds = Array.isArray(session?.providerIds) ? session.providerIds : [];
     const recoveryReadiness = getRecoveryReadiness(user);
+    const adminAccess = resolveAdminAccessState(user);
     const assuranceExpiresAt = toIsoOrNull(user?.loginOtpAssuranceExpiresAt);
     const authTimeMillis = parseIsoToMillis(session?.authTime);
     const stepUpUntilMillis = parseIsoToMillis(session?.stepUpUntil);
@@ -432,6 +496,7 @@ const toSessionIntelligence = (user = null, session = null) => {
             },
             policy: {
                 privilegedAccount,
+                adminAccess,
                 elevatedAssurance,
                 trustedDeviceRequired,
                 sensitiveActionsAllowed: Boolean(
@@ -446,6 +511,7 @@ const toSessionIntelligence = (user = null, session = null) => {
                 ),
             },
         },
+        adminAccess,
     };
 };
 

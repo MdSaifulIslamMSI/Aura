@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch, requestWithTrace } from './apiBase';
 import { resetActiveMarketHeaders, setActiveMarketHeaders } from './marketRuntime';
+import { ADMIN_ACCESS_LOCK_EVENT } from '../utils/adminAccessLock';
 
 describe('apiFetch observability', () => {
     beforeEach(() => {
@@ -84,6 +85,39 @@ describe('apiFetch observability', () => {
             serverRequestId: 'srv-failure',
             requestId: expect.stringMatching(/^req-/),
         });
+    });
+
+    it('emits one admin access lock event for allowlist lock responses', async () => {
+        const lockListener = vi.fn();
+        window.addEventListener(ADMIN_ACCESS_LOCK_EVENT, lockListener);
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(JSON.stringify({
+                code: 'ADMIN_ALLOWLIST_MISSING',
+                message: 'Admin access is locked: allowlist is not configured',
+                requestId: 'srv-admin-lock',
+            }), {
+                status: 403,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Request-Id': 'srv-admin-lock',
+                },
+            })
+        );
+
+        await expect(apiFetch('/admin/dashboard', { retries: 0 })).rejects.toMatchObject({
+            status: 403,
+            data: expect.objectContaining({
+                code: 'ADMIN_ALLOWLIST_MISSING',
+            }),
+        });
+
+        expect(lockListener).toHaveBeenCalledTimes(1);
+        expect(lockListener.mock.calls[0][0].detail).toMatchObject({
+            code: 'ADMIN_ALLOWLIST_MISSING',
+            reason: 'allowlist_missing',
+            requestId: 'srv-admin-lock',
+        });
+        window.removeEventListener(ADMIN_ACCESS_LOCK_EVENT, lockListener);
     });
 
     it('can return non-ok responses when auto-throw is disabled', async () => {

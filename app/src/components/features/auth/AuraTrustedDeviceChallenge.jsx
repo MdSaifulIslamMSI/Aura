@@ -214,7 +214,7 @@ const buildTrustedDeviceErrorMessage = ({
   return String(error?.message || 'Trusted device verification failed.');
 };
 
-const AuraTrustedDeviceChallenge = () => {
+const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const location = useLocation();
   const { currentUser, deviceChallenge, refreshSession, status, verifyDeviceChallenge } = useAuth();
   const [isWorking, setIsWorking] = useState(false);
@@ -289,7 +289,8 @@ const AuraTrustedDeviceChallenge = () => {
     setShowMethodChooser(isBlockingRoute);
   }, [deviceChallenge?.token, isBlockingRoute]);
 
-  const shouldRenderTrustedGate = status === 'device_challenge_required'
+  const shouldRenderTrustedGate = !disabled
+    && status === 'device_challenge_required'
     && Boolean(deviceChallenge)
     && import.meta.env.MODE !== 'test'
     && isBlockingRoute;

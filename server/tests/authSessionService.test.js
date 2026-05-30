@@ -220,6 +220,23 @@ describe('authSessionService login assurance binding', () => {
 });
 
 describe('authSessionService session intelligence payload', () => {
+    const originalAdminEnv = {
+        NODE_ENV: process.env.NODE_ENV,
+        ADMIN_STRICT_ACCESS_ENABLED: process.env.ADMIN_STRICT_ACCESS_ENABLED,
+        ADMIN_REQUIRE_ALLOWLIST: process.env.ADMIN_REQUIRE_ALLOWLIST,
+        ADMIN_ALLOWLIST_EMAILS: process.env.ADMIN_ALLOWLIST_EMAILS,
+    };
+
+    afterEach(() => {
+        for (const [key, value] of Object.entries(originalAdminEnv)) {
+            if (value === undefined) {
+                delete process.env[key];
+            } else {
+                process.env[key] = value;
+            }
+        }
+    });
+
     test('includes assurance and acceleration intelligence in the session payload', () => {
         const payload = buildSessionPayload({
             authUser: {
@@ -273,6 +290,46 @@ describe('authSessionService session intelligence payload', () => {
                 },
             },
         });
+    });
+
+    test('reports production admin allowlist lock before trusted-device step-up is attempted', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        delete process.env.ADMIN_REQUIRE_ALLOWLIST;
+        delete process.env.ADMIN_ALLOWLIST_EMAILS;
+
+        const payload = buildSessionPayload({
+            authUser: {
+                email: 'admin@example.com',
+                displayName: 'Admin User',
+                providerData: [{ providerId: 'password' }],
+                emailVerified: true,
+            },
+            authUid: 'uid-admin-lock',
+            user: {
+                email: 'admin@example.com',
+                isVerified: true,
+                isAdmin: true,
+                isSeller: false,
+                accountState: 'active',
+                authAssurance: 'password+otp',
+            },
+            status: 'device_challenge_required',
+            deviceChallenge: {
+                token: 'trusted-device-token',
+                mode: 'enroll',
+            },
+        });
+
+        expect(payload.intelligence.adminAccess).toMatchObject({
+            required: true,
+            configured: false,
+            allowed: false,
+            locked: true,
+            reason: 'allowlist_missing',
+            code: 'ADMIN_ALLOWLIST_MISSING',
+        });
+        expect(payload.intelligence.posture.policy.adminAccess.locked).toBe(true);
     });
 
     test('treats an active trusted-device step-up as fresh for sensitive-action intelligence', () => {

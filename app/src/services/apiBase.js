@@ -1,6 +1,7 @@
 import { prepareTraceHeaders } from './clientObservability';
 import { getSafeEnv, resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
 import { getActiveMarketHeaders } from './marketRuntime';
+import { ADMIN_ACCESS_LOCK_EVENT, getAdminAccessLockPayload } from '../utils/adminAccessLock';
 
 const normalizePath = (path = '') => (String(path || '').startsWith('/')
     ? String(path || '')
@@ -80,6 +81,13 @@ const emitEmergencyStatusRefresh = ({ status = 0, data = null, requestId = '' } 
     window.dispatchEvent(new CustomEvent('aura:emergency-status:refresh', {
         detail: { status, code, requestId },
     }));
+};
+
+const emitAdminAccessLock = ({ status = 0, data = null, requestId = '', url = '' } = {}) => {
+    if (typeof window === 'undefined') return;
+    const detail = getAdminAccessLockPayload({ status, data, requestId, url });
+    if (!detail) return;
+    window.dispatchEvent(new CustomEvent(ADMIN_ACCESS_LOCK_EVENT, { detail }));
 };
 
 const isRetryableStatus = (status) => status >= 500 || status === 429;
@@ -162,6 +170,12 @@ export const createResponseError = async (response, fallbackMessage = 'Request f
         status: response.status,
         data,
         requestId: serverRequestId,
+    });
+    emitAdminAccessLock({
+        status: response.status,
+        data,
+        requestId: serverRequestId,
+        url: response.url || meta.url || '',
     });
 
     return createApiError(

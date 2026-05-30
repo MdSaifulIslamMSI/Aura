@@ -195,4 +195,13 @@ describe('AuraTrustedDeviceChallenge', () => {
     expect(screen.queryByRole('button', { name: /open trusted device checkpoint/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
   });
+
+  it('stays quiet when an earlier admin policy lock is active', async () => {
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge disabled />);
+
+    expect(screen.queryByRole('radio', { name: /windows hello passkey/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /open trusted device checkpoint/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
+  });
 });

@@ -3,6 +3,11 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { buildSupportHandoffPath } from '@/utils/supportRouting';
+import {
+    getAdminAccessLockFromIntelligence,
+    getAdminAccessLockOperatorMessage,
+    getAdminAccessLockTitle,
+} from '@/utils/adminAccessLock';
 
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 
@@ -94,6 +99,51 @@ const AuthRecoveryState = ({
                 <a href="tel:1-800-AURA-01" className="transition-colors hover:text-white">1-800-AURA-01</a>
             </div>
         </div>
+    </div>
+);
+
+export const AdminAccessLockedState = ({ adminAccessLock, onRetry }) => (
+    <div className="flex min-h-[70vh] items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
+        <section className="w-full max-w-2xl rounded-3xl border border-rose-300/20 bg-rose-950/20 p-8 shadow-glass">
+            <div className="inline-flex rounded-full border border-rose-300/25 bg-rose-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-rose-100">
+                Admin safety lock
+            </div>
+            <h1 className="mt-5 text-3xl font-black text-white">
+                {getAdminAccessLockTitle(adminAccessLock)}
+            </h1>
+            <p className="mt-4 text-sm leading-6 text-slate-300">
+                {getAdminAccessLockOperatorMessage(adminAccessLock)}
+            </p>
+            <p className="mt-3 text-xs leading-5 text-slate-400">
+                Server reason: <span className="font-semibold text-slate-200">{adminAccessLock?.reason || 'allowlist_missing'}</span>
+                {adminAccessLock?.requestId ? (
+                    <>
+                        {' '}Request ID: <span className="font-semibold text-slate-200">{adminAccessLock.requestId}</span>
+                    </>
+                ) : null}
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+                <button
+                    type="button"
+                    onClick={onRetry}
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-neo-cyan transition-colors hover:bg-white/[0.1]"
+                >
+                    Retry policy check
+                </button>
+                <a
+                    href="/"
+                    className="inline-flex items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/12 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-400/18"
+                >
+                    Go to storefront
+                </a>
+                <a
+                    href="mailto:support@aura.shop"
+                    className="inline-flex items-center justify-center rounded-full border border-rose-300/20 bg-rose-300/10 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-rose-100 transition-colors hover:bg-rose-300/16"
+                >
+                    Contact support
+                </a>
+            </div>
+        </section>
     </div>
 );
 
@@ -202,7 +252,17 @@ export const ProtectedRoute = ({ children }) => {
 
 export const AdminRoute = ({ children }) => {
     const { auth, location, navigate, t } = useAuthGate();
-    const { status, roles, sessionError, refreshSession, currentUser, logout } = auth;
+    const { status, roles, sessionError, sessionIntelligence, refreshSession, currentUser, logout } = auth;
+    const adminAccessLock = currentUser ? getAdminAccessLockFromIntelligence(sessionIntelligence) : null;
+
+    if (!AUTH_BOOTSTRAP_STATES.has(status) && adminAccessLock) {
+        return (
+            <AdminAccessLockedState
+                adminAccessLock={adminAccessLock}
+                onRetry={() => { refreshSession(currentUser, { force: true }).catch(() => {}); }}
+            />
+        );
+    }
 
     const resolved = renderResolvedGate({
         status,
