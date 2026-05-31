@@ -160,7 +160,7 @@
     "test:auth:auto": "node scripts/run-auth-auto.js",
     "test:auth:auto:count": "node scripts/count-auth-combinations.js --auto",
     "test:auth:auto:critical": "node scripts/count-auth-combinations.js --expand=level_4_critical && node scripts/run-auth-critical.js",
-    "mobile:doctor": "npm --prefix app run mobile:doctor",
+    "mobile:doctor": "node scripts/mobile-doctor.mjs",
     "mobile:sync": "npm --prefix app run mobile:sync",
     "mobile:sync:android": "npm --prefix app run mobile:sync:android",
     "mobile:sync:ios": "npm --prefix app run mobile:sync:ios"

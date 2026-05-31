@@ -21,7 +21,7 @@ Every merge to `main` runs these lanes in order:
    - `npm run auth:smoke`
 2. Backend production deploy
    - Dispatches `.github/workflows/deploy-backend-aws.yml`
-   - Builds the backend container
+   - Builds the backend `linux/arm64` container on a native GitHub ARM64 runner
    - Uploads release artifacts to S3
    - Deploys through SSM to the tagged EC2 instance
    - Verifies backend readiness
@@ -111,11 +111,15 @@ AWS deployment is configured through OIDC in `.github/workflows/deploy-backend-a
 
 The workflows intentionally do not carry account-specific AWS resource defaults.
 
+The backend deploy lane uses a native `ubuntu-24.04-arm` runner for the default `linux/arm64` image build. Keep that guard in place; building the backend image through QEMU emulation can crash during `npm ci` with `Illegal instruction` and block the full production release train.
+
 ## Local GitHub Auth
 
 Local `gh auth login` is not required for automated releases.
 
 The desktop release workflow uses GitHub Actions `GITHUB_TOKEN` with `contents: write` to create tags, publish release assets, and update the latest release channel. If a local machine is not logged into GitHub CLI, pushes/releases from that machine can fail, but CI/CD still works once the workflow files are pushed to GitHub.
+
+Local `npm run mobile:doctor` is cross-platform aware. On Windows it still runs the Capacitor doctor and verifies Android, but it treats missing Xcode as an expected local limitation because iOS release validation runs on the `macos-latest` GitHub runner.
 
 ## Manual Runs
 

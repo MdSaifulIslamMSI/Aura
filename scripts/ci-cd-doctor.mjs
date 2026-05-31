@@ -34,6 +34,7 @@ const productionAdminAccess = read('.github/workflows/production-admin-access.ym
 const desktop = read('.github/workflows/desktop-release.yml');
 const mobile = read('.github/workflows/mobile-release.yml');
 const gateway = read('.github/workflows/deploy-gateway-vercel.yml');
+const deployBackend = read('.github/workflows/deploy-backend-aws.yml');
 const packageJson = JSON.parse(read('package.json') || '{}');
 const securityRunner = read('scripts/security-runner.mjs');
 
@@ -87,6 +88,19 @@ addCheck(
     mobile.includes(needle)
   ),
   'mobile-release.yml workflow_call inputs'
+);
+
+addCheck(
+  'mobile release validates iOS on macOS',
+  mobile.includes('build-ios:') && mobile.includes('runs-on: macos-latest'),
+  'iOS release validation is not tied to local Windows machines'
+);
+
+addCheck(
+  'root mobile doctor is cross-platform aware',
+  packageJson.scripts?.['mobile:doctor'] === 'node scripts/mobile-doctor.mjs' &&
+    exists(path.join('scripts', 'mobile-doctor.mjs')),
+  'Windows local doctor skips only the expected Xcode limitation'
 );
 
 addCheck(
@@ -153,6 +167,14 @@ addCheck(
     productionAdminAccess.includes('Configure AWS credentials') &&
     !/environment:\s*\r?\n\s+name:\s+production/.test(productionAdminAccess),
   'admin allowlist workflow matches deploy role branch trust subject'
+);
+
+addCheck(
+  'backend deploy uses native arm64 runner',
+  deployBackend.includes('runs-on: ubuntu-24.04-arm') &&
+    deployBackend.includes('RUNNER_ARCH_NAME: ${{ runner.arch }}') &&
+    deployBackend.includes('linux/arm64 backend builds must run on an ARM64 GitHub runner.'),
+  'prevents QEMU illegal instruction during npm ci in the backend image build'
 );
 
 addCheck(
