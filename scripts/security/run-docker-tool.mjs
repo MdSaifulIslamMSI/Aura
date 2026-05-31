@@ -80,7 +80,9 @@ const runDockerReportOnly = (args, reportPath, options = {}) => {
   if (reportPath && reportOutput.trim()) {
     fs.writeFileSync(reportPath, reportOutput);
   }
-  process.stdout.write(output);
+  if (options.printOutput !== false) {
+    process.stdout.write(output);
+  }
 
   if (result.error) {
     console.error(`docker failed: ${result.error.message}`);
@@ -91,17 +93,17 @@ const runDockerReportOnly = (args, reportPath, options = {}) => {
   }
 };
 
-const runGitleaks = () => {
+const gitleaksArgs = ({ reportFormat, reportPath, exitCode }) => {
   const args = [
     'run', '--rm',
     '-v', repoAsRepoMount,
     images.gitleaks,
     'detect',
     '--source=/repo',
-    '--report-format=json',
-    '--report-path=/repo/security-reports/gitleaks-report.json',
+    `--report-format=${reportFormat}`,
+    `--report-path=/repo/security-reports/${reportPath}`,
     '--redact',
-    '--exit-code=1',
+    `--exit-code=${exitCode}`,
   ];
 
   if (fs.existsSync(path.join(repoRoot, '.gitleaks.toml'))) {
@@ -111,7 +113,20 @@ const runGitleaks = () => {
     args.push('--baseline-path=/repo/.gitleaks-baseline.json');
   }
 
-  runDocker(args);
+  return args;
+};
+
+const runGitleaks = () => {
+  runDocker(gitleaksArgs({
+    reportFormat: 'sarif',
+    reportPath: 'gitleaks-report.sarif',
+    exitCode: 0,
+  }));
+  runDocker(gitleaksArgs({
+    reportFormat: 'json',
+    reportPath: 'gitleaks-report.json',
+    exitCode: 1,
+  }));
 };
 
 const runSemgrep = () => runDocker([
@@ -124,8 +139,8 @@ const runSemgrep = () => runDocker([
   '--config', '/src/semgrep-rules/aura-security.yml',
   '--severity', 'ERROR',
   '--error',
-  '--json',
-  '--output', '/src/security-reports/semgrep-report.json',
+  '--json-output', '/src/security-reports/semgrep-report.json',
+  '--sarif-output', '/src/security-reports/semgrep-report.sarif',
   '/src',
 ]);
 
@@ -213,6 +228,19 @@ const runTrivyFs = () => {
     '--exit-code', '0',
   ]);
 
+  runDocker([
+    'run', '--rm',
+    '-v', scanMount,
+    '-v', repoMount,
+    '-v', cacheMount,
+    images.trivy,
+    ...trivyCommon,
+    '--severity', 'HIGH,CRITICAL',
+    '--format', 'sarif',
+    '--output', '/project/security-reports/trivy-fs.sarif',
+    '--exit-code', '0',
+  ]);
+
   const tablePath = path.join(reportDir, 'trivy-fs-table.txt');
   if (fs.existsSync(tablePath)) {
     process.stdout.write(fs.readFileSync(tablePath, 'utf8'));
@@ -260,13 +288,41 @@ const runTrivyImage = () => {
     '--severity', 'HIGH,CRITICAL',
     '--format', 'table',
     '--output', '/project/security-reports/trivy-image-table.txt',
-    '--exit-code', '1',
+    '--exit-code', '0',
   ]);
 
   const tablePath = path.join(reportDir, 'trivy-image-table.txt');
   if (fs.existsSync(tablePath)) {
     process.stdout.write(fs.readFileSync(tablePath, 'utf8'));
   }
+
+  runDocker([
+    'run', '--rm',
+    '-v', repoMount,
+    '-v', cacheMount,
+    images.trivy,
+    'image',
+    '--input', '/project/security-reports/app-security-local.tar',
+    '--scanners', 'vuln,secret,misconfig',
+    '--severity', 'HIGH,CRITICAL',
+    '--format', 'sarif',
+    '--output', '/project/security-reports/trivy-image.sarif',
+    '--exit-code', '0',
+  ]);
+
+  runDocker([
+    'run', '--rm',
+    '-v', repoMount,
+    '-v', cacheMount,
+    images.trivy,
+    'image',
+    '--input', '/project/security-reports/app-security-local.tar',
+    '--scanners', 'vuln,secret,misconfig',
+    '--severity', 'HIGH,CRITICAL',
+    '--format', 'json',
+    '--output', '/project/security-reports/trivy-image.json',
+    '--exit-code', '1',
+  ]);
 };
 
 const isZapTargetAllowed = (targetUrl) => {
@@ -338,6 +394,7 @@ const runHadolint = () => {
 
 const runIac = () => {
   const checkovReport = path.join(reportDir, 'checkov-report.json');
+  const checkovSarifReport = path.join(reportDir, 'checkov-report.sarif');
   const tfsecReport = path.join(reportDir, 'tfsec-report.json');
   const terrascanReport = path.join(reportDir, 'terrascan-report.json');
   const scanRoot = prepareScanRoot('iac-source', shouldCopyToIacScanRoot);
@@ -345,7 +402,7 @@ const runIac = () => {
   const iacSrcMount = `${hostPath(scanRoot)}:/src:ro`;
   const iacReportMount = `${hostPath(reportDir)}:/reports`;
 
-  for (const reportPath of [checkovReport, tfsecReport, terrascanReport]) {
+  for (const reportPath of [checkovReport, checkovSarifReport, tfsecReport, terrascanReport]) {
     fs.rmSync(reportPath, { recursive: true, force: true });
   }
 
@@ -360,6 +417,18 @@ const runIac = () => {
     '--output', 'json',
     '--soft-fail',
   ], checkovReport, { stdoutOnly: true });
+
+  runDockerReportOnly([
+    'run', '--rm',
+    '-v', iacScanMount,
+    images.checkov,
+    '-d', '/repo',
+    '--quiet',
+    '--compact',
+    '--framework', 'cloudformation,dockerfile,github_actions,secrets,kubernetes',
+    '--output', 'sarif',
+    '--soft-fail',
+  ], checkovSarifReport, { stdoutOnly: true, printOutput: false });
 
   runDockerReportOnly([
     'run', '--rm',

@@ -33,6 +33,15 @@ Docker-backed commands skip locally with an explicit message when Docker Desktop
 | Hadolint | Dockerfile lint |
 | ShellCheck | Shell safety lint |
 
+## GitHub Code scanning ingestion
+
+- CodeQL runs the `security-and-quality` suite for JavaScript, TypeScript, and GitHub Actions.
+- Gitleaks, Semgrep, Trivy filesystem, Trivy image, and Checkov reports are uploaded as separate SARIF categories.
+- Dependency Review blocks newly introduced dependencies at high or critical severity.
+- Dependabot checks npm workspaces, GitHub Actions, and Docker inputs weekly.
+
+Run `npm run security:sarif-contract` after changing scanner wrappers or security workflows. It verifies that every SARIF producer still has a matching GitHub upload path.
+
 ## Existing workflows
 
 - `.github/workflows/security-gates.yml`: Gitleaks, Semgrep, Trivy, IaC scanners, SBOM, ZAP, security tests.
