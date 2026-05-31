@@ -40,11 +40,9 @@ const { assertProductionEmailConfig } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const {
     startPaymentOutboxWorker,
-    getPaymentOutboxStats,
 } = require('./services/payments/paymentService');
 const {
     startOrderEmailWorker,
-    getOrderEmailQueueStats,
 } = require('./services/email/orderEmailQueueService');
 const {
     startCommerceReconciliationWorker,

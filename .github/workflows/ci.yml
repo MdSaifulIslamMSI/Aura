@@ -292,7 +292,7 @@ jobs:
           cache-dependency-path: server/package-lock.json
 
       - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.12.1
+        uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
           mongodb-version: "6.0"
 
@@ -393,7 +393,7 @@ jobs:
             server/package-lock.json
 
       - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.12.1
+        uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
           mongodb-version: "6.0"
 
@@ -440,7 +440,7 @@ jobs:
             server/package-lock.json
 
       - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.12.1
+        uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
           mongodb-version: "6.0"
 
@@ -591,7 +591,7 @@ jobs:
         run: npm ci
 
       - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.12.1
+        uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
           mongodb-version: "6.0"
 
@@ -732,13 +732,13 @@ jobs:
         run: npm run observability:validate
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v5
+        uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5
 
       - name: Validate Kubernetes kustomize base
         run: kubectl kustomize k8s/base > /tmp/k8s-base.yaml
 
       - name: Set up Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
 
       - name: Lint and render Helm chart
         run: |
@@ -759,7 +759,7 @@ jobs:
             /manifests/helm-production.yaml
 
       - name: Set up OpenTofu
-        uses: opentofu/setup-opentofu@v2
+        uses: opentofu/setup-opentofu@847eaa4afeb791b06daa46e8eafa8b1b68d7cfb4 # v2
         with:
           tofu_version: 1.8.8
 

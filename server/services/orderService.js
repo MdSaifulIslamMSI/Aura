@@ -13,7 +13,6 @@ const {
     scheduleRefundTask,
 } = require('./payments/paymentService');
 const { DIGITAL_METHODS } = require('./payments/constants');
-const { sendMessageToUser } = require('./socketService');
 
 const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
 

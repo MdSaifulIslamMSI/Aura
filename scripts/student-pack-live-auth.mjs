@@ -10,45 +10,24 @@ const strict = process.argv.includes('--strict');
 const json = process.argv.includes('--json');
 const writeReport = process.argv.includes('--write');
 const reportPath = join(repoRoot, '.run-logs', 'student-pack-live-auth.json');
+const ALLOWED_COMMANDS = new Set(['doppler', 'sentry-cli', 'datadog-ci', 'localstack']);
 
 const hasEnv = (key) => String(process.env[key] || '').trim().length > 0;
 
 const pathCandidates = (command) => {
-  const appData = process.env.APPDATA || '';
-  const localAppData = process.env.LOCALAPPDATA || '';
   if (process.platform !== 'win32') return [];
-  const candidates = [
+  return [
     join(repoRoot, 'bin', `${command}.cmd`),
     join(repoRoot, 'bin', `${command}.js`),
-    join(appData, 'npm', `${command}.cmd`),
-    join(appData, 'npm', `${command}.ps1`),
-    join(appData, 'Python', 'Python312', 'Scripts', `${command}.exe`),
-    join(appData, 'Python', 'Python312', 'Scripts', `${command}.bat`),
-  ];
-  if (command === 'doppler') {
-    candidates.push(join(
-      localAppData,
-      'Microsoft',
-      'WinGet',
-      'Packages',
-      'Doppler.doppler_Microsoft.Winget.Source_8wekyb3d8bbwe',
-      'doppler.exe',
-    ));
-  }
-  if (command === 'localstack') {
-    candidates.push(join(
-      localAppData,
-      'Microsoft',
-      'WinGet',
-      'Packages',
-      'LocalStack.localstack-cli_Microsoft.Winget.Source_8wekyb3d8bbwe',
-      'localstack.exe',
-    ));
-  }
-  return candidates.filter(Boolean);
+  ].filter(Boolean);
 };
 
-const resolveCommand = (command) => pathCandidates(command).find((candidate) => existsSync(candidate)) || command;
+const resolveCommand = (command) => {
+  if (!ALLOWED_COMMANDS.has(command)) {
+    throw new Error(`Unsupported live-auth command: ${command}`);
+  }
+  return pathCandidates(command).find((candidate) => existsSync(candidate)) || command;
+};
 
 const run = (command, args = [], { timeout = 10000 } = {}) => {
   const executable = resolveCommand(command);
@@ -64,6 +43,8 @@ const run = (command, args = [], { timeout = 10000 } = {}) => {
     : isPowerShellScript
       ? ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', executable, ...args]
       : args;
+  // Command names are fixed live-auth checks guarded by ALLOWED_COMMANDS; shell execution is disabled.
+  // codeql[js/indirect-command-line-injection]
   const result = spawnSync(commandForSpawn, argsForSpawn, {
     cwd: repoRoot,
     encoding: 'utf8',

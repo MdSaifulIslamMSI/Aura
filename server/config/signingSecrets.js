@@ -17,7 +17,6 @@ const assertSigningSecretsConfig = () => {
     const nodeEnv = normalizeEnv(process.env.NODE_ENV || 'development');
     if (nodeEnv === 'test') return;
 
-    const isProduction = nodeEnv === 'production';
     requireSecret('OTP_FLOW_SECRET', true);
     requireSecret('OTP_CHALLENGE_SECRET', true);
     requireSecret('UPLOAD_SIGNING_SECRET', true);

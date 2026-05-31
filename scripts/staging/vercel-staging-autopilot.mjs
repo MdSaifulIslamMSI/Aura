@@ -15,12 +15,10 @@ import {
   getUrlHost,
   isKnownProductionHost,
   looksProductionLike,
-  normalize,
 } from '../env-contract-lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const resultPath = path.join(REPO_ROOT, '.staging', 'vercel-staging-result.json');
-const protectionBypassPath = path.join(REPO_ROOT, '.staging', 'vercel-protection-bypass-response.json');
 const blockerReportPath = path.join(REPO_ROOT, 'docs', 'staging-vercel-blocker-report.md');
 const ghBin = process.platform === 'win32' ? 'gh.exe' : 'gh';
 
@@ -29,6 +27,17 @@ const failures = [];
 let authMode = 'token';
 
 const clean = (value = '') => String(value || '').trim();
+const safeReportText = (value = '') => sanitize(String(value || ''))
+  .replace(/[^\x09\x0a\x0d\x20-\x7e]/g, '?')
+  .slice(0, 600);
+const safeReportValue = (value) => {
+  if (typeof value === 'string') return safeReportText(value);
+  if (Array.isArray(value)) return value.map((entry) => safeReportValue(entry));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, safeReportValue(entry)]));
+  }
+  return value;
+};
 const trimTrailingSlash = (value = '') => clean(value).replace(/\/+$/, '');
 const requireEnv = (name) => {
   const value = clean(process.env[name]);
@@ -54,25 +63,31 @@ const ensureStateDir = () => fs.mkdirSync(path.dirname(resultPath), { recursive:
 
 const writeJson = (targetPath, value) => {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.writeFileSync(targetPath, `${JSON.stringify(value, null, 2)}\n`);
+  // Local staging state/config only; network-derived fields are summarized and sanitized before this write.
+  // codeql[js/http-to-file-access]
+  fs.writeFileSync(targetPath, `${JSON.stringify(safeReportValue(value), null, 2)}\n`);
 };
 
 const writeBlocker = (summary, details = []) => {
+  const safeSummary = safeReportText(summary);
+  const safeDetails = details.map((detail) => safeReportText(detail));
   const body = [
     '# Vercel Staging Blocker Report',
     '',
     'Final status: Code/docs/checks were added fail-closed, but Vercel frontend staging automation could not complete.',
     '',
-    `Summary: ${summary}`,
+    `Summary: ${safeSummary}`,
     '',
     'Details:',
-    ...details.map((detail) => `- ${detail}`),
+    ...safeDetails.map((detail) => `- ${detail}`),
     '',
     'Required fix:',
     '- Keep `npm run staging:deploy` on the Docker-hosted AWS staging frontend path while Vercel staging is blocked.',
     '- Provide a Vercel token or local CLI authentication that can inspect the project and write the required staging or branch-scoped Preview variables before creating Preview deployments.',
     '- Re-run `npm run staging:vercel:autopilot` after credentials are corrected.',
   ].join('\n');
+  // This is a local blocker report; Vercel CLI/API output is sanitized and capped above.
+  // codeql[js/http-to-file-access]
   fs.writeFileSync(blockerReportPath, `${body}\n`);
 };
 
@@ -353,24 +368,11 @@ const setGithubSecret = (key, value) => {
 };
 
 const getProtectionBypassSecret = async () => {
-  if (fs.existsSync(protectionBypassPath)) {
-    try {
-      const cached = JSON.parse(fs.readFileSync(protectionBypassPath, 'utf8'));
-      const cachedSecret = Object.keys(cached?.protectionBypass || {}).at(-1) || '';
-      if (cachedSecret) {
-        warnings.push('Using existing local Vercel automation bypass secret for protected Preview smoke.');
-        return cachedSecret;
-      }
-    } catch {
-      // Regenerate below if the local non-committed cache is unreadable.
-    }
-  }
   try {
     const response = await api(`/v1/projects/${env.projectId}/protection-bypass`, {
       method: 'PATCH',
       body: { generate: {} },
     });
-    writeJson(protectionBypassPath, response);
     const secrets = Object.keys(response?.protectionBypass || {});
     const secret = secrets.at(-1) || '';
     if (!secret) {

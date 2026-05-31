@@ -6,7 +6,6 @@ jest.mock('../services/loyaltyService', () => ({
     awardLoyaltyPoints: jest.fn(async () => null),
 }));
 
-const mongoose = require('mongoose');
 const User = require('../models/User');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
@@ -17,7 +16,6 @@ const IdempotencyRecord = require('../models/IdempotencyRecord');
 const { addOrderItems } = require('../controllers/orderController');
 const { buildOrderQuote } = require('../services/orderPricingService');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
-const AppError = require('../utils/AppError');
 
 const makeUser = async (overrides = {}) => User.create({
     name: 'Checkout User',

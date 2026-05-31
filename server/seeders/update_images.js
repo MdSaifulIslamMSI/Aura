@@ -29,9 +29,6 @@ function updateImages() {
 
     let updatedContent = fileContent;
 
-    // Define categories to look for
-    const categories = Object.keys(imageMap);
-
     // Naive approach: Find all image lines and check context? 
     // Better: Regex replace for specific categories.
 
@@ -90,8 +87,6 @@ function updateImages() {
     // Then I can run generic Category replacements for the rest?
     // Wait, if I run Category: Electronics replace, it will overwrite Headphones if I'm not careful.
     // Solution: Only replace if the image string starts with "http" (meaning it has not been replaced by local asset yet).
-
-    const isUnsplash = "https://images.unsplash.com";
 
     // Helper to replace safe
     const replaceIfRemote = (catType, catName, newImg) => {

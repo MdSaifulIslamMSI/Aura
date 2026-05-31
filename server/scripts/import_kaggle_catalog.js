@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const mongoose = require('mongoose');
-const { importKaggleCatalog } = require('../services/externalCatalogService');
+const { prepareKaggleCatalogSnapshot } = require('../services/externalCatalogService');
 const {
     createCatalogImportJob,
     processCatalogImportJobById,

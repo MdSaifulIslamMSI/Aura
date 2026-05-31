@@ -59,6 +59,7 @@ npm run scan:prod-fallbacks
 ```
 
 The autopilot writes `.staging/vercel-staging-result.json` locally. That file is intentionally ignored.
+Frontend smoke no longer reads local `.staging` deployment output as a fallback; CI and local runs must pass explicit `STAGING_FRONTEND_URL`, `STAGING_API_BASE_URL`, and `STAGING_HEALTH_URL` values. Vercel automation bypass secrets are generated for the run and are not cached in `.staging`.
 
 ## Safety Rules
 

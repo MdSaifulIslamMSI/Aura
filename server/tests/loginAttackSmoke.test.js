@@ -206,7 +206,7 @@ describe('login attack smoke: recovery-token attacks', () => {
         expect(replay.statusCode).toBe(401);
         expect(replay.body.message).toContain('invalid or already used');
 
-        const nextPassword = buildStrongPassword('wrong-device-reset');
+        const nextPassword = buildStrongPassword();
         const wrongDeviceReset = await request(app)
             .post('/api/otp/reset-password')
             .set('X-Aura-Device-Id', 'attack-device-b')

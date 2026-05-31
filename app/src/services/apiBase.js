@@ -1,5 +1,5 @@
 import { prepareTraceHeaders } from './clientObservability';
-import { getSafeEnv, resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
+import { resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
 import { getActiveMarketHeaders } from './marketRuntime';
 import { ADMIN_ACCESS_LOCK_EVENT, getAdminAccessLockPayload } from '../utils/adminAccessLock';
 

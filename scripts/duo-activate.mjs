@@ -5,6 +5,7 @@ import path from 'node:path';
 const repoRoot = process.cwd();
 const reportsDir = path.join(repoRoot, 'security-reports');
 mkdirSync(reportsDir, { recursive: true });
+const reportPath = path.join(reportsDir, 'duo-activation.json');
 
 if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
   throw new Error('Refusing to run Duo activation checks with NODE_ENV=production');
@@ -20,6 +21,18 @@ const required = flags.mode === 'oidc'
   : ['DUO_CLIENT_ID', 'DUO_CLIENT_SECRET', 'DUO_API_HOST', 'DUO_REDIRECT_URI'];
 const missing = required.filter((key) => !String(process.env[key] || '').trim());
 
+const safeReportText = (value = '') => String(value || '')
+  .replace(/[^\x09\x0a\x0d\x20-\x7e]/g, '?')
+  .slice(0, 300);
+const writeReport = (value) => {
+  const safeValue = JSON.parse(JSON.stringify(value, (_key, entry) => (
+    typeof entry === 'string' ? safeReportText(entry) : entry
+  )));
+  // Local activation evidence only; remote health data is reduced to booleans/enums and sanitized above.
+  // codeql[js/http-to-file-access]
+  writeFileSync(reportPath, `${JSON.stringify(safeValue, null, 2)}\n`);
+};
+
 const report = {
   generatedAt: new Date().toISOString(),
   command: 'duo:activate',
@@ -31,7 +44,7 @@ const report = {
 };
 
 if (missing.length > 0) {
-  writeFileSync(path.join(reportsDir, 'duo-activation.json'), `${JSON.stringify(report, null, 2)}\n`);
+  writeReport(report);
   console.error(`Cisco Duo activation blocked. Missing runtime secret(s): ${missing.join(', ')}`);
   console.error('Create a Duo Universal Prompt Web SDK/OIDC application, then store these values in local/staging secrets and rerun npm run duo:activate.');
   process.exit(1);
@@ -56,7 +69,7 @@ if (flags.mode === 'oidc') {
       missingMetadata,
     };
     report.readyToEnable = report.healthCheck === 'passed';
-    writeFileSync(path.join(reportsDir, 'duo-activation.json'), `${JSON.stringify(report, null, 2)}\n`);
+    writeReport(report);
 
     if (report.readyToEnable) {
       console.log('Cisco Duo OIDC discovery check passed. Store the rotated client secret in staging secrets before enforcing Duo.');
@@ -67,7 +80,7 @@ if (flags.mode === 'oidc') {
   } catch (error) {
     report.healthCheck = 'failed';
     report.error = error?.message || 'Duo OIDC discovery check failed';
-    writeFileSync(path.join(reportsDir, 'duo-activation.json'), `${JSON.stringify(report, null, 2)}\n`);
+    writeReport(report);
     console.error('Cisco Duo activation blocked. OIDC discovery check failed.');
     process.exit(1);
   }
@@ -85,12 +98,12 @@ if (!oidcActivationHandled) {
     await client.healthCheck();
     report.healthCheck = 'passed';
     report.readyToEnable = true;
-    writeFileSync(path.join(reportsDir, 'duo-activation.json'), `${JSON.stringify(report, null, 2)}\n`);
+    writeReport(report);
     console.log('Cisco Duo health check passed. Set DUO_ENABLED=true in staging to enforce Duo on wired high-risk flows.');
   } catch (error) {
     report.healthCheck = 'failed';
     report.error = error?.message || 'Duo health check failed';
-    writeFileSync(path.join(reportsDir, 'duo-activation.json'), `${JSON.stringify(report, null, 2)}\n`);
+    writeReport(report);
     console.error('Cisco Duo activation blocked. Duo health check failed.');
     process.exit(1);
   }

@@ -58,10 +58,10 @@ const SmoothScrollManager = () => {
 
     const reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
     const desktopMotionMedia = window.matchMedia('(min-width: 1024px) and (pointer: fine)');
-    let cancelled = false;
+    const lifecycle = { cancelled: false };
 
     const boot = async () => {
-      if (cancelled) return;
+      if (lifecycle.cancelled) return;
       if (!desktopMotionMedia.matches) {
         destroyLenis(lenisRef, frameRef);
         html.dataset.smoothScroll = 'native';
@@ -76,7 +76,7 @@ const SmoothScrollManager = () => {
 
       try {
         const mod = await import('lenis');
-        if (cancelled) return;
+        if (lifecycle.cancelled) return;
 
         const Lenis = mod.default || mod.Lenis;
         if (!Lenis) {
@@ -141,7 +141,7 @@ const SmoothScrollManager = () => {
     syncLenisEligibility();
 
     return () => {
-      cancelled = true;
+      lifecycle.cancelled = true;
       if (typeof reducedMotionMedia.removeEventListener === 'function') {
         reducedMotionMedia.removeEventListener('change', syncLenisEligibility);
       } else {

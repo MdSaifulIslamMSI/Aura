@@ -1,4 +1,4 @@
-import { apiFetch, API_BASE_URL as BASE_URL } from '../apiBase';
+import { apiFetch } from '../apiBase';
 import { getAuthHeader, createIdempotencyKey, runWhenIdle } from './apiUtils';
 
 const prefetchedListingIds = new Set();

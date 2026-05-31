@@ -1,5 +1,4 @@
 import {
-  DEFAULT_GATEWAY_FRONTEND_URL,
   detectFrontendPlatform,
   normalizeFrontendUrl,
   resolveFrontendNavigationTargets,

@@ -44,9 +44,9 @@ const pushWeightedBrand = (counter, brand, weight) => {
 };
 
 const buildMetaFromSignals = ({ primaryCategory, hasCart, hasWishlist, hasRecent, hasSearch, hasCluster }) => {
-    let eyebrow = 'Intent-Based Recommendations';
-    let title = 'Curated for Your Next Move';
-    let description = 'These picks combine your durable account signals with your current browsing session.';
+    let eyebrow;
+    let title;
+    let description;
 
     if (hasCluster && primaryCategory) {
         eyebrow = 'Interest Cluster Discovery';

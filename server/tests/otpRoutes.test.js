@@ -387,7 +387,7 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
-            const nextPassword = buildStrongPassword('otp-scoped-reset');
+            const nextPassword = buildStrongPassword();
             const res = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-reset-123')
                 .send({
@@ -430,7 +430,7 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
-            const nextPassword = buildStrongPassword('recovery-code-reset');
+            const nextPassword = buildStrongPassword();
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
                     flowToken,
@@ -470,7 +470,7 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
-            const nextPassword = buildStrongPassword('wrong-device-reset');
+            const nextPassword = buildStrongPassword();
             const res = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-other-456')
                 .send({
@@ -505,7 +505,7 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
-            const nextPassword = buildStrongPassword('missing-session-reset');
+            const nextPassword = buildStrongPassword();
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
                     flowToken,
@@ -539,7 +539,7 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
-            const nextPassword = buildStrongPassword('email-factor-reset');
+            const nextPassword = buildStrongPassword();
             const res = await request(app).post('/api/otp/reset-password')
                 .send({
                     flowToken,
@@ -610,7 +610,7 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
-            const nextPassword = buildStrongPassword('replayed-reset');
+            const nextPassword = buildStrongPassword();
             const firstRes = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-reset-123')
                 .send({
@@ -683,7 +683,7 @@ describe('OTP API Routes Integration', () => {
                 expiresAt: flowTokenExpiresAt,
             });
 
-            const nextPassword = buildStrongPassword('trusted-device-reset');
+            const nextPassword = buildStrongPassword();
             const spoofedRes = await request(app).post('/api/otp/reset-password')
                 .set('X-Aura-Device-Id', 'device-reset-123')
                 .send({

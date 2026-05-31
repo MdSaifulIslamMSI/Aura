@@ -1,6 +1,5 @@
 const dns = require('dns').promises;
 const AppError = require('../utils/AppError');
-const logger = require('../utils/logger');
 
 const ALLOWED_PROXY_HOSTNAMES = new Set([
     'rukminim1.flixcart.com',

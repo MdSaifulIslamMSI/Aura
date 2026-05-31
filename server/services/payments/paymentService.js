@@ -1,7 +1,5 @@
-const mongoose = require('mongoose');
 const AppError = require('../../utils/AppError');
 const Order = require('../../models/Order');
-const User = require('../../models/User');
 const PaymentIntent = require('../../models/PaymentIntent');
 const PaymentEvent = require('../../models/PaymentEvent');
 const PaymentMethod = require('../../models/PaymentMethod');
@@ -39,7 +37,6 @@ const {
     diff,
     buildSecurityState,
     setSecurityState,
-    getLockUntilDate,
     assertQuoteMatches,
     isIntentExpired,
     assertConfirmNotLocked,
@@ -1353,14 +1350,18 @@ const linkIntentToOrder = async ({ intentId, orderId, session = null, claimKey =
     const query = PaymentIntent.findOneAndUpdate(
         {
             intentId,
-            $or: [{ order: null }, { order: orderId }],
-            $or: [
-                { 'orderClaim.state': 'none' },
-                { 'orderClaim.state': 'locked', 'orderClaim.key': String(claimKey || '') },
+            $and: [
+                { $or: [{ order: null }, { order: orderId }] },
                 {
-                    order: orderId,
-                    'orderClaim.state': 'consumed',
-                    'orderClaim.key': String(claimKey || ''),
+                    $or: [
+                        { 'orderClaim.state': 'none' },
+                        { 'orderClaim.state': 'locked', 'orderClaim.key': String(claimKey || '') },
+                        {
+                            order: orderId,
+                            'orderClaim.state': 'consumed',
+                            'orderClaim.key': String(claimKey || ''),
+                        },
+                    ],
                 },
             ],
         },

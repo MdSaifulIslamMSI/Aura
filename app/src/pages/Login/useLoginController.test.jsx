@@ -214,6 +214,8 @@ describe('useLoginController', () => {
       .toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(normalizeDesktopAuthCallbackUrl('/desktop-auth/complete')).toBe('/desktop-auth/complete');
     expect(normalizeDesktopAuthCallbackUrl('')).toBe('');
+    expect(normalizeDesktopAuthCallbackUrl('https://localhost:47831/desktop-auth/complete')).toBe('');
+    expect(normalizeDesktopAuthCallbackUrl('http://localhost:49999/desktop-auth/complete')).toBe('');
     expect(normalizeDesktopAuthCallbackUrl('https://evil.example.test/desktop-auth/complete')).toBe('');
   });
 

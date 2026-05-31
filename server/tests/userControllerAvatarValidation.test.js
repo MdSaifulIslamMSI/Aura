@@ -1,6 +1,4 @@
-const asyncHandler = require('express-async-handler');
 const { updateUserProfile } = require('../controllers/userController');
-const AppError = require('../utils/AppError');
 
 // Mock dependencies
 jest.mock('../models/User');

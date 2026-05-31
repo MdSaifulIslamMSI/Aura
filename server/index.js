@@ -146,7 +146,6 @@ const {
     readOnlyMiddleware,
     strictRateLimitMiddleware,
 } = require('./middleware/emergencyControlMiddleware');
-const { getAllBreakerStats } = require('./utils/circuitBreaker');
 const metricsRoute = require('./routes/metricsRoute');
 const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./services/socketService');
 

@@ -1,5 +1,5 @@
-import { apiFetch, requestWithTrace, API_BASE_URL as BASE_URL } from '../apiBase';
-import { parseApiError, getAuthHeader, runWhenIdle } from './apiUtils';
+import { apiFetch, API_BASE_URL as BASE_URL } from '../apiBase';
+import { getAuthHeader, runWhenIdle } from './apiUtils';
 import { getActiveMarketHeaders } from '../marketRuntime';
 
 const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;

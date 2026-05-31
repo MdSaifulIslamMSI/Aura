@@ -29,12 +29,12 @@ const extractProductIdFromPath = (pathname = '') => {
 };
 
 const resolveAssistantContextPath = (location = {}) => {
-    const pathname = safeString(location?.pathname || '/', '/');
+    const pathname = safeString(location?.pathname || '/');
     if (!pathname.startsWith('/assistant')) {
         return pathname;
     }
 
-    const from = safeString(new URLSearchParams(location?.search || '').get('from') || '/', '/');
+    const from = safeString(new URLSearchParams(location?.search || '').get('from') || '/');
     return from.startsWith('/') ? from : `/${from}`;
 };
 
@@ -185,7 +185,6 @@ export const useAssistantController = () => {
     const activeSessionId = useChatStore((state) => state.activeSessionId);
     const context = useChatStore((state) => state.context);
     const assistantSession = useChatStore((state) => state.context.assistantSession);
-    const sessionMemory = useChatStore((state) => state.context.sessionMemory);
     const supportPrefill = useChatStore((state) => state.supportPrefill);
     const pendingConfirmation = useChatStore((state) => state.pendingConfirmation);
     const lastAssistantTurn = useChatStore((state) => state.lastAssistantTurn);

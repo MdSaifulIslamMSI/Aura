@@ -753,8 +753,8 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
         return next(new AppError('Invalid refund amount', 400));
     }
 
-    let finalStatus = requestedStatus;
-    let finalMessage = note || 'Refund request updated by admin';
+    let finalStatus;
+    let finalMessage;
     let finalRefundId = String(refund.refundId || externalReference || '');
     let processedAt = null;
     const reasonForProvider = note || String(refund.reason || '').trim() || 'admin_refund_review';
@@ -903,8 +903,8 @@ const processOrderReplacementRequestAdmin = asyncHandler(async (req, res, next) 
     const quantity = Math.max(Number(replacement.quantity || 1), 1);
     const itemProductId = String(replacement.itemProductId || '');
 
-    let finalStatus = nextStatus;
-    let message = note || 'Replacement request updated by admin';
+    let finalStatus;
+    let message;
     let trackingId = String(replacement.trackingId || '');
     let processedAt = null;
 

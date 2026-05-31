@@ -223,7 +223,6 @@ const run = async () => {
         }
     }
 
-    const pending = operations.length;
     updated += await flush();
 
     console.log('[rename] done', JSON.stringify({

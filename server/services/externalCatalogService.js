@@ -89,7 +89,6 @@ const slugifyDataset = (dataset) => safeLower(dataset)
 
 const escapePowerShell = (value) => String(value || '').replace(/'/g, "''");
 
-const DATASET_REGEX = /^[a-z0-9-]+\/[a-z0-9-]+$/i;
 const ALLOWED_EXTERNAL_COMMANDS = new Set(['kaggle', 'kaggle.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe', 'unzip']);
 
 const runCommand = ({ command, args, cwd }) => {

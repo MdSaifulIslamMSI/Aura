@@ -54,7 +54,6 @@ import {
   EMPTY_ROLES,
   EMPTY_SESSION_STATE,
   normalizeEmail,
-  normalizePhone,
   normalizeText,
   SESSION_STATUS,
   VALID_TRANSITIONS,

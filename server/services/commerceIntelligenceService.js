@@ -324,9 +324,6 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
     // Scale prices to integers for DP table indexing
     
     let selected = [];
-    let totalPrice = 0;
-    let originalTotal = 0;
-
     try {
         const n = candidates.length;
         const items = candidates.map(c => ({
@@ -370,8 +367,6 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
             }
             if (selected.length >= N_LIMIT) break;
         }
-        totalPrice = selected.reduce((sum, item) => sum + item.price, 0);
-        originalTotal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || item.price), 0);
     } catch (error) {
         // Fallback: Just pick top rated items within budget if DP fails or exceeds memory
         const sorted = [...candidates].sort((a, b) => b.rating - a.rating);
@@ -397,8 +392,6 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
                 currentBudget -= price;
             }
         }
-        totalPrice = selected.reduce((sum, item) => sum + item.price, 0);
-        originalTotal = selected.reduce((sum, item) => sum + (Number(item.originalPrice) || item.price), 0);
     }
 
     const totalPriceVal = selected.reduce((sum, item) => sum + item.price, 0);

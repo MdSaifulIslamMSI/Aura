@@ -598,10 +598,9 @@ const backfillProductVectorIndex = async ({ limit = 0, force = false } = {}) => 
     let skipped = 0;
     let removed = 0;
     let offset = 0;
-    let exhausted = false;
     const seenPublishedIds = new Set();
 
-    while (!exhausted) {
+    while (true) {
         const remaining = safeLimit > 0 ? Math.max(safeLimit - processed, 0) : batchSize;
         if (safeLimit > 0 && remaining <= 0) {
             break;
@@ -615,7 +614,6 @@ const backfillProductVectorIndex = async ({ limit = 0, force = false } = {}) => 
             .lean();
 
         if (!products.length) {
-            exhausted = true;
             break;
         }
 

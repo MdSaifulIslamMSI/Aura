@@ -242,7 +242,7 @@ const scanForMarketplaceAnomalies = async (seedUserId, neighborhoodData = []) =>
     const graph = { nodes, neighbors };
     const findings = [];
 
-    for (const [key, template] of Object.entries(ATTACK_TEMPLATES)) {
+    for (const template of Object.values(ATTACK_TEMPLATES)) {
         const match = findPatternMatch(graph, template);
         if (match) {
             findings.push({

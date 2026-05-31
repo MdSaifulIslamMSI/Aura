@@ -52,7 +52,7 @@ jobs:
         run: npm --prefix server test -- --runTestsByPath tests/performanceCache.test.js --forceExit
 
       - name: Setup k6
-        uses: grafana/setup-k6-action@v1
+        uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065 # v1
 
       - name: Build local frontend performance target
         if: ${{ (vars.PERF_BASE_URL || '') == '' || (vars.PERF_API_BASE_URL || '') == '' }}
