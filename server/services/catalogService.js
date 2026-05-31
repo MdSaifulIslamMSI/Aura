@@ -411,10 +411,10 @@ const normalizeSpecifications = (raw = []) => {
 };
 
 const PLACEHOLDER_IMAGE_PATTERNS = [
-    /via\.placeholder\.com/i,
-    /picsum\.photos/i,
-    /placehold\.co/i,
-    /dummyimage\.com/i,
+    /^https?:\/\/(?:[^/?#]+\.)?via\.placeholder\.com(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?picsum\.photos(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?placehold\.co(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?dummyimage\.com(?:[/?#]|$)/i,
 ];
 
 const detectCatalogSourceType = ({ source, sourceRef }) => {

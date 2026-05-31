@@ -256,12 +256,7 @@ const csrfTokenValidator = async (req, res, next) => {
     const headerToken = rawTokens[0].value || '';
     const bodyToken = rawTokens[1].value || '';
     const queryToken = rawTokens[2].value || '';
-    const isAuthenticated = Boolean(req.user?.id || req.authUid);
-    const contentType = String(req.headers['content-type'] || '').toLowerCase();
-    const accepts = String(req.headers.accept || '').toLowerCase();
-    const isJsonRequest = contentType.includes('application/json') || accepts.includes('application/json');
-
-    if (isAuthenticated && isJsonRequest && !headerToken && (bodyToken || queryToken)) {
+    if (!headerToken && (bodyToken || queryToken)) {
         logger.warn('csrf.token_transport_rejected', {
             method: req.method,
             path: req.path,
@@ -283,8 +278,7 @@ const csrfTokenValidator = async (req, res, next) => {
         });
     }
 
-    // Priority: header > body > query
-    const token = headerToken || bodyToken || queryToken;
+    const token = headerToken;
 
     if (!token) {
         logger.warn('csrf.token_missing', {

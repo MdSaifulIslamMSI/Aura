@@ -19,10 +19,10 @@ const {
 const NO_IMAGE_PLACEHOLDER = 'https://via.placeholder.com/600x600?text=Aura+Product';
 
 const PLACEHOLDER_IMAGE_PATTERNS = [
-    /via\.placeholder\.com/i,
-    /picsum\.photos/i,
-    /placehold\.co/i,
-    /dummyimage\.com/i,
+    /^https?:\/\/(?:[^/?#]+\.)?via\.placeholder\.com(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?picsum\.photos(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?placehold\.co(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?dummyimage\.com(?:[/?#]|$)/i,
 ];
 
 // Lazy-load Product model to avoid circular dependency issues.

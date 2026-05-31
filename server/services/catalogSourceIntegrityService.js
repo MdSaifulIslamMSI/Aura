@@ -1,9 +1,9 @@
 const SYNTHETIC_IMAGE_HOST_PATTERNS = [
-    /picsum\.photos/i,
-    /via\.placeholder\.com/i,
-    /placehold\.co/i,
-    /dummyimage\.com/i,
-    /loremflickr\.com/i,
+    /^https?:\/\/(?:[^/?#]+\.)?picsum\.photos(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?via\.placeholder\.com(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?placehold\.co(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?dummyimage\.com(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?loremflickr\.com(?:[/?#]|$)/i,
 ];
 
 const SYNTHETIC_TITLE_PATTERNS = [

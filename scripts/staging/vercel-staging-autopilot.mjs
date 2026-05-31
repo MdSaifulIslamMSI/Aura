@@ -173,16 +173,20 @@ const directApi = async (endpoint, options = {}) => {
 };
 
 const cliApi = (endpoint, { method = 'GET', body } = {}) => {
-  const inputPath = body ? path.join(os.tmpdir(), `aura-vercel-api-${Date.now()}.json`) : '';
-  if (body) fs.writeFileSync(inputPath, JSON.stringify(body));
+  const inputDir = body ? fs.mkdtempSync(path.join(os.tmpdir(), 'aura-vercel-api-')) : '';
+  const inputPath = body ? path.join(inputDir, 'request.json') : '';
+  if (body) fs.writeFileSync(inputPath, JSON.stringify(body), { mode: 0o600 });
   const args = ['vercel', 'api', endpoint, '-X', method, '--raw', ...cliAuthArgs()];
   if (body) args.push('--input', inputPath);
-  const result = runNpx(args);
-  if (inputPath) fs.rmSync(inputPath, { force: true });
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || `vercel api ${endpoint} failed`);
+  try {
+    const result = runNpx(args);
+    if (result.status !== 0) {
+      throw new Error(result.stderr || result.stdout || `vercel api ${endpoint} failed`);
+    }
+    return result.stdout ? JSON.parse(result.stdout) : {};
+  } finally {
+    if (inputDir) fs.rmSync(inputDir, { recursive: true, force: true });
   }
-  return result.stdout ? JSON.parse(result.stdout) : {};
 };
 
 const api = async (endpoint, options = {}) => {

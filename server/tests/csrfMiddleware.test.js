@@ -135,6 +135,25 @@ describe('csrf middleware', () => {
         }));
     });
 
+    test('requires header-only token transport for unauthenticated form requests', async () => {
+        const req = {
+            method: 'POST',
+            path: '/form-submit',
+            ip: '127.0.0.1',
+            headers: {},
+            body: { csrfToken: 'body-token' },
+            query: {},
+        };
+        const next = jest.fn();
+
+        await csrfTokenValidator(req, {}, next);
+
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            code: 'CSRF_TOKEN_HEADER_REQUIRED',
+        }));
+    });
+
     test('rejects array token parameters before validation', async () => {
         const req = {
             method: 'POST',
