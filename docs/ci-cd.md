@@ -113,6 +113,8 @@ The workflows intentionally do not carry account-specific AWS resource defaults.
 
 The backend deploy lane uses a native `ubuntu-24.04-arm` runner for the default `linux/arm64` image build. Keep that guard in place; building the backend image through QEMU emulation can crash during `npm ci` with `Illegal instruction` and block the full production release train.
 
+The same backend deploy role must allow `ssm:PutParameter` only for the configured runtime prefix, such as `/aura/prod/*`. Re-run `infra/aws/bootstrap-github-oidc.ps1` after this policy changes so manual production admin access can update the allowlist in Parameter Store. Until that IAM refresh is applied, the admin workflow uses the existing SSM command channel to patch the EC2 runtime env and restart the API without committing secrets.
+
 ## Local GitHub Auth
 
 Local `gh auth login` is not required for automated releases.

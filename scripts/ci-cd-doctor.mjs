@@ -35,6 +35,7 @@ const desktop = read('.github/workflows/desktop-release.yml');
 const mobile = read('.github/workflows/mobile-release.yml');
 const gateway = read('.github/workflows/deploy-gateway-vercel.yml');
 const deployBackend = read('.github/workflows/deploy-backend-aws.yml');
+const backendOidcBootstrap = read('infra/aws/bootstrap-github-oidc.ps1');
 const packageJson = JSON.parse(read('package.json') || '{}');
 const securityRunner = read('scripts/security-runner.mjs');
 
@@ -170,11 +171,27 @@ addCheck(
 );
 
 addCheck(
+  'production admin access has runtime fallback',
+  productionAdminAccess.includes('parameter_store_updated=false') &&
+    productionAdminAccess.includes('Apply direct runtime admin allowlist fallback') &&
+    productionAdminAccess.includes('ADMIN_REQUIRE_ALLOWLIST=true'),
+  'admin recovery can proceed through SSM SendCommand when PutParameter is not deployed yet'
+);
+
+addCheck(
   'backend deploy uses native arm64 runner',
   deployBackend.includes('runs-on: ubuntu-24.04-arm') &&
     deployBackend.includes('RUNNER_ARCH_NAME: ${{ runner.arch }}') &&
     deployBackend.includes('linux/arm64 backend builds must run on an ARM64 GitHub runner.'),
   'prevents QEMU illegal instruction during npm ci in the backend image build'
+);
+
+addCheck(
+  'backend deploy OIDC policy can update runtime parameters',
+  backendOidcBootstrap.includes('"ssm:PutParameter"') &&
+    backendOidcBootstrap.includes('$ParameterStorePathPrefix') &&
+    backendOidcBootstrap.includes('RuntimeParameterUpdates'),
+  'manual production admin access can write /aura/prod allowlist values after IAM bootstrap refresh'
 );
 
 addCheck(

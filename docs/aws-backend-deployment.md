@@ -30,6 +30,7 @@
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-cost-guardrails.ps1 -AwsProfile aura-bootstrap -MonthlyBudgetUsd 90`
 3. Create or refresh the GitHub deploy role:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-github-oidc.ps1 -Repository MdSaifulIslamMSI/Aura -AwsProfile aura-bootstrap`
+   - Re-run this after CI/CD policy updates; the role needs narrow `ssm:PutParameter` access to `/aura/prod/*` so production admin allowlist changes can be written to Parameter Store.
 4. Publish secrets into Parameter Store:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\sync-parameter-store-env.ps1 -SourceEnvFile .\server\.env.aws-secrets -PathPrefix /aura/prod -AwsRegion ap-south-1 -AwsProfile aura-bootstrap`
 
