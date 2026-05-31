@@ -1,6 +1,16 @@
 language,total_keys,missing_keys,exact_english_matches,exact_english_percent,native_script_rule,native_script_key_hits,native_script_key_percent,native_letter_percent,status
 bn,597,0,0,0,Bengali,597,100,98.30,pass
 hi,597,0,7,1.17,Devanagari,590,98.83,96.63,pass
+te,597,0,3,0.50,Telugu,594,99.50,98.25,pass
+mr,597,0,2,0.34,Devanagari,595,99.66,97.99,pass
+ur,597,0,3,0.50,Arabic,594,99.50,98.48,pass
+gu,597,0,1,0.17,Gujarati,596,99.83,96.76,pass
+pa,597,0,2,0.34,Gurmukhi,595,99.66,96.96,pass
+ml,597,0,0,0,Malayalam,597,100,98.86,pass
+kn,597,0,2,0.34,Kannada,595,99.66,98.34,pass
+or,597,0,4,0.67,Odia,592,99.16,95.19,pass
+as,597,0,1,0.17,Bengali,596,99.83,97.81,pass
+sa,597,0,2,0.34,Devanagari,595,99.66,97.19,pass
 es,597,0,25,4.19,,,,,pass
 fr,597,0,36,6.03,,,,,pass
 de,597,0,37,6.20,,,,,pass

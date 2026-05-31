@@ -31,6 +31,46 @@ const NATIVE_SCRIPT_RULES = {
         label: 'Devanagari',
         patterns: [/\p{Script=Devanagari}/gu],
     },
+    te: {
+        label: 'Telugu',
+        patterns: [/\p{Script=Telugu}/gu],
+    },
+    mr: {
+        label: 'Devanagari',
+        patterns: [/\p{Script=Devanagari}/gu],
+    },
+    ur: {
+        label: 'Arabic',
+        patterns: [/\p{Script=Arabic}/gu],
+    },
+    gu: {
+        label: 'Gujarati',
+        patterns: [/\p{Script=Gujarati}/gu],
+    },
+    pa: {
+        label: 'Gurmukhi',
+        patterns: [/\p{Script=Gurmukhi}/gu],
+    },
+    ml: {
+        label: 'Malayalam',
+        patterns: [/\p{Script=Malayalam}/gu],
+    },
+    kn: {
+        label: 'Kannada',
+        patterns: [/\p{Script=Kannada}/gu],
+    },
+    or: {
+        label: 'Odia',
+        patterns: [/\p{Script=Oriya}/gu],
+    },
+    as: {
+        label: 'Bengali',
+        patterns: [/\p{Script=Bengali}/gu],
+    },
+    sa: {
+        label: 'Devanagari',
+        patterns: [/\p{Script=Devanagari}/gu],
+    },
     ar: {
         label: 'Arabic',
         patterns: [/\p{Script=Arabic}/gu],
