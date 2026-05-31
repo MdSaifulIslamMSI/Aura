@@ -224,7 +224,7 @@ const resolveProviderLabel = (providerIds = []) => {
     if (safeProviders.some((providerId) => providerId.includes('google'))) return 'Google-ready';
     if (safeProviders.some((providerId) => providerId.includes('facebook'))) return 'Facebook-ready';
     if (safeProviders.some((providerId) => providerId.includes('github'))) return 'GitHub-ready';
-    if (safeProviders.some((providerId) => providerId.includes('twitter') || providerId.includes('x.com'))) return 'X-ready';
+    if (safeProviders.some((providerId) => providerId.includes('twitter') || providerId === 'x.com' || providerId.endsWith('.x.com'))) return 'X-ready';
     if (safeProviders.some((providerId) => providerId.includes('password'))) return 'Password lane';
     return 'Secure lane';
 };

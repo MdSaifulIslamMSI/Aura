@@ -1,15 +1,11 @@
 import { apiFetch, API_BASE_URL as BASE_URL } from '../apiBase';
 import { getActiveMarketHeaders } from '../marketRuntime';
+import { createRuntimeId } from '../../utils/runtimeId';
 import { getAuthHeader } from './apiUtils';
 
 const RECOMMENDATION_SESSION_KEY = 'aura_recommendation_session_id';
 
-const createRecommendationSessionId = () => {
-    const entropy = typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    return `rec-${entropy}`;
-};
+const createRecommendationSessionId = () => createRuntimeId('rec');
 
 export const getRecommendationSessionId = () => {
     if (typeof window === 'undefined') return '';

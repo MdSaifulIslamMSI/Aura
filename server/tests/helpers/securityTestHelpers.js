@@ -11,9 +11,9 @@ const { PAYMENT_STATUSES } = require('../../services/payments/constants');
 
 const SAFE_STATUS_CODES = new Set([400, 401, 403, 404, 409, 422, 423, 429]);
 
-const randomSuffix = (label = 'security') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const randomSuffix = (label = 'security') => `${label}-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
 const randomEmail = (label = 'security') => `${randomSuffix(label)}@example.test`;
-const randomPhone = () => `+91${String(Math.floor(Math.random() * 10_000_000_000)).padStart(10, '0')}`;
+const randomPhone = () => `+91${String(crypto.randomInt(0, 10_000_000_000)).padStart(10, '0')}`;
 const objectId = () => new mongoose.Types.ObjectId();
 
 const assertSafeStatus = (response, expected = SAFE_STATUS_CODES) => {
@@ -80,7 +80,7 @@ const createSellerUser = (overrides = {}) => createTestUser({
 
 const createFakeProduct = (overrides = {}) => {
     const suffix = randomSuffix('product');
-    const numericId = overrides.id || Math.floor(100000 + Math.random() * 900000);
+    const numericId = overrides.id || crypto.randomInt(100000, 1000000);
     return Product.create({
         id: numericId,
         externalId: `ext-${numericId}-${suffix}`,

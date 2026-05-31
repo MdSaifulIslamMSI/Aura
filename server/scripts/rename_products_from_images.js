@@ -61,7 +61,7 @@ const deriveTitleFromImageUrl = (imageUrl, fallbackCategory, fallbackId) => {
             if (title) return title;
         }
 
-        if (url.hostname.includes('wikimedia.org')) {
+        if (url.hostname === 'wikimedia.org' || url.hostname.endsWith('.wikimedia.org')) {
             const last = segments[segments.length - 1] || '';
             const title = humanizeSlug(decodeURIComponent(last));
             if (title) return title;

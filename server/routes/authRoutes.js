@@ -144,6 +144,15 @@ const desktopHandoffLimiter = createDistributedRateLimit({
     },
 });
 
+const authenticatedSessionMutationLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    name: 'auth_session_mutation',
+    windowMs: 5 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 60,
+    message: 'Too many session mutation requests, please try again after 5 minutes',
+    keyGenerator: (req) => req.authUid || req.user?.email || req.ip,
+});
+
 router.get('/duo/start', duoOidcLimiter, startDuoLogin);
 router.get('/duo/step-up', protect, establishSessionCookie, duoOidcLimiter, startDuoStepUp);
 router.get('/duo/callback', duoOidcLimiter, completeDuoLogin);
@@ -153,9 +162,9 @@ router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, iss
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.post('/sync', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);
-router.post('/logout', protectOptional, csrfTokenValidatorForCookieSession, logoutSession);
+router.post('/logout', protectOptional, authenticatedSessionMutationLimiter, csrfTokenValidatorForCookieSession, logoutSession);
 router.post('/bootstrap-device-challenge', requireTurnstile({ routeName: 'auth_bootstrap_device_challenge' }), bootstrapDeviceChallengeLimiter, requestBootstrapDeviceChallenge);
-router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, generateBackupRecoveryCodes);
+router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authenticatedSessionMutationLimiter, generateBackupRecoveryCodes);
 router.post('/recovery-codes/verify', requireTurnstile({ routeName: 'auth_recovery_code_verify' }), recoveryCodeLimiter, verifyBackupRecoveryCode);
 router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, completePhoneFactorVerification);

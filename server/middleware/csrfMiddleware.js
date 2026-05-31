@@ -225,9 +225,37 @@ const csrfTokenValidator = async (req, res, next) => {
         return next();
     }
 
-    const headerToken = req.headers['x-csrf-token'];
-    const bodyToken = req.body?.csrfToken;
-    const queryToken = req.query?.csrfToken;
+    const rawTokens = [
+        { transport: 'header', value: req.headers?.['x-csrf-token'] },
+        { transport: 'body', value: req.body?.csrfToken },
+        { transport: 'query', value: req.query?.csrfToken },
+    ];
+    const invalidToken = rawTokens.find(({ value }) => value !== undefined && value !== null && typeof value !== 'string');
+    if (invalidToken) {
+        logger.warn('csrf.token_type_rejected', {
+            method: req.method,
+            path: req.path,
+            uid: req.authUid || req.user?.id || 'anonymous',
+            transport: invalidToken.transport,
+        });
+        recordAuthSecurityEvent({
+            event: 'csrf_rejected',
+            outcome: 'blocked',
+            reason: 'invalid_type',
+            surface: 'csrf',
+            req,
+            meta: { statusCode: 403 },
+        });
+        return next({
+            statusCode: 403,
+            message: 'CSRF token must be a string',
+            code: 'CSRF_TOKEN_INVALID_TYPE',
+        });
+    }
+
+    const headerToken = rawTokens[0].value || '';
+    const bodyToken = rawTokens[1].value || '';
+    const queryToken = rawTokens[2].value || '';
     const isAuthenticated = Boolean(req.user?.id || req.authUid);
     const contentType = String(req.headers['content-type'] || '').toLowerCase();
     const accepts = String(req.headers.accept || '').toLowerCase();
@@ -288,7 +316,7 @@ const csrfTokenValidator = async (req, res, next) => {
             path: req.path,
             ip: req.ip,
             uid: context.uid,
-            tokenLength: token.length,
+            tokenLength: String(token).length,
             timestamp: new Date().toISOString(),
         });
         recordAuthSecurityEvent({

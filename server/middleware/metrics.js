@@ -254,11 +254,14 @@ const metricsAuth = (req, res, next) => {
     }
 
     const authorization = String(req.headers.authorization || '').trim();
-    const bearerMatch = authorization.match(/^Bearer\s+(.+)$/i);
+    const schemeSeparator = authorization.indexOf(' ');
+    const bearerToken = schemeSeparator > 0 && authorization.slice(0, schemeSeparator).toLowerCase() === 'bearer'
+        ? authorization.slice(schemeSeparator + 1).trim()
+        : '';
     const provided = String(
         req.headers['x-metrics-key']
         || req.headers['x-metrics-token']
-        || bearerMatch?.[1]
+        || bearerToken
         || '',
     ).trim();
 

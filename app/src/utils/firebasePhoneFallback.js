@@ -39,8 +39,8 @@ export const resolveFirebasePhoneFallback = (error) => {
     || message.includes('frame-src')
     || message.includes('refused to frame')
     || message.includes('violates the following content security policy directive');
-  const mentionsFirebaseAuthIframe = message.includes('firebaseapp.com')
-    || message.includes('web.app')
+  const mentionsFirebaseAuthIframe = /(?:^|[./])firebaseapp\.com(?:[/:]|$)/.test(message)
+    || /(?:^|[./])web\.app(?:[/:]|$)/.test(message)
     || message.includes('illegal url for new iframe');
   const mentionsBilling = message.includes('billing-not-enabled')
     || message.includes('billing not enabled')

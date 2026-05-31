@@ -1062,7 +1062,7 @@ const ProductDetails = () => {
                           {discountPercentage > 0 && (
                             <span className="inline-flex items-center gap-1 rounded-full border border-neo-cyan/20 bg-neo-cyan/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-neo-cyan">
                               <Zap className="h-3 w-3 fill-neo-cyan" />
-                              {t('product.off', {}, '% off').replace('%', String(discountPercentage))}
+                              {t('product.off', {}, '% off').replaceAll('%', String(discountPercentage))}
                             </span>
                           )}
                         </div>
