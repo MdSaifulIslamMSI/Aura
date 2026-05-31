@@ -51,7 +51,10 @@ expectIncludes('Trivy SARIF outputs', dockerRunner, [
 
 expectIncludes('Checkov SARIF output', dockerRunner, [
   "const checkovSarifReport = path.join(reportDir, 'checkov-report.sarif')",
+  "const checkovDefaultSarifReport = path.join(reportDir, 'results.sarif')",
   "'--output', 'sarif'",
+  "'-w', '/reports'",
+  'fs.renameSync(checkovDefaultSarifReport, checkovSarifReport)',
   'jsonOnly: true',
 ]);
 

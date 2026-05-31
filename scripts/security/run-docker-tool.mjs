@@ -399,6 +399,7 @@ const runHadolint = () => {
 const runIac = () => {
   const checkovReport = path.join(reportDir, 'checkov-report.json');
   const checkovSarifReport = path.join(reportDir, 'checkov-report.sarif');
+  const checkovDefaultSarifReport = path.join(reportDir, 'results.sarif');
   const tfsecReport = path.join(reportDir, 'tfsec-report.json');
   const terrascanReport = path.join(reportDir, 'terrascan-report.json');
   const scanRoot = prepareScanRoot('iac-source', shouldCopyToIacScanRoot);
@@ -406,7 +407,7 @@ const runIac = () => {
   const iacSrcMount = `${hostPath(scanRoot)}:/src:ro`;
   const iacReportMount = `${hostPath(reportDir)}:/reports`;
 
-  for (const reportPath of [checkovReport, checkovSarifReport, tfsecReport, terrascanReport]) {
+  for (const reportPath of [checkovReport, checkovSarifReport, checkovDefaultSarifReport, tfsecReport, terrascanReport]) {
     fs.rmSync(reportPath, { recursive: true, force: true });
   }
 
@@ -422,9 +423,11 @@ const runIac = () => {
     '--soft-fail',
   ], checkovReport, { stdoutOnly: true, jsonOnly: true });
 
-  runDockerReportOnly([
+  runDocker([
     'run', '--rm',
     '-v', iacScanMount,
+    '-v', iacReportMount,
+    '-w', '/reports',
     images.checkov,
     '-d', '/repo',
     '--quiet',
@@ -432,7 +435,11 @@ const runIac = () => {
     '--framework', 'cloudformation,dockerfile,github_actions,secrets,kubernetes',
     '--output', 'sarif',
     '--soft-fail',
-  ], checkovSarifReport, { stdoutOnly: true, jsonOnly: true, printOutput: false });
+  ]);
+  if (!fs.existsSync(checkovDefaultSarifReport)) {
+    throw new Error('Checkov SARIF scan did not produce security-reports/results.sarif');
+  }
+  fs.renameSync(checkovDefaultSarifReport, checkovSarifReport);
 
   runDockerReportOnly([
     'run', '--rm',
