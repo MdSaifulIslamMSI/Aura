@@ -2,7 +2,21 @@ name: Status Watch
 
 on:
   workflow_run:
-    workflows: ["Deploy", "CI"]
+    workflows:
+      - Automatic Production Release On Main Push
+      - CI
+      - Quality Foundation
+      - Security Gate
+      - Security Gates
+      - CodeQL
+      - Payment Architecture
+      - Docker
+      - staging-frontend-smoke
+      - Deploy Backend To AWS
+      - Deploy Frontend To Netlify, Vercel, And AWS
+      - Deploy Gateway To Vercel
+      - Desktop Release
+      - Mobile Release
     types:
       - completed
 

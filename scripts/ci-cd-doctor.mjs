@@ -21,6 +21,7 @@ const requiredWorkflows = [
   'production-admin-access.yml',
   'quality.yml',
   'codeql.yml',
+  'status-watch.yml',
 ];
 
 const read = (relativePath) => {
@@ -42,6 +43,7 @@ const packageJson = JSON.parse(read('package.json') || '{}');
 const securityRunner = read('scripts/security-runner.mjs');
 const qualityWorkflow = read('.github/workflows/quality.yml');
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
+const statusWatchWorkflow = read('.github/workflows/status-watch.yml');
 
 const checks = [];
 
@@ -77,6 +79,21 @@ addCheck(
   'automatic production push pipeline exists',
   productionOnPush.includes('name: Automatic Production Release On Main Push') && productionOnPush.includes('branches: ["main"]'),
   '.github/workflows/production-on-push.yml'
+);
+
+addCheck(
+  'status watch observes current production and quality workflows',
+  [
+    'Automatic Production Release On Main Push',
+    'Quality Foundation',
+    'Security Gates',
+    'Deploy Backend To AWS',
+    'Deploy Frontend To Netlify, Vercel, And AWS',
+    'Deploy Gateway To Vercel',
+    'Desktop Release',
+    'Mobile Release',
+  ].every((needle) => statusWatchWorkflow.includes(`- ${needle}`)),
+  '.github/workflows/status-watch.yml'
 );
 
 addCheck(
