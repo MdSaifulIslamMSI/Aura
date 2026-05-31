@@ -17,6 +17,8 @@ const requiredWorkflows = [
   'desktop-release.yml',
   'mobile-release.yml',
   'production-cicd.yml',
+  'production-on-push.yml',
+  'production-admin-access.yml',
 ];
 
 const read = (relativePath) => {
@@ -27,6 +29,8 @@ const read = (relativePath) => {
 const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
 
 const production = read('.github/workflows/production-cicd.yml');
+const productionOnPush = read('.github/workflows/production-on-push.yml');
+const productionAdminAccess = read('.github/workflows/production-admin-access.yml');
 const desktop = read('.github/workflows/desktop-release.yml');
 const mobile = read('.github/workflows/mobile-release.yml');
 const gateway = read('.github/workflows/deploy-gateway-vercel.yml');
@@ -58,9 +62,15 @@ addCheck(
 );
 
 addCheck(
-  'production orchestrator exists',
-  production.length > 0,
+  'manual production command center exists',
+  production.includes('name: Manual Production Command Center') && production.includes('workflow_dispatch:'),
   '.github/workflows/production-cicd.yml'
+);
+
+addCheck(
+  'automatic production push pipeline exists',
+  productionOnPush.includes('name: Automatic Production Release On Main Push') && productionOnPush.includes('branches: ["main"]'),
+  '.github/workflows/production-on-push.yml'
 );
 
 addCheck(
@@ -97,6 +107,52 @@ addCheck(
     'publish_store_release: false',
   ].every((needle) => production.includes(needle)),
   'release-mobile reusable call'
+);
+
+addCheck(
+  'main push pipeline deploys all production surfaces',
+  [
+    'deploy-backend:',
+    'deploy-storefront:',
+    'deploy-gateway:',
+    'release-desktop:',
+    'release-mobile:',
+    'production-summary:',
+    '--workflow deploy-backend-aws.yml',
+    '--workflow deploy-netlify.yml',
+    '--workflow deploy-gateway-vercel.yml',
+    '--workflow desktop-release.yml',
+    '--workflow mobile-release.yml',
+  ].every((needle) => productionOnPush.includes(needle)),
+  'backend, storefront, gateway, desktop, mobile lanes on every main push'
+);
+
+addCheck(
+  'main push desktop release is unsigned by default',
+  [
+    '"require_windows_signing":false',
+    '"require_macos_signing":false',
+    '"publish_store_release":false',
+  ].every((needle) => productionOnPush.includes(needle)),
+  'automatic desktop lane is safe for internal GitHub artifacts'
+);
+
+addCheck(
+  'main push mobile release is unsigned by default',
+  [
+    '"require_android_signing":false',
+    '"require_ios_signing":false',
+    '"publish_store_release":false',
+  ].every((needle) => productionOnPush.includes(needle)),
+  'automatic mobile lane is safe for internal GitHub artifacts'
+);
+
+addCheck(
+  'production admin access reuses branch-scoped AWS OIDC',
+  productionAdminAccess.includes('confirm_production') &&
+    productionAdminAccess.includes('Configure AWS credentials') &&
+    !/environment:\s*\r?\n\s+name:\s+production/.test(productionAdminAccess),
+  'admin allowlist workflow matches deploy role branch trust subject'
 );
 
 addCheck(

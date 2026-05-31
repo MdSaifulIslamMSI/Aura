@@ -1,4 +1,4 @@
-name: Production On Every Main Push
+name: Automatic Production Release On Main Push
 
 on:
   push:
@@ -127,3 +127,113 @@ jobs:
           --sha "$DEPLOY_SHA"
           --timeout-minutes 40
           --inputs "$DEPLOY_INPUTS"
+
+  release-desktop:
+    name: Dispatch desktop production release
+    needs:
+      - deploy-backend
+      - deploy-storefront
+      - deploy-gateway
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Dispatch and watch desktop release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REF_NAME: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DESKTOP_RELEASE_INPUTS: '{"version":"","require_windows_signing":false,"require_macos_signing":false,"publish_store_release":false}'
+        run: >-
+          node scripts/github/dispatch-workflow-and-watch.mjs
+          --workflow desktop-release.yml
+          --label "Desktop production release"
+          --ref "$DEPLOY_REF_NAME"
+          --sha "$DEPLOY_SHA"
+          --timeout-minutes 145
+          --inputs "$DESKTOP_RELEASE_INPUTS"
+
+  release-mobile:
+    name: Dispatch mobile production release
+    needs:
+      - deploy-backend
+      - deploy-storefront
+      - deploy-gateway
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Dispatch and watch mobile release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REF_NAME: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          MOBILE_RELEASE_INPUTS: '{"version":"","require_android_signing":false,"require_ios_signing":false,"publish_store_release":false}'
+        run: >-
+          node scripts/github/dispatch-workflow-and-watch.mjs
+          --workflow mobile-release.yml
+          --label "Mobile production release"
+          --ref "$DEPLOY_REF_NAME"
+          --sha "$DEPLOY_SHA"
+          --timeout-minutes 145
+          --inputs "$MOBILE_RELEASE_INPUTS"
+
+  production-summary:
+    name: Production push release summary
+    if: always()
+    needs:
+      - production-preflight
+      - deploy-backend
+      - deploy-storefront
+      - deploy-gateway
+      - release-desktop
+      - release-mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Write production push summary
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          PREFLIGHT_RESULT: ${{ needs.production-preflight.result }}
+          BACKEND_RESULT: ${{ needs.deploy-backend.result }}
+          STOREFRONT_RESULT: ${{ needs.deploy-storefront.result }}
+          GATEWAY_RESULT: ${{ needs.deploy-gateway.result }}
+          DESKTOP_RESULT: ${{ needs.release-desktop.result }}
+          MOBILE_RESULT: ${{ needs.release-mobile.result }}
+        run: |
+          {
+            echo "## Aura Production On Every Main Push"
+            echo
+            echo "| Lane | Result |"
+            echo "|---|---|"
+            echo "| Preflight: CI/auth contracts | ${PREFLIGHT_RESULT} |"
+            echo "| Backend: AWS production deploy | ${BACKEND_RESULT} |"
+            echo "| Storefront: Netlify/Vercel/AWS production deploy | ${STOREFRONT_RESULT} |"
+            echo "| Gateway: Vercel production deploy | ${GATEWAY_RESULT} |"
+            echo "| Desktop: Windows/macOS/Linux GitHub release | ${DESKTOP_RESULT} |"
+            echo "| Mobile: Android/iOS GitHub release | ${MOBILE_RESULT} |"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Commit | ${COMMIT_SHA} |"
+            echo "| Run | ${RUN_ID} |"
+            echo "| Store publishing | Disabled by default; requires signed manual release inputs. |"
+            echo "| Desktop signing | Disabled by default for internal GitHub release artifacts. |"
+            echo "| Mobile signing | Disabled by default for internal GitHub release artifacts. |"
+          } >> "$GITHUB_STEP_SUMMARY"

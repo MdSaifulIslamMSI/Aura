@@ -51,8 +51,6 @@ jobs:
     name: Update production admin allowlist
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    environment:
-      name: production
 
     steps:
       - name: Checkout

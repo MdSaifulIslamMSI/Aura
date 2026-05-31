@@ -1,38 +1,59 @@
 # Aura CI/CD
 
-Aura production delivery is coordinated by `.github/workflows/production-cicd.yml`.
+Aura has two production entrypoints. Start here; do not reason from the reusable lane workflows first.
 
-## Flow
+## Production Entry Points
 
-On every push to `main`, GitHub Actions now runs:
+| Workflow | When it runs | Purpose |
+|---|---|---|
+| `Automatic Production Release On Main Push` (`.github/workflows/production-on-push.yml`) | Every push to `main` | Runs the full production release train automatically. |
+| `Manual Production Command Center` (`.github/workflows/production-cicd.yml`) | Manual `workflow_dispatch` only | Runs selected deploy, rollback, desktop, or mobile lanes after typing `PRODUCTION`. |
 
-1. `CI`
-   - Backend regression tests
-   - AWS runtime contract audit
-   - Backend container build smoke test
-   - Frontend lint, tests, build, and bundle budget
-   - Frontend E2E tests on `main`
-   - Gateway static download-link guard
-   - Desktop packaging smoke test
-2. `Deploy Backend To AWS`
+Everything else is a reusable lane workflow called by one of those two entrypoints.
+
+## Automatic Main Push Flow
+
+Every merge to `main` runs these lanes in order:
+
+1. Preflight
+   - `npm run ci:doctor`
+   - `npm run auth:env:validate`
+   - `npm run auth:smoke`
+2. Backend production deploy
+   - Dispatches `.github/workflows/deploy-backend-aws.yml`
    - Builds the backend container
    - Uploads release artifacts to S3
    - Deploys through SSM to the tagged EC2 instance
    - Verifies backend readiness
-3. `Deploy Frontend To Netlify And Vercel`
-   - Builds the storefront once
-   - Publishes production Netlify
-   - Publishes production Vercel
-4. `Deploy Gateway To Vercel`
-   - Publishes the static gateway
-   - Re-points `aura-gateway.vercel.app`
-5. `Desktop Release`
-   - Builds Windows, macOS, and Linux packages on native GitHub runners
-   - Publishes a GitHub Release
-   - Marks it as latest so desktop auto-update and gateway download buttons resolve automatically
-   - Runs only after CI and the selected production deploy jobs succeed
+3. Storefront production deploy
+   - Dispatches `.github/workflows/deploy-netlify.yml`
+   - Publishes the storefront production targets
+4. Gateway production deploy
+   - Dispatches `.github/workflows/deploy-gateway-vercel.yml`
+   - Publishes the gateway production target
+5. Desktop production release
+   - Dispatches `.github/workflows/desktop-release.yml`
+   - Builds Windows, macOS, and Linux artifacts
+   - Publishes an internal GitHub release
+   - Signing and store publishing are disabled by default
+6. Mobile production release
+   - Dispatches `.github/workflows/mobile-release.yml`
+   - Builds Android and iOS validation/release artifacts
+   - Publishes an internal GitHub release
+   - Signing and store publishing are disabled by default
+7. Production summary
+   - Writes a single summary table showing backend, storefront, gateway, desktop, and mobile status.
 
-The old deploy workflows are still available for manual runs and pull-request previews, but production push delivery is owned by `Production CI/CD`.
+## Manual Command Center
+
+Use `Manual Production Command Center` only for controlled operations:
+
+- rerun one lane without waiting for a new merge
+- deploy a selected surface
+- roll back backend, storefront, AWS frontend, or gateway
+- publish signed desktop/mobile releases when signing secrets are configured
+
+Manual production actions require typing `PRODUCTION` into the workflow input.
 
 ## Required GitHub Settings
 
@@ -98,7 +119,7 @@ The desktop release workflow uses GitHub Actions `GITHUB_TOKEN` with `contents: 
 
 ## Manual Runs
 
-Use `Actions > Production CI/CD > Run workflow` to manually run all or selected production stages.
+Use `Actions > Manual Production Command Center > Run workflow` to manually run selected production stages.
 
 Manual inputs let you:
 
