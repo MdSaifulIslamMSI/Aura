@@ -56,10 +56,68 @@ Resources:
       TargetKeyId: !Ref AuraS3KmsKey
 
   # ── S3 Buckets ────────────────────────────────────────────────────────────────
+  AccessLogBucket:
+    Type: AWS::S3::Bucket
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_18
+            comment: Dedicated destination for S3 server access logs.
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireAccessLogs
+            Status: Enabled
+            ExpirationInDays: 90
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: App
+          Value: Aura
+        - Key: Purpose
+          Value: s3-access-logs
+
+  AccessLogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AccessLogBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowS3ServerAccessLogs
+            Effect: Allow
+            Principal:
+              Service: logging.s3.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub '${AccessLogBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn:
+                  - !Sub 'arn:aws:s3:::${MediaBucketName}'
+                  - !Sub 'arn:aws:s3:::${DeployBucketName}'
+
   ReviewMediaBucket:
     Type: AWS::S3::Bucket
+    DependsOn: AccessLogBucketPolicy
     Properties:
       BucketName: !Ref MediaBucketName
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLogBucket
+        LogFilePrefix: review-media/
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -87,8 +145,12 @@ Resources:
 
   DeployBucket:
     Type: AWS::S3::Bucket
+    DependsOn: AccessLogBucketPolicy
     Properties:
       BucketName: !Ref DeployBucketName
+      LoggingConfiguration:
+        DestinationBucketName: !Ref AccessLogBucket
+        LogFilePrefix: deploy-artifacts/
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -119,6 +181,11 @@ Resources:
   # ── IAM Policy for the existing role ──────────────────────────────────────────
   AuraResourcePolicy:
     Type: AWS::IAM::Policy
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_111
+            comment: Bootstrap EC2 create and describe actions require Resource '*'; IAM, S3, KMS, and SSM permissions remain scoped.
     Properties:
       PolicyName: AuraResourceAccess
       Roles:
