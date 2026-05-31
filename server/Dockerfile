@@ -1,4 +1,4 @@
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY vendor ./vendor
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
-FROM node:22-alpine
+FROM node:26-alpine
 
 WORKDIR /app
 
