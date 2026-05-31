@@ -32,7 +32,7 @@ jobs:
       SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
         uses: actions/setup-node@v6
