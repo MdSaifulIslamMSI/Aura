@@ -85,7 +85,7 @@ jobs:
           test -n "${STAGING_SSH_PRIVATE_KEY}" || { echo "Missing STAGING_SSH_PRIVATE_KEY."; exit 1; }
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
