@@ -316,7 +316,7 @@ const csrfTokenValidator = async (req, res, next) => {
             path: req.path,
             ip: req.ip,
             uid: context.uid,
-            tokenLength: token.length,
+            tokenLength: String(token).length,
             timestamp: new Date().toISOString(),
         });
         recordAuthSecurityEvent({

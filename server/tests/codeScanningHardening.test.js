@@ -36,6 +36,12 @@ describe('code scanning hardening contracts', () => {
         expect(source).not.toContain('npx.cmd');
     });
 
+    test('local S3 mock does not reflect bucket input into redirect headers', () => {
+        const source = readRepoFile('bin/localstack-server.js');
+        expect(source).toContain("'Location': '/'");
+        expect(source).not.toContain("'Location': `/${bucketName}`");
+    });
+
     test('auth and notification mutations retain explicit route throttling', () => {
         const authRoutes = readRepoFile('server/routes/authRoutes.js');
         const notificationRoutes = readRepoFile('server/routes/userNotificationRoutes.js');
