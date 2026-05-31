@@ -7,6 +7,21 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "test": "npm run test:server:regression",
+    "quality:lint": "npm --prefix app run lint -- --quiet",
+    "quality:typecheck": "node scripts/quality/typecheck-status.mjs",
+    "quality:test": "npm test && npm --prefix app test",
+    "quality:coverage": "npm run test:server:coverage && npm --prefix app run test:coverage",
+    "quality:deadcode": "node scripts/quality/run-knip.mjs",
+    "quality:secrets": "npm run security:secrets",
+    "quality:deps": "npm run security:deps",
+    "quality:semgrep": "node scripts/quality/run-security-tool.mjs semgrep",
+    "quality:trivy": "node scripts/quality/run-security-tool.mjs trivy",
+    "quality:osv": "node scripts/security-free-scanners.mjs --only=osv-scanner",
+    "quality:dockerfile": "node scripts/quality/run-security-tool.mjs hadolint",
+    "quality:shell": "node scripts/quality/run-external-lint.mjs shellcheck",
+    "quality:actions": "node scripts/quality/run-external-lint.mjs actionlint",
+    "quality:sonar": "node scripts/quality/run-sonar.mjs",
+    "quality:all": "node scripts/quality/run-all.mjs",
     "perf:audit": "node scripts/performance/audit.mjs",
     "perf:local": "node scripts/performance/local.mjs",
     "perf:smoke": "node scripts/performance/smoke.mjs",
@@ -21,6 +36,7 @@
     "lint": "npm --prefix app run lint",
     "test:server:full": "npm --prefix server test",
     "test:server:regression": "npm --prefix server test -- --runTestsByPath tests/authMiddleware.test.js tests/profileSecurity.test.js tests/otpSystem.test.js tests/otpEmailFailClosed.test.js tests/paymentOrderIntegrity.test.js tests/userPhoneIndex.test.js tests/orderControllerCreate.test.js tests/communicationUtilities.test.js tests/communicationServices.test.js tests/adminUserControllerResilience.test.js tests/adminUserRoutes.integration.test.js tests/paymentSecurityGuards.test.js tests/adminProductRoutes.integration.test.js tests/paymentRefundState.test.js tests/adminPaymentRoutes.integration.test.js tests/adminAnalyticsRoutes.integration.test.js tests/adminNotificationRoutes.integration.test.js tests/aiRoutes.test.js tests/healthRoutes.test.js tests/healthReadinessService.test.js tests/adminFraudRoutes.test.js tests/fraudDecisioningService.test.js tests/marketplaceIntegrityService.test.js tests/orderPlacementService.test.js tests/commerceAssistantService.test.js tests/geminiGatewayService.test.js tests/modelGatewayService.test.js tests/ollamaGatewayService.test.js tests/runtimeConfig.test.js tests/stagingSmokeSafety.test.js tests/envContractScripts.test.js tests/stagingFrontendCors.test.js --forceExit",
+    "test:server:coverage": "npm run test:server:regression -- --coverage",
     "build": "cd app && npm install && npm run build",
     "ci:doctor": "node scripts/ci-cd-doctor.mjs",
     "student-pack:doctor": "node scripts/student-pack-cli-doctor.mjs",
@@ -101,7 +117,7 @@
     "security:logging": "npm --prefix server test -- --runTestsByPath tests/logging.alert-safety.security.test.js tests/authSecurityEventOutboxService.test.js --forceExit",
     "security:free-scanners": "node scripts/security-free-scanners.mjs",
     "security:free": "npm run security:free-scanners",
-    "typecheck": "npm --prefix app run lint",
+    "typecheck": "node scripts/quality/typecheck-status.mjs",
     "payment:env:validate": "npm --prefix server run payment:env:validate",
     "payment:test": "npm --prefix server run payment:test",
     "payment:smoke": "npm run payment:env:validate && npm run payment:test",
@@ -172,7 +188,8 @@
   },
   "devDependencies": {
     "electron": "^39.8.5",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "knip": "^5.88.1"
   },
   "overrides": {
     "@electron/asar": "^4.2.0",

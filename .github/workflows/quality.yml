@@ -1,0 +1,167 @@
+name: Quality Foundation
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+  schedule:
+    - cron: "19 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-foundation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+
+jobs:
+  quality:
+    name: Quality, tests, and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+            server/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix app ci
+
+      - name: Install backend dependencies
+        run: npm --prefix server ci
+
+      - name: Run blocking ESLint rules
+        run: npm run quality:lint
+
+      - name: Report TypeScript compiler readiness
+        run: npm run quality:typecheck
+
+      - name: Run test suites and generate real LCOV coverage
+        run: npm run quality:coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-coverage
+          path: |
+            app/coverage/
+            server/coverage/
+          if-no-files-found: error
+          retention-days: 14
+
+  repo-hygiene:
+    name: Repo hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      QUALITY_EXTERNAL_TOOLS_REQUIRED: "true"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Record Knip dead-code baseline
+        run: npm run quality:deadcode
+
+      - name: Validate GitHub Actions workflows
+        run: npm run quality:actions
+
+      - name: Validate shell scripts
+        run: npm run quality:shell
+
+      - name: Validate Dockerfiles
+        run: npm run quality:dockerfile
+
+      - name: Upload hygiene reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: repo-hygiene-reports
+          path: |
+            reports/quality/
+            security-reports/hadolint.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  osv-scanner:
+    name: OSV dependency scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FREE_SECURITY_SCANNERS_REQUIRED: "true"
+      FREE_SECURITY_OSV_IMAGE: ghcr.io/google/osv-scanner:v2.3.6
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Run OSV lockfile scan
+        run: npm run quality:osv
+
+      - name: Upload OSV reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: osv-scanner-report
+          path: |
+            security-reports/osv-scanner.stdout.txt
+            security-reports/osv-scanner.stderr.txt
+            security-reports/free-security-scanners.json
+          if-no-files-found: error
+          retention-days: 30
+
+  sonar-quality-gate:
+    name: Sonar quality gate
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download coverage
+        uses: actions/download-artifact@v8
+        with:
+          name: quality-coverage
+          path: .
+
+      - name: Run Sonar-compatible analysis
+        run: npm run quality:sonar

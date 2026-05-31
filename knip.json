@@ -1,0 +1,56 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": [
+    "app/android/**",
+    "app/ios/**",
+    "app/src/config/generatedDynamicMarketMessages.js",
+    "app/src/config/generatedLocaleMessages.js",
+    "app/src/config/generatedMarketMessages.js",
+    "app/src/config/localePolishMessages.js",
+    "app/src/config/marketMessagePacks/**",
+    "app/src/config/priorityMarketMessages.js",
+    "app/src/config/remainingUiLocaleMessages.js",
+    "server/data/**",
+    "server/vendor/**"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "desktop/main.cjs",
+        "scripts/**/*.{js,mjs,cjs}"
+      ],
+      "project": [
+        "desktop/**/*.{js,cjs}",
+        "scripts/**/*.{js,mjs,cjs}"
+      ]
+    },
+    "app": {
+      "vite": false,
+      "vitest": false,
+      "playwright": false,
+      "entry": [
+        "src/main.jsx",
+        "scripts/**/*.mjs",
+        "e2e/**/*.js",
+        "playwright.config.js"
+      ],
+      "project": [
+        "src/**/*.{js,jsx,ts,tsx}",
+        "scripts/**/*.mjs",
+        "e2e/**/*.js",
+        "*.{js,ts}"
+      ]
+    },
+    "server": {
+      "entry": [
+        "index.js",
+        "scripts/**/*.js"
+      ],
+      "project": [
+        "**/*.js",
+        "!coverage/**",
+        "!node_modules/**"
+      ]
+    }
+  }
+}

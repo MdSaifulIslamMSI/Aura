@@ -19,6 +19,8 @@ const requiredWorkflows = [
   'production-cicd.yml',
   'production-on-push.yml',
   'production-admin-access.yml',
+  'quality.yml',
+  'codeql.yml',
 ];
 
 const read = (relativePath) => {
@@ -38,6 +40,8 @@ const deployBackend = read('.github/workflows/deploy-backend-aws.yml');
 const backendOidcBootstrap = read('infra/aws/bootstrap-github-oidc.ps1');
 const packageJson = JSON.parse(read('package.json') || '{}');
 const securityRunner = read('scripts/security-runner.mjs');
+const qualityWorkflow = read('.github/workflows/quality.yml');
+const codeqlWorkflow = read('.github/workflows/codeql.yml');
 
 const checks = [];
 
@@ -249,6 +253,46 @@ addCheck(
     )
     && production.includes('uses: ./.github/workflows/ci.yml'),
   'security:harness script, security:all category, production CI reuse'
+);
+
+addCheck(
+  'quality command surface exists',
+  [
+    'quality:lint',
+    'quality:typecheck',
+    'quality:test',
+    'quality:coverage',
+    'quality:deadcode',
+    'quality:secrets',
+    'quality:deps',
+    'quality:semgrep',
+    'quality:trivy',
+    'quality:osv',
+    'quality:dockerfile',
+    'quality:shell',
+    'quality:actions',
+    'quality:sonar',
+    'quality:all',
+  ].every((script) => packageJson.scripts?.[script]),
+  'package.json quality:* scripts'
+);
+
+addCheck(
+  'quality foundation workflow exists',
+  qualityWorkflow.includes('name: Quality Foundation') &&
+    qualityWorkflow.includes('Quality, tests, and coverage') &&
+    qualityWorkflow.includes('Repo hygiene') &&
+    qualityWorkflow.includes('OSV dependency scan') &&
+    qualityWorkflow.includes('Sonar quality gate'),
+  '.github/workflows/quality.yml'
+);
+
+addCheck(
+  'CodeQL semantic analysis workflow exists',
+  codeqlWorkflow.includes('name: CodeQL') &&
+    codeqlWorkflow.includes('github/codeql-action/init@v4') &&
+    codeqlWorkflow.includes('github/codeql-action/analyze@v4'),
+  '.github/workflows/codeql.yml'
 );
 
 const nameWidth = Math.max(...checks.map((check) => check.name.length), 'Check'.length);

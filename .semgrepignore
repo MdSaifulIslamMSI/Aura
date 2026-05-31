@@ -1,0 +1,14 @@
+node_modules/
+app/node_modules/
+server/node_modules/
+app/dist/
+app/android/
+app/ios/
+coverage/
+desktop-release/
+generated/
+output/
+reports/
+security-reports/
+server/data/
+server/uploads/
