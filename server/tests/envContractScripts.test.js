@@ -1,5 +1,7 @@
-const { execFileSync } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 const fs = require('fs');
+const http = require('http');
+const os = require('os');
 const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -20,11 +22,11 @@ const validate = (env) => runModuleJson(`
     console.log(JSON.stringify({ safe: result.safe, failures: result.failures }));
 `);
 
-const runScript = (script, env) => {
+const runScript = (script, env, args = []) => {
     try {
         const stdout = execFileSync(
             process.execPath,
-            [script],
+            [script, ...args],
             {
                 cwd: repoRoot,
                 encoding: 'utf8',
@@ -39,6 +41,45 @@ const runScript = (script, env) => {
             output: `${error.stdout || ''}${error.stderr || ''}`,
         };
     }
+};
+
+const runScriptAsync = (script, env, args = []) => new Promise((resolve) => {
+    execFile(
+        process.execPath,
+        [script, ...args],
+        {
+            cwd: repoRoot,
+            encoding: 'utf8',
+            env: { ...process.env, ...env },
+        },
+        (error, stdout, stderr) => {
+            resolve({
+                status: error?.code || 0,
+                output: `${stdout || ''}${stderr || ''}`,
+            });
+        }
+    );
+});
+
+const writeTempEnvFile = (contents) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-auth-smoke-'));
+    const file = path.join(dir, '.env');
+    fs.writeFileSync(file, contents);
+    return file;
+};
+
+const blankAuthSmokeEnv = {
+    AUTH_PROVIDER: '',
+    AUTH_ISSUER_URL: '',
+    AUTH_CLIENT_ID: '',
+    AUTH_CLIENT_TYPE: '',
+    AUTH_CLIENT_SECRET: '',
+    AUTH_OIDC_STATE_SECRET: '',
+    AUTH_VAULT_SECRET: '',
+    AUTH_AUDIENCE: '',
+    AUTH_JWKS_URL: '',
+    AUTH_REDIRECT_URI: '',
+    AUTH_POST_LOGOUT_REDIRECT_URI: '',
 };
 
 describe('repo environment contract scripts', () => {
@@ -183,6 +224,68 @@ describe('repo environment contract scripts', () => {
         expect(result.output).toMatch(/PASS: staging smoke contract is safe/);
     });
 
+    test('staging Keycloak auth smoke skips with an explicit reason when env is absent', () => {
+        const envFile = writeTempEnvFile('');
+        const result = runScript(
+            'scripts/auth/smoke.mjs',
+            blankAuthSmokeEnv,
+            ['--environment', 'staging', '--env-file', envFile, '--require-provider', 'keycloak', '--skip-if-missing']
+        );
+
+        expect(result.status).toBe(0);
+        expect(result.output).toMatch(/skip reason=missing Keycloak smoke env/);
+        expect(result.output).toMatch(/AUTH_PROVIDER=keycloak/);
+    });
+
+    test('staging Keycloak auth smoke fails closed when required provider env is absent', () => {
+        const envFile = writeTempEnvFile('');
+        const result = runScript(
+            'scripts/auth/smoke.mjs',
+            blankAuthSmokeEnv,
+            ['--environment', 'staging', '--env-file', envFile, '--require-provider', 'keycloak']
+        );
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/AUTH_PROVIDER must be keycloak/);
+    });
+
+    test('staging Keycloak auth smoke accepts a strict configured contract before live mode', () => {
+        const envFile = writeTempEnvFile([
+            'AUTH_PROVIDER=keycloak',
+            'AUTH_ISSUER_URL=https://auth.staging.aura.internal/realms/aura',
+            'AUTH_CLIENT_ID=aura-web',
+            'AUTH_CLIENT_TYPE=public',
+            'AUTH_OIDC_STATE_SECRET=staging-state-secret-0123456789abcdef',
+            'AUTH_AUDIENCE=aura-web',
+            'AUTH_REDIRECT_URI=https://staging.aura.internal/auth/callback',
+            'AUTH_POST_LOGOUT_REDIRECT_URI=https://staging.aura.internal/login',
+            '',
+        ].join('\n'));
+        const result = runScript(
+            'scripts/auth/smoke.mjs',
+            blankAuthSmokeEnv,
+            ['--environment', 'staging', '--strict', '--env-file', envFile, '--require-provider', 'keycloak']
+        );
+
+        expect(result.status).toBe(0);
+        expect(result.output).toMatch(/provider=keycloak/);
+        expect(result.output).toMatch(/mode=contract-only/);
+    });
+
+    test('staging smoke workflow wires a strict live Keycloak gate with optional explicit skip', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-smoke.yml'), 'utf8');
+
+        expect(workflow).toMatch(/STAGING_KEYCLOAK_SMOKE_REQUIRED/);
+        expect(workflow).toMatch(/AUTH_ISSUER_URL/);
+        expect(workflow).toMatch(/AUTH_CLIENT_SECRET/);
+        expect(workflow).toMatch(/scripts\/auth\/smoke\.mjs/);
+        expect(workflow).toMatch(/--no-env-file/);
+        expect(workflow).toMatch(/--live/);
+        expect(workflow).toMatch(/--strict/);
+        expect(workflow).toMatch(/--require-provider keycloak/);
+        expect(workflow).toMatch(/--skip-if-missing/);
+    });
+
     test('frontend staging target script fails closed when frontend URL is missing', () => {
         const result = runScript('scripts/smoke/assert-frontend-staging-target.mjs', {
             STAGING_API_BASE_URL: 'https://api.staging.example.test',
@@ -295,5 +398,109 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/STAGING_DEPLOY_ENABLED/);
         expect(workflow).toMatch(/STAGING_SSM_PREFIX.*\/aura\/staging/);
         expect(workflow).toMatch(/PROD_SSM_PREFIX.*\/aura\/prod/);
+    });
+
+    test('production admin recovery keeps direct /aura/prod Parameter Store writes available', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-admin-access.yml'), 'utf8');
+        const bootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-github-oidc.ps1'), 'utf8');
+
+        expect(workflow).toMatch(/test "\$\{AWS_PARAMETER_STORE_PATH_PREFIX\}" = "\/aura\/prod"/);
+        expect(workflow).toContain('--name "${AWS_PARAMETER_STORE_PATH_PREFIX}/ADMIN_ALLOWLIST_EMAILS"');
+        expect(workflow).toContain('--type SecureString');
+        expect(workflow).toContain('--value "${ADMIN_ALLOWLIST_EMAILS}"');
+        expect(workflow).toContain('--name "${AWS_PARAMETER_STORE_PATH_PREFIX}/ADMIN_REQUIRE_ALLOWLIST"');
+        expect(workflow).toContain('--type String');
+        expect(workflow).toContain('--value "true"');
+        expect(workflow).toContain('parameter_store_updated=true');
+
+        expect(bootstrap).toMatch(/\[string\]\$ParameterStorePathPrefix = "\/aura\/prod"/);
+        expect(bootstrap).toContain('RuntimeParameterUpdates');
+        expect(bootstrap).toContain('"ssm:PutParameter"');
+        expect(bootstrap).toContain('parameter$($ParameterStorePathPrefix.TrimEnd(\'/\'))*');
+    });
+
+    test('production admin recovery falls back through SSM runtime update when PutParameter is denied', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-admin-access.yml'), 'utf8');
+        const doctor = fs.readFileSync(path.join(repoRoot, 'scripts', 'ci-cd-doctor.mjs'), 'utf8');
+
+        expect(workflow).toContain('AccessDeniedException');
+        expect(workflow).toContain('parameter_store_updated=false');
+        expect(workflow).toContain('Apply direct runtime admin allowlist fallback');
+        expect(workflow).toMatch(/if: steps\.write_policy\.outputs\.parameter_store_updated != 'true'/);
+        expect(workflow).toContain('AWS-RunShellScript');
+        expect(workflow).toContain('/opt/aura/shared/runtime-secrets.env');
+        expect(workflow).toContain('grep -v -E "^(ADMIN_ALLOWLIST_EMAILS|ADMIN_REQUIRE_ALLOWLIST)="');
+        expect(workflow).toContain('ADMIN_REQUIRE_ALLOWLIST=true');
+        expect(workflow).toContain('${COMPOSE_PREFIX} up -d --force-recreate api');
+        expect(workflow).toContain('http://127.0.0.1:5000/health');
+
+        expect(doctor).toContain('production admin access has runtime fallback');
+        expect(doctor).toContain('backend deploy OIDC policy can update runtime parameters');
+        expect(doctor).toContain('RuntimeParameterUpdates');
+        expect(doctor).toContain('"ssm:PutParameter"');
+    });
+
+    test('performance smoke fails when no real target is reachable', () => {
+        const result = runScript('scripts/performance/smoke.mjs', {
+            PERF_BASE_URL: 'http://127.0.0.1:65534',
+            PERF_API_BASE_URL: 'http://127.0.0.1:65534',
+            PERF_SMOKE_TIMEOUT_MS: '150',
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/No performance target was reachable/);
+    });
+
+    test('performance smoke workflow starts local targets when no target vars are configured', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'performance-smoke.yml'), 'utf8');
+
+        expect(workflow).toMatch(/Build local frontend performance target/);
+        expect(workflow).toMatch(/Start local performance targets/);
+        expect(workflow).toContain("docker compose up -d --build mongo redis aura-api");
+        expect(workflow).toContain("npm --prefix app run preview -- --host 0.0.0.0 --port 3000");
+        expect(workflow).toContain("http://127.0.0.1:5000/health");
+        expect(workflow).toContain("http://127.0.0.1:3000/");
+        expect(workflow).toMatch(/Lighthouse if configured URL available/);
+        expect(workflow).toMatch(/if: \$\{\{ \(vars\.PERF_BASE_URL \|\| ''\) != '' \}\}/);
+        expect(workflow).toMatch(/Stop local performance targets/);
+        expect(workflow).toContain("docker compose down -v --remove-orphans");
+    });
+
+    test('performance smoke passes after touching a local target', async () => {
+        const server = http.createServer((request, response) => {
+            const url = request.url || '';
+            if (
+                url === '/' ||
+                url === '/health' ||
+                url === '/api/status/public' ||
+                url.startsWith('/api/products')
+            ) {
+                response.writeHead(200, { 'content-type': 'application/json' });
+                response.end(JSON.stringify({ ok: true }));
+                return;
+            }
+
+            response.writeHead(404, { 'content-type': 'application/json' });
+            response.end(JSON.stringify({ error: 'not_found' }));
+        });
+
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address();
+        const target = `http://127.0.0.1:${port}`;
+
+        try {
+            const result = await runScriptAsync('scripts/performance/smoke.mjs', {
+                PERF_BASE_URL: target,
+                PERF_API_BASE_URL: target,
+                PERF_SMOKE_TIMEOUT_MS: '1000',
+            });
+
+            expect(result.status).toBe(0);
+            expect(result.output).toMatch(/frontend ok/);
+            expect(result.output).toMatch(/health ok/);
+            expect(result.output).toMatch(/Performance smoke completed/);
+        } finally {
+            await new Promise((resolve) => server.close(resolve));
+        }
     });
 });

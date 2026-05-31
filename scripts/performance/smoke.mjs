@@ -43,7 +43,8 @@ for (const endpoint of endpoints) {
 
 if (hardFailures > 0) process.exit(1);
 if (reachable === 0) {
-  console.warn('No local performance target was reachable; optional live smoke checks skipped.');
+  console.error('No performance target was reachable; refusing to pass without touching a live local or configured target.');
+  process.exit(1);
 }
 
 console.log('Performance smoke completed.');

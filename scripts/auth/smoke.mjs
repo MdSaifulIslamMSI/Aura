@@ -4,7 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const { resolveAuthEnvironment, validateAuthEnvironment } = require('../../server/config/authEnvironment');
+const {
+  KEYCLOAK_REQUIRED_ENV,
+  normalizeProvider,
+  resolveAuthEnvironment,
+  validateAuthEnvironment,
+} = require('../../server/config/authEnvironment');
 
 const args = new Map();
 for (let index = 2; index < process.argv.length; index += 1) {
@@ -18,9 +23,15 @@ for (let index = 2; index < process.argv.length; index += 1) {
 }
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const envFile = path.resolve(repoRoot, args.get('env-file') || 'config/auth.example.env');
+const noEnvFile = args.get('no-env-file') === 'true';
+const envFile = noEnvFile ? '' : path.resolve(repoRoot, args.get('env-file') || 'config/auth.example.env');
 const environment = args.get('environment') || process.env.NODE_ENV || 'development';
 const live = args.get('live') === 'true';
+const strict = args.get('strict') === 'true' || String(environment).toLowerCase() === 'production';
+const requiredProvider = args.has('require-provider') ? normalizeProvider(args.get('require-provider')) : '';
+const skipIfMissing = args.get('skip-if-missing') === 'true';
+
+const safeString = (value) => String(value === undefined || value === null ? '' : value).trim();
 
 const parseEnvFile = (filePath) => {
   if (!existsSync(filePath)) return {};
@@ -41,10 +52,39 @@ const env = {
   NODE_ENV: environment,
 };
 
+const missingRequiredKeycloakSmokeEnv = (candidateEnv) => {
+  const missing = [];
+  if (normalizeProvider(candidateEnv.AUTH_PROVIDER) !== 'keycloak') {
+    missing.push('AUTH_PROVIDER=keycloak');
+  }
+
+  for (const key of KEYCLOAK_REQUIRED_ENV) {
+    if (!safeString(candidateEnv[key])) missing.push(key);
+  }
+
+  const clientType = safeString(candidateEnv.AUTH_CLIENT_TYPE || 'confidential').toLowerCase();
+  if (clientType === 'confidential' && !safeString(candidateEnv.AUTH_CLIENT_SECRET)) {
+    missing.push('AUTH_CLIENT_SECRET');
+  }
+  if (clientType !== 'confidential' && !safeString(candidateEnv.AUTH_OIDC_STATE_SECRET || candidateEnv.AUTH_VAULT_SECRET)) {
+    missing.push('AUTH_OIDC_STATE_SECRET or AUTH_VAULT_SECRET');
+  }
+
+  return missing;
+};
+
+if (skipIfMissing && requiredProvider === 'keycloak') {
+  const missing = missingRequiredKeycloakSmokeEnv(env);
+  if (missing.length > 0) {
+    console.log(`[auth-smoke] skip reason=missing Keycloak smoke env: ${missing.join(', ')}`);
+    process.exit(0);
+  }
+}
+
 const validation = validateAuthEnvironment({
   env,
   runtimeEnv: environment,
-  allowPlaceholders: String(environment).toLowerCase() !== 'production',
+  allowPlaceholders: !strict,
 });
 
 if (!validation.safe) {
@@ -53,6 +93,11 @@ if (!validation.safe) {
 }
 
 const config = resolveAuthEnvironment(env);
+
+if (requiredProvider && config.provider !== requiredProvider) {
+  console.error(`[auth-smoke] error: AUTH_PROVIDER must be ${requiredProvider} for this smoke gate; got ${config.provider}`);
+  process.exit(1);
+}
 
 if (config.provider === 'legacy') {
   console.log('[auth-smoke] ok provider=legacy mode=compatibility');

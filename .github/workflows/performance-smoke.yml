@@ -54,6 +54,34 @@ jobs:
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
+      - name: Build local frontend performance target
+        if: ${{ (vars.PERF_BASE_URL || '') == '' || (vars.PERF_API_BASE_URL || '') == '' }}
+        run: npm --prefix app run build
+
+      - name: Start local performance targets
+        if: ${{ (vars.PERF_BASE_URL || '') == '' || (vars.PERF_API_BASE_URL || '') == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose up -d --build mongo redis aura-api
+          npm --prefix app run preview -- --host 0.0.0.0 --port 3000 > "${RUNNER_TEMP}/aura-vite-preview.log" 2>&1 &
+          echo "$!" > "${RUNNER_TEMP}/aura-vite-preview.pid"
+
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --max-time 5 http://127.0.0.1:5000/health >/dev/null 2>&1 &&
+               curl --fail --silent --max-time 5 http://127.0.0.1:3000/ >/dev/null 2>&1; then
+              echo "Local performance targets are ready."
+              exit 0
+            fi
+            sleep 4
+          done
+
+          echo "Local performance targets did not become reachable." >&2
+          docker compose ps >&2 || true
+          docker compose logs --no-color aura-api >&2 || true
+          cat "${RUNNER_TEMP}/aura-vite-preview.log" >&2 || true
+          exit 1
+
       - name: Performance smoke
         run: npm run perf:smoke
         env:
@@ -68,7 +96,8 @@ jobs:
           PERF_P95_MS: ${{ vars.PERF_P95_MS || '500' }}
           PERF_ERROR_RATE: ${{ vars.PERF_ERROR_RATE || '0.01' }}
 
-      - name: Lighthouse if URL available
+      - name: Lighthouse if configured URL available
+        if: ${{ (vars.PERF_BASE_URL || '') != '' }}
         run: npm run perf:lighthouse
         env:
           PERF_BASE_URL: ${{ vars.PERF_BASE_URL || 'http://127.0.0.1:3000' }}
@@ -80,6 +109,15 @@ jobs:
           PERF_P95_MS: ${{ vars.PERF_P95_MS || '500' }}
           PERF_ERROR_RATE: ${{ vars.PERF_ERROR_RATE || '0.01' }}
           LIGHTHOUSE_MIN_PERFORMANCE: ${{ vars.LIGHTHOUSE_MIN_PERFORMANCE || '0.85' }}
+
+      - name: Stop local performance targets
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "${RUNNER_TEMP}/aura-vite-preview.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/aura-vite-preview.pid")" 2>/dev/null || true
+          fi
+          docker compose down -v --remove-orphans || true
 
       - name: Upload performance artifacts
         if: always()
