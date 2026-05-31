@@ -44,6 +44,8 @@ This package assumes these existing reusable workflows already exist:
 .github/workflows/mobile-release.yml
 ```
 
+The backend deploy workflow must build the default `linux/arm64` image on a native GitHub ARM64 runner. Do not move that lane back to an x64 runner with QEMU for normal production releases; emulated ARM64 `npm ci` can fail with `Illegal instruction`.
+
 Create a GitHub environment named `production` and add required reviewers.
 
 Required repository variables/secrets used by the orchestrator:

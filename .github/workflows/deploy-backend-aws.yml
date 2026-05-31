@@ -115,7 +115,7 @@ jobs:
 
   deploy:
     needs: preflight
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 40
 
     steps:
@@ -143,7 +143,20 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
 
+      - name: Verify native backend build runner
+        env:
+          RUNNER_ARCH_NAME: ${{ runner.arch }}
+        run: |
+          set -euo pipefail
+          echo "Backend build runner architecture: ${RUNNER_ARCH_NAME}"
+          echo "Backend image platform: ${AWS_DOCKER_PLATFORM}"
+          if [ "${AWS_DOCKER_PLATFORM}" = "linux/arm64" ] && [ "${RUNNER_ARCH_NAME}" != "ARM64" ]; then
+            echo "linux/arm64 backend builds must run on an ARM64 GitHub runner."
+            exit 1
+          fi
+
       - name: Set up QEMU
+        if: runner.arch != 'ARM64'
         uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
@@ -188,6 +201,10 @@ jobs:
 
       - name: Deploy release through SSM
         id: ssm
+        env:
+          INFRA_BUNDLE_KEY: ${{ steps.upload.outputs.infra_key }}
+          IMAGE_BUNDLE_KEY: ${{ steps.upload.outputs.image_key }}
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
         run: |
           set -euo pipefail
           cat > "${RUNNER_TEMP}/ssm-commands.json" <<EOF
@@ -196,21 +213,21 @@ jobs:
               "set -euo pipefail",
               "rm -rf /opt/aura/bootstrap/current",
               "mkdir -p /opt/aura/bootstrap/current",
-              "aws s3 cp s3://${AWS_DEPLOY_BUCKET}/${{ steps.upload.outputs.infra_key }} /opt/aura/bootstrap/infra.tar.gz",
+              "aws s3 cp s3://${AWS_DEPLOY_BUCKET}/${INFRA_BUNDLE_KEY} /opt/aura/bootstrap/infra.tar.gz",
               "tar -xzf /opt/aura/bootstrap/infra.tar.gz -C /opt/aura/bootstrap/current",
               "export AWS_REGION='${AWS_REGION}'",
               "export AWS_PARAMETER_STORE_PATH_PREFIX='${AWS_PARAMETER_STORE_PATH_PREFIX}'",
               "export AURA_DEPLOY_BUCKET='${AWS_DEPLOY_BUCKET}'",
               "export AURA_RELEASE_SHA='${GITHUB_SHA}'",
-              "export AURA_INFRA_BUNDLE_KEY='${{ steps.upload.outputs.infra_key }}'",
-              "export AURA_IMAGE_BUNDLE_KEY='${{ steps.upload.outputs.image_key }}'",
+              "export AURA_INFRA_BUNDLE_KEY='${INFRA_BUNDLE_KEY}'",
+              "export AURA_IMAGE_BUNDLE_KEY='${IMAGE_BUNDLE_KEY}'",
               "bash /opt/aura/bootstrap/current/infra/aws/deploy-release.sh"
             ]
           }
           EOF
 
           COMMAND_ID="$(aws ssm send-command \
-            --instance-ids "${{ steps.resolve_instance.outputs.instance_id }}" \
+            --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy Aura backend ${GITHUB_SHA}" \
             --parameters "file://${RUNNER_TEMP}/ssm-commands.json" \
@@ -219,12 +236,15 @@ jobs:
           echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for SSM completion
+        env:
+          COMMAND_ID: ${{ steps.ssm.outputs.command_id }}
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
         run: |
           set -euo pipefail
           for _ in $(seq 1 60); do
             STATUS="$(aws ssm get-command-invocation \
-              --command-id "${{ steps.ssm.outputs.command_id }}" \
-              --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
               --query "Status" \
               --output text)"
             case "${STATUS}" in
@@ -233,8 +253,8 @@ jobs:
                 ;;
               Failed|Cancelled|TimedOut|Cancelling)
                 aws ssm get-command-invocation \
-                  --command-id "${{ steps.ssm.outputs.command_id }}" \
-                  --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
                   --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
                   --output json
                 exit 1
