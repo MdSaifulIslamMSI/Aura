@@ -20,6 +20,8 @@ on:
     types:
       - completed
 
+permissions: {}
+
 jobs:
   watch:
     runs-on: ubuntu-latest

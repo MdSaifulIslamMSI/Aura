@@ -19,14 +19,14 @@ services:
       LOG_LEVEL: debug
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       HEALTHCHECK_PATH: /health
-      OTP_FLOW_SECRET: local-demo-otp-flow-secret-change-me
-      OTP_CHALLENGE_SECRET: local-demo-otp-challenge-secret-change-me
-      UPLOAD_SIGNING_SECRET: local-demo-upload-signing-secret-change-me
-      AUTH_VAULT_SECRET: local-demo-auth-vault-key-0123456789abcdef
-      RAZORPAY_WEBHOOK_SECRET: local-demo-razorpay-webhook-secret-change-me
-      STRIPE_WEBHOOK_SECRET: local-demo-stripe-webhook-secret-change-me
-      STATUS_WEBHOOK_SECRET: local-demo-status-webhook-secret-change-me
-      STATUS_WEBHOOK_TOKEN: local-demo-status-webhook-token-change-me
+      OTP_FLOW_SECRET: local-demo-otp-flow-secret-change-me #checkov:skip=CKV_SECRET_6:Local demo placeholder; production secrets come from env or SSM.
+      OTP_CHALLENGE_SECRET: local-demo-otp-challenge-secret-change-me #checkov:skip=CKV_SECRET_6:Local demo placeholder; production secrets come from env or SSM.
+      UPLOAD_SIGNING_SECRET: local-demo-upload-signing-secret-change-me #checkov:skip=CKV_SECRET_6:Local demo placeholder; production secrets come from env or SSM.
+      AUTH_VAULT_SECRET: local-demo-auth-vault-key-0123456789abcdef #checkov:skip=CKV_SECRET_6:Local demo placeholder; production secrets come from env or SSM.
+      RAZORPAY_WEBHOOK_SECRET: local-demo-razorpay-webhook-secret-change-me #checkov:skip=CKV_SECRET_6:Local demo placeholder; production secrets come from env or SSM.
+      STRIPE_WEBHOOK_SECRET: local-demo-stripe-webhook-secret-change-me #checkov:skip=CKV_SECRET_6:Local demo placeholder; production secrets come from env or SSM.
+      STATUS_WEBHOOK_SECRET: local-demo-status-webhook-secret-change-me #checkov:skip=CKV_SECRET_6:Local demo placeholder; production secrets come from env or SSM.
+      STATUS_WEBHOOK_TOKEN: local-demo-status-webhook-token-change-me #checkov:skip=CKV_SECRET_6:Local demo placeholder; production secrets come from env or SSM.
       STATUS_MONITOR_ALLOWED_HOSTS: aura-api,localhost,127.0.0.1
       UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
       UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}

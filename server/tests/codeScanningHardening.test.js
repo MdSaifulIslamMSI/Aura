@@ -63,4 +63,26 @@ describe('code scanning hardening contracts', () => {
         const source = readRepoFile('server/services/catalogSnapshotService.js');
         expect(source).toContain("fs.mkdtempSync(path.join(os.tmpdir(), 'aura-catalog-snapshots-'))");
     });
+
+    test('Checkov workflow and infrastructure findings stay explicitly handled', () => {
+        expect(readRepoFile('.github/workflows/staging-smoke.yml')).toMatch(/permissions:\s*\n\s+contents: read/);
+        expect(readRepoFile('.github/workflows/staging-frontend-smoke.yml')).toMatch(/permissions:\s*\n\s+contents: read/);
+        expect(readRepoFile('.github/workflows/status-watch.yml')).toContain('permissions: {}');
+
+        const deployment = readRepoFile('k8s/base/deployment.yaml');
+        expect(deployment).toContain('runAsUser: 10001');
+        expect(deployment).toContain('runAsGroup: 10001');
+        expect(deployment).toContain('fsGroup: 10001');
+        expect(deployment).toContain('checkov.io/skip1: CKV_K8S_35=');
+        expect(deployment).toContain('checkov.io/skip2: CKV_K8S_43=');
+
+        expect(readRepoFile('docker-compose.yml')).toContain('#checkov:skip=CKV_SECRET_6:Local demo placeholder');
+        expect(readRepoFile('k8s/base/secret.example.yaml')).toContain('#checkov:skip=CKV_SECRET_6:Example placeholder');
+
+        const cloudFormation = readRepoFile('infra/aws/cloudformation-bootstrap.yml');
+        expect(cloudFormation).toContain('AccessLogBucket:');
+        expect(cloudFormation).toContain('LoggingConfiguration:');
+        expect(cloudFormation).toContain('DestinationBucketName: !Ref AccessLogBucket');
+        expect(cloudFormation).toContain('id: CKV_AWS_111');
+    });
 });
