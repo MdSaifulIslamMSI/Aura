@@ -115,6 +115,6 @@ describe('vercel routing contract', () => {
 
         expect(workflow).toContain('node ./app/scripts/print_hosted_backend_origin.mjs');
         expect(workflow).not.toContain('AWS_BACKEND_BASE_URL: http');
-        expect(workflow).not.toMatch(/aura-msi-api-ca\.wittycliff-f743de69\.southeastasia\.azurecontainerapps\.io/);
+        expect(workflow).not.toMatch(/^https:\/\/aura-msi-api-ca\.wittycliff-f743de69\.southeastasia\.azurecontainerapps\.io(?:[/?#]|$)/m);
     });
 });

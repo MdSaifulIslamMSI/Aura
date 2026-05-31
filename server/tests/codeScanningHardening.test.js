@@ -32,8 +32,10 @@ describe('code scanning hardening contracts', () => {
     test('staging Vercel automation invokes the trusted npx JavaScript entrypoint directly', () => {
         const source = readRepoFile('scripts/staging/vercel-staging-autopilot.mjs');
         expect(source).toContain("'npx-cli.js'");
+        expect(source).toContain("fs.mkdtempSync(path.join(os.tmpdir(), 'aura-vercel-api-'))");
         expect(source).not.toContain("'cmd.exe'");
         expect(source).not.toContain('npx.cmd');
+        expect(source).not.toContain('`aura-vercel-api-${Date.now()}.json`');
     });
 
     test('local S3 mock does not reflect bucket input into redirect headers', () => {
@@ -49,5 +51,16 @@ describe('code scanning hardening contracts', () => {
         expect(authRoutes).toMatch(/router\.post\('\/logout', protectOptional, authenticatedSessionMutationLimiter/);
         expect(authRoutes).toMatch(/router\.post\('\/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authenticatedSessionMutationLimiter/);
         expect(notificationRoutes).toMatch(/router\.use\(protect, userNotificationLimiter\)/);
+    });
+
+    test('security scanner reports avoid check-then-write races', () => {
+        const source = readRepoFile('scripts/security/run-docker-tool.mjs');
+        expect(source).toContain("{ flag: 'wx' }");
+        expect(source).not.toContain('fs.existsSync(reportPath)');
+    });
+
+    test('catalog snapshot defaults use a private temporary directory', () => {
+        const source = readRepoFile('server/services/catalogSnapshotService.js');
+        expect(source).toContain("fs.mkdtempSync(path.join(os.tmpdir(), 'aura-catalog-snapshots-'))");
     });
 });

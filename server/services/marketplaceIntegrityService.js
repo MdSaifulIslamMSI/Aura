@@ -39,11 +39,11 @@ const DEMO_TEXT_PATTERNS = [
 ];
 
 const BLOCKED_IMAGE_PATTERNS = [
-    /cdn\.dummyjson\.com/i,
-    /picsum\.photos/i,
-    /via\.placeholder\.com/i,
-    /placehold\.co/i,
-    /loremflickr\.com/i,
+    /^https?:\/\/(?:[^/?#]+\.)?cdn\.dummyjson\.com(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?picsum\.photos(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?via\.placeholder\.com(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?placehold\.co(?:[/?#]|$)/i,
+    /^https?:\/\/(?:[^/?#]+\.)?loremflickr\.com(?:[/?#]|$)/i,
     /placeholder/i,
 ];
 

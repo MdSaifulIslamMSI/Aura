@@ -62,6 +62,8 @@ const DESKTOP_AUTH_HANDOFF_STORAGE_KEY = 'aura_desktop_auth_handoff_v1';
 const DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS = 10 * 60 * 1000;
 
 const LOOPBACK_DESKTOP_AUTH_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+const DESKTOP_AUTH_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]{1,200}$/;
+const PROTOTYPE_SENSITIVE_REQUEST_IDS = new Set(['__proto__', 'constructor', 'prototype']);
 
 const parseBooleanEnv = (value, fallback = false) => {
   if (typeof value !== 'string') return fallback;
@@ -115,25 +117,34 @@ const getDesktopAuthStorage = () => {
   return null;
 };
 
+const normalizeDesktopAuthRequestId = (value = '') => {
+  const requestId = String(value || '').trim();
+  return DESKTOP_AUTH_REQUEST_ID_PATTERN.test(requestId) && !PROTOTYPE_SENSITIVE_REQUEST_IDS.has(requestId)
+    ? requestId
+    : '';
+};
+
 const readDesktopAuthStorageMap = () => {
   const storage = getDesktopAuthStorage();
-  if (!storage) return {};
+  if (!storage) return new Map();
 
   try {
     const parsed = JSON.parse(storage.getItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY) || '{}');
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? new Map(Object.entries(parsed))
+      : new Map();
   } catch {
     storage.removeItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY);
-    return {};
+    return new Map();
   }
 };
 
-const writeDesktopAuthStorageMap = (value = {}) => {
+const writeDesktopAuthStorageMap = (value = new Map()) => {
   const storage = getDesktopAuthStorage();
   if (!storage) return false;
 
   try {
-    storage.setItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY, JSON.stringify(value));
+    storage.setItem(DESKTOP_AUTH_HANDOFF_STORAGE_KEY, JSON.stringify(Object.fromEntries(value)));
     return true;
   } catch {
     return false;
@@ -141,17 +152,17 @@ const writeDesktopAuthStorageMap = (value = {}) => {
 };
 
 export const clearStoredDesktopBrowserHandoff = (requestId = '') => {
-  const normalizedRequestId = String(requestId || '').trim();
+  const normalizedRequestId = normalizeDesktopAuthRequestId(requestId);
   if (!normalizedRequestId) return;
 
   const stored = readDesktopAuthStorageMap();
-  if (!stored[normalizedRequestId]) return;
-  delete stored[normalizedRequestId];
+  if (!stored.has(normalizedRequestId)) return;
+  stored.delete(normalizedRequestId);
   writeDesktopAuthStorageMap(stored);
 };
 
 export const persistDesktopBrowserHandoff = (handoff = {}) => {
-  const requestId = String(handoff.requestId || '').trim();
+  const requestId = normalizeDesktopAuthRequestId(handoff.requestId);
   const secret = String(handoff.secret || '').trim();
   const callbackUrl = normalizeDesktopAuthCallbackUrl(handoff.callbackUrl);
   if (!requestId || !secret || !callbackUrl) {
@@ -159,26 +170,26 @@ export const persistDesktopBrowserHandoff = (handoff = {}) => {
   }
 
   const stored = readDesktopAuthStorageMap();
-  stored[requestId] = {
+  stored.set(requestId, {
     requestId,
     secret,
     callbackUrl,
     returnTo: resolveNavigationTarget(handoff.returnTo, '/'),
     expiresAt: Date.now() + DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS,
-  };
+  });
   return writeDesktopAuthStorageMap(stored);
 };
 
 const readStoredDesktopBrowserHandoff = (requestId = '') => {
-  const normalizedRequestId = String(requestId || '').trim();
+  const normalizedRequestId = normalizeDesktopAuthRequestId(requestId);
   if (!normalizedRequestId) return null;
 
   const stored = readDesktopAuthStorageMap();
-  const entry = stored[normalizedRequestId];
+  const entry = stored.get(normalizedRequestId);
   if (!entry || typeof entry !== 'object') return null;
 
   if (Number(entry.expiresAt || 0) <= Date.now()) {
-    delete stored[normalizedRequestId];
+    stored.delete(normalizedRequestId);
     writeDesktopAuthStorageMap(stored);
     return null;
   }
@@ -196,7 +207,7 @@ const readStoredDesktopBrowserHandoff = (requestId = '') => {
 };
 
 export const buildDesktopDuoReturnTo = (requestId = '') => {
-  const normalizedRequestId = String(requestId || '').trim();
+  const normalizedRequestId = normalizeDesktopAuthRequestId(requestId);
   if (!normalizedRequestId) return '/desktop-login';
 
   const params = new URLSearchParams();

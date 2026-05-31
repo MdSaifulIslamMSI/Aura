@@ -76,7 +76,7 @@ expectIncludes('Trivy image SARIF upload', securityWorkflow, [
 ]);
 
 expectIncludes('Dependency review high-risk gate', securityGatesWorkflow, [
-  'uses: actions/dependency-review-action@v4',
+  'uses: actions/dependency-review-action@v5',
   'fail-on-severity: high',
 ]);
 

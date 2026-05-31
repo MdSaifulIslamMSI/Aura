@@ -5,6 +5,12 @@
  */
 const mongoSanitize = () => {
     const PROHIBITED_KEYS = ['__proto__', 'constructor', 'prototype'];
+    const replaceQuery = (req, value) => Object.defineProperty(req, 'query', {
+        configurable: true,
+        enumerable: true,
+        value,
+        writable: true,
+    });
 
     return (req, res, next) => {
         const sanitize = (obj, depth = 0) => {
@@ -18,21 +24,17 @@ const mongoSanitize = () => {
                 return obj;
             }
 
-            Object.keys(obj).forEach((key) => {
-                if (/^\$/.test(key) || /\./.test(key) || PROHIBITED_KEYS.includes(key)) {
-                    delete obj[key];
-                } else {
-                    obj[key] = sanitize(obj[key], depth + 1);
-                }
-            });
-
-            return obj;
+            return Object.fromEntries(
+                Object.entries(obj)
+                    .filter(([key]) => !/^\$/.test(key) && !/\./.test(key) && !PROHIBITED_KEYS.includes(key))
+                    .map(([key, value]) => [key, sanitize(value, depth + 1)])
+            );
         };
 
-        if (req.body) sanitize(req.body);
-        if (req.query) sanitize(req.query);
-        if (req.params) sanitize(req.params);
-        if (req.headers) sanitize(req.headers);
+        if (req.body) req.body = sanitize(req.body);
+        if (req.query) replaceQuery(req, sanitize(req.query));
+        if (req.params) req.params = sanitize(req.params);
+        if (req.headers) req.headers = sanitize(req.headers);
 
         next();
     };

@@ -1,4 +1,5 @@
 const {
+    getIntegrityIssue,
     scanForMarketplaceAnomalies,
 } = require('../services/marketplaceIntegrityService');
 
@@ -15,5 +16,19 @@ describe('marketplaceIntegrityService', () => {
             anomalyCount: expect.any(Number),
             protectionLevel: 'bounded-graph-heuristic',
         });
+    });
+
+    test('blocks placeholder hosts without rejecting lookalike URL paths', () => {
+        expect(getIntegrityIssue({
+            title: 'Handmade desk lamp',
+            description: 'A real seller listing.',
+            images: ['https://picsum.photos/300'],
+        })).toMatch(/placeholder image sources/i);
+
+        expect(getIntegrityIssue({
+            title: 'Handmade desk lamp',
+            description: 'A real seller listing.',
+            images: ['https://images.example.test/path/picsum.photos/300'],
+        })).toBeNull();
     });
 });

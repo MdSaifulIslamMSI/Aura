@@ -85,10 +85,6 @@ const walk = (targetPath, files = []) => {
 export const scanNoStagingProdFallbacks = ({ root = REPO_ROOT } = {}) => {
   const findings = [];
   const files = SCAN_ROOTS.flatMap((entry) => walk(path.join(root, entry)));
-  const productionHostPattern = new RegExp(KNOWN_PRODUCTION_HOSTS
-    .map((host) => host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .join('|'), 'i');
-
   for (const absolutePath of files) {
     const repoPath = toRepoPath(absolutePath);
     if (isGeneratedRepoPath(repoPath)) continue;
@@ -110,7 +106,7 @@ export const scanNoStagingProdFallbacks = ({ root = REPO_ROOT } = {}) => {
       if (line.includes(PRODUCTION_SSM_PREFIX)) {
         findings.push({ repoPath, line: index + 1, reason: 'production SSM prefix in staging context', text: line.trim() });
       }
-      if (productionHostPattern.test(line)) {
+      if (KNOWN_PRODUCTION_HOSTS.some((host) => lower.includes(host))) {
         findings.push({ repoPath, line: index + 1, reason: 'production host in staging context', text: line.trim() });
       }
       if (/STAGING_[A-Z0-9_]*\s*(?:\|\||\?\?)\s*(?:process\.env\.)?PROD[A-Z0-9_]*/.test(line)) {

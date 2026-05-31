@@ -225,18 +225,13 @@ const csrfTokenValidator = async (req, res, next) => {
         return next();
     }
 
-    const rawTokens = [
-        { transport: 'header', value: req.headers?.['x-csrf-token'] },
-        { transport: 'body', value: req.body?.csrfToken },
-        { transport: 'query', value: req.query?.csrfToken },
-    ];
-    const invalidToken = rawTokens.find(({ value }) => value !== undefined && value !== null && typeof value !== 'string');
-    if (invalidToken) {
+    const rawToken = req.headers?.['x-csrf-token'];
+    if (rawToken !== undefined && rawToken !== null && typeof rawToken !== 'string') {
         logger.warn('csrf.token_type_rejected', {
             method: req.method,
             path: req.path,
             uid: req.authUid || req.user?.id || 'anonymous',
-            transport: invalidToken.transport,
+            transport: 'header',
         });
         recordAuthSecurityEvent({
             event: 'csrf_rejected',
@@ -253,38 +248,7 @@ const csrfTokenValidator = async (req, res, next) => {
         });
     }
 
-    const headerToken = rawTokens[0].value || '';
-    const bodyToken = rawTokens[1].value || '';
-    const queryToken = rawTokens[2].value || '';
-    const isAuthenticated = Boolean(req.user?.id || req.authUid);
-    const contentType = String(req.headers['content-type'] || '').toLowerCase();
-    const accepts = String(req.headers.accept || '').toLowerCase();
-    const isJsonRequest = contentType.includes('application/json') || accepts.includes('application/json');
-
-    if (isAuthenticated && isJsonRequest && !headerToken && (bodyToken || queryToken)) {
-        logger.warn('csrf.token_transport_rejected', {
-            method: req.method,
-            path: req.path,
-            uid: req.authUid || req.user?.id || 'anonymous',
-            transport: bodyToken ? 'body' : 'query',
-        });
-        recordAuthSecurityEvent({
-            event: 'csrf_rejected',
-            outcome: 'blocked',
-            reason: 'invalid_transport',
-            surface: 'csrf',
-            req,
-            meta: { statusCode: 403 },
-        });
-        return next({
-            statusCode: 403,
-            message: 'CSRF token must be sent via X-CSRF-Token header',
-            code: 'CSRF_TOKEN_HEADER_REQUIRED',
-        });
-    }
-
-    // Priority: header > body > query
-    const token = headerToken || bodyToken || queryToken;
+    const token = rawToken || '';
 
     if (!token) {
         logger.warn('csrf.token_missing', {

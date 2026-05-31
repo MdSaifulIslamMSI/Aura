@@ -12,23 +12,28 @@ const sanitizeValue = (value) => {
         return value.map(sanitizeValue);
     }
     if (typeof value === 'object' && value !== null) {
-        const sanitized = {};
-        for (const key in value) {
-            if (Object.prototype.hasOwnProperty.call(value, key)) {
-                sanitized[key] = sanitizeValue(value[key]);
-            }
-        }
-        return sanitized;
+        return Object.fromEntries(
+            Object.entries(value)
+                .filter(([key]) => !['__proto__', 'constructor', 'prototype'].includes(key))
+                .map(([key, entryValue]) => [key, sanitizeValue(entryValue)])
+        );
     }
     return value;
 };
+
+const replaceQuery = (req, value) => Object.defineProperty(req, 'query', {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+});
 
 const xssSanitizer = (req, res, next) => {
     if (req.body) {
         req.body = sanitizeValue(req.body);
     }
     if (req.query) {
-        req.query = sanitizeValue(req.query);
+        replaceQuery(req, sanitizeValue(req.query));
     }
     if (req.params) {
         req.params = sanitizeValue(req.params);

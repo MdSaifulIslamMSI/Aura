@@ -462,12 +462,14 @@ const runIac = () => {
   ], terrascanReport);
 
   for (const reportPath of [checkovReport, tfsecReport, terrascanReport]) {
-    if (!fs.existsSync(reportPath)) {
+    try {
       fs.writeFileSync(reportPath, JSON.stringify({
         tool: path.basename(reportPath, '.json'),
         status: 'no-report-produced',
         generatedAt: new Date().toISOString(),
-      }, null, 2));
+      }, null, 2), { flag: 'wx' });
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
     }
   }
 };

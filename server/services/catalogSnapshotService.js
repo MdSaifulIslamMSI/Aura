@@ -10,10 +10,9 @@ const AppError = require('../utils/AppError');
 const { resolveCategory } = require('../config/categories');
 const { auditCatalogSample } = require('./catalogSourceIntegrityService');
 
-const SNAPSHOT_CACHE_DIR = path.resolve(
-    process.cwd(),
-    process.env.CATALOG_SNAPSHOT_CACHE_DIR || path.join(os.tmpdir(), 'aura-catalog-snapshots')
-);
+const SNAPSHOT_CACHE_DIR = process.env.CATALOG_SNAPSHOT_CACHE_DIR
+    ? path.resolve(process.cwd(), process.env.CATALOG_SNAPSHOT_CACHE_DIR)
+    : fs.mkdtempSync(path.join(os.tmpdir(), 'aura-catalog-snapshots-'));
 const ONBOARDING_SAMPLE_SIZE = Math.max(25, Number(process.env.CATALOG_ONBOARDING_SAMPLE_SIZE || 200));
 const REQUIRED_CANONICAL_FIELDS = ['title', 'brand', 'category', 'price', 'description', 'image'];
 const REMOTE_TIMEOUT_MS = Math.max(1000, Number(process.env.CATALOG_SNAPSHOT_REMOTE_TIMEOUT_MS || 10000));
@@ -237,7 +236,7 @@ const fetchRemoteResource = async (ref, label) => {
 };
 
 const ensureCacheDir = async () => {
-    await fs.promises.mkdir(SNAPSHOT_CACHE_DIR, { recursive: true });
+    await fs.promises.mkdir(SNAPSHOT_CACHE_DIR, { recursive: true, mode: 0o700 });
 };
 
 const resolveLocalPath = (ref) => {
@@ -270,7 +269,7 @@ const downloadRemoteResource = async (ref, label) => {
     const extension = path.extname(url.pathname) || (label === 'manifest' ? '.json' : '.bin');
     const fileName = `${label}_${hashValue(ref).slice(0, 20)}${extension}`;
     const targetPath = path.join(SNAPSHOT_CACHE_DIR, fileName);
-    await fs.promises.writeFile(targetPath, buffer);
+    await fs.promises.writeFile(targetPath, buffer, { mode: 0o600 });
 
     return {
         ref: finalUrl,

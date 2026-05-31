@@ -243,6 +243,17 @@ describe('useLoginController', () => {
     expect(handoff.returnTo).toBe('/checkout');
   });
 
+  it('rejects prototype-sensitive desktop handoff request ids', () => {
+    expect(persistDesktopBrowserHandoff({
+      requestId: '__proto__',
+      secret: 'secret-prototype',
+      callbackUrl: 'http://localhost:47831/desktop-auth/complete',
+    })).toBe(false);
+
+    expect(resolveDesktopBrowserHandoff('?desktopAuthRequest=__proto__&duo=success').active).toBe(false);
+    expect({}.secret).toBeUndefined();
+  });
+
   it('redirects already-authenticated visitors only after bootstrap settles', async () => {
     const initialEntry = {
       pathname: '/login',
