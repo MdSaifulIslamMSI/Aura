@@ -2444,9 +2444,9 @@ const executeComponentCheck = async (component) => {
         case 'http':
             return runHttpCheck(component);
         case 'database':
-            return runDatabaseCheck(component);
+            return runDatabaseCheck();
         case 'redis':
-            return runRedisCheck(component);
+            return runRedisCheck();
         case 'internal_health':
             return runInternalHealthCheck(component);
         case 'manual':

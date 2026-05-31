@@ -59,7 +59,6 @@ const recordSpan = async ({ name, durationMs = 0, attributes = {}, error = null 
 
     const nowUnixNano = `${BigInt(Date.now()) * 1000000n}`;
     const durationNano = BigInt(Math.max(0, Math.round(durationMs * 1000000)));
-    const endUnixNano = `${BigInt(nowUnixNano)}`;
     const startUnixNano = `${BigInt(nowUnixNano) - durationNano}`;
     const traceId = Buffer.from(`${Date.now()}${Math.random()}`).toString('hex').padEnd(32, '0').slice(0, 32);
     const spanId = Buffer.from(`${Math.random()}`).toString('hex').padEnd(16, '0').slice(0, 16);
@@ -86,7 +85,7 @@ const recordSpan = async ({ name, durationMs = 0, attributes = {}, error = null 
                     name: name || 'operation',
                     kind: 1,
                     startTimeUnixNano: startUnixNano,
-                    endTimeUnixNano,
+                    endTimeUnixNano: nowUnixNano,
                     attributes: otelAttributes,
                     status: error ? { code: 2, message: error.message || String(error) } : { code: 1 },
                 }],

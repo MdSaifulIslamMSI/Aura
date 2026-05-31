@@ -104,7 +104,6 @@ export const PRIORITY_MARKET_MESSAGES = {
     'productPage.openMissionOs': 'Mission OS kholo',
     'productPage.tab.description': 'Description',
     'productPage.tab.specifications': 'Specifications',
-    'productPage.tab.dealDna': 'Deal DNA',
     'productPage.tab.compatibility': 'Compatibility',
     'productPage.tab.reviews': 'Reviews',
     'productPage.tab.dealDna': 'Deal DNA',

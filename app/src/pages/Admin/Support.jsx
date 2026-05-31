@@ -34,8 +34,6 @@ import {
 const TICKET_LIST_POLL_MS = 20000;
 const ACTIVE_TICKET_POLL_MS = 12000;
 const normalizeLiveCallMode = (value) => (String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video');
-const getLiveCallModeLabel = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'voice call' : 'video call');
-const getLiveCallModeTitle = (value) => (normalizeLiveCallMode(value) === 'voice' ? 'Voice Call' : 'Video Call');
 
 const sortTickets = (tickets = []) => (
     [...tickets].sort((left, right) => {

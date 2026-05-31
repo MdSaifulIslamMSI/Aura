@@ -17,7 +17,6 @@ const getSecret = () => {
     throw new AppError('OTP_FLOW_SECRET is required', 500);
 };
 
-const encodeBase64Url = (value) => Buffer.from(value, 'utf8').toString('base64url');
 const normalizeOptionalText = (value, maxLength = 256) => String(value || '').trim().slice(0, maxLength);
 const createInvalidTokenError = () => new AppError('Login assurance token is invalid', 401);
 const normalizeNextStep = (value, purpose = '') => normalizeOptionalText(

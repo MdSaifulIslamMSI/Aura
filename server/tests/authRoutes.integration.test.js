@@ -194,7 +194,7 @@ describe('Auth backup recovery codes', () => {
         expect(verifyRes.statusCode).toBe(200);
         expect(verifyRes.body.flowToken).toEqual(expect.any(String));
 
-        const nextPassword = buildStrongPassword('recovery-other-device');
+        const nextPassword = buildStrongPassword();
         const resetFromOtherDevice = await request(app)
             .post('/api/otp/reset-password')
             .set('X-Aura-Device-Id', 'device-recovery-b')

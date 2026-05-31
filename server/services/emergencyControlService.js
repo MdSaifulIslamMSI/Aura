@@ -30,7 +30,6 @@ const CACHE_TTL_MS = Math.min(
 
 const SAFE_TEXT_MAX = 500;
 const SAFE_REASON_MAX = 2000;
-const ACTIVE_FLAG_SORT = { severityRank: -1, updatedAt: -1 };
 const SEVERITY_RANK = { low: 1, medium: 2, high: 3, critical: 4 };
 
 let cache = {

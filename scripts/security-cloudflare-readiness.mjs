@@ -21,12 +21,6 @@ const addCheck = (name, ok, detail = {}) => {
 };
 
 const includesAll = (text, needles) => needles.every((needle) => text.includes(needle));
-const run = (command, args) => spawnSync(command, args, {
-  cwd: repoRoot,
-  encoding: 'utf8',
-  shell: false,
-});
-
 const runNpx = (args) => spawnSync(npxCommand, args, {
   cwd: repoRoot,
   encoding: 'utf8',

@@ -1,5 +1,5 @@
-import { apiFetch, API_BASE_URL as BASE_URL, buildServiceUrl } from '../apiBase';
-import { getAuthHeader, parseApiError } from './apiUtils';
+import { apiFetch } from '../apiBase';
+import { getAuthHeader } from './apiUtils';
 import { cartApi, normalizeCartSnapshot } from './cartApi';
 
 const PROFILE_CACHE_TTL_MS = 15 * 1000;

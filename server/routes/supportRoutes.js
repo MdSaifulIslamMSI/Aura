@@ -8,7 +8,6 @@ const {
     getSupportTickets,
     getSupportTicketMessages,
     requestSupportLiveCall,
-    addSystemLogToTicket,
     adminGetTickets,
     adminUpdateTicketStatus,
     startSupportLiveCallSession,

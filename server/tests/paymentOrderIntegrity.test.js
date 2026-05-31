@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const AppError = require('../utils/AppError');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const PaymentIntent = require('../models/PaymentIntent');

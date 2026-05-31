@@ -9,7 +9,6 @@ import { useMarket } from '@/context/MarketContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { decorateRecommendedProduct, priceAlertApi, productApi, recommendationApi, trackRecommendationEvent, uploadApi } from '@/services/api';
 import { FrequentlyBoughtTogether, RecentlyViewedRecommendations } from '@/components/recommendations';
-import { pushClientDiagnostic } from '@/services/clientObservability';
 import ProductCard from '@/components/features/product/ProductCard';
 import ProductPageSkeleton from '@/components/shared/ProductPageSkeleton';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
@@ -537,8 +536,6 @@ const ProductDetails = () => {
     brand = 'Unknown Brand',
     rating = 0,
     ratingCount = 0,
-    price = 0,
-    originalPrice = 0,
     discountPercentage = 0,
     stock = 0,
     image = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select',

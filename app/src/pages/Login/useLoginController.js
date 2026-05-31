@@ -33,7 +33,6 @@ import {
   getAuthPurpose,
   isEnumerationSensitiveOtpError,
   normalizeEmail,
-  normalizePhone,
   OTP_LENGTH,
   OTP_STAGE,
   OTP_TRANSPORT,
@@ -62,6 +61,9 @@ const DESKTOP_AUTH_HANDOFF_STORAGE_KEY = 'aura_desktop_auth_handoff_v1';
 const DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS = 10 * 60 * 1000;
 
 const LOOPBACK_DESKTOP_AUTH_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+const DESKTOP_AUTH_ALLOWED_CALLBACK_PORTS = new Set(
+  Array.from({ length: 10 }, (_, index) => String(47831 + index))
+);
 const DESKTOP_AUTH_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]{1,200}$/;
 const PROTOTYPE_SENSITIVE_REQUEST_IDS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -90,9 +92,11 @@ export const normalizeDesktopAuthCallbackUrl = (value = '') => {
       return DESKTOP_AUTH_COMPLETE_PATH;
     }
 
+    const callbackPort = url.port || (url.protocol === 'http:' ? '80' : '');
     if (
-      ['http:', 'https:'].includes(url.protocol)
+      url.protocol === 'http:'
       && LOOPBACK_DESKTOP_AUTH_HOSTS.has(url.hostname)
+      && DESKTOP_AUTH_ALLOWED_CALLBACK_PORTS.has(callbackPort)
       && url.pathname === DESKTOP_AUTH_COMPLETE_PATH
     ) {
       url.search = '';
@@ -430,7 +434,8 @@ export const useLoginController = () => {
     });
 
     try {
-      if (!desktopBrowserHandoff.callbackUrl) {
+      const callbackUrl = normalizeDesktopAuthCallbackUrl(desktopBrowserHandoff.callbackUrl);
+      if (!callbackUrl) {
         throw new Error('Desktop sign-in callback is not trusted.');
       }
 
@@ -443,7 +448,9 @@ export const useLoginController = () => {
         throw new Error('Desktop sign-in token was not returned by the server.');
       }
 
-      const response = await fetch(desktopBrowserHandoff.callbackUrl, {
+      // Callback URL is normalized to same-origin /desktop-auth/complete or fixed loopback desktop ports only.
+      // codeql[js/client-side-request-forgery]
+      const response = await fetch(callbackUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -10,7 +10,6 @@
  * 3. Optimize for BIN-Gateway Affinity
  */
 
-const logger = require('../../utils/logger');
 const crypto = require('crypto');
 
 const parseBoolean = (value, fallback = false) => {

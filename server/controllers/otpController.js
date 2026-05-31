@@ -346,8 +346,6 @@ const computeSignupIdentifierRateState = async ({ email, phone }) => {
     };
 };
 
-const sendGenericOtpResponse = (res) => res.json({ success: true, message: GENERIC_ACCOUNT_DISCOVERY_MESSAGE });
-
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitForGenericAccountResponseWindow = async (startedAt) => {
@@ -478,14 +476,6 @@ const buildVaultRecoveredUserPayload = ({
         isVerified: true,
         isAdmin: false,
     };
-};
-
-const clearUserOtpStateByPhone = async (canonicalPhone) => {
-    if (!canonicalPhone) return;
-    await User.updateOne(
-        { phone: canonicalPhone },
-        { $set: { otp: null, otpExpiry: null, otpPurpose: null, otpAttempts: 0, otpLockedUntil: null } }
-    );
 };
 
 const clearUserOtpStateByUserId = async (userId) => {
@@ -1447,7 +1437,6 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
                     lockedUntil: user.otpLockedUntil || null,
                 });
                 if (!session) {
-                    otpSessionStorageUnavailable = true;
                     session = legacySession;
                 }
             }
@@ -1465,7 +1454,6 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
                 if (!isOtpSessionStorageUnavailableError(error)) {
                     throw error;
                 }
-                otpSessionStorageUnavailable = true;
             }
         }
         if (anySession?.purpose && anySession.purpose !== purpose) {
@@ -1948,7 +1936,7 @@ const checkUserExists = asyncHandler(async (req, res, next) => {
     }
 
     let userExists = false;
-    let reason = 'not_found';
+    let reason;
 
     if (email) {
         const [verifiedByEmail, verifiedByPhone] = await Promise.all([

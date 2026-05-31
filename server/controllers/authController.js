@@ -10,7 +10,6 @@ const {
 } = require('../services/authSessionService');
 const { normalizePhoneE164 } = require('../services/sms');
 const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
-const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
 const AppError = require('../utils/AppError');
 const {
     TRUSTED_DEVICE_SESSION_HEADER,

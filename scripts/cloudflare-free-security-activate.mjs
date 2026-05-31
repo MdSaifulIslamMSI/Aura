@@ -1,6 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 
 const repoRoot = process.cwd();
 const reportsDir = path.join(repoRoot, 'security-reports');
@@ -19,25 +18,14 @@ const zoneIdInput = (getArg('--zone-id') || process.env.CLOUDFLARE_ZONE_ID || ''
 const rulesPath = path.join(repoRoot, 'infra/cloudflare/free-security-rules.json');
 const rulesConfig = JSON.parse(readFileSync(rulesPath, 'utf8'));
 
-const readWranglerOAuthToken = () => {
-  const configPath = path.join(
-    process.env.APPDATA || path.join(os.homedir(), '.config'),
-    'xdg.config',
-    '.wrangler',
-    'config',
-    'default.toml',
-  );
-  if (!existsSync(configPath)) return '';
-  const config = readFileSync(configPath, 'utf8');
-  return config.match(/oauth_token\s*=\s*"([^"]+)"/)?.[1] || '';
-};
-
-const token = process.env.CLOUDFLARE_API_TOKEN || readWranglerOAuthToken();
+const token = process.env.CLOUDFLARE_API_TOKEN || '';
 if (!token) {
-  throw new Error('Cloudflare token not found. Run `npx wrangler login` or set CLOUDFLARE_API_TOKEN.');
+  throw new Error('Cloudflare token not found. Set CLOUDFLARE_API_TOKEN explicitly before activation.');
 }
 
 const api = async (method, endpoint, body) => {
+  // Body data comes from repo-owned Cloudflare rule JSON plus explicit operator args; production mode is refused above.
+  // codeql[js/file-access-to-http]
   const response = await fetch(`https://api.cloudflare.com/client/v4${endpoint}`, {
     method,
     headers: {

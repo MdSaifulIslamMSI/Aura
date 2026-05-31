@@ -13,8 +13,6 @@ jest.mock('../middleware/authMiddleware', () => ({
 }));
 
 const app = require('../index');
-const mongoose = require('mongoose');
-const Order = require('../models/Order');
 
 describe('Order API Security Tests (Anti-IDOR)', () => {
 

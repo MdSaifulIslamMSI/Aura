@@ -1,8 +1,3 @@
-const { runRewardOptimization } = require('../services/marketingIntelligenceService');
-const IntelligenceTask = require('../models/IntelligenceTask');
-const User = require('../models/User');
-const mongoose = require('mongoose');
-
 // Note: This is more of a logic check for the solver specifically.
 // We'll extract the solver for a clean unit test.
 

@@ -3,9 +3,7 @@ const os = require('os');
 const path = require('path');
 
 const {
-    prepareKaggleCatalogSnapshot,
     prepareKaggleCatalogSnapshotFromFile,
-    importKaggleCatalog,
 } = require('../services/externalCatalogService');
 
 describe('External Catalog Service', () => {

@@ -211,13 +211,6 @@ const mergePaymentIntentSnapshot = (currentIntent = EMPTY_INTENT, serverIntent =
     checkoutPayload: currentIntent.checkoutPayload || null,
 });
 
-const CHECKOUT_STEPS = [
-    { id: 1, label: 'Address' },
-    { id: 2, label: 'Delivery' },
-    { id: 3, label: 'Payment' },
-    { id: 4, label: 'Review' },
-];
-
 const Checkout = () => {
     const navigate = useNavigate();
     const { cartItems } = useContext(CartContext);

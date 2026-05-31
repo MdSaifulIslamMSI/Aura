@@ -1,6 +1,5 @@
 import React from 'react';
 import { AlertTriangle, AlertOctagon, XCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export default function AccountStatusBanner({ accountState, moderation }) {
     if (!accountState || accountState === 'active') return null;

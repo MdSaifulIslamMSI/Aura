@@ -1,6 +1,5 @@
 const request = require('supertest');
 const app = require('../index');
-const mongoose = require('mongoose');
 
 describe('Product API Integration Tests', () => {
     // Test GET /api/products

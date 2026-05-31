@@ -9,7 +9,6 @@
  */
 
 const { resolveCategory } = require('../../config/categories');
-const { flags } = require('../../config/catalogFlags');
 const { resolveProductImage } = require('../productImageResolver');
 const { analyzeCatalogRecord } = require('../catalogSourceIntegrityService');
 const {
@@ -208,7 +207,6 @@ const buildCatalogQualitySignals = ({
 const normalizeProductRecord = ({
     raw, defaultSource, catalogVersion, sourceRef = '', snapshotManifest = null, forSync = false,
 }) => {
-    const AppError = require('../../utils/AppError');
     const title = safeString(raw.title || raw.name || raw.productName);
     const brand = safeString(raw.brand || raw.manufacturer || 'Unknown');
     const category = normalizeCategory(raw.category || raw.subCategory || raw.department || 'Misc');

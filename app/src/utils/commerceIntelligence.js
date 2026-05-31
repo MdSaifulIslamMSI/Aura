@@ -84,7 +84,6 @@ const labelFromScore = (score) => {
 
 export const buildProductTrustGraph = ({ product = {}, reviewsSummary = {}, priceHistory = [] } = {}) => {
   const price = toNumber(product?.price, 0);
-  const originalPrice = toNumber(product?.originalPrice, price);
   const rating = toNumber(reviewsSummary?.averageRating, toNumber(product?.rating, 0));
   const ratingCount = toNumber(reviewsSummary?.totalReviews, toNumber(product?.ratingCount, 0));
   const mediaReviews = toNumber(reviewsSummary?.withMediaCount, 0);

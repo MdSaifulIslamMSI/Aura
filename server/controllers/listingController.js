@@ -1,12 +1,10 @@
 const asyncHandler = require('express-async-handler');
-const crypto = require('crypto');
 const { isValidObjectId: isValidObjectIdMongoose } = require('mongoose'); // Renamed to avoid conflict
 const Listing = require('../models/Listing');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const PaymentIntent = require('../models/PaymentIntent');
-const PaymentEvent = require('../models/PaymentEvent');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { flags: paymentFlags } = require('../config/paymentFlags');
@@ -20,7 +18,6 @@ const { buildSellerTrustPassport } = require('../services/sellerTrustService');
 const { assessFraudDecision } = require('../services/fraudDecisioningService');
 const { awardLoyaltyPoints } = require('../services/loyaltyService');
 const {
-    serializeThreadForUser,
     sendCounterpartyMessageEmail,
     assertEscrowEligibility,
     buildEscrowCheckoutPayload,
@@ -36,7 +33,6 @@ const {
     PAYMENT_STATUSES,
 } = require('../services/payments/constants');
 const {
-    makeEventId,
     makeIntentId,
     normalizeMethod,
     roundCurrency,
@@ -66,8 +62,6 @@ const buildFraudRequestMeta = (req) => ({
     userAgent: req.headers['user-agent'] || '',
     requestId: req.id || req.headers['x-request-id'] || '',
 });
-const MAX_CHAT_MESSAGES_PER_THREAD = 200;
-const MAX_CHAT_THREADS_PER_LISTING = 60;
 const HOTSPOT_LIMIT_DEFAULT = 8;
 const HOTSPOT_LIMIT_MAX = 16;
 const HOTSPOT_WINDOW_DEFAULT_DAYS = 21;

@@ -1,6 +1,3 @@
-const Listing = require('../models/Listing');
-const User = require('../models/User');
-const PaymentIntent = require('../models/PaymentIntent');
 const PaymentEvent = require('../models/PaymentEvent');
 const AppError = require('../utils/AppError');
 const { sendTransactionalEmail } = require('./email');

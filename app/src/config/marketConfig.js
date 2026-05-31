@@ -748,25 +748,6 @@ const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
   'productPage.livePrice': 'Live price',
   'productPage.curatorNote': 'Curator note',
   'productPage.curatorBody': 'This pick balances trust, performance, and long-term value.',
-  'checkout.resumeSecureCheckout': 'Resume Secure Checkout',
-  'checkout.payment.lifecycle.quote': 'Amount Locked',
-  'checkout.pending': 'Pending',
-  'checkout.payment.lifecycle.intent': 'Payment Request',
-  'checkout.payment.lifecycle.challenge': 'Challenge',
-  'checkout.verified': 'Verified',
-  'checkout.required': 'Required',
-  'checkout.notRequired': 'Not required',
-  'checkout.payment.lifecycle.provider': 'Gateway',
-  'checkout.authorized': 'Authorized',
-  'checkout.ready': 'Ready',
-  'checkout.payment.serverState': 'Payment State',
-  'checkout.payment.intentRef': 'Request',
-  'checkout.payment.provider': 'Gateway',
-  'checkout.payment.risk': 'Risk',
-  'checkout.payment.synced': 'Synced',
-  'checkout.payment.verifyOtp': 'Verify OTP',
-  'checkout.payment.refreshStatus': 'Refresh',
-  'checkout.payment.restart': 'Restart',
   'checkout.payment.selectBankContinue': 'Select a supported bank before continuing.',
   'checkout.payment.completeSecurePaymentContinue': 'Complete secure payment before continuing.',
   'checkout.payment.methodGroup': 'Payment method',
@@ -789,10 +770,6 @@ const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
   'checkout.error.savedCardAuthorizationFailed': 'Saved card authorization failed. Choose another card or retry with a new card.',
   'checkout.payment.stripeTitle': 'Secure card payment',
   'checkout.cancel': 'Cancel',
-  'checkout.success.paymentRecovered': 'Payment authorization recovered from the server',
-  'checkout.info.paymentStatusSynced': 'Payment status refreshed',
-  'checkout.error.paymentRefreshFailed': 'Unable to refresh payment status',
-  'checkout.info.paymentRestarted': 'Started a fresh payment authorization',
   'orders.payment.state.pending': 'pending',
   'orders.payment.timeline.method': 'Method Selected',
   'orders.payment.methodUnknown': 'Unknown method',
@@ -857,7 +834,6 @@ const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
   'status.banner.degradedTitle': 'Some secure actions may be slower right now',
   'status.banner.degradedMessage': 'Browsing should continue normally, but checkout, account, or support actions may take longer than usual for a moment.',
   'status.banner.degradedImpact': 'Browsing should still work while secure actions catch up.',
-  'login.desktopBrowser.storageUnavailable': 'Desktop Duo sign-in could not arm the secure browser bridge. Please refresh from Aura Desktop and try again.',
   'home.hero.quickSearchTitle': 'Find something fast',
   'home.hero.quickSearchBody': 'Jump straight into search when you know what you want.',
   'home.hero.quickDealsTitle': 'See today\'s deals',
@@ -1224,7 +1200,6 @@ export const detectMarketPreference = () => {
     .map((entry) => String(entry || '').trim())
     .filter(Boolean);
 
-  const primaryLocale = languages[0] || '';
   const regionFromLocale = languages
     .map((locale) => getRegionFromLocale(locale))
     .find(Boolean);

@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const request = require('supertest');
 const app = require('../index');
-const User = require('../models/User');
 
 let counter = 0;
 const stamp = Date.now();

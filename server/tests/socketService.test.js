@@ -15,9 +15,6 @@ jest.mock('../config/corsFlags', () => ({
 }));
 
 jest.mock('../config/redis', () => ({
-    flags: {
-        redisPrefix: 'test',
-    },
     getRedisClient: jest.fn(),
     flags: { redisPrefix: 'test' },
 }));

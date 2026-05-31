@@ -1,6 +1,4 @@
 const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
 const { issuePaymentChallengeToken } = require('../utils/paymentChallengeToken');
 const { signInWithEmailPassword } = require('./lib/firebaseEmailAuth');
 
@@ -32,7 +30,6 @@ const userName = String(args['user-name'] || process.env.SMOKE_USER_NAME || 'Smo
 const userPhone = String(args['user-phone'] || process.env.SMOKE_USER_PHONE || '+919999999999').trim();
 const adminEmail = String(args['admin-email'] || process.env.SMOKE_ADMIN_EMAIL || '').trim();
 const adminPassword = String(args['admin-password'] || process.env.SMOKE_ADMIN_PASSWORD || '').trim();
-const orderPayloadFile = String(args['order-payload-file'] || process.env.SMOKE_ORDER_PAYLOAD_FILE || '').trim();
 const productIdOverride = String(args['product-id'] || process.env.SMOKE_PRODUCT_ID || '').trim();
 const digitalPaymentMethod = String(
     args['digital-payment-method']
@@ -246,23 +243,7 @@ const buildDefaultOrderPayload = (productId, paymentMethod = process.env.SMOKE_P
 });
 
 const loadOrderPayload = (productId, paymentMethod = process.env.SMOKE_PAYMENT_METHOD || 'COD') => {
-    if (!orderPayloadFile) {
-        return buildDefaultOrderPayload(productId, paymentMethod);
-    }
-
-    const filePath = path.resolve(orderPayloadFile);
-    const payload = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    if (!Array.isArray(payload.orderItems) || payload.orderItems.length === 0) {
-        throw new Error(`Order payload file ${filePath} must include at least one orderItems entry`);
-    }
-
-    const firstItem = payload.orderItems[0];
-    if (!firstItem.product && !firstItem.productId && !firstItem.id) {
-        firstItem.product = productId;
-    }
-    payload.paymentMethod = payload.paymentMethod || paymentMethod;
-
-    return payload;
+    return buildDefaultOrderPayload(productId, paymentMethod);
 };
 
 const buildSmokeProductPayload = () => ({

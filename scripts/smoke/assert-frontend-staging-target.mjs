@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import fs from 'node:fs';
 import process from 'node:process';
 import {
   KNOWN_PRODUCTION_HOSTS,
@@ -11,26 +10,14 @@ import {
   toDisplayUrl,
 } from '../env-contract-lib.mjs';
 
-const RESULT_PATH = '.staging/vercel-staging-result.json';
 const failures = [];
 const notes = [];
 
 const normalizeUrl = (value) => normalize(value).replace(/\/+$/, '');
 const appendApiPath = (base) => `${normalizeUrl(base)}/api`;
 
-const readResult = () => {
-  if (process.env.ALLOW_STAGING_FRONTEND_RESULT_FALLBACK !== 'true') return {};
-  if (!fs.existsSync(RESULT_PATH)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(RESULT_PATH, 'utf8'));
-  } catch {
-    return {};
-  }
-};
-
-const result = readResult();
-const stagingFrontendUrl = normalizeUrl(process.env.STAGING_FRONTEND_URL || result.frontendUrl || '');
-const stagingApiBaseUrl = normalizeUrl(process.env.STAGING_API_BASE_URL || result.backendUrl || '');
+const stagingFrontendUrl = normalizeUrl(process.env.STAGING_FRONTEND_URL || '');
+const stagingApiBaseUrl = normalizeUrl(process.env.STAGING_API_BASE_URL || '');
 const stagingHealthUrl = normalizeUrl(process.env.STAGING_HEALTH_URL || `${stagingApiBaseUrl}/health`);
 const prodBaseUrl = normalizeUrl(process.env.PROD_BASE_URL || '');
 const prodApiBaseUrl = normalizeUrl(process.env.PROD_API_BASE_URL || '');

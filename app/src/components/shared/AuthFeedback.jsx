@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, ArrowRight, RefreshCw, WifiOff, Lock, UserX, Clock, ShieldX } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ArrowRight, WifiOff, Lock, UserX, Clock, ShieldX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**

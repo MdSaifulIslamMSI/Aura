@@ -37,13 +37,6 @@ const RECON_BADGE = {
 
 const badgeClass = (map, value) => map[value] || 'bg-slate-100 text-slate-700 border-slate-200';
 
-const toDateTime = (value) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleString();
-};
-
 export default function AdminRefundLedger() {
     const { t, formatDateTime } = useMarket();
     const [loading, setLoading] = useState(true);

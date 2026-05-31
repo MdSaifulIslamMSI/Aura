@@ -3,7 +3,6 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const Order = require('../models/Order');
 const ProductReview = require('../models/ProductReview');
-const { flags: paymentFlags } = require('../config/paymentFlags');
 const { validateProxyUrl } = require('../services/productImageProxyService');
 const {
     queryProducts,
@@ -570,44 +569,6 @@ const updateProduct = asyncHandler(async (req, res, next) => {
 
 const sanitizeText = (value = '') => String(value || '').toLowerCase().trim();
 const clampNumber = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
-
-const getMetaTokens = (imageMeta = {}) => {
-    if (!imageMeta || typeof imageMeta !== 'object') return [];
-    const width = Number(imageMeta.width) || 0;
-    const height = Number(imageMeta.height) || 0;
-    const ratio = (width > 0 && height > 0) ? (width / height) : 0;
-    const tokens = [];
-
-    if (ratio >= 1.3) tokens.push('laptop');
-    if (ratio > 0 && ratio <= 0.82) tokens.push('mobile');
-
-    const mimeType = sanitizeText(imageMeta.mimeType || '');
-    if (mimeType.includes('png')) tokens.push('screenshot');
-    if (mimeType.includes('jpeg') || mimeType.includes('jpg')) tokens.push('photo');
-
-    return tokens;
-};
-
-const buildVisualTokens = (payload = {}) => {
-    const combined = [payload.hints, payload.fileName, payload.imageUrl, ...getMetaTokens(payload.imageMeta)]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-    const tokens = combined
-        .replace(/https?:\/\/[^ ]+/g, ' ')
-        .replace(/[^a-z0-9 ]+/g, ' ')
-        .split(/\s+/)
-        .map((token) => token.trim())
-        .filter((token) => token.length >= 3)
-        .filter((token) => ![
-            'image', 'images', 'photo', 'jpeg', 'jpg', 'png', 'webp',
-            'http', 'https', 'com', 'cdn', 'files', 'product', 'screenshot',
-            'upload', 'clipboard',
-        ].includes(token));
-
-    return [...new Set(tokens)].slice(0, 10);
-};
 
 const getVisualConfidence = (product, tokens = []) => {
     if (!product) return 0.2;

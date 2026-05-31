@@ -5,6 +5,12 @@ const repoRoot = process.cwd();
 const workflowDir = path.join(repoRoot, '.github', 'workflows');
 const mutableRefs = new Set(['main', 'master', 'latest', 'stable', 'edge', 'nightly']);
 const mutableImageTags = new Set(['latest']);
+const pinnedCommitPattern = /^[0-9a-f]{40}$/i;
+
+const isGitHubMaintainedAction = (action = '') => (
+  action.startsWith('actions/')
+  || action.startsWith('github/codeql-action/')
+);
 
 const failures = [];
 let checkedActionRefs = 0;
@@ -21,6 +27,9 @@ if (existsSync(workflowDir)) {
       const ref = match[2].replace(/^['"]|['"]$/g, '');
       if (mutableRefs.has(ref) || ref.includes('${{')) {
         failures.push(`${path.relative(repoRoot, filePath)} uses mutable action ref ${match[1]}@${ref}`);
+      }
+      if (!isGitHubMaintainedAction(match[1]) && !pinnedCommitPattern.test(ref)) {
+        failures.push(`${path.relative(repoRoot, filePath)} uses third-party action ref ${match[1]}@${ref}; pin it to a full commit SHA`);
       }
     }
   }

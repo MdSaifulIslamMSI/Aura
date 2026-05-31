@@ -8,6 +8,7 @@ import { loadStudentPackEnv } from './lib/student-pack-env.mjs';
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const strict = process.argv.includes('--strict');
 const loadedEnvFiles = loadStudentPackEnv();
+const ALLOWED_COMMANDS = new Set(['doppler', 'sentry-cli', 'datadog-ci', 'node', 'localstack', 'awslocal', 'docker']);
 
 const checks = [
   {
@@ -72,47 +73,25 @@ const installHints = {
 };
 
 const pathCandidates = (command) => {
-  const appData = process.env.APPDATA || '';
-  const localAppData = process.env.LOCALAPPDATA || '';
   const candidates = [];
 
   if (process.platform === 'win32') {
     candidates.push(
       join(repoRoot, 'bin', `${command}.cmd`),
       join(repoRoot, 'bin', `${command}.js`),
-      join(appData, 'npm', `${command}.cmd`),
-      join(appData, 'npm', `${command}.ps1`),
-      join(appData, 'Python', 'Python312', 'Scripts', `${command}.exe`),
-      join(appData, 'Python', 'Python312', 'Scripts', `${command}.bat`),
     );
-
-    if (command === 'doppler') {
-      candidates.push(join(
-        localAppData,
-        'Microsoft',
-        'WinGet',
-        'Packages',
-        'Doppler.doppler_Microsoft.Winget.Source_8wekyb3d8bbwe',
-        'doppler.exe',
-      ));
-    }
-
-    if (command === 'localstack') {
-      candidates.push(join(
-        localAppData,
-        'Microsoft',
-        'WinGet',
-        'Packages',
-        'LocalStack.localstack-cli_Microsoft.Winget.Source_8wekyb3d8bbwe',
-        'localstack.exe',
-      ));
-    }
   }
 
   return candidates.filter(Boolean);
 };
 
 const resolveCommand = (command) => {
+  if (!ALLOWED_COMMANDS.has(command)) {
+    throw new Error(`Unsupported CLI doctor command: ${command}`);
+  }
+  if (command === 'node') {
+    return process.execPath;
+  }
   for (const candidate of pathCandidates(command)) {
     if (existsSync(candidate)) {
       return candidate;
@@ -136,6 +115,8 @@ const run = (command, args = []) => {
       ? ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', executable, ...args]
       : args;
 
+  // Command names are static doctor checks guarded by ALLOWED_COMMANDS; shell execution is disabled.
+  // codeql[js/indirect-command-line-injection]
   const result = spawnSync(commandForSpawn, argsForSpawn, {
     cwd: repoRoot,
     encoding: 'utf8',
