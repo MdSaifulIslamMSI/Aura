@@ -68,7 +68,7 @@ const getBiometricPasskeyLabel = (supportProfile = {}) => (
 const getTrustedDeviceMethodLabel = (method, supportProfile = {}) => (
   method === 'webauthn'
     ? getBiometricPasskeyLabel(supportProfile)
-    : 'RSA-PSS browser key'
+    : 'Browser fallback key'
 );
 
 const getTrustedDeviceHeading = ({ method, challengeMode, supportProfile }) => {
@@ -91,8 +91,8 @@ const getTrustedDeviceActionLabel = ({ method, challengeMode, supportProfile }) 
   }
 
   return challengeMode === 'enroll'
-    ? 'Register Browser'
-    : 'Verify Browser';
+    ? 'Register Browser Fallback'
+    : 'Use Browser Fallback';
 };
 
 const getTrustedDeviceIntro = ({
@@ -106,7 +106,7 @@ const getTrustedDeviceIntro = ({
   if (passkeyOffered && browserKeyOffered) {
     return challengeMode === 'enroll'
       ? 'Choose which trusted-device proof to register on this device. The biometric passkey path uses Face ID, Touch ID, Windows Hello, or the device unlock locally while Aura only receives a signed WebAuthn proof.'
-      : 'Choose which trusted-device proof to present. The biometric passkey path uses the device authenticator locally; Aura keeps it separate from the RSA-PSS browser-key fallback.';
+      : 'Choose which trusted-device proof to present. The passkey path uses the device authenticator locally; the browser fallback is a separate key stored only in this browser.';
   }
 
   if (activeMethod === 'webauthn') {
@@ -143,28 +143,28 @@ const getTrustedDeviceMethodNote = ({
     }
 
     return challengeMode === 'enroll'
-      ? 'Register a local RSA-PSS key stored inside this browser.'
-      : 'Use the RSA-PSS key already registered inside this browser.';
+      ? 'Register the fallback key stored inside this browser. Use this only when passkeys are not available for the host.'
+      : 'Use the fallback key already stored inside this browser. This is separate from Windows Hello or platform passkeys.';
   }
 
   if (offered) {
     return method === 'webauthn'
       ? 'This browser does not expose the WebAuthn APIs needed for the passkey flow here.'
-      : 'This browser does not expose the WebCrypto or IndexedDB support needed for the browser-key flow.';
+      : 'This browser does not expose the WebCrypto or IndexedDB support needed for the browser fallback.';
   }
 
   if (method === 'webauthn') {
     if (challengeMode === 'assert' && registeredMethod === 'browser_key') {
-      return 'This device is currently registered with an RSA-PSS browser key, not a passkey.';
+      return 'This device is currently registered with the browser fallback key, not a platform passkey.';
     }
 
     return hostUsesBrowserKeyOnly
-      ? `Passkeys are only offered on localhost or a verified domain, so ${fallbackHost} stays on browser-key proof.`
+      ? `Passkeys are only offered on localhost or a verified domain, so ${fallbackHost} stays on browser fallback proof.`
       : 'Passkey proof is not offered for this checkpoint.';
   }
 
   if (challengeMode === 'assert' && registeredMethod === 'webauthn') {
-    return 'This device is currently registered with a passkey, so browser-key proof is not offered here.';
+    return 'This device is currently registered with a platform passkey, so the browser fallback is not offered for this checkpoint.';
   }
 
   return 'Browser-key proof is not offered for this checkpoint.';
@@ -194,7 +194,7 @@ const getTrustedDeviceMethodDetail = ({
 
   return hostUsesBrowserKeyOnly
     ? `On ${fallbackHost}, the browser signs a short-lived challenge locally with its trusted-device key. The server verifies that proof and then issues a session-bound device token for this Firebase session.`
-    : 'The browser signs a short-lived challenge locally. The server verifies that proof against your registered public key and then issues a session-bound device token for this Firebase session.';
+    : 'The browser fallback signs a short-lived challenge locally with a key stored in this browser. It is not a Windows Hello passkey, and it is only used when this account or host is configured for the fallback path.';
 };
 
 const buildTrustedDeviceErrorMessage = ({
@@ -207,8 +207,8 @@ const buildTrustedDeviceErrorMessage = ({
   const fallbackHost = supportProfile.runtimeHost || 'this host';
   if (attemptedMethod === 'webauthn' && passkeyOffered && browserKeyOffered && isWebAuthnHostMismatchError(error)) {
     return supportProfile.webauthnHostEligible
-      ? 'Passkey verification could not be completed here. Choose the RSA-PSS browser key option or retry on a device that already has the passkey.'
-      : `Passkeys are not available on ${fallbackHost}. Choose the RSA-PSS browser key option on this host instead.`;
+      ? 'Passkey verification could not be completed here. Use the browser fallback only if Aura offers it for this checkpoint, or retry on a device that already has the passkey.'
+      : `Passkeys are not available on ${fallbackHost}. Use the browser fallback only if Aura offers it for this checkpoint.`;
   }
 
   return String(error?.message || 'Trusted device verification failed.');
@@ -247,6 +247,23 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const fallbackHost = supportProfile.runtimeHost || 'this host';
   const preferredMethod = normalizeTrustedDeviceMethod(deviceChallenge?.preferredMethod);
   const registeredMethod = normalizeTrustedDeviceMethod(deviceChallenge?.registeredMethod);
+  const displayedProofMethods = useMemo(() => {
+    const offeredMethods = TRUSTED_DEVICE_METHOD_ORDER.filter((method) => availableMethods.includes(method));
+    if (offeredMethods.length) {
+      return offeredMethods;
+    }
+
+    return TRUSTED_DEVICE_METHOD_ORDER.filter((method) => (
+      method === 'webauthn'
+        ? supportProfile.webauthn
+        : supportProfile.browserKeyFallback
+    ));
+  }, [
+    availableMethods,
+    supportProfile.browserKeyFallback,
+    supportProfile.webauthn,
+  ]);
+  const hasMultipleProofMethods = displayedProofMethods.length > 1;
 
   const defaultSelectedMethod = useMemo(() => {
     const offeredMethods = TRUSTED_DEVICE_METHOD_ORDER.filter((method) => availableMethods.includes(method));
@@ -385,7 +402,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   };
 
   const handleMethodOptionKeyDown = (event, method) => {
-    const supportedMethods = TRUSTED_DEVICE_METHOD_ORDER.filter(isTrustedDeviceMethodSupported);
+    const supportedMethods = displayedProofMethods.filter(isTrustedDeviceMethodSupported);
     if (!supportedMethods.length) return;
 
     const currentIndex = Math.max(supportedMethods.indexOf(method), 0);
@@ -511,10 +528,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
     if (!selectedMethodSupported) {
       setErrorMessage(
         activeMethod === 'webauthn'
-          ? 'This browser cannot complete face/device passkey verification here. Use a secure browser with WebAuthn platform authenticator support, or choose the RSA-PSS browser key option.'
+          ? 'This browser cannot complete face/device passkey verification here. Use a secure browser with WebAuthn platform authenticator support, or use the browser fallback only when Aura offers it for this checkpoint.'
           : (
             hostUsesBrowserKeyOnly
-              ? `This host uses browser-key verification because passkeys need localhost or a verified domain. Retry on ${fallbackHost} only after enabling WebCrypto and IndexedDB support.`
+              ? `This host uses browser fallback verification because passkeys need localhost or a verified domain. Retry on ${fallbackHost} only after enabling WebCrypto and IndexedDB support.`
               : 'This browser cannot complete trusted device verification. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
           )
       );
@@ -661,9 +678,11 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
               <div className="trusted-device-panel__actions p-5 sm:p-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Choose your proof lane</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                      {hasMultipleProofMethods ? 'Choose verification method' : 'Verification method'}
+                    </p>
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                      {passkeyOffered && browserKeyOffered ? 'Fresh assertion required' : 'Checkpoint state'}
+                      {hasMultipleProofMethods ? 'Fresh assertion required' : `${selectedMethodLabel} required`}
                     </p>
                   </div>
 
@@ -672,7 +691,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                     aria-label="Trusted device proof methods"
                     className="grid gap-2 sm:grid-cols-2"
                   >
-                    {TRUSTED_DEVICE_METHOD_ORDER.map((method) => {
+                    {displayedProofMethods.map((method) => {
                       const offered = availableMethods.includes(method);
                       const supported = method === 'webauthn'
                         ? canUsePasskey
@@ -776,7 +795,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                         ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
                         : (
                           hostUsesBrowserKeyOnly
-                            ? 'This host stays on browser-key verification because passkeys are only offered on localhost or verified domains.'
+                            ? 'This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains.'
                             : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
                         )}
                     </div>
@@ -810,7 +829,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                       className="inline-flex items-center justify-center gap-3 rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                      Reset Local Identity
+                      Reset This Browser
                     </button>
                   </div>
                 </div>
@@ -903,7 +922,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                           className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08]"
                         >
                           {showProofOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          {showProofOptions ? 'Hide Proof Options' : 'Choose Proof Method'}
+                          {showProofOptions ? 'Hide Proof Options' : 'Change Proof Method'}
                         </button>
 
                         <button
@@ -923,9 +942,11 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                 {showProofOptions ? (
                   <div className="space-y-4 rounded-[1.75rem] border border-white/8 bg-slate-950/70 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Proof methods</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                        {hasMultipleProofMethods ? 'Proof methods' : 'Required proof'}
+                      </p>
                       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                        {passkeyOffered && browserKeyOffered ? 'Pick the smoothest lane' : 'Current checkpoint'}
+                        {hasMultipleProofMethods ? 'Pick the smoothest lane' : selectedMethodLabel}
                       </p>
                     </div>
 
@@ -934,7 +955,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                       aria-label="Trusted device proof methods"
                       className="grid gap-3 sm:grid-cols-2"
                     >
-                      {TRUSTED_DEVICE_METHOD_ORDER.map((method) => {
+                      {displayedProofMethods.map((method) => {
                         const offered = availableMethods.includes(method);
                         const supported = method === 'webauthn'
                           ? canUsePasskey
@@ -1022,7 +1043,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                       ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
                       : (
                         hostUsesBrowserKeyOnly
-                          ? 'This host stays on browser-key verification because passkeys are only offered on localhost or verified domains.'
+                          ? 'This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains.'
                           : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
                       )}
                   </div>

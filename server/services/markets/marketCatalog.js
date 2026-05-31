@@ -51,6 +51,7 @@ const getCurrencyName = (currencyCode = '') => {
 
 const SUPPORTED_LANGUAGES = {
     en: { code: 'en', label: 'English', locale: 'en-US', direction: 'ltr' },
+    bn: { code: 'bn', label: 'Bengali', locale: 'bn-IN', direction: 'ltr' },
     hi: { code: 'hi', label: 'Hindi', locale: 'hi-IN', direction: 'ltr' },
     es: { code: 'es', label: 'Spanish', locale: 'es-ES', direction: 'ltr' },
     fr: { code: 'fr', label: 'French', locale: 'fr-FR', direction: 'ltr' },
@@ -67,7 +68,7 @@ const MARKET_RULES = {
         regionLabel: 'South Asia',
         currency: 'INR',
         defaultLanguage: 'en',
-        supportedLanguages: ['en', 'hi'],
+        supportedLanguages: ['en', 'bn', 'hi'],
         supportedCurrencies: ['INR'],
         paymentMethods: ['COD', 'UPI', 'CARD', 'WALLET', 'NETBANKING'],
         featuredCategories: ['Electronics', 'Mobile', 'Fashion'],

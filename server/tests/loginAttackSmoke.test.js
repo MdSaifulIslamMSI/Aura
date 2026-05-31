@@ -417,8 +417,9 @@ describe('login attack smoke: session middleware attacks', () => {
 
         expect(verifyIdToken).toHaveBeenCalledWith('fresh-token-123', true);
         expect(resolveSessionIdFromRequest).toHaveBeenCalledWith(req);
-        expect(getBrowserSessionFromRequest).not.toHaveBeenCalled();
+        expect(getBrowserSessionFromRequest).toHaveBeenCalledWith(req);
         expect(req.supersededAuthSessionId).toBe('session-cookie-stale');
+        expect(req.authSession).toBeNull();
         expect(req.authUid).toBe('firebase-bearer-uid');
         expect(req.user).toMatchObject({
             email: 'bearer-user@example.com',

@@ -8,22 +8,29 @@ import { GENERATED_DYNAMIC_MARKET_MESSAGES } from '../src/config/generatedDynami
 import { REMAINING_UI_LOCALE_MESSAGES } from '../src/config/remainingUiLocaleMessages.js';
 import { LOCALE_POLISH_MESSAGES } from '../src/config/localePolishMessages.js';
 import { MARKET_MESSAGES as MARKET_CONFIG_MESSAGES } from '../src/config/marketConfig.js';
+import { MARKET_MESSAGE_PACK as ES_REFERENCE_MARKET_MESSAGES } from '../src/config/marketMessagePacks/es.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_ROOT = path.resolve(__dirname, '..', 'src', 'config');
 const PACK_ROOT = path.join(CONFIG_ROOT, 'marketMessagePacks');
-const SUPPORTED_LANGUAGE_CODES = ['en', 'hi', 'es', 'fr', 'de', 'ar', 'ja', 'pt', 'zh'];
+const SUPPORTED_LANGUAGE_CODES = ['en', 'bn', 'hi', 'es', 'fr', 'de', 'ar', 'ja', 'pt', 'zh'];
 const SOURCE_LANGUAGE = 'en';
 const LANGUAGE_ARG_PREFIX = '--languages=';
 const PLACEHOLDER_PATTERN = /\{\{\s*([^}\s]+)\s*\}\}/g;
 const MAX_TRANSLATION_ATTEMPTS = 4;
 const TRANSLATION_CONCURRENCY = 4;
-const NATIVE_SCRIPT_REFRESH_LANGUAGE_CODES = new Set(['hi', 'ar', 'ja', 'zh']);
+const NATIVE_SCRIPT_REFRESH_LANGUAGE_CODES = new Set(['bn', 'hi', 'ar', 'ja', 'zh']);
 const LETTER_PATTERN = /\p{Letter}/gu;
 const SHORT_TOKEN_PATTERN = /^[A-Z0-9&/+.:-]{1,8}$/;
+const NATIVE_SCRIPT_EXEMPT_TOKEN_PATTERN = /^n\/a$/i;
+const NATIVE_SCRIPT_EXEMPT_VALUE_PATTERN = /^(?:https?:\/\/|www\.|mailto:|tel:|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/i;
 
 const NATIVE_SCRIPT_RULES = {
+    bn: {
+        label: 'Bengali',
+        patterns: [/\p{Script=Bengali}/gu],
+    },
     hi: {
         label: 'Devanagari',
         patterns: [/\p{Script=Devanagari}/gu],
@@ -122,15 +129,18 @@ const isNativeTranslationUsable = (sourceText, translatedText, languageCode) => 
     const sourceLetters = countLetters(stripPlaceholders(sourceText));
     if (sourceLetters === 0) return true;
 
+    const strippedSource = stripPlaceholders(sourceText).trim();
+    if (NATIVE_SCRIPT_EXEMPT_VALUE_PATTERN.test(strippedSource)) return true;
+
     const translatedWithoutPlaceholders = stripPlaceholders(translatedText).trim();
     const nativeLetters = countNativeLetters(translatedWithoutPlaceholders, nativeRule.patterns);
     if (nativeLetters > 0) return true;
 
     const compactSource = stripPlaceholders(sourceText).replace(/\s+/g, '');
-    return SHORT_TOKEN_PATTERN.test(compactSource);
+    return SHORT_TOKEN_PATTERN.test(compactSource) || NATIVE_SCRIPT_EXEMPT_TOKEN_PATTERN.test(compactSource);
 };
 
-const translateSingleText = async (text, targetLanguage) => {
+const translateSingleText = async (text, targetLanguage, sourceLanguage = SOURCE_LANGUAGE) => {
     if (!text || targetLanguage === SOURCE_LANGUAGE) {
         return text;
     }
@@ -140,7 +150,7 @@ const translateSingleText = async (text, targetLanguage) => {
     for (let attempt = 1; attempt <= MAX_TRANSLATION_ATTEMPTS; attempt += 1) {
         const query = new URLSearchParams({
             client: 'gtx',
-            sl: SOURCE_LANGUAGE,
+            sl: sourceLanguage,
             tl: targetLanguage,
             dt: 't',
             q: protectedText,
@@ -212,34 +222,58 @@ const buildBaseLanguagePack = (languageCode) => {
     });
 };
 
+const buildTranslationSources = (messages = {}, sourceLanguage = SOURCE_LANGUAGE) => Object.fromEntries(
+    Object.entries(messages || {}).map(([key, text]) => [
+        key,
+        { text, sourceLanguage },
+    ]),
+);
+
+const buildBengaliSourceMessages = (englishMessages) => sortObjectEntries({
+    // Older locale layers do not expose every canonical English string. Use the
+    // complete Spanish pack only as a final semantic source for those legacy keys.
+    ...buildTranslationSources(ES_REFERENCE_MARKET_MESSAGES, 'es'),
+    ...buildTranslationSources(REMAINING_UI_LOCALE_MESSAGES.en || {}),
+    ...buildTranslationSources(MARKET_CONFIG_MESSAGES.bn || {}),
+    ...buildTranslationSources(englishMessages),
+});
+
 const refreshNativeScriptPack = async (languageCode, baseMessages, englishMessages) => {
     if (!NATIVE_SCRIPT_REFRESH_LANGUAGE_CODES.has(languageCode)) {
         return baseMessages;
     }
 
-    const sourceEntries = Object.entries(englishMessages)
-        .filter(([, value]) => typeof value === 'string' && value.trim().length > 0);
-    const uniqueTexts = [...new Set(sourceEntries.map(([, value]) => value))];
+    const sourceMessages = languageCode === 'bn'
+        ? buildBengaliSourceMessages(englishMessages)
+        : buildTranslationSources(englishMessages);
+    const sourceEntries = Object.entries(sourceMessages)
+        .filter(([, source]) => typeof source?.text === 'string' && source.text.trim().length > 0);
+    const getSourceKey = ({ sourceLanguage, text }) => `${sourceLanguage}\u0000${text}`;
+    const uniqueSources = [...new Map(sourceEntries.map(([, source]) => [getSourceKey(source), source])).values()];
     const translations = new Map();
     let completedCount = 0;
 
-    console.log(`${languageCode}: refreshing ${uniqueTexts.length} English source strings with native-script validation`);
+    console.log(`${languageCode}: refreshing ${uniqueSources.length} source strings with native-script validation`);
 
-    await mapWithConcurrency(uniqueTexts, TRANSLATION_CONCURRENCY, async (text) => {
-        const translatedText = await translateSingleText(text, languageCode);
-        translations.set(text, translatedText);
+    await mapWithConcurrency(uniqueSources, TRANSLATION_CONCURRENCY, async (source) => {
+        const translatedText = await translateSingleText(
+            source.text,
+            languageCode,
+            source.sourceLanguage,
+        );
+        translations.set(getSourceKey(source), translatedText);
         completedCount += 1;
 
-        if (completedCount % 50 === 0 || completedCount === uniqueTexts.length) {
-            console.log(`${languageCode}: translated ${completedCount}/${uniqueTexts.length}`);
+        if (completedCount % 50 === 0 || completedCount === uniqueSources.length) {
+            console.log(`${languageCode}: translated ${completedCount}/${uniqueSources.length}`);
         }
     });
 
     return sortObjectEntries({
         ...baseMessages,
-        ...Object.fromEntries(sourceEntries.map(([key, value]) => [
+        ...Object.fromEntries(sourceEntries.map(([key, source]) => [
             key,
-            translations.get(value) || value,
+            translations.get(getSourceKey(source)) || source.text,
         ])),
     });
 };
