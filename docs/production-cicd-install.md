@@ -46,6 +46,8 @@ This package assumes these existing reusable workflows already exist:
 
 The backend deploy workflow must build the default `linux/arm64` image on a native GitHub ARM64 runner. Do not move that lane back to an x64 runner with QEMU for normal production releases; emulated ARM64 `npm ci` can fail with `Illegal instruction`.
 
+The backend GitHub OIDC role must also allow `ssm:PutParameter` for the configured production runtime prefix, for example `/aura/prod/*`. Re-run `infra/aws/bootstrap-github-oidc.ps1` after installing this package so the manual admin access workflow can write allowlist values directly to Parameter Store.
+
 Create a GitHub environment named `production` and add required reviewers.
 
 Required repository variables/secrets used by the orchestrator:

@@ -6,6 +6,7 @@ param(
     [string]$AwsRegion = "ap-south-1",
     [string]$AwsProfile = "",
     [string]$DeployBucketName = "",
+    [string]$ParameterStorePathPrefix = "/aura/prod",
     [string]$InstanceTagKey = "Name",
     [string]$InstanceTagValue = "aura-backend"
 )
@@ -134,6 +135,7 @@ if (-not $roleExists) {
 
 $deployBucketArn = "arn:aws:s3:::$resolvedDeployBucketName"
 $deployBucketObjectsArn = "$deployBucketArn/*"
+$parameterStoreResourceArn = "arn:aws:ssm:${AwsRegion}:*:parameter$($ParameterStorePathPrefix.TrimEnd('/'))*"
 $inlinePolicy = @{
     Version = "2012-10-17"
     Statement = @(
@@ -161,6 +163,17 @@ $inlinePolicy = @{
                 "ssm:SendCommand"
             )
             Resource = "*"
+        },
+        @{
+            Sid = "RuntimeParameterUpdates"
+            Effect = "Allow"
+            Action = @(
+                "ssm:GetParameter",
+                "ssm:GetParameters",
+                "ssm:GetParametersByPath",
+                "ssm:PutParameter"
+            )
+            Resource = $parameterStoreResourceArn
         }
     )
 } | ConvertTo-Json -Depth 8
@@ -185,5 +198,6 @@ Write-Host "  AWS_REGION=$AwsRegion"
 Write-Host "  AWS_DEPLOY_BUCKET=$resolvedDeployBucketName"
 Write-Host "  AWS_INSTANCE_TAG_KEY=$InstanceTagKey"
 Write-Host "  AWS_INSTANCE_TAG_VALUE=$InstanceTagValue"
+Write-Host "  AWS_PARAMETER_STORE_PATH_PREFIX=$ParameterStorePathPrefix"
 Write-Host "Suggested GitHub repository secret:"
 Write-Host "  AWS_DEPLOY_ROLE_ARN=$roleArn"

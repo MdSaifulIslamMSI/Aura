@@ -93,7 +93,7 @@ jobs:
             throw new Error('admin_allowlist_emails must include at least one email address');
           }
 
-          const invalid = emails.filter((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+          const invalid = emails.filter((email) => !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email));
           if (invalid.length > 0) {
             throw new Error(`Invalid admin allowlist email count: ${invalid.length}`);
           }
@@ -120,31 +120,129 @@ jobs:
           unset-current-credentials: true
 
       - name: Write production admin allowlist policy
+        id: write_policy
         env:
           ADMIN_ALLOWLIST_EMAILS: ${{ steps.validate.outputs.emails }}
           ADMIN_ALLOWLIST_EMAIL_COUNT: ${{ steps.validate.outputs.count }}
         run: |
           set -euo pipefail
-          aws ssm put-parameter \
-            --region "${AWS_REGION}" \
-            --name "${AWS_PARAMETER_STORE_PATH_PREFIX}/ADMIN_REQUIRE_ALLOWLIST" \
-            --type String \
-            --tier Standard \
-            --overwrite \
-            --value "true" >/dev/null
+          allowlist_error="${RUNNER_TEMP}/ssm-put-admin-allowlist.err"
+          require_error="${RUNNER_TEMP}/ssm-put-admin-require.err"
 
+          set +e
           aws ssm put-parameter \
             --region "${AWS_REGION}" \
             --name "${AWS_PARAMETER_STORE_PATH_PREFIX}/ADMIN_ALLOWLIST_EMAILS" \
             --type SecureString \
             --tier Standard \
             --overwrite \
-            --value "${ADMIN_ALLOWLIST_EMAILS}" >/dev/null
+            --value "${ADMIN_ALLOWLIST_EMAILS}" >/dev/null 2>"${allowlist_error}"
+          allowlist_status=$?
 
-          echo "Production admin allowlist policy updated for ${ADMIN_ALLOWLIST_EMAIL_COUNT} email(s)."
+          aws ssm put-parameter \
+            --region "${AWS_REGION}" \
+            --name "${AWS_PARAMETER_STORE_PATH_PREFIX}/ADMIN_REQUIRE_ALLOWLIST" \
+            --type String \
+            --tier Standard \
+            --overwrite \
+            --value "true" >/dev/null 2>"${require_error}"
+          require_status=$?
+          set -e
+
+          if [ "${allowlist_status}" -eq 0 ] && [ "${require_status}" -eq 0 ]; then
+            echo "parameter_store_updated=true" >> "$GITHUB_OUTPUT"
+            echo "Production admin allowlist policy updated for ${ADMIN_ALLOWLIST_EMAIL_COUNT} email(s)."
+            exit 0
+          fi
+
+          if grep -q "AccessDeniedException" "${allowlist_error}" "${require_error}"; then
+            echo "::warning::AWS deploy role cannot write Parameter Store admin allowlist values. Falling back to direct EC2 runtime update through SSM SendCommand."
+            echo "parameter_store_updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          cat "${allowlist_error}" >&2 || true
+          cat "${require_error}" >&2 || true
+          exit 1
+
+      - name: Resolve backend instance
+        if: steps.write_policy.outputs.parameter_store_updated != 'true' || inputs.promote_users == true
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Apply direct runtime admin allowlist fallback
+        if: steps.write_policy.outputs.parameter_store_updated != 'true'
+        env:
+          ADMIN_ALLOWLIST_EMAILS: ${{ steps.validate.outputs.emails }}
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          node <<'NODE' > "${RUNNER_TEMP}/ssm-commands.json"
+          const emails = process.env.ADMIN_ALLOWLIST_EMAILS;
+          const commands = [
+            'set -euo pipefail',
+            'RUNTIME_ENV="/opt/aura/shared/runtime-secrets.env"',
+            'test -d /opt/aura/shared || { echo "/opt/aura/shared not found"; exit 1; }',
+            'touch "${RUNTIME_ENV}"',
+            'chmod 600 "${RUNTIME_ENV}"',
+            'tmp_env="$(mktemp)"',
+            'grep -v -E "^(ADMIN_ALLOWLIST_EMAILS|ADMIN_REQUIRE_ALLOWLIST)=" "${RUNTIME_ENV}" > "${tmp_env}" || true',
+            `printf '%s\\n' 'ADMIN_ALLOWLIST_EMAILS=${emails}' 'ADMIN_REQUIRE_ALLOWLIST=true' >> "\${tmp_env}"`,
+            'mv "${tmp_env}" "${RUNTIME_ENV}"',
+            'COMPOSE_PREFIX="docker compose --env-file /opt/aura/shared/base.env --env-file /opt/aura/shared/runtime-secrets.env --env-file /opt/aura/shared/release.env -f /opt/aura/current/infra/aws/docker-compose.ec2.yml"',
+            '${COMPOSE_PREFIX} up -d --force-recreate api',
+            'for attempt in $(seq 1 30); do if curl --fail --silent --max-time 5 http://127.0.0.1:5000/health >/dev/null; then exit 0; fi; sleep 2; done',
+            'echo "API did not become healthy after admin allowlist runtime fallback"; ${COMPOSE_PREFIX} logs --tail=100 api; exit 1'
+          ];
+          process.stdout.write(`${JSON.stringify({ commands }, null, 2)}\n`);
+          NODE
+
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura production admin allowlist runtime fallback" \
+            --parameters "file://${RUNNER_TEMP}/ssm-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+
+          for _ in $(seq 1 60); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for direct runtime admin allowlist fallback."
+          exit 1
 
       - name: Dispatch backend production reload
-        if: inputs.deploy_backend == true
+        if: inputs.deploy_backend == true && steps.write_policy.outputs.parameter_store_updated == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DEPLOY_REF_NAME: ${{ github.ref_name }}
@@ -160,18 +258,6 @@ jobs:
             --sha "${DEPLOY_SHA}" \
             --timeout-minutes 75 \
             --inputs "${DEPLOY_INPUTS}"
-
-      - name: Resolve backend instance
-        if: inputs.promote_users == true
-        id: resolve_instance
-        run: |
-          set -euo pipefail
-          INSTANCE_ID="$(aws ec2 describe-instances \
-            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].InstanceId" \
-            --output text)"
-          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
-          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Promote allowlisted internal admin users
         if: inputs.promote_users == true
@@ -242,16 +328,19 @@ jobs:
           EMAIL_COUNT: ${{ steps.validate.outputs.count }}
           DEPLOY_BACKEND_REQUESTED: ${{ inputs.deploy_backend }}
           PROMOTE_USERS_REQUESTED: ${{ inputs.promote_users }}
+          PARAMETER_STORE_UPDATED: ${{ steps.write_policy.outputs.parameter_store_updated }}
         run: |
           {
             echo "## Production Admin Access"
             echo
-            echo "Updated production admin allowlist policy in AWS Parameter Store."
+            echo "Updated production admin access policy."
             echo
             echo "| Field | Value |"
             echo "|---|---|"
             echo "| SSM prefix | ${AWS_PARAMETER_STORE_PATH_PREFIX} |"
             echo "| Email count | ${EMAIL_COUNT} |"
+            echo "| Parameter Store updated | ${PARAMETER_STORE_UPDATED} |"
+            echo "| Direct runtime fallback used | $([ "${PARAMETER_STORE_UPDATED}" = "true" ] && echo "false" || echo "true") |"
             echo "| Backend reload requested | ${DEPLOY_BACKEND_REQUESTED} |"
             echo "| Internal admin promotion requested | ${PROMOTE_USERS_REQUESTED} |"
           } >> "$GITHUB_STEP_SUMMARY"
