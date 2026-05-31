@@ -38,4 +38,25 @@ describe('market catalog', () => {
             },
         });
     });
+
+    test('preserves Bengali language selection for the India market', () => {
+        const market = resolveMarketContext({
+            country: 'IN',
+            currency: 'INR',
+            language: 'bn',
+        });
+
+        expect(market).toMatchObject({
+            countryCode: 'IN',
+            currency: 'INR',
+            language: 'bn',
+            languageLabel: 'Bengali',
+            locale: 'bn-IN',
+            direction: 'ltr',
+            fallbackBehavior: {
+                currencyFallbackApplied: false,
+                languageFallbackApplied: false,
+            },
+        });
+    });
 });

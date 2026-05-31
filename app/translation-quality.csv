@@ -1,4 +1,5 @@
 language,total_keys,missing_keys,exact_english_matches,exact_english_percent,native_script_rule,native_script_key_hits,native_script_key_percent,native_letter_percent,status
+bn,597,0,0,0,Bengali,597,100,98.30,pass
 hi,597,0,7,1.17,Devanagari,590,98.83,96.63,pass
 es,597,0,25,4.19,,,,,pass
 fr,597,0,36,6.03,,,,,pass

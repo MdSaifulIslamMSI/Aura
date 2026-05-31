@@ -9,6 +9,16 @@ const OUTPUT_ROOT = path.join(process.cwd(), 'test-results', 'locale-visual');
 
 const LOCALES = [
   {
+    code: 'bn',
+    direction: 'ltr',
+    preference: {
+      countryCode: 'IN',
+      currency: 'INR',
+      language: 'bn',
+      locale: 'bn-IN',
+    },
+  },
+  {
     code: 'hi',
     direction: 'ltr',
     preference: {

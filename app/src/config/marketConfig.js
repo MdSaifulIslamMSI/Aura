@@ -7,6 +7,7 @@ const MARKET_MESSAGE_PACK_LOADERS = typeof import.meta.glob === 'function'
   ? import.meta.glob('./marketMessagePacks/*.js')
   : {
       './marketMessagePacks/ar.js': () => import('./marketMessagePacks/ar.js'),
+      './marketMessagePacks/bn.js': () => import('./marketMessagePacks/bn.js'),
       './marketMessagePacks/de.js': () => import('./marketMessagePacks/de.js'),
       './marketMessagePacks/es.js': () => import('./marketMessagePacks/es.js'),
       './marketMessagePacks/fr.js': () => import('./marketMessagePacks/fr.js'),
@@ -36,6 +37,7 @@ export const MARKET_PRESENTMENT_RATES = {
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', label: 'English', nativeLabel: 'English', direction: 'ltr', defaultLocale: 'en-US' },
+  { code: 'bn', label: 'Bengali', nativeLabel: 'বাংলা', direction: 'ltr', defaultLocale: 'bn-IN' },
   { code: 'hi', label: 'Hindi', nativeLabel: 'Hindi', direction: 'ltr', defaultLocale: 'hi-IN' },
   { code: 'es', label: 'Spanish', nativeLabel: 'Espanol', direction: 'ltr', defaultLocale: 'es-ES' },
   { code: 'fr', label: 'French', nativeLabel: 'Francais', direction: 'ltr', defaultLocale: 'fr-FR' },

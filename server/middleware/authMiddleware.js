@@ -897,6 +897,64 @@ const authenticateWithBrowserSession = async (req, res) => {
     return true;
 };
 
+const attachMatchingBrowserSessionContext = async (req, res, user = null) => {
+    if (!hasBearerAuthorizationHeader(req)) {
+        return;
+    }
+
+    const sessionId = resolveSessionIdFromRequest(req);
+    if (!sessionId) {
+        return;
+    }
+
+    let session = null;
+    try {
+        session = await getBrowserSessionFromRequest(req);
+    } catch (error) {
+        logger.warn('auth.session_context_read_failed', {
+            requestId: req.requestId || '',
+            error: error?.message || 'unknown',
+        });
+        return;
+    }
+
+    if (!session?.sessionId) {
+        return;
+    }
+
+    const requestUid = normalizeUid(req.authUid || '');
+    const sessionUid = normalizeUid(session.firebaseUid || session.authUid || '');
+    const requestUserId = String(user?._id || '').trim();
+    const sessionUserId = String(session.userId || '').trim();
+    const sameUser = Boolean(
+        (!requestUid || !sessionUid || requestUid === sessionUid)
+        && (!requestUserId || !sessionUserId || requestUserId === sessionUserId)
+    );
+
+    if (!sameUser) {
+        logger.warn('auth.session_context_ignored_mismatch', {
+            requestId: req.requestId || '',
+            sessionId: session.sessionId,
+        });
+        return;
+    }
+
+    if (session.dpopJwk || process.env.AUTH_DPOP_REQUIRED === 'true') {
+        const verification = await verifyDpopProof(req, session.dpopJwk);
+        if (!verification.success) {
+            logger.warn('auth.session_context_dpop_failed', {
+                requestId: req.requestId || '',
+                sessionId: session.sessionId,
+                reason: verification.reason || 'invalid',
+            });
+            return;
+        }
+    }
+
+    req.authSession = session;
+    scheduleBrowserSessionTouch(req, res, session);
+};
+
 const enforceCookieSessionCsrf = async (req, res) => {
     const method = String(req.method || 'GET').trim().toUpperCase();
     if (!CSRF_STATE_CHANGING_METHODS.has(method)) {
@@ -1007,6 +1065,7 @@ const protect = asyncHandler(async (req, res, next) => {
                 if (cacheMatchesResolvedIdentity) {
                     enforceUserAccountAccess(cachedUser);
                     req.user = cachedUser;
+                    await attachMatchingBrowserSessionContext(req, res, cachedUser);
                     return finalizeProtectedRequest(req, res, next);
                 }
 
@@ -1031,6 +1090,7 @@ const protect = asyncHandler(async (req, res, next) => {
                 enforceUserAccountAccess(bootstrappedUser);
                 await setCachedUser(uid, bootstrappedUser, exp);
                 req.user = bootstrappedUser;
+                await attachMatchingBrowserSessionContext(req, res, bootstrappedUser);
                 return finalizeProtectedRequest(req, res, next);
             }
 
@@ -1039,6 +1099,7 @@ const protect = asyncHandler(async (req, res, next) => {
             await setCachedUser(uid, user, exp);
 
             req.user = user;
+            await attachMatchingBrowserSessionContext(req, res, user);
             return finalizeProtectedRequest(req, res, next);
         } catch (error) {
             if (error instanceof AppError) throw error;

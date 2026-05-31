@@ -23,6 +23,10 @@ const PLACEHOLDER_PATTERN = /\{\{\s*[^}]+\s*\}\}/g;
 const GENERATED_PLACEHOLDER_PATTERN = /__AURA_PLACEHOLDER_\d+__/g;
 
 const NATIVE_SCRIPT_RULES = {
+    bn: {
+        label: 'Bengali',
+        patterns: [/\p{Script=Bengali}/gu],
+    },
     hi: {
         label: 'Devanagari',
         patterns: [/\p{Script=Devanagari}/gu],

@@ -79,7 +79,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     vi.unstubAllEnvs();
   });
 
-  it('renders both proof options and verifies with the selected RSA-PSS browser key', async () => {
+  it('renders both offered proof options and verifies with the selected browser fallback key', async () => {
     const verifyDeviceChallenge = vi.fn().mockResolvedValue({ success: true });
     const refreshSession = vi.fn().mockResolvedValue(null);
     useAuth.mockReturnValue(buildAuthValue({ refreshSession, verifyDeviceChallenge }));
@@ -88,11 +88,11 @@ describe('AuraTrustedDeviceChallenge', () => {
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
     expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /rsa-pss browser key/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /browser fallback key/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('radio', { name: /rsa-pss browser key/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /browser fallback key/i }));
 
-    const verifyButton = screen.getByRole('button', { name: /verify browser/i });
+    const verifyButton = screen.getByRole('button', { name: /use browser fallback/i });
     fireEvent.click(verifyButton);
 
     await waitFor(() => {
@@ -113,7 +113,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     });
   });
 
-  it('keeps both proof cards visible even when only the browser-key method is currently offered', async () => {
+  it('shows only the offered browser fallback method when passkey proof is unavailable', async () => {
     useAuth.mockReturnValue(buildAuthValue({
       deviceChallenge: {
         token: 'challenge-token',
@@ -129,9 +129,9 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
-    expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeDisabled();
-    expect(screen.getByRole('radio', { name: /rsa-pss browser key/i })).not.toBeDisabled();
-    expect(screen.getAllByText(/currently registered with an rsa-pss browser key, not a passkey/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('radio', { name: /windows hello passkey/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /browser fallback key/i })).not.toBeDisabled();
+    expect(screen.getAllByText(/fallback key already stored inside this browser/i).length).toBeGreaterThan(0);
   });
 
   it('moves focus into the blocking checkpoint and traps tab navigation', async () => {
@@ -150,7 +150,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     });
 
     const selectedProofMethod = screen.getByRole('radio', { name: /windows hello passkey/i });
-    const resetAction = screen.getByRole('button', { name: /reset local identity/i });
+    const resetAction = screen.getByRole('button', { name: /reset this browser/i });
     resetAction.focus();
 
     fireEvent.keyDown(document, { key: 'Tab' });
@@ -169,7 +169,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
     const passkeyMethod = screen.getByRole('radio', { name: /windows hello passkey/i });
-    const browserKeyMethod = screen.getByRole('radio', { name: /rsa-pss browser key/i });
+    const browserKeyMethod = screen.getByRole('radio', { name: /browser fallback key/i });
 
     expect(passkeyMethod).toHaveAttribute('aria-describedby', expect.stringContaining('trusted-device-blocking-webauthn-description'));
     expect(browserKeyMethod).toHaveAttribute('aria-describedby', expect.stringContaining('trusted-device-blocking-browser_key-description'));
@@ -182,7 +182,7 @@ describe('AuraTrustedDeviceChallenge', () => {
       expect(browserKeyMethod).toHaveFocus();
     });
 
-    const resetAction = screen.getByRole('button', { name: /reset local identity/i });
+    const resetAction = screen.getByRole('button', { name: /reset this browser/i });
     fireEvent.keyDown(browserKeyMethod, { key: 'Tab', shiftKey: true });
     expect(resetAction).toHaveFocus();
   });
