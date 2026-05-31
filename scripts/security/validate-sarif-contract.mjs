@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractJsonReport } from './report-utils.mjs';
 
 const repoRoot = process.cwd();
 const failures = [];
@@ -51,6 +52,7 @@ expectIncludes('Trivy SARIF outputs', dockerRunner, [
 expectIncludes('Checkov SARIF output', dockerRunner, [
   "const checkovSarifReport = path.join(reportDir, 'checkov-report.sarif')",
   "'--output', 'sarif'",
+  'jsonOnly: true',
 ]);
 
 expectIncludes('Security gate SARIF uploads', securityGatesWorkflow, [
@@ -82,6 +84,11 @@ expectIncludes('Dependabot update coverage', dependabot, [
   'package-ecosystem: github-actions',
   'package-ecosystem: docker',
 ]);
+
+const bannerPrefixedSarif = extractJsonReport('Checkov banner\n_ scanner _\n{"version":"2.1.0","runs":[]}\n');
+if (JSON.parse(bannerPrefixedSarif).version !== '2.1.0') {
+  failures.push('Checkov SARIF sanitization: banner-prefixed JSON was not preserved');
+}
 
 if (failures.length > 0) {
   console.error('[security:sarif-contract] Contract validation failed:');

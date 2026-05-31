@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractJsonReport } from './report-utils.mjs';
 
 const tool = process.argv[2] || '';
 const extraArgs = process.argv.slice(3);
@@ -76,7 +77,10 @@ const runDockerReportOnly = (args, reportPath, options = {}) => {
   });
 
   const output = `${result.stdout || ''}${result.stderr || ''}`;
-  const reportOutput = options.stdoutOnly ? (result.stdout || '') : output;
+  const rawReportOutput = options.stdoutOnly ? (result.stdout || '') : output;
+  const reportOutput = options.jsonOnly && rawReportOutput.trim()
+    ? extractJsonReport(rawReportOutput)
+    : rawReportOutput;
   if (reportPath && reportOutput.trim()) {
     fs.writeFileSync(reportPath, reportOutput);
   }
@@ -416,7 +420,7 @@ const runIac = () => {
     '--framework', 'cloudformation,dockerfile,github_actions,secrets,kubernetes',
     '--output', 'json',
     '--soft-fail',
-  ], checkovReport, { stdoutOnly: true });
+  ], checkovReport, { stdoutOnly: true, jsonOnly: true });
 
   runDockerReportOnly([
     'run', '--rm',
@@ -428,7 +432,7 @@ const runIac = () => {
     '--framework', 'cloudformation,dockerfile,github_actions,secrets,kubernetes',
     '--output', 'sarif',
     '--soft-fail',
-  ], checkovSarifReport, { stdoutOnly: true, printOutput: false });
+  ], checkovSarifReport, { stdoutOnly: true, jsonOnly: true, printOutput: false });
 
   runDockerReportOnly([
     'run', '--rm',
