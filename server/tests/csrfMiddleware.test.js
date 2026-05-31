@@ -109,7 +109,7 @@ describe('csrf middleware', () => {
         expect(mockRedisData.size).toBe(1);
     });
 
-    test('requires header-only token transport for authenticated JSON API requests', async () => {
+    test('ignores body-only token transport for authenticated JSON API requests', async () => {
         const req = {
             method: 'POST',
             path: '/auth/sync',
@@ -131,11 +131,11 @@ describe('csrf middleware', () => {
         expect(next).toHaveBeenCalledTimes(1);
         expect(next).toHaveBeenCalledWith(expect.objectContaining({
             statusCode: 403,
-            code: 'CSRF_TOKEN_HEADER_REQUIRED',
+            code: 'CSRF_TOKEN_MISSING',
         }));
     });
 
-    test('requires header-only token transport for unauthenticated form requests', async () => {
+    test('ignores body-only token transport for unauthenticated form requests', async () => {
         const req = {
             method: 'POST',
             path: '/form-submit',
@@ -150,18 +150,18 @@ describe('csrf middleware', () => {
 
         expect(next).toHaveBeenCalledWith(expect.objectContaining({
             statusCode: 403,
-            code: 'CSRF_TOKEN_HEADER_REQUIRED',
+            code: 'CSRF_TOKEN_MISSING',
         }));
     });
 
-    test('rejects array token parameters before validation', async () => {
+    test('rejects array header token parameters before validation', async () => {
         const req = {
             method: 'POST',
             path: '/auth/sync',
             ip: '127.0.0.1',
-            headers: {},
+            headers: { 'x-csrf-token': ['first', 'second'] },
             body: {},
-            query: { csrfToken: ['first', 'second'] },
+            query: {},
         };
         const next = jest.fn();
 
