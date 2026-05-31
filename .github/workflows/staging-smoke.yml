@@ -20,6 +20,18 @@ jobs:
       PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}
       PROD_API_BASE_URL: ${{ vars.PROD_API_BASE_URL }}
       PROD_SSM_PREFIX: ${{ vars.PROD_SSM_PREFIX }}
+      STAGING_KEYCLOAK_SMOKE_REQUIRED: ${{ vars.STAGING_KEYCLOAK_SMOKE_REQUIRED || 'false' }}
+      AUTH_PROVIDER: ${{ vars.STAGING_AUTH_PROVIDER || vars.AUTH_PROVIDER || '' }}
+      AUTH_ISSUER_URL: ${{ vars.STAGING_AUTH_ISSUER_URL || vars.AUTH_ISSUER_URL || '' }}
+      AUTH_CLIENT_ID: ${{ vars.STAGING_AUTH_CLIENT_ID || vars.AUTH_CLIENT_ID || '' }}
+      AUTH_CLIENT_TYPE: ${{ vars.STAGING_AUTH_CLIENT_TYPE || vars.AUTH_CLIENT_TYPE || '' }}
+      AUTH_AUDIENCE: ${{ vars.STAGING_AUTH_AUDIENCE || vars.AUTH_AUDIENCE || '' }}
+      AUTH_JWKS_URL: ${{ vars.STAGING_AUTH_JWKS_URL || vars.AUTH_JWKS_URL || '' }}
+      AUTH_REDIRECT_URI: ${{ vars.STAGING_AUTH_REDIRECT_URI || vars.AUTH_REDIRECT_URI || '' }}
+      AUTH_POST_LOGOUT_REDIRECT_URI: ${{ vars.STAGING_AUTH_POST_LOGOUT_REDIRECT_URI || vars.AUTH_POST_LOGOUT_REDIRECT_URI || '' }}
+      AUTH_CLIENT_SECRET: ${{ secrets.STAGING_AUTH_CLIENT_SECRET || secrets.AUTH_CLIENT_SECRET || '' }}
+      AUTH_OIDC_STATE_SECRET: ${{ secrets.STAGING_AUTH_OIDC_STATE_SECRET || secrets.AUTH_OIDC_STATE_SECRET || '' }}
+      AUTH_VAULT_SECRET: ${{ secrets.STAGING_AUTH_VAULT_SECRET || secrets.AUTH_VAULT_SECRET || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,6 +75,16 @@ jobs:
           fi
 
           echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Run staging Keycloak auth smoke gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--environment staging --no-env-file --live --strict --require-provider keycloak)
+          if [[ "${STAGING_KEYCLOAK_SMOKE_REQUIRED}" != "true" ]]; then
+            args+=(--skip-if-missing)
+          fi
+          node scripts/auth/smoke.mjs "${args[@]}"
 
       - name: Validate staging environment contract
         if: steps.staging.outputs.configured == 'true'

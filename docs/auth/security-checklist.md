@@ -15,6 +15,7 @@
 - [x] Diagnostics endpoint fixed to accept stale auth cookies for failure reporting.
 - [x] HTML meta CSP aligned with hosted backend websocket origin.
 - [x] Env validation and auth smoke scripts added to CI.
+- [x] Staging Keycloak smoke gate added with strict live checks when staging auth env is configured and an explicit skip reason when it is not.
 - [x] Keycloak local Docker Compose and realm import added without real secrets.
 - [x] Docs for local dev, production setup, rollback, testing, and decision record added.
 
