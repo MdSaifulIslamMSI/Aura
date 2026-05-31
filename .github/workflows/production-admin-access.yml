@@ -1,0 +1,259 @@
+name: Production Admin Access
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: Type PRODUCTION to update production admin access policy
+        required: true
+        default: ""
+        type: string
+      admin_allowlist_emails:
+        description: Comma-separated approved admin email addresses
+        required: true
+        default: ""
+        type: string
+      deploy_backend:
+        description: Redeploy backend after writing runtime policy
+        required: false
+        default: true
+        type: boolean
+      promote_users:
+        description: Promote allowlisted users to internal verified admin accounts after reload
+        required: false
+        default: true
+        type: boolean
+      git_ref:
+        description: Git ref to redeploy after the policy update
+        required: false
+        default: main
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-admin-access
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+  AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
+  AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
+  AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
+
+jobs:
+  update-admin-allowlist:
+    name: Update production admin allowlist
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Validate production admin access request
+        id: validate
+        env:
+          CONFIRM_PRODUCTION: ${{ inputs.confirm_production }}
+          RAW_ADMIN_ALLOWLIST_EMAILS: ${{ inputs.admin_allowlist_emails }}
+        run: |
+          set -euo pipefail
+          test -n "${AWS_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_DEPLOY_ROLE_ARN"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_KEY}" || { echo "Missing AWS_INSTANCE_TAG_KEY"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing AWS_INSTANCE_TAG_VALUE"; exit 1; }
+          test "${AWS_PARAMETER_STORE_PATH_PREFIX}" = "/aura/prod" || { echo "AWS_PARAMETER_STORE_PATH_PREFIX must be /aura/prod."; exit 1; }
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          const confirmProduction = String(process.env.CONFIRM_PRODUCTION || '').trim();
+          if (confirmProduction !== 'PRODUCTION') {
+            throw new Error('confirm_production must be PRODUCTION');
+          }
+
+          const raw = String(process.env.RAW_ADMIN_ALLOWLIST_EMAILS || '');
+          const emails = [...new Set(raw
+            .split(',')
+            .map((email) => email.trim().toLowerCase())
+            .filter(Boolean))];
+
+          if (emails.length === 0) {
+            throw new Error('admin_allowlist_emails must include at least one email address');
+          }
+
+          const invalid = emails.filter((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+          if (invalid.length > 0) {
+            throw new Error(`Invalid admin allowlist email count: ${invalid.length}`);
+          }
+
+          const normalized = emails.join(',');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `emails=${normalized}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `count=${emails.length}\n`);
+          console.log(`Validated ${emails.length} production admin allowlist email(s).`);
+          NODE
+
+      - name: Audit Parameter Store runtime contract
+        run: npm --prefix server run aws:ssm:audit
+        env:
+          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ env.AWS_PARAMETER_STORE_PATH_PREFIX }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-production-admin-access
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Write production admin allowlist policy
+        env:
+          ADMIN_ALLOWLIST_EMAILS: ${{ steps.validate.outputs.emails }}
+          ADMIN_ALLOWLIST_EMAIL_COUNT: ${{ steps.validate.outputs.count }}
+        run: |
+          set -euo pipefail
+          aws ssm put-parameter \
+            --region "${AWS_REGION}" \
+            --name "${AWS_PARAMETER_STORE_PATH_PREFIX}/ADMIN_REQUIRE_ALLOWLIST" \
+            --type String \
+            --tier Standard \
+            --overwrite \
+            --value "true" >/dev/null
+
+          aws ssm put-parameter \
+            --region "${AWS_REGION}" \
+            --name "${AWS_PARAMETER_STORE_PATH_PREFIX}/ADMIN_ALLOWLIST_EMAILS" \
+            --type SecureString \
+            --tier Standard \
+            --overwrite \
+            --value "${ADMIN_ALLOWLIST_EMAILS}" >/dev/null
+
+          echo "Production admin allowlist policy updated for ${ADMIN_ALLOWLIST_EMAIL_COUNT} email(s)."
+
+      - name: Dispatch backend production reload
+        if: inputs.deploy_backend == true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          DEPLOY_SHA="$(git rev-parse HEAD)"
+          DEPLOY_INPUTS="$(node -e "console.log(JSON.stringify({ git_ref: process.argv[1], skip_healthcheck: false }))" "${DEPLOY_SHA}")"
+
+          node scripts/github/dispatch-workflow-and-watch.mjs \
+            --workflow deploy-backend-aws.yml \
+            --label "Backend production reload after admin allowlist update" \
+            --ref "${DEPLOY_REF_NAME}" \
+            --sha "${DEPLOY_SHA}" \
+            --timeout-minutes 75 \
+            --inputs "${DEPLOY_INPUTS}"
+
+      - name: Resolve backend instance
+        if: inputs.promote_users == true
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Promote allowlisted internal admin users
+        if: inputs.promote_users == true
+        id: promote
+        env:
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          cat > "${RUNNER_TEMP}/ssm-commands.json" <<'EOF'
+          {
+            "commands": [
+              "set -euo pipefail",
+              "COMPOSE_PREFIX=\"docker compose --env-file /opt/aura/shared/base.env --env-file /opt/aura/shared/runtime-secrets.env --env-file /opt/aura/shared/release.env -f /opt/aura/current/infra/aws/docker-compose.ec2.yml\"",
+              "API_CONTAINER=\"$(${COMPOSE_PREFIX} ps -q api)\"",
+              "test -n \"${API_CONTAINER}\" || { echo \"API container not found\"; exit 1; }",
+              "${COMPOSE_PREFIX} exec -T api node scripts/promote_allowlist_admin.js"
+            ]
+          }
+          EOF
+
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura production admin allowlist promotion" \
+            --parameters "file://${RUNNER_TEMP}/ssm-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for admin promotion
+        if: inputs.promote_users == true
+        env:
+          COMMAND_ID: ${{ steps.promote.outputs.command_id }}
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for admin promotion command."
+          exit 1
+
+      - name: Summary
+        env:
+          EMAIL_COUNT: ${{ steps.validate.outputs.count }}
+          DEPLOY_BACKEND_REQUESTED: ${{ inputs.deploy_backend }}
+          PROMOTE_USERS_REQUESTED: ${{ inputs.promote_users }}
+        run: |
+          {
+            echo "## Production Admin Access"
+            echo
+            echo "Updated production admin allowlist policy in AWS Parameter Store."
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| SSM prefix | ${AWS_PARAMETER_STORE_PATH_PREFIX} |"
+            echo "| Email count | ${EMAIL_COUNT} |"
+            echo "| Backend reload requested | ${DEPLOY_BACKEND_REQUESTED} |"
+            echo "| Internal admin promotion requested | ${PROMOTE_USERS_REQUESTED} |"
+          } >> "$GITHUB_STEP_SUMMARY"
