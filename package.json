@@ -188,7 +188,7 @@
     "http-proxy-middleware": "^3.0.5"
   },
   "devDependencies": {
-    "electron": "^39.8.5",
+    "electron": "^42.3.0",
     "electron-builder": "^26.0.12",
     "knip": "^6.15.0"
   },
