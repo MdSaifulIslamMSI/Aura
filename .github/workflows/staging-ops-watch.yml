@@ -55,7 +55,7 @@ jobs:
 
       - name: Configure AWS credentials for optional cost watch
         if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' }}
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
