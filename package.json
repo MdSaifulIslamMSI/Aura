@@ -190,7 +190,7 @@
   "devDependencies": {
     "electron": "^39.8.5",
     "electron-builder": "^26.0.12",
-    "knip": "^5.88.1"
+    "knip": "^6.15.0"
   },
   "overrides": {
     "@electron/asar": "^4.2.0",
