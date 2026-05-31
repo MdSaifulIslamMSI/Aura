@@ -124,6 +124,7 @@ jobs:
       - name: Write production admin allowlist policy
         env:
           ADMIN_ALLOWLIST_EMAILS: ${{ steps.validate.outputs.emails }}
+          ADMIN_ALLOWLIST_EMAIL_COUNT: ${{ steps.validate.outputs.count }}
         run: |
           set -euo pipefail
           aws ssm put-parameter \
@@ -142,7 +143,7 @@ jobs:
             --overwrite \
             --value "${ADMIN_ALLOWLIST_EMAILS}" >/dev/null
 
-          echo "Production admin allowlist policy updated for ${{ steps.validate.outputs.count }} email(s)."
+          echo "Production admin allowlist policy updated for ${ADMIN_ALLOWLIST_EMAIL_COUNT} email(s)."
 
       - name: Dispatch backend production reload
         if: inputs.deploy_backend == true
@@ -177,6 +178,8 @@ jobs:
       - name: Promote allowlisted internal admin users
         if: inputs.promote_users == true
         id: promote
+        env:
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
         run: |
           set -euo pipefail
           cat > "${RUNNER_TEMP}/ssm-commands.json" <<'EOF'
@@ -192,7 +195,7 @@ jobs:
           EOF
 
           COMMAND_ID="$(aws ssm send-command \
-            --instance-ids "${{ steps.resolve_instance.outputs.instance_id }}" \
+            --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
             --comment "Aura production admin allowlist promotion" \
             --parameters "file://${RUNNER_TEMP}/ssm-commands.json" \
@@ -202,27 +205,30 @@ jobs:
 
       - name: Wait for admin promotion
         if: inputs.promote_users == true
+        env:
+          COMMAND_ID: ${{ steps.promote.outputs.command_id }}
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
         run: |
           set -euo pipefail
           for _ in $(seq 1 60); do
             STATUS="$(aws ssm get-command-invocation \
-              --command-id "${{ steps.promote.outputs.command_id }}" \
-              --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
               --query "Status" \
               --output text)"
             case "${STATUS}" in
               Success)
                 aws ssm get-command-invocation \
-                  --command-id "${{ steps.promote.outputs.command_id }}" \
-                  --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
                   --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
                   --output json
                 exit 0
                 ;;
               Failed|Cancelled|TimedOut|Cancelling)
                 aws ssm get-command-invocation \
-                  --command-id "${{ steps.promote.outputs.command_id }}" \
-                  --instance-id "${{ steps.resolve_instance.outputs.instance_id }}" \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
                   --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
                   --output json
                 exit 1
@@ -234,6 +240,10 @@ jobs:
           exit 1
 
       - name: Summary
+        env:
+          EMAIL_COUNT: ${{ steps.validate.outputs.count }}
+          DEPLOY_BACKEND_REQUESTED: ${{ inputs.deploy_backend }}
+          PROMOTE_USERS_REQUESTED: ${{ inputs.promote_users }}
         run: |
           {
             echo "## Production Admin Access"
@@ -243,7 +253,7 @@ jobs:
             echo "| Field | Value |"
             echo "|---|---|"
             echo "| SSM prefix | ${AWS_PARAMETER_STORE_PATH_PREFIX} |"
-            echo "| Email count | ${{ steps.validate.outputs.count }} |"
-            echo "| Backend reload requested | ${{ inputs.deploy_backend }} |"
-            echo "| Internal admin promotion requested | ${{ inputs.promote_users }} |"
+            echo "| Email count | ${EMAIL_COUNT} |"
+            echo "| Backend reload requested | ${DEPLOY_BACKEND_REQUESTED} |"
+            echo "| Internal admin promotion requested | ${PROMOTE_USERS_REQUESTED} |"
           } >> "$GITHUB_STEP_SUMMARY"
