@@ -1,4 +1,4 @@
-name: Aura Production Release Orchestrator
+name: Manual Production Command Center
 
 on:
   workflow_dispatch:
@@ -677,6 +677,10 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           REQUESTED_DEPLOY_OR_RELEASE: ${{ needs.plan.outputs.requested_deploy_or_release_action }}
           REQUESTED_ROLLBACK: ${{ needs.plan.outputs.requested_rollback_action }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          ACTOR_NAME: ${{ github.actor }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
           {
             echo "## Production Approval"
@@ -688,10 +692,10 @@ jobs:
             echo "| Event | ${EVENT_NAME} |"
             echo "| Deploy or release requested | ${REQUESTED_DEPLOY_OR_RELEASE} |"
             echo "| Rollback requested | ${REQUESTED_ROLLBACK} |"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Actor | ${{ github.actor }} |"
-            echo "| SHA | ${{ github.sha }} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Actor | ${ACTOR_NAME} |"
+            echo "| SHA | ${COMMIT_SHA} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   production-approval-noop:
@@ -706,22 +710,30 @@ jobs:
 
     steps:
       - name: Explain why approval did not run
+        env:
+          PLANNED_PRODUCTION_ACTION: ${{ needs.plan.outputs.planned_production_action }}
+          REQUESTED_PRODUCTION_ACTION: ${{ needs.plan.outputs.requested_production_action }}
+          REQUESTED_DEPLOY_OR_RELEASE: ${{ needs.plan.outputs.requested_deploy_or_release_action }}
+          MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          APPROVAL_RESULT: ${{ needs.production-approval.result }}
         run: |
           {
             echo "## Production Approval No-Op"
             echo
             echo "| Reason | Value |"
             echo "|---|---|"
-            echo "| Planned production action | ${{ needs.plan.outputs.planned_production_action }} |"
-            echo "| Requested production action | ${{ needs.plan.outputs.requested_production_action }} |"
-            echo "| Manual confirmed | ${{ needs.plan.outputs.manual_confirmed }} |"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Approval result | ${{ needs.production-approval.result }} |"
+            echo "| Planned production action | ${PLANNED_PRODUCTION_ACTION} |"
+            echo "| Requested production action | ${REQUESTED_PRODUCTION_ACTION} |"
+            echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Approval result | ${APPROVAL_RESULT} |"
             echo
-            if [ "${{ needs.plan.outputs.planned_production_action }}" != "true" ]; then
+            if [ "${PLANNED_PRODUCTION_ACTION}" != "true" ]; then
               echo "No real production action was planned, so the production environment approval was intentionally not requested."
-            elif [ "${{ needs.plan.outputs.requested_deploy_or_release_action }}" = "true" ] && { [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; }; then
+            elif [ "${REQUESTED_DEPLOY_OR_RELEASE}" = "true" ] && { [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; }; then
               echo "A deploy or release was requested, but production approval was blocked because CI or security gates did not pass."
             else
               echo "Production approval did not complete successfully."
@@ -876,6 +888,9 @@ jobs:
           SHOULD: ${{ needs.plan.outputs.should_deploy_backend }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
           MANUAL_REQUESTED: ${{ github.event.inputs.deploy_backend == 'true' }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          APPROVAL_RESULT: ${{ needs.production-approval.result }}
         run: |
           {
             echo "## Backend Deploy No-Op"
@@ -889,15 +904,15 @@ jobs:
             echo "| Ready | ${READY} |"
             echo "| Missing config | ${MISSING} |"
             echo "| Planned deploy | ${SHOULD} |"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Approval | ${APPROVAL_RESULT} |"
             echo
             if [ "${READY}" != "true" ] && { [ "${CHANGED}" = "true" ] || [ "${MANUAL_REQUESTED}" = "true" ]; }; then
               echo "Backend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
             elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "Backend deploy was requested but no-opped because confirm_production was not PRODUCTION."
-            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Backend deploy was blocked because CI or security gates did not pass."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Backend deploy was not requested for this run."
@@ -952,6 +967,9 @@ jobs:
           SHOULD: ${{ needs.plan.outputs.should_deploy_frontend_netlify }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
           MANUAL_REQUESTED: ${{ github.event.inputs.deploy_frontend_netlify == 'true' }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          APPROVAL_RESULT: ${{ needs.production-approval.result }}
         run: |
           {
             echo "## Netlify Frontend Deploy No-Op"
@@ -965,15 +983,15 @@ jobs:
             echo "| Ready | ${READY} |"
             echo "| Missing config | ${MISSING} |"
             echo "| Planned deploy | ${SHOULD} |"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Approval | ${APPROVAL_RESULT} |"
             echo
             if [ "${READY}" != "true" ] && { [ "${CHANGED}" = "true" ] || [ "${MANUAL_REQUESTED}" = "true" ]; }; then
               echo "Netlify frontend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
             elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "Netlify frontend deploy was requested but no-opped because confirm_production was not PRODUCTION."
-            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Netlify frontend deploy was blocked because CI or security gates did not pass."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Netlify frontend deploy was not requested for this run."
@@ -1026,6 +1044,9 @@ jobs:
           SHOULD: ${{ needs.plan.outputs.should_deploy_frontend_aws }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
           MANUAL_REQUESTED: ${{ github.event.inputs.deploy_frontend_aws == 'true' }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          APPROVAL_RESULT: ${{ needs.production-approval.result }}
         run: |
           {
             echo "## AWS Frontend Deploy No-Op"
@@ -1039,15 +1060,15 @@ jobs:
             echo "| Ready | ${READY} |"
             echo "| Missing config | ${MISSING} |"
             echo "| Planned deploy | ${SHOULD} |"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Approval | ${APPROVAL_RESULT} |"
             echo
             if [ "${READY}" != "true" ] && { [ "${CHANGED}" = "true" ] || [ "${MANUAL_REQUESTED}" = "true" ]; }; then
               echo "AWS frontend deploy was requested but no-opped because required configuration is missing: ${MISSING}."
             elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "AWS frontend deploy was requested but no-opped because confirm_production was not PRODUCTION."
-            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "AWS frontend deploy was blocked because CI or security gates did not pass."
             elif [ "${SHOULD}" != "true" ]; then
               echo "AWS frontend deploy was not requested for this run."
@@ -1101,6 +1122,9 @@ jobs:
           SHOULD: ${{ needs.plan.outputs.should_deploy_gateway }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
           MANUAL_REQUESTED: ${{ github.event.inputs.deploy_gateway == 'true' }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          APPROVAL_RESULT: ${{ needs.production-approval.result }}
         run: |
           {
             echo "## Gateway Deploy No-Op"
@@ -1114,15 +1138,15 @@ jobs:
             echo "| Ready | ${READY} |"
             echo "| Missing config | ${MISSING} |"
             echo "| Planned deploy | ${SHOULD} |"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Approval | ${{ needs.production-approval.result }} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Approval | ${APPROVAL_RESULT} |"
             echo
             if [ "${READY}" != "true" ] && { [ "${CHANGED}" = "true" ] || [ "${MANUAL_REQUESTED}" = "true" ]; }; then
               echo "Gateway deploy was requested but no-opped because required configuration is missing: ${MISSING}."
             elif [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "Gateway deploy was requested but no-opped because confirm_production was not PRODUCTION."
-            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Gateway deploy was blocked because CI or security gates did not pass."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Gateway deploy was not requested for this run."
@@ -1219,6 +1243,11 @@ jobs:
 
     steps:
       - name: Explain smoke decision
+        env:
+          BACKEND_RESULT: ${{ needs.deploy-backend.result }}
+          FRONTEND_NETLIFY_RESULT: ${{ needs.deploy-frontend-netlify.result }}
+          FRONTEND_AWS_RESULT: ${{ needs.deploy-frontend-aws.result }}
+          GATEWAY_RESULT: ${{ needs.deploy-gateway.result }}
         run: |
           {
             echo "## Smoke Tests No-Op"
@@ -1227,10 +1256,10 @@ jobs:
             echo
             echo "| Deploy job | Result |"
             echo "|---|---|"
-            echo "| Backend | ${{ needs.deploy-backend.result }} |"
-            echo "| Frontend Netlify | ${{ needs.deploy-frontend-netlify.result }} |"
-            echo "| Frontend AWS | ${{ needs.deploy-frontend-aws.result }} |"
-            echo "| Gateway | ${{ needs.deploy-gateway.result }} |"
+            echo "| Backend | ${BACKEND_RESULT} |"
+            echo "| Frontend Netlify | ${FRONTEND_NETLIFY_RESULT} |"
+            echo "| Frontend AWS | ${FRONTEND_AWS_RESULT} |"
+            echo "| Gateway | ${GATEWAY_RESULT} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   rollback-backend:
@@ -1442,6 +1471,10 @@ jobs:
           SHOULD: ${{ needs.plan.outputs.should_release_desktop }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
           MANUAL_REQUESTED: ${{ github.event.inputs.release_desktop == 'true' }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          APPROVAL_RESULT: ${{ needs.production-approval.result }}
+          SMOKE_TESTS_RESULT: ${{ needs.smoke-tests.result }}
         run: |
           {
             echo "## Desktop Release No-Op"
@@ -1453,18 +1486,18 @@ jobs:
             echo "| Manual requested | ${MANUAL_REQUESTED} |"
             echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
             echo "| Planned release | ${SHOULD} |"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Approval | ${{ needs.production-approval.result }} |"
-            echo "| Smoke tests | ${{ needs.smoke-tests.result }} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Approval | ${APPROVAL_RESULT} |"
+            echo "| Smoke tests | ${SMOKE_TESTS_RESULT} |"
             echo
             if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "Desktop release was requested but no-opped because confirm_production was not PRODUCTION."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Desktop release was not requested for this run."
-            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Desktop release was blocked because CI or security gates did not pass."
-            elif [ "${{ needs.smoke-tests.result }}" = "failure" ]; then
+            elif [ "${SMOKE_TESTS_RESULT}" = "failure" ]; then
               echo "Desktop release was blocked because smoke tests failed."
             else
               echo "Desktop release did not run because approval or a dependent production job was not safe."
@@ -1528,6 +1561,10 @@ jobs:
           SHOULD: ${{ needs.plan.outputs.should_release_mobile }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
           MANUAL_REQUESTED: ${{ github.event.inputs.release_mobile == 'true' }}
+          QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
+          SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          APPROVAL_RESULT: ${{ needs.production-approval.result }}
+          SMOKE_TESTS_RESULT: ${{ needs.smoke-tests.result }}
         run: |
           {
             echo "## Mobile Release No-Op"
@@ -1539,18 +1576,18 @@ jobs:
             echo "| Manual requested | ${MANUAL_REQUESTED} |"
             echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
             echo "| Planned release | ${SHOULD} |"
-            echo "| Quality gates | ${{ needs.quality-gates.result }} |"
-            echo "| Security gates | ${{ needs.security-gates.result }} |"
-            echo "| Approval | ${{ needs.production-approval.result }} |"
-            echo "| Smoke tests | ${{ needs.smoke-tests.result }} |"
+            echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
+            echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Approval | ${APPROVAL_RESULT} |"
+            echo "| Smoke tests | ${SMOKE_TESTS_RESULT} |"
             echo
             if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REQUESTED}" = "true" ] && [ "${MANUAL_CONFIRMED}" != "true" ]; then
               echo "Mobile release was requested but no-opped because confirm_production was not PRODUCTION."
             elif [ "${SHOULD}" != "true" ]; then
               echo "Mobile release was not requested for this run."
-            elif [ "${{ needs.quality-gates.result }}" != "success" ] || [ "${{ needs.security-gates.result }}" != "success" ]; then
+            elif [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; then
               echo "Mobile release was blocked because CI or security gates did not pass."
-            elif [ "${{ needs.smoke-tests.result }}" = "failure" ]; then
+            elif [ "${SMOKE_TESTS_RESULT}" = "failure" ]; then
               echo "Mobile release was blocked because smoke tests failed."
             else
               echo "Mobile release did not run because approval or a dependent production job was not safe."

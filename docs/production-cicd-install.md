@@ -1,9 +1,15 @@
-# Aura Production Release Orchestrator installation
+# Aura Production CI/CD installation
 
 ## Repository integration note
 
-This repository uses the full replacement orchestrator from the package, with
-repo-specific compatibility fixes:
+This repository has two production entrypoints:
+
+- `.github/workflows/production-on-push.yml` is the automatic release train for every `main` push.
+- `.github/workflows/production-cicd.yml` is the manual command center for selected deploys, rollbacks, and signed releases.
+
+The reusable lane workflows are intentionally separate so each surface can be tested and repaired independently, but humans should start from the two entrypoints above.
+
+This repository uses the full manual command center from the package, with repo-specific compatibility fixes:
 
 - The storefront deploy still calls the existing multi-host workflow that
   publishes Netlify, Vercel, and AWS from one shared build.
@@ -17,7 +23,9 @@ repo-specific compatibility fixes:
 Copy these files into your repository:
 
 ```text
+.github/workflows/production-on-push.yml
 .github/workflows/production-cicd.yml
+.github/workflows/production-admin-access.yml
 .github/workflows/rollback-backend-aws.yml
 .github/workflows/rollback-frontend-aws.yml
 .github/workflows/rollback-netlify.yml
