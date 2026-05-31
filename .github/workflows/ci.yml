@@ -732,7 +732,7 @@ jobs:
         run: npm run observability:validate
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
 
       - name: Validate Kubernetes kustomize base
         run: kubectl kustomize k8s/base > /tmp/k8s-base.yaml
