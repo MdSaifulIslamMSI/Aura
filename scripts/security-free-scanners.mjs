@@ -6,6 +6,15 @@ import { validateContract } from './env-contract-lib.mjs';
 const repoRoot = process.cwd();
 const reportsDir = path.join(repoRoot, 'security-reports');
 mkdirSync(reportsDir, { recursive: true });
+const onlyArg = process.argv.find((entry) => entry.startsWith('--only='));
+const onlyScanners = new Set(
+  String(onlyArg || '')
+    .slice('--only='.length)
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+);
+const shouldRunScanner = (name) => onlyScanners.size === 0 || onlyScanners.has(name);
 
 if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
   throw new Error('Refusing to run free security scanners with NODE_ENV=production');
@@ -148,7 +157,7 @@ const writeScannerOutput = (scanner, result) => {
   writeFileSync(path.join(reportsDir, `${scanner.name}.stderr.txt`), result.stderr || '');
 };
 
-const results = scanners.map((scanner) => {
+const results = scanners.filter((scanner) => shouldRunScanner(scanner.name)).map((scanner) => {
   const hasBinary = hasCommand(scanner.binary);
   if (hasBinary) {
     const result = run(scanner.binary, scanner.binaryArgs);
@@ -271,7 +280,9 @@ const runZapBaseline = () => {
   };
 };
 
-results.push(runZapBaseline());
+if (shouldRunScanner('zap-baseline')) {
+  results.push(runZapBaseline());
+}
 
 const report = {
   generatedAt: new Date().toISOString(),

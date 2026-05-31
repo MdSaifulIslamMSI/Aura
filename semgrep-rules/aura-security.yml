@@ -1,0 +1,32 @@
+rules:
+  - id: aura-no-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Avoid eval. Use a structured parser or an explicit allowlist."
+    pattern: "eval(...)"
+
+  - id: aura-no-new-function
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Avoid dynamic Function construction because it is equivalent to eval."
+    pattern: "new Function(...)"
+
+  - id: aura-no-jwt-decode-without-verification
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "JWT decode does not verify authenticity. Use signature, issuer, audience, and expiry validation."
+    pattern-either:
+      - pattern: "jwt.decode(...)"
+      - pattern: "jsonwebtoken.decode(...)"
+
+  - id: aura-no-insecure-cookie-literal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Do not set production cookies with secure disabled."
+    pattern: "$RES.cookie(..., { ..., secure: false, ... })"
+
+  - id: aura-no-cors-wildcard-header
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Do not emit a wildcard CORS response header from application code."
+    pattern: '$RES.setHeader("Access-Control-Allow-Origin", "*")'

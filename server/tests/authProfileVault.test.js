@@ -36,7 +36,7 @@ describe('authProfileVault key rotation', () => {
 
     test('stores keyVersion and decrypts profile snapshots', async () => {
         makeVaultEnv('rotation-store');
-        process.env.AUTH_VAULT_SECRET = '0123456789abcdef0123456789abcdef';
+        process.env.AUTH_VAULT_SECRET = '0123456789abcdef0123456789abcdef'; // nosemgrep: generic.secrets.security.detected-generic-secret.detected-generic-secret -- deterministic test-only vault key
         process.env.AUTH_VAULT_SECRET_VERSION = 'v2';
 
         const { saveAuthProfileSnapshot, getAuthProfileSnapshotByEmail, resolveVaultFile } = loadVaultService();
