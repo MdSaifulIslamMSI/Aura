@@ -22,7 +22,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const resultPath = path.join(REPO_ROOT, '.staging', 'vercel-staging-result.json');
 const protectionBypassPath = path.join(REPO_ROOT, '.staging', 'vercel-protection-bypass-response.json');
 const blockerReportPath = path.join(REPO_ROOT, 'docs', 'staging-vercel-blocker-report.md');
-const npxBin = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const ghBin = process.platform === 'win32' ? 'gh.exe' : 'gh';
 
 const warnings = [];
@@ -84,13 +83,7 @@ const sanitize = (value = '') => {
 };
 
 const run = (command, args, options = {}) => {
-  const normalized = (() => {
-    if (process.platform === 'win32' && /\.cmd$/i.test(command)) {
-      return { command: 'cmd.exe', args: ['/d', '/s', '/c', command, ...args] };
-    }
-    return { command, args };
-  })();
-  const result = spawnSync(normalized.command, normalized.args, {
+  const result = spawnSync(command, args, {
     cwd: options.cwd || REPO_ROOT,
     input: options.input,
     encoding: 'utf8',
@@ -108,6 +101,19 @@ const run = (command, args, options = {}) => {
     stdout: sanitize(result.stdout || ''),
     stderr: sanitize(result.stderr || result.error?.message || ''),
   };
+};
+
+const runNpx = (args, options = {}) => {
+  if (process.platform !== 'win32') return run('npx', args, options);
+  const npxCliPath = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js');
+  if (!fs.existsSync(npxCliPath)) {
+    return {
+      status: 1,
+      stdout: '',
+      stderr: `Unable to locate the trusted npm CLI entrypoint at ${npxCliPath}.`,
+    };
+  }
+  return run(process.execPath, [npxCliPath, ...args], options);
 };
 
 const cliAuthArgs = () => [
@@ -171,7 +177,7 @@ const cliApi = (endpoint, { method = 'GET', body } = {}) => {
   if (body) fs.writeFileSync(inputPath, JSON.stringify(body));
   const args = ['vercel', 'api', endpoint, '-X', method, '--raw', ...cliAuthArgs()];
   if (body) args.push('--input', inputPath);
-  const result = run(npxBin, args);
+  const result = runNpx(args);
   if (inputPath) fs.rmSync(inputPath, { force: true });
   if (result.status !== 0) {
     throw new Error(result.stderr || result.stdout || `vercel api ${endpoint} failed`);
@@ -225,9 +231,9 @@ const tryCreateCustomEnvironment = async (project) => {
 
 const setVercelEnv = (key, value, environment, branch) => {
   const removeArgs = ['vercel', 'env', 'rm', key, environment, ...(branch ? [branch] : []), '--yes', ...cliAuthArgs()];
-  run(npxBin, removeArgs);
+  runNpx(removeArgs);
   const addArgs = ['vercel', 'env', 'add', key, environment, ...(branch ? [branch] : []), '--yes', ...cliAuthArgs()];
-  const result = run(npxBin, addArgs, { input: value });
+  const result = runNpx(addArgs, { input: value });
   if (result.status !== 0) {
     warnings.push(`Could not set Vercel env ${key} for ${environment}${branch ? `/${branch}` : ''}: ${result.stderr || result.stdout}`);
     return false;
@@ -313,7 +319,7 @@ const deployPreview = (cwd, target = 'preview') => {
     `AURA_BACKEND_ORIGIN=${env.stagingApiBaseUrl}`,
     ...cliAuthArgs(),
   ];
-  const result = run(npxBin, args, { cwd });
+  const result = runNpx(args, { cwd });
   if (result.status !== 0) {
     throw new Error(result.stderr || result.stdout || 'Vercel deploy failed');
   }
@@ -470,7 +476,7 @@ try {
   }
 
   if (env.stagingDomain) {
-    const domainResult = run(npxBin, ['vercel', 'domains', 'inspect', env.stagingDomain, ...cliAuthArgs()]);
+    const domainResult = runNpx(['vercel', 'domains', 'inspect', env.stagingDomain, ...cliAuthArgs()]);
     if (domainResult.status === 0) {
       warnings.push(`Domain ${env.stagingDomain} exists, but automatic branch assignment is not supported by this autopilot yet.`);
     } else {

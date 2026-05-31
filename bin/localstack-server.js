@@ -150,7 +150,7 @@ const server = http.createServer(async (req, res) => {
   if (s3Match && method === 'PUT' && !s3Match[2]) {
     const bucketName = s3Match[1];
     if (!buckets.has(bucketName)) buckets.set(bucketName, new Map());
-    res.writeHead(200, { 'Content-Type': 'application/xml', 'Location': `/${bucketName}` });
+    res.writeHead(200, { 'Content-Type': 'application/xml', 'Location': `/${encodeURIComponent(bucketName)}` });
     return res.end();
   }
 

@@ -1,5 +1,6 @@
 import { resolveApiBaseUrl, trimTrailingSlash } from './runtimeApiConfig';
 import { getActiveMarketHeaders } from './marketRuntime';
+import { createRuntimeId } from '../utils/runtimeId';
 
 const API_BASE_URL = trimTrailingSlash(resolveApiBaseUrl('/api'));
 const CLIENT_SESSION_STORAGE_KEY = 'aura_observability_session_id';
@@ -27,13 +28,7 @@ const PERSISTED_CLIENT_DIAGNOSTIC_TYPES = new Set([
 
 const getWindowRef = () => (typeof window !== 'undefined' ? window : null);
 
-const createId = (prefix = 'web') => {
-    const cryptoRef = globalThis.crypto;
-    if (cryptoRef?.randomUUID) {
-        return `${prefix}-${cryptoRef.randomUUID()}`;
-    }
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-};
+const createId = (prefix = 'web') => createRuntimeId(prefix);
 
 const getCurrentRoute = () => {
     const windowRef = getWindowRef();

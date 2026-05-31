@@ -134,4 +134,24 @@ describe('csrf middleware', () => {
             code: 'CSRF_TOKEN_HEADER_REQUIRED',
         }));
     });
+
+    test('rejects array token parameters before validation', async () => {
+        const req = {
+            method: 'POST',
+            path: '/auth/sync',
+            ip: '127.0.0.1',
+            headers: {},
+            body: {},
+            query: { csrfToken: ['first', 'second'] },
+        };
+        const next = jest.fn();
+
+        await csrfTokenValidator(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            code: 'CSRF_TOKEN_INVALID_TYPE',
+        }));
+    });
 });

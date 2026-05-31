@@ -18,6 +18,7 @@ import { useMarket } from '@/context/MarketContext';
 import { productApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { formatBasePrice, formatEntityPrice } from '@/utils/pricing';
+import { toSafePreviewImage } from '@/utils/visualSearchPreview';
 
 const QUICK_HINTS = [
   'iPhone 15 Pro Max titanium',
@@ -27,6 +28,7 @@ const QUICK_HINTS = [
   'smart watch amoled',
   'noise cancelling earbuds',
 ];
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/gif', 'image/jpeg', 'image/png', 'image/webp']);
 
 const extractProductId = (product) => product?.id || product?._id || null;
 
@@ -137,7 +139,7 @@ const VisualSearch = () => {
   const [total, setTotal] = useState(0);
   const [marketSnapshot, setMarketSnapshot] = useState(null);
 
-  const previewImage = useMemo(() => String(imageUrl || '').trim() || uploadedPreview, [imageUrl, uploadedPreview]);
+  const previewImage = useMemo(() => toSafePreviewImage(imageUrl) || toSafePreviewImage(uploadedPreview), [imageUrl, uploadedPreview]);
   const formatBrowseAmount = useCallback(
     (amount) => formatBasePrice(formatPrice, amount),
     [formatPrice]
@@ -156,8 +158,8 @@ const VisualSearch = () => {
 
   const applyImageFile = useCallback(async (file, source = 'upload') => {
     if (!file) return;
-    if (!String(file.type || '').startsWith('image/')) {
-      setError('Only image files are supported for visual search.');
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(String(file.type || '').toLowerCase())) {
+      setError('Only PNG, JPEG, GIF, and WebP image files are supported for visual search.');
       return;
     }
 
@@ -347,7 +349,7 @@ const VisualSearch = () => {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/gif,image/jpeg,image/png,image/webp"
                     onChange={handleFilePick}
                     className="hidden"
                   />

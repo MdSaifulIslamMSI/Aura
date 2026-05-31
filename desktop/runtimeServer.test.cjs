@@ -9,6 +9,7 @@ const {
     buildProxyOptions,
     applyLocalFrontendCachePolicy,
     applyDesktopAuthCors,
+    createLocalRateLimiter,
     createDesktopAuthBroker,
     DEFAULT_BACKEND_ORIGIN,
     DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
@@ -212,4 +213,28 @@ test('desktop auth callback CORS only allows the hosted auth frontend', () => {
     assert.equal(applyDesktopAuthCors({
         headers: { origin: 'https://evil.example.test' },
     }, response, allowedOrigins), false);
+});
+
+test('desktop auth callback limiter rejects excess local attempts', () => {
+    const limiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 1 });
+    const request = { ip: '127.0.0.1' };
+    const response = {
+        statusCode: 0,
+        body: null,
+        status(code) {
+            this.statusCode = code;
+            return this;
+        },
+        json(body) {
+            this.body = body;
+            return this;
+        },
+    };
+    const next = () => {};
+
+    limiter(request, response, next);
+    limiter(request, response, next);
+
+    assert.equal(response.statusCode, 429);
+    assert.match(response.body.message, /Too many desktop sign-in callback requests/);
 });

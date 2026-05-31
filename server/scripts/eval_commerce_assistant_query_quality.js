@@ -113,6 +113,7 @@ const evaluateCase = async (testCase) => {
 };
 
 const escapeMarkdownCell = (value) => String(value || '')
+    .replace(/\\/g, '\\\\')
     .replace(/\|/g, '\\|')
     .replace(/\r?\n/g, ' ');
 

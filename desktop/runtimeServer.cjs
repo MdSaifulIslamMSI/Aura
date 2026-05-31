@@ -193,6 +193,29 @@ const applyDesktopAuthCors = (request, response, allowedOrigins) => {
     return true;
 };
 
+const createLocalRateLimiter = ({ windowMs, max }) => {
+    const windows = new Map();
+
+    return (request, response, next) => {
+        const now = Date.now();
+        const key = String(request.ip || request.socket?.remoteAddress || 'loopback');
+        const current = windows.get(key);
+        const windowState = !current || current.resetAt <= now
+            ? { count: 1, resetAt: now + windowMs }
+            : { count: current.count + 1, resetAt: current.resetAt };
+        windows.set(key, windowState);
+
+        if (windowState.count > max) {
+            response.status(429).json({
+                success: false,
+                message: 'Too many desktop sign-in callback requests. Please try again shortly.',
+            });
+            return;
+        }
+        next();
+    };
+};
+
 const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } = {}) => {
     const pendingRequests = new Map();
     const completedResults = new Map();
@@ -364,6 +387,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     const app = express();
     const server = http.createServer(app);
     const desktopAuthBroker = createDesktopAuthBroker({ onComplete: onDesktopAuthComplete });
+    const desktopAuthCompleteLimiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 60 });
 
     const socketProxy = createProxyMiddleware(buildProxyOptions(backendOrigin));
     const apiProxy = createProxyMiddleware(buildProxyOptions(backendOrigin));
@@ -374,14 +398,14 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     app.use('/api', apiProxy);
     app.use('/health', apiProxy);
     app.use('/uploads', apiProxy);
-    app.options(DESKTOP_AUTH_COMPLETE_PATH, (request, response) => {
+    app.options(DESKTOP_AUTH_COMPLETE_PATH, desktopAuthCompleteLimiter, (request, response) => {
         if (!applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
             response.status(403).end();
             return;
         }
         response.status(204).end();
     });
-    app.post(DESKTOP_AUTH_COMPLETE_PATH, express.json({ limit: '16kb' }), (request, response) => {
+    app.post(DESKTOP_AUTH_COMPLETE_PATH, desktopAuthCompleteLimiter, express.json({ limit: '16kb' }), (request, response) => {
         const hasOrigin = Boolean(String(request.headers.origin || '').trim());
         if (hasOrigin && !applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
             response.status(403).json({
@@ -486,6 +510,7 @@ module.exports = {
     isLoopbackBackendOrigin,
     applyLocalFrontendCachePolicy,
     createDesktopAuthBroker,
+    createLocalRateLimiter,
     buildRuntimeUrl,
     resolveAllowedDesktopAuthOrigins,
     resolveBackendOrigin,

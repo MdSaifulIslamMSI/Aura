@@ -140,11 +140,12 @@ const isHostedGemmaGatewayHealthy = (gatewayHealth = {}) => (
     && isGemmaModel(gatewayHealth?.resolvedChatModel || gatewayHealth?.chatModel || '')
 );
 
-const createTraceId = () => (typeof crypto.randomUUID === 'function'
+const createSecureIdSuffix = () => (typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
-    : crypto.createHash('sha256').update(`${Date.now()}-${Math.random().toString(36).slice(2)}`).digest('hex').slice(0, 24));
-const createSessionId = () => `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-const createMessageId = () => `assistant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    : crypto.randomBytes(16).toString('hex'));
+const createTraceId = () => createSecureIdSuffix();
+const createSessionId = () => `session-${Date.now()}-${createSecureIdSuffix()}`;
+const createMessageId = () => `assistant-${Date.now()}-${createSecureIdSuffix()}`;
 const PRODUCT_CARD_SELECT = 'id title displayTitle brand category price originalPrice discountPercentage image images stock rating ratingCount titleKey description highlights specifications';
 const MEDIA_LOOKUP_QUERY_KEYS = new Set(['q', 'query', 'product', 'productname', 'product_name', 'title', 'slug', 'name']);
 const MEDIA_PRODUCT_ID_QUERY_KEYS = new Set(['pid', 'productid', 'product_id', 'product-id', 'itemid', 'item_id']);

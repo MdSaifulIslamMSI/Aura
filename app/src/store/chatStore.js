@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { createRuntimeId } from '@/utils/runtimeId';
 
 const CHAT_STORAGE_KEY = 'aura-shopper-chat-v4';
 const LEGACY_CHAT_STORAGE_KEY = 'aura-shopper-chat-v3';
@@ -10,8 +11,8 @@ const DEFAULT_SESSION_PREVIEW = 'Start a new assistant thread.';
 const SESSION_GROUPS = ['today', 'yesterday', 'last7Days', 'older'];
 const DEFAULT_VIEWER_SCOPE = 'guest';
 
-const createMessageId = () => `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-const createSessionId = () => `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const createMessageId = () => createRuntimeId('chat');
+const createSessionId = () => createRuntimeId('session');
 const safeString = (value = '', fallback = '') => String(value ?? fallback).trim();
 const trimMessages = (messages = []) => (Array.isArray(messages) ? messages.slice(-MAX_PERSISTED_MESSAGES) : []);
 const truncateText = (value = '', max = 80) => {

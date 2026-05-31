@@ -37,7 +37,7 @@ const parseKeyConfigEntry = (entry, generatedVersionPrefix) => {
     }
 
     return {
-        version: `${generatedVersionPrefix}${crypto.createHash('sha1').update(raw).digest('hex').slice(0, 8)}`,
+        version: `${generatedVersionPrefix}${crypto.createHash('sha256').update(raw).digest('hex').slice(0, 8)}`,
         secret: raw,
     };
 };

@@ -1,9 +1,11 @@
 import { spawnSync } from 'node:child_process';
 
-const quoteWindowsArg = (value) => {
+export const assertSafeWindowsToken = (value) => {
   const raw = String(value);
-  if (!/[\s"&|<>^]/.test(raw)) return raw;
-  return `"${raw.replace(/"/g, '\\"')}"`;
+  if (!/^[a-zA-Z0-9_@./:=+-]+$/.test(raw)) {
+    throw new Error(`Unsafe Windows command token: ${raw}`);
+  }
+  return raw;
 };
 
 export const runCommand = (command, args = [], options = {}) => {
@@ -13,7 +15,7 @@ export const runCommand = (command, args = [], options = {}) => {
 
   return spawnSync(
     process.env.ComSpec || 'cmd.exe',
-    ['/d', '/s', '/c', [command, ...args.map(quoteWindowsArg)].join(' ')],
+    ['/d', '/s', '/c', [command, ...args].map(assertSafeWindowsToken).join(' ')],
     options,
   );
 };
