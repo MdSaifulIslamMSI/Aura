@@ -21,6 +21,8 @@ const requiredWorkflows = [
   'production-admin-access.yml',
   'quality.yml',
   'codeql.yml',
+  'security.yml',
+  'security-gates.yml',
   'status-watch.yml',
 ];
 
@@ -43,6 +45,7 @@ const packageJson = JSON.parse(read('package.json') || '{}');
 const securityRunner = read('scripts/security-runner.mjs');
 const qualityWorkflow = read('.github/workflows/quality.yml');
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
+const securityGatesWorkflow = read('.github/workflows/security-gates.yml');
 const statusWatchWorkflow = read('.github/workflows/status-watch.yml');
 
 const checks = [];
@@ -305,11 +308,21 @@ addCheck(
 );
 
 addCheck(
-  'CodeQL semantic analysis workflow exists',
+  'CodeQL advanced semantic analysis workflow exists',
   codeqlWorkflow.includes('name: CodeQL') &&
     codeqlWorkflow.includes('github/codeql-action/init@v4') &&
-    codeqlWorkflow.includes('github/codeql-action/analyze@v4'),
+    codeqlWorkflow.includes('github/codeql-action/analyze@v4') &&
+    codeqlWorkflow.includes('- javascript-typescript') &&
+    codeqlWorkflow.includes('- actions') &&
+    codeqlWorkflow.includes('queries: security-and-quality'),
   '.github/workflows/codeql.yml'
+);
+
+addCheck(
+  'third-party SARIF contract validation remains wired',
+  packageJson.scripts?.['security:sarif-contract'] === 'node scripts/security/validate-sarif-contract.mjs' &&
+    securityGatesWorkflow.includes('npm run security:sarif-contract'),
+  'security:sarif-contract script and Security Gates enforcement'
 );
 
 const nameWidth = Math.max(...checks.map((check) => check.name.length), 'Check'.length);

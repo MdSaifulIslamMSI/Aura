@@ -92,6 +92,18 @@ jobs:
       - name: Run high and critical dependency audit
         run: npm run security:deps
 
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Block newly introduced high-risk dependencies
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
   secret-scan:
     name: Secret Scan
     runs-on: ubuntu-latest
@@ -107,12 +119,20 @@ jobs:
         run: npm ci
       - name: Run Gitleaks
         run: npm run security:gitleaks
+      - name: Upload Gitleaks SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('security-reports/gitleaks-report.sarif') != ''
+        with:
+          sarif_file: security-reports/gitleaks-report.sarif
+          category: gitleaks
       - name: Upload secret scan report
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: gitleaks-report
-          path: security-reports/gitleaks-report.json
+          path: |
+            security-reports/gitleaks-report.json
+            security-reports/gitleaks-report.sarif
           retention-days: 30
 
   sast:
@@ -130,12 +150,20 @@ jobs:
         run: npm ci
       - name: Run Semgrep
         run: npm run security:semgrep
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('security-reports/semgrep-report.sarif') != ''
+        with:
+          sarif_file: security-reports/semgrep-report.sarif
+          category: semgrep
       - name: Upload Semgrep report
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: semgrep-report
-          path: security-reports/semgrep-report.json
+          path: |
+            security-reports/semgrep-report.json
+            security-reports/semgrep-report.sarif
           retention-days: 30
 
   trivy-fs:
@@ -153,6 +181,12 @@ jobs:
         run: npm ci
       - name: Run Trivy filesystem scan
         run: npm run security:trivy
+      - name: Upload Trivy filesystem SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('security-reports/trivy-fs.sarif') != ''
+        with:
+          sarif_file: security-reports/trivy-fs.sarif
+          category: trivy-filesystem
       - name: Upload Trivy filesystem reports
         uses: actions/upload-artifact@v7
         if: always()
@@ -160,6 +194,7 @@ jobs:
           name: trivy-fs-reports
           path: |
             security-reports/trivy-fs.json
+            security-reports/trivy-fs.sarif
             security-reports/trivy-fs-table.txt
           retention-days: 30
 
@@ -176,6 +211,12 @@ jobs:
           cache: npm
       - name: Run Checkov, tfsec, and Terrascan
         run: npm run security:iac
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('security-reports/checkov-report.sarif') != ''
+        with:
+          sarif_file: security-reports/checkov-report.sarif
+          category: checkov
       - name: Upload IaC security reports
         uses: actions/upload-artifact@v7
         if: always()
@@ -183,6 +224,7 @@ jobs:
           name: iac-security-reports
           path: |
             security-reports/checkov-report.json
+            security-reports/checkov-report.sarif
             security-reports/tfsec-report.json
             security-reports/terrascan-report.json
           if-no-files-found: error
@@ -201,6 +243,8 @@ jobs:
           cache: npm
       - name: Verify action and scanner image pins
         run: npm run security:supply-chain-pins
+      - name: Verify code scanning SARIF contract
+        run: npm run security:sarif-contract
 
   sbom:
     name: SBOM

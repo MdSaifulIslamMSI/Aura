@@ -116,6 +116,13 @@ jobs:
       - name: Run Trivy image scan
         run: npm run security:trivy:image
 
+      - name: Upload Trivy image SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('security-reports/trivy-image.sarif') != ''
+        with:
+          sarif_file: security-reports/trivy-image.sarif
+          category: trivy-image
+
       - name: Upload image security reports
         uses: actions/upload-artifact@v7
         if: always()

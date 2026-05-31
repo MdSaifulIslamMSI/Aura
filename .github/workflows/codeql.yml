@@ -20,9 +20,15 @@ concurrency:
 
 jobs:
   analyze:
-    name: JavaScript and TypeScript
+    name: ${{ matrix.language }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        language:
+          - javascript-typescript
+          - actions
 
     steps:
       - uses: actions/checkout@v6
@@ -30,9 +36,10 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: javascript-typescript
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
 
       - name: Analyze
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:javascript-typescript"
+          category: "/language:${{ matrix.language }}"
