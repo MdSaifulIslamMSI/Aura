@@ -11,6 +11,8 @@ Aura has two production entrypoints. Start here; do not reason from the reusable
 
 Everything else is a reusable lane workflow called by one of those two entrypoints.
 
+`Status Watch` (`.github/workflows/status-watch.yml`) is an observability layer, not a third deployment entrypoint. It listens for completed production, release, CI, quality, and security workflows and sends a notification only when `STATUS_WEBHOOK_URL` and `STATUS_WEBHOOK_TOKEN` are configured.
+
 ## Automatic Main Push Flow
 
 Every merge to `main` runs these lanes in order:
