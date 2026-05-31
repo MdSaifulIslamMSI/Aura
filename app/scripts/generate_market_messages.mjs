@@ -17,7 +17,7 @@ const MARKET_CONFIG_PATH = path.join(CONFIG_ROOT, 'marketConfig.js');
 const GENERATED_MESSAGES_PATH = path.join(CONFIG_ROOT, 'generatedMarketMessages.js');
 
 const SOURCE_LANGUAGE = 'en';
-const SUPPORTED_LANGUAGE_CODES = ['en', 'hi', 'es', 'fr', 'de', 'ar', 'ja', 'pt', 'zh'];
+const SUPPORTED_LANGUAGE_CODES = ['en', 'hi', 'te', 'mr', 'ur', 'gu', 'pa', 'ml', 'kn', 'or', 'as', 'sa', 'es', 'fr', 'de', 'ar', 'ja', 'pt', 'zh'];
 const SOURCE_FILE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'build']);
 const PLACEHOLDER_PATTERN = /\{\{\s*([^}\s]+)\s*\}\}/g;

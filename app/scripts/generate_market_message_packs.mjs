@@ -14,17 +14,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_ROOT = path.resolve(__dirname, '..', 'src', 'config');
 const PACK_ROOT = path.join(CONFIG_ROOT, 'marketMessagePacks');
-const SUPPORTED_LANGUAGE_CODES = ['en', 'bn', 'hi', 'es', 'fr', 'de', 'ar', 'ja', 'pt', 'zh'];
+const SUPPORTED_LANGUAGE_CODES = ['en', 'bn', 'hi', 'te', 'mr', 'ur', 'gu', 'pa', 'ml', 'kn', 'or', 'as', 'sa', 'es', 'fr', 'de', 'ar', 'ja', 'pt', 'zh'];
 const SOURCE_LANGUAGE = 'en';
 const LANGUAGE_ARG_PREFIX = '--languages=';
 const PLACEHOLDER_PATTERN = /\{\{\s*([^}\s]+)\s*\}\}/g;
 const MAX_TRANSLATION_ATTEMPTS = 4;
 const TRANSLATION_CONCURRENCY = 4;
-const NATIVE_SCRIPT_REFRESH_LANGUAGE_CODES = new Set(['bn', 'hi', 'ar', 'ja', 'zh']);
+const NATIVE_SCRIPT_REFRESH_LANGUAGE_CODES = new Set(['bn', 'hi', 'te', 'mr', 'ur', 'gu', 'pa', 'ml', 'kn', 'or', 'as', 'sa', 'ar', 'ja', 'zh']);
+const COMPLETE_SOURCE_REFRESH_LANGUAGE_CODES = new Set(['bn', 'te', 'mr', 'ur', 'gu', 'pa', 'ml', 'kn', 'or', 'as', 'sa']);
 const LETTER_PATTERN = /\p{Letter}/gu;
 const SHORT_TOKEN_PATTERN = /^[A-Z0-9&/+.:-]{1,8}$/;
 const NATIVE_SCRIPT_EXEMPT_TOKEN_PATTERN = /^n\/a$/i;
 const NATIVE_SCRIPT_EXEMPT_VALUE_PATTERN = /^(?:https?:\/\/|www\.|mailto:|tel:|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/i;
+const SHORT_UI_TOKEN_PATTERN = /^[A-Za-z0-9&/+.:-]{1,16}$/;
+const TECHNICAL_TOKEN_PATTERN = /^[A-Z0-9][A-Z0-9&/+.:-]{1,40}$/;
+const PLACEHOLDER_HEAVY_LABEL_PATTERN = /^[A-Za-z0-9&/+.:\-| ]{1,32}$/;
 
 const NATIVE_SCRIPT_RULES = {
     bn: {
@@ -32,6 +36,46 @@ const NATIVE_SCRIPT_RULES = {
         patterns: [/\p{Script=Bengali}/gu],
     },
     hi: {
+        label: 'Devanagari',
+        patterns: [/\p{Script=Devanagari}/gu],
+    },
+    te: {
+        label: 'Telugu',
+        patterns: [/\p{Script=Telugu}/gu],
+    },
+    mr: {
+        label: 'Devanagari',
+        patterns: [/\p{Script=Devanagari}/gu],
+    },
+    ur: {
+        label: 'Arabic',
+        patterns: [/\p{Script=Arabic}/gu],
+    },
+    gu: {
+        label: 'Gujarati',
+        patterns: [/\p{Script=Gujarati}/gu],
+    },
+    pa: {
+        label: 'Gurmukhi',
+        patterns: [/\p{Script=Gurmukhi}/gu],
+    },
+    ml: {
+        label: 'Malayalam',
+        patterns: [/\p{Script=Malayalam}/gu],
+    },
+    kn: {
+        label: 'Kannada',
+        patterns: [/\p{Script=Kannada}/gu],
+    },
+    or: {
+        label: 'Odia',
+        patterns: [/\p{Script=Oriya}/gu],
+    },
+    as: {
+        label: 'Bengali',
+        patterns: [/\p{Script=Bengali}/gu],
+    },
+    sa: {
         label: 'Devanagari',
         patterns: [/\p{Script=Devanagari}/gu],
     },
@@ -137,7 +181,15 @@ const isNativeTranslationUsable = (sourceText, translatedText, languageCode) => 
     if (nativeLetters > 0) return true;
 
     const compactSource = stripPlaceholders(sourceText).replace(/\s+/g, '');
-    return SHORT_TOKEN_PATTERN.test(compactSource) || NATIVE_SCRIPT_EXEMPT_TOKEN_PATTERN.test(compactSource);
+    const normalizedSource = stripPlaceholders(sourceText).replace(/\s+/g, ' ').trim();
+    PLACEHOLDER_PATTERN.lastIndex = 0;
+    const hasPlaceholders = PLACEHOLDER_PATTERN.test(sourceText);
+    PLACEHOLDER_PATTERN.lastIndex = 0;
+    return SHORT_TOKEN_PATTERN.test(compactSource)
+        || SHORT_UI_TOKEN_PATTERN.test(compactSource)
+        || TECHNICAL_TOKEN_PATTERN.test(compactSource)
+        || (hasPlaceholders && PLACEHOLDER_HEAVY_LABEL_PATTERN.test(normalizedSource))
+        || NATIVE_SCRIPT_EXEMPT_TOKEN_PATTERN.test(compactSource);
 };
 
 const translateSingleText = async (text, targetLanguage, sourceLanguage = SOURCE_LANGUAGE) => {
@@ -229,12 +281,12 @@ const buildTranslationSources = (messages = {}, sourceLanguage = SOURCE_LANGUAGE
     ]),
 );
 
-const buildBengaliSourceMessages = (englishMessages) => sortObjectEntries({
+const buildCompleteSourceMessages = (languageCode, englishMessages) => sortObjectEntries({
     // Older locale layers do not expose every canonical English string. Use the
     // complete Spanish pack only as a final semantic source for those legacy keys.
     ...buildTranslationSources(ES_REFERENCE_MARKET_MESSAGES, 'es'),
     ...buildTranslationSources(REMAINING_UI_LOCALE_MESSAGES.en || {}),
-    ...buildTranslationSources(MARKET_CONFIG_MESSAGES.bn || {}),
+    ...buildTranslationSources(MARKET_CONFIG_MESSAGES[languageCode] || {}),
     ...buildTranslationSources(englishMessages),
 });
 
@@ -243,8 +295,8 @@ const refreshNativeScriptPack = async (languageCode, baseMessages, englishMessag
         return baseMessages;
     }
 
-    const sourceMessages = languageCode === 'bn'
-        ? buildBengaliSourceMessages(englishMessages)
+    const sourceMessages = COMPLETE_SOURCE_REFRESH_LANGUAGE_CODES.has(languageCode)
+        ? buildCompleteSourceMessages(languageCode, englishMessages)
         : buildTranslationSources(englishMessages);
     const sourceEntries = Object.entries(sourceMessages)
         .filter(([, source]) => typeof source?.text === 'string' && source.text.trim().length > 0);
