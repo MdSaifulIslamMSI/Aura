@@ -19,10 +19,10 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 
 ## By Reason
 
-- `legacy-pack-promotion-needs-human-review`: 7756
-- `exact-english-fallback-needs-human-review`: 2931
-- `legacy-placeholder-mismatch-uses-english-fallback`: 188
-- `brand-term-corruption-uses-english-fallback`: 112
+- `legacy-pack-promotion-needs-human-review`: 7949
+- `exact-english-fallback-needs-human-review`: 2769
+- `brand-term-corruption-uses-english-fallback`: 121
+- `legacy-placeholder-mismatch-uses-english-fallback`: 148
 - `forbidden-transliteration-uses-english-fallback`: 1
 
 ## Review Order
