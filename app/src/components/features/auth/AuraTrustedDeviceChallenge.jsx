@@ -20,6 +20,7 @@ import {
   signTrustedDeviceChallenge,
 } from '../../../services/deviceTrustClient';
 import { isAdminPath } from '../../../services/assistantUiConfig';
+import { FormattedMessage } from 'react-intl';
 
 const TRUSTED_DEVICE_METHOD_ORDER = ['webauthn', 'browser_key'];
 const TRUSTED_DEVICE_FOCUSABLE_SELECTOR = [
@@ -506,19 +507,13 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
             <ShieldCheck className="h-4 w-4" />
           </span>
           <span className="aura-floating-utility__copy min-w-0">
-            <span className="aura-floating-utility__eyebrow block text-[11px] font-black uppercase tracking-[0.18em]">
-              Trust Checkpoint
-            </span>
-            <span className="aura-floating-utility__title block truncate text-sm font-semibold">
-              Verify once to unlock admin actions
-            </span>
+            <span className="aura-floating-utility__eyebrow block text-[11px] font-black uppercase tracking-[0.18em]"><FormattedMessage id="auth.jsx.text.trust.checkpoint" defaultMessage="Trust Checkpoint" /></span>
+            <span className="aura-floating-utility__title block truncate text-sm font-semibold"><FormattedMessage id="auth.jsx.text.verify.once.to.unlock.admin.actions" defaultMessage="Verify once to unlock admin actions" /></span>
             <span className="aura-floating-utility__detail mt-0.5 block truncate text-xs">
               {selectedMethodLabel}
             </span>
           </span>
-          <span className="trusted-device-minimized__action rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]">
-            Open
-          </span>
+          <span className="trusted-device-minimized__action rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]"><FormattedMessage id="auth.jsx.text.open" defaultMessage="Open" /></span>
         </motion.button>
       </AnimatePresence>
     );
@@ -629,9 +624,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
               <div className="trusted-device-panel__summary border-b border-white/8 p-5 sm:p-6 lg:border-b-0 lg:border-r">
                 <div className="space-y-4">
                   <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Trusted Device Checkpoint
-                  </div>
+                    <ShieldCheck className="h-3.5 w-3.5" /><FormattedMessage id="auth.jsx.text.trusted.device.checkpoint" defaultMessage="Trusted Device Checkpoint" /></div>
 
                   <div className="space-y-3">
                     <h2 id="trusted-device-gate-heading" className="max-w-lg text-2xl font-black tracking-tight text-white sm:text-3xl">
@@ -643,24 +636,24 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                   </div>
 
                   <div className="rounded-[1.15rem] border border-white/8 bg-white/[0.035] p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Why Aura paused here</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.why.aura.paused.here" defaultMessage="Why Aura paused here" /></p>
                     <p className="mt-2 text-sm leading-6 text-slate-200">
                       {checkpointReason}
                     </p>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <div className="rounded-[0.95rem] border border-white/8 bg-slate-950/60 px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Account</p>
-                        <p className="mt-1 truncate text-sm font-semibold text-white">{currentUser?.email || 'Authenticated session'}</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><FormattedMessage id="auth.jsx.text.account" defaultMessage="Account" /></p>
+                        <p className="mt-1 truncate text-sm font-semibold text-white">{currentUser?.email || <FormattedMessage id="auth.jsx.expression.authenticated.session" defaultMessage="Authenticated session" />}</p>
                       </div>
                       <div className="rounded-[0.95rem] border border-white/8 bg-slate-950/60 px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Device lane</p>
-                        <p className="mt-1 truncate text-sm font-semibold text-white">{deviceChallenge?.registeredLabel || 'This browser session'}</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><FormattedMessage id="auth.jsx.text.device.lane" defaultMessage="Device lane" /></p>
+                        <p className="mt-1 truncate text-sm font-semibold text-white">{deviceChallenge?.registeredLabel || <FormattedMessage id="auth.jsx.expression.this.browser.session" defaultMessage="This browser session" />}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="rounded-[1.15rem] border border-white/8 bg-slate-950/60 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">What stays private</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.what.stays.private" defaultMessage="What stays private" /></p>
                     <div className="mt-3 grid gap-2">
                       {privacyHighlights.map((line) => (
                         <div key={line} className="flex items-start gap-2.5">
@@ -679,10 +672,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                      {hasMultipleProofMethods ? 'Choose verification method' : 'Verification method'}
+                      {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.choose.verification.method" defaultMessage="Choose verification method" /> : <FormattedMessage id="auth.jsx.expression.verification.method" defaultMessage="Verification method" />}
                     </p>
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                      {hasMultipleProofMethods ? 'Fresh assertion required' : `${selectedMethodLabel} required`}
+                      {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.fresh.assertion.required" defaultMessage="Fresh assertion required" /> : `${selectedMethodLabel} required`}
                     </p>
                   </div>
 
@@ -772,16 +765,16 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                           <Laptop className="h-4 w-4" />
                         </span>
                         <div>
-                          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Device</p>
+                          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.device" defaultMessage="Device" /></p>
                           <p className="mt-1 text-sm font-semibold text-white">
-                            {deviceChallenge?.registeredLabel || 'This browser session'}
+                            {deviceChallenge?.registeredLabel || <FormattedMessage id="auth.jsx.expression.this.browser.session" defaultMessage="This browser session" />}
                           </p>
                         </div>
                       </div>
                     </div>
 
                     <div className="rounded-[1.1rem] border border-white/8 bg-white/[0.03] p-4">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Selected proof</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.selected.proof" defaultMessage="Selected proof" /></p>
                       <p className="mt-2 text-sm font-semibold text-white">{selectedMethodLabel}</p>
                       <p className="mt-2 text-sm leading-6 text-slate-300">
                         {selectedMethodDetail}
@@ -792,11 +785,11 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                   {!selectedMethodSupported ? (
                     <div className="rounded-[1.1rem] border border-amber-300/20 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
                       {activeMethod === 'webauthn'
-                        ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
+                        ? <FormattedMessage id="auth.jsx.expression.this.device.does.not.expose.the.platform" defaultMessage="This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey." />
                         : (
                           hostUsesBrowserKeyOnly
-                            ? 'This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains.'
-                            : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
+                            ? <FormattedMessage id="auth.jsx.expression.this.host.stays.on.browser.fallback.verification" defaultMessage="This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains." />
+                            : <FormattedMessage id="auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification" defaultMessage="This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled." />
                         )}
                     </div>
                   ) : null}
@@ -828,9 +821,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                       disabled={isWorking || isResetting}
                       className="inline-flex items-center justify-center gap-3 rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                      Reset This Browser
-                    </button>
+                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}<FormattedMessage id="auth.jsx.text.reset.this.browser" defaultMessage="Reset This Browser" /></button>
                   </div>
                 </div>
               </div>
@@ -840,9 +831,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
               <div className="space-y-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Privileged Mode
-                  </div>
+                    <ShieldCheck className="h-3.5 w-3.5" /><FormattedMessage id="auth.jsx.text.privileged.mode" defaultMessage="Privileged Mode" /></div>
                   <button
                     type="button"
                     onClick={() => setIsCollapsed(true)}
@@ -866,7 +855,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
 
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Selected proof</p>
+                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.selected.proof" defaultMessage="Selected proof" /></p>
                         <p className="mt-2 text-sm font-semibold text-white">{selectedMethodLabel}</p>
                         <p className="mt-3 text-xs leading-5 text-slate-400">{selectedMethodNote}</p>
                       </div>
@@ -877,9 +866,9 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                             <Laptop className="h-4 w-4" />
                           </span>
                           <div>
-                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Device</p>
+                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.device" defaultMessage="Device" /></p>
                             <p className="mt-1 text-sm font-semibold text-white">
-                              {deviceChallenge?.registeredLabel || 'This browser session'}
+                              {deviceChallenge?.registeredLabel || <FormattedMessage id="auth.jsx.expression.this.browser.session" defaultMessage="This browser session" />}
                             </p>
                           </div>
                         </div>
@@ -887,7 +876,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                     </div>
 
                     <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Why this appears</p>
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.why.this.appears" defaultMessage="Why this appears" /></p>
                       <p className="mt-3 text-sm leading-6 text-slate-300">
                         {publicRouteHighlights}
                       </p>
@@ -895,10 +884,8 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                   </div>
 
                   <div className="rounded-[1.75rem] border border-white/8 bg-white/[0.04] p-5">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/80">Quick unlock</p>
-                    <p className="mt-3 text-base font-semibold text-white">
-                      Unlock the stronger session only when you actually need it.
-                    </p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/80"><FormattedMessage id="auth.jsx.text.quick.unlock" defaultMessage="Quick unlock" /></p>
+                    <p className="mt-3 text-base font-semibold text-white"><FormattedMessage id="auth.jsx.text.unlock.the.stronger.session.only.when.you" defaultMessage="Unlock the stronger session only when you actually need it." /></p>
                     <p className="mt-3 text-sm leading-6 text-slate-300">
                       {checkpointReason}
                     </p>
@@ -922,7 +909,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                           className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08]"
                         >
                           {showProofOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          {showProofOptions ? 'Hide Proof Options' : 'Change Proof Method'}
+                          {showProofOptions ? <FormattedMessage id="auth.jsx.expression.hide.proof.options" defaultMessage="Hide Proof Options" /> : <FormattedMessage id="auth.jsx.expression.change.proof.method" defaultMessage="Change Proof Method" />}
                         </button>
 
                         <button
@@ -931,9 +918,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                           disabled={isWorking || isResetting}
                           className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                          Reset Identity
-                        </button>
+                          {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}<FormattedMessage id="auth.jsx.text.reset.identity" defaultMessage="Reset Identity" /></button>
                       </div>
                     </div>
                   </div>
@@ -943,10 +928,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                   <div className="space-y-4 rounded-[1.75rem] border border-white/8 bg-slate-950/70 p-4">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        {hasMultipleProofMethods ? 'Proof methods' : 'Required proof'}
+                        {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.proof.methods" defaultMessage="Proof methods" /> : <FormattedMessage id="auth.jsx.expression.required.proof" defaultMessage="Required proof" />}
                       </p>
                       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                        {hasMultipleProofMethods ? 'Pick the smoothest lane' : selectedMethodLabel}
+                        {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.pick.the.smoothest.lane" defaultMessage="Pick the smoothest lane" /> : selectedMethodLabel}
                       </p>
                     </div>
 
@@ -1040,11 +1025,11 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                 {!selectedMethodSupported ? (
                   <div className="rounded-[1.5rem] border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
                     {activeMethod === 'webauthn'
-                      ? 'This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.'
+                      ? <FormattedMessage id="auth.jsx.expression.this.device.does.not.expose.the.platform" defaultMessage="This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey." />
                       : (
                         hostUsesBrowserKeyOnly
-                          ? 'This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains.'
-                          : 'This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
+                          ? <FormattedMessage id="auth.jsx.expression.this.host.stays.on.browser.fallback.verification" defaultMessage="This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains." />
+                          : <FormattedMessage id="auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification" defaultMessage="This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled." />
                       )}
                   </div>
                 ) : null}

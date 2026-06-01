@@ -1,5 +1,6 @@
 import { ArrowUpRight, LifeBuoy, PackageSearch } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FormattedMessage } from 'react-intl';
 
 const SupportHandoffCard = ({ prefill, orderId = '', isWhiteMode = false, onOpenSupport }) => {
     if (!prefill && !orderId) return null;
@@ -19,17 +20,17 @@ const SupportHandoffCard = ({ prefill, orderId = '', isWhiteMode = false, onOpen
                     <LifeBuoy className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold">Dedicated support handoff</p>
+                    <p className="text-sm font-bold"><FormattedMessage id="support.jsx.text.dedicated.support.handoff" defaultMessage="Dedicated support handoff" /></p>
                     <p className={cn('mt-1 text-xs leading-5', mutedTextClass)}>
                         {orderId
-                            ? 'This request is tied to a specific order, so I will take you into the order support surface instead of the generic desk.'
-                            : 'Keep shopping clean and send this issue to the support desk with the context already filled in.'}
+                            ? <FormattedMessage id="order.jsx.expression.this.request.is.tied.to.a.specific" defaultMessage="This request is tied to a specific order, so I will take you into the order support surface instead of the generic desk." />
+                            : <FormattedMessage id="support.jsx.expression.keep.shopping.clean.and.send.this.issue" defaultMessage="Keep shopping clean and send this issue to the support desk with the context already filled in." />}
                     </p>
 
                     <div className="mt-3 grid gap-2 text-xs">
                         {orderId ? (
                             <div>
-                                <span className={cn('font-semibold', mutedTextClass)}>Order</span>
+                                <span className={cn('font-semibold', mutedTextClass)}><FormattedMessage id="order.jsx.text.order" defaultMessage="Order" /></span>
                                 <p className="mt-0.5 inline-flex items-center gap-1.5">
                                     <PackageSearch className="h-3.5 w-3.5" />
                                     {orderId}
@@ -37,12 +38,12 @@ const SupportHandoffCard = ({ prefill, orderId = '', isWhiteMode = false, onOpen
                             </div>
                         ) : null}
                         <div>
-                            <span className={cn('font-semibold', mutedTextClass)}>Category</span>
+                            <span className={cn('font-semibold', mutedTextClass)}><FormattedMessage id="support.jsx.text.category" defaultMessage="Category" /></span>
                             <p className="mt-0.5">{prefill?.category || 'general'}</p>
                         </div>
                         <div>
-                            <span className={cn('font-semibold', mutedTextClass)}>Subject</span>
-                            <p className="mt-0.5 line-clamp-2">{prefill?.subject || 'Support request'}</p>
+                            <span className={cn('font-semibold', mutedTextClass)}><FormattedMessage id="support.jsx.text.subject" defaultMessage="Subject" /></span>
+                            <p className="mt-0.5 line-clamp-2">{prefill?.subject || <FormattedMessage id="support.jsx.expression.support.request" defaultMessage="Support request" />}</p>
                         </div>
                     </div>
 
@@ -51,7 +52,7 @@ const SupportHandoffCard = ({ prefill, orderId = '', isWhiteMode = false, onOpen
                         onClick={() => onOpenSupport?.(prefill, orderId)}
                         className={cn('mt-4 inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', buttonClassName)}
                     >
-                        {orderId ? 'Open order support' : 'Open support desk'}
+                        {orderId ? <FormattedMessage id="order.jsx.expression.open.order.support" defaultMessage="Open order support" /> : <FormattedMessage id="support.jsx.expression.open.support.desk" defaultMessage="Open support desk" />}
                         <ArrowUpRight className="h-3.5 w-3.5" />
                     </button>
                 </div>

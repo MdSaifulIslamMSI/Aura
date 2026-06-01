@@ -26,6 +26,7 @@ import OrderSummary from './components/OrderSummary';
 import OtpChallengeModal from './components/OtpChallengeModal';
 import useCheckoutDraft from './hooks/useCheckoutDraft';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { FormattedMessage } from 'react-intl';
 
 const EMPTY_CONTACT = { name: '', phone: '', email: '' };
 const EMPTY_SHIPPING = { address: '', city: '', postalCode: '', country: 'India' };
@@ -1839,7 +1840,7 @@ const Checkout = () => {
                                 <p className="mt-3 text-xl font-black text-white">
                                     {stockReviewCount > 0
                                         ? t('checkout.stockNeedsReview', { count: stockReviewCount }, `${stockReviewCount} stock review`)
-                                        : draft.paymentMethod === 'COD'
+                                        : draft.paymentMethod === <FormattedMessage id="checkout.jsx.expression.cod" defaultMessage="COD" />
                                             ? t('checkout.protectedOrderHold', {}, 'Protected order hold')
                                             : t('checkout.challengeReadyPayment', {}, 'Challenge-ready payment')}
                                 </p>

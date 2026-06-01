@@ -27,6 +27,7 @@ import TurnstileChallenge from '@/components/features/auth/TurnstileChallenge';
 import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { cn } from '@/lib/utils';
 import { useLoginController } from '@/pages/Login/useLoginController';
+import { FormattedMessage } from 'react-intl';
 
 const providerButtonClass = 'flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-[1rem] border border-white/10 bg-[#0a1427]/90 px-4 py-3 text-sm font-bold text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-cyan-300/35 hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50';
 const fieldClass = 'min-w-0 w-full rounded-[1rem] border border-slate-600/55 bg-[#071225]/90 py-4 pl-12 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/20';
@@ -309,7 +310,7 @@ const DesktopLogin = () => {
                       </button>
                       <div className="mb-6 rounded-[1rem] border border-cyan-300/20 bg-cyan-300/10 p-4">
                         <p className="text-xs font-black uppercase text-cyan-100">{controller.isEmailOtpStage ? 'Email verification' : controller.isPhoneOtpStage ? 'Phone verification' : 'Verification code'}</p>
-                        <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">{controller.isEmailOtpStage ? `Code sent to ${controller.formData.email}.` : controller.isPhoneOtpStage ? `Code sent to ${controller.formData.phone}.` : 'Enter the secure OTP to continue.'}</p>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">{controller.isEmailOtpStage ? `Code sent to ${controller.formData.email}.` : controller.isPhoneOtpStage ? `Code sent to ${controller.formData.phone}.` : <FormattedMessage id="auth.jsx.expression.enter.the.secure.otp.to.continue" defaultMessage="Enter the secure OTP to continue." />}</p>
                       </div>
                       <div className="mb-6 flex justify-center gap-2 sm:gap-3">
                         {controller.otpValues.map((digit, index) => (
@@ -333,7 +334,7 @@ const DesktopLogin = () => {
                         {controller.countdown > 0 ? (
                           <p className="text-xs font-black uppercase text-slate-500">Resend in {controller.countdown}s</p>
                         ) : (
-                          <button type="button" onClick={controller.handleResendOtp} disabled={controller.isLoading || otpDisabled} className="text-xs font-black uppercase text-cyan-300 transition hover:text-white disabled:opacity-50">Resend OTP</button>
+                          <button type="button" onClick={controller.handleResendOtp} disabled={controller.isLoading || otpDisabled} className="text-xs font-black uppercase text-cyan-300 transition hover:text-white disabled:opacity-50"><FormattedMessage id="auth.jsx.text.resend.otp" defaultMessage="Resend OTP" /></button>
                         )}
                       </div>
                     </div>

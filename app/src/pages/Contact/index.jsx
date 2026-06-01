@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import SupportSection from '@/pages/Profile/components/SupportSection';
+import { FormattedMessage } from 'react-intl';
 
 const SUPPORT_CHANNELS = [
     {
@@ -90,9 +91,7 @@ export default function ContactPage() {
                         </span>
                     </div>
 
-                    <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl">
-                        Reach a real support queue when checkout, account, or governance issues block you.
-                    </h1>
+                    <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl"><FormattedMessage id="checkout.jsx.text.reach.a.real.support.queue.when.checkout" defaultMessage="Reach a real support queue when checkout, account, or governance issues block you." /></h1>
                     <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
                         This page is the operational handoff into Aura support. Tickets opened here are durable, visible to the admin support desk, and can escalate into a live support call when text alone is too slow.
                     </p>
@@ -158,9 +157,7 @@ export default function ContactPage() {
                             <Link
                                 to="/security"
                                 className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-cyan-100 transition-colors hover:text-white"
-                            >
-                                Review security policy
-                                <ArrowRight className="h-4 w-4" />
+                            ><FormattedMessage id="account.security.jsx.text.review.security.policy" defaultMessage="Review security policy" /><ArrowRight className="h-4 w-4" />
                             </Link>
                         </div>
                     </aside>

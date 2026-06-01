@@ -15,6 +15,7 @@ import {
   buildMissionPlan,
   buildProductTrustGraph,
 } from '@/utils/commerceIntelligence';
+import { FormattedMessage } from 'react-intl';
 
 const QUICK_MISSIONS = [
   { label: 'Gaming Setup', goal: 'gaming setup under Rs 80000', category: 'gaming', budget: 80000 },
@@ -359,7 +360,7 @@ export default function MissionControl() {
             <div className="space-y-4 text-sm text-slate-300">
               <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{translateMissionText('Use screenshot or pasted image when you do not know product names yet.') || 'Use screenshot or pasted image when you do not know product names yet.'}</div>
               <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{translateMissionText('Describe the mission instead of specific SKUs to get trust-ranked candidates and bundles.') || 'Describe the mission instead of specific SKUs to get trust-ranked candidates and bundles.'}</div>
-              <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{translateMissionText('Turn on trade-in to expose upgrade leverage before checkout or price alerts.') || 'Turn on trade-in to expose upgrade leverage before checkout or price alerts.'}</div>
+              <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{translateMissionText(<FormattedMessage id="checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade" defaultMessage="Turn on trade-in to expose upgrade leverage before checkout or price alerts." />) || <FormattedMessage id="checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade" defaultMessage="Turn on trade-in to expose upgrade leverage before checkout or price alerts." />}</div>
               <Link to="/trade-in" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-100">{translateMissionText('Open trade-in lane') || 'Open trade-in lane'} <ArrowRight className="h-4 w-4" /></Link>
             </div>
           </section>
@@ -438,7 +439,7 @@ export default function MissionControl() {
                         <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-white">{item.title}</p><p className="text-xs text-slate-400">{item.brand} | {formatEntityPrice(formatPrice, item)}</p></div>
                       </Link>
                     ))}
-                    {!translatedBundleItems.length && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400">{translateMissionText('Bundle generation did not return a stack for this mission yet.') || 'Bundle generation did not return a stack for this mission yet.'}</div>}
+                    {!translatedBundleItems.length && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400">{translateMissionText(<FormattedMessage id="order.jsx.expression.bundle.generation.did.not.return.a.stack" defaultMessage="Bundle generation did not return a stack for this mission yet." />) || <FormattedMessage id="order.jsx.expression.bundle.generation.did.not.return.a.stack" defaultMessage="Bundle generation did not return a stack for this mission yet." />}</div>}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Link to={`/bundles?theme=${encodeURIComponent(form.goal)}&budget=${encodeURIComponent(String(form.budget))}`} className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-100">{translateMissionText('Open bundle lane') || 'Open bundle lane'}</Link>

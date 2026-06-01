@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { AlertTriangle, ShieldCheck, FileText, ArrowRight } from 'lucide-react';
 import { getTrustPageContent, trustMeta, trustRouteToKey } from '@/config/trustContent';
+import { FormattedMessage } from 'react-intl';
 
 const getKeyFromPath = (pathname = '') => {
   return trustRouteToKey[pathname] || 'security';
@@ -48,11 +49,8 @@ export default function TrustPage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-300 mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="text-sm font-bold text-amber-200">Security Notice</h3>
-              <p className="mt-1 text-sm text-amber-100/90">
-                Aura will never ask for OTP, card CVV, or password over call, chat, or social media.
-                If you see suspicious activity, use official support channels immediately.
-              </p>
+              <h3 className="text-sm font-bold text-amber-200"><FormattedMessage id="account.security.jsx.text.security.notice" defaultMessage="Security Notice" /></h3>
+              <p className="mt-1 text-sm text-amber-100/90"><FormattedMessage id="auth.jsx.text.aura.will.never.ask.for.otp.card" defaultMessage="Aura will never ask for OTP, card CVV, or password over call, chat, or social media. If you see suspicious activity, use official support channels immediately." /></p>
             </div>
           </div>
         </section>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, Building2, CheckCircle, CreditCard, Clock, Loader2, Plus, ReceiptText, ShieldCheck } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { FormattedMessage } from 'react-intl';
 
 const formatPaymentType = (type, t) => {
     const normalized = String(type || '').trim().toLowerCase();
@@ -267,7 +268,7 @@ export default function PaymentsSection({
                         {paymentActivity.map((order) => {
                             const state = getOrderPaymentState(order);
                             const StateIcon = getPaymentStateIcon(state);
-                            const method = String(order.paymentMethod || 'COD').trim().toUpperCase();
+                            const method = String(order.paymentMethod || <FormattedMessage id="payment.jsx.expression.cod" defaultMessage="COD" />).trim().toUpperCase();
                             const isDigitalMethod = DIGITAL_PAYMENT_METHODS.has(method);
                             const provider = order.paymentProvider || (isDigitalMethod ? t('profile.payments.activity.providerRouted', {}, 'provider routed') : '');
                             const refundStatus = getRefundStatus(order);
@@ -294,7 +295,7 @@ export default function PaymentsSection({
                                                 {formatPaymentState(state, t)}
                                             </span>
                                             <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-600">
-                                                {formatPrice(order.presentmentTotalPrice || order.totalPrice || 0, order.presentmentCurrency || order.currency || 'INR')}
+                                                {formatPrice(order.presentmentTotalPrice || order.totalPrice || 0, order.presentmentCurrency || order.currency || <FormattedMessage id="payment.jsx.expression.inr" defaultMessage="INR" />)}
                                             </span>
                                         </div>
                                     </div>

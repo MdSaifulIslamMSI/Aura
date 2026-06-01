@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { getBaseCurrency, getLineBaseTotal } from '@/utils/pricing';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { FormattedMessage } from 'react-intl';
 
 const OrderSummary = ({
     items,
@@ -122,11 +123,11 @@ const OrderSummary = ({
                             <div className="grid grid-cols-2 gap-2 mt-2">
                                 <div className="bg-white/5 p-2 rounded-xl border border-white/5">
                                     <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t('checkout.consolidation', {}, 'Consolidation')}</p>
-                                    <p className="text-sm font-bold text-white">{logistics.consolidationEfficiency || 'Direct'}</p>
+                                    <p className="text-sm font-bold text-white">{logistics.consolidationEfficiency || <FormattedMessage id="checkout.jsx.expression.direct" defaultMessage="Direct" />}</p>
                                 </div>
                                 <div className="bg-white/5 p-2 rounded-xl border border-white/5">
                                     <p className="text-[10px] text-slate-400 uppercase tracking-wider">{t('checkout.ecoImpact', {}, 'Eco-Impact')}</p>
-                                    <p className="text-[11px] font-bold text-neo-cyan truncate">{logistics.ecoBadge || 'Standard'}</p>
+                                    <p className="text-[11px] font-bold text-neo-cyan truncate">{logistics.ecoBadge || <FormattedMessage id="checkout.jsx.expression.standard" defaultMessage="Standard" />}</p>
                                 </div>
                             </div>
 
@@ -152,7 +153,7 @@ const OrderSummary = ({
                                     <div key={i} className="flex items-center justify-between text-[11px] text-slate-300">
                                         <div className="flex items-center gap-2">
                                             <div className="w-1 h-1 rounded-full bg-neo-cyan/50" />
-                                            <span>{c.type} ({c.itemCount} items)</span>
+                                            <span>{c.type} ({c.itemCount}{' '}<FormattedMessage id="checkout.jsx.text.items" defaultMessage="items)" /></span>
                                         </div>
                                         <span className="text-slate-500 font-mono">{t('checkout.density', { value: c.efficiency }, `Density: ${c.efficiency}`)}</span>
                                     </div>

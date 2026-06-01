@@ -18,6 +18,7 @@ import {
 import { statusApi } from '@/services/api/statusApi';
 import UptimeBars from './UptimeBars';
 import { formatDate, formatPercent, relativeTime, statusMeta } from './statusMeta';
+import { FormattedMessage } from 'react-intl';
 
 const POLL_MS = 45000;
 
@@ -450,9 +451,7 @@ export function SecurityHarnessCard({ harness = null }) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-normal text-slate-600">
-              <ShieldCheck className="h-4 w-4" />
-              Security harness
-            </div>
+              <ShieldCheck className="h-4 w-4" /><FormattedMessage id="account.security.jsx.text.security.harness" defaultMessage="Security harness" /></div>
             <h2 id="security-harness-heading" className="mt-3 text-xl font-extrabold tracking-normal text-slate-950">
               Student Pack command matrix
             </h2>
@@ -499,7 +498,7 @@ export function SecurityHarnessCard({ harness = null }) {
         <div className="border-t border-slate-200 px-5 py-4">
           <div className="flex flex-col gap-1">
             <p className="text-xs font-black uppercase tracking-normal text-slate-500">Advanced controls</p>
-            <h3 className="text-lg font-extrabold tracking-normal text-slate-950">Security control coverage</h3>
+            <h3 className="text-lg font-extrabold tracking-normal text-slate-950"><FormattedMessage id="account.security.jsx.text.security.control.coverage" defaultMessage="Security control coverage" /></h3>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {controls.map((control) => <SecurityControlTile key={control.id} control={control} />)}

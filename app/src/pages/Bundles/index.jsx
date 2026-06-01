@@ -8,6 +8,7 @@ import { aiApi } from '@/services/aiApi';
 import { CartContext } from '@/context/CartContext';
 import { useCommerceStore } from '@/store/commerceStore';
 import { formatBasePrice, formatEntityPrice } from '@/utils/pricing';
+import { FormattedMessage } from 'react-intl';
 
 const THEME_PRESETS = [
     { value: 'home gym starter kit', label: 'Home Gym Starter Kit' },
@@ -139,12 +140,8 @@ export default function Bundles() {
             <div className="container-custom max-w-7xl mx-auto px-4 py-8">
                 <div className="rounded-3xl border border-cyan-300/25 bg-gradient-to-r from-cyan-500/12 via-violet-500/10 to-emerald-500/12 p-6 md:p-8">
                     <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-100">Smart Bundle Builder</p>
-                    <h1 className="mt-2 text-3xl md:text-5xl font-black text-white tracking-tight">
-                        AI Bundles With One-Click Checkout
-                    </h1>
-                    <p className="mt-3 text-sm md:text-base text-slate-300 max-w-2xl">
-                        Generate budget-bound curated bundles from live catalog intelligence and send everything to checkout in one action.
-                    </p>
+                    <h1 className="mt-2 text-3xl md:text-5xl font-black text-white tracking-tight"><FormattedMessage id="checkout.jsx.text.ai.bundles.with.one.click.checkout" defaultMessage="AI Bundles With One-Click Checkout" /></h1>
+                    <p className="mt-3 text-sm md:text-base text-slate-300 max-w-2xl"><FormattedMessage id="checkout.jsx.text.generate.budget.bound.curated.bundles.from.live" defaultMessage="Generate budget-bound curated bundles from live catalog intelligence and send everything to checkout in one action." /></p>
                 </div>
 
                 <div className="mt-6 grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
@@ -313,9 +310,7 @@ export default function Bundles() {
                                         disabled={!canCheckout}
                                         className="rounded-xl border border-emerald-300/40 bg-emerald-500/20 px-4 py-3 text-sm font-black uppercase tracking-wider text-emerald-100 disabled:opacity-60 inline-flex items-center justify-center gap-2"
                                     >
-                                        <ShieldCheck className="w-4 h-4" />
-                                        One-Click Checkout
-                                    </button>
+                                        <ShieldCheck className="w-4 h-4" /><FormattedMessage id="checkout.jsx.text.one.click.checkout" defaultMessage="One-Click Checkout" /></button>
                                 </div>
                             </div>
                         )}

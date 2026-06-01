@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
     AlertCircle,
     Building2,
@@ -600,7 +600,7 @@ const StepPayment = ({
                                 {PAYMENT_OPTIONS.map((option) => {
                                     const Icon = option.icon;
                                     const selected = paymentMethod === option.id;
-                                    const digitalEmergencyDisabled = paymentGatewayDisabled && option.id !== 'COD';
+                                    const digitalEmergencyDisabled = paymentGatewayDisabled && option.id !== <FormattedMessage id="checkout.jsx.expression.cod" defaultMessage="COD" />;
                                     const unavailable = !enabledPaymentMethodSet.has(option.id) || digitalEmergencyDisabled;
                                     const unavailableReason = digitalEmergencyDisabled
                                         ? t('checkout.payment.gatewayPaused', {}, 'Digital payments are temporarily unavailable.')
@@ -882,11 +882,11 @@ const StepPayment = ({
                                 </div>
                                 <div className="checkout-card-field">
                                     <span>{t('checkout.payment.expirationDate', {}, 'Expiration date')}</span>
-                                    <strong>MM / YY</strong>
+                                    <strong><FormattedMessage id="checkout.jsx.text.mm.yy" defaultMessage="MM / YY" /></strong>
                                 </div>
                                 <div className="checkout-card-field">
                                     <span>{t('checkout.payment.securityCode', {}, 'Security code')}</span>
-                                    <strong>CVV</strong>
+                                    <strong><FormattedMessage id="checkout.jsx.text.cvv" defaultMessage="CVV" /></strong>
                                 </div>
                             </div>
 
@@ -947,11 +947,11 @@ const StepPayment = ({
                                 <div className="checkout-premium-alert border-emerald-500/20 bg-emerald-500/10 text-emerald-100">
                                     <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200">{t('checkout.payment.chargeQuote', {}, 'Charge Quote')}</p>
                                     <p className="mt-2 text-sm leading-6">
-                                        {formatPrice(chargeQuote.amount || 0, chargeQuote.currency || 'INR')}
+                                        {formatPrice(chargeQuote.amount || 0, chargeQuote.currency || <FormattedMessage id="checkout.jsx.expression.inr" defaultMessage="INR" />)}
                                         {chargeQuote.currency !== chargeQuote.settlementCurrency
                                             ? t('checkout.payment.targetSettlement', {
-                                                amount: formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || 'INR'),
-                                            }, ` | target settlement ${formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || 'INR')}`)
+                                                amount: formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || <FormattedMessage id="checkout.jsx.expression.inr" defaultMessage="INR" />),
+                                            }, ` | target settlement ${formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || <FormattedMessage id="checkout.jsx.expression.inr" defaultMessage="INR" />)}`)
                                             : t('checkout.payment.domesticSettlement', {}, ' | domestic settlement')}
                                     </p>
                                 </div>

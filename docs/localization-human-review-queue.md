@@ -4,25 +4,25 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 
 ## Summary
 
-- Stable ICU message IDs: 2748
-- Queue entries: 10988
-- High-risk queue entries: 3020
-- Medium-risk queue entries: 3856
-- Low-risk queue entries: 4112
+- Stable ICU message IDs: 2967
+- Queue entries: 11692
+- High-risk queue entries: 3700
+- Medium-risk queue entries: 3860
+- Low-risk queue entries: 4132
 
 ## By Locale
 
-- `ar`: 2747
-- `bn`: 2747
-- `hi`: 2747
-- `ur`: 2747
+- `ar`: 2923
+- `bn`: 2923
+- `hi`: 2923
+- `ur`: 2923
 
 ## By Reason
 
 - `legacy-pack-promotion-needs-human-review`: 7949
-- `exact-english-fallback-needs-human-review`: 2769
-- `brand-term-corruption-uses-english-fallback`: 121
+- `exact-english-fallback-needs-human-review`: 3473
 - `legacy-placeholder-mismatch-uses-english-fallback`: 148
+- `brand-term-corruption-uses-english-fallback`: 121
 - `forbidden-transliteration-uses-english-fallback`: 1
 
 ## Review Order

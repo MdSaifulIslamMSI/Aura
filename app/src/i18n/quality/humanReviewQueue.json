@@ -76914,5 +76914,4933 @@
     "message": "محفوظ شدہ مضامین",
     "reason": "legacy-pack-promotion-needs-human-review",
     "risk": "low"
+  },
+  {
+    "id": "account.security.jsx.text.review.security.policy",
+    "locale": "ar",
+    "message": "Review security policy",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.control.coverage",
+    "locale": "ar",
+    "message": "Security control coverage",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.harness",
+    "locale": "ar",
+    "message": "Security harness",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.notice",
+    "locale": "ar",
+    "message": "Security Notice",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.auto.off",
+    "locale": "ar",
+    "message": "Auto off",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.auto.on",
+    "locale": "ar",
+    "message": "Auto on",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.n.a",
+    "locale": "ar",
+    "message": "n/a",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.no.expiry",
+    "locale": "ar",
+    "message": "no expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.no.reason.recorded",
+    "locale": "ar",
+    "message": "No reason recorded",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.private",
+    "locale": "ar",
+    "message": "Private",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.public",
+    "locale": "ar",
+    "message": "Public",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.unknown.actor",
+    "locale": "ar",
+    "message": "unknown actor",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.activate",
+    "locale": "ar",
+    "message": "Activate",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.activated.by",
+    "locale": "ar",
+    "message": "Activated by",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.active.emergency.flags",
+    "locale": "ar",
+    "message": "Active emergency flags",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.active.timeline",
+    "locale": "ar",
+    "message": "Active timeline",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.audit.trail",
+    "locale": "ar",
+    "message": "Audit trail",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.commander",
+    "locale": "ar",
+    "message": "Commander:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.component.manager",
+    "locale": "ar",
+    "message": "Component manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirm.major.publication",
+    "locale": "ar",
+    "message": "Confirm major publication",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirm.no.expiry",
+    "locale": "ar",
+    "message": "Confirm no expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirmation.phrase",
+    "locale": "ar",
+    "message": "Confirmation phrase",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.create",
+    "locale": "ar",
+    "message": "Create",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.current.safety.posture",
+    "locale": "ar",
+    "message": "Current safety posture",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.database",
+    "locale": "ar",
+    "message": "Database",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.deactivate",
+    "locale": "ar",
+    "message": "Deactivate",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.emergency.admin.role.required",
+    "locale": "ar",
+    "message": "Emergency admin role required",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expired",
+    "locale": "ar",
+    "message": "Expired",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expires",
+    "locale": "ar",
+    "message": "| Expires",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expires.at",
+    "locale": "ar",
+    "message": "Expires at",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.extend.expiry",
+    "locale": "ar",
+    "message": "Extend expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.flag",
+    "locale": "ar",
+    "message": "Flag",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.gatus",
+    "locale": "ar",
+    "message": "Gatus",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.github.actions",
+    "locale": "ar",
+    "message": "GitHub Actions",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.gmail",
+    "locale": "ar",
+    "message": "Gmail",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.health",
+    "locale": "ar",
+    "message": "Internal health",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.note",
+    "locale": "ar",
+    "message": "Internal note",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.reason",
+    "locale": "ar",
+    "message": "Internal reason",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.last.checked",
+    "locale": "ar",
+    "message": "Last checked",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.loading.status.console",
+    "locale": "ar",
+    "message": "Loading status console...",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.maintenance.manager",
+    "locale": "ar",
+    "message": "Maintenance manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.manage",
+    "locale": "ar",
+    "message": "Manage",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.manual",
+    "locale": "ar",
+    "message": "Manual",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.mark.mitigation",
+    "locale": "ar",
+    "message": "Mark mitigation",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.monitor.logs",
+    "locale": "ar",
+    "message": "Monitor logs",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.monitored",
+    "locale": "ar",
+    "message": "Monitored",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.ms.failures",
+    "locale": "ar",
+    "message": "ms - failures",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.ms.http",
+    "locale": "ar",
+    "message": "ms - HTTP",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.mutate.flag",
+    "locale": "ar",
+    "message": "Mutate flag",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.no.audit.entries.found",
+    "locale": "ar",
+    "message": "No audit entries found.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.no.emergency.flags.are.active",
+    "locale": "ar",
+    "message": "No emergency flags are active.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.postmortem",
+    "locale": "ar",
+    "message": "Postmortem",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.preview.public.page",
+    "locale": "ar",
+    "message": "Preview public page",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public",
+    "locale": "ar",
+    "message": "Public",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public.labels.stay.separate.from.monitor.internals",
+    "locale": "ar",
+    "message": "Public labels stay separate from monitor internals.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public.update",
+    "locale": "ar",
+    "message": "Public update",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.redis",
+    "locale": "ar",
+    "message": "Redis",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.refresh",
+    "locale": "ar",
+    "message": "Refresh",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.resend",
+    "locale": "ar",
+    "message": "Resend",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.resolve",
+    "locale": "ar",
+    "message": "Resolve",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.run.checks",
+    "locale": "ar",
+    "message": "Run checks",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.schedule.maintenance",
+    "locale": "ar",
+    "message": "Schedule maintenance",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.seed.defaults",
+    "locale": "ar",
+    "message": "Seed defaults",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.sentry",
+    "locale": "ar",
+    "message": "Sentry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.severity.policy",
+    "locale": "ar",
+    "message": "Severity policy",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.subscriber.count.is.included.in.overview.detailed",
+    "locale": "ar",
+    "message": "Subscriber count is included in overview. Detailed subscriber list is available from the admin API.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.subscriber.snapshot",
+    "locale": "ar",
+    "message": "Subscriber snapshot",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.synthetic",
+    "locale": "ar",
+    "message": "Synthetic",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.update.message",
+    "locale": "ar",
+    "message": "Update message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.uptime.kuma",
+    "locale": "ar",
+    "message": "Uptime Kuma",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.use",
+    "locale": "ar",
+    "message": "Use",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.user.message",
+    "locale": "ar",
+    "message": "User message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.authenticated.session",
+    "locale": "ar",
+    "message": "Authenticated session",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.change.proof.method",
+    "locale": "ar",
+    "message": "Change Proof Method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.choose.verification.method",
+    "locale": "ar",
+    "message": "Choose verification method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.enter.the.secure.otp.to.continue",
+    "locale": "ar",
+    "message": "Enter the secure OTP to continue.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.fresh.assertion.required",
+    "locale": "ar",
+    "message": "Fresh assertion required",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.hide.proof.options",
+    "locale": "ar",
+    "message": "Hide Proof Options",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.pick.the.smoothest.lane",
+    "locale": "ar",
+    "message": "Pick the smoothest lane",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.proof.methods",
+    "locale": "ar",
+    "message": "Proof methods",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.required.proof",
+    "locale": "ar",
+    "message": "Required proof",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification",
+    "locale": "ar",
+    "message": "This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.browser.session",
+    "locale": "ar",
+    "message": "This browser session",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.device.does.not.expose.the.platform",
+    "locale": "ar",
+    "message": "This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.host.stays.on.browser.fallback.verification",
+    "locale": "ar",
+    "message": "This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.verification.method",
+    "locale": "ar",
+    "message": "Verification method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.account",
+    "locale": "ar",
+    "message": "Account",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.apple",
+    "locale": "ar",
+    "message": "Apple",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.ar",
+    "locale": "ar",
+    "message": "Ar",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.aura",
+    "locale": "ar",
+    "message": "Aura",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.aura.will.never.ask.for.otp.card",
+    "locale": "ar",
+    "message": "Aura will never ask for OTP, card CVV, or password over call, chat, or social media. If you see suspicious activity, use official support channels immediately.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.backend.authorization.requires.super.admin.or.security",
+    "locale": "ar",
+    "message": "Backend authorization requires SUPER_ADMIN or SECURITY_ADMIN. Bootstrap emails are audited server-side only.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.device",
+    "locale": "ar",
+    "message": "Device",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.device.lane",
+    "locale": "ar",
+    "message": "Device lane",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.duo",
+    "locale": "ar",
+    "message": "Duo",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.facebook",
+    "locale": "ar",
+    "message": "Facebook",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.github",
+    "locale": "ar",
+    "message": "GitHub",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.google",
+    "locale": "ar",
+    "message": "Google",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.microsoft",
+    "locale": "ar",
+    "message": "Microsoft",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.open",
+    "locale": "ar",
+    "message": "Open",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.privileged.mode",
+    "locale": "ar",
+    "message": "Privileged Mode",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.quick.unlock",
+    "locale": "ar",
+    "message": "Quick unlock",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.resend.otp",
+    "locale": "ar",
+    "message": "Resend OTP",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.reset.identity",
+    "locale": "ar",
+    "message": "Reset Identity",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.reset.this.browser",
+    "locale": "ar",
+    "message": "Reset This Browser",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.selected.proof",
+    "locale": "ar",
+    "message": "Selected proof",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.trust.checkpoint",
+    "locale": "ar",
+    "message": "Trust Checkpoint",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.trusted.device.checkpoint",
+    "locale": "ar",
+    "message": "Trusted Device Checkpoint",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.unlock.the.stronger.session.only.when.you",
+    "locale": "ar",
+    "message": "Unlock the stronger session only when you actually need it.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.verify.once.to.unlock.admin.actions",
+    "locale": "ar",
+    "message": "Verify once to unlock admin actions",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.what.stays.private",
+    "locale": "ar",
+    "message": "What stays private",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.why.aura.paused.here",
+    "locale": "ar",
+    "message": "Why Aura paused here",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.why.this.appears",
+    "locale": "ar",
+    "message": "Why this appears",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.cart.wishlist.checkout.and.order.reflection",
+    "locale": "ar",
+    "message": "Cart, wishlist, checkout, and order reflection",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.cod",
+    "locale": "ar",
+    "message": "COD",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.direct",
+    "locale": "ar",
+    "message": "Direct",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.inr",
+    "locale": "ar",
+    "message": "INR",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.standard",
+    "locale": "ar",
+    "message": "Standard",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade",
+    "locale": "ar",
+    "message": "Turn on trade-in to expose upgrade leverage before checkout or price alerts.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.ai.bundles.with.one.click.checkout",
+    "locale": "ar",
+    "message": "AI Bundles With One-Click Checkout",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.cvv",
+    "locale": "ar",
+    "message": "CVV",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.generate.budget.bound.curated.bundles.from.live",
+    "locale": "ar",
+    "message": "Generate budget-bound curated bundles from live catalog intelligence and send everything to checkout in one action.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.items",
+    "locale": "ar",
+    "message": "items)",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.mm.yy",
+    "locale": "ar",
+    "message": "MM / YY",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.one.click.checkout",
+    "locale": "ar",
+    "message": "One-Click Checkout",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.reach.a.real.support.queue.when.checkout",
+    "locale": "ar",
+    "message": "Reach a real support queue when checkout, account, or governance issues block you.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.bundle.generation.did.not.return.a.stack",
+    "locale": "ar",
+    "message": "Bundle generation did not return a stack for this mission yet.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.item",
+    "locale": "ar",
+    "message": "Item",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.open.order.support",
+    "locale": "ar",
+    "message": "Open order support",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.this.request.is.tied.to.a.specific",
+    "locale": "ar",
+    "message": "This request is tied to a specific order, so I will take you into the order support surface instead of the generic desk.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.id",
+    "locale": "ar",
+    "message": "ID:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.order",
+    "locale": "ar",
+    "message": "Order",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "medium"
+  },
+  {
+    "id": "order.jsx.text.return.to.chat",
+    "locale": "ar",
+    "message": "Return to chat",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.trk",
+    "locale": "ar",
+    "message": "TRK:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.expression.cod",
+    "locale": "ar",
+    "message": "COD",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.expression.inr",
+    "locale": "ar",
+    "message": "INR",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.order.status",
+    "locale": "ar",
+    "message": "Order status:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.order.total",
+    "locale": "ar",
+    "message": "Order total:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.req",
+    "locale": "ar",
+    "message": "Req:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.keep.shopping.clean.and.send.this.issue",
+    "locale": "ar",
+    "message": "Keep shopping clean and send this issue to the support desk with the context already filled in.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.open.support.desk",
+    "locale": "ar",
+    "message": "Open support desk",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.support.request",
+    "locale": "ar",
+    "message": "Support request",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.category",
+    "locale": "ar",
+    "message": "Category",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.channel.timeline",
+    "locale": "ar",
+    "message": "Channel Timeline",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.dedicated.support.handoff",
+    "locale": "ar",
+    "message": "Dedicated support handoff",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.incident.manager",
+    "locale": "ar",
+    "message": "Incident manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.no.active.incident.or.maintenance.item",
+    "locale": "ar",
+    "message": "No active incident or maintenance item.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.public.incident",
+    "locale": "ar",
+    "message": "Public incident",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.publish.incident",
+    "locale": "ar",
+    "message": "Publish incident",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.recent.incidents",
+    "locale": "ar",
+    "message": "Recent incidents",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.subject",
+    "locale": "ar",
+    "message": "Subject",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.review.security.policy",
+    "locale": "bn",
+    "message": "Review security policy",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.control.coverage",
+    "locale": "bn",
+    "message": "Security control coverage",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.harness",
+    "locale": "bn",
+    "message": "Security harness",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.notice",
+    "locale": "bn",
+    "message": "Security Notice",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.auto.off",
+    "locale": "bn",
+    "message": "Auto off",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.auto.on",
+    "locale": "bn",
+    "message": "Auto on",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.n.a",
+    "locale": "bn",
+    "message": "n/a",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.no.expiry",
+    "locale": "bn",
+    "message": "no expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.no.reason.recorded",
+    "locale": "bn",
+    "message": "No reason recorded",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.private",
+    "locale": "bn",
+    "message": "Private",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.public",
+    "locale": "bn",
+    "message": "Public",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.unknown.actor",
+    "locale": "bn",
+    "message": "unknown actor",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.activate",
+    "locale": "bn",
+    "message": "Activate",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.activated.by",
+    "locale": "bn",
+    "message": "Activated by",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.active.emergency.flags",
+    "locale": "bn",
+    "message": "Active emergency flags",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.active.timeline",
+    "locale": "bn",
+    "message": "Active timeline",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.audit.trail",
+    "locale": "bn",
+    "message": "Audit trail",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.commander",
+    "locale": "bn",
+    "message": "Commander:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.component.manager",
+    "locale": "bn",
+    "message": "Component manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirm.major.publication",
+    "locale": "bn",
+    "message": "Confirm major publication",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirm.no.expiry",
+    "locale": "bn",
+    "message": "Confirm no expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirmation.phrase",
+    "locale": "bn",
+    "message": "Confirmation phrase",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.create",
+    "locale": "bn",
+    "message": "Create",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.current.safety.posture",
+    "locale": "bn",
+    "message": "Current safety posture",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.database",
+    "locale": "bn",
+    "message": "Database",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.deactivate",
+    "locale": "bn",
+    "message": "Deactivate",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.emergency.admin.role.required",
+    "locale": "bn",
+    "message": "Emergency admin role required",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expired",
+    "locale": "bn",
+    "message": "Expired",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expires",
+    "locale": "bn",
+    "message": "| Expires",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expires.at",
+    "locale": "bn",
+    "message": "Expires at",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.extend.expiry",
+    "locale": "bn",
+    "message": "Extend expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.flag",
+    "locale": "bn",
+    "message": "Flag",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.gatus",
+    "locale": "bn",
+    "message": "Gatus",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.github.actions",
+    "locale": "bn",
+    "message": "GitHub Actions",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.gmail",
+    "locale": "bn",
+    "message": "Gmail",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.health",
+    "locale": "bn",
+    "message": "Internal health",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.note",
+    "locale": "bn",
+    "message": "Internal note",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.reason",
+    "locale": "bn",
+    "message": "Internal reason",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.last.checked",
+    "locale": "bn",
+    "message": "Last checked",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.loading.status.console",
+    "locale": "bn",
+    "message": "Loading status console...",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.maintenance.manager",
+    "locale": "bn",
+    "message": "Maintenance manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.manage",
+    "locale": "bn",
+    "message": "Manage",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.manual",
+    "locale": "bn",
+    "message": "Manual",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.mark.mitigation",
+    "locale": "bn",
+    "message": "Mark mitigation",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.monitor.logs",
+    "locale": "bn",
+    "message": "Monitor logs",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.monitored",
+    "locale": "bn",
+    "message": "Monitored",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.ms.failures",
+    "locale": "bn",
+    "message": "ms - failures",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.ms.http",
+    "locale": "bn",
+    "message": "ms - HTTP",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.mutate.flag",
+    "locale": "bn",
+    "message": "Mutate flag",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.no.audit.entries.found",
+    "locale": "bn",
+    "message": "No audit entries found.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.no.emergency.flags.are.active",
+    "locale": "bn",
+    "message": "No emergency flags are active.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.postmortem",
+    "locale": "bn",
+    "message": "Postmortem",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.preview.public.page",
+    "locale": "bn",
+    "message": "Preview public page",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public",
+    "locale": "bn",
+    "message": "Public",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public.labels.stay.separate.from.monitor.internals",
+    "locale": "bn",
+    "message": "Public labels stay separate from monitor internals.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public.update",
+    "locale": "bn",
+    "message": "Public update",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.redis",
+    "locale": "bn",
+    "message": "Redis",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.refresh",
+    "locale": "bn",
+    "message": "Refresh",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.resend",
+    "locale": "bn",
+    "message": "Resend",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.resolve",
+    "locale": "bn",
+    "message": "Resolve",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.run.checks",
+    "locale": "bn",
+    "message": "Run checks",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.schedule.maintenance",
+    "locale": "bn",
+    "message": "Schedule maintenance",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.seed.defaults",
+    "locale": "bn",
+    "message": "Seed defaults",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.sentry",
+    "locale": "bn",
+    "message": "Sentry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.severity.policy",
+    "locale": "bn",
+    "message": "Severity policy",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.subscriber.count.is.included.in.overview.detailed",
+    "locale": "bn",
+    "message": "Subscriber count is included in overview. Detailed subscriber list is available from the admin API.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.subscriber.snapshot",
+    "locale": "bn",
+    "message": "Subscriber snapshot",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.synthetic",
+    "locale": "bn",
+    "message": "Synthetic",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.update.message",
+    "locale": "bn",
+    "message": "Update message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.uptime.kuma",
+    "locale": "bn",
+    "message": "Uptime Kuma",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.use",
+    "locale": "bn",
+    "message": "Use",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.user.message",
+    "locale": "bn",
+    "message": "User message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.authenticated.session",
+    "locale": "bn",
+    "message": "Authenticated session",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.change.proof.method",
+    "locale": "bn",
+    "message": "Change Proof Method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.choose.verification.method",
+    "locale": "bn",
+    "message": "Choose verification method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.enter.the.secure.otp.to.continue",
+    "locale": "bn",
+    "message": "Enter the secure OTP to continue.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.fresh.assertion.required",
+    "locale": "bn",
+    "message": "Fresh assertion required",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.hide.proof.options",
+    "locale": "bn",
+    "message": "Hide Proof Options",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.pick.the.smoothest.lane",
+    "locale": "bn",
+    "message": "Pick the smoothest lane",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.proof.methods",
+    "locale": "bn",
+    "message": "Proof methods",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.required.proof",
+    "locale": "bn",
+    "message": "Required proof",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification",
+    "locale": "bn",
+    "message": "This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.browser.session",
+    "locale": "bn",
+    "message": "This browser session",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.device.does.not.expose.the.platform",
+    "locale": "bn",
+    "message": "This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.host.stays.on.browser.fallback.verification",
+    "locale": "bn",
+    "message": "This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.verification.method",
+    "locale": "bn",
+    "message": "Verification method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.account",
+    "locale": "bn",
+    "message": "Account",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.apple",
+    "locale": "bn",
+    "message": "Apple",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.ar",
+    "locale": "bn",
+    "message": "Ar",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.aura",
+    "locale": "bn",
+    "message": "Aura",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.aura.will.never.ask.for.otp.card",
+    "locale": "bn",
+    "message": "Aura will never ask for OTP, card CVV, or password over call, chat, or social media. If you see suspicious activity, use official support channels immediately.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.backend.authorization.requires.super.admin.or.security",
+    "locale": "bn",
+    "message": "Backend authorization requires SUPER_ADMIN or SECURITY_ADMIN. Bootstrap emails are audited server-side only.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.device",
+    "locale": "bn",
+    "message": "Device",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.device.lane",
+    "locale": "bn",
+    "message": "Device lane",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.duo",
+    "locale": "bn",
+    "message": "Duo",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.facebook",
+    "locale": "bn",
+    "message": "Facebook",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.github",
+    "locale": "bn",
+    "message": "GitHub",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.google",
+    "locale": "bn",
+    "message": "Google",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.microsoft",
+    "locale": "bn",
+    "message": "Microsoft",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.open",
+    "locale": "bn",
+    "message": "Open",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.privileged.mode",
+    "locale": "bn",
+    "message": "Privileged Mode",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.quick.unlock",
+    "locale": "bn",
+    "message": "Quick unlock",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.resend.otp",
+    "locale": "bn",
+    "message": "Resend OTP",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.reset.identity",
+    "locale": "bn",
+    "message": "Reset Identity",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.reset.this.browser",
+    "locale": "bn",
+    "message": "Reset This Browser",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.selected.proof",
+    "locale": "bn",
+    "message": "Selected proof",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.trust.checkpoint",
+    "locale": "bn",
+    "message": "Trust Checkpoint",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.trusted.device.checkpoint",
+    "locale": "bn",
+    "message": "Trusted Device Checkpoint",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.unlock.the.stronger.session.only.when.you",
+    "locale": "bn",
+    "message": "Unlock the stronger session only when you actually need it.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.verify.once.to.unlock.admin.actions",
+    "locale": "bn",
+    "message": "Verify once to unlock admin actions",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.what.stays.private",
+    "locale": "bn",
+    "message": "What stays private",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.why.aura.paused.here",
+    "locale": "bn",
+    "message": "Why Aura paused here",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.why.this.appears",
+    "locale": "bn",
+    "message": "Why this appears",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.cart.wishlist.checkout.and.order.reflection",
+    "locale": "bn",
+    "message": "Cart, wishlist, checkout, and order reflection",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.cod",
+    "locale": "bn",
+    "message": "COD",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.direct",
+    "locale": "bn",
+    "message": "Direct",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.inr",
+    "locale": "bn",
+    "message": "INR",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.standard",
+    "locale": "bn",
+    "message": "Standard",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade",
+    "locale": "bn",
+    "message": "Turn on trade-in to expose upgrade leverage before checkout or price alerts.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.ai.bundles.with.one.click.checkout",
+    "locale": "bn",
+    "message": "AI Bundles With One-Click Checkout",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.cvv",
+    "locale": "bn",
+    "message": "CVV",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.generate.budget.bound.curated.bundles.from.live",
+    "locale": "bn",
+    "message": "Generate budget-bound curated bundles from live catalog intelligence and send everything to checkout in one action.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.items",
+    "locale": "bn",
+    "message": "items)",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.mm.yy",
+    "locale": "bn",
+    "message": "MM / YY",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.one.click.checkout",
+    "locale": "bn",
+    "message": "One-Click Checkout",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.reach.a.real.support.queue.when.checkout",
+    "locale": "bn",
+    "message": "Reach a real support queue when checkout, account, or governance issues block you.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.bundle.generation.did.not.return.a.stack",
+    "locale": "bn",
+    "message": "Bundle generation did not return a stack for this mission yet.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.item",
+    "locale": "bn",
+    "message": "Item",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.open.order.support",
+    "locale": "bn",
+    "message": "Open order support",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.this.request.is.tied.to.a.specific",
+    "locale": "bn",
+    "message": "This request is tied to a specific order, so I will take you into the order support surface instead of the generic desk.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.id",
+    "locale": "bn",
+    "message": "ID:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.order",
+    "locale": "bn",
+    "message": "Order",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "medium"
+  },
+  {
+    "id": "order.jsx.text.return.to.chat",
+    "locale": "bn",
+    "message": "Return to chat",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.trk",
+    "locale": "bn",
+    "message": "TRK:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.expression.cod",
+    "locale": "bn",
+    "message": "COD",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.expression.inr",
+    "locale": "bn",
+    "message": "INR",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.order.status",
+    "locale": "bn",
+    "message": "Order status:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.order.total",
+    "locale": "bn",
+    "message": "Order total:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.req",
+    "locale": "bn",
+    "message": "Req:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.keep.shopping.clean.and.send.this.issue",
+    "locale": "bn",
+    "message": "Keep shopping clean and send this issue to the support desk with the context already filled in.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.open.support.desk",
+    "locale": "bn",
+    "message": "Open support desk",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.support.request",
+    "locale": "bn",
+    "message": "Support request",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.category",
+    "locale": "bn",
+    "message": "Category",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.channel.timeline",
+    "locale": "bn",
+    "message": "Channel Timeline",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.dedicated.support.handoff",
+    "locale": "bn",
+    "message": "Dedicated support handoff",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.incident.manager",
+    "locale": "bn",
+    "message": "Incident manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.no.active.incident.or.maintenance.item",
+    "locale": "bn",
+    "message": "No active incident or maintenance item.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.public.incident",
+    "locale": "bn",
+    "message": "Public incident",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.publish.incident",
+    "locale": "bn",
+    "message": "Publish incident",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.recent.incidents",
+    "locale": "bn",
+    "message": "Recent incidents",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.subject",
+    "locale": "bn",
+    "message": "Subject",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.review.security.policy",
+    "locale": "hi",
+    "message": "Review security policy",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.control.coverage",
+    "locale": "hi",
+    "message": "Security control coverage",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.harness",
+    "locale": "hi",
+    "message": "Security harness",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.notice",
+    "locale": "hi",
+    "message": "Security Notice",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.auto.off",
+    "locale": "hi",
+    "message": "Auto off",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.auto.on",
+    "locale": "hi",
+    "message": "Auto on",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.n.a",
+    "locale": "hi",
+    "message": "n/a",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.no.expiry",
+    "locale": "hi",
+    "message": "no expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.no.reason.recorded",
+    "locale": "hi",
+    "message": "No reason recorded",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.private",
+    "locale": "hi",
+    "message": "Private",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.public",
+    "locale": "hi",
+    "message": "Public",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.unknown.actor",
+    "locale": "hi",
+    "message": "unknown actor",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.activate",
+    "locale": "hi",
+    "message": "Activate",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.activated.by",
+    "locale": "hi",
+    "message": "Activated by",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.active.emergency.flags",
+    "locale": "hi",
+    "message": "Active emergency flags",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.active.timeline",
+    "locale": "hi",
+    "message": "Active timeline",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.audit.trail",
+    "locale": "hi",
+    "message": "Audit trail",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.commander",
+    "locale": "hi",
+    "message": "Commander:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.component.manager",
+    "locale": "hi",
+    "message": "Component manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirm.major.publication",
+    "locale": "hi",
+    "message": "Confirm major publication",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirm.no.expiry",
+    "locale": "hi",
+    "message": "Confirm no expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirmation.phrase",
+    "locale": "hi",
+    "message": "Confirmation phrase",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.create",
+    "locale": "hi",
+    "message": "Create",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.current.safety.posture",
+    "locale": "hi",
+    "message": "Current safety posture",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.database",
+    "locale": "hi",
+    "message": "Database",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.deactivate",
+    "locale": "hi",
+    "message": "Deactivate",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.emergency.admin.role.required",
+    "locale": "hi",
+    "message": "Emergency admin role required",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expired",
+    "locale": "hi",
+    "message": "Expired",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expires",
+    "locale": "hi",
+    "message": "| Expires",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expires.at",
+    "locale": "hi",
+    "message": "Expires at",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.extend.expiry",
+    "locale": "hi",
+    "message": "Extend expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.flag",
+    "locale": "hi",
+    "message": "Flag",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.gatus",
+    "locale": "hi",
+    "message": "Gatus",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.github.actions",
+    "locale": "hi",
+    "message": "GitHub Actions",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.gmail",
+    "locale": "hi",
+    "message": "Gmail",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.health",
+    "locale": "hi",
+    "message": "Internal health",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.note",
+    "locale": "hi",
+    "message": "Internal note",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.reason",
+    "locale": "hi",
+    "message": "Internal reason",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.last.checked",
+    "locale": "hi",
+    "message": "Last checked",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.loading.status.console",
+    "locale": "hi",
+    "message": "Loading status console...",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.maintenance.manager",
+    "locale": "hi",
+    "message": "Maintenance manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.manage",
+    "locale": "hi",
+    "message": "Manage",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.manual",
+    "locale": "hi",
+    "message": "Manual",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.mark.mitigation",
+    "locale": "hi",
+    "message": "Mark mitigation",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.monitor.logs",
+    "locale": "hi",
+    "message": "Monitor logs",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.monitored",
+    "locale": "hi",
+    "message": "Monitored",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.ms.failures",
+    "locale": "hi",
+    "message": "ms - failures",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.ms.http",
+    "locale": "hi",
+    "message": "ms - HTTP",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.mutate.flag",
+    "locale": "hi",
+    "message": "Mutate flag",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.no.audit.entries.found",
+    "locale": "hi",
+    "message": "No audit entries found.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.no.emergency.flags.are.active",
+    "locale": "hi",
+    "message": "No emergency flags are active.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.postmortem",
+    "locale": "hi",
+    "message": "Postmortem",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.preview.public.page",
+    "locale": "hi",
+    "message": "Preview public page",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public",
+    "locale": "hi",
+    "message": "Public",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public.labels.stay.separate.from.monitor.internals",
+    "locale": "hi",
+    "message": "Public labels stay separate from monitor internals.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public.update",
+    "locale": "hi",
+    "message": "Public update",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.redis",
+    "locale": "hi",
+    "message": "Redis",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.refresh",
+    "locale": "hi",
+    "message": "Refresh",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.resend",
+    "locale": "hi",
+    "message": "Resend",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.resolve",
+    "locale": "hi",
+    "message": "Resolve",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.run.checks",
+    "locale": "hi",
+    "message": "Run checks",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.schedule.maintenance",
+    "locale": "hi",
+    "message": "Schedule maintenance",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.seed.defaults",
+    "locale": "hi",
+    "message": "Seed defaults",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.sentry",
+    "locale": "hi",
+    "message": "Sentry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.severity.policy",
+    "locale": "hi",
+    "message": "Severity policy",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.subscriber.count.is.included.in.overview.detailed",
+    "locale": "hi",
+    "message": "Subscriber count is included in overview. Detailed subscriber list is available from the admin API.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.subscriber.snapshot",
+    "locale": "hi",
+    "message": "Subscriber snapshot",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.synthetic",
+    "locale": "hi",
+    "message": "Synthetic",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.update.message",
+    "locale": "hi",
+    "message": "Update message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.uptime.kuma",
+    "locale": "hi",
+    "message": "Uptime Kuma",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.use",
+    "locale": "hi",
+    "message": "Use",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.user.message",
+    "locale": "hi",
+    "message": "User message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.authenticated.session",
+    "locale": "hi",
+    "message": "Authenticated session",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.change.proof.method",
+    "locale": "hi",
+    "message": "Change Proof Method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.choose.verification.method",
+    "locale": "hi",
+    "message": "Choose verification method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.enter.the.secure.otp.to.continue",
+    "locale": "hi",
+    "message": "Enter the secure OTP to continue.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.fresh.assertion.required",
+    "locale": "hi",
+    "message": "Fresh assertion required",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.hide.proof.options",
+    "locale": "hi",
+    "message": "Hide Proof Options",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.pick.the.smoothest.lane",
+    "locale": "hi",
+    "message": "Pick the smoothest lane",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.proof.methods",
+    "locale": "hi",
+    "message": "Proof methods",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.required.proof",
+    "locale": "hi",
+    "message": "Required proof",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification",
+    "locale": "hi",
+    "message": "This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.browser.session",
+    "locale": "hi",
+    "message": "This browser session",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.device.does.not.expose.the.platform",
+    "locale": "hi",
+    "message": "This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.host.stays.on.browser.fallback.verification",
+    "locale": "hi",
+    "message": "This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.verification.method",
+    "locale": "hi",
+    "message": "Verification method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.account",
+    "locale": "hi",
+    "message": "Account",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.apple",
+    "locale": "hi",
+    "message": "Apple",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.ar",
+    "locale": "hi",
+    "message": "Ar",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.aura",
+    "locale": "hi",
+    "message": "Aura",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.aura.will.never.ask.for.otp.card",
+    "locale": "hi",
+    "message": "Aura will never ask for OTP, card CVV, or password over call, chat, or social media. If you see suspicious activity, use official support channels immediately.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.backend.authorization.requires.super.admin.or.security",
+    "locale": "hi",
+    "message": "Backend authorization requires SUPER_ADMIN or SECURITY_ADMIN. Bootstrap emails are audited server-side only.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.device",
+    "locale": "hi",
+    "message": "Device",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.device.lane",
+    "locale": "hi",
+    "message": "Device lane",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.duo",
+    "locale": "hi",
+    "message": "Duo",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.facebook",
+    "locale": "hi",
+    "message": "Facebook",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.github",
+    "locale": "hi",
+    "message": "GitHub",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.google",
+    "locale": "hi",
+    "message": "Google",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.microsoft",
+    "locale": "hi",
+    "message": "Microsoft",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.open",
+    "locale": "hi",
+    "message": "Open",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.privileged.mode",
+    "locale": "hi",
+    "message": "Privileged Mode",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.quick.unlock",
+    "locale": "hi",
+    "message": "Quick unlock",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.resend.otp",
+    "locale": "hi",
+    "message": "Resend OTP",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.reset.identity",
+    "locale": "hi",
+    "message": "Reset Identity",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.reset.this.browser",
+    "locale": "hi",
+    "message": "Reset This Browser",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.selected.proof",
+    "locale": "hi",
+    "message": "Selected proof",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.trust.checkpoint",
+    "locale": "hi",
+    "message": "Trust Checkpoint",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.trusted.device.checkpoint",
+    "locale": "hi",
+    "message": "Trusted Device Checkpoint",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.unlock.the.stronger.session.only.when.you",
+    "locale": "hi",
+    "message": "Unlock the stronger session only when you actually need it.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.verify.once.to.unlock.admin.actions",
+    "locale": "hi",
+    "message": "Verify once to unlock admin actions",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.what.stays.private",
+    "locale": "hi",
+    "message": "What stays private",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.why.aura.paused.here",
+    "locale": "hi",
+    "message": "Why Aura paused here",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.why.this.appears",
+    "locale": "hi",
+    "message": "Why this appears",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.cart.wishlist.checkout.and.order.reflection",
+    "locale": "hi",
+    "message": "Cart, wishlist, checkout, and order reflection",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.cod",
+    "locale": "hi",
+    "message": "COD",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.direct",
+    "locale": "hi",
+    "message": "Direct",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.inr",
+    "locale": "hi",
+    "message": "INR",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.standard",
+    "locale": "hi",
+    "message": "Standard",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade",
+    "locale": "hi",
+    "message": "Turn on trade-in to expose upgrade leverage before checkout or price alerts.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.ai.bundles.with.one.click.checkout",
+    "locale": "hi",
+    "message": "AI Bundles With One-Click Checkout",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.cvv",
+    "locale": "hi",
+    "message": "CVV",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.generate.budget.bound.curated.bundles.from.live",
+    "locale": "hi",
+    "message": "Generate budget-bound curated bundles from live catalog intelligence and send everything to checkout in one action.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.items",
+    "locale": "hi",
+    "message": "items)",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.mm.yy",
+    "locale": "hi",
+    "message": "MM / YY",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.one.click.checkout",
+    "locale": "hi",
+    "message": "One-Click Checkout",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.reach.a.real.support.queue.when.checkout",
+    "locale": "hi",
+    "message": "Reach a real support queue when checkout, account, or governance issues block you.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.bundle.generation.did.not.return.a.stack",
+    "locale": "hi",
+    "message": "Bundle generation did not return a stack for this mission yet.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.item",
+    "locale": "hi",
+    "message": "Item",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.open.order.support",
+    "locale": "hi",
+    "message": "Open order support",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.this.request.is.tied.to.a.specific",
+    "locale": "hi",
+    "message": "This request is tied to a specific order, so I will take you into the order support surface instead of the generic desk.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.id",
+    "locale": "hi",
+    "message": "ID:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.order",
+    "locale": "hi",
+    "message": "Order",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "medium"
+  },
+  {
+    "id": "order.jsx.text.return.to.chat",
+    "locale": "hi",
+    "message": "Return to chat",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.trk",
+    "locale": "hi",
+    "message": "TRK:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.expression.cod",
+    "locale": "hi",
+    "message": "COD",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.expression.inr",
+    "locale": "hi",
+    "message": "INR",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.order.status",
+    "locale": "hi",
+    "message": "Order status:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.order.total",
+    "locale": "hi",
+    "message": "Order total:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.req",
+    "locale": "hi",
+    "message": "Req:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.keep.shopping.clean.and.send.this.issue",
+    "locale": "hi",
+    "message": "Keep shopping clean and send this issue to the support desk with the context already filled in.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.open.support.desk",
+    "locale": "hi",
+    "message": "Open support desk",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.support.request",
+    "locale": "hi",
+    "message": "Support request",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.category",
+    "locale": "hi",
+    "message": "Category",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.channel.timeline",
+    "locale": "hi",
+    "message": "Channel Timeline",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.dedicated.support.handoff",
+    "locale": "hi",
+    "message": "Dedicated support handoff",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.incident.manager",
+    "locale": "hi",
+    "message": "Incident manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.no.active.incident.or.maintenance.item",
+    "locale": "hi",
+    "message": "No active incident or maintenance item.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.public.incident",
+    "locale": "hi",
+    "message": "Public incident",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.publish.incident",
+    "locale": "hi",
+    "message": "Publish incident",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.recent.incidents",
+    "locale": "hi",
+    "message": "Recent incidents",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.subject",
+    "locale": "hi",
+    "message": "Subject",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.review.security.policy",
+    "locale": "ur",
+    "message": "Review security policy",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.control.coverage",
+    "locale": "ur",
+    "message": "Security control coverage",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.harness",
+    "locale": "ur",
+    "message": "Security harness",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "account.security.jsx.text.security.notice",
+    "locale": "ur",
+    "message": "Security Notice",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.auto.off",
+    "locale": "ur",
+    "message": "Auto off",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.auto.on",
+    "locale": "ur",
+    "message": "Auto on",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.n.a",
+    "locale": "ur",
+    "message": "n/a",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.no.expiry",
+    "locale": "ur",
+    "message": "no expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.no.reason.recorded",
+    "locale": "ur",
+    "message": "No reason recorded",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.private",
+    "locale": "ur",
+    "message": "Private",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.public",
+    "locale": "ur",
+    "message": "Public",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.expression.unknown.actor",
+    "locale": "ur",
+    "message": "unknown actor",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.activate",
+    "locale": "ur",
+    "message": "Activate",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.activated.by",
+    "locale": "ur",
+    "message": "Activated by",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.active.emergency.flags",
+    "locale": "ur",
+    "message": "Active emergency flags",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.active.timeline",
+    "locale": "ur",
+    "message": "Active timeline",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.audit.trail",
+    "locale": "ur",
+    "message": "Audit trail",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.commander",
+    "locale": "ur",
+    "message": "Commander:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.component.manager",
+    "locale": "ur",
+    "message": "Component manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirm.major.publication",
+    "locale": "ur",
+    "message": "Confirm major publication",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirm.no.expiry",
+    "locale": "ur",
+    "message": "Confirm no expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.confirmation.phrase",
+    "locale": "ur",
+    "message": "Confirmation phrase",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.create",
+    "locale": "ur",
+    "message": "Create",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.current.safety.posture",
+    "locale": "ur",
+    "message": "Current safety posture",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.database",
+    "locale": "ur",
+    "message": "Database",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.deactivate",
+    "locale": "ur",
+    "message": "Deactivate",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.emergency.admin.role.required",
+    "locale": "ur",
+    "message": "Emergency admin role required",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expired",
+    "locale": "ur",
+    "message": "Expired",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expires",
+    "locale": "ur",
+    "message": "| Expires",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.expires.at",
+    "locale": "ur",
+    "message": "Expires at",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.extend.expiry",
+    "locale": "ur",
+    "message": "Extend expiry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.flag",
+    "locale": "ur",
+    "message": "Flag",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.gatus",
+    "locale": "ur",
+    "message": "Gatus",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.github.actions",
+    "locale": "ur",
+    "message": "GitHub Actions",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.gmail",
+    "locale": "ur",
+    "message": "Gmail",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.health",
+    "locale": "ur",
+    "message": "Internal health",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.note",
+    "locale": "ur",
+    "message": "Internal note",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.internal.reason",
+    "locale": "ur",
+    "message": "Internal reason",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.last.checked",
+    "locale": "ur",
+    "message": "Last checked",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.loading.status.console",
+    "locale": "ur",
+    "message": "Loading status console...",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.maintenance.manager",
+    "locale": "ur",
+    "message": "Maintenance manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.manage",
+    "locale": "ur",
+    "message": "Manage",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.manual",
+    "locale": "ur",
+    "message": "Manual",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.mark.mitigation",
+    "locale": "ur",
+    "message": "Mark mitigation",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.monitor.logs",
+    "locale": "ur",
+    "message": "Monitor logs",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.monitored",
+    "locale": "ur",
+    "message": "Monitored",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.ms.failures",
+    "locale": "ur",
+    "message": "ms - failures",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.ms.http",
+    "locale": "ur",
+    "message": "ms - HTTP",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.mutate.flag",
+    "locale": "ur",
+    "message": "Mutate flag",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.no.audit.entries.found",
+    "locale": "ur",
+    "message": "No audit entries found.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.no.emergency.flags.are.active",
+    "locale": "ur",
+    "message": "No emergency flags are active.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.postmortem",
+    "locale": "ur",
+    "message": "Postmortem",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.preview.public.page",
+    "locale": "ur",
+    "message": "Preview public page",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public",
+    "locale": "ur",
+    "message": "Public",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public.labels.stay.separate.from.monitor.internals",
+    "locale": "ur",
+    "message": "Public labels stay separate from monitor internals.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.public.update",
+    "locale": "ur",
+    "message": "Public update",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.redis",
+    "locale": "ur",
+    "message": "Redis",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.refresh",
+    "locale": "ur",
+    "message": "Refresh",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.resend",
+    "locale": "ur",
+    "message": "Resend",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.resolve",
+    "locale": "ur",
+    "message": "Resolve",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.run.checks",
+    "locale": "ur",
+    "message": "Run checks",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.schedule.maintenance",
+    "locale": "ur",
+    "message": "Schedule maintenance",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.seed.defaults",
+    "locale": "ur",
+    "message": "Seed defaults",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.sentry",
+    "locale": "ur",
+    "message": "Sentry",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.severity.policy",
+    "locale": "ur",
+    "message": "Severity policy",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.subscriber.count.is.included.in.overview.detailed",
+    "locale": "ur",
+    "message": "Subscriber count is included in overview. Detailed subscriber list is available from the admin API.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.subscriber.snapshot",
+    "locale": "ur",
+    "message": "Subscriber snapshot",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.synthetic",
+    "locale": "ur",
+    "message": "Synthetic",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.update.message",
+    "locale": "ur",
+    "message": "Update message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.uptime.kuma",
+    "locale": "ur",
+    "message": "Uptime Kuma",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.use",
+    "locale": "ur",
+    "message": "Use",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.text.user.message",
+    "locale": "ur",
+    "message": "User message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.authenticated.session",
+    "locale": "ur",
+    "message": "Authenticated session",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.change.proof.method",
+    "locale": "ur",
+    "message": "Change Proof Method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.choose.verification.method",
+    "locale": "ur",
+    "message": "Choose verification method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.enter.the.secure.otp.to.continue",
+    "locale": "ur",
+    "message": "Enter the secure OTP to continue.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.fresh.assertion.required",
+    "locale": "ur",
+    "message": "Fresh assertion required",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.hide.proof.options",
+    "locale": "ur",
+    "message": "Hide Proof Options",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.pick.the.smoothest.lane",
+    "locale": "ur",
+    "message": "Pick the smoothest lane",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.proof.methods",
+    "locale": "ur",
+    "message": "Proof methods",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.required.proof",
+    "locale": "ur",
+    "message": "Required proof",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification",
+    "locale": "ur",
+    "message": "This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.browser.session",
+    "locale": "ur",
+    "message": "This browser session",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.device.does.not.expose.the.platform",
+    "locale": "ur",
+    "message": "This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.this.host.stays.on.browser.fallback.verification",
+    "locale": "ur",
+    "message": "This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.expression.verification.method",
+    "locale": "ur",
+    "message": "Verification method",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.account",
+    "locale": "ur",
+    "message": "Account",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.apple",
+    "locale": "ur",
+    "message": "Apple",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.ar",
+    "locale": "ur",
+    "message": "Ar",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.aura",
+    "locale": "ur",
+    "message": "Aura",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.aura.will.never.ask.for.otp.card",
+    "locale": "ur",
+    "message": "Aura will never ask for OTP, card CVV, or password over call, chat, or social media. If you see suspicious activity, use official support channels immediately.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.backend.authorization.requires.super.admin.or.security",
+    "locale": "ur",
+    "message": "Backend authorization requires SUPER_ADMIN or SECURITY_ADMIN. Bootstrap emails are audited server-side only.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.device",
+    "locale": "ur",
+    "message": "Device",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.device.lane",
+    "locale": "ur",
+    "message": "Device lane",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.duo",
+    "locale": "ur",
+    "message": "Duo",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.facebook",
+    "locale": "ur",
+    "message": "Facebook",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.github",
+    "locale": "ur",
+    "message": "GitHub",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.google",
+    "locale": "ur",
+    "message": "Google",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.microsoft",
+    "locale": "ur",
+    "message": "Microsoft",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "low"
+  },
+  {
+    "id": "auth.jsx.text.open",
+    "locale": "ur",
+    "message": "Open",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.privileged.mode",
+    "locale": "ur",
+    "message": "Privileged Mode",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.quick.unlock",
+    "locale": "ur",
+    "message": "Quick unlock",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.resend.otp",
+    "locale": "ur",
+    "message": "Resend OTP",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.reset.identity",
+    "locale": "ur",
+    "message": "Reset Identity",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.reset.this.browser",
+    "locale": "ur",
+    "message": "Reset This Browser",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.selected.proof",
+    "locale": "ur",
+    "message": "Selected proof",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.trust.checkpoint",
+    "locale": "ur",
+    "message": "Trust Checkpoint",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.trusted.device.checkpoint",
+    "locale": "ur",
+    "message": "Trusted Device Checkpoint",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.unlock.the.stronger.session.only.when.you",
+    "locale": "ur",
+    "message": "Unlock the stronger session only when you actually need it.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.verify.once.to.unlock.admin.actions",
+    "locale": "ur",
+    "message": "Verify once to unlock admin actions",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.what.stays.private",
+    "locale": "ur",
+    "message": "What stays private",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.why.aura.paused.here",
+    "locale": "ur",
+    "message": "Why Aura paused here",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "auth.jsx.text.why.this.appears",
+    "locale": "ur",
+    "message": "Why this appears",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.cart.wishlist.checkout.and.order.reflection",
+    "locale": "ur",
+    "message": "Cart, wishlist, checkout, and order reflection",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.cod",
+    "locale": "ur",
+    "message": "COD",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.direct",
+    "locale": "ur",
+    "message": "Direct",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.inr",
+    "locale": "ur",
+    "message": "INR",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.standard",
+    "locale": "ur",
+    "message": "Standard",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade",
+    "locale": "ur",
+    "message": "Turn on trade-in to expose upgrade leverage before checkout or price alerts.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.ai.bundles.with.one.click.checkout",
+    "locale": "ur",
+    "message": "AI Bundles With One-Click Checkout",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.cvv",
+    "locale": "ur",
+    "message": "CVV",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.generate.budget.bound.curated.bundles.from.live",
+    "locale": "ur",
+    "message": "Generate budget-bound curated bundles from live catalog intelligence and send everything to checkout in one action.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.items",
+    "locale": "ur",
+    "message": "items)",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.mm.yy",
+    "locale": "ur",
+    "message": "MM / YY",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.one.click.checkout",
+    "locale": "ur",
+    "message": "One-Click Checkout",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.text.reach.a.real.support.queue.when.checkout",
+    "locale": "ur",
+    "message": "Reach a real support queue when checkout, account, or governance issues block you.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.bundle.generation.did.not.return.a.stack",
+    "locale": "ur",
+    "message": "Bundle generation did not return a stack for this mission yet.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.item",
+    "locale": "ur",
+    "message": "Item",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.open.order.support",
+    "locale": "ur",
+    "message": "Open order support",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.expression.this.request.is.tied.to.a.specific",
+    "locale": "ur",
+    "message": "This request is tied to a specific order, so I will take you into the order support surface instead of the generic desk.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.id",
+    "locale": "ur",
+    "message": "ID:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.order",
+    "locale": "ur",
+    "message": "Order",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "medium"
+  },
+  {
+    "id": "order.jsx.text.return.to.chat",
+    "locale": "ur",
+    "message": "Return to chat",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "order.jsx.text.trk",
+    "locale": "ur",
+    "message": "TRK:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.expression.cod",
+    "locale": "ur",
+    "message": "COD",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.expression.inr",
+    "locale": "ur",
+    "message": "INR",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.order.status",
+    "locale": "ur",
+    "message": "Order status:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.order.total",
+    "locale": "ur",
+    "message": "Order total:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "payment.jsx.text.req",
+    "locale": "ur",
+    "message": "Req:",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.keep.shopping.clean.and.send.this.issue",
+    "locale": "ur",
+    "message": "Keep shopping clean and send this issue to the support desk with the context already filled in.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.open.support.desk",
+    "locale": "ur",
+    "message": "Open support desk",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.expression.support.request",
+    "locale": "ur",
+    "message": "Support request",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.category",
+    "locale": "ur",
+    "message": "Category",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.channel.timeline",
+    "locale": "ur",
+    "message": "Channel Timeline",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.dedicated.support.handoff",
+    "locale": "ur",
+    "message": "Dedicated support handoff",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.incident.manager",
+    "locale": "ur",
+    "message": "Incident manager",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.no.active.incident.or.maintenance.item",
+    "locale": "ur",
+    "message": "No active incident or maintenance item.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.public.incident",
+    "locale": "ur",
+    "message": "Public incident",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.publish.incident",
+    "locale": "ur",
+    "message": "Publish incident",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.recent.incidents",
+    "locale": "ur",
+    "message": "Recent incidents",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.text.subject",
+    "locale": "ur",
+    "message": "Subject",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.accessibility.emergency.control.center",
+    "locale": "hi",
+    "message": "Emergency Control Center",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.accessibility.public.status.control.room",
+    "locale": "hi",
+    "message": "Public status control room",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.90d.uptime",
+    "locale": "hi",
+    "message": "90d uptime",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.active.flags",
+    "locale": "hi",
+    "message": "Active flags",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.affected.components",
+    "locale": "hi",
+    "message": "Affected components",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.audit.rows",
+    "locale": "hi",
+    "message": "Audit rows",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.check.type",
+    "locale": "hi",
+    "message": "Check type",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.check.url",
+    "locale": "hi",
+    "message": "Check URL",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.commander",
+    "locale": "hi",
+    "message": "Commander",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.component.name",
+    "locale": "hi",
+    "message": "Component name",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.critical.active",
+    "locale": "hi",
+    "message": "Critical active",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.customer.impact",
+    "locale": "hi",
+    "message": "Customer impact",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.ends",
+    "locale": "hi",
+    "message": "Ends",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.expired.visible",
+    "locale": "hi",
+    "message": "Expired visible",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.group",
+    "locale": "hi",
+    "message": "Group",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.impact",
+    "locale": "hi",
+    "message": "Impact",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.manual.override",
+    "locale": "hi",
+    "message": "Manual override",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.message",
+    "locale": "hi",
+    "message": "Message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.overall",
+    "locale": "hi",
+    "message": "Overall",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.starts",
+    "locale": "hi",
+    "message": "Starts",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.subscribers",
+    "locale": "hi",
+    "message": "Subscribers",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.timeline.update",
+    "locale": "hi",
+    "message": "Timeline update",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.prop.description.backend.enforced.safety.flags.for.maintenance.read",
+    "locale": "hi",
+    "message": "Backend-enforced safety flags for maintenance, read-only protection, checkout, payments, auth, admin mutations, and assistant shutdowns.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.prop.description.manage.public.health.incidents.maintenance.subscribers.and",
+    "locale": "hi",
+    "message": "Manage public health, incidents, maintenance, subscribers, and monitor signals from the existing Aura operations stack.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.prop.label.active.incidents",
+    "locale": "hi",
+    "message": "Active incidents",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.accessibility.emergency.control.center",
+    "locale": "bn",
+    "message": "Emergency Control Center",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.accessibility.public.status.control.room",
+    "locale": "bn",
+    "message": "Public status control room",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.90d.uptime",
+    "locale": "bn",
+    "message": "90d uptime",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.active.flags",
+    "locale": "bn",
+    "message": "Active flags",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.affected.components",
+    "locale": "bn",
+    "message": "Affected components",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.audit.rows",
+    "locale": "bn",
+    "message": "Audit rows",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.check.type",
+    "locale": "bn",
+    "message": "Check type",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.check.url",
+    "locale": "bn",
+    "message": "Check URL",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.commander",
+    "locale": "bn",
+    "message": "Commander",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.component.name",
+    "locale": "bn",
+    "message": "Component name",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.critical.active",
+    "locale": "bn",
+    "message": "Critical active",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.customer.impact",
+    "locale": "bn",
+    "message": "Customer impact",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.ends",
+    "locale": "bn",
+    "message": "Ends",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.expired.visible",
+    "locale": "bn",
+    "message": "Expired visible",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.group",
+    "locale": "bn",
+    "message": "Group",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.impact",
+    "locale": "bn",
+    "message": "Impact",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.manual.override",
+    "locale": "bn",
+    "message": "Manual override",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.message",
+    "locale": "bn",
+    "message": "Message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.overall",
+    "locale": "bn",
+    "message": "Overall",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.starts",
+    "locale": "bn",
+    "message": "Starts",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.subscribers",
+    "locale": "bn",
+    "message": "Subscribers",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.timeline.update",
+    "locale": "bn",
+    "message": "Timeline update",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.prop.description.backend.enforced.safety.flags.for.maintenance.read",
+    "locale": "bn",
+    "message": "Backend-enforced safety flags for maintenance, read-only protection, checkout, payments, auth, admin mutations, and assistant shutdowns.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.prop.description.manage.public.health.incidents.maintenance.subscribers.and",
+    "locale": "bn",
+    "message": "Manage public health, incidents, maintenance, subscribers, and monitor signals from the existing Aura operations stack.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.prop.label.active.incidents",
+    "locale": "bn",
+    "message": "Active incidents",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.accessibility.emergency.control.center",
+    "locale": "ur",
+    "message": "Emergency Control Center",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.accessibility.public.status.control.room",
+    "locale": "ur",
+    "message": "Public status control room",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.90d.uptime",
+    "locale": "ur",
+    "message": "90d uptime",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.active.flags",
+    "locale": "ur",
+    "message": "Active flags",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.affected.components",
+    "locale": "ur",
+    "message": "Affected components",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.audit.rows",
+    "locale": "ur",
+    "message": "Audit rows",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.check.type",
+    "locale": "ur",
+    "message": "Check type",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.check.url",
+    "locale": "ur",
+    "message": "Check URL",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.commander",
+    "locale": "ur",
+    "message": "Commander",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.component.name",
+    "locale": "ur",
+    "message": "Component name",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.critical.active",
+    "locale": "ur",
+    "message": "Critical active",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.customer.impact",
+    "locale": "ur",
+    "message": "Customer impact",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.ends",
+    "locale": "ur",
+    "message": "Ends",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.expired.visible",
+    "locale": "ur",
+    "message": "Expired visible",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.group",
+    "locale": "ur",
+    "message": "Group",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.impact",
+    "locale": "ur",
+    "message": "Impact",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.manual.override",
+    "locale": "ur",
+    "message": "Manual override",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.message",
+    "locale": "ur",
+    "message": "Message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.overall",
+    "locale": "ur",
+    "message": "Overall",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.starts",
+    "locale": "ur",
+    "message": "Starts",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.subscribers",
+    "locale": "ur",
+    "message": "Subscribers",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.timeline.update",
+    "locale": "ur",
+    "message": "Timeline update",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.prop.description.backend.enforced.safety.flags.for.maintenance.read",
+    "locale": "ur",
+    "message": "Backend-enforced safety flags for maintenance, read-only protection, checkout, payments, auth, admin mutations, and assistant shutdowns.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.prop.description.manage.public.health.incidents.maintenance.subscribers.and",
+    "locale": "ur",
+    "message": "Manage public health, incidents, maintenance, subscribers, and monitor signals from the existing Aura operations stack.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.prop.label.active.incidents",
+    "locale": "ur",
+    "message": "Active incidents",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.accessibility.emergency.control.center",
+    "locale": "ar",
+    "message": "Emergency Control Center",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.accessibility.public.status.control.room",
+    "locale": "ar",
+    "message": "Public status control room",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.90d.uptime",
+    "locale": "ar",
+    "message": "90d uptime",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.active.flags",
+    "locale": "ar",
+    "message": "Active flags",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.affected.components",
+    "locale": "ar",
+    "message": "Affected components",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.audit.rows",
+    "locale": "ar",
+    "message": "Audit rows",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.check.type",
+    "locale": "ar",
+    "message": "Check type",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.check.url",
+    "locale": "ar",
+    "message": "Check URL",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.commander",
+    "locale": "ar",
+    "message": "Commander",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.component.name",
+    "locale": "ar",
+    "message": "Component name",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.critical.active",
+    "locale": "ar",
+    "message": "Critical active",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.customer.impact",
+    "locale": "ar",
+    "message": "Customer impact",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.ends",
+    "locale": "ar",
+    "message": "Ends",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.expired.visible",
+    "locale": "ar",
+    "message": "Expired visible",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.group",
+    "locale": "ar",
+    "message": "Group",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.impact",
+    "locale": "ar",
+    "message": "Impact",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.manual.override",
+    "locale": "ar",
+    "message": "Manual override",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.message",
+    "locale": "ar",
+    "message": "Message",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.overall",
+    "locale": "ar",
+    "message": "Overall",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.starts",
+    "locale": "ar",
+    "message": "Starts",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.subscribers",
+    "locale": "ar",
+    "message": "Subscribers",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "admin.jsx.prop.label.timeline.update",
+    "locale": "ar",
+    "message": "Timeline update",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "checkout.jsx.prop.description.backend.enforced.safety.flags.for.maintenance.read",
+    "locale": "ar",
+    "message": "Backend-enforced safety flags for maintenance, read-only protection, checkout, payments, auth, admin mutations, and assistant shutdowns.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.prop.description.manage.public.health.incidents.maintenance.subscribers.and",
+    "locale": "ar",
+    "message": "Manage public health, incidents, maintenance, subscribers, and monitor signals from the existing Aura operations stack.",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
+  },
+  {
+    "id": "support.jsx.prop.label.active.incidents",
+    "locale": "ar",
+    "message": "Active incidents",
+    "reason": "exact-english-fallback-needs-human-review",
+    "risk": "high"
   }
 ]

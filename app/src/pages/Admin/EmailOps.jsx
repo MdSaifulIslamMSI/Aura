@@ -18,6 +18,7 @@ import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
 import { normalizeEnumToken, translateEnumLabel } from '@/utils/enumLocalization';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { FormattedMessage } from 'react-intl';
 
 const SUMMARY_FALLBACK = {
     provider: {
@@ -304,11 +305,9 @@ export default function AdminEmailOps() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.available.gmail)}`}>
-                            Gmail {summary.provider.available.gmail ? t('admin.email.configured', {}, 'configured') : t('admin.email.missing', {}, 'missing')}
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.available.gmail)}`}><FormattedMessage id="admin.jsx.text.gmail" defaultMessage="Gmail" />{' '}{summary.provider.available.gmail ? t('admin.email.configured', {}, 'configured') : t('admin.email.missing', {}, 'missing')}
                         </span>
-                        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.available.resend)}`}>
-                            Resend {summary.provider.available.resend ? t('admin.email.configured', {}, 'configured') : t('admin.email.missing', {}, 'missing')}
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.available.resend)}`}><FormattedMessage id="admin.jsx.text.resend" defaultMessage="Resend" />{' '}{summary.provider.available.resend ? t('admin.email.configured', {}, 'configured') : t('admin.email.missing', {}, 'missing')}
                         </span>
                         <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${providerPillClass(summary.provider.resendWebhookConfigured)}`}>
                             {t('admin.email.resendWebhook', {}, 'Resend webhook')} {summary.provider.resendWebhookConfigured ? t('admin.email.configured', {}, 'configured') : t('admin.email.missing', {}, 'missing')}

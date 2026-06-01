@@ -8,6 +8,7 @@ import {
     Video,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FormattedMessage } from 'react-intl';
 
 const ICON_MAP = {
     queue: Activity,
@@ -125,9 +126,7 @@ const SupportArchitecturePanel = ({
         {stages.length > 0 ? (
             <div className="mt-5 rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4">
                 <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">
-                    <Clock3 className="h-3.5 w-3.5" />
-                    Channel Timeline
-                </div>
+                    <Clock3 className="h-3.5 w-3.5" /><FormattedMessage id="support.jsx.text.channel.timeline" defaultMessage="Channel Timeline" /></div>
                 <div className="mt-4 grid gap-3 lg:grid-cols-4">
                     {stages.map((stage) => (
                         <div

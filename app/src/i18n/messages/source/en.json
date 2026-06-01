@@ -11,6 +11,24 @@
     "defaultMessage": "Show password",
     "description": "Accessible label for revealing a password value in an authentication field."
   },
+  "account.security.jsx.text.review.security.policy": {
+    "defaultMessage": "Review security policy"
+  },
+  "account.security.jsx.text.security.control.coverage": {
+    "defaultMessage": "Security control coverage"
+  },
+  "account.security.jsx.text.security.harness": {
+    "defaultMessage": "Security harness"
+  },
+  "account.security.jsx.text.security.notice": {
+    "defaultMessage": "Security Notice"
+  },
+  "admin.accessibility.emergency.control.center": {
+    "defaultMessage": "Emergency Control Center"
+  },
+  "admin.accessibility.public.status.control.room": {
+    "defaultMessage": "Public status control room"
+  },
   "admin.dashboard.actions.markMatchingRead": {
     "defaultMessage": "Mark Matching Read",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -986,6 +1004,270 @@
   "admin.email.workerOnline": {
     "defaultMessage": "Worker online",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.jsx.expression.auto.off": {
+    "defaultMessage": "Auto off"
+  },
+  "admin.jsx.expression.auto.on": {
+    "defaultMessage": "Auto on"
+  },
+  "admin.jsx.expression.n.a": {
+    "defaultMessage": "n/a"
+  },
+  "admin.jsx.expression.no.expiry": {
+    "defaultMessage": "no expiry"
+  },
+  "admin.jsx.expression.no.reason.recorded": {
+    "defaultMessage": "No reason recorded"
+  },
+  "admin.jsx.expression.private": {
+    "defaultMessage": "Private"
+  },
+  "admin.jsx.expression.public": {
+    "defaultMessage": "Public"
+  },
+  "admin.jsx.expression.unknown.actor": {
+    "defaultMessage": "unknown actor"
+  },
+  "admin.jsx.prop.label.90d.uptime": {
+    "defaultMessage": "90d uptime"
+  },
+  "admin.jsx.prop.label.active.flags": {
+    "defaultMessage": "Active flags"
+  },
+  "admin.jsx.prop.label.affected.components": {
+    "defaultMessage": "Affected components"
+  },
+  "admin.jsx.prop.label.audit.rows": {
+    "defaultMessage": "Audit rows"
+  },
+  "admin.jsx.prop.label.check.type": {
+    "defaultMessage": "Check type"
+  },
+  "admin.jsx.prop.label.check.url": {
+    "defaultMessage": "Check URL"
+  },
+  "admin.jsx.prop.label.commander": {
+    "defaultMessage": "Commander"
+  },
+  "admin.jsx.prop.label.component.name": {
+    "defaultMessage": "Component name"
+  },
+  "admin.jsx.prop.label.critical.active": {
+    "defaultMessage": "Critical active"
+  },
+  "admin.jsx.prop.label.customer.impact": {
+    "defaultMessage": "Customer impact"
+  },
+  "admin.jsx.prop.label.ends": {
+    "defaultMessage": "Ends"
+  },
+  "admin.jsx.prop.label.expired.visible": {
+    "defaultMessage": "Expired visible"
+  },
+  "admin.jsx.prop.label.group": {
+    "defaultMessage": "Group"
+  },
+  "admin.jsx.prop.label.impact": {
+    "defaultMessage": "Impact"
+  },
+  "admin.jsx.prop.label.manual.override": {
+    "defaultMessage": "Manual override"
+  },
+  "admin.jsx.prop.label.message": {
+    "defaultMessage": "Message"
+  },
+  "admin.jsx.prop.label.overall": {
+    "defaultMessage": "Overall"
+  },
+  "admin.jsx.prop.label.starts": {
+    "defaultMessage": "Starts"
+  },
+  "admin.jsx.prop.label.subscribers": {
+    "defaultMessage": "Subscribers"
+  },
+  "admin.jsx.prop.label.timeline.update": {
+    "defaultMessage": "Timeline update"
+  },
+  "admin.jsx.text.activate": {
+    "defaultMessage": "Activate"
+  },
+  "admin.jsx.text.activated.by": {
+    "defaultMessage": "Activated by"
+  },
+  "admin.jsx.text.active.emergency.flags": {
+    "defaultMessage": "Active emergency flags"
+  },
+  "admin.jsx.text.active.timeline": {
+    "defaultMessage": "Active timeline"
+  },
+  "admin.jsx.text.audit.trail": {
+    "defaultMessage": "Audit trail"
+  },
+  "admin.jsx.text.commander": {
+    "defaultMessage": "Commander:"
+  },
+  "admin.jsx.text.component.manager": {
+    "defaultMessage": "Component manager"
+  },
+  "admin.jsx.text.confirm.major.publication": {
+    "defaultMessage": "Confirm major publication"
+  },
+  "admin.jsx.text.confirm.no.expiry": {
+    "defaultMessage": "Confirm no expiry"
+  },
+  "admin.jsx.text.confirmation.phrase": {
+    "defaultMessage": "Confirmation phrase"
+  },
+  "admin.jsx.text.create": {
+    "defaultMessage": "Create"
+  },
+  "admin.jsx.text.current.safety.posture": {
+    "defaultMessage": "Current safety posture"
+  },
+  "admin.jsx.text.database": {
+    "defaultMessage": "Database"
+  },
+  "admin.jsx.text.deactivate": {
+    "defaultMessage": "Deactivate"
+  },
+  "admin.jsx.text.emergency.admin.role.required": {
+    "defaultMessage": "Emergency admin role required"
+  },
+  "admin.jsx.text.expired": {
+    "defaultMessage": "Expired"
+  },
+  "admin.jsx.text.expires": {
+    "defaultMessage": "| Expires"
+  },
+  "admin.jsx.text.expires.at": {
+    "defaultMessage": "Expires at"
+  },
+  "admin.jsx.text.extend.expiry": {
+    "defaultMessage": "Extend expiry"
+  },
+  "admin.jsx.text.flag": {
+    "defaultMessage": "Flag"
+  },
+  "admin.jsx.text.gatus": {
+    "defaultMessage": "Gatus"
+  },
+  "admin.jsx.text.github.actions": {
+    "defaultMessage": "GitHub Actions"
+  },
+  "admin.jsx.text.gmail": {
+    "defaultMessage": "Gmail"
+  },
+  "admin.jsx.text.internal.health": {
+    "defaultMessage": "Internal health"
+  },
+  "admin.jsx.text.internal.note": {
+    "defaultMessage": "Internal note"
+  },
+  "admin.jsx.text.internal.reason": {
+    "defaultMessage": "Internal reason"
+  },
+  "admin.jsx.text.last.checked": {
+    "defaultMessage": "Last checked"
+  },
+  "admin.jsx.text.loading.status.console": {
+    "defaultMessage": "Loading status console..."
+  },
+  "admin.jsx.text.maintenance.manager": {
+    "defaultMessage": "Maintenance manager"
+  },
+  "admin.jsx.text.manage": {
+    "defaultMessage": "Manage"
+  },
+  "admin.jsx.text.manual": {
+    "defaultMessage": "Manual"
+  },
+  "admin.jsx.text.mark.mitigation": {
+    "defaultMessage": "Mark mitigation"
+  },
+  "admin.jsx.text.monitor.logs": {
+    "defaultMessage": "Monitor logs"
+  },
+  "admin.jsx.text.monitored": {
+    "defaultMessage": "Monitored"
+  },
+  "admin.jsx.text.ms.failures": {
+    "defaultMessage": "ms - failures"
+  },
+  "admin.jsx.text.ms.http": {
+    "defaultMessage": "ms - HTTP"
+  },
+  "admin.jsx.text.mutate.flag": {
+    "defaultMessage": "Mutate flag"
+  },
+  "admin.jsx.text.no.audit.entries.found": {
+    "defaultMessage": "No audit entries found."
+  },
+  "admin.jsx.text.no.emergency.flags.are.active": {
+    "defaultMessage": "No emergency flags are active."
+  },
+  "admin.jsx.text.postmortem": {
+    "defaultMessage": "Postmortem"
+  },
+  "admin.jsx.text.preview.public.page": {
+    "defaultMessage": "Preview public page"
+  },
+  "admin.jsx.text.public": {
+    "defaultMessage": "Public"
+  },
+  "admin.jsx.text.public.labels.stay.separate.from.monitor.internals": {
+    "defaultMessage": "Public labels stay separate from monitor internals."
+  },
+  "admin.jsx.text.public.update": {
+    "defaultMessage": "Public update"
+  },
+  "admin.jsx.text.redis": {
+    "defaultMessage": "Redis"
+  },
+  "admin.jsx.text.refresh": {
+    "defaultMessage": "Refresh"
+  },
+  "admin.jsx.text.resend": {
+    "defaultMessage": "Resend"
+  },
+  "admin.jsx.text.resolve": {
+    "defaultMessage": "Resolve"
+  },
+  "admin.jsx.text.run.checks": {
+    "defaultMessage": "Run checks"
+  },
+  "admin.jsx.text.schedule.maintenance": {
+    "defaultMessage": "Schedule maintenance"
+  },
+  "admin.jsx.text.seed.defaults": {
+    "defaultMessage": "Seed defaults"
+  },
+  "admin.jsx.text.sentry": {
+    "defaultMessage": "Sentry"
+  },
+  "admin.jsx.text.severity.policy": {
+    "defaultMessage": "Severity policy"
+  },
+  "admin.jsx.text.subscriber.count.is.included.in.overview.detailed": {
+    "defaultMessage": "Subscriber count is included in overview. Detailed subscriber list is available from the admin API."
+  },
+  "admin.jsx.text.subscriber.snapshot": {
+    "defaultMessage": "Subscriber snapshot"
+  },
+  "admin.jsx.text.synthetic": {
+    "defaultMessage": "Synthetic"
+  },
+  "admin.jsx.text.update.message": {
+    "defaultMessage": "Update message"
+  },
+  "admin.jsx.text.uptime.kuma": {
+    "defaultMessage": "Uptime Kuma"
+  },
+  "admin.jsx.text.use": {
+    "defaultMessage": "Use"
+  },
+  "admin.jsx.text.user.message": {
+    "defaultMessage": "User message"
   },
   "admin.orders.actions.adminCancel": {
     "defaultMessage": "Admin Cancel",
@@ -2975,6 +3257,129 @@
     "defaultMessage": "Trusted device checkpoint",
     "description": "Heading shown when a protected route requires trusted-device approval."
   },
+  "auth.jsx.expression.authenticated.session": {
+    "defaultMessage": "Authenticated session"
+  },
+  "auth.jsx.expression.change.proof.method": {
+    "defaultMessage": "Change Proof Method"
+  },
+  "auth.jsx.expression.choose.verification.method": {
+    "defaultMessage": "Choose verification method"
+  },
+  "auth.jsx.expression.enter.the.secure.otp.to.continue": {
+    "defaultMessage": "Enter the secure OTP to continue."
+  },
+  "auth.jsx.expression.fresh.assertion.required": {
+    "defaultMessage": "Fresh assertion required"
+  },
+  "auth.jsx.expression.hide.proof.options": {
+    "defaultMessage": "Hide Proof Options"
+  },
+  "auth.jsx.expression.pick.the.smoothest.lane": {
+    "defaultMessage": "Pick the smoothest lane"
+  },
+  "auth.jsx.expression.proof.methods": {
+    "defaultMessage": "Proof methods"
+  },
+  "auth.jsx.expression.required.proof": {
+    "defaultMessage": "Required proof"
+  },
+  "auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification": {
+    "defaultMessage": "This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled."
+  },
+  "auth.jsx.expression.this.browser.session": {
+    "defaultMessage": "This browser session"
+  },
+  "auth.jsx.expression.this.device.does.not.expose.the.platform": {
+    "defaultMessage": "This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey."
+  },
+  "auth.jsx.expression.this.host.stays.on.browser.fallback.verification": {
+    "defaultMessage": "This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains."
+  },
+  "auth.jsx.expression.verification.method": {
+    "defaultMessage": "Verification method"
+  },
+  "auth.jsx.text.account": {
+    "defaultMessage": "Account"
+  },
+  "auth.jsx.text.apple": {
+    "defaultMessage": "Apple"
+  },
+  "auth.jsx.text.ar": {
+    "defaultMessage": "Ar"
+  },
+  "auth.jsx.text.aura": {
+    "defaultMessage": "Aura"
+  },
+  "auth.jsx.text.aura.will.never.ask.for.otp.card": {
+    "defaultMessage": "Aura will never ask for OTP, card CVV, or password over call, chat, or social media. If you see suspicious activity, use official support channels immediately."
+  },
+  "auth.jsx.text.backend.authorization.requires.super.admin.or.security": {
+    "defaultMessage": "Backend authorization requires SUPER_ADMIN or SECURITY_ADMIN. Bootstrap emails are audited server-side only."
+  },
+  "auth.jsx.text.device": {
+    "defaultMessage": "Device"
+  },
+  "auth.jsx.text.device.lane": {
+    "defaultMessage": "Device lane"
+  },
+  "auth.jsx.text.duo": {
+    "defaultMessage": "Duo"
+  },
+  "auth.jsx.text.facebook": {
+    "defaultMessage": "Facebook"
+  },
+  "auth.jsx.text.github": {
+    "defaultMessage": "GitHub"
+  },
+  "auth.jsx.text.google": {
+    "defaultMessage": "Google"
+  },
+  "auth.jsx.text.microsoft": {
+    "defaultMessage": "Microsoft"
+  },
+  "auth.jsx.text.open": {
+    "defaultMessage": "Open"
+  },
+  "auth.jsx.text.privileged.mode": {
+    "defaultMessage": "Privileged Mode"
+  },
+  "auth.jsx.text.quick.unlock": {
+    "defaultMessage": "Quick unlock"
+  },
+  "auth.jsx.text.resend.otp": {
+    "defaultMessage": "Resend OTP"
+  },
+  "auth.jsx.text.reset.identity": {
+    "defaultMessage": "Reset Identity"
+  },
+  "auth.jsx.text.reset.this.browser": {
+    "defaultMessage": "Reset This Browser"
+  },
+  "auth.jsx.text.selected.proof": {
+    "defaultMessage": "Selected proof"
+  },
+  "auth.jsx.text.trust.checkpoint": {
+    "defaultMessage": "Trust Checkpoint"
+  },
+  "auth.jsx.text.trusted.device.checkpoint": {
+    "defaultMessage": "Trusted Device Checkpoint"
+  },
+  "auth.jsx.text.unlock.the.stronger.session.only.when.you": {
+    "defaultMessage": "Unlock the stronger session only when you actually need it."
+  },
+  "auth.jsx.text.verify.once.to.unlock.admin.actions": {
+    "defaultMessage": "Verify once to unlock admin actions"
+  },
+  "auth.jsx.text.what.stays.private": {
+    "defaultMessage": "What stays private"
+  },
+  "auth.jsx.text.why.aura.paused.here": {
+    "defaultMessage": "Why Aura paused here"
+  },
+  "auth.jsx.text.why.this.appears": {
+    "defaultMessage": "Why this appears"
+  },
   "auth.pending.admin": {
     "defaultMessage": "Checking admin session access...",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -3658,6 +4063,48 @@
   "checkout.items": {
     "defaultMessage": "Items",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "checkout.jsx.expression.cart.wishlist.checkout.and.order.reflection": {
+    "defaultMessage": "Cart, wishlist, checkout, and order reflection"
+  },
+  "checkout.jsx.expression.cod": {
+    "defaultMessage": "COD"
+  },
+  "checkout.jsx.expression.direct": {
+    "defaultMessage": "Direct"
+  },
+  "checkout.jsx.expression.inr": {
+    "defaultMessage": "INR"
+  },
+  "checkout.jsx.expression.standard": {
+    "defaultMessage": "Standard"
+  },
+  "checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade": {
+    "defaultMessage": "Turn on trade-in to expose upgrade leverage before checkout or price alerts."
+  },
+  "checkout.jsx.prop.description.backend.enforced.safety.flags.for.maintenance.read": {
+    "defaultMessage": "Backend-enforced safety flags for maintenance, read-only protection, checkout, payments, auth, admin mutations, and assistant shutdowns."
+  },
+  "checkout.jsx.text.ai.bundles.with.one.click.checkout": {
+    "defaultMessage": "AI Bundles With One-Click Checkout"
+  },
+  "checkout.jsx.text.cvv": {
+    "defaultMessage": "CVV"
+  },
+  "checkout.jsx.text.generate.budget.bound.curated.bundles.from.live": {
+    "defaultMessage": "Generate budget-bound curated bundles from live catalog intelligence and send everything to checkout in one action."
+  },
+  "checkout.jsx.text.items": {
+    "defaultMessage": "items)"
+  },
+  "checkout.jsx.text.mm.yy": {
+    "defaultMessage": "MM / YY"
+  },
+  "checkout.jsx.text.one.click.checkout": {
+    "defaultMessage": "One-Click Checkout"
+  },
+  "checkout.jsx.text.reach.a.real.support.queue.when.checkout": {
+    "defaultMessage": "Reach a real support queue when checkout, account, or governance issues block you."
   },
   "checkout.lineItems": {
     "defaultMessage": "{count} line items",
@@ -7087,6 +7534,30 @@
     "defaultMessage": "New notification",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "order.jsx.expression.bundle.generation.did.not.return.a.stack": {
+    "defaultMessage": "Bundle generation did not return a stack for this mission yet."
+  },
+  "order.jsx.expression.item": {
+    "defaultMessage": "Item"
+  },
+  "order.jsx.expression.open.order.support": {
+    "defaultMessage": "Open order support"
+  },
+  "order.jsx.expression.this.request.is.tied.to.a.specific": {
+    "defaultMessage": "This request is tied to a specific order, so I will take you into the order support surface instead of the generic desk."
+  },
+  "order.jsx.text.id": {
+    "defaultMessage": "ID:"
+  },
+  "order.jsx.text.order": {
+    "defaultMessage": "Order"
+  },
+  "order.jsx.text.return.to.chat": {
+    "defaultMessage": "Return to chat"
+  },
+  "order.jsx.text.trk": {
+    "defaultMessage": "TRK:"
+  },
   "order.status.confirmed": {
     "defaultMessage": "Order confirmed",
     "description": "Order status shown after the backend has accepted the order."
@@ -7506,6 +7977,21 @@
   "payment.error.retry": {
     "defaultMessage": "Retry payment",
     "description": "Action for restarting a failed or stale payment attempt."
+  },
+  "payment.jsx.expression.cod": {
+    "defaultMessage": "COD"
+  },
+  "payment.jsx.expression.inr": {
+    "defaultMessage": "INR"
+  },
+  "payment.jsx.text.order.status": {
+    "defaultMessage": "Order status:"
+  },
+  "payment.jsx.text.order.total": {
+    "defaultMessage": "Order total:"
+  },
+  "payment.jsx.text.req": {
+    "defaultMessage": "Req:"
   },
   "priceAlerts.active.current": {
     "defaultMessage": "Current: {price}",
@@ -11066,6 +11552,48 @@
   "status.updatedAt": {
     "defaultMessage": "Updated {timestamp, time, short}",
     "description": "Status timestamp using locale-aware time formatting."
+  },
+  "support.jsx.expression.keep.shopping.clean.and.send.this.issue": {
+    "defaultMessage": "Keep shopping clean and send this issue to the support desk with the context already filled in."
+  },
+  "support.jsx.expression.open.support.desk": {
+    "defaultMessage": "Open support desk"
+  },
+  "support.jsx.expression.support.request": {
+    "defaultMessage": "Support request"
+  },
+  "support.jsx.prop.description.manage.public.health.incidents.maintenance.subscribers.and": {
+    "defaultMessage": "Manage public health, incidents, maintenance, subscribers, and monitor signals from the existing Aura operations stack."
+  },
+  "support.jsx.prop.label.active.incidents": {
+    "defaultMessage": "Active incidents"
+  },
+  "support.jsx.text.category": {
+    "defaultMessage": "Category"
+  },
+  "support.jsx.text.channel.timeline": {
+    "defaultMessage": "Channel Timeline"
+  },
+  "support.jsx.text.dedicated.support.handoff": {
+    "defaultMessage": "Dedicated support handoff"
+  },
+  "support.jsx.text.incident.manager": {
+    "defaultMessage": "Incident manager"
+  },
+  "support.jsx.text.no.active.incident.or.maintenance.item": {
+    "defaultMessage": "No active incident or maintenance item."
+  },
+  "support.jsx.text.public.incident": {
+    "defaultMessage": "Public incident"
+  },
+  "support.jsx.text.publish.incident": {
+    "defaultMessage": "Publish incident"
+  },
+  "support.jsx.text.recent.incidents": {
+    "defaultMessage": "Recent incidents"
+  },
+  "support.jsx.text.subject": {
+    "defaultMessage": "Subject"
   },
   "voice.captureUnavailable": {
     "defaultMessage": "Voice capture is unavailable in this browser. Typed command mode is enabled.",

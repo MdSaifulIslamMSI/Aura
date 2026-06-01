@@ -11,6 +11,7 @@ import {
 import { resolveFrontendTargets } from '@/config/frontendTargets';
 import { formatReleaseBuiltAt, releaseInfo, resolveRuntimeHost } from '@/config/releaseInfo';
 import { cn } from '@/lib/utils';
+import { FormattedMessage } from 'react-intl';
 
 const PLATFORM_THEMES = {
   vercel: {
@@ -327,7 +328,7 @@ const Launch = () => {
               <div className="mt-6 space-y-3">
                 {[
                   'Authentication and trusted session continuity',
-                  'Cart, wishlist, checkout, and order reflection',
+                  <FormattedMessage id="checkout.jsx.expression.cart.wishlist.checkout.and.order.reflection" defaultMessage="Cart, wishlist, checkout, and order reflection" />,
                   'Profile updates and account posture consistency',
                   'Same storefront intent with independent hosting',
                 ].map((item) => (

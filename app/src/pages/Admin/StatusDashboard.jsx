@@ -18,6 +18,7 @@ import {
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
 import { adminStatusApi } from '@/services/api/statusApi';
 import { formatDate, formatPercent, statusMeta } from '@/pages/Status/statusMeta';
+import { FormattedMessage } from 'react-intl';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Auto' },
@@ -240,41 +241,33 @@ export default function AdminStatusDashboard() {
   };
 
   const stats = dashboard?.overview ? [
-    <AdminHeroStat key="overall" label="Overall" value={statusMeta(dashboard.overview.overallStatus).label} detail={dashboard.overview.message} icon={<Signal className="h-5 w-5" />} />,
-    <AdminHeroStat key="active" label="Active incidents" value={dashboard.overview.activeIncidents + dashboard.overview.activeMaintenance} detail={`${dashboard.overview.degradedComponents} degraded components`} icon={<ShieldAlert className="h-5 w-5" />} />,
-    <AdminHeroStat key="subs" label="Subscribers" value={dashboard.overview.subscribers} detail="Email preferences stored" icon={<Users className="h-5 w-5" />} />,
-    <AdminHeroStat key="uptime" label="90d uptime" value={dashboard.overview.averageUptime ? formatPercent(dashboard.overview.averageUptime).replace(' uptime', '') : 'No data'} detail={`Updated ${formatDate(dashboard.overview.lastUpdatedAt, { time: true })}`} icon={<Activity className="h-5 w-5" />} />,
+    <AdminHeroStat key="overall" label={<FormattedMessage id="admin.jsx.prop.label.overall" defaultMessage="Overall" />} value={statusMeta(dashboard.overview.overallStatus).label} detail={dashboard.overview.message} icon={<Signal className="h-5 w-5" />} />,
+    <AdminHeroStat key="active" label={<FormattedMessage id="support.jsx.prop.label.active.incidents" defaultMessage="Active incidents" />} value={dashboard.overview.activeIncidents + dashboard.overview.activeMaintenance} detail={`${dashboard.overview.degradedComponents} degraded components`} icon={<ShieldAlert className="h-5 w-5" />} />,
+    <AdminHeroStat key="subs" label={<FormattedMessage id="admin.jsx.prop.label.subscribers" defaultMessage="Subscribers" />} value={dashboard.overview.subscribers} detail="Email preferences stored" icon={<Users className="h-5 w-5" />} />,
+    <AdminHeroStat key="uptime" label={<FormattedMessage id="admin.jsx.prop.label.90d.uptime" defaultMessage="90d uptime" />} value={dashboard.overview.averageUptime ? formatPercent(dashboard.overview.averageUptime).replace(' uptime', '') : 'No data'} detail={`Updated ${formatDate(dashboard.overview.lastUpdatedAt, { time: true })}`} icon={<Activity className="h-5 w-5" />} />,
   ] : null;
 
   return (
     <AdminPremiumShell
       eyebrow="Status operations"
-      title="Public status control room"
-      description="Manage public health, incidents, maintenance, subscribers, and monitor signals from the existing Aura operations stack."
+      title={<FormattedMessage id="admin.accessibility.public.status.control.room" defaultMessage="Public status control room" />}
+      description={<FormattedMessage id="support.jsx.prop.description.manage.public.health.incidents.maintenance.subscribers.and" defaultMessage="Manage public health, incidents, maintenance, subscribers, and monitor signals from the existing Aura operations stack." />}
       stats={stats}
       actions={(
         <>
           <Link to="/status" className="admin-premium-button px-4 py-2 text-sm font-black">
-            <Eye className="h-4 w-4" />
-            Preview public page
-          </Link>
+            <Eye className="h-4 w-4" /><FormattedMessage id="admin.jsx.text.preview.public.page" defaultMessage="Preview public page" /></Link>
           <button type="button" onClick={() => loadDashboard({ silent: true })} className="admin-premium-button px-4 py-2 text-sm font-black">
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /><FormattedMessage id="admin.jsx.text.refresh" defaultMessage="Refresh" /></button>
           <button type="button" disabled={busy === 'monitor'} onClick={() => runAction('monitor', adminStatusApi.runMonitor, 'Monitor cycle completed')} className="admin-premium-button admin-premium-button-accent px-4 py-2 text-sm font-black disabled:opacity-60">
-            {busy === 'monitor' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RadioTower className="h-4 w-4" />}
-            Run checks
-          </button>
+            {busy === 'monitor' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RadioTower className="h-4 w-4" />}<FormattedMessage id="admin.jsx.text.run.checks" defaultMessage="Run checks" /></button>
         </>
       )}
     >
       {loading ? (
         <AdminPremiumPanel>
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading status console...
-          </div>
+            <Loader2 className="h-4 w-4 animate-spin" /><FormattedMessage id="admin.jsx.text.loading.status.console" defaultMessage="Loading status console..." /></div>
         </AdminPremiumPanel>
       ) : null}
 
@@ -284,54 +277,46 @@ export default function AdminStatusDashboard() {
             <AdminPremiumPanel>
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="text-xl font-black text-slate-950">Component manager</h2>
-                  <p className="text-sm text-slate-500">Public labels stay separate from monitor internals.</p>
+                  <h2 className="text-xl font-black text-slate-950"><FormattedMessage id="admin.jsx.text.component.manager" defaultMessage="Component manager" /></h2>
+                  <p className="text-sm text-slate-500"><FormattedMessage id="admin.jsx.text.public.labels.stay.separate.from.monitor.internals" defaultMessage="Public labels stay separate from monitor internals." /></p>
                 </div>
                 {!import.meta.env.PROD ? (
-                  <button type="button" onClick={() => runAction('seed', () => adminStatusApi.seedDefaults({ includeDemoMetrics: true }), 'Default status data seeded')} className="admin-premium-button px-3 py-2 text-sm font-black">
-                    Seed defaults
-                  </button>
+                  <button type="button" onClick={() => runAction('seed', () => adminStatusApi.seedDefaults({ includeDemoMetrics: true }), 'Default status data seeded')} className="admin-premium-button px-3 py-2 text-sm font-black"><FormattedMessage id="admin.jsx.text.seed.defaults" defaultMessage="Seed defaults" /></button>
                 ) : null}
               </div>
               <form onSubmit={submitComponent} className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <FormField label="Group">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.group" defaultMessage="Group" />}>
                   <ControlSelect value={componentForm.groupName} onChange={(event) => setComponentForm((prev) => ({ ...prev, groupName: event.target.value }))}>
                     {componentGroupNames.map((name) => <option key={name} value={name}>{name}</option>)}
                   </ControlSelect>
                 </FormField>
-                <FormField label="Component name">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.component.name" defaultMessage="Component name" />}>
                   <ControlInput required value={componentForm.name} onChange={(event) => setComponentForm((prev) => ({ ...prev, name: event.target.value }))} />
                 </FormField>
-                <FormField label="Check type">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.check.type" defaultMessage="Check type" />}>
                   <ControlSelect value={componentForm.checkType} onChange={(event) => setComponentForm((prev) => ({ ...prev, checkType: event.target.value }))}>
-                    <option value="manual">Manual</option>
-                    <option value="internal_health">Internal health</option>
-                    <option value="database">Database</option>
-                    <option value="redis">Redis</option>
+                    <option value="manual"><FormattedMessage id="admin.jsx.text.manual" defaultMessage="Manual" /></option>
+                    <option value="internal_health"><FormattedMessage id="admin.jsx.text.internal.health" defaultMessage="Internal health" /></option>
+                    <option value="database"><FormattedMessage id="admin.jsx.text.database" defaultMessage="Database" /></option>
+                    <option value="redis"><FormattedMessage id="admin.jsx.text.redis" defaultMessage="Redis" /></option>
                     <option value="http">HTTP</option>
                   </ControlSelect>
                 </FormField>
-                <FormField label="Manual override">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.manual.override" defaultMessage="Manual override" />}>
                   <ControlSelect value={componentForm.manualStatusOverride} onChange={(event) => setComponentForm((prev) => ({ ...prev, manualStatusOverride: event.target.value }))}>
                     {STATUS_OPTIONS.map((option) => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
                   </ControlSelect>
                 </FormField>
-                <FormField label="Check URL">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.check.url" defaultMessage="Check URL" />}>
                   <ControlInput value={componentForm.checkUrl} onChange={(event) => setComponentForm((prev) => ({ ...prev, checkUrl: event.target.value }))} placeholder="https://status-allowed.example.com/health" />
                 </FormField>
                 <div className="flex items-end gap-3">
                   <label className="admin-premium-button flex items-center gap-2 px-3 py-2 text-sm font-bold">
-                    <input type="checkbox" checked={componentForm.isPublic} onChange={(event) => setComponentForm((prev) => ({ ...prev, isPublic: event.target.checked }))} />
-                    Public
-                  </label>
+                    <input type="checkbox" checked={componentForm.isPublic} onChange={(event) => setComponentForm((prev) => ({ ...prev, isPublic: event.target.checked }))} /><FormattedMessage id="admin.jsx.text.public" defaultMessage="Public" /></label>
                   <label className="admin-premium-button flex items-center gap-2 px-3 py-2 text-sm font-bold">
-                    <input type="checkbox" checked={componentForm.isMonitored} onChange={(event) => setComponentForm((prev) => ({ ...prev, isMonitored: event.target.checked }))} />
-                    Monitored
-                  </label>
+                    <input type="checkbox" checked={componentForm.isMonitored} onChange={(event) => setComponentForm((prev) => ({ ...prev, isMonitored: event.target.checked }))} /><FormattedMessage id="admin.jsx.text.monitored" defaultMessage="Monitored" /></label>
                   <button type="submit" disabled={busy === 'component'} className="admin-premium-button admin-premium-button-success px-4 py-2 text-sm font-black disabled:opacity-60">
-                    {busy === 'component' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    Create
-                  </button>
+                    {busy === 'component' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}<FormattedMessage id="admin.jsx.text.create" defaultMessage="Create" /></button>
                 </div>
               </form>
 
@@ -345,8 +330,7 @@ export default function AdminStatusDashboard() {
                           <p className="font-black text-slate-950">{component.name}</p>
                           <span className="text-xs font-semibold text-slate-500">{component.checkType}</span>
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Last checked {formatDate(component.lastCheckedAt, { time: true })} - {component.lastResponseTimeMs || '-'} ms - failures {component.consecutiveFailures}
+                        <p className="mt-1 text-xs text-slate-500"><FormattedMessage id="admin.jsx.text.last.checked" defaultMessage="Last checked" />{' '}{formatDate(component.lastCheckedAt, { time: true })} - {component.lastResponseTimeMs || '-'}{' '}<FormattedMessage id="admin.jsx.text.ms.failures" defaultMessage="ms - failures" />{' '}{component.consecutiveFailures}
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -359,10 +343,10 @@ export default function AdminStatusDashboard() {
                           {STATUS_OPTIONS.map((option) => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
                         </ControlSelect>
                         <button type="button" onClick={() => runAction(`public-${component.id}`, () => adminStatusApi.updateComponent(component.id, { isPublic: !component.isPublic }), 'Public visibility updated')} className="admin-premium-button px-3 py-2 text-xs font-black">
-                          {component.isPublic ? 'Public' : 'Private'}
+                          {component.isPublic ? <FormattedMessage id="admin.jsx.expression.public" defaultMessage="Public" /> : <FormattedMessage id="admin.jsx.expression.private" defaultMessage="Private" />}
                         </button>
                         <button type="button" onClick={() => runAction(`monitor-${component.id}`, () => adminStatusApi.updateComponent(component.id, { isMonitored: !component.isMonitored }), 'Monitoring setting updated')} className="admin-premium-button px-3 py-2 text-xs font-black">
-                          {component.isMonitored ? 'Auto on' : 'Auto off'}
+                          {component.isMonitored ? <FormattedMessage id="admin.jsx.expression.auto.on" defaultMessage="Auto on" /> : <FormattedMessage id="admin.jsx.expression.auto.off" defaultMessage="Auto off" />}
                         </button>
                       </div>
                     </div>
@@ -372,7 +356,7 @@ export default function AdminStatusDashboard() {
             </AdminPremiumPanel>
 
             <AdminPremiumPanel>
-              <h2 className="text-xl font-black text-slate-950">Incident manager</h2>
+              <h2 className="text-xl font-black text-slate-950"><FormattedMessage id="support.jsx.text.incident.manager" defaultMessage="Incident manager" /></h2>
               <form onSubmit={submitIncident} className="mt-4 space-y-3">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <FormField label="Title">
@@ -383,7 +367,7 @@ export default function AdminStatusDashboard() {
                       {SEVERITY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </ControlSelect>
                   </FormField>
-                  <FormField label="Impact">
+                  <FormField label={<FormattedMessage id="admin.jsx.prop.label.impact" defaultMessage="Impact" />}>
                     <ControlSelect value={incidentForm.impact} onChange={(event) => setIncidentForm((prev) => ({ ...prev, impact: event.target.value }))}>
                       {IMPACT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </ControlSelect>
@@ -393,30 +377,30 @@ export default function AdminStatusDashboard() {
                       {INCIDENT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </ControlSelect>
                   </FormField>
-                  <FormField label="Commander">
+                  <FormField label={<FormattedMessage id="admin.jsx.prop.label.commander" defaultMessage="Commander" />}>
                     <ControlInput value={incidentForm.commander} onChange={(event) => setIncidentForm((prev) => ({ ...prev, commander: event.target.value }))} placeholder="Incident commander" />
                   </FormField>
                   <FormField label="Source">
                     <ControlSelect value={incidentForm.source} onChange={(event) => setIncidentForm((prev) => ({ ...prev, source: event.target.value }))}>
-                      <option value="manual">Manual</option>
-                      <option value="uptime_kuma">Uptime Kuma</option>
-                      <option value="gatus">Gatus</option>
-                      <option value="sentry">Sentry</option>
-                      <option value="github_actions">GitHub Actions</option>
-                      <option value="synthetic">Synthetic</option>
+                      <option value="manual"><FormattedMessage id="admin.jsx.text.manual" defaultMessage="Manual" /></option>
+                      <option value="uptime_kuma"><FormattedMessage id="admin.jsx.text.uptime.kuma" defaultMessage="Uptime Kuma" /></option>
+                      <option value="gatus"><FormattedMessage id="admin.jsx.text.gatus" defaultMessage="Gatus" /></option>
+                      <option value="sentry"><FormattedMessage id="admin.jsx.text.sentry" defaultMessage="Sentry" /></option>
+                      <option value="github_actions"><FormattedMessage id="admin.jsx.text.github.actions" defaultMessage="GitHub Actions" /></option>
+                      <option value="synthetic"><FormattedMessage id="admin.jsx.text.synthetic" defaultMessage="Synthetic" /></option>
                     </ControlSelect>
                   </FormField>
                 </div>
                 <FormField label="Description">
                   <ControlTextarea value={incidentForm.description} onChange={(event) => setIncidentForm((prev) => ({ ...prev, description: event.target.value }))} />
                 </FormField>
-                <FormField label="Customer impact">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.customer.impact" defaultMessage="Customer impact" />}>
                   <ControlTextarea value={incidentForm.customerImpact} onChange={(event) => setIncidentForm((prev) => ({ ...prev, customerImpact: event.target.value }))} />
                 </FormField>
-                <FormField label="Affected components">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.affected.components" defaultMessage="Affected components" />}>
                   <ComponentMultiSelect components={components} value={incidentForm.affectedComponentIds} onChange={(next) => setIncidentForm((prev) => ({ ...prev, affectedComponentIds: next }))} />
                 </FormField>
-                <FormField label="Timeline update">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.timeline.update" defaultMessage="Timeline update" />}>
                   <ControlTextarea value={incidentForm.updateMessage} onChange={(event) => setIncidentForm((prev) => ({ ...prev, updateMessage: event.target.value }))} />
                 </FormField>
                 <div className="flex flex-wrap gap-2">
@@ -431,62 +415,53 @@ export default function AdminStatusDashboard() {
                         updateMessage: renderTemplate(option.value),
                       }))}
                       className="admin-premium-button px-3 py-2 text-xs font-black"
-                    >
-                      Use {option.label}
+                    ><FormattedMessage id="admin.jsx.text.use" defaultMessage="Use" />{' '}{option.label}
                     </button>
                   ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="admin-premium-button flex items-center gap-2 px-3 py-2 text-sm font-bold">
-                    <input type="checkbox" checked={incidentForm.isPublic} onChange={(event) => setIncidentForm((prev) => ({ ...prev, isPublic: event.target.checked, updatePublic: event.target.checked }))} />
-                    Public incident
-                  </label>
+                    <input type="checkbox" checked={incidentForm.isPublic} onChange={(event) => setIncidentForm((prev) => ({ ...prev, isPublic: event.target.checked, updatePublic: event.target.checked }))} /><FormattedMessage id="support.jsx.text.public.incident" defaultMessage="Public incident" /></label>
                   <label className="admin-premium-button flex items-center gap-2 px-3 py-2 text-sm font-bold">
-                    <input type="checkbox" checked={incidentForm.confirmMajor} onChange={(event) => setIncidentForm((prev) => ({ ...prev, confirmMajor: event.target.checked }))} />
-                    Confirm major publication
-                  </label>
+                    <input type="checkbox" checked={incidentForm.confirmMajor} onChange={(event) => setIncidentForm((prev) => ({ ...prev, confirmMajor: event.target.checked }))} /><FormattedMessage id="admin.jsx.text.confirm.major.publication" defaultMessage="Confirm major publication" /></label>
                   <button type="submit" disabled={busy === 'incident'} className="admin-premium-button admin-premium-button-accent px-4 py-2 text-sm font-black disabled:opacity-60">
-                    {busy === 'incident' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                    Publish incident
-                  </button>
+                    {busy === 'incident' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}<FormattedMessage id="support.jsx.text.publish.incident" defaultMessage="Publish incident" /></button>
                 </div>
               </form>
             </AdminPremiumPanel>
 
             <AdminPremiumPanel>
-              <h2 className="text-xl font-black text-slate-950">Maintenance manager</h2>
+              <h2 className="text-xl font-black text-slate-950"><FormattedMessage id="admin.jsx.text.maintenance.manager" defaultMessage="Maintenance manager" /></h2>
               <form onSubmit={submitMaintenance} className="mt-4 space-y-3">
                 <FormField label="Title">
                   <ControlInput required value={maintenanceForm.title} onChange={(event) => setMaintenanceForm((prev) => ({ ...prev, title: event.target.value }))} />
                 </FormField>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <FormField label="Starts">
+                  <FormField label={<FormattedMessage id="admin.jsx.prop.label.starts" defaultMessage="Starts" />}>
                     <ControlInput type="datetime-local" required value={maintenanceForm.scheduledStartAt} onChange={(event) => setMaintenanceForm((prev) => ({ ...prev, scheduledStartAt: event.target.value }))} />
                   </FormField>
-                  <FormField label="Ends">
+                  <FormField label={<FormattedMessage id="admin.jsx.prop.label.ends" defaultMessage="Ends" />}>
                     <ControlInput type="datetime-local" required value={maintenanceForm.scheduledEndAt} onChange={(event) => setMaintenanceForm((prev) => ({ ...prev, scheduledEndAt: event.target.value }))} />
                   </FormField>
                 </div>
-                <FormField label="Affected components">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.affected.components" defaultMessage="Affected components" />}>
                   <ComponentMultiSelect components={components} value={maintenanceForm.affectedComponentIds} onChange={(next) => setMaintenanceForm((prev) => ({ ...prev, affectedComponentIds: next }))} />
                 </FormField>
-                <FormField label="Message">
+                <FormField label={<FormattedMessage id="admin.jsx.prop.label.message" defaultMessage="Message" />}>
                   <ControlTextarea value={maintenanceForm.updateMessage} onChange={(event) => setMaintenanceForm((prev) => ({ ...prev, updateMessage: event.target.value, description: event.target.value }))} />
                 </FormField>
                 <button type="submit" disabled={busy === 'maintenance'} className="admin-premium-button admin-premium-button-success px-4 py-2 text-sm font-black disabled:opacity-60">
-                  {busy === 'maintenance' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
-                  Schedule maintenance
-                </button>
+                  {busy === 'maintenance' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}<FormattedMessage id="admin.jsx.text.schedule.maintenance" defaultMessage="Schedule maintenance" /></button>
               </form>
             </AdminPremiumPanel>
           </div>
 
           <div className="space-y-5 xl:col-span-2">
             <AdminPremiumPanel>
-              <h2 className="text-xl font-black text-slate-950">Active timeline</h2>
+              <h2 className="text-xl font-black text-slate-950"><FormattedMessage id="admin.jsx.text.active.timeline" defaultMessage="Active timeline" /></h2>
               <div className="mt-4 space-y-3">
                 {activeIncidents.length === 0 ? (
-                  <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700">No active incident or maintenance item.</p>
+                  <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700"><FormattedMessage id="support.jsx.text.no.active.incident.or.maintenance.item" defaultMessage="No active incident or maintenance item." /></p>
                 ) : activeIncidents.map((incident) => (
                   <AdminPremiumSubpanel key={incident.id} className="p-3">
                     <div className="flex items-start justify-between gap-3">
@@ -495,15 +470,11 @@ export default function AdminStatusDashboard() {
                         <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-500">
                           {incident.severity || 'SEV3'} - {incident.impact} - {incident.status}
                         </p>
-                        {incident.commander ? <p className="mt-1 text-xs font-bold text-slate-500">Commander: {incident.commander}</p> : null}
+                        {incident.commander ? <p className="mt-1 text-xs font-bold text-slate-500"><FormattedMessage id="admin.jsx.text.commander" defaultMessage="Commander:" />{' '}{incident.commander}</p> : null}
                       </div>
                       <div className="flex flex-wrap justify-end gap-2">
-                        <button type="button" onClick={() => runAction(`postmortem-${incident.id}`, () => adminStatusApi.generatePostmortem(incident.id), 'Postmortem generated')} className="admin-premium-button px-3 py-2 text-xs font-black">
-                          Postmortem
-                        </button>
-                        <button type="button" onClick={() => runAction(`resolve-${incident.id}`, () => adminStatusApi.resolveIncident(incident.id, { message: renderTemplate('resolved', incident), actor: incident.commander }), 'Incident resolved')} className="admin-premium-button px-3 py-2 text-xs font-black">
-                          Resolve
-                        </button>
+                        <button type="button" onClick={() => runAction(`postmortem-${incident.id}`, () => adminStatusApi.generatePostmortem(incident.id), 'Postmortem generated')} className="admin-premium-button px-3 py-2 text-xs font-black"><FormattedMessage id="admin.jsx.text.postmortem" defaultMessage="Postmortem" /></button>
+                        <button type="button" onClick={() => runAction(`resolve-${incident.id}`, () => adminStatusApi.resolveIncident(incident.id, { message: renderTemplate('resolved', incident), actor: incident.commander }), 'Incident resolved')} className="admin-premium-button px-3 py-2 text-xs font-black"><FormattedMessage id="admin.jsx.text.resolve" defaultMessage="Resolve" /></button>
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
@@ -543,9 +514,7 @@ export default function AdminStatusDashboard() {
                           setUpdateDrafts((prev) => ({ ...prev, [incident.id]: '' }));
                         }, 'Public update posted')}
                         className="admin-premium-button admin-premium-button-accent px-3 py-2 text-xs font-black"
-                      >
-                        Public update
-                      </button>
+                      ><FormattedMessage id="admin.jsx.text.public.update" defaultMessage="Public update" /></button>
                       <button
                         type="button"
                         onClick={() => runAction(`note-${incident.id}`, async () => {
@@ -559,9 +528,7 @@ export default function AdminStatusDashboard() {
                           setUpdateDrafts((prev) => ({ ...prev, [incident.id]: '' }));
                         }, 'Internal note added')}
                         className="admin-premium-button px-3 py-2 text-xs font-black"
-                      >
-                        Internal note
-                      </button>
+                      ><FormattedMessage id="admin.jsx.text.internal.note" defaultMessage="Internal note" /></button>
                       <button
                         type="button"
                         onClick={() => runAction(`mitigation-${incident.id}`, () => adminStatusApi.addIncidentUpdate(incident.id, {
@@ -572,9 +539,7 @@ export default function AdminStatusDashboard() {
                           actor: incident.commander,
                         }), 'Mitigation marked')}
                         className="admin-premium-button px-3 py-2 text-xs font-black"
-                      >
-                        Mark mitigation
-                      </button>
+                      ><FormattedMessage id="admin.jsx.text.mark.mitigation" defaultMessage="Mark mitigation" /></button>
                     </div>
                     {incident.timeline?.length ? (
                       <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-white p-3">
@@ -591,7 +556,7 @@ export default function AdminStatusDashboard() {
             </AdminPremiumPanel>
 
             <AdminPremiumPanel>
-              <h2 className="text-xl font-black text-slate-950">Monitor logs</h2>
+              <h2 className="text-xl font-black text-slate-950"><FormattedMessage id="admin.jsx.text.monitor.logs" defaultMessage="Monitor logs" /></h2>
               <div className="mt-4 space-y-2">
                 {(dashboard.recentChecks || []).slice(0, 12).map((check) => (
                   <div key={check.id} className="rounded-xl border border-slate-200 bg-white p-3">
@@ -600,7 +565,7 @@ export default function AdminStatusDashboard() {
                       <StatusPill status={check.status} />
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
-                      {formatDate(check.checkedAt, { time: true })} - {check.responseTimeMs || '-'} ms - HTTP {check.httpStatusCode || '-'}
+                      {formatDate(check.checkedAt, { time: true })} - {check.responseTimeMs || '-'}{' '}<FormattedMessage id="admin.jsx.text.ms.http" defaultMessage="ms - HTTP" />{' '}{check.httpStatusCode || '-'}
                     </p>
                     {check.errorMessage ? <p className="mt-1 text-xs text-slate-600">{check.errorMessage}</p> : null}
                   </div>
@@ -609,7 +574,7 @@ export default function AdminStatusDashboard() {
             </AdminPremiumPanel>
 
             <AdminPremiumPanel>
-              <h2 className="text-xl font-black text-slate-950">Recent incidents</h2>
+              <h2 className="text-xl font-black text-slate-950"><FormattedMessage id="support.jsx.text.recent.incidents" defaultMessage="Recent incidents" /></h2>
               <div className="mt-4 space-y-2">
                 {incidents.slice(0, 8).map((incident) => (
                   <Link key={incident.id} to={`/status/incidents/${incident.slug}`} className="block rounded-xl border border-slate-200 bg-white p-3 hover:bg-slate-50">
@@ -621,17 +586,15 @@ export default function AdminStatusDashboard() {
             </AdminPremiumPanel>
 
             <AdminPremiumPanel>
-              <h2 className="text-xl font-black text-slate-950">Subscriber snapshot</h2>
+              <h2 className="text-xl font-black text-slate-950"><FormattedMessage id="admin.jsx.text.subscriber.snapshot" defaultMessage="Subscriber snapshot" /></h2>
               <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
                 <Clock3 className="h-5 w-5 text-slate-500" />
-                <p className="text-sm font-semibold text-slate-600">
-                  Subscriber count is included in overview. Detailed subscriber list is available from the admin API.
-                </p>
+                <p className="text-sm font-semibold text-slate-600"><FormattedMessage id="admin.jsx.text.subscriber.count.is.included.in.overview.detailed" defaultMessage="Subscriber count is included in overview. Detailed subscriber list is available from the admin API." /></p>
               </div>
             </AdminPremiumPanel>
 
             <AdminPremiumPanel>
-              <h2 className="text-xl font-black text-slate-950">Severity policy</h2>
+              <h2 className="text-xl font-black text-slate-950"><FormattedMessage id="admin.jsx.text.severity.policy" defaultMessage="Severity policy" /></h2>
               <div className="mt-4 space-y-2">
                 {Object.entries(dashboard.severityPolicy || {}).map(([severity, policy]) => (
                   <div key={severity} className="rounded-xl border border-slate-200 bg-white p-3">

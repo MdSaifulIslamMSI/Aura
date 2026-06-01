@@ -5,6 +5,7 @@ import { useMarket } from '@/context/MarketContext';
 import { aiApi } from '@/services/aiApi';
 import { buildLocalVoiceCommand } from '@/utils/assistantIntent';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { FormattedMessage } from 'react-intl';
 
 const COMMAND_HINTS = [
   'Search for iPhone 15',
@@ -399,9 +400,7 @@ const VoiceSearch = ({
                     type="button"
                     onClick={onOpenChat}
                     className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-100 hover:border-white/25 hover:bg-white/10"
-                  >
-                    Return to chat
-                  </button>
+                  ><FormattedMessage id="order.jsx.text.return.to.chat" defaultMessage="Return to chat" /></button>
                 ) : null}
               </div>
 
