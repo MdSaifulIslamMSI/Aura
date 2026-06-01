@@ -31,6 +31,7 @@ import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
 import { userApi } from '@/services/api/userApi';
 import NotificationDropdown from './NotificationDropdown';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const NavbarSearchFallback = ({
   mobile = false,
@@ -366,8 +367,9 @@ const Navbar = () => {
     detectedRegionLabel,
     browseCurrencyNote,
     formatNumber,
-    t,
+    t: legacyT,
   } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const currentLanguage = languageOptions.find((option) => option.value === language) || languageOptions[0];
   const [rewardSnapshot, setRewardSnapshot] = useState(null);
   const runtimeSwitchTargets = useMemo(

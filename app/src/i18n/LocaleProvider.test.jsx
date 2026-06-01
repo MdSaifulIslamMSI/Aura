@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useIntl } from 'react-intl';
 import { LocaleProvider, useLocale } from './LocaleProvider';
@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 describe('LocaleProvider', () => {
-    it('formats reviewed ICU plurals when the FormatJS migration layer is enabled', () => {
+    it('formats reviewed ICU plurals when the FormatJS migration layer is enabled', async () => {
         vi.stubEnv('VITE_I18N_FORMATJS_ENABLED', 'true');
 
         render(
@@ -51,7 +51,9 @@ describe('LocaleProvider', () => {
         );
 
         expect(screen.getByTestId('active-language')).toHaveTextContent('hi');
-        expect(screen.getByTestId('item-count')).toHaveTextContent('2 आइटम');
+        await waitFor(() => {
+            expect(screen.getByTestId('item-count')).toHaveTextContent('2 आइटम');
+        });
     });
 
     it('falls back to English while the FormatJS migration layer is disabled', () => {

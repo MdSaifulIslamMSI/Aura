@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { useMarket } from '@/context/MarketContext';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const PAYMENT_OPTIONS = [
     { id: 'COD', titleKey: 'checkout.payment.codTitle', titleFallback: 'Cash on Delivery', descriptionKey: 'checkout.payment.codDescription', descriptionFallback: 'Pay when your order arrives', icon: Wallet },
@@ -29,6 +30,36 @@ const PAYMENT_OPTIONS = [
     { id: 'WALLET', titleKey: 'checkout.payment.walletTitle', titleFallback: 'Wallet', descriptionKey: 'checkout.payment.walletDescription', descriptionFallback: 'Wallet balance or linked wallet', icon: Wallet },
     { id: 'NETBANKING', titleKey: 'checkout.payment.netbankingTitle', titleFallback: 'NetBanking', descriptionKey: 'checkout.payment.netbankingDescription', descriptionFallback: 'Authorize directly from your bank portal', icon: Building2 },
 ];
+
+const getPaymentOptionTitle = (paymentMethod, t) => {
+    switch (paymentMethod) {
+        case 'UPI':
+            return t('checkout.payment.upiTitle', {}, 'UPI');
+        case 'CARD':
+            return t('checkout.payment.cardTitle', {}, 'Card');
+        case 'WALLET':
+            return t('checkout.payment.walletTitle', {}, 'Wallet');
+        case 'NETBANKING':
+            return t('checkout.payment.netbankingTitle', {}, 'NetBanking');
+        default:
+            return t('checkout.payment.codTitle', {}, 'Cash on Delivery');
+    }
+};
+
+const getPaymentOptionDescription = (paymentMethod, t) => {
+    switch (paymentMethod) {
+        case 'UPI':
+            return t('checkout.payment.upiDescription', {}, 'Fast payment via UPI apps');
+        case 'CARD':
+            return t('checkout.payment.cardDescription', {}, 'Debit / credit card checkout');
+        case 'WALLET':
+            return t('checkout.payment.walletDescription', {}, 'Wallet balance or linked wallet');
+        case 'NETBANKING':
+            return t('checkout.payment.netbankingDescription', {}, 'Authorize directly from your bank portal');
+        default:
+            return t('checkout.payment.codDescription', {}, 'Pay when your order arrives');
+    }
+};
 
 const PAYMENT_BADGES = {
     COD: ['Cash', 'Verified', 'Doorstep'],
@@ -139,6 +170,36 @@ const RAIL_SUMMARY = {
             }, `${capability.bankCount || 0} banks live${banks.length ? ` | featured: ${banks.join(', ')}` : ''}`);
         },
     },
+};
+
+const getRailSummaryTitle = (paymentMethod, t) => {
+    switch (paymentMethod) {
+        case 'UPI':
+            return t('checkout.payment.rail.upiTitle', {}, 'UPI Live Rail');
+        case 'CARD':
+            return t('checkout.payment.rail.cardTitle', {}, 'Card Rail Matrix');
+        case 'WALLET':
+            return t('checkout.payment.rail.walletTitle', {}, 'Wallet Rail Matrix');
+        case 'NETBANKING':
+            return t('checkout.payment.rail.netbankingTitle', {}, 'NetBanking Rail Matrix');
+        default:
+            return '';
+    }
+};
+
+const getRailSummaryEmpty = (paymentMethod, t) => {
+    switch (paymentMethod) {
+        case 'UPI':
+            return t('checkout.payment.rail.upiEmpty', {}, 'UPI capability data is loading from the provider.');
+        case 'CARD':
+            return t('checkout.payment.rail.cardEmpty', {}, 'Card network capability data is loading from the provider.');
+        case 'WALLET':
+            return t('checkout.payment.rail.walletEmpty', {}, 'Wallet capability data is loading from the provider.');
+        case 'NETBANKING':
+            return t('checkout.payment.rail.netbankingEmpty', {}, 'NetBanking capability data is loading from the provider.');
+        default:
+            return '';
+    }
 };
 
 const getMarketRailSummary = (paymentMethod, marketCatalog = null, t) => {
@@ -314,7 +375,8 @@ const StepPayment = ({
     currencyOptions = [],
     paymentGatewayDisabled = false,
 }) => {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const [bankSearch, setBankSearch] = useState('');
     const isDigital = paymentMethod !== 'COD';
@@ -390,7 +452,7 @@ const StepPayment = ({
         ? formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || 'INR')
         : t('checkout.payment.serverQuote', {}, 'Server quote');
     const paymentBadges = PAYMENT_BADGES[paymentMethod] || [];
-    const selectedPaymentTitle = t(selectedPaymentOption.titleKey, {}, selectedPaymentOption.titleFallback);
+    const selectedPaymentTitle = getPaymentOptionTitle(selectedPaymentOption.id, t);
     const lifecycleItems = [
         {
             label: t('checkout.payment.lifecycle.quote', {}, 'Amount Locked'),
@@ -436,11 +498,11 @@ const StepPayment = ({
         <>
             {selectedRailSummary ? (
                 <div className="checkout-premium-alert checkout-payment-provider-alert">
-                    <p className="checkout-payment-provider-alert-title">{t(selectedRailSummary.titleKey, {}, selectedRailSummary.titleFallback)}</p>
+                    <p className="checkout-payment-provider-alert-title">{getRailSummaryTitle(paymentMethod, t)}</p>
                     <p className="mt-2 text-sm leading-6">
                         {selectedRailCapability
                             ? selectedRailSummary.format(selectedRailCapability, t)
-                            : t(selectedRailSummary.emptyKey, {}, selectedRailSummary.emptyFallback)}
+                            : getRailSummaryEmpty(paymentMethod, t)}
                     </p>
                     {paymentCapabilities?.stale ? (
                         <p className="checkout-payment-provider-alert-note">{t('checkout.payment.capabilityStale', {}, 'Provider capability data is stale, so the checkout is using the last trusted catalog snapshot.')}</p>
@@ -573,8 +635,8 @@ const StepPayment = ({
                                                         <Icon className="h-5 w-5" />
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <span className="block text-sm font-black uppercase tracking-[0.18em] text-white">{t(option.titleKey, {}, option.titleFallback)}</span>
-                                                        <p className="mt-1 text-xs leading-5 text-slate-400">{t(option.descriptionKey, {}, option.descriptionFallback)}</p>
+                                                        <span className="block text-sm font-black uppercase tracking-[0.18em] text-white">{getPaymentOptionTitle(option.id, t)}</span>
+                                                        <p className="mt-1 text-xs leading-5 text-slate-400">{getPaymentOptionDescription(option.id, t)}</p>
                                                     </div>
                                                 </div>
                                                 {selected ? <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-neo-cyan" /> : null}

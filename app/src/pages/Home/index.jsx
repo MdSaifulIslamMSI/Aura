@@ -37,6 +37,7 @@ import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { getBaseAmount, getBaseCurrency } from '@/utils/pricing';
 import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const HOME_SECTION_REQUEST = {
   limit: 8,
@@ -69,15 +70,27 @@ const toRgba = (hex, alpha) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const HOME_CATEGORY_TRANSLATION_KEYS = {
-  mobiles: 'category.mobiles',
-  laptops: 'category.laptops',
-  electronics: 'category.electronics',
-  "men's-fashion": 'category.mensFashion',
-  "women's-fashion": 'category.womensFashion',
-  'home-kitchen': 'category.homeKitchen',
-  gaming: 'category.gaming',
-  books: 'category.books',
+const formatHomeCategory = (category, t) => {
+  switch (category) {
+    case 'mobiles':
+      return t('category.mobiles', {}, 'Mobiles');
+    case 'laptops':
+      return t('category.laptops', {}, 'Laptops');
+    case 'electronics':
+      return t('category.electronics', {}, 'Electronics');
+    case "men's-fashion":
+      return t('category.mensFashion', {}, "Men's Fashion");
+    case "women's-fashion":
+      return t('category.womensFashion', {}, "Women's Fashion");
+    case 'home-kitchen':
+      return t('category.homeKitchen', {}, 'Home & Kitchen');
+    case 'gaming':
+      return t('category.gaming', {}, 'Gaming');
+    case 'books':
+      return t('category.books', {}, 'Books');
+    default:
+      return String(category || '').replace(/-/g, ' ');
+  }
 };
 
 const Home = () => {
@@ -95,7 +108,8 @@ const Home = () => {
   const { cartItems = [], isLoading: cartLoading = false } = useContext(CartContext) || {};
   const { wishlistItems = [], isLoading: wishlistLoading = false } = useContext(WishlistContext) || {};
   const { colorMode } = useColorMode();
-  const { t, formatPrice } = useMarket();
+  const { t: legacyT, formatPrice } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const isWhiteMode = colorMode === 'white';
   const modePalette = FIGMA_COLOR_MODE_OPTIONS.find((mode) => mode.value === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0];
   const accentPrimary = modePalette.primary;
@@ -224,11 +238,7 @@ const Home = () => {
   const localizedPrimaryCategory = useMemo(() => {
     const primaryCategory = recommendationSignals.primaryCategory;
     if (!primaryCategory) return '';
-    return t(
-      HOME_CATEGORY_TRANSLATION_KEYS[primaryCategory] || '',
-      {},
-      String(primaryCategory).replace(/-/g, ' ')
-    );
+    return formatHomeCategory(primaryCategory, t);
   }, [recommendationSignals.primaryCategory, t]);
 
   const localizedRecommendationCopy = useMemo(() => {

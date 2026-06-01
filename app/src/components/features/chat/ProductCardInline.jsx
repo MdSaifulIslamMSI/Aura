@@ -6,6 +6,7 @@ import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
 import { cn } from '@/lib/utils';
 import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const ProductCardInline = ({
     product,
@@ -15,7 +16,8 @@ const ProductCardInline = ({
     onAddToCart,
     onViewDetails,
 }) => {
-    const { t, formatPrice } = useMarket();
+    const { t: legacyT, formatPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const cardClassName = isWhiteMode
         ? 'assistant-inline-product border-slate-200 bg-white text-slate-950'

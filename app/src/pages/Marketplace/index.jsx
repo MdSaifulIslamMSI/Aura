@@ -41,6 +41,7 @@ import { listingApi } from '@/services/api';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import { detectLocationFromGps } from '@/utils/geolocation';
 import { buildListingSafetyLens, buildMarketplaceSafetySummary } from '@/utils/commerceIntelligence';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const CATEGORIES = [
     { value: '', label: 'All', subtitle: 'Every live lane', icon: Grid3X3, color: '#60a5fa' },
@@ -95,66 +96,115 @@ const HEAT_STYLE = {
     },
 };
 
-const PROXIMITY_LABELS = {
-    local: 'Local GPS zone',
-    regional: 'Regional signal',
-    national: 'National signal',
-};
-
 const TRUST_NOTES = [
     'Prioritize escrow-ready listings when payment will happen remotely.',
     'Use daylight meetup windows and public pickup points for direct handoffs.',
     'Listings with multiple real photos and verified sellers deserve the shortest trust path.',
 ];
 
-const CATEGORY_LABEL_KEYS = {
-    '': 'marketplace.category.all',
-    mobiles: 'marketplace.category.mobiles',
-    laptops: 'marketplace.category.laptops',
-    electronics: 'marketplace.category.electronics',
-    vehicles: 'marketplace.category.vehicles',
-    furniture: 'marketplace.category.furniture',
-    fashion: 'marketplace.category.fashion',
-    books: 'marketplace.category.books',
-    sports: 'marketplace.category.sports',
-    'home-appliances': 'marketplace.category.homeAppliances',
-    gaming: 'marketplace.category.gaming',
-    other: 'marketplace.category.other',
+const formatCategoryLabel = (value, fallback, t) => {
+    switch (value) {
+        case '':
+            return t('marketplace.category.all', {}, 'All');
+        case 'mobiles':
+            return t('marketplace.category.mobiles', {}, 'Mobiles');
+        case 'laptops':
+            return t('marketplace.category.laptops', {}, 'Laptops');
+        case 'electronics':
+            return t('marketplace.category.electronics', {}, 'Electronics');
+        case 'vehicles':
+            return t('marketplace.category.vehicles', {}, 'Vehicles');
+        case 'furniture':
+            return t('marketplace.category.furniture', {}, 'Furniture');
+        case 'fashion':
+            return t('marketplace.category.fashion', {}, 'Fashion');
+        case 'books':
+            return t('marketplace.category.books', {}, 'Books');
+        case 'sports':
+            return t('marketplace.category.sports', {}, 'Sports');
+        case 'home-appliances':
+            return t('marketplace.category.homeAppliances', {}, 'Home');
+        case 'gaming':
+            return t('marketplace.category.gaming', {}, 'Gaming');
+        case 'other':
+            return t('marketplace.category.other', {}, 'Other');
+        default:
+            return fallback;
+    }
 };
 
-const SORT_LABEL_KEYS = {
-    newest: 'marketplace.sort.newest',
-    'price-low': 'marketplace.sort.priceLow',
-    'price-high': 'marketplace.sort.priceHigh',
-    'most-viewed': 'marketplace.sort.mostViewed',
+const formatSortLabel = (value, fallback, t) => {
+    switch (value) {
+        case 'newest':
+            return t('marketplace.sort.newest', {}, 'Newest First');
+        case 'price-low':
+            return t('marketplace.sort.priceLow', {}, 'Price: Low to High');
+        case 'price-high':
+            return t('marketplace.sort.priceHigh', {}, 'Price: High to Low');
+        case 'most-viewed':
+            return t('marketplace.sort.mostViewed', {}, 'Most Viewed');
+        default:
+            return fallback;
+    }
 };
 
-const CONDITION_LABEL_KEYS = {
-    '': 'marketplace.condition.any',
-    new: 'marketplace.condition.new',
-    'like-new': 'marketplace.condition.likeNew',
-    good: 'marketplace.condition.good',
-    fair: 'marketplace.condition.fair',
+const formatConditionLabel = (value, fallback, t) => {
+    switch (value) {
+        case '':
+            return t('marketplace.condition.any', {}, 'Any condition');
+        case 'new':
+            return t('marketplace.condition.new', {}, 'Brand New');
+        case 'like-new':
+            return t('marketplace.condition.likeNew', {}, 'Like New');
+        case 'good':
+            return t('marketplace.condition.good', {}, 'Good');
+        case 'fair':
+            return t('marketplace.condition.fair', {}, 'Fair');
+        default:
+            return fallback;
+    }
 };
 
-const HEAT_LABEL_KEYS = {
-    blazing: 'marketplace.heat.blazing',
-    rising: 'marketplace.heat.rising',
-    balanced: 'marketplace.heat.balanced',
-    cooling: 'marketplace.heat.cooling',
+const formatTrustNote = (index, note, t) => {
+    switch (index) {
+        case 0:
+            return t('marketplace.trust.noteEscrow', {}, 'Prioritize escrow-ready listings when payment will happen remotely.');
+        case 1:
+            return t('marketplace.trust.noteMeetup', {}, 'Use daylight meetup windows and public pickup points for direct handoffs.');
+        case 2:
+            return t('marketplace.trust.noteVerified', {}, 'Listings with multiple real photos and verified sellers deserve the shortest trust path.');
+        default:
+            return note;
+    }
 };
 
-const PROXIMITY_LABEL_KEYS = {
-    local: 'marketplace.proximity.local',
-    regional: 'marketplace.proximity.regional',
-    national: 'marketplace.proximity.national',
+const formatProximityLabel = (value, t) => {
+    switch (value) {
+        case 'local':
+            return t('marketplace.proximity.local', {}, 'Local GPS zone');
+        case 'regional':
+            return t('marketplace.proximity.regional', {}, 'Regional signal');
+        case 'national':
+            return t('marketplace.proximity.national', {}, 'National signal');
+        default:
+            return t('marketplace.proximity.signal', {}, 'Signal');
+    }
 };
 
-const TRUST_NOTE_KEYS = [
-    'marketplace.trust.noteEscrow',
-    'marketplace.trust.noteMeetup',
-    'marketplace.trust.noteVerified',
-];
+const formatHeatLabel = (value, t) => {
+    switch (value) {
+        case 'blazing':
+            return t('marketplace.heat.blazing', {}, 'blazing');
+        case 'rising':
+            return t('marketplace.heat.rising', {}, 'rising');
+        case 'balanced':
+            return t('marketplace.heat.balanced', {}, 'balanced');
+        case 'cooling':
+            return t('marketplace.heat.cooling', {}, 'cooling');
+        default:
+            return String(value || '');
+    }
+};
 
 function timeAgo(dateStr, t) {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -443,7 +493,8 @@ const ListingCard = ({
 
 export default function Marketplace() {
     const { colorMode } = useColorMode();
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
@@ -590,21 +641,21 @@ export default function Marketplace() {
 
     const translatedCategories = useMemo(() => CATEGORIES.map((category) => ({
         ...category,
-        label: t(CATEGORY_LABEL_KEYS[category.value] || '', {}, category.label),
+        label: formatCategoryLabel(category.value, category.label, t),
     })), [t]);
 
     const translatedSorts = useMemo(() => SORTS.map((sort) => ({
         ...sort,
-        label: t(SORT_LABEL_KEYS[sort.value] || '', {}, sort.label),
+        label: formatSortLabel(sort.value, sort.label, t),
     })), [t]);
 
     const translatedConditions = useMemo(() => CONDITIONS.map((condition) => ({
         ...condition,
-        label: t(CONDITION_LABEL_KEYS[condition.value] || '', {}, condition.label),
+        label: formatConditionLabel(condition.value, condition.label, t),
     })), [t]);
 
     const trustNotes = useMemo(() => TRUST_NOTES.map((note, index) => (
-        t(TRUST_NOTE_KEYS[index] || '', {}, note)
+        formatTrustNote(index, note, t)
     )), [t]);
 
     const getCategoryLabel = useCallback((categoryValue) => (
@@ -617,13 +668,10 @@ export default function Marketplace() {
         || String(conditionValue || t('marketplace.condition.fair', {}, 'Fair'))
     ), [t, translatedConditions]);
 
-    const getProximityLabel = useCallback((value) => {
-        const fallback = PROXIMITY_LABELS[value] || 'Signal';
-        return t(PROXIMITY_LABEL_KEYS[value] || 'marketplace.proximity.signal', {}, fallback);
-    }, [t]);
+    const getProximityLabel = useCallback((value) => formatProximityLabel(value, t), [t]);
 
     const getHeatLabel = useCallback((value) => (
-        t(HEAT_LABEL_KEYS[value] || '', {}, value)
+        formatHeatLabel(value, t)
     ), [t]);
 
     const prefetchListingDetails = (listingId) => {

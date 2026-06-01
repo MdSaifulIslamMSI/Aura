@@ -3,6 +3,7 @@ import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { waitForAppShell } from './support/commerceState.js';
+import { mockLocaleShellApis, seedMarketLocale } from './support/localeQaHarness.js';
 
 const enabled = process.env.LOCALE_ACCESSIBILITY_QA === '1';
 const MARKET_STORAGE_KEY = 'aura_market_preferences_v1';
@@ -18,11 +19,7 @@ const LOCALES = [
 ];
 
 async function seedLocale(page, locale) {
-    await page.addInitScript(({ storageKey, preference, direction }) => {
-        window.localStorage.setItem(storageKey, JSON.stringify(preference));
-        document.documentElement.lang = preference.locale;
-        document.documentElement.dir = direction;
-    }, {
+    await seedMarketLocale(page, {
         storageKey: MARKET_STORAGE_KEY,
         preference: {
             countryCode: locale.countryCode,
@@ -31,6 +28,7 @@ async function seedLocale(page, locale) {
             locale: locale.locale,
         },
         direction: locale.direction,
+        markerKey: '__locale_accessibility_seed__',
     });
 }
 
@@ -40,6 +38,7 @@ test.describe('Locale Accessibility QA', () => {
     for (const locale of LOCALES) {
         test(`${locale.code} login shell has no serious accessibility violations`, async ({ page }, testInfo) => {
             await seedLocale(page, locale);
+            await mockLocaleShellApis(page);
             await waitForAppShell(page, '/login');
 
             const results = await new AxeBuilder({ page }).analyze();

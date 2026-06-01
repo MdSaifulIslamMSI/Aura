@@ -6,6 +6,7 @@ import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { paymentApi } from '@/services/api/paymentApi';
 import { formatPrice } from '@/utils/format';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const STATUS_COLORS = {
     created: 'bg-slate-100 text-slate-700',
@@ -45,7 +46,8 @@ const getRefundInputLabel = (t, detail, amountMode) => {
 };
 
 export default function AdminPayments() {
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [listLoading, setListLoading] = useState(true);
     const [detailLoading, setDetailLoading] = useState(false);
     const [items, setItems] = useState([]);

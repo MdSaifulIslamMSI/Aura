@@ -66,6 +66,12 @@ jobs:
         run: npm --prefix app ci
       - name: Install backend dependencies
         run: npm --prefix server ci
+      - name: Verify committed stable ICU catalog generation
+        run: |
+          npm run i18n:stable-catalogs
+          git diff --exit-code -- app/src/i18n/messages app/src/i18n/quality/humanReviewQueue.json docs/localization-human-review-queue.md
+      - name: Generate complete migration inventory
+        run: npm run i18n:inventory
       - name: Verify ICU catalogs and glossary rules
         run: npm --prefix app run i18n:check
       - name: Verify legacy locale coverage

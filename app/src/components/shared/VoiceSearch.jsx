@@ -4,6 +4,7 @@ import { Bot, Loader2, Mic, MicOff, Send, Volume2, VolumeX, X } from 'lucide-rea
 import { useMarket } from '@/context/MarketContext';
 import { aiApi } from '@/services/aiApi';
 import { buildLocalVoiceCommand } from '@/utils/assistantIntent';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const COMMAND_HINTS = [
   'Search for iPhone 15',
@@ -73,7 +74,8 @@ const VoiceSearch = ({
   const audioRef = useRef(null);
   const audioUrlRef = useRef('');
   const navigate = useNavigate();
-  const { t, voiceLocale } = useMarket();
+  const { t: legacyT, voiceLocale } = useMarket();
+  const t = useStableIcuMessages(legacyT);
 
   const browserSupportsSpeechRecognition =
     typeof window !== 'undefined' &&

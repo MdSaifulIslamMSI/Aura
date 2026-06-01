@@ -30,6 +30,7 @@ import {
     buildSupportSummaryFromTickets,
     buildSupportTimeline,
 } from '@/utils/supportArchitecture';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const TICKET_LIST_POLL_MS = 25000;
 const ACTIVE_TICKET_POLL_MS = 15000;
@@ -179,11 +180,23 @@ const getPriorityBadge = (priority) => {
     }
 };
 
-const formatSupportPriority = (priority, t) => t(
-    `profile.support.priority.${String(priority || 'normal').toLowerCase()}`,
-    {},
-    String(priority || 'normal'),
-);
+const formatSupportPriority = (priority, t) => {
+    const normalized = String(priority || 'normal').toLowerCase();
+    switch (normalized) {
+        case 'urgent':
+            return t('profile.support.priority.urgent', {}, 'Urgent');
+        case 'high':
+            return t('profile.support.priority.high', {}, 'High');
+        case 'medium':
+            return t('profile.support.priority.medium', {}, 'Medium');
+        case 'low':
+            return t('profile.support.priority.low', {}, 'Low');
+        case 'normal':
+            return t('profile.support.priority.normal', {}, 'Normal');
+        default:
+            return String(priority || 'normal');
+    }
+};
 
 const isPrefillMeaningful = (prefill = {}) => Boolean(
     prefill?.category
@@ -273,7 +286,8 @@ export default function SupportSection({
     prefill = {},
 }) {
     useSocketDemand('profile-support', true);
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const { socket, isConnected, connectionState } = useSocket();
     const { callStatus, activeCallContext, joinSupportCall } = useVideoCall();
     const categoryOptions = useMemo(() => buildCategoryOptions(t), [t]);

@@ -1,42 +1,48 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { IntlProvider } from 'react-intl';
 import { useMarket } from '@/context/MarketContext';
-import arMessages from './messages/compiled/ar.json';
-import bnMessages from './messages/compiled/bn.json';
-import enMessages from './messages/compiled/en.json';
-import enXaMessages from './messages/compiled/en-XA.json';
-import hiMessages from './messages/compiled/hi.json';
-import urMessages from './messages/compiled/ur.json';
+import {
+    catalogs,
+    isFormatJsEnabled,
+    loadCatalog,
+    resolveFormatJsLanguage,
+} from './catalogs';
 
 const LocaleContext = createContext(null);
-const catalogs = {
-    ar: arMessages,
-    bn: bnMessages,
-    en: enMessages,
-    'en-XA': enXaMessages,
-    hi: hiMessages,
-    ur: urMessages,
-};
-
-const parseBooleanEnv = (value, fallback = false) => {
-    if (value === undefined || value === null || value === '') return fallback;
-    return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
-};
-
-export const isFormatJsEnabled = () => parseBooleanEnv(
-    import.meta.env.VITE_I18N_FORMATJS_ENABLED,
-    false
-);
-
-export const resolveFormatJsLanguage = (language = 'en') => (
-    isFormatJsEnabled() && catalogs[language] ? language : 'en'
-);
+export { isFormatJsEnabled, resolveFormatJsLanguage };
 
 export function LocaleProvider({ children }) {
     const market = useMarket();
     const language = resolveFormatJsLanguage(market.languageCode);
     const locale = language === 'en-XA' ? 'en-US' : market.locale;
-    const messages = catalogs[language] || catalogs.en;
+    const [loadedCatalog, setLoadedCatalog] = useState(() => ({
+        language,
+        messages: catalogs[language] || catalogs.en,
+    }));
+    const messages = loadedCatalog.language === language
+        ? loadedCatalog.messages
+        : catalogs[language] || catalogs.en;
+
+    useEffect(() => {
+        let active = true;
+        void loadCatalog(language).then((nextMessages) => {
+            if (active) {
+                setLoadedCatalog((current) => (
+                    current.language === language && current.messages === nextMessages
+                        ? current
+                        : { language, messages: nextMessages }
+                ));
+            }
+        }).catch((error) => {
+            if (import.meta.env.DEV) {
+                console.warn('i18n.catalog_load_failed', error);
+            }
+        });
+        return () => {
+            active = false;
+        };
+    }, [language]);
+
     const value = useMemo(() => ({
         direction: market.direction,
         language,
@@ -68,4 +74,8 @@ export function useLocale() {
         throw new Error('useLocale must be used inside LocaleProvider');
     }
     return context;
+}
+
+export function useOptionalLocale() {
+    return useContext(LocaleContext);
 }

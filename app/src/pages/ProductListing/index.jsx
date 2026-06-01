@@ -30,6 +30,7 @@ import { solveAuraGrid, solveChromaticHarmony } from '@/utils/frontendOptimizers
 import { usePrefetchOracle } from '@/hooks/usePrefetchOracle';
 import { useMarket } from '@/context/MarketContext';
 import { formatPrice } from '@/utils/format';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
 const DEFAULT_MIN_PRICE = 0;
@@ -42,25 +43,21 @@ const CATEGORY_ROUTE_FALLBACKS = {
   'home-kitchen': [],
   books: [],
 };
-const SORT_LABEL_KEY_MAP = {
-  relevance: 'listing.sort.relevance',
-  'price-asc': 'listing.sort.priceAsc',
-  'price-desc': 'listing.sort.priceDesc',
-  newest: 'listing.sort.newest',
-  rating: 'listing.sort.rating',
-  discount: 'listing.sort.discount',
-};
-
 const getSortLabel = (value, t) => {
-  const fallbackMap = {
-    relevance: 'Relevance',
-    'price-asc': 'Price: Low to High',
-    'price-desc': 'Price: High to Low',
-    newest: 'Newest First',
-    rating: 'Top Rated',
-    discount: 'Best Discount',
-  };
-  return t(SORT_LABEL_KEY_MAP[value], {}, fallbackMap[value] || value);
+  switch (value) {
+    case 'price-asc':
+      return t('listing.sort.priceAsc', {}, 'Price: Low to High');
+    case 'price-desc':
+      return t('listing.sort.priceDesc', {}, 'Price: High to Low');
+    case 'newest':
+      return t('listing.sort.newest', {}, 'Newest First');
+    case 'rating':
+      return t('listing.sort.rating', {}, 'Top Rated');
+        case 'discount':
+            return t('listing.sort.discount', {}, 'Best Discount');
+        default:
+            return value ? String(value) : t('listing.sort.relevance', {}, 'Relevance');
+  }
 };
 
 const createDefaultFilters = (priceRange = [DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE]) => ({
@@ -158,7 +155,8 @@ const isDefaultLaneOnlyView = ({ effectiveCategorySlug, searchQuery, filters }) 
 );
 
 const ProductListing = () => {
-  const { currency, t } = useMarket();
+  const { currency, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const { category } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();

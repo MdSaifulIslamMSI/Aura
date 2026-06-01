@@ -9,6 +9,7 @@ import {
 } from '@/services/clientObservability';
 import { summarizeBackendFailureDetail } from '@/utils/backendFailurePresentation';
 import { cn } from '@/lib/utils';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const HEALTH_POLL_INTERVAL_MS = 30000;
 const HEALTH_TIMEOUT_MS = 4000;
@@ -68,6 +69,51 @@ const createDegradedStatus = ({ reference = '', checkedAt = '', detail = '' } = 
   checkedAt: checkedAt || new Date().toISOString(),
 });
 
+const getStatusBannerTitle = (level, t) => {
+  switch (level) {
+    case 'degraded':
+      return t('status.banner.degradedTitle', {}, 'Some secure actions may be slower right now');
+    case 'warming':
+      return t('status.banner.warmingTitle', {}, 'Secure services are reconnecting');
+    default:
+      return t('status.banner.unavailableTitle', {}, "We're reconnecting secure services");
+  }
+};
+
+const getStatusBannerMessage = (level, t) => {
+  switch (level) {
+    case 'degraded':
+      return t(
+        'status.banner.degradedMessage',
+        {},
+        'Browsing should continue normally, but checkout, account, or support actions may take longer than usual for a moment.'
+      );
+    case 'warming':
+      return t(
+        'status.banner.warmingMessage',
+        {},
+        'A few account and checkout actions may take an extra moment while everything reconnects.'
+      );
+    default:
+      return t(
+        'status.banner.unavailableMessage',
+        {},
+        'Account, checkout, or support actions are temporarily unavailable. Please try again in a moment.'
+      );
+  }
+};
+
+const getStatusBannerImpact = (level, t) => {
+  switch (level) {
+    case 'degraded':
+      return t('status.banner.degradedImpact', {}, 'Browsing should still work while secure actions catch up.');
+    case 'warming':
+      return t('status.banner.warmingImpact', {}, 'Please wait a few seconds, then try again.');
+    default:
+      return t('status.banner.unavailableImpact', {}, 'Checkout, account, or support actions may be temporarily unavailable.');
+  }
+};
+
 const normalizeDetail = (value = '') => String(value || '').trim();
 
 const isTransientNetworkFailure = (detail = '') => {
@@ -101,7 +147,8 @@ const resolveFailureStatus = ({
 };
 
 const BackendStatusBanner = () => {
-  const { formatDateTime, t } = useMarket();
+  const { formatDateTime, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [status, setStatus] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const failureCountRef = useRef(0);
@@ -237,16 +284,7 @@ const BackendStatusBanner = () => {
     : status.level === 'warming'
       ? RefreshCw
       : WifiOff;
-  const impactKey = status.level === 'degraded'
-    ? 'status.banner.degradedImpact'
-    : status.level === 'warming'
-      ? 'status.banner.warmingImpact'
-      : 'status.banner.unavailableImpact';
-  const impactFallback = status.level === 'degraded'
-    ? 'Browsing should still work while secure actions catch up.'
-    : status.level === 'warming'
-      ? 'Please wait a few seconds, then try again.'
-      : 'Checkout, account, or support actions may be temporarily unavailable.';
+  const impactLabel = getStatusBannerImpact(status.level, t);
 
   return (
     <div className="fixed inset-x-3 top-[5.25rem] z-40 sm:inset-x-6">
@@ -282,34 +320,18 @@ const BackendStatusBanner = () => {
                   {t('status.bannerEyebrow', {}, 'Service Update')}
                 </p>
                 <h2 className="truncate text-sm font-black text-white sm:text-base">
-                  {t(
-                    status.titleKey,
-                    {},
-                    status.level === 'degraded'
-                      ? 'Some secure actions may be slower right now'
-                      : status.level === 'warming'
-                        ? 'Secure services are reconnecting'
-                        : "We're reconnecting secure services"
-                  )}
+                  {getStatusBannerTitle(status.level, t)}
                 </h2>
               </div>
             </div>
 
             <p className="mt-3 text-sm leading-relaxed text-slate-200">
-              {t(
-                status.messageKey,
-                {},
-                status.level === 'degraded'
-                  ? 'Browsing should continue normally, but checkout, account, or support actions may take longer than usual for a moment.'
-                  : status.level === 'warming'
-                    ? 'A few account and checkout actions may take an extra moment while everything reconnects.'
-                    : 'Account, checkout, or support actions are temporarily unavailable. Please try again in a moment.'
-              )}
+              {getStatusBannerMessage(status.level, t)}
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
               <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">
-                {t(impactKey, {}, impactFallback)}
+                {impactLabel}
               </span>
               {checkedAtLabel ? (
                 <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1.5">

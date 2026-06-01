@@ -4,6 +4,7 @@ import { Eye, Package, CheckCircle, Trash2, MapPin, Clock, Plus } from 'lucide-r
 import { listingApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const formatRelativeSellerTime = (dateStr, t, formatNumber) => {
   const timestamp = new Date(dateStr).getTime();
@@ -35,12 +36,19 @@ const getListingStatusLabel = (status, t) => {
   return String(status || '');
 };
 
+const getEmptyListingTitle = (tab, t) => {
+  if (tab === 'active') return t('sellerListings.emptyTitle.active', {}, 'No active listings yet');
+  if (tab === 'sold') return t('sellerListings.emptyTitle.sold', {}, 'No sold listings yet');
+  return t('sellerListings.emptyTitle.all', {}, 'No listings yet');
+};
+
 export default function MyListings() {
   const [listings, setListings] = useState([]);
   const [stats, setStats] = useState({ active: 0, sold: 0, totalViews: 0 });
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('active');
-  const { t, formatNumber, formatPrice } = useMarket();
+  const { t: legacyT, formatNumber, formatPrice } = useMarket();
+  const t = useStableIcuMessages(legacyT);
 
   useEffect(() => {
     (async () => {
@@ -86,12 +94,6 @@ export default function MyListings() {
     if (tab === 'sold') return listing.status === 'sold';
     return true;
   });
-
-  const emptyTitleKey = tab === 'active'
-    ? 'sellerListings.emptyTitle.active'
-    : tab === 'sold'
-      ? 'sellerListings.emptyTitle.sold'
-      : 'sellerListings.emptyTitle.all';
 
   return (
     <div className="min-h-screen bg-[#04060f] text-slate-100">
@@ -165,7 +167,7 @@ export default function MyListings() {
         ) : filtered.length === 0 ? (
           <div className="rounded-3xl border border-slate-800 bg-slate-900/60 py-20 text-center">
             <Package className="mx-auto mb-4 h-16 w-16 text-slate-500" />
-            <h3 className="mb-2 text-xl font-bold text-slate-100">{t(emptyTitleKey, {}, 'No listings yet')}</h3>
+            <h3 className="mb-2 text-xl font-bold text-slate-100">{getEmptyListingTitle(tab, t)}</h3>
             <p className="mb-4 text-slate-400">
               {tab === 'active'
                 ? t('sellerListings.emptyBodyActive', {}, 'Create your first live listing and start getting buyers.')

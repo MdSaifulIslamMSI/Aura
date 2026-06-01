@@ -29,6 +29,7 @@ import { parseSemanticSearchIntent } from '@/utils/assistantIntent';
 import { formatPrice } from '@/utils/format';
 import { formatEntityPrice } from '@/utils/pricing';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SEARCH_HISTORY_KEY = 'aura_global_search_history';
 const SEARCH_INTENTS_KEY = 'aura_global_search_intents';
@@ -164,7 +165,8 @@ const GlobalSearchBar = ({
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useMarket();
+  const { t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const categoryOptions = useMemo(() => buildCategoryOptions(t), [t]);
   const sortOptions = useMemo(() => buildSortOptions(t), [t]);
   const searchDynamicTexts = useMemo(() => ([

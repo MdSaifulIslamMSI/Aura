@@ -44,6 +44,7 @@ import {
   validateEmail,
   validatePhone,
 } from './loginFlowHelpers';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const formatProviderList = (providers = []) => {
   const safeProviders = providers.filter(Boolean);
@@ -311,7 +312,8 @@ const normalizeSocialAuthError = (error, providerLabel = 'Social', socialAuthSta
 export const useLoginController = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { countryCode: marketCountryCode, t } = useMarket();
+  const { countryCode: marketCountryCode, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const launchMode = resolveLaunchMode(location.state?.authMode);
   const launchPrefill = resolveLaunchPrefill(location.state);
   const {

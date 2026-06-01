@@ -6,11 +6,14 @@ const previewPort = '4173';
 const previewBaseUrl = `http://localhost:${previewPort}`;
 const appDir = fileURLToPath(new URL('.', import.meta.url));
 const chromiumChannel = process.env.PLAYWRIGHT_CHROMIUM_CHANNEL || undefined;
+const isCi = process.env.CI === 'true';
+const localeQaWorkers = Number(process.env.LOCALE_QA_WORKERS || 1);
 
 export default defineConfig({
   testDir: './e2e',
   timeout: 45_000,
   retries: 0,
+  workers: Number.isFinite(localeQaWorkers) && localeQaWorkers > 0 ? localeQaWorkers : 1,
   reporter: [['list']],
   use: {
     baseURL: previewBaseUrl,
@@ -32,7 +35,7 @@ export default defineConfig({
     command: `npm run build -- --mode test && npm run preview -- --host ${previewHost} --port ${previewPort}`,
     cwd: appDir,
     url: previewBaseUrl,
-    reuseExistingServer: true,
+    reuseExistingServer: !isCi,
     timeout: 120_000,
     env: {
       ...process.env,

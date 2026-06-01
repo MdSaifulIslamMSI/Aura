@@ -4,6 +4,7 @@ import { ShieldCheck, Store, CheckCircle2, Phone, BadgeCheck } from 'lucide-reac
 import { toast } from 'sonner';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const RequirementRow = ({ ok, icon: Icon, label }) => (
   <div
@@ -20,7 +21,8 @@ const RequirementRow = ({ ok, icon: Icon, label }) => (
 const BecomeSeller = () => {
   const navigate = useNavigate();
   const { dbUser, activateSeller, deactivateSeller } = useContext(AuthContext);
-  const { t } = useMarket();
+  const { t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [pendingAction, setPendingAction] = useState('');
 
   const checks = useMemo(() => ({

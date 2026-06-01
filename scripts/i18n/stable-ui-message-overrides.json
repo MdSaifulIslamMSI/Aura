@@ -1,0 +1,20 @@
+{
+  "admin.dashboard.incidentScore": "Incident score",
+  "admin.dashboard.kpi.grossRevenue": "Gross revenue",
+  "admin.dashboard.stats.opsReadiness": "Ops readiness",
+  "admin.diagnostics.filters.allSeverities": "All severities",
+  "admin.email.disabled": "Disabled",
+  "admin.orders.description": "Track shipping, cancellations, refunds, replacements, warranty claims, and support replies from one premium operational surface.",
+  "admin.orders.payment.pending": "Pending",
+  "admin.products.source.manual": "Manual",
+  "admin.shared.all": "All",
+  "admin.shared.no": "No",
+  "admin.shared.pageFraction": "Page {page} / {pages}",
+  "admin.shared.unknown": "Unknown",
+  "admin.shared.yes": "Yes",
+  "admin.support.userActionRequired": "User action required",
+  "admin.support.videoCallTitle": "Video call",
+  "admin.support.voiceCallTitle": "Voice call",
+  "filters.inStockOnly": "In stock only",
+  "listingDetail.chat.error.signIn": "Sign in to chat with the seller."
+}

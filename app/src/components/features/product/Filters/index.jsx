@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useMarket } from '@/context/MarketContext';
 import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
 import { formatPrice } from '@/utils/format';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const DEFAULT_MAX_PRICE = 200000;
 const REVIEW_OPTIONS = [0, 100, 500, 1000, 5000];
@@ -23,15 +24,22 @@ const DISCOUNT_QUICK_OPTIONS = [0, 10, 20, 30, 40, 50];
 const RATING_OPTIONS = [4, 3, 2, 1, 0];
 const PRICE_CEILING_OPTIONS = [5000, 10000, 25000, 50000, 100000, 200000];
 const DELIVERY_WINDOWS = ['1-2 days', '2-3 days', '3-5 days', '5-7 days', '7+ days'];
-const DELIVERY_WINDOW_LABEL_KEYS = {
-  '1-2 days': 'deliveryWindow.1to2Days',
-  '2-3 days': 'deliveryWindow.2to3Days',
-  '3-5 days': 'deliveryWindow.3to5Days',
-  '5-7 days': 'deliveryWindow.5to7Days',
-  '7+ days': 'deliveryWindow.7PlusDays',
+const getDeliveryWindowLabel = (value, t) => {
+  switch (value) {
+    case '1-2 days':
+      return t('deliveryWindow.1to2Days', {}, '1-2 days');
+    case '2-3 days':
+      return t('deliveryWindow.2to3Days', {}, '2-3 days');
+    case '3-5 days':
+      return t('deliveryWindow.3to5Days', {}, '3-5 days');
+    case '5-7 days':
+      return t('deliveryWindow.5to7Days', {}, '5-7 days');
+    case '7+ days':
+      return t('deliveryWindow.7PlusDays', {}, '7+ days');
+    default:
+      return value;
+  }
 };
-
-const getDeliveryWindowLabel = (value, t) => t(DELIVERY_WINDOW_LABEL_KEYS[value], {}, value);
 
 const formatCompactCurrency = (amount, currency = 'USD') => {
   const currencySymbol = formatPrice(0, currency).replace(/[0-9.,\s]/g, '') || '$';
@@ -79,7 +87,8 @@ const sanitizeFilters = (raw = {}) => {
 };
 
 const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
-  const { currency, t } = useMarket();
+  const { currency, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [expandedSections, setExpandedSections] = useState({
     price: true,
     category: false,

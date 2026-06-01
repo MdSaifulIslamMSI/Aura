@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { listingApi } from '@/services/api';
 import { formatPrice } from '@/utils/format';
 import { detectLocationFromGps } from '@/utils/geolocation';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const buildCategories = (t) => [
     { value: 'mobiles', label: t('sell.category.mobiles.label', {}, 'Mobiles'), subtitle: t('sell.category.mobiles.subtitle', {}, 'Phones, accessories, and flagship drops'), icon: Smartphone, color: '#3b82f6' },
@@ -204,7 +205,8 @@ const StatCard = ({ label, value, detail, style, isWhiteMode }) => (
 export default function Sell() {
     const { currentUser } = useContext(AuthContext);
     const { colorMode } = useColorMode();
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const navigate = useNavigate();
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);

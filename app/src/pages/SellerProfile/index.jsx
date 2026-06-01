@@ -4,6 +4,7 @@ import { MapPin, Eye, Package, ShieldCheck, Calendar, ArrowLeft, AlertTriangle }
 import { listingApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const formatRelativeSellerTime = (dateStr, t, formatNumber) => {
   const timestamp = new Date(dateStr).getTime();
@@ -24,7 +25,8 @@ const formatRelativeSellerTime = (dateStr, t, formatNumber) => {
 
 export default function SellerProfile() {
   const { id } = useParams();
-  const { t, formatNumber, formatPrice, formatDateTime } = useMarket();
+  const { t: legacyT, formatNumber, formatPrice, formatDateTime } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 

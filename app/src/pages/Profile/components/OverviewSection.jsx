@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { StatCard, QuickLink } from './ProfileShared';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function OverviewSection({
     stats,
@@ -34,7 +35,8 @@ export default function OverviewSection({
     trustHealthy,
     profileCompletion,
 }) {
-    const { t, formatPrice } = useMarket();
+    const { t: legacyT, formatPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
 
     const accountStateCopy = {
         active: {

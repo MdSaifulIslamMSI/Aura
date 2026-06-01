@@ -5,10 +5,12 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { resolveNotificationActionTarget } from '@/utils/navigation';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function NotificationsSection() {
     const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [filter, setFilter] = useState('all');
     const navigate = useNavigate();
 
@@ -62,8 +64,40 @@ export default function NotificationsSection() {
         { value: 'read', label: t('profile.notifications.filter.read', {}, 'read') },
     ];
 
-    const formatTypeLabel = (type) => t(`profile.notifications.type.${String(type || 'system').toLowerCase()}`, {}, type || 'system');
-    const formatPriorityLabel = (priority) => t(`profile.notifications.priority.${String(priority || 'medium').toLowerCase()}`, {}, priority || 'medium');
+    const formatTypeLabel = (type) => {
+        const normalized = String(type || 'system').toLowerCase();
+        switch (normalized) {
+            case 'order':
+                return t('profile.notifications.type.order', {}, 'order');
+            case 'payment':
+                return t('profile.notifications.type.payment', {}, 'payment');
+            case 'governance':
+                return t('profile.notifications.type.governance', {}, 'governance');
+            case 'support':
+                return t('profile.notifications.type.support', {}, 'support');
+            case 'listing':
+                return t('profile.notifications.type.listing', {}, 'listing');
+            case 'system':
+                return t('profile.notifications.type.system', {}, 'system');
+            default:
+                return type || 'system';
+        }
+    };
+    const formatPriorityLabel = (priority) => {
+        const normalized = String(priority || 'medium').toLowerCase();
+        switch (normalized) {
+            case 'critical':
+                return t('profile.notifications.priority.critical', {}, 'critical');
+            case 'high':
+                return t('profile.notifications.priority.high', {}, 'high');
+            case 'low':
+                return t('profile.notifications.priority.low', {}, 'low');
+            case 'medium':
+                return t('profile.notifications.priority.medium', {}, 'medium');
+            default:
+                return priority || 'medium';
+        }
+    };
 
     return (
         <div className="animate-fade-in space-y-6">

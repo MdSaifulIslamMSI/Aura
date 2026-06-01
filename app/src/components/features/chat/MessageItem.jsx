@@ -7,6 +7,7 @@ import { formatPrice } from '@/utils/format';
 import ConfirmationCard from './ConfirmationCard';
 import ProductCardInline from './ProductCardInline';
 import SupportHandoffCard from './SupportHandoffCard';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const PRODUCT_SURFACES = new Set(['product_results', 'product_focus']);
 const STATUS_BADGES = {
@@ -375,7 +376,8 @@ const MessageItem = ({
     onCancelPending,
     onModifyPending,
 }) => {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const isUser = message?.role === 'user';
     const laneClass = 'w-full max-w-4xl';
     const userBubbleClassName = isWhiteMode

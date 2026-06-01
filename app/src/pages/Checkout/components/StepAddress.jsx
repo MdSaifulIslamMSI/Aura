@@ -2,8 +2,20 @@ import { CheckCircle2, Loader2, MapPin, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const ADDRESS_TYPES = ['home', 'work', 'other'];
+
+const formatAddressType = (type, t) => {
+    switch (String(type || 'other').toLowerCase()) {
+        case 'home':
+            return t('checkout.addressType.home', {}, 'home');
+        case 'work':
+            return t('checkout.addressType.work', {}, 'work');
+        default:
+            return t('checkout.addressType.other', {}, 'other');
+    }
+};
 
 const StepAddress = ({
     isActive,
@@ -28,7 +40,8 @@ const StepAddress = ({
     onDetectGps,
     onContinue,
 }) => {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const administrativeAreaLabel = addressSchema.administrativeAreaLabel || 'State / Country';
     const postalCodeLabel = addressSchema.postalCodeLabel || 'Postal Code';
     const postalCodeExample = addressSchema.postalCodeExample || 'Postal code';
@@ -70,7 +83,7 @@ const StepAddress = ({
                                         )}
                                     >
                                         <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-[10px] uppercase tracking-[0.22em] font-black text-neo-cyan">{t(`checkout.addressType.${addr.type}`, {}, addr.type)}</span>
+                                            <span className="text-[10px] uppercase tracking-[0.22em] font-black text-neo-cyan">{formatAddressType(addr.type, t)}</span>
                                             {addr.isDefault ? <span className="premium-chip-muted text-[10px] font-black uppercase tracking-[0.2em]">{t('checkout.default', {}, 'default')}</span> : null}
                                         </div>
                                         <p className="text-white font-semibold text-sm">{addr.name}</p>
@@ -145,7 +158,7 @@ const StepAddress = ({
                                 className="checkout-premium-input"
                             >
                                 {ADDRESS_TYPES.map((type) => (
-                                    <option key={type} value={type}>{t(`checkout.addressType.${type}`, {}, type)}</option>
+                                    <option key={type} value={type}>{formatAddressType(type, t)}</option>
                                 ))}
                             </PremiumSelect>
                         </label>

@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
 
@@ -22,7 +23,8 @@ const StepDelivery = ({
     onContinue,
 }) => {
     const intl = useIntl();
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const availableShippingOptions = shippingOptions.length > 0
         ? shippingOptions
         : [

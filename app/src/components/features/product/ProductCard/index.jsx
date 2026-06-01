@@ -21,6 +21,7 @@ import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
 import { productApi, trackRecommendationEvent } from '@/services/api';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const FALLBACK_IMAGE = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select';
 
@@ -123,7 +124,8 @@ const ProductCard = ({ product, variant = 'default', gridLayout = null, harmonyI
   const { toggleWishlist, isInWishlist } = useContext(WishlistContext);
   const { addToCart } = useContext(CartContext);
   const { colorMode } = useColorMode();
-  const { t, formatNumber, formatPrice } = useMarket();
+  const { t: legacyT, formatNumber, formatPrice } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
   const hasPrefetchedRef = useRef(false);

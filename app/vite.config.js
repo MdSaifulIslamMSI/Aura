@@ -6,6 +6,7 @@ import { defineConfig, loadEnv } from "vite"
 const DEFERRED_ROUTE_PRELOAD_PATTERNS = [
   /^assets\/admin-/,
   /^assets\/commerce-flow-/,
+  /^assets\/icu-locale-/,
   /^assets\/market-locale-/,
   /^assets\/discovery-/,
   /^assets\/market-messages-/,
@@ -179,6 +180,9 @@ export default defineConfig(({ mode }) => {
 
           const localePackMatch = id.match(/\/src\/config\/marketMessagePacks\/([a-z-]+)\.js$/);
           if (localePackMatch?.[1]) return `market-locale-${localePackMatch[1]}`;
+
+          const icuCatalogMatch = id.match(/\/src\/i18n\/messages\/compiled\/([a-z-]+)\.json$/i);
+          if (icuCatalogMatch?.[1]) return `icu-locale-${icuCatalogMatch[1].toLowerCase()}`;
 
           const matchedAdminChunk = ADMIN_CHUNK_MATCHERS.find(({ pattern }) => pattern.test(id));
           if (matchedAdminChunk) return matchedAdminChunk.chunk;

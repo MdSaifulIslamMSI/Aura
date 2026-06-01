@@ -1,0 +1,184 @@
+{
+  "applied": false,
+  "alreadyMigratedFiles": [
+    {
+      "file": "app/src/pages/Checkout/components/StepPayment.jsx"
+    },
+    {
+      "file": "app/src/pages/Login/useLoginController.js"
+    },
+    {
+      "file": "app/src/pages/Orders/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Checkout/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Cart/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Checkout/components/OrderSummary.jsx"
+    },
+    {
+      "file": "app/src/pages/MyListings/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Checkout/components/StepAddress.jsx"
+    },
+    {
+      "file": "app/src/pages/SellerProfile/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Checkout/components/StepReview.jsx"
+    },
+    {
+      "file": "app/src/components/shared/ProtectedRoute.jsx"
+    },
+    {
+      "file": "app/src/pages/Checkout/components/StepDelivery.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/Dashboard.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/SupportSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Marketplace/index.jsx"
+    },
+    {
+      "file": "app/src/pages/ListingDetail/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/Support.jsx"
+    },
+    {
+      "file": "app/src/pages/ProductDetails/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Home/index.jsx"
+    },
+    {
+      "file": "app/src/components/shared/GlobalSearchBar.jsx"
+    },
+    {
+      "file": "app/src/pages/ProductListing/index.jsx"
+    },
+    {
+      "file": "app/src/components/layout/Navbar/index.jsx"
+    },
+    {
+      "file": "app/src/components/features/product/Filters/index.jsx"
+    },
+    {
+      "file": "app/src/components/features/product/ProductCard/index.jsx"
+    },
+    {
+      "file": "app/src/components/shared/VoiceSearch.jsx"
+    },
+    {
+      "file": "app/src/components/features/chat/MessageItem.jsx"
+    },
+    {
+      "file": "app/src/components/features/chat/ProductCardInline.jsx"
+    },
+    {
+      "file": "app/src/context/NotificationContext.jsx"
+    },
+    {
+      "file": "app/src/pages/Sell/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/Payments.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/Users.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/EmailOps.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/OrderList.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/ProductEdit.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/ProductList.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/OverviewSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/RefundLedger.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/PersonalInfoSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/PaymentsSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Admin/ClientDiagnosticsPanel.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/RewardsSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/AddressesSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/NotificationsSection.jsx"
+    },
+    {
+      "file": "app/src/pages/BecomeSeller/index.jsx"
+    },
+    {
+      "file": "app/src/pages/PriceAlerts/index.jsx"
+    },
+    {
+      "file": "app/src/components/layout/Footer/index.jsx"
+    },
+    {
+      "file": "app/src/components/shared/BackendStatusBanner.jsx"
+    },
+    {
+      "file": "app/src/pages/Wishlist/index.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/ListingsSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/ProfileShared.jsx"
+    }
+  ],
+  "changedFiles": [],
+  "delegatedFiles": [
+    {
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "reason": "No direct useMarket() t destructuring found. Translator is supplied by the migrated caller and remains tracked for review."
+    },
+    {
+      "file": "app/src/pages/Login/loginFlowHelpers.js",
+      "reason": "No direct useMarket() t destructuring found. Translator is supplied by the migrated caller and remains tracked for review."
+    }
+  ],
+  "generatedAt": "2026-06-01T14:50:32.611Z",
+  "note": "Safe stable-UI ICU codemod. Literal calls are routed through useStableIcuMessages(); computed keys remain delegated to the legacy translator and are reported for manual review.",
+  "skippedFiles": [],
+  "summary": {
+    "changedFiles": 0,
+    "dynamicLookupReferencesHeldForManualReview": 0,
+    "delegatedFiles": 2,
+    "alreadyMigratedFiles": 52,
+    "hookBindingsMigrated": 0,
+    "skippedFiles": 0,
+    "stableProductionIds": 2748
+  }
+}

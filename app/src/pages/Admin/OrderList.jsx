@@ -8,11 +8,13 @@ import { cn } from '@/lib/utils';
 import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremiumShell';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const STATUS_OPTIONS = ['processing', 'shipped', 'delivered'];
 
 const OrderList = () => {
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [statusDrafts, setStatusDrafts] = useState({});

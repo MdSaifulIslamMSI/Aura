@@ -7,6 +7,7 @@ import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
 import { formatPrice } from '@/utils/format';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const DEFAULT_FILTERS = {
     search: '',
@@ -22,7 +23,8 @@ const resolveProductRef = (product) => product?.id || product?.externalId || pro
 
 const ProductList = () => {
     const navigate = useNavigate();
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);

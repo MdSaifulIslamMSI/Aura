@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export function StatCard({ icon: Icon, label, value, color }) {
     const colorMap = {
@@ -28,7 +29,8 @@ export function StatCard({ icon: Icon, label, value, color }) {
 }
 
 export function QuickLink({ to, icon: Icon, label, desc }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
 
     return (
         <Link to={to} className="premium-panel premium-card-hover group p-5">
@@ -45,7 +47,8 @@ export function QuickLink({ to, icon: Icon, label, desc }) {
 }
 
 export function InfoRow({ icon: Icon, label, value, badge }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
 
     return (
         <div className="profile-premium-info-row">

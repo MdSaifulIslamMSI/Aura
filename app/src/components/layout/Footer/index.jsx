@@ -18,6 +18,7 @@ import { trustApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
 import { buildSupportHandoffPath } from '@/utils/supportRouting';
 import { formatReleaseBuiltAt, releaseInfo, resolveRuntimeHost } from '@/config/releaseInfo';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const STATUS_CLASSES = {
   healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-emerald-500/0 hover:shadow-emerald-500/20',
@@ -27,7 +28,8 @@ const STATUS_CLASSES = {
 
 const Footer = () => {
   const location = useLocation();
-  const { t } = useMarket();
+  const { t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [trustStatus, setTrustStatus] = useState({
     backend: { status: 'checking', db: 'unknown', uptime: 0, timestamp: null },
     client: { online: true, secureContext: false, language: 'unknown', timezone: 'unknown' },

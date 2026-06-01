@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { useMarket } from '@/context/MarketContext';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const StepReview = ({
     isActive,
@@ -23,7 +24,8 @@ const StepReview = ({
     onBack,
     onPlaceOrder,
 }) => {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const placeOrderLabel = intl.formatMessage(criticalMessages.placeOrder);
     const chargeAmount = Number(quote?.displayAmount ?? quote?.presentmentTotalPrice ?? quote?.totalPrice ?? 0);

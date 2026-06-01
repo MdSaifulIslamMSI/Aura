@@ -42,6 +42,7 @@ import SettingsSection from './components/SettingsSection';
 import AccountStatusBanner from './components/AccountStatusBanner';
 import SupportSection from './components/SupportSection';
 import NotificationsSection from './components/NotificationsSection';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const buildTabs = (t) => [
     { id: 'overview', label: t('profile.tab.overview', {}, 'Overview'), icon: BarChart3 },
@@ -87,7 +88,8 @@ export default function Profile() {
     } = useContext(AuthContext);
     const { cartItems } = useContext(CartContext);
     const { wishlistItems } = useContext(WishlistContext);
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();

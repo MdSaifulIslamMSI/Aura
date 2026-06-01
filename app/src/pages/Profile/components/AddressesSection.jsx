@@ -1,16 +1,31 @@
 import { MapPin, Plus, Save, Phone, Edit3, Trash2 } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+
+const formatAddressType = (value, fallback, t) => {
+    switch (String(value || '').toLowerCase()) {
+        case 'home':
+            return t('profile.addresses.type.home', {}, 'Home');
+        case 'work':
+            return t('profile.addresses.type.work', {}, 'Work');
+        case 'other':
+            return t('profile.addresses.type.other', {}, 'Other');
+        default:
+            return fallback || '';
+    }
+};
 
 export default function AddressesSection({
     profile, ADDRESS_TYPES, showAddressForm, setShowAddressForm, editingAddress,
     addressForm, setAddressForm, saving, handleSaveAddress, resetAddressForm,
     startEditAddress, handleDeleteAddress,
 }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
 
     const addressTypes = ADDRESS_TYPES.map((type) => ({
         ...type,
-        label: t(`profile.addresses.type.${type.value}`, {}, type.label),
+        label: formatAddressType(type.value, type.label, t),
     }));
 
     return (

@@ -2,6 +2,7 @@ import { BadgeCheck, Calendar, Edit3, Mail, Phone, Save, Star, User } from 'luci
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { InfoRow } from './ProfileShared';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function PersonalInfoSection({
     profile,
@@ -23,7 +24,8 @@ export default function PersonalInfoSection({
     isAdminAccount,
     accountState,
 }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
 
     const accountCopy = {
         active: t('profile.personal.account.active', {}, 'Account is fully active.'),

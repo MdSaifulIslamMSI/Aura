@@ -3,6 +3,7 @@ import { Activity, AlertTriangle, Bell, CheckCircle2, Clock3, Copy, Download, Ke
 import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { TogglePref } from './ProfileShared';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function SettingsSection({
     handleSecureRecovery,
@@ -32,7 +33,8 @@ export default function SettingsSection({
     handleLinkMicrosoftProvider,
     handleLinkAppleProvider,
 }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [orderUpdates, setOrderUpdates] = useState(true);
     const [marketplaceUpdates, setMarketplaceUpdates] = useState(true);
     const [supportUpdates, setSupportUpdates] = useState(true);

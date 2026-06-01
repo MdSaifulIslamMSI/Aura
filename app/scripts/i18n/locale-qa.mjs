@@ -22,6 +22,9 @@ const qaRules = readJson(path.join(qualityDir, 'qaRules.json'));
 const brandTerms = readJson(path.join(glossaryDir, 'brand-terms.json'));
 const forbiddenTransliterations = readJson(path.join(glossaryDir, 'forbidden-transliterations.json'));
 const sourceMessages = readJson(path.join(reviewedDir, 'en.json'));
+const humanReviewQueuePath = path.join(qualityDir, 'humanReviewQueue.json');
+const humanReviewQueue = fs.existsSync(humanReviewQueuePath) ? readJson(humanReviewQueuePath) : [];
+const humanReviewQueueKeys = new Set(humanReviewQueue.map(({ id, locale }) => `${locale}\u0000${id}`));
 
 const MOJIBAKE_PATTERN = /\uFFFD|Ã|Â|â€™|â€œ|â€|ï¿½/;
 const RAW_HTML_RISK_PATTERN = /<script\b|javascript:|on[a-z]+\s*=/i;
@@ -109,7 +112,11 @@ for (const locale of requiredLocales) {
             && sourceMessage === translatedMessage
             && !qaRules.englishLeakageAllowlist.includes(sourceMessage)
         ) {
-            pushIssue(locale, id, 'english-leakage', 'Reviewed translation is identical to English source.');
+            if (humanReviewQueueKeys.has(`${locale}\u0000${id}`)) {
+                pushWarning(locale, id, 'queued-english-fallback', 'Human-review queue tracks this English fallback.');
+            } else {
+                pushIssue(locale, id, 'english-leakage', 'Reviewed translation is identical to English source.');
+            }
         }
 
         if (

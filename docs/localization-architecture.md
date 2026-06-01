@@ -4,38 +4,41 @@ Date: 2026-06-01
 
 ## Current Shape
 
-Aura now has an additive localization architecture. Existing market behavior is
-preserved while reviewed ICU catalogs are introduced beside the legacy message
-packs.
+Aura separates reviewed stable interface copy from runtime content. Stable
+literal UI messages route through FormatJS ICU catalogs. Legacy market packs
+remain compatibility inputs for computed keys and non-reviewed locales only.
 
 | Layer | Responsibility | Primary files |
 | --- | --- | --- |
 | Market selection | Country, browse currency, language, locale, and direction | `app/src/context/MarketContext.jsx`, `app/src/config/marketConfig.js` |
-| Legacy catalog | Existing broad UI coverage during migration | `app/src/config/marketMessagePacks/*.js` |
+| Stable UI registry | Generated descriptors for reviewed literal interface copy | `app/src/i18n/messages/stableUiMessages.js` |
+| Stable UI adapter | Formats registered ICU messages and delegates only unknown runtime compatibility values | `app/src/i18n/useStableIcuMessages.js` |
 | Reviewed ICU catalog | Translator-reviewed stable copy with plural, date, and number semantics | `app/src/i18n/messages/reviewed/*.json` |
 | Compiled ICU catalog | Runtime-ready FormatJS catalogs | `app/src/i18n/messages/compiled/*.json` |
+| Legacy compatibility | Non-reviewed-locale fallback and explicit runtime enum compatibility only | `app/src/config/marketMessagePacks/*.js`, `app/src/utils/enumLocalization.js` |
 | Dynamic translation | Optional provider-backed translation for dynamic content only | `app/src/services/runtimeTranslation.js`, `server/services/translation/` |
-| QA | Extraction, ICU compile, glossary rules, locale checks, visual and accessibility smoke | `app/scripts/i18n/`, `app/e2e/locale.*.spec.js` |
+| QA | Generation drift, ICU compile, glossary rules, locale checks, visual and accessibility smoke | `scripts/i18n/`, `app/scripts/i18n/`, `app/e2e/locale.*.spec.js` |
 
 ## Stable Copy Policy
 
-Stable navigation, checkout, authentication, error, and accessibility copy
-belongs in reviewed ICU catalogs. New ICU messages use semantic IDs and
-descriptions in `app/src/i18n/messages/criticalMessages.js`.
+Stable UI literal messages belong in reviewed ICU catalogs. The generated
+registry contains 2,748 migrated descriptors. The reviewed catalogs contain
+2,791 messages because the curated foundation remains anchored beside the
+generated migration layer.
 
-The first reviewed foundation covers `en`, `hi`, `bn`, `ur`, and `ar`.
-`en-XA` is generated for expansion QA. The broad legacy packs remain active
-until their call sites migrate incrementally.
-
-Batch A has started that migration for critical checkout, cart, auth, payment,
-and order status labels. The remaining legacy surface is tracked by
-`npm run i18n:legacy-report`, with artifacts written under `artifacts/i18n/`.
+The reviewed locales are `en`, `hi`, `bn`, `ur`, and `ar`. `en-XA` is
+generated for expansion QA. `VITE_I18N_FORMATJS_ENABLED` controls reviewed
+locale rollout; when disabled, migrated surfaces resolve through the English
+ICU fallback. English ships with the initial graph; non-English reviewed
+catalogs load on demand and are cached after first use.
 
 ## Dynamic Copy Policy
 
-Runtime translation is reserved for dynamic content such as seller text,
-reviews, product titles, chat, and support messages. Stable UI runtime fallback
-is disabled unless the explicit legacy switch is enabled.
+Runtime translation is reserved for backend-supplied and user-authored content
+such as seller text, reviews, product titles, chat, notifications, and support
+messages. Finite computed UI keys are now stable ICU descriptors; the remaining
+runtime enum compatibility path and runtime-content exclusions are documented
+in `docs/localization-dynamic-exclusions.md`.
 
 ## Direction And Formatting
 
@@ -48,6 +51,9 @@ formatting. RTL locales are currently `ar` and `ur`.
 Run:
 
 ```sh
+npm run i18n:inventory
+npm run i18n:stable-catalogs
+npm run i18n:codemod:dry-run
 npm --prefix app run i18n:check
 npm --prefix app run audit:locale
 npm --prefix app run audit:locale:quality
