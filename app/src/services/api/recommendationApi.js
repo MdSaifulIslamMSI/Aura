@@ -32,6 +32,16 @@ const unwrapRecommendations = (payload = {}) => ({
 
 const productIdOf = (product = {}) => product?.id || product?._id || product?.productId || '';
 
+const hasAuthorizationHeader = (headers = {}) => Object.entries(headers || {}).some(
+    ([key, value]) => key.toLowerCase() === 'authorization' && String(value || '').trim()
+);
+
+const buildOptionalAuthRequestOptions = (headers = {}, options = {}) => ({
+    headers,
+    credentials: hasAuthorizationHeader(headers) ? (options.credentials ?? 'include') : 'omit',
+    signal: options.signal,
+});
+
 export const decorateRecommendedProduct = (entry = {}) => ({
     ...(entry.product || entry),
     recommendationMeta: {
@@ -82,8 +92,7 @@ export const recommendationApi = {
         const { data } = await apiFetch('/recommendations/home', {
             method: 'GET',
             params: withSessionParams(params),
-            headers,
-            signal: options.signal,
+            ...buildOptionalAuthRequestOptions(headers, options),
         });
         return unwrapRecommendations(data);
     },
@@ -92,8 +101,7 @@ export const recommendationApi = {
         const { data } = await apiFetch(`/recommendations/similar/${productId}`, {
             method: 'GET',
             params: withSessionParams(params),
-            headers,
-            signal: options.signal,
+            ...buildOptionalAuthRequestOptions(headers, options),
         });
         return unwrapRecommendations(data);
     },
@@ -102,13 +110,12 @@ export const recommendationApi = {
         const { data } = await apiFetch('/recommendations/cart', {
             method: 'POST',
             params: withSessionParams({}),
-            headers,
+            ...buildOptionalAuthRequestOptions(headers, options),
             body: JSON.stringify({
                 sessionId: getRecommendationSessionId(),
                 cartItems,
                 limit,
             }),
-            signal: options.signal,
         });
         return unwrapRecommendations(data);
     },
@@ -125,8 +132,7 @@ export const recommendationApi = {
         const { data } = await apiFetch('/recommendations/recently-viewed', {
             method: 'GET',
             params: withSessionParams(params),
-            headers,
-            signal: options.signal,
+            ...buildOptionalAuthRequestOptions(headers, options),
         });
         return unwrapRecommendations(data);
     },
@@ -135,8 +141,7 @@ export const recommendationApi = {
         const { data } = await apiFetch('/recommendations/search', {
             method: 'GET',
             params: withSessionParams({ query, limit }),
-            headers,
-            signal: options.signal,
+            ...buildOptionalAuthRequestOptions(headers, options),
         });
         return unwrapRecommendations(data);
     },
@@ -153,14 +158,13 @@ export const recommendationApi = {
         const { data } = await apiFetch('/recommendations/assistant', {
             method: 'POST',
             params: withSessionParams({}),
-            headers,
+            ...buildOptionalAuthRequestOptions(headers, options),
             body: JSON.stringify({
                 sessionId: getRecommendationSessionId(),
                 message,
                 context,
                 limit,
             }),
-            signal: options.signal,
         });
         return unwrapRecommendations(data);
     },

@@ -51,10 +51,12 @@ const aiChatAccess = publicAiChatAccessEnabled
 const aiVoiceAccess = publicAiVoiceAccessEnabled
     ? [protectOptional]
     : [protect, requireActiveAccount];
+const allowAiRateLimitMemoryFallback = process.env.NODE_ENV !== 'production';
 
 const aiChatLimiter = createDistributedRateLimit({
-    allowInMemoryFallback: true,
+    allowInMemoryFallback: allowAiRateLimitMemoryFallback,
     name: 'ai_chat',
+    securityCritical: true,
     windowMs: 60 * 1000,
     max: 50,
     keyGenerator: (req) => req.user?._id?.toString() || req.ip,
@@ -62,8 +64,9 @@ const aiChatLimiter = createDistributedRateLimit({
 });
 
 const aiVoiceLimiter = createDistributedRateLimit({
-    allowInMemoryFallback: true,
+    allowInMemoryFallback: allowAiRateLimitMemoryFallback,
     name: 'ai_voice_session',
+    securityCritical: true,
     windowMs: 60 * 1000,
     max: 20,
     keyGenerator: (req) => req.user?._id?.toString() || req.ip,
@@ -71,8 +74,9 @@ const aiVoiceLimiter = createDistributedRateLimit({
 });
 
 const aiVoiceSpeechLimiter = createDistributedRateLimit({
-    allowInMemoryFallback: true,
+    allowInMemoryFallback: allowAiRateLimitMemoryFallback,
     name: 'ai_voice_speak',
+    securityCritical: true,
     windowMs: 60 * 1000,
     max: 40,
     keyGenerator: (req) => req.user?._id?.toString() || req.ip,
@@ -80,8 +84,9 @@ const aiVoiceSpeechLimiter = createDistributedRateLimit({
 });
 
 const aiSessionLimiter = createDistributedRateLimit({
-    allowInMemoryFallback: true,
+    allowInMemoryFallback: allowAiRateLimitMemoryFallback,
     name: 'ai_sessions',
+    securityCritical: true,
     windowMs: 60 * 1000,
     max: 60,
     keyGenerator: (req) => req.user?._id?.toString() || req.ip,

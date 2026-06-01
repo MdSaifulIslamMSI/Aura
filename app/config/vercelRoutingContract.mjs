@@ -48,12 +48,23 @@ export const HOSTED_BACKEND_ORIGIN = resolveHostedBackendOrigin(process.env, {
 
 const toWebSocketOrigin = (origin = '') => trimTrailingSlash(origin).replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
 
-export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN) => [
+export const LOCAL_DEVELOPMENT_CONNECT_SRC = [
+    'http://localhost:*',
+    'http://127.0.0.1:*',
+    'http://host.docker.internal:*',
+];
+
+const buildFrontendStyleSrc = ({ allowInlineStyleElement = false } = {}) => [
+    "'self'",
+    ...(allowInlineStyleElement ? ["'unsafe-inline'"] : []),
+    'https://fonts.googleapis.com',
+].join(' ');
+
+export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN, options = {}) => [
     "'self'",
     trimTrailingSlash(origin),
     toWebSocketOrigin(origin),
-    'http://localhost:*',
-    'http://127.0.0.1:*',
+    ...(options.includeLocalDevelopmentSources ? LOCAL_DEVELOPMENT_CONNECT_SRC : []),
     'https://api.github.com',
     'https://api.stripe.com',
     'https://js.stripe.com',
@@ -79,16 +90,17 @@ export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN) => [
 
 export const FRONTEND_CONNECT_SRC = buildFrontendConnectSrc(HOSTED_BACKEND_ORIGIN);
 
-export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGIN) => [
+export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGIN, options = {}) => [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "form-action 'self'",
     "script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    `style-src ${buildFrontendStyleSrc(options)}`,
+    "style-src-attr 'unsafe-inline'",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https:",
-    `connect-src ${buildFrontendConnectSrc(origin).join(' ')}`,
+    `connect-src ${buildFrontendConnectSrc(origin, options).join(' ')}`,
     "frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
@@ -96,6 +108,13 @@ export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGI
 ].join('; ');
 
 export const FRONTEND_CONTENT_SECURITY_POLICY = buildFrontendContentSecurityPolicy(HOSTED_BACKEND_ORIGIN);
+export const FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY = buildFrontendContentSecurityPolicy(
+    HOSTED_BACKEND_ORIGIN,
+    {
+        allowInlineStyleElement: true,
+        includeLocalDevelopmentSources: true,
+    }
+);
 
 export const buildFrontendSecurityHeaderValues = (origin = HOSTED_BACKEND_ORIGIN) => [
     {

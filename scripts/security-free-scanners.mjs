@@ -23,6 +23,8 @@ if (String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
 const isTruthy = (value) => ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
 const isCi = isTruthy(process.env.CI) || isTruthy(process.env.GITHUB_ACTIONS);
 const scannersRequired = isTruthy(process.env.FREE_SECURITY_SCANNERS_REQUIRED) || isCi;
+const zapBaselineRequired = isTruthy(process.env.FREE_SECURITY_ZAP_BASELINE_REQUIRED)
+  || (scannersRequired && onlyScanners.has('zap-baseline'));
 const dockerImagePrefix = String(process.env.FREE_SECURITY_SCANNER_IMAGE_PREFIX || '').trim();
 const stagingUrl = String(process.env.STAGING_URL || '').trim();
 const scannerImages = {
@@ -205,10 +207,10 @@ const runZapBaseline = () => {
     return {
       name: scanner.name,
       command: 'zap-baseline.py -t $STAGING_URL',
-      status: 'skipped',
-      exitCode: 0,
+      status: zapBaselineRequired ? 'failed' : 'skipped',
+      exitCode: zapBaselineRequired ? 2 : 0,
       runner: 'unavailable',
-      reason: 'STAGING_URL is not set; OWASP ZAP baseline skipped. Never run ZAP against production by default.',
+      reason: 'STAGING_URL is not set; OWASP ZAP baseline requires an explicit non-production target.',
     };
   }
 

@@ -69,11 +69,11 @@ const readme = readText('README.md');
 const incidentRunbook = readText('docs/incident-runbook.md');
 const awsBackendDocs = readText('docs/aws-backend-deployment.md');
 
-if (packageJson.build?.win?.signAndEditExecutable !== false) {
-    addFailure('package.json must allow unsigned Windows GitHub/internal artifacts by default.');
+if (packageJson.build?.win?.signAndEditExecutable !== true) {
+    addFailure('package.json must sign and edit Windows executables by default for production desktop artifacts.');
 }
-if (packageJson.build?.win?.verifyUpdateCodeSignature !== false) {
-    addFailure('package.json must not require Windows update code-signature verification for unsigned internal builds.');
+if (packageJson.build?.win?.verifyUpdateCodeSignature !== true) {
+    addFailure('package.json must verify Windows update code signatures by default for production desktop artifacts.');
 }
 requireIncludes(productionCicdWorkflow, 'require_windows_signing: false', 'Production CI/CD must allow the free unsigned desktop release lane.');
 requireIncludes(productionCicdWorkflow, 'require_macos_signing: false', 'Production CI/CD must skip macOS signing by default.');

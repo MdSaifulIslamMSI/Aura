@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FRONTEND_CONNECT_SRC,
   FRONTEND_CONTENT_SECURITY_POLICY,
+  FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY,
 } from '../../config/vercelRoutingContract.mjs';
 
 const projectRootPath = process.cwd();
@@ -21,7 +22,10 @@ const getDirectiveSources = (policy = '', name = '') => getDirective(policy, nam
   .split(/\s+/)
   .slice(1);
 
-const expectHardenedConnectSrc = (policy = '', { requiresHostedBackend = true } = {}) => {
+const expectHardenedConnectSrc = (policy = '', {
+  requiresHostedBackend = true,
+  allowLocalDevelopmentSources = false,
+} = {}) => {
   const sources = getDirectiveSources(policy, 'connect-src');
 
   expect(sources).toContain("'self'");
@@ -32,13 +36,28 @@ const expectHardenedConnectSrc = (policy = '', { requiresHostedBackend = true } 
     expect(sources).not.toContain('https://dbtrhsolhec1s.cloudfront.net');
     expect(sources).not.toContain('wss://dbtrhsolhec1s.cloudfront.net');
   }
-  expect(sources).toContain('http://localhost:*');
-  expect(sources).toContain('http://127.0.0.1:*');
+  if (allowLocalDevelopmentSources) {
+    expect(sources).toContain('http://localhost:*');
+    expect(sources).toContain('http://127.0.0.1:*');
+    expect(sources).toContain('http://host.docker.internal:*');
+  } else {
+    expect(sources).not.toContain('http://localhost:*');
+    expect(sources).not.toContain('http://127.0.0.1:*');
+    expect(sources).not.toContain('http://host.docker.internal:*');
+  }
   expect(sources).toContain('https://api.stripe.com');
   expect(sources).toContain('https://api.github.com');
   expect(sources).toContain('https://*.googleapis.com');
   expect(sources).not.toContain('https:');
   expect(sources).not.toContain('wss:');
+};
+
+const expectProductionStylePolicy = (policy = '') => {
+  expect(getDirectiveSources(policy, 'style-src')).toEqual([
+    "'self'",
+    'https://fonts.googleapis.com',
+  ]);
+  expect(getDirectiveSources(policy, 'style-src-attr')).toEqual(["'unsafe-inline'"]);
 };
 
 const readVercelCsp = (relativePath) => {
@@ -79,15 +98,30 @@ describe('auth CSP allowlists', () => {
     expect(FRONTEND_CONNECT_SRC).not.toContain('https:');
     expect(FRONTEND_CONNECT_SRC).not.toContain('wss:');
     expectHardenedConnectSrc(FRONTEND_CONTENT_SECURITY_POLICY);
+    expectProductionStylePolicy(FRONTEND_CONTENT_SECURITY_POLICY);
 
     const html = readProjectFile('index.html');
     const htmlCsp = html.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]+)"/)?.[1] || '';
     expectHardenedConnectSrc(htmlCsp);
+    expectProductionStylePolicy(htmlCsp);
   });
 
   it('keeps generated deployment CSP headers aligned with the hardened connect-src policy', () => {
-    expectHardenedConnectSrc(readVercelCsp('../vercel.json'));
-    expectHardenedConnectSrc(readVercelCsp('vercel.json'));
-    expectHardenedConnectSrc(readNetlifyCsp());
+    [
+      readVercelCsp('../vercel.json'),
+      readVercelCsp('vercel.json'),
+      readNetlifyCsp(),
+    ].forEach((policy) => {
+      expectHardenedConnectSrc(policy);
+      expectProductionStylePolicy(policy);
+    });
+  });
+
+  it('keeps local development CSP allowances out of production CSPs', () => {
+    expectHardenedConnectSrc(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, {
+      allowLocalDevelopmentSources: true,
+    });
+    expect(getDirectiveSources(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, 'style-src'))
+      .toContain("'unsafe-inline'");
   });
 });

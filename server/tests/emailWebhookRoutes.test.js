@@ -1,4 +1,5 @@
 const request = require('supertest');
+const express = require('express');
 
 jest.mock('svix', () => ({
     Webhook: jest.fn().mockImplementation(() => ({
@@ -19,6 +20,21 @@ jest.mock('../services/email/emailDeliveryAuditService', () => ({
     recordEmailWebhookEvent: jest.fn().mockResolvedValue({ skipped: false }),
 }));
 
+const createEmailWebhookApp = () => {
+    const { errorHandler } = require('../middleware/errorMiddleware');
+    const emailWebhookRoutes = require('../routes/emailWebhookRoutes');
+    const app = express();
+
+    app.use(express.json({
+        verify: (req, _res, buf) => {
+            req.rawBody = buf.toString('utf8');
+        },
+    }));
+    app.use('/api/email-webhooks', emailWebhookRoutes);
+    app.use(errorHandler);
+    return app;
+};
+
 describe('Email Webhook Routes', () => {
     const ORIGINAL_ENV = { ...process.env };
 
@@ -27,8 +43,8 @@ describe('Email Webhook Routes', () => {
         process.env = {
             ...ORIGINAL_ENV,
             NODE_ENV: 'test',
-            RESEND_WEBHOOK_SECRET: 'whsec_test_secret',
         };
+        process.env.RESEND_WEBHOOK_SECRET = 'resend-webhook-signing-key-for-jest';
     });
 
     afterEach(() => {
@@ -37,7 +53,8 @@ describe('Email Webhook Routes', () => {
     });
 
     test('POST /api/email-webhooks/resend accepts verified resend webhooks', async () => {
-        const app = require('../index');
+        process.env.RESEND_WEBHOOK_SECRET = 'resend-webhook-signing-key-for-jest';
+        const app = createEmailWebhookApp();
         const res = await request(app)
             .post('/api/email-webhooks/resend')
             .set('svix-id', 'msg_test_123')

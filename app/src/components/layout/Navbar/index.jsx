@@ -346,7 +346,7 @@ const Navbar = () => {
   const marketPanelRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, dbUser, logout } = useContext(AuthContext);
+  const { currentUser, dbUser, logout, isAuthenticated = false } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
   const { colorMode, setColorMode, colorModeOptions } = useColorMode();
   const {
@@ -476,7 +476,7 @@ const Navbar = () => {
   useEffect(() => {
     let isActive = true;
 
-    if (!currentUser) {
+    if (!currentUser || !isAuthenticated) {
       setRewardSnapshot(null);
       return () => {
         isActive = false;
@@ -496,7 +496,7 @@ const Navbar = () => {
     return () => {
       isActive = false;
     };
-  }, [currentUser?.uid, currentUser?.email]);
+  }, [currentUser?.uid, currentUser?.email, isAuthenticated]);
 
   const categories = useMemo(
     () => [

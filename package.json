@@ -251,8 +251,8 @@
     ],
     "win": {
       "icon": "app/public/assets/icon-512.png",
-      "signAndEditExecutable": false,
-      "verifyUpdateCodeSignature": false,
+      "signAndEditExecutable": true,
+      "verifyUpdateCodeSignature": true,
       "target": [
         "nsis",
         "portable"

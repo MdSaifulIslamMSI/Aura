@@ -140,6 +140,7 @@ describe('Navbar Component', () => {
         renderNavbar({
             currentUser: { uid: 'user-1', displayName: 'John Doe', email: 'john@example.com' },
             dbUser: { name: 'John Doe', loyalty: {} },
+            isAuthenticated: true,
         });
 
         await waitFor(() => {
@@ -150,6 +151,18 @@ describe('Navbar Component', () => {
 
         await waitFor(() => {
             expect(screen.getAllByText('1,808 AP').length).toBeGreaterThan(1);
+        });
+    });
+
+    it('does not fetch protected rewards until the app session is authenticated', async () => {
+        renderNavbar({
+            currentUser: { uid: 'user-1', displayName: 'John Doe', email: 'john@example.com' },
+            dbUser: null,
+            isAuthenticated: false,
+        });
+
+        await waitFor(() => {
+            expect(getRewardsMock).not.toHaveBeenCalled();
         });
     });
 

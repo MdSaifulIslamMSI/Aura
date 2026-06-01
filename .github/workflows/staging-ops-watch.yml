@@ -53,6 +53,26 @@ jobs:
           npm run smoke:staging
           npm run smoke:staging:frontend
 
+      - name: Run live staging DAST baseline
+        env:
+          STAGING_URL: ${{ vars.STAGING_FRONTEND_URL || vars.STAGING_BASE_URL }}
+          FREE_SECURITY_SCANNERS_REQUIRED: "true"
+          FREE_SECURITY_ZAP_BASELINE_REQUIRED: "true"
+        run: npm run security:free-scanners -- --only=zap-baseline
+
+      - name: Upload live staging DAST reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staging-dast-security-reports
+          path: |
+            security-reports/free-security-scanners.json
+            security-reports/zap-baseline.*
+            security-reports/zap-baseline.stdout.txt
+            security-reports/zap-baseline.stderr.txt
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Configure AWS credentials for optional cost watch
         if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@99214aa6889fcddfa57764031d71add364327e59 # v6
