@@ -16,6 +16,7 @@ const APPLY_FLAG = '--apply';
 const apply = process.argv.includes(APPLY_FLAG);
 const hookImport = "import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';";
 const report = await collectLegacyMigrationInventory();
+const alreadyMigratedFiles = [];
 const changedFiles = [];
 const delegatedFiles = [];
 const skippedFiles = [];
@@ -41,6 +42,7 @@ productionFiles.forEach((file) => {
     const edits = [];
     const declarationInsertions = new Map();
     let hasHookImport = false;
+    let hasHookBinding = false;
     let replacementCount = 0;
 
     traverse(ast, {
@@ -51,6 +53,15 @@ productionFiles.forEach((file) => {
         },
         VariableDeclarator(variablePath) {
             const { node } = variablePath;
+            if (
+                node.id?.type === 'Identifier'
+                && node.id.name === 't'
+                && node.init?.type === 'CallExpression'
+                && node.init.callee?.type === 'Identifier'
+                && node.init.callee.name === 'useStableIcuMessages'
+            ) {
+                hasHookBinding = true;
+            }
             if (
                 node.init?.type !== 'CallExpression'
                 || node.init.callee?.type !== 'Identifier'
@@ -91,6 +102,10 @@ productionFiles.forEach((file) => {
     });
 
     if (replacementCount === 0) {
+        if (hasHookImport && hasHookBinding) {
+            alreadyMigratedFiles.push({ file });
+            return;
+        }
         delegatedFiles.push({
             file,
             reason: 'No direct useMarket() t destructuring found. Translator is supplied by the migrated caller and remains tracked for review.',
@@ -120,6 +135,7 @@ productionFiles.forEach((file) => {
 
 const result = {
     applied: apply,
+    alreadyMigratedFiles,
     changedFiles,
     delegatedFiles,
     generatedAt: new Date().toISOString(),
@@ -129,6 +145,7 @@ const result = {
         changedFiles: changedFiles.length,
         dynamicLookupReferencesHeldForManualReview: report.summary.dynamicLookupReferences,
         delegatedFiles: delegatedFiles.length,
+        alreadyMigratedFiles: alreadyMigratedFiles.length,
         hookBindingsMigrated: changedFiles.reduce((total, file) => total + file.hookBindingsMigrated, 0),
         skippedFiles: skippedFiles.length,
         stableProductionIds: report.summary.uniqueProductionStableIds,
@@ -154,6 +171,7 @@ fs.writeFileSync(path.join(outputDir, 'stable-ui-icu-codemod-report.md'), [
     '',
     `- Stable production IDs: ${result.summary.stableProductionIds}`,
     `- Files changed: ${result.summary.changedFiles}`,
+    `- Already-migrated files: ${result.summary.alreadyMigratedFiles}`,
     `- Hook bindings migrated: ${result.summary.hookBindingsMigrated}`,
     `- Dynamic lookups held for manual review: ${result.summary.dynamicLookupReferencesHeldForManualReview}`,
     `- Delegated translator files: ${result.summary.delegatedFiles}`,
@@ -164,6 +182,10 @@ fs.writeFileSync(path.join(outputDir, 'stable-ui-icu-codemod-report.md'), [
     '| File | Hook bindings | Dynamic lookups retained |',
     '| --- | ---: | ---: |',
     ...changedFiles.map((file) => `| \`${file.file}\` | ${file.hookBindingsMigrated} | ${file.dynamicLookupReferences} |`),
+    '',
+    '## Already Migrated',
+    '',
+    ...alreadyMigratedFiles.map((file) => `- \`${file.file}\``),
     '',
     '## Delegated Translators',
     '',
@@ -176,7 +198,7 @@ fs.writeFileSync(path.join(outputDir, 'stable-ui-icu-codemod-report.md'), [
 ].join('\n'), 'utf8');
 
 console.log(`Stable UI ICU codemod ${apply ? 'applied' : 'dry-run complete'}.`);
-console.log(`Files: ${result.summary.changedFiles}; hook bindings: ${result.summary.hookBindingsMigrated}; delegated: ${result.summary.delegatedFiles}; skips: ${result.summary.skippedFiles}`);
+console.log(`Files: ${result.summary.changedFiles}; already migrated: ${result.summary.alreadyMigratedFiles}; hook bindings: ${result.summary.hookBindingsMigrated}; delegated: ${result.summary.delegatedFiles}; skips: ${result.summary.skippedFiles}`);
 console.log(`Dynamic lookups held for review: ${result.summary.dynamicLookupReferencesHeldForManualReview}`);
 console.log('Report: artifacts/i18n/stable-ui-icu-codemod-report.md');
 
