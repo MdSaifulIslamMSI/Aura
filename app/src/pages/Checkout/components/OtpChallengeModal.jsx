@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useIntl } from 'react-intl';
 import { Loader2, ShieldCheck, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useMarket } from '@/context/MarketContext';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 
 /**
  * OtpChallengeModal
@@ -20,7 +21,7 @@ import { useMarket } from '@/context/MarketContext';
 const OTP_LENGTH = 6;
 
 const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClose }) => {
-    const { t } = useMarket();
+    const intl = useIntl();
     const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(''));
     const inputRefs = useRef([]);
 
@@ -100,7 +101,7 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
             <div
                 className="fixed inset-0 z-[90] bg-zinc-950/70"
                 onClick={onClose}
-                aria-label={t('checkout.otp.closeDialog', {}, 'Close OTP dialog')}
+                aria-label={intl.formatMessage(criticalMessages.checkoutOtpCloseDialog)}
                 role="button"
                 tabIndex={-1}
                 onKeyDown={(e) => e.key === 'Enter' && onClose?.()}
@@ -119,7 +120,7 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
                         type="button"
                         onClick={onClose}
                         className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-                        aria-label={t('nav.close', {}, 'Close')}
+                        aria-label={intl.formatMessage(criticalMessages.checkoutOtpCloseDialog)}
                         disabled={loading}
                     >
                         <X className="w-4 h-4" />
@@ -135,10 +136,10 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
                                 id="otp-modal-title"
                                 className="text-base font-black text-white tracking-tight"
                             >
-                                {t('checkout.otp.title', {}, 'Payment Challenge')}
+                                {intl.formatMessage(criticalMessages.checkoutOtpTitle)}
                             </h2>
                             <p className="mt-1 text-sm text-slate-400">
-                                {t('checkout.otp.subtitle', {}, 'Enter the 6-digit OTP sent to your registered contact.')}
+                                {intl.formatMessage(criticalMessages.checkoutOtpSubtitle)}
                             </p>
                         </div>
                     </div>
@@ -168,7 +169,7 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
                                     digits[i] ? 'border-white/25' : 'border-white/10',
                                     loading && 'opacity-50 cursor-not-allowed'
                                 )}
-                                aria-label={t('checkout.otp.digitLabel', { index: i + 1 }, `OTP digit ${i + 1}`)}
+                                aria-label={intl.formatMessage(criticalMessages.checkoutOtpDigitLabel, { index: i + 1 })}
                             />
                         ))}
                     </div>
@@ -195,22 +196,22 @@ const OtpChallengeModal = ({ open, loading = false, error = '', onSubmit, onClos
                         {loading ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                {t('checkout.otp.verifying', {}, 'Verifying...')}
+                                {intl.formatMessage(criticalMessages.checkoutOtpVerifying)}
                             </>
                         ) : (
-                            t('checkout.otp.verify', {}, 'Verify OTP')
+                            intl.formatMessage(criticalMessages.checkoutOtpVerify)
                         )}
                     </button>
 
                     <p className="mt-3 text-center text-xs text-slate-500">
-                        {t('checkout.otp.didNotReceive', {}, "Didn't receive it?")}{' '}
+                        {intl.formatMessage(criticalMessages.checkoutOtpDidNotReceive)}{' '}
                         <button
                             type="button"
                             onClick={onClose}
                             className="text-neo-cyan hover:underline"
                             disabled={loading}
                         >
-                            {t('checkout.otp.cancelRetry', {}, 'Cancel and retry')}
+                            {intl.formatMessage(criticalMessages.checkoutOtpCancelRetry)}
                         </button>
                     </p>
                 </div>

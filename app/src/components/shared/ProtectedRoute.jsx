@@ -1,7 +1,9 @@
 import { useContext } from 'react';
+import { useIntl } from 'react-intl';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 import { buildSupportHandoffPath } from '@/utils/supportRouting';
 import {
     getAdminAccessLockFromIntelligence,
@@ -149,10 +151,11 @@ export const AdminAccessLockedState = ({ adminAccessLock, onRetry }) => (
 
 const useAuthGate = () => {
     const auth = useContext(AuthContext);
+    const intl = useIntl();
     const { t } = useMarket();
     const location = useLocation();
     const navigate = useNavigate();
-    return { auth, location, navigate, t };
+    return { auth, intl, location, navigate, t };
 };
 
 const renderResolvedGate = ({
@@ -165,6 +168,7 @@ const renderResolvedGate = ({
     location,
     pendingMessage,
     pendingTitle,
+    intl,
     t,
     children,
 }) => {
@@ -175,8 +179,8 @@ const renderResolvedGate = ({
     if (status === 'device_challenge_required' && currentUser) {
         return (
             <AuthPendingState
-                title={t('auth.deviceChallenge.title', {}, 'Trusted device checkpoint')}
-                message={t('auth.deviceChallenge.message', {}, 'Approve this browser in the security checkpoint to continue.')}
+                title={intl.formatMessage(criticalMessages.authDeviceChallengeTitle)}
+                message={intl.formatMessage(criticalMessages.authDeviceChallengeMessage)}
             />
         );
     }
@@ -222,7 +226,7 @@ const renderResolvedGate = ({
 };
 
 export const ProtectedRoute = ({ children }) => {
-    const { auth, location, navigate, t } = useAuthGate();
+    const { auth, intl, location, navigate, t } = useAuthGate();
     const { status, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
@@ -233,8 +237,9 @@ export const ProtectedRoute = ({ children }) => {
         logout,
         navigate,
         location,
-        pendingMessage: t('auth.pending.resolveSession', {}, 'Resolving your session...'),
-        pendingTitle: t('auth.pending.title', {}, 'Session checkpoint'),
+        pendingMessage: intl.formatMessage(criticalMessages.authPendingResolveSession),
+        pendingTitle: intl.formatMessage(criticalMessages.authPendingTitle),
+        intl,
         t,
         children,
     });
@@ -251,7 +256,7 @@ export const ProtectedRoute = ({ children }) => {
 };
 
 export const AdminRoute = ({ children }) => {
-    const { auth, location, navigate, t } = useAuthGate();
+    const { auth, intl, location, navigate, t } = useAuthGate();
     const { status, roles, sessionError, sessionIntelligence, refreshSession, currentUser, logout } = auth;
     const adminAccessLock = currentUser ? getAdminAccessLockFromIntelligence(sessionIntelligence) : null;
 
@@ -273,7 +278,8 @@ export const AdminRoute = ({ children }) => {
         navigate,
         location,
         pendingMessage: t('auth.pending.admin', {}, 'Checking admin session access...'),
-        pendingTitle: t('auth.pending.title', {}, 'Session checkpoint'),
+        pendingTitle: intl.formatMessage(criticalMessages.authPendingTitle),
+        intl,
         t,
         children,
     });
@@ -294,7 +300,7 @@ export const AdminRoute = ({ children }) => {
 };
 
 export const SellerRoute = ({ children }) => {
-    const { auth, location, navigate, t } = useAuthGate();
+    const { auth, intl, location, navigate, t } = useAuthGate();
     const { status, roles, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
@@ -306,7 +312,8 @@ export const SellerRoute = ({ children }) => {
         navigate,
         location,
         pendingMessage: t('auth.pending.seller', {}, 'Checking seller account state...'),
-        pendingTitle: t('auth.pending.title', {}, 'Session checkpoint'),
+        pendingTitle: intl.formatMessage(criticalMessages.authPendingTitle),
+        intl,
         t,
         children,
     });

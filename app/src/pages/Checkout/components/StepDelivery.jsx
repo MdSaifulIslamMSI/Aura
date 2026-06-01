@@ -1,7 +1,9 @@
 import { CalendarClock, CheckCircle2, Truck } from 'lucide-react';
+import { useIntl } from 'react-intl';
 import { cn } from '@/lib/utils';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
 
@@ -19,6 +21,7 @@ const StepDelivery = ({
     onBack,
     onContinue,
 }) => {
+    const intl = useIntl();
     const { t } = useMarket();
     const availableShippingOptions = shippingOptions.length > 0
         ? shippingOptions
@@ -41,7 +44,7 @@ const StepDelivery = ({
             >
                 <h3 className={cn('flex items-center gap-3 text-sm font-black uppercase tracking-[0.22em] md:text-base', isActive ? 'text-neo-fuchsia' : 'text-white')}>
                     <Truck className="w-5 h-5" />
-                    {t('checkout.stepDelivery.title', {}, '2. Delivery Slot')}
+                    {intl.formatMessage(criticalMessages.checkoutDeliveryStepTitle)}
                 </h3>
                 {completed ? <CheckCircle2 className="w-5 h-5 text-neo-cyan" /> : null}
             </button>
@@ -67,7 +70,9 @@ const StepDelivery = ({
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <label className="space-y-2">
-                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.deliveryDate', {}, 'Delivery Date')}</span>
+                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                                {intl.formatMessage(criticalMessages.checkoutDeliveryDateLabel)}
+                            </span>
                             <input
                                 type="date"
                                 value={deliverySlot.date}
@@ -77,13 +82,15 @@ const StepDelivery = ({
                             />
                         </label>
                         <label className="space-y-2">
-                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{t('checkout.deliveryWindow', {}, 'Delivery Window')}</span>
+                            <span className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">
+                                {intl.formatMessage(criticalMessages.checkoutDeliveryWindowLabel)}
+                            </span>
                             <PremiumSelect
                                 value={deliverySlot.window}
                                 onChange={(event) => onDeliverySlotChange('window', event.target.value)}
                                 className="checkout-premium-input"
                             >
-                                <option value="">{t('checkout.selectSlot', {}, 'Select slot')}</option>
+                                <option value="">{intl.formatMessage(criticalMessages.checkoutDeliverySelectSlot)}</option>
                                 {SLOT_WINDOWS.map((windowLabel) => {
                                     const opt = optimizedSlots.find(s => s.window === windowLabel);
                                     const extra = opt ? ` (${opt.label})` : '';
@@ -134,14 +141,14 @@ const StepDelivery = ({
                             onClick={onBack}
                             className="checkout-premium-secondary w-full text-xs font-black uppercase tracking-[0.2em] sm:w-auto"
                         >
-                            {t('checkout.back', {}, 'Back')}
+                            {intl.formatMessage(criticalMessages.checkoutBack)}
                         </button>
                         <button
                             type="button"
                             onClick={onContinue}
                             className="checkout-premium-primary w-full px-8 py-3 text-sm font-black uppercase tracking-[0.24em] sm:ml-auto sm:w-auto"
                         >
-                            {t('checkout.continue', {}, 'Continue')}
+                            {intl.formatMessage(criticalMessages.checkoutContinue)}
                         </button>
                     </div>
                 </div>

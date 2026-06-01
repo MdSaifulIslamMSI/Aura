@@ -48,6 +48,33 @@ Migrated ICU IDs:
 - `payment.error.retry`
 - `order.status.confirmed`
 
+## Batch B Started Scope
+
+Batch B starts the next controlled high-risk slice. It migrates 18 stable labels
+from protected-session, trusted-device, payment OTP, and delivery-slot surfaces
+to reviewed FormatJS/ICU descriptors.
+
+Migrated ICU IDs:
+
+- `auth.pending.title`
+- `auth.pending.resolveSession`
+- `auth.deviceChallenge.title`
+- `auth.deviceChallenge.message`
+- `checkout.otp.closeDialog`
+- `checkout.otp.title`
+- `checkout.otp.subtitle`
+- `checkout.otp.digitLabel`
+- `checkout.otp.verify`
+- `checkout.otp.verifying`
+- `checkout.otp.didNotReceive`
+- `checkout.otp.cancelRetry`
+- `checkout.delivery.stepTitle`
+- `checkout.delivery.dateLabel`
+- `checkout.delivery.windowLabel`
+- `checkout.delivery.selectSlot`
+- `checkout.action.back`
+- `checkout.action.continue`
+
 ## Remaining High-Risk Areas
 
 Prioritize these files before broader product and admin surfaces:

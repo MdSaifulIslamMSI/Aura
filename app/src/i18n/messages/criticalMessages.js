@@ -81,6 +81,96 @@ export const criticalMessages = defineMessages({
         defaultMessage: 'Retry payment',
         description: 'Action for restarting a failed or stale payment attempt.',
     },
+    authPendingTitle: {
+        id: 'auth.pending.title',
+        defaultMessage: 'Session checkpoint',
+        description: 'Short heading shown while account/session access is being checked.',
+    },
+    authPendingResolveSession: {
+        id: 'auth.pending.resolveSession',
+        defaultMessage: 'Resolving your session...',
+        description: 'Loading message shown while a protected route checks the current session.',
+    },
+    authDeviceChallengeTitle: {
+        id: 'auth.deviceChallenge.title',
+        defaultMessage: 'Trusted device checkpoint',
+        description: 'Heading shown when a protected route requires trusted-device approval.',
+    },
+    authDeviceChallengeMessage: {
+        id: 'auth.deviceChallenge.message',
+        defaultMessage: 'Approve this browser in the security checkpoint to continue.',
+        description: 'Instruction shown when a protected route requires trusted-device approval.',
+    },
+    checkoutOtpCloseDialog: {
+        id: 'checkout.otp.closeDialog',
+        defaultMessage: 'Close OTP dialog',
+        description: 'Accessible label for closing the payment OTP challenge dialog.',
+    },
+    checkoutOtpTitle: {
+        id: 'checkout.otp.title',
+        defaultMessage: 'Payment Challenge',
+        description: 'Title for the payment OTP challenge modal.',
+    },
+    checkoutOtpSubtitle: {
+        id: 'checkout.otp.subtitle',
+        defaultMessage: 'Enter the 6-digit OTP sent to your registered contact.',
+        description: 'Instruction text for the payment OTP challenge modal.',
+    },
+    checkoutOtpDigitLabel: {
+        id: 'checkout.otp.digitLabel',
+        defaultMessage: 'OTP digit {index, number}',
+        description: 'Accessible label for an individual payment OTP digit input.',
+    },
+    checkoutOtpVerify: {
+        id: 'checkout.otp.verify',
+        defaultMessage: 'Verify OTP',
+        description: 'Action button label for submitting the payment OTP challenge.',
+    },
+    checkoutOtpVerifying: {
+        id: 'checkout.otp.verifying',
+        defaultMessage: 'Verifying...',
+        description: 'Busy state shown while the payment OTP challenge is being verified.',
+    },
+    checkoutOtpDidNotReceive: {
+        id: 'checkout.otp.didNotReceive',
+        defaultMessage: "Didn't receive it?",
+        description: 'Prompt shown near the payment OTP challenge retry action.',
+    },
+    checkoutOtpCancelRetry: {
+        id: 'checkout.otp.cancelRetry',
+        defaultMessage: 'Cancel and retry',
+        description: 'Action for cancelling the current payment OTP challenge and trying again.',
+    },
+    checkoutDeliveryStepTitle: {
+        id: 'checkout.delivery.stepTitle',
+        defaultMessage: '2. Delivery Slot',
+        description: 'Checkout step heading for selecting delivery speed and slot.',
+    },
+    checkoutDeliveryDateLabel: {
+        id: 'checkout.delivery.dateLabel',
+        defaultMessage: 'Delivery Date',
+        description: 'Label for the checkout delivery date input.',
+    },
+    checkoutDeliveryWindowLabel: {
+        id: 'checkout.delivery.windowLabel',
+        defaultMessage: 'Delivery Window',
+        description: 'Label for the checkout delivery time-window input.',
+    },
+    checkoutDeliverySelectSlot: {
+        id: 'checkout.delivery.selectSlot',
+        defaultMessage: 'Select slot',
+        description: 'Placeholder option for choosing a checkout delivery slot.',
+    },
+    checkoutBack: {
+        id: 'checkout.action.back',
+        defaultMessage: 'Back',
+        description: 'Secondary checkout navigation action that returns to the previous step.',
+    },
+    checkoutContinue: {
+        id: 'checkout.action.continue',
+        defaultMessage: 'Continue',
+        description: 'Primary checkout navigation action that advances to the next step.',
+    },
     orderConfirmed: {
         id: 'order.status.confirmed',
         defaultMessage: 'Order confirmed',
