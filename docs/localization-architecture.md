@@ -29,7 +29,8 @@ generated migration layer.
 The reviewed locales are `en`, `hi`, `bn`, `ur`, and `ar`. `en-XA` is
 generated for expansion QA. `VITE_I18N_FORMATJS_ENABLED` controls reviewed
 locale rollout; when disabled, migrated surfaces resolve through the English
-ICU fallback.
+ICU fallback. English ships with the initial graph; non-English reviewed
+catalogs load on demand and are cached after first use.
 
 ## Dynamic Copy Policy
 

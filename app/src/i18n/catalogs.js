@@ -1,17 +1,33 @@
-import arMessages from './messages/compiled/ar.json';
-import bnMessages from './messages/compiled/bn.json';
 import enMessages from './messages/compiled/en.json';
-import enXaMessages from './messages/compiled/en-XA.json';
-import hiMessages from './messages/compiled/hi.json';
-import urMessages from './messages/compiled/ur.json';
 
 export const catalogs = {
-    ar: arMessages,
-    bn: bnMessages,
     en: enMessages,
-    'en-XA': enXaMessages,
-    hi: hiMessages,
-    ur: urMessages,
+};
+
+const catalogLoaders = {
+    ar: () => import('./messages/compiled/ar.json').then((module) => module.default),
+    bn: () => import('./messages/compiled/bn.json').then((module) => module.default),
+    en: () => Promise.resolve(enMessages),
+    'en-XA': () => import('./messages/compiled/en-XA.json').then((module) => module.default),
+    hi: () => import('./messages/compiled/hi.json').then((module) => module.default),
+    ur: () => import('./messages/compiled/ur.json').then((module) => module.default),
+};
+
+const catalogPromises = {};
+
+export const loadCatalog = async (language = 'en') => {
+    const resolvedLanguage = catalogLoaders[language] ? language : 'en';
+    if (catalogs[resolvedLanguage]) return catalogs[resolvedLanguage];
+
+    catalogPromises[resolvedLanguage] ||= catalogLoaders[resolvedLanguage]().then((messages) => {
+        catalogs[resolvedLanguage] = messages;
+        return messages;
+    }).catch((error) => {
+        delete catalogPromises[resolvedLanguage];
+        throw error;
+    });
+
+    return catalogPromises[resolvedLanguage];
 };
 
 const parseBooleanEnv = (value, fallback = false) => {
@@ -25,5 +41,5 @@ export const isFormatJsEnabled = () => parseBooleanEnv(
 );
 
 export const resolveFormatJsLanguage = (language = 'en') => (
-    isFormatJsEnabled() && catalogs[language] ? language : 'en'
+    isFormatJsEnabled() && catalogLoaders[language] ? language : 'en'
 );

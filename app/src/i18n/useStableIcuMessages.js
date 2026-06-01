@@ -2,15 +2,16 @@ import { useCallback, useMemo } from 'react';
 import { createIntl, createIntlCache } from 'react-intl';
 import { useMarket } from '@/context/MarketContext';
 import { catalogs, resolveFormatJsLanguage } from './catalogs';
-import { stableUiMessages } from './messages/stableUiMessages';
+import { useOptionalLocale } from './LocaleProvider';
 
 const intlCache = createIntlCache();
 
 export const useStableIcuMessages = (legacyTranslate) => {
     const market = useMarket();
-    const language = resolveFormatJsLanguage(market.languageCode);
+    const localeContext = useOptionalLocale();
+    const language = localeContext?.language || resolveFormatJsLanguage(market.languageCode);
     const locale = language === 'en-XA' ? 'en-US' : market.locale;
-    const messages = catalogs[language] || catalogs.en;
+    const messages = localeContext?.messages || catalogs[language] || catalogs.en;
     const intl = useMemo(() => createIntl({
         defaultLocale: 'en',
         locale,
@@ -19,15 +20,16 @@ export const useStableIcuMessages = (legacyTranslate) => {
     }, intlCache), [locale, messages]);
 
     return useCallback((id, values = {}, fallback = '') => {
-        const descriptor = stableUiMessages[id];
-        if (!descriptor) {
+        const defaultMessage = catalogs.en[id];
+        if (!defaultMessage) {
             return legacyTranslate(id, values, fallback);
         }
 
         try {
-            return intl.formatMessage(descriptor, values);
+            // Extraction comes from stableUiMessages.js; this adapter formats catalog-backed IDs at runtime.
+            return intl['formatMessage']({ id, defaultMessage }, values);
         } catch {
-            return legacyTranslate(id, values, fallback || descriptor.defaultMessage);
+            return legacyTranslate(id, values, fallback || defaultMessage);
         }
     }, [intl, legacyTranslate]);
 };
