@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useIntl } from 'react-intl';
 import {
     AlertCircle,
     Building2,
@@ -19,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { useMarket } from '@/context/MarketContext';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 
 const PAYMENT_OPTIONS = [
     { id: 'COD', titleKey: 'checkout.payment.codTitle', titleFallback: 'Cash on Delivery', descriptionKey: 'checkout.payment.codDescription', descriptionFallback: 'Pay when your order arrives', icon: Wallet },
@@ -55,15 +57,26 @@ const STATUS_STYLES = {
     expired: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
 };
 
-const getPaymentStatusMessage = (paymentIntent = {}, t) => {
+const getPaymentStatusMessage = (paymentIntent = {}, t, intl) => {
     const status = String(paymentIntent.status || '').trim().toLowerCase();
     if (status === 'challenge_pending') return t('checkout.payment.status.challenge_pending', {}, 'Additional verification is required before payment authorization can continue.');
     if (status === 'created') return t('checkout.payment.status.created', {}, 'Payment authorization is ready. Complete the secure checkout window to continue.');
     if (status === 'authorized') return t('checkout.payment.status.authorized', {}, 'Payment has been authorized and is ready for order placement.');
     if (status === 'captured') return t('checkout.payment.status.captured', {}, 'Payment has already been captured by the provider.');
-    if (status === 'failed') return t('checkout.payment.status.failed', {}, 'The provider rejected the payment authorization.');
-    if (status === 'expired') return t('checkout.payment.status.expired', {}, 'This payment authorization expired. Start it again to continue.');
+    if (status === 'failed') return intl.formatMessage(criticalMessages.paymentErrorGeneric);
+    if (status === 'expired') return intl.formatMessage(criticalMessages.paymentErrorGeneric);
     return '';
+};
+
+const getPaymentStatusLabel = (status = '', intl) => {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (['authorized', 'captured', 'paid'].includes(normalized)) {
+        return intl.formatMessage(criticalMessages.paymentSuccess);
+    }
+    if (['failed', 'expired', 'cancelled'].includes(normalized)) {
+        return intl.formatMessage(criticalMessages.paymentFailed);
+    }
+    return intl.formatMessage(criticalMessages.paymentPending);
 };
 
 const RAIL_SUMMARY = {
@@ -302,10 +315,13 @@ const StepPayment = ({
     paymentGatewayDisabled = false,
 }) => {
     const { t } = useMarket();
+    const intl = useIntl();
     const [bankSearch, setBankSearch] = useState('');
     const isDigital = paymentMethod !== 'COD';
     const isNetbanking = paymentMethod === 'NETBANKING';
     const paymentStatus = String(paymentIntent?.status || 'idle').trim().toLowerCase();
+    const paymentStatusLabel = getPaymentStatusLabel(paymentStatus, intl);
+    const retryPaymentLabel = intl.formatMessage(criticalMessages.paymentRetry);
     const hasIntent = Boolean(paymentIntent?.intentId);
     const paymentReady = paymentStatus === 'authorized' || paymentStatus === 'captured';
     const actionLabel = paymentReady
@@ -974,7 +990,7 @@ const StepPayment = ({
                                     className="checkout-premium-secondary w-full text-xs font-black uppercase tracking-[0.16em] disabled:opacity-50 sm:w-auto"
                                 >
                                     <RotateCcw className="h-4 w-4" />
-                                    {t('checkout.payment.restart', {}, 'Restart')}
+                                    {retryPaymentLabel}
                                 </button>
                             </div>
 
@@ -985,9 +1001,9 @@ const StepPayment = ({
                             {paymentStatus && paymentStatus !== 'idle' ? (
                                 <div className={cn('checkout-premium-alert', STATUS_STYLES[paymentStatus] || STATUS_STYLES.created)}>
                                     <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em]">
-                                        {t('checkout.payment.statusLabel', {}, 'Status')}: {paymentStatus.replace(/_/g, ' ')}
+                                        {t('checkout.payment.statusLabel', {}, 'Status')}: {paymentStatusLabel}
                                     </p>
-                                    <p>{getPaymentStatusMessage(paymentIntent, t)}</p>
+                                    <p>{getPaymentStatusMessage(paymentIntent, t, intl)}</p>
                                     {paymentIntent?.providerPaymentId ? (
                                         <p className="mt-2 text-xs opacity-90">{t('checkout.payment.reference', { reference: paymentIntent.providerPaymentId }, `Ref: ${paymentIntent.providerPaymentId}`)}</p>
                                     ) : null}

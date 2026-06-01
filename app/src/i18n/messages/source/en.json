@@ -1,0 +1,106 @@
+{
+  "accessibility.hidePassword": {
+    "defaultMessage": "Hide password",
+    "description": "Accessible label for hiding a password value in an authentication field."
+  },
+  "accessibility.openCart": {
+    "defaultMessage": "Open cart with {count, plural, =0 {no items} one {# item} other {# items}}",
+    "description": "Accessible label for opening the cart."
+  },
+  "accessibility.showPassword": {
+    "defaultMessage": "Show password",
+    "description": "Accessible label for revealing a password value in an authentication field."
+  },
+  "auth.action.signIn": {
+    "defaultMessage": "Sign in",
+    "description": "Primary authentication action shown on sign-in CTAs."
+  },
+  "auth.action.signUp": {
+    "defaultMessage": "Sign up",
+    "description": "Primary authentication action shown on account creation CTAs."
+  },
+  "auth.security.passwordHidden": {
+    "defaultMessage": "Show password",
+    "description": "Accessible action when the password is currently hidden."
+  },
+  "auth.security.passwordVisible": {
+    "defaultMessage": "Hide password",
+    "description": "Accessible action when the password is currently visible."
+  },
+  "auth.signIn": {
+    "defaultMessage": "Sign in",
+    "description": "Primary action for signing into an Aura account."
+  },
+  "cart.action.addToCart": {
+    "defaultMessage": "Add to cart",
+    "description": "Action that adds a product to the shopper cart."
+  },
+  "cart.action.removeFromCart": {
+    "defaultMessage": "Remove from cart",
+    "description": "Action that removes a product from the shopper cart."
+  },
+  "cart.status.empty": {
+    "defaultMessage": "Your cart is empty",
+    "description": "Empty-state title for a cart with no products."
+  },
+  "checkout.action.placeOrder": {
+    "defaultMessage": "Place order",
+    "description": "Final checkout action that submits an order."
+  },
+  "checkout.amountDue": {
+    "defaultMessage": "Amount due: {amount, number}",
+    "description": "Checkout amount label using locale-aware numeric formatting."
+  },
+  "checkout.deliveryDate": {
+    "defaultMessage": "Delivery date: {date, date, medium}",
+    "description": "Checkout delivery date label using locale-aware date formatting."
+  },
+  "checkout.payNow": {
+    "defaultMessage": "Pay now",
+    "description": "Primary checkout action that starts payment."
+  },
+  "checkout.status.paymentFailed": {
+    "defaultMessage": "Payment failed",
+    "description": "Short payment status shown when authorization or capture fails."
+  },
+  "checkout.status.paymentPending": {
+    "defaultMessage": "Payment pending",
+    "description": "Short payment status shown while payment is waiting for completion."
+  },
+  "checkout.status.paymentSuccess": {
+    "defaultMessage": "Payment successful",
+    "description": "Short payment status shown after payment authorization or capture succeeds."
+  },
+  "common.itemCount": {
+    "defaultMessage": "{count, plural, =0 {No items} one {# item} other {# items}}",
+    "description": "Cart or order item count with plural handling."
+  },
+  "errors.generic": {
+    "defaultMessage": "Something went wrong. Please try again.",
+    "description": "Safe generic error shown when a specific recovery message is unavailable."
+  },
+  "nav.cart": {
+    "defaultMessage": "Cart",
+    "description": "Navigation label for the shopping cart."
+  },
+  "order.status.confirmed": {
+    "defaultMessage": "Order confirmed",
+    "description": "Order status shown after the backend has accepted the order."
+  },
+  "payment.error.generic": {
+    "defaultMessage": "Payment could not be completed. Please try again.",
+    "description": "Safe generic payment error when no provider-specific message is available."
+  },
+  "payment.error.retry": {
+    "defaultMessage": "Retry payment",
+    "description": "Action for restarting a failed or stale payment attempt."
+  },
+  "rewards.auraPoints": {
+    "defaultMessage": "Aura Points",
+    "description": "Aura loyalty points brand name. Keep Aura untranslated."
+  },
+  "status.updatedAt": {
+    "defaultMessage": "Updated {timestamp, time, short}",
+    "description": "Status timestamp using locale-aware time formatting."
+  }
+}

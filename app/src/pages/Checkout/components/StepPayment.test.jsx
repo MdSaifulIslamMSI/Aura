@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MarketProvider } from '@/context/MarketContext';
+import { LocaleProvider } from '@/i18n/LocaleProvider';
 import StepPayment from './StepPayment';
 
 vi.mock('@/services/api/marketApi', () => ({
@@ -121,7 +122,9 @@ const renderStepPayment = (overrides = {}) => {
 
     return render(
         <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }} disableBrowserDetection>
-            <StepPayment {...props} />
+            <LocaleProvider>
+                <StepPayment {...props} />
+            </LocaleProvider>
         </MarketProvider>
     );
 };

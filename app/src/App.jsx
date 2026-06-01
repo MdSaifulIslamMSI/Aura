@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { CommerceProvider } from './context/CommerceContext';
 import { ColorModeProvider } from './context/ColorModeContext';
 import { MarketProvider } from './context/MarketContext';
+import { LocaleProvider } from './i18n/LocaleProvider';
 import { MotionModeProvider, useMotionMode } from './context/MotionModeContext';
 import { SocketProvider } from './context/SocketContext';
 import { AdminAccessLockedState, AdminRoute, ProtectedRoute, SellerRoute } from './components/shared/ProtectedRoute';
@@ -391,25 +392,27 @@ function App() {
     <ColorModeProvider>
       <MotionModeProvider>
         <MarketProvider>
-          <EmergencyStatusProvider>
-            <AuthProvider>
-              <SocketProvider>
-                <NotificationProvider>
-                  <VideoCallProvider>
-                    <CommerceProvider>
-                      {/* React Router v7 defaults BrowserRouter navigations to startTransition,
-                          which can leave the previous lazy route visible after URL changes. */}
-                      <Router unstable_useTransitions={false}>
-                        <MultimodalAssistantProvider>
-                          <AppContent />
-                        </MultimodalAssistantProvider>
-                      </Router>
-                    </CommerceProvider>
-                  </VideoCallProvider>
-                </NotificationProvider>
-              </SocketProvider>
-            </AuthProvider>
-          </EmergencyStatusProvider>
+          <LocaleProvider>
+            <EmergencyStatusProvider>
+              <AuthProvider>
+                <SocketProvider>
+                  <NotificationProvider>
+                    <VideoCallProvider>
+                      <CommerceProvider>
+                        {/* React Router v7 defaults BrowserRouter navigations to startTransition,
+                            which can leave the previous lazy route visible after URL changes. */}
+                        <Router unstable_useTransitions={false}>
+                          <MultimodalAssistantProvider>
+                            <AppContent />
+                          </MultimodalAssistantProvider>
+                        </Router>
+                      </CommerceProvider>
+                    </VideoCallProvider>
+                  </NotificationProvider>
+                </SocketProvider>
+              </AuthProvider>
+            </EmergencyStatusProvider>
+          </LocaleProvider>
         </MarketProvider>
       </MotionModeProvider>
     </ColorModeProvider>

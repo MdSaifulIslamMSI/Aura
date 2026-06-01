@@ -1,4 +1,5 @@
 import { useContext, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -23,6 +24,7 @@ import { CartRecommendations } from '@/components/recommendations';
 import { trackRecommendationEvent } from '@/services/api';
 import { convertAmount } from '@/utils/format';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 import { getBaseCurrency, getLineBaseTotal, getLineOriginalBaseTotal } from '@/utils/pricing';
 
 const getCartItemId = (item) => item?.id ?? item?._id;
@@ -36,6 +38,7 @@ const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, moveToWishlist, isLoading } = useContext(CartContext);
   const { isFeatureDisabled, readOnly } = useEmergencyStatus();
   const { t, formatPrice } = useMarket();
+  const intl = useIntl();
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();
 
@@ -123,7 +126,7 @@ const Cart = () => {
             <ShoppingBag className="h-9 w-9 text-neo-cyan" />
           </div>
           <p className="text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">{t('cart.emptyKicker', {}, 'Cart queue')}</p>
-          <h2 className="mt-4 text-3xl font-black tracking-tight text-white">{t('cart.emptyTitle', {}, 'Your Bag is Empty')}</h2>
+          <h2 className="mt-4 text-3xl font-black tracking-tight text-white">{intl.formatMessage(criticalMessages.cartEmpty)}</h2>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-400">
             {t('cart.emptyBody', {}, "We couldn't find any items in your bag.")}
           </p>
@@ -312,7 +315,7 @@ const Cart = () => {
                         className="cart-row-action hover:text-neo-rose"
                       >
                         <Trash2 className="h-4 w-4" />
-                        {t('cart.action.remove', {}, 'Remove')}
+                        {intl.formatMessage(criticalMessages.removeFromCart)}
                       </button>
                     </div>
                   </div>

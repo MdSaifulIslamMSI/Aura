@@ -474,15 +474,6 @@ const restorePlaceholders = (text, placeholders) => placeholders.reduce(
   String(text || ''),
 );
 
-const parseTranslationPayload = async (response) => {
-  const payload = await response.json();
-  const segments = Array.isArray(payload?.[0]) ? payload[0] : [];
-  return segments
-    .map((segment) => (Array.isArray(segment) ? String(segment[0] || '') : ''))
-    .join('')
-    .trim();
-};
-
 const wait = (durationMs) => new Promise((resolve) => {
   setTimeout(resolve, durationMs);
 });
@@ -495,23 +486,27 @@ const translateSingleText = async (text, targetLanguage) => {
   const { protectedText, placeholders } = protectPlaceholders(text);
 
   for (let attempt = 1; attempt <= MAX_TRANSLATION_ATTEMPTS; attempt += 1) {
-    const query = new URLSearchParams({
-      client: 'gtx',
-      sl: SOURCE_LANGUAGE,
-      tl: targetLanguage,
-      dt: 't',
-      q: protectedText,
-    });
+    const libreTranslateBaseUrl = String(process.env.LIBRETRANSLATE_BASE_URL || '').replace(/\/+$/, '');
+    if (!libreTranslateBaseUrl) {
+      throw new Error('LIBRETRANSLATE_BASE_URL is required to generate translated locale packs.');
+    }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const response = await fetch(`https://translate.googleapis.com/translate_a/single?${query.toString()}`, {
+      const response = await fetch(`${libreTranslateBaseUrl}/translate`, {
+        method: 'POST',
         headers: {
           Accept: 'application/json',
-          'User-Agent': 'AuraCommerce/1.0',
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          format: 'text',
+          q: protectedText,
+          source: SOURCE_LANGUAGE,
+          target: targetLanguage,
+        }),
         signal: controller.signal,
       });
 
@@ -519,7 +514,8 @@ const translateSingleText = async (text, targetLanguage) => {
         throw new Error(`Translation upstream returned ${response.status}`);
       }
 
-      const translated = await parseTranslationPayload(response);
+      const payload = await response.json();
+      const translated = String(payload?.translatedText || '');
       return restorePlaceholders(translated || text, placeholders) || text;
     } catch (error) {
       if (attempt >= MAX_TRANSLATION_ATTEMPTS) {

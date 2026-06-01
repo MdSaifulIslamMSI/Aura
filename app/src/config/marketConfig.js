@@ -3,6 +3,17 @@ import { MARKET_MESSAGE_PACK as EN_GENERATED_MARKET_MESSAGES } from './marketMes
 const DEFAULT_COUNTRY_CODE = 'IN';
 const DEFAULT_LANGUAGE_CODE = 'en';
 const DEFAULT_CURRENCY = 'INR';
+const TRUE_ENV_VALUES = new Set(['1', 'true', 'yes', 'on']);
+const PSEUDO_LOCALE_LANGUAGE = {
+  code: 'en-XA',
+  label: 'Pseudo locale',
+  nativeLabel: '[Pseudo]',
+  direction: 'ltr',
+  defaultLocale: 'en-XA',
+};
+const isPseudoLocaleEnabled = () => TRUE_ENV_VALUES.has(
+  String(import.meta.env?.VITE_I18N_PSEUDO_LOCALE_ENABLED || '').trim().toLowerCase()
+);
 const MARKET_MESSAGE_PACK_LOADERS = typeof import.meta.glob === 'function'
   ? import.meta.glob('./marketMessagePacks/*.js')
   : {
@@ -66,6 +77,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'ja', label: 'Japanese', nativeLabel: 'Japanese', direction: 'ltr', defaultLocale: 'ja-JP' },
   { code: 'pt', label: 'Portuguese', nativeLabel: 'Portugues', direction: 'ltr', defaultLocale: 'pt-BR' },
   { code: 'zh', label: 'Chinese', nativeLabel: 'Chinese', direction: 'ltr', defaultLocale: 'zh-CN' },
+  ...(isPseudoLocaleEnabled() ? [PSEUDO_LOCALE_LANGUAGE] : []),
 ];
 
 export const SUPPORTED_MARKETS = [
@@ -417,6 +429,8 @@ const EN_MESSAGES = {
   'checkout.error.otpTemporarilyUnavailable': 'Verification is temporarily unavailable. Please try again later.',
   'checkout.error.orderPlacementPaused': 'Order placement is temporarily unavailable.',
   'login.actionTemporarilyUnavailable': 'Temporarily Unavailable',
+  'accessibility.hidePassword': 'Hide password',
+  'accessibility.showPassword': 'Show password',
   'product.closestMatches': 'No exact match for "{{query}}". Showing closest matches{{confidence}}',
   'seller.shared.today': 'Today',
   'seller.shared.yesterday': 'Yesterday',
@@ -749,6 +763,8 @@ const SIMPLE_OVERRIDES = {
 
 const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
   'login.error.turnstileRequired': 'Security check is still loading. Please try again.',
+  'accessibility.hidePassword': 'Hide password',
+  'accessibility.showPassword': 'Show password',
   'productPage.curatedHardware': 'Curated hardware',
   'productPage.liveMarketFx': 'Live market FX',
   'productPage.marketSnapshot': 'Market snapshot',
@@ -1171,7 +1187,9 @@ export const getSupportedMarket = (countryCode = DEFAULT_COUNTRY_CODE) => (
 );
 
 export const getSupportedLanguage = (languageCode = DEFAULT_LANGUAGE_CODE) => (
-  SUPPORTED_LANGUAGES.find((language) => language.code === String(languageCode || '').trim().toLowerCase())
+  SUPPORTED_LANGUAGES.find((language) => (
+    language.code.toLowerCase() === String(languageCode || '').trim().toLowerCase()
+  ))
   || SUPPORTED_LANGUAGES.find((language) => language.code === DEFAULT_LANGUAGE_CODE)
 );
 

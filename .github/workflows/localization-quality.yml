@@ -1,0 +1,124 @@
+name: Localization Quality
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "server/controllers/i18nController.js"
+      - "server/middleware/i18nTranslationPolicy.js"
+      - "server/routes/i18nRoutes.js"
+      - "server/services/i18n/**"
+      - "server/services/translation/**"
+      - "server/tests/i18n*.test.js"
+      - "server/tests/translation*.test.js"
+      - "scripts/i18n/**"
+      - "config/environments/**"
+      - "docs/localization-*.md"
+      - "package.json"
+      - ".github/workflows/localization-quality.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "server/controllers/i18nController.js"
+      - "server/middleware/i18nTranslationPolicy.js"
+      - "server/routes/i18nRoutes.js"
+      - "server/services/i18n/**"
+      - "server/services/translation/**"
+      - "server/tests/i18n*.test.js"
+      - "server/tests/translation*.test.js"
+      - "scripts/i18n/**"
+      - "config/environments/**"
+      - "docs/localization-*.md"
+      - "package.json"
+      - ".github/workflows/localization-quality.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: localization-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+
+jobs:
+  catalogs:
+    name: Catalogs, policies, and focused tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            server/package-lock.json
+      - name: Install frontend dependencies
+        run: npm --prefix app ci
+      - name: Install backend dependencies
+        run: npm --prefix server ci
+      - name: Verify ICU catalogs and glossary rules
+        run: npm --prefix app run i18n:check
+      - name: Verify legacy locale coverage
+        run: npm --prefix app run audit:locale
+      - name: Verify legacy locale quality
+        run: npm --prefix app run audit:locale:quality
+      - name: Generate legacy market-pack migration report
+        run: npm run i18n:legacy-report
+      - name: Reject unofficial translation endpoints
+        run: npm run scan:i18n-forbidden-endpoints
+      - name: Run focused localization tests
+        run: npm run test:i18n
+      - name: Build frontend
+        run: npm --prefix app run build
+      - name: Upload ICU QA report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: localization-icu-qa
+          path: artifacts/i18n/
+          if-no-files-found: warn
+          retention-days: 14
+
+  browser-smoke:
+    name: Localized layout and accessibility smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install frontend dependencies
+        run: npm --prefix app ci
+      - name: Install Chromium
+        working-directory: app
+        run: npx playwright install --with-deps chromium
+      - name: Run locale visual QA
+        run: npm --prefix app run test:e2e:locale
+      - name: Run locale accessibility QA
+        run: npm --prefix app run test:e2e:locale:a11y
+      - name: Upload browser QA evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: localization-browser-qa
+          path: |
+            app/test-results/locale-accessibility/
+            app/test-results/locale-visual/
+            app/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,57 @@
+{
+  "cart": {
+    "description": "Shopping cart or bag that contains products selected for purchase.",
+    "context": "Storefront navigation, cart, and checkout.",
+    "doNotTranslate": false,
+    "approved": {
+      "hi": "कार्ट",
+      "bn": "কার্ট",
+      "ur": "کارٹ",
+      "ar": "السلة"
+    }
+  },
+  "checkout": {
+    "description": "Final purchase flow, not generic checking or inspection.",
+    "context": "Checkout steps, payment, and order confirmation.",
+    "doNotTranslate": false,
+    "approved": {
+      "hi": "चेकआउट",
+      "bn": "চেকআউট",
+      "ur": "چیک آؤٹ",
+      "ar": "إتمام الشراء"
+    }
+  },
+  "seller": {
+    "description": "Marketplace user or business offering an item for sale.",
+    "context": "Marketplace listings, seller dashboards, and support.",
+    "doNotTranslate": false,
+    "approved": {
+      "hi": "विक्रेता",
+      "bn": "বিক্রেতা",
+      "ur": "فروخت کنندہ",
+      "ar": "البائع"
+    }
+  },
+  "refund": {
+    "description": "Money returned to a buyer after a payment or order reversal.",
+    "context": "Payments, order details, and support.",
+    "doNotTranslate": false,
+    "approved": {
+      "hi": "रिफंड",
+      "bn": "রিফান্ড",
+      "ur": "رقم کی واپسی",
+      "ar": "استرداد المبلغ"
+    }
+  },
+  "OTP": {
+    "description": "One-time password used for account or transaction verification.",
+    "context": "Authentication and checkout verification.",
+    "doNotTranslate": true,
+    "approved": {
+      "hi": "OTP",
+      "bn": "OTP",
+      "ur": "OTP",
+      "ar": "OTP"
+    }
+  }
+}

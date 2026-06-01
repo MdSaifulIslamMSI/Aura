@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MarketProvider } from '@/context/MarketContext';
 import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
+import { LocaleProvider } from '@/i18n/LocaleProvider';
 import ProductCardInline from './ProductCardInline';
 
 const product = {
@@ -16,7 +17,9 @@ const product = {
 
 const renderWithMarket = (ui, initialPreference = { countryCode: 'IN', language: 'en', currency: 'INR' }) => render(
     <MarketProvider initialPreference={initialPreference}>
-        {ui}
+        <LocaleProvider>
+            {ui}
+        </LocaleProvider>
     </MarketProvider>
 );
 

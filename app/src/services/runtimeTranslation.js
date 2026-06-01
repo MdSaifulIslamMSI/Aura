@@ -1,4 +1,5 @@
 import { i18nApi } from '@/services/api/i18nApi';
+import { isRuntimeTranslationEnabled } from '@/config/runtimeTranslationPolicy';
 
 const SHARED_RUNTIME_TRANSLATION_STORAGE_KEY = 'aura_runtime_translation_cache_v2';
 const LEGACY_RUNTIME_TRANSLATION_STORAGE_KEYS = [
@@ -189,6 +190,10 @@ export const requestRuntimeTranslations = async ({
 
     if (normalizedLanguage === 'en' || uniqueTexts.length === 0) {
         return {};
+    }
+
+    if (!isRuntimeTranslationEnabled()) {
+        return Object.fromEntries(uniqueTexts.map((text) => [text, text]));
     }
 
     const missingTexts = uniqueTexts.filter((text) => !runtimeTranslationCache.has(getRuntimeTranslationCacheKey(normalizedLanguage, text)));

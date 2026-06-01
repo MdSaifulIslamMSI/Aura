@@ -38,6 +38,9 @@ export default defineConfig({
       VITE_ENABLE_BACKEND_STATUS_BANNER: 'false',
       VITE_FIREBASE_MEASUREMENT_ID: '',
       VITE_API_URL: process.env.VITE_API_URL || 'http://127.0.0.1:5999/api',
+      VITE_I18N_FORMATJS_ENABLED: 'true',
+      VITE_I18N_PSEUDO_LOCALE_ENABLED: 'true',
+      VITE_I18N_RUNTIME_TRANSLATION_ENABLED: 'false',
     },
   },
 });

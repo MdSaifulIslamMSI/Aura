@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import { ArrowUpRight, ShoppingCart, Star } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 import { cn } from '@/lib/utils';
 import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
 
@@ -14,6 +16,7 @@ const ProductCardInline = ({
     onViewDetails,
 }) => {
     const { t, formatPrice } = useMarket();
+    const intl = useIntl();
     const cardClassName = isWhiteMode
         ? 'assistant-inline-product border-slate-200 bg-white text-slate-950'
         : 'assistant-inline-product border-white/10 bg-white/[0.04] text-slate-100';
@@ -116,7 +119,7 @@ const ProductCardInline = ({
                             className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', primaryButtonClass)}
                         >
                             <ShoppingCart className="h-3.5 w-3.5" />
-                            {t('product.addToCart', {}, 'Add to cart')}
+                            {intl.formatMessage(criticalMessages.addToCart)}
                         </button>
                         <button
                             type="button"
