@@ -93,6 +93,8 @@ jobs:
     name: Localized layout and accessibility smoke
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      PLAYWRIGHT_CHROMIUM_CHANNEL: chrome
 
     steps:
       - uses: actions/checkout@v6
@@ -104,9 +106,11 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - name: Install frontend dependencies
         run: npm --prefix app ci
-      - name: Install Chromium
+      - name: Verify hosted Chrome for Playwright
         working-directory: app
-        run: npx playwright install --with-deps chromium
+        run: |
+          google-chrome --version
+          npx playwright --version
       - name: Run locale visual QA
         run: npm --prefix app run test:e2e:locale
       - name: Run locale accessibility QA

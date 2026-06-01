@@ -294,6 +294,7 @@ jobs:
       - name: Start MongoDB
         uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
+          mongodb-image: mirror.gcr.io/library/mongo
           mongodb-version: "6.0"
 
       - name: Install dependencies
@@ -395,6 +396,7 @@ jobs:
       - name: Start MongoDB
         uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
+          mongodb-image: mirror.gcr.io/library/mongo
           mongodb-version: "6.0"
 
       - name: Install backend dependencies
@@ -442,6 +444,7 @@ jobs:
       - name: Start MongoDB
         uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
+          mongodb-image: mirror.gcr.io/library/mongo
           mongodb-version: "6.0"
 
       - name: Install backend dependencies
@@ -593,6 +596,7 @@ jobs:
       - name: Start MongoDB
         uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
         with:
+          mongodb-image: mirror.gcr.io/library/mongo
           mongodb-version: "6.0"
 
       - name: Verify hosted Chrome for Playwright
