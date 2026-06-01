@@ -2,10 +2,10 @@
   "applied": false,
   "alreadyMigratedFiles": [
     {
-      "file": "app/src/pages/Login/useLoginController.js"
+      "file": "app/src/pages/Checkout/components/StepPayment.jsx"
     },
     {
-      "file": "app/src/pages/Checkout/components/StepPayment.jsx"
+      "file": "app/src/pages/Login/useLoginController.js"
     },
     {
       "file": "app/src/pages/Orders/index.jsx"
@@ -26,10 +26,10 @@
       "file": "app/src/pages/MyListings/index.jsx"
     },
     {
-      "file": "app/src/pages/SellerProfile/index.jsx"
+      "file": "app/src/pages/Checkout/components/StepAddress.jsx"
     },
     {
-      "file": "app/src/pages/Checkout/components/StepAddress.jsx"
+      "file": "app/src/pages/SellerProfile/index.jsx"
     },
     {
       "file": "app/src/pages/Checkout/components/StepReview.jsx"
@@ -47,6 +47,9 @@
       "file": "app/src/pages/Profile/components/SupportSection.jsx"
     },
     {
+      "file": "app/src/pages/Marketplace/index.jsx"
+    },
+    {
       "file": "app/src/pages/ListingDetail/index.jsx"
     },
     {
@@ -56,19 +59,16 @@
       "file": "app/src/pages/ProductDetails/index.jsx"
     },
     {
-      "file": "app/src/pages/Marketplace/index.jsx"
-    },
-    {
       "file": "app/src/pages/Home/index.jsx"
     },
     {
       "file": "app/src/components/shared/GlobalSearchBar.jsx"
     },
     {
-      "file": "app/src/components/layout/Navbar/index.jsx"
+      "file": "app/src/pages/ProductListing/index.jsx"
     },
     {
-      "file": "app/src/pages/ProductListing/index.jsx"
+      "file": "app/src/components/layout/Navbar/index.jsx"
     },
     {
       "file": "app/src/components/features/product/Filters/index.jsx"
@@ -122,13 +122,19 @@
       "file": "app/src/pages/Profile/components/PersonalInfoSection.jsx"
     },
     {
-      "file": "app/src/pages/Admin/ClientDiagnosticsPanel.jsx"
-    },
-    {
       "file": "app/src/pages/Profile/components/PaymentsSection.jsx"
     },
     {
+      "file": "app/src/pages/Admin/ClientDiagnosticsPanel.jsx"
+    },
+    {
       "file": "app/src/pages/Profile/components/RewardsSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/AddressesSection.jsx"
+    },
+    {
+      "file": "app/src/pages/Profile/components/NotificationsSection.jsx"
     },
     {
       "file": "app/src/pages/BecomeSeller/index.jsx"
@@ -137,22 +143,16 @@
       "file": "app/src/pages/PriceAlerts/index.jsx"
     },
     {
-      "file": "app/src/pages/Profile/components/AddressesSection.jsx"
-    },
-    {
       "file": "app/src/components/layout/Footer/index.jsx"
     },
     {
-      "file": "app/src/pages/Profile/components/NotificationsSection.jsx"
+      "file": "app/src/components/shared/BackendStatusBanner.jsx"
     },
     {
       "file": "app/src/pages/Wishlist/index.jsx"
     },
     {
       "file": "app/src/pages/Profile/components/ListingsSection.jsx"
-    },
-    {
-      "file": "app/src/components/shared/BackendStatusBanner.jsx"
     },
     {
       "file": "app/src/pages/Profile/components/ProfileShared.jsx"
@@ -169,16 +169,16 @@
       "reason": "No direct useMarket() t destructuring found. Translator is supplied by the migrated caller and remains tracked for review."
     }
   ],
-  "generatedAt": "2026-06-01T12:46:34.441Z",
+  "generatedAt": "2026-06-01T14:50:32.611Z",
   "note": "Safe stable-UI ICU codemod. Literal calls are routed through useStableIcuMessages(); computed keys remain delegated to the legacy translator and are reported for manual review.",
   "skippedFiles": [],
   "summary": {
     "changedFiles": 0,
-    "dynamicLookupReferencesHeldForManualReview": 32,
+    "dynamicLookupReferencesHeldForManualReview": 0,
     "delegatedFiles": 2,
     "alreadyMigratedFiles": 52,
     "hookBindingsMigrated": 0,
     "skippedFiles": 0,
-    "stableProductionIds": 2647
+    "stableProductionIds": 2748
   }
 }

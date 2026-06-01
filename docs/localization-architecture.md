@@ -12,18 +12,18 @@ remain compatibility inputs for computed keys and non-reviewed locales only.
 | --- | --- | --- |
 | Market selection | Country, browse currency, language, locale, and direction | `app/src/context/MarketContext.jsx`, `app/src/config/marketConfig.js` |
 | Stable UI registry | Generated descriptors for reviewed literal interface copy | `app/src/i18n/messages/stableUiMessages.js` |
-| Stable UI adapter | Formats registered ICU messages and delegates unknown computed keys | `app/src/i18n/useStableIcuMessages.js` |
+| Stable UI adapter | Formats registered ICU messages and delegates only unknown runtime compatibility values | `app/src/i18n/useStableIcuMessages.js` |
 | Reviewed ICU catalog | Translator-reviewed stable copy with plural, date, and number semantics | `app/src/i18n/messages/reviewed/*.json` |
 | Compiled ICU catalog | Runtime-ready FormatJS catalogs | `app/src/i18n/messages/compiled/*.json` |
-| Legacy compatibility | Computed-key and non-reviewed-locale fallback only | `app/src/config/marketMessagePacks/*.js` |
+| Legacy compatibility | Non-reviewed-locale fallback and explicit runtime enum compatibility only | `app/src/config/marketMessagePacks/*.js`, `app/src/utils/enumLocalization.js` |
 | Dynamic translation | Optional provider-backed translation for dynamic content only | `app/src/services/runtimeTranslation.js`, `server/services/translation/` |
 | QA | Generation drift, ICU compile, glossary rules, locale checks, visual and accessibility smoke | `scripts/i18n/`, `app/scripts/i18n/`, `app/e2e/locale.*.spec.js` |
 
 ## Stable Copy Policy
 
 Stable UI literal messages belong in reviewed ICU catalogs. The generated
-registry contains 2,647 migrated descriptors. The reviewed catalogs contain
-2,690 messages because the curated foundation remains anchored beside the
+registry contains 2,748 migrated descriptors. The reviewed catalogs contain
+2,791 messages because the curated foundation remains anchored beside the
 generated migration layer.
 
 The reviewed locales are `en`, `hi`, `bn`, `ur`, and `ar`. `en-XA` is
@@ -36,8 +36,9 @@ catalogs load on demand and are cached after first use.
 
 Runtime translation is reserved for backend-supplied and user-authored content
 such as seller text, reviews, product titles, chat, notifications, and support
-messages. Computed UI-key compatibility paths and runtime-content exclusions
-are documented in `docs/localization-dynamic-exclusions.md`.
+messages. Finite computed UI keys are now stable ICU descriptors; the remaining
+runtime enum compatibility path and runtime-content exclusions are documented
+in `docs/localization-dynamic-exclusions.md`.
 
 ## Direction And Formatting
 

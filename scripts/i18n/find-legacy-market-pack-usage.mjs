@@ -33,6 +33,10 @@ const ICU_DELEGATED_TRANSLATOR_FILES = new Set([
     'app/src/pages/Login/LoginView.jsx',
     'app/src/pages/Login/loginFlowHelpers.js',
 ]);
+const TEST_FILE_PATTERN = /\.(test|spec)\.[jt]sx?$/i;
+const RUNTIME_ENUM_COMPATIBILITY_FILES = new Set([
+    'app/src/utils/enumLocalization.js',
+]);
 
 const walkFiles = (dir) => {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -61,6 +65,8 @@ const classifyRisk = (ids = [], hasDynamicRuntimeUsage = false) => {
 const collectLegacyUsage = (filePath) => {
     const content = fs.readFileSync(filePath, 'utf8');
     const relativePath = path.relative(repoDir, filePath).replace(/\\/g, '/');
+    const isTestFile = TEST_FILE_PATTERN.test(relativePath);
+    const isRuntimeEnumCompatibilityFile = RUNTIME_ENUM_COMPATIBILITY_FILES.has(relativePath);
     const messageIds = [];
     const callPattern = /\bt\(\s*['"`]([^'"`]+)['"`]/g;
     let match;
@@ -76,8 +82,11 @@ const collectLegacyUsage = (filePath) => {
     const importsLegacyPacks = /marketMessagePacks|marketMessages\.generated|MARKET_MESSAGE_PACK/.test(content);
     const usesStableIcuHook = /\buseStableIcuMessages\b/.test(content);
     const usesDelegatedStableIcuTranslator = ICU_DELEGATED_TRANSLATOR_FILES.has(relativePath);
-    const usesComputedTranslatorLookup = messageIds.some((id) => id.includes('${'))
-        || /\bt\(\s*(?!['"`])/.test(content);
+    const usesComputedTranslatorLookup = !isRuntimeEnumCompatibilityFile && (
+        messageIds.some((id) => id.includes('${'))
+        || /\bt\(\s*(?!['"`])/.test(content)
+    );
+    const usesRuntimeEnumCompatibility = isRuntimeEnumCompatibilityFile && /\bt\(\s*(?!['"`])/.test(content);
 
     if (
         messageIds.length === 0
@@ -86,25 +95,31 @@ const collectLegacyUsage = (filePath) => {
         && !usesStableIcuHook
         && !usesDelegatedStableIcuTranslator
         && !usesComputedTranslatorLookup
+        && !usesRuntimeEnumCompatibility
     ) {
         return null;
     }
 
     const uniqueIds = [...new Set(messageIds.filter((id) => !id.includes('${')))].sort();
     const migratedStableIcuIds = usesStableIcuHook || usesDelegatedStableIcuTranslator ? uniqueIds : [];
-    const residualLegacyIds = usesStableIcuHook || usesDelegatedStableIcuTranslator ? [] : uniqueIds;
+    const testHarnessLegacyIds = isTestFile && !usesStableIcuHook && !usesDelegatedStableIcuTranslator ? uniqueIds : [];
+    const residualLegacyIds = usesStableIcuHook || usesDelegatedStableIcuTranslator || isTestFile ? [] : uniqueIds;
     return {
         file: relativePath,
         importsLegacyPacks,
+        isTestFile,
         migratedStableIcuIdCount: migratedStableIcuIds.length,
         migratedStableIcuIds,
         residualLegacyIdCount: residualLegacyIds.length,
         residualLegacyIds,
         risk: classifyRisk(residualLegacyIds, usesDynamicRuntimeTranslation),
+        testHarnessLegacyIdCount: testHarnessLegacyIds.length,
+        testHarnessLegacyIds,
         usesComputedTranslatorLookup,
         usesDelegatedStableIcuTranslator,
         usesDynamicRuntimeTranslation,
         usesMarketContext,
+        usesRuntimeEnumCompatibility,
         usesStableIcuHook,
     };
 };
@@ -124,12 +139,14 @@ const summary = records.reduce((acc, record) => {
     acc.totalFiles += 1;
     acc.migratedStableIcuMessageIds += record.migratedStableIcuIdCount;
     acc.residualLegacyMessageIds += record.residualLegacyIdCount;
+    acc.testHarnessLegacyMessageIds += record.testHarnessLegacyIdCount;
     acc.byRisk[record.risk] += 1;
     if (record.usesComputedTranslatorLookup) acc.computedTranslatorLookupFiles += 1;
     if (record.usesDelegatedStableIcuTranslator) acc.delegatedStableIcuFiles += 1;
     if (record.usesDynamicRuntimeTranslation) acc.dynamicRuntimeFiles += 1;
     if (record.importsLegacyPacks) acc.legacyPackImportFiles += 1;
     if (record.usesStableIcuHook) acc.stableIcuHookFiles += 1;
+    if (record.usesRuntimeEnumCompatibility) acc.runtimeEnumCompatibilityFiles += 1;
     if (
         record.residualLegacyIdCount > 0
         && !/\.(test|spec)\.[jt]sx?$/i.test(record.file)
@@ -147,7 +164,9 @@ const summary = records.reduce((acc, record) => {
     migratedStableIcuMessageIds: 0,
     productionLegacyStableFiles: 0,
     residualLegacyMessageIds: 0,
+    runtimeEnumCompatibilityFiles: 0,
     stableIcuHookFiles: 0,
+    testHarnessLegacyMessageIds: 0,
     totalFiles: 0,
 });
 
@@ -178,9 +197,11 @@ const markdown = [
     `- Stable ICU hook files: ${summary.stableIcuHookFiles}`,
     `- Delegated stable ICU translator files: ${summary.delegatedStableIcuFiles}`,
     `- Migrated stable ICU message IDs observed across files: ${summary.migratedStableIcuMessageIds}`,
-    `- Residual legacy literal message IDs observed across files: ${summary.residualLegacyMessageIds}`,
+    `- Residual production legacy literal message IDs: ${summary.residualLegacyMessageIds}`,
+    `- Test-harness legacy literal message IDs: ${summary.testHarnessLegacyMessageIds}`,
     `- Production files with direct residual stable literals: ${summary.productionLegacyStableFiles}`,
     `- Computed-key translator lookup files: ${summary.computedTranslatorLookupFiles}`,
+    `- Runtime enum compatibility files: ${summary.runtimeEnumCompatibilityFiles}`,
     `- High-risk files: ${summary.byRisk.high}`,
     `- Medium-risk files: ${summary.byRisk.medium}`,
     `- Low-risk files: ${summary.byRisk.low}`,
@@ -198,7 +219,9 @@ const markdown = [
             record.usesDelegatedStableIcuTranslator ? 'delegated-stable-icu' : '',
             record.usesComputedTranslatorLookup ? 'computed-key-compatibility' : '',
             record.usesDynamicRuntimeTranslation ? 'runtime-translation' : '',
+            record.usesRuntimeEnumCompatibility ? 'runtime-enum-compatibility' : '',
             record.importsLegacyPacks ? 'legacy-pack-import' : '',
+            record.isTestFile ? 'test-harness' : '',
         ].filter(Boolean).join(', ') || 't()';
         return `| ${record.risk} | \`${record.file}\` | ${record.migratedStableIcuIdCount} | ${record.residualLegacyIdCount} | ${signals} |`;
     }),
@@ -209,7 +232,8 @@ fs.writeFileSync(path.join(outputDir, 'legacy-market-pack-usage.md'), markdown, 
 
 console.log(`Legacy market-pack usage report: ${records.length} files`);
 console.log(`High risk: ${summary.byRisk.high}; medium: ${summary.byRisk.medium}; low: ${summary.byRisk.low}`);
-console.log(`Migrated stable ICU IDs: ${summary.migratedStableIcuMessageIds}; residual legacy literal IDs: ${summary.residualLegacyMessageIds}`);
+console.log(`Migrated stable ICU IDs: ${summary.migratedStableIcuMessageIds}; residual production legacy literal IDs: ${summary.residualLegacyMessageIds}`);
+console.log(`Test-harness legacy literal IDs: ${summary.testHarnessLegacyMessageIds}`);
 console.log(`Production files with direct residual stable literals: ${summary.productionLegacyStableFiles}`);
 console.log('Report: artifacts/i18n/legacy-market-pack-usage.md');
 

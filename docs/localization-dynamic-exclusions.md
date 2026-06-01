@@ -6,18 +6,21 @@ Stable user-interface copy now routes through reviewed FormatJS ICU descriptors.
 
 ## Explicit Compatibility Buckets
 
-### Computed UI keys
+### Finite computed UI keys
 
-The complete inventory tracks 32 computed `t()` lookups. These calls select finite UI labels from maps, enum values, or status keys. `useStableIcuMessages()` delegates an ID that has no static descriptor to the legacy translator so these paths remain functional while they are converted to explicit descriptor maps in later review passes.
+The complete inventory now tracks 0 computed `t()` lookups requiring manual review. The finite UI labels previously selected from maps, enum values, or status keys have been converted into explicit ICU descriptor calls and are generated into the reviewed stable catalog.
 
-Examples include:
+Converted examples include:
 
 - Delivery-window and filter labels.
 - Checkout payment rail labels selected from capability data.
 - Marketplace category, sort, condition, proximity, and heat labels.
 - Notification type and priority labels.
 - Profile payment and support priority labels.
-- Shared enum localization helpers.
+
+### Runtime enum compatibility
+
+`app/src/utils/enumLocalization.js` remains as the single runtime enum compatibility file. It formats backend-provided enum values through reviewed prefixes when a catalog entry exists, and falls back to a humanized runtime label for unknown values. This is intentionally separate from stable UI migration because backend enum value sets can grow without a frontend release.
 
 ### Dynamic runtime content
 
@@ -32,7 +35,7 @@ The following surfaces intentionally use runtime translation for backend-supplie
 
 ### Legacy pack internals
 
-Legacy market packs remain compatibility inputs for computed UI keys and non-reviewed locales during the transition. They are not the source of truth for migrated stable UI literals.
+Legacy market packs remain compatibility inputs for non-reviewed locales during the transition. They are not the source of truth for migrated stable UI literals.
 
 ## Guardrail
 
@@ -42,4 +45,4 @@ Run:
 npm run i18n:legacy-report
 ```
 
-The report fails when a production file introduces a direct stable literal that bypasses `useStableIcuMessages()`. It separately records ICU-routed literals, delegated translators, computed-key compatibility paths, dynamic runtime translation files, pack internals, and test harness usage.
+The report fails when a production file introduces a direct stable literal that bypasses `useStableIcuMessages()`. It separately records ICU-routed literals, delegated translators, runtime enum compatibility, dynamic runtime translation files, pack internals, and test harness usage.

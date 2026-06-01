@@ -29,6 +29,22 @@ const SEVERITY_STYLES = {
     critical: 'border-rose-200 bg-rose-50 text-rose-700',
 };
 
+const formatSeverityLabel = (severity, t) => {
+    const normalized = String(severity || 'info').toLowerCase();
+    switch (normalized) {
+        case 'critical':
+            return t('admin.diagnostics.severity.critical', {}, 'Critical');
+        case 'error':
+            return t('admin.diagnostics.severity.error', {}, 'Error');
+        case 'warning':
+            return t('admin.diagnostics.severity.warning', {}, 'Warning');
+        case 'info':
+            return t('admin.diagnostics.severity.info', {}, 'Info');
+        default:
+            return normalized;
+    }
+};
+
 const normalizeFilters = (filters = INITIAL_FILTERS) => ({
     limit: String(Math.min(Math.max(Number(filters.limit) || 25, 1), 100)),
     severity: String(filters.severity || '').trim(),
@@ -292,7 +308,7 @@ export default function ClientDiagnosticsPanel() {
                                         <div className="flex flex-wrap items-center gap-2">
                                             <h3 className="text-sm font-bold text-slate-900">{entry?.type || t('admin.shared.unknown', {}, 'unknown')}</h3>
                                             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${SEVERITY_STYLES[severity] || SEVERITY_STYLES.info}`}>
-                                                {t(`admin.diagnostics.severity.${severity}`, {}, severity)}
+                                                {formatSeverityLabel(severity, t)}
                                             </span>
                                             {entry?.status ? (
                                                 <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">

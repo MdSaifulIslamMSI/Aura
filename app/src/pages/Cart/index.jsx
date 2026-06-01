@@ -48,7 +48,9 @@ const Cart = () => {
     () => cartItems.reduce((sum, item) => sum + getItemQuantity(item), 0),
     [cartItems],
   );
-  const cartItemLabel = t(cartUnitCount === 1 ? 'cart.item' : 'cart.items', {}, cartUnitCount === 1 ? 'item' : 'items');
+  const cartItemLabel = cartUnitCount === 1
+    ? t('cart.item', {}, 'item')
+    : t('cart.items', {}, 'items');
   const browseSummary = useMemo(() => cartItems.reduce((summary, item) => {
     const itemBaseCurrency = getBaseCurrency(item);
     const lineTotal = getLineBaseTotal(item);

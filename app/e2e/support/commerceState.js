@@ -3,7 +3,7 @@ import { expect } from '@playwright/test';
 export const GUEST_CART_STORAGE_KEY = 'aura_cart_guest_v2';
 export const GUEST_WISHLIST_STORAGE_KEY = 'aura_wishlist_guest_v2';
 
-const DEFAULT_IMAGE = 'https://placehold.co/400x400/18181b/4ade80?text=Aura+Select';
+const DEFAULT_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect width="400" height="400" fill="%2318181b"/%3E%3Ccircle cx="200" cy="180" r="82" fill="%234ade80" opacity="0.9"/%3E%3Ctext x="200" y="298" text-anchor="middle" font-family="Arial" font-size="34" font-weight="700" fill="%23f8fafc"%3EAura Select%3C/text%3E%3C/svg%3E';
 
 export const createGuestCartItem = (overrides = {}) => ({
     id: 810001,
@@ -43,20 +43,33 @@ export const seedGuestCommerceState = async (page, {
     const seedToken = `commerce-seed-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     await page.addInitScript((payload) => {
-        if (window.sessionStorage.getItem(payload.seedMarkerKey) === payload.seedToken) {
-            return;
+        try {
+            if (window.sessionStorage?.getItem(payload.seedMarkerKey) === payload.seedToken) {
+                return;
+            }
+        } catch {
+            // Continue with best-effort localStorage seeding when this browser context denies sessionStorage.
         }
 
-        window.sessionStorage.setItem(payload.seedMarkerKey, payload.seedToken);
-        window.localStorage.removeItem(payload.cartKey);
-        window.localStorage.removeItem(payload.wishlistKey);
-
-        if (Array.isArray(payload.cartItems) && payload.cartItems.length > 0) {
-            window.localStorage.setItem(payload.cartKey, JSON.stringify(payload.cartItems));
+        try {
+            window.sessionStorage?.setItem(payload.seedMarkerKey, payload.seedToken);
+        } catch {
+            // The test fixtures should still work in storage-restricted browser contexts.
         }
 
-        if (Array.isArray(payload.wishlistItems) && payload.wishlistItems.length > 0) {
-            window.localStorage.setItem(payload.wishlistKey, JSON.stringify(payload.wishlistItems));
+        try {
+            window.localStorage?.removeItem(payload.cartKey);
+            window.localStorage?.removeItem(payload.wishlistKey);
+
+            if (Array.isArray(payload.cartItems) && payload.cartItems.length > 0) {
+                window.localStorage?.setItem(payload.cartKey, JSON.stringify(payload.cartItems));
+            }
+
+            if (Array.isArray(payload.wishlistItems) && payload.wishlistItems.length > 0) {
+                window.localStorage?.setItem(payload.wishlistKey, JSON.stringify(payload.wishlistItems));
+            }
+        } catch {
+            // Ignore storage write failures; tests that depend on seeded state will assert visible behavior.
         }
     }, {
         cartKey: GUEST_CART_STORAGE_KEY,

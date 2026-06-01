@@ -11,21 +11,23 @@ generated with:
 npm run i18n:inventory
 ```
 
-Baseline inventory:
+Latest inventory:
 
-- Source files scanned: 333
+- Source files scanned: 336
 - Tracked localization files: 85
 - Production files with stable literals: 54
-- Production stable-literal references: 2,936
-- Unique production stable IDs: 2,647
-- Dynamic lookup references held for review: 32
+- Production stable-literal references: 3,064
+- Unique production stable IDs: 2,748
+- Dynamic lookup references held for review: 0
+- Runtime enum compatibility references: 1
 - Dynamic runtime-content files: 18
 - Legacy pack internal files: 21
 - Unresolved English defaults: 0
 
 The stable UI registry now routes reviewed literals through
-`useStableIcuMessages()`. Unknown computed IDs delegate to the legacy
-translator so compatibility behavior remains intact.
+`useStableIcuMessages()`. Finite computed UI keys have been converted into
+explicit ICU calls, so they now generate descriptors and reviewed catalog
+entries like ordinary stable UI copy.
 
 ## Residual Compatibility Inventory
 
@@ -39,21 +41,26 @@ Latest local report:
 
 - Files represented in the compatibility report: 86
 - Production files with direct residual stable literals: 0
-- Computed translator lookup files: 28
+- Residual production legacy literal IDs: 0
+- Computed translator lookup files: 0
+- Runtime enum compatibility files: 1
 - Dynamic runtime-content files: 18
 - Legacy pack import files: 21
 - Delegated stable-ICU files: 2
 - Test-only residual literal probes: 4
 
 The four residual literals are `MarketContext.test.jsx` runtime-fallback
-probes. They are deliberately outside production code.
+probes. They are deliberately outside production code. The one runtime enum
+compatibility file is `app/src/utils/enumLocalization.js`, which formats
+backend enum values through reviewed prefixes and humanized fallbacks.
 
 ## Remaining Review Work
 
 1. Review the human-translation queue by locale and product priority.
-2. Convert finite computed-key maps into explicit ICU descriptor maps.
-3. Retire compatibility packs only after computed lookups reach zero and
-   non-reviewed locale behavior has a replacement.
+2. Keep runtime enum values and backend/user-authored content outside stable
+   UI catalogs.
+3. Retire compatibility packs only after non-reviewed locale behavior has a
+   replacement.
 
 ## Runtime Translation Boundary
 

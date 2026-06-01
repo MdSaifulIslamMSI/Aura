@@ -2,10 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { mockProductDetailApis, waitForAppShell } from './support/commerceState.js';
+import {
+  captureLocaleQaScreenshot,
+  mockLocaleShellApis,
+  seedMarketLocale,
+} from './support/localeQaHarness.js';
 
 const enabled = process.env.LOCALE_VISUAL_QA === '1';
 const MARKET_STORAGE_KEY = 'aura_market_preferences_v1';
 const OUTPUT_ROOT = path.join(process.cwd(), 'test-results', 'locale-visual');
+const MARKETPLACE_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900"%3E%3Crect width="900" height="900" fill="%230f172a"/%3E%3Crect x="210" y="150" width="480" height="600" rx="56" fill="%231e293b"/%3E%3Ccircle cx="450" cy="410" r="118" fill="%2338bdf8" opacity="0.85"/%3E%3Ctext x="450" y="785" text-anchor="middle" font-family="Arial" font-size="64" font-weight="700" fill="%23f8fafc"%3EAura%3C/text%3E%3C/svg%3E';
 
 const LOCALES = [
   {
@@ -82,7 +88,7 @@ const MARKETPLACE_FIXTURE = {
       negotiable: true,
       views: 1224,
       createdAt: '2026-03-27T08:00:00.000Z',
-      images: ['https://placehold.co/900x900/0f172a/f8fafc?text=Camera'],
+      images: [MARKETPLACE_IMAGE],
       location: { city: 'Bengaluru', state: 'Karnataka' },
       seller: { name: 'Riya Studio', isVerified: true },
     },
@@ -96,7 +102,7 @@ const MARKETPLACE_FIXTURE = {
       negotiable: false,
       views: 486,
       createdAt: '2026-03-26T18:30:00.000Z',
-      images: ['https://placehold.co/900x900/111827/e5e7eb?text=Chair'],
+      images: [MARKETPLACE_IMAGE],
       location: { city: 'Dubai', state: 'Dubai' },
       seller: { name: 'Office Orbit', isVerified: false },
     },
@@ -139,24 +145,11 @@ const MARKETPLACE_FIXTURE = {
 };
 
 async function seedLocale(page, locale) {
-  const seedToken = `locale-visual-${locale.preference.language}-${Date.now()}`;
-
-  await page.addInitScript(({ seedToken: token, storageKey, preference, direction }) => {
-    if (window.sessionStorage.getItem('__locale_visual_seed__') === token) return;
-
-    window.sessionStorage.setItem('__locale_visual_seed__', token);
-    window.localStorage.setItem(storageKey, JSON.stringify(preference));
-    const root = document.documentElement;
-    if (!root) return;
-    root.lang = preference.locale;
-    root.dir = direction;
-    root.setAttribute('data-market-language', preference.language);
-    root.setAttribute('data-market-country', preference.countryCode);
-  }, {
-    seedToken,
+  await seedMarketLocale(page, {
     storageKey: MARKET_STORAGE_KEY,
     preference: locale.preference,
     direction: locale.direction,
+    markerKey: '__locale_visual_seed__',
   });
 }
 
@@ -311,6 +304,7 @@ function attachPageDiagnostics(page, localeCode, scenarioName) {
 async function captureScenario(page, testInfo, locale, scenarioName, pathName, setup = null) {
   attachPageDiagnostics(page, locale.code, scenarioName);
   await seedLocale(page, locale);
+  await mockLocaleShellApis(page);
   if (setup) {
     await setup(page);
   }
@@ -323,8 +317,7 @@ async function captureScenario(page, testInfo, locale, scenarioName, pathName, s
 
   const screenshotPath = path.join(scenarioDir, `${scenarioName}.png`);
   const reportPath = path.join(scenarioDir, `${scenarioName}.json`);
-
-  await page.screenshot({
+  const screenshot = await captureLocaleQaScreenshot(page, {
     path: screenshotPath,
     fullPage: true,
   });
@@ -335,10 +328,10 @@ async function captureScenario(page, testInfo, locale, scenarioName, pathName, s
     scenario: scenarioName,
     url: page.url(),
     report,
-    screenshotPath,
+    ...screenshot,
   }, null, 2));
 
-  return { screenshotPath, reportPath, report };
+  return { screenshotPath: screenshot.screenshotPath, reportPath, report, screenshot };
 }
 
 test.describe('Locale Visual QA', () => {
@@ -390,6 +383,7 @@ test.describe('Locale Visual QA', () => {
     test(`${locale.code} product reviews shell stays within viewport`, async ({ page }, testInfo) => {
       attachPageDiagnostics(page, locale.code, 'product-reviews');
       await seedLocale(page, locale);
+      await mockLocaleShellApis(page);
       await mockProductDetailApis(page, {
         productId: 990001,
         product: {
@@ -408,8 +402,7 @@ test.describe('Locale Visual QA', () => {
 
       const screenshotPath = path.join(scenarioDir, 'product-reviews.png');
       const reportPath = path.join(scenarioDir, 'product-reviews.json');
-
-      await page.screenshot({
+      const screenshot = await captureLocaleQaScreenshot(page, {
         path: screenshotPath,
         fullPage: true,
       });
@@ -420,7 +413,7 @@ test.describe('Locale Visual QA', () => {
         scenario: 'product-reviews',
         url: page.url(),
         report,
-        screenshotPath,
+        ...screenshot,
       }, null, 2));
 
       expect.soft(report.dir).toBe(locale.direction);

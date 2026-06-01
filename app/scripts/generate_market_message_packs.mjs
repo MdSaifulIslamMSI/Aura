@@ -12,12 +12,20 @@ import { MARKET_MESSAGE_PACK as ES_REFERENCE_MARKET_MESSAGES } from '../src/conf
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const SRC_ROOT = path.resolve(__dirname, '..', 'src');
 const CONFIG_ROOT = path.resolve(__dirname, '..', 'src', 'config');
 const PACK_ROOT = path.join(CONFIG_ROOT, 'marketMessagePacks');
+const REVIEWED_CATALOG_ROOT = path.resolve(__dirname, '..', 'src', 'i18n', 'messages', 'reviewed');
 const SUPPORTED_LANGUAGE_CODES = ['en', 'bn', 'hi', 'te', 'mr', 'ur', 'gu', 'pa', 'ml', 'kn', 'or', 'as', 'sa', 'es', 'fr', 'de', 'ar', 'ja', 'pt', 'zh'];
 const SOURCE_LANGUAGE = 'en';
 const LANGUAGE_ARG_PREFIX = '--languages=';
+const SKIP_NATIVE_REFRESH_ARG = '--skip-native-refresh';
 const PLACEHOLDER_PATTERN = /\{\{\s*([^}\s]+)\s*\}\}/g;
+const ICU_ARGUMENT_PATTERN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+const TRANSLATION_CALL_PATTERN = /\bt\(\s*(['"])([^'"`\r\n]+)\1/g;
+const SOURCE_FILE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
+const SKIPPED_SOURCE_DIRECTORIES = new Set(['node_modules', 'dist', 'build']);
+const IGNORE_SOURCE_FILE_PATTERN = /\.(test|spec)\.[jt]sx?$/i;
 const MAX_TRANSLATION_ATTEMPTS = 4;
 const TRANSLATION_CONCURRENCY = 4;
 const NATIVE_SCRIPT_REFRESH_LANGUAGE_CODES = new Set(['bn', 'hi', 'te', 'mr', 'ur', 'gu', 'pa', 'ml', 'kn', 'or', 'as', 'sa', 'ar', 'ja', 'zh']);
@@ -29,6 +37,35 @@ const NATIVE_SCRIPT_EXEMPT_VALUE_PATTERN = /^(?:https?:\/\/|www\.|mailto:|tel:|[
 const SHORT_UI_TOKEN_PATTERN = /^[A-Za-z0-9&/+.:-]{1,16}$/;
 const TECHNICAL_TOKEN_PATTERN = /^[A-Z0-9][A-Z0-9&/+.:-]{1,40}$/;
 const PLACEHOLDER_HEAVY_LABEL_PATTERN = /^[A-Za-z0-9&/+.:\-| ]{1,32}$/;
+const LEGACY_DYNAMIC_SOURCE_KEYS = [
+    'checkout.addressType.home',
+    'checkout.addressType.other',
+    'checkout.addressType.work',
+    'checkout.payment.cardDescription',
+    'checkout.payment.cardTitle',
+    'checkout.payment.codDescription',
+    'checkout.payment.codTitle',
+    'checkout.payment.netbankingDescription',
+    'checkout.payment.netbankingTitle',
+    'checkout.payment.rail.cardEmpty',
+    'checkout.payment.rail.cardTitle',
+    'checkout.payment.rail.netbankingEmpty',
+    'checkout.payment.rail.netbankingTitle',
+    'checkout.payment.rail.upiEmpty',
+    'checkout.payment.rail.upiTitle',
+    'checkout.payment.rail.walletEmpty',
+    'checkout.payment.rail.walletTitle',
+    'checkout.payment.upiDescription',
+    'checkout.payment.upiTitle',
+    'checkout.payment.walletDescription',
+    'checkout.payment.walletTitle',
+    'status.degradedMessage',
+    'status.degradedTitle',
+    'status.unavailableMessage',
+    'status.unavailableTitle',
+    'status.warmingMessage',
+    'status.warmingTitle',
+];
 
 const NATIVE_SCRIPT_RULES = {
     bn: {
@@ -100,6 +137,113 @@ const NATIVE_SCRIPT_RULES = {
 const sortObjectEntries = (value = {}) => Object.fromEntries(
     Object.entries(value || {}).sort(([left], [right]) => left.localeCompare(right))
 );
+
+const walkSourceFiles = (directoryPath, files = []) => {
+    for (const entry of fs.readdirSync(directoryPath, { withFileTypes: true })) {
+        const resolvedPath = path.join(directoryPath, entry.name);
+        if (entry.isDirectory()) {
+            if (!SKIPPED_SOURCE_DIRECTORIES.has(entry.name)) {
+                walkSourceFiles(resolvedPath, files);
+            }
+            continue;
+        }
+
+        if (!SOURCE_FILE_EXTENSIONS.has(path.extname(entry.name))) continue;
+        if (IGNORE_SOURCE_FILE_PATTERN.test(entry.name)) continue;
+        files.push(resolvedPath);
+    }
+
+    return files;
+};
+
+let legacyCompatibilityKeys;
+
+const getLegacyCompatibilityKeys = () => {
+    if (legacyCompatibilityKeys) return legacyCompatibilityKeys;
+
+    const keys = new Set([
+        ...LEGACY_DYNAMIC_SOURCE_KEYS,
+        ...Object.keys(MARKET_CONFIG_MESSAGES.en || {}),
+    ]);
+
+    walkSourceFiles(SRC_ROOT).forEach((filePath) => {
+        const source = fs.readFileSync(filePath, 'utf8');
+        let match = TRANSLATION_CALL_PATTERN.exec(source);
+        while (match) {
+            const key = String(match[2] || '').trim();
+            if (key && !key.includes('${')) {
+                keys.add(key);
+            }
+            match = TRANSLATION_CALL_PATTERN.exec(source);
+        }
+        TRANSLATION_CALL_PATTERN.lastIndex = 0;
+    });
+
+    legacyCompatibilityKeys = keys;
+    return legacyCompatibilityKeys;
+};
+
+const parseGeneratedPackContents = (source = '') => {
+    const match = String(source).match(/export const MARKET_MESSAGE_PACK = (\{[\s\S]*?\});\s*export default MARKET_MESSAGE_PACK;/);
+    if (!match?.[1]) return {};
+    return JSON.parse(match[1]);
+};
+
+const readExistingLanguagePack = (languageCode) => {
+    const packPath = path.join(PACK_ROOT, `${languageCode}.js`);
+    if (!fs.existsSync(packPath)) return {};
+
+    try {
+        return parseGeneratedPackContents(fs.readFileSync(packPath, 'utf8'));
+    } catch (error) {
+        console.warn(`${languageCode}: ignoring existing locale pack that could not be parsed: ${error?.message || String(error)}`);
+        return {};
+    }
+};
+
+const readReviewedCatalog = (languageCode) => {
+    const catalogPath = path.join(REVIEWED_CATALOG_ROOT, `${languageCode}.json`);
+    if (!fs.existsSync(catalogPath)) return {};
+
+    try {
+        return JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+    } catch (error) {
+        console.warn(`${languageCode}: ignoring reviewed ICU catalog that could not be parsed: ${error?.message || String(error)}`);
+        return {};
+    }
+};
+
+const convertIcuMessageToLegacyTemplate = (message = '') => (
+    String(message).replace(ICU_ARGUMENT_PATTERN, '{{$1}}')
+);
+
+const buildReviewedCompatibilityMessages = (languageCode) => {
+    const compatibilityKeys = getLegacyCompatibilityKeys();
+    const toLegacyEntries = (messages = {}) => Object.entries(messages)
+        .filter(([key]) => compatibilityKeys.has(key))
+        .map(([key, message]) => [
+            key,
+            convertIcuMessageToLegacyTemplate(message),
+        ]);
+
+    return sortObjectEntries({
+        ...Object.fromEntries(toLegacyEntries(readReviewedCatalog(SOURCE_LANGUAGE))),
+        ...Object.fromEntries(toLegacyEntries(readReviewedCatalog(languageCode))),
+    });
+};
+
+const applyReviewedCatalogFallback = (messages = {}, languageCode = SOURCE_LANGUAGE) => {
+    const reviewedMessages = buildReviewedCompatibilityMessages(languageCode);
+    const nextMessages = { ...(messages || {}) };
+
+    Object.entries(reviewedMessages).forEach(([key, message]) => {
+        if (typeof nextMessages[key] !== 'string' || nextMessages[key].length === 0) {
+            nextMessages[key] = message;
+        }
+    });
+
+    return sortObjectEntries(nextMessages);
+};
 
 const parseRequestedLanguageCodes = () => {
     const languagesArg = process.argv.find((arg) => arg.startsWith(LANGUAGE_ARG_PREFIX));
@@ -266,10 +410,14 @@ const mapWithConcurrency = async (items, limit, worker) => {
 
 const buildBaseLanguagePack = (languageCode) => {
     if (languageCode === 'en') {
-        return sortObjectEntries(GENERATED_BASE_MARKET_MESSAGES.en || {});
+        return sortObjectEntries({
+            ...readExistingLanguagePack(languageCode),
+            ...(GENERATED_BASE_MARKET_MESSAGES.en || {}),
+        });
     }
 
     return sortObjectEntries({
+        ...readExistingLanguagePack(languageCode),
         ...(GENERATED_BASE_MARKET_MESSAGES[languageCode] || {}),
         ...(PRIORITY_MARKET_MESSAGES[languageCode] || {}),
         ...(GENERATED_LOCALE_MESSAGES[languageCode] || {}),
@@ -344,13 +492,35 @@ const writeLanguagePack = (languageCode, messages) => {
 const main = async () => {
     fs.mkdirSync(PACK_ROOT, { recursive: true });
     const requestedLanguages = parseRequestedLanguageCodes();
+    const shouldRefreshNativeScript = !process.argv.includes(SKIP_NATIVE_REFRESH_ARG)
+        && process.env.SKIP_NATIVE_REFRESH !== '1';
     const englishMessages = sortObjectEntries(MARKET_CONFIG_MESSAGES.en || buildBaseLanguagePack(SOURCE_LANGUAGE));
+    const translationSourceMessages = sortObjectEntries({
+        ...englishMessages,
+        ...buildReviewedCompatibilityMessages(SOURCE_LANGUAGE),
+    });
 
     for (const languageCode of SUPPORTED_LANGUAGE_CODES.filter((code) => requestedLanguages.includes(code))) {
+        if (languageCode === SOURCE_LANGUAGE) {
+            const messages = buildBaseLanguagePack(SOURCE_LANGUAGE);
+            writeLanguagePack(languageCode, messages);
+            console.log(`${languageCode}: ${Object.keys(messages).length} messages`);
+            continue;
+        }
+
         const baseMessages = languageCode === SOURCE_LANGUAGE
             ? englishMessages
             : buildBaseLanguagePack(languageCode);
-        const messages = await refreshNativeScriptPack(languageCode, baseMessages, englishMessages);
+        const preservedMessages = shouldRefreshNativeScript
+            ? baseMessages
+            : sortObjectEntries({
+                ...baseMessages,
+                ...readExistingLanguagePack(languageCode),
+            });
+        const fallbackMessages = applyReviewedCatalogFallback(preservedMessages, languageCode);
+        const messages = shouldRefreshNativeScript
+            ? await refreshNativeScriptPack(languageCode, fallbackMessages, translationSourceMessages)
+            : fallbackMessages;
         writeLanguagePack(languageCode, messages);
         console.log(`${languageCode}: ${Object.keys(messages).length} messages`);
     }

@@ -19,7 +19,20 @@ const stateBadgeClass = {
 const accountStateLabel = (t, value) => {
     const normalized = String(value || 'unknown').trim().toLowerCase() || 'unknown';
     const fallback = normalized.charAt(0).toUpperCase() + normalized.slice(1);
-    return t(`admin.users.state.${normalized}`, {}, fallback);
+    switch (normalized) {
+        case 'active':
+            return t('admin.users.state.active', {}, 'Active');
+        case 'warned':
+            return t('admin.users.state.warned', {}, 'Warned');
+        case 'suspended':
+            return t('admin.users.state.suspended', {}, 'Suspended');
+        case 'deleted':
+            return t('admin.users.state.deleted', {}, 'Deleted');
+        default:
+            return normalized === 'unknown'
+                ? t('admin.users.state.unknown', {}, 'Unknown')
+                : fallback;
+    }
 };
 
 export default function AdminUsers() {

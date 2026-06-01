@@ -17,6 +17,9 @@ const traverse = traverseModule.default || traverseModule;
 const CODE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', 'test-results']);
 const TEST_FILE_PATTERN = /\.(test|spec)\.[jt]sx?$/i;
+const RUNTIME_ENUM_COMPATIBILITY_FILES = new Set([
+    'app/src/utils/enumLocalization.js',
+]);
 const HIGH_RISK_PREFIXES = [
     'checkout.',
     'cart.',
@@ -174,7 +177,9 @@ export const collectLegacyMigrationInventory = async () => {
     const parseErrors = [];
     const stableReferences = [];
     const dynamicLookupReferences = [];
+    const runtimeEnumCompatibilityReferences = [];
     const runtimeContentFiles = [];
+    const runtimeEnumCompatibilityFiles = [];
     const legacyPackInternalFiles = [];
     const fileRecords = [];
 
@@ -186,10 +191,13 @@ export const collectLegacyMigrationInventory = async () => {
             || /\bMarketAutoLocalizer\b/.test(source);
         const importsLegacyPacks = /marketMessagePacks|marketMessages\.generated|MARKET_MESSAGE_PACK/.test(source);
         const isTestFile = TEST_FILE_PATTERN.test(file);
+        const isRuntimeEnumCompatibilityFile = RUNTIME_ENUM_COMPATIBILITY_FILES.has(file);
         const fileStableReferences = [];
         const fileDynamicReferences = [];
+        const fileRuntimeEnumCompatibilityReferences = [];
 
         if (usesDynamicRuntimeTranslation) runtimeContentFiles.push(file);
+        if (isRuntimeEnumCompatibilityFile) runtimeEnumCompatibilityFiles.push(file);
         if (importsLegacyPacks) legacyPackInternalFiles.push(file);
 
         let ast;
@@ -211,12 +219,19 @@ export const collectLegacyMigrationInventory = async () => {
                     const reference = summarizeReference({
                         fallback,
                         file,
-                        kind: 'dynamic-lookup',
+                        kind: isRuntimeEnumCompatibilityFile ? 'runtime-enum-compatibility' : 'dynamic-lookup',
                         node,
-                        reason: 'First t() argument is computed or interpolated and requires manual review.',
+                        reason: isRuntimeEnumCompatibilityFile
+                            ? 'Generic runtime enum translation utility; callers supply reviewed prefixes and runtime values.'
+                            : 'First t() argument is computed or interpolated and requires manual review.',
                     });
-                    fileDynamicReferences.push(reference);
-                    dynamicLookupReferences.push(reference);
+                    if (isRuntimeEnumCompatibilityFile) {
+                        fileRuntimeEnumCompatibilityReferences.push(reference);
+                        runtimeEnumCompatibilityReferences.push(reference);
+                    } else {
+                        fileDynamicReferences.push(reference);
+                        dynamicLookupReferences.push(reference);
+                    }
                     return;
                 }
 
@@ -240,6 +255,7 @@ export const collectLegacyMigrationInventory = async () => {
         if (
             fileStableReferences.length > 0
             || fileDynamicReferences.length > 0
+            || fileRuntimeEnumCompatibilityReferences.length > 0
             || usesDynamicRuntimeTranslation
             || importsLegacyPacks
         ) {
@@ -249,10 +265,12 @@ export const collectLegacyMigrationInventory = async () => {
                 file,
                 importsLegacyPacks,
                 isTestFile,
+                runtimeEnumCompatibilityCount: fileRuntimeEnumCompatibilityReferences.length,
                 messageIdCount: ids.length,
                 messageIds: ids,
                 risk: classifyRisk(ids, usesDynamicRuntimeTranslation),
                 stableLiteralCount: fileStableReferences.length,
+                isRuntimeEnumCompatibilityFile,
                 usesDynamicRuntimeTranslation,
             });
         }
@@ -271,6 +289,8 @@ export const collectLegacyMigrationInventory = async () => {
         productionFiles: [...new Set(productionStableReferences.map(({ file }) => file))].length,
         productionStableReferences: productionStableReferences.length,
         runtimeContentFiles: [...new Set(runtimeContentFiles)].length,
+        runtimeEnumCompatibilityFiles: [...new Set(runtimeEnumCompatibilityFiles)].length,
+        runtimeEnumCompatibilityReferences: runtimeEnumCompatibilityReferences.length,
         sourceFilesScanned: files.length,
         testHarnessReferences: testHarnessReferences.length,
         totalTrackedFiles: fileRecords.length,
@@ -290,6 +310,8 @@ export const collectLegacyMigrationInventory = async () => {
         note: 'Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.',
         parseErrors,
         productionStableReferences,
+        runtimeEnumCompatibilityFiles: [...new Set(runtimeEnumCompatibilityFiles)].sort(),
+        runtimeEnumCompatibilityReferences,
         runtimeContentFiles: [...new Set(runtimeContentFiles)].sort(),
         summary,
         testHarnessReferences,

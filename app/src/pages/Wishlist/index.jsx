@@ -10,7 +10,9 @@ const Wishlist = () => {
   const { wishlistItems, removeFromWishlist, moveToCart } = useContext(WishlistContext);
   const { t: legacyT } = useMarket();
   const t = useStableIcuMessages(legacyT);
-  const wishlistItemLabel = t(wishlistItems.length === 1 ? 'wishlist.item' : 'wishlist.items', {}, wishlistItems.length === 1 ? 'item' : 'items');
+  const wishlistItemLabel = wishlistItems.length === 1
+    ? t('wishlist.item', {}, 'item')
+    : t('wishlist.items', {}, 'items');
   const handleMoveToCart = (productId) => {
     moveToCart(productId);
   };

@@ -43,7 +43,7 @@ const normalizePaymentState = (order) => {
     return 'pending';
 };
 
-const formatPaymentState = (state, t, intl) => {
+const formatPaymentState = (state, intl) => {
     const normalized = String(state || '').trim().toLowerCase();
     if (!normalized) return intl.formatMessage(criticalMessages.paymentPending);
     if (['failed', 'expired', 'cancelled'].includes(normalized)) {
@@ -55,7 +55,7 @@ const formatPaymentState = (state, t, intl) => {
     if (['pending', 'created', 'challenge_pending'].includes(normalized)) {
         return intl.formatMessage(criticalMessages.paymentPending);
     }
-    return t(`orders.payment.state.${normalized}`, {}, normalized.replace(/_/g, ' '));
+    return normalized.replace(/_/g, ' ');
 };
 
 const getPaymentStepToneClass = (state) => {
@@ -470,7 +470,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             key: 'authorization',
             title: t('orders.payment.timeline.authorization', {}, 'Authorization'),
             detail: failedState
-                ? formatPaymentState(paymentState, t, intl)
+                ? formatPaymentState(paymentState, intl)
                 : authorizedState
                     ? t('orders.payment.timeline.authorizedBody', {}, 'Provider authorization accepted')
                     : t('orders.payment.timeline.awaitingAuthorization', {}, 'Awaiting provider authorization'),
@@ -484,7 +484,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             detail: failedState
                 ? t('orders.payment.timeline.captureStopped', {}, 'Capture stopped because payment did not authorize')
                 : capturedState
-                    ? formatPaymentState(paymentState, t, intl)
+                    ? formatPaymentState(paymentState, intl)
                     : authorizedState
                         ? t('orders.payment.timeline.capturePending', {}, 'Capture is pending in the backend queue')
                         : t('orders.payment.timeline.captureWaiting', {}, 'Waiting for authorization first'),
@@ -497,7 +497,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             items.push({
                 key: 'refund',
                 title: t('orders.payment.timeline.refund', {}, 'Refund'),
-                detail: formatPaymentState(refundStatus, t, intl),
+                detail: formatPaymentState(refundStatus, intl),
                 at: latestRefund?.processedAt || latestRefund?.createdAt || order.updatedAt || order.createdAt,
                 state: ['processed', 'refunded', 'partially_refunded'].includes(String(refundStatus || '').toLowerCase())
                     ? 'complete'
@@ -707,7 +707,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                                     ['failed', 'expired'].includes(normalizePaymentState(order)) ? 'failed' : orderMeta.isPaid ? 'complete' : 'active'
                                 )
                             )}>
-                                {formatPaymentState(normalizePaymentState(order), t, intl)}
+                                {formatPaymentState(normalizePaymentState(order), intl)}
                             </span>
                         </div>
 

@@ -6,7 +6,18 @@ import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 const formatPaymentType = (type, t) => {
     const normalized = String(type || '').trim().toLowerCase();
     if (!normalized) return t('profile.payments.type.other', {}, 'Method');
-    return t(`profile.payments.type.${normalized}`, {}, normalized.toUpperCase());
+    switch (normalized) {
+        case 'bank':
+            return t('profile.payments.type.bank', {}, 'BANK');
+        case 'card':
+            return t('profile.payments.type.card', {}, 'CARD');
+        case 'upi':
+            return t('profile.payments.type.upi', {}, 'UPI');
+        case 'wallet':
+            return t('profile.payments.type.wallet', {}, 'WALLET');
+        default:
+            return normalized.toUpperCase();
+    }
 };
 
 const DIGITAL_PAYMENT_METHODS = new Set(['UPI', 'CARD', 'WALLET', 'NETBANKING']);
@@ -48,7 +59,25 @@ const getPaymentStateIcon = (state) => {
 const formatPaymentState = (state, t) => {
     const normalized = String(state || '').trim().toLowerCase();
     if (!normalized) return t('profile.payments.activity.state.pending', {}, 'Pending');
-    return t(`profile.payments.activity.state.${normalized}`, {}, normalized.replace(/_/g, ' '));
+    switch (normalized) {
+        case 'captured':
+            return t('profile.payments.activity.state.captured', {}, 'captured');
+        case 'paid':
+            return t('profile.payments.activity.state.paid', {}, 'paid');
+        case 'authorized':
+            return t('profile.payments.activity.state.authorized', {}, 'authorized');
+        case 'partially_refunded':
+        case 'partiallyrefunded':
+            return t('profile.payments.activity.state.partiallyRefunded', {}, 'partially refunded');
+        case 'failed':
+            return t('profile.payments.activity.state.failed', {}, 'failed');
+        case 'expired':
+            return t('profile.payments.activity.state.expired', {}, 'expired');
+        case 'refunded':
+            return t('profile.payments.activity.state.refunded', {}, 'refunded');
+        default:
+            return normalized.replace(/_/g, ' ');
+    }
 };
 
 const getRefundStatus = (order) => {
