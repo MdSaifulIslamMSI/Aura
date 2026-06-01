@@ -169,7 +169,7 @@
       "reason": "No direct useMarket() t destructuring found. Translator is supplied by the migrated caller and remains tracked for review."
     }
   ],
-  "generatedAt": "2026-06-01T12:45:37.281Z",
+  "generatedAt": "2026-06-01T12:46:34.441Z",
   "note": "Safe stable-UI ICU codemod. Literal calls are routed through useStableIcuMessages(); computed keys remain delegated to the legacy translator and are reported for manual review.",
   "skippedFiles": [],
   "summary": {

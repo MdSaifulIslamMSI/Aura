@@ -43,4 +43,3 @@ npm run i18n:legacy-report
 ```
 
 The report fails when a production file introduces a direct stable literal that bypasses `useStableIcuMessages()`. It separately records ICU-routed literals, delegated translators, computed-key compatibility paths, dynamic runtime translation files, pack internals, and test harness usage.
-

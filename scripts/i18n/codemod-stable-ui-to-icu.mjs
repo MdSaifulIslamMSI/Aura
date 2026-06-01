@@ -194,7 +194,6 @@ fs.writeFileSync(path.join(outputDir, 'stable-ui-icu-codemod-report.md'), [
     '## Unexplained Skips',
     '',
     ...skippedFiles.map((file) => `- \`${file.file}\`: ${file.reason}`),
-    '',
 ].join('\n'), 'utf8');
 
 console.log(`Stable UI ICU codemod ${apply ? 'applied' : 'dry-run complete'}.`);
