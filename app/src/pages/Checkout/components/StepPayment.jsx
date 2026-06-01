@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { useMarket } from '@/context/MarketContext';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const PAYMENT_OPTIONS = [
     { id: 'COD', titleKey: 'checkout.payment.codTitle', titleFallback: 'Cash on Delivery', descriptionKey: 'checkout.payment.codDescription', descriptionFallback: 'Pay when your order arrives', icon: Wallet },
@@ -314,7 +315,8 @@ const StepPayment = ({
     currencyOptions = [],
     paymentGatewayDisabled = false,
 }) => {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const [bankSearch, setBankSearch] = useState('');
     const isDigital = paymentMethod !== 'COD';

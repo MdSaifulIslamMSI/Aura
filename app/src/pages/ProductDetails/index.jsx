@@ -19,6 +19,7 @@ import { buildProductTrustGraph } from '@/utils/commerceIntelligence';
 import { pushRecentlyViewed } from '@/utils/recentlyViewed';
 import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
 import { useColorMode } from '@/context/ColorModeContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const DEFAULT_REVIEWS_SUMMARY = {
   averageRating: 0,
@@ -37,7 +38,8 @@ const ProductDetails = () => {
   const wishlistContext = useContext(WishlistContext);
   const authContext = useContext(AuthContext);
   const { isFeatureDisabled, readOnly } = useEmergencyStatus();
-  const { t, formatDateTime, formatPrice } = useMarket();
+  const { t: legacyT, formatDateTime, formatPrice } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const { colorMode } = useColorMode();
 
   const addToCart = cartContext?.addToCart || (() => console.warn('addToCart missing'));

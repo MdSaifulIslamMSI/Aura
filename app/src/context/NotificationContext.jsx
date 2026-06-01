@@ -12,6 +12,7 @@ import {
     showSystemNotification,
 } from '../services/nativeAppExperience';
 import { useActiveWindowRefresh } from '../hooks/useActiveWindowRefresh';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const DEFAULT_NOTIFICATION_CONTEXT = {
     notifications: [],
@@ -36,7 +37,8 @@ export function useNotifications() {
 export function NotificationProvider({ children }) {
     const { isAuthenticated } = useAuth();
     const { socket } = useSocket();
-    const { language, t } = useMarket();
+    const { language, t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const setAuthenticated = useNotificationStore((state) => state.setAuthenticated);
     const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
     const prependNotification = useNotificationStore((state) => state.prependNotification);

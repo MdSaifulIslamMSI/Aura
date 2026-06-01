@@ -30,6 +30,7 @@ import { solveAuraGrid, solveChromaticHarmony } from '@/utils/frontendOptimizers
 import { usePrefetchOracle } from '@/hooks/usePrefetchOracle';
 import { useMarket } from '@/context/MarketContext';
 import { formatPrice } from '@/utils/format';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
 const DEFAULT_MIN_PRICE = 0;
@@ -158,7 +159,8 @@ const isDefaultLaneOnlyView = ({ effectiveCategorySlug, searchQuery, filters }) 
 );
 
 const ProductListing = () => {
-  const { currency, t } = useMarket();
+  const { currency, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const { category } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();

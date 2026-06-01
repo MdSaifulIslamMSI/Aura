@@ -8,6 +8,7 @@ import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
 import { translateEnumLabel } from '@/utils/enumLocalization';
 import { formatPrice } from '@/utils/format';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const emptySpecification = () => ({ key: '', value: '' });
 
@@ -76,7 +77,8 @@ const pricingSnapshotFromForm = (form) => ({
 const formatProductLogActionType = (t, value) => translateEnumLabel(t, 'admin.productEdit.actionType', value);
 
 const ProductEdit = () => {
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const { id } = useParams();
     const navigate = useNavigate();
     const isNew = !id || id === 'new';

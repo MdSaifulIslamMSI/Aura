@@ -4,6 +4,7 @@ import { Eye, Package, CheckCircle, Trash2, MapPin, Clock, Plus } from 'lucide-r
 import { listingApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const formatRelativeSellerTime = (dateStr, t, formatNumber) => {
   const timestamp = new Date(dateStr).getTime();
@@ -40,7 +41,8 @@ export default function MyListings() {
   const [stats, setStats] = useState({ active: 0, sold: 0, totalViews: 0 });
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('active');
-  const { t, formatNumber, formatPrice } = useMarket();
+  const { t: legacyT, formatNumber, formatPrice } = useMarket();
+  const t = useStableIcuMessages(legacyT);
 
   useEffect(() => {
     (async () => {

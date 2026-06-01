@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
 import { Sparkles, Trophy, Activity } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function RewardsSection({
     auraTier, auraPoints, rewardSnapshot, nextMilestone, handleOptimizeRewards,
     optimizing, intelligenceLoading, intelligenceData, rewardActivity, rewardsLoading,
 }) {
-    const { t, formatPrice } = useMarket();
+    const { t: legacyT, formatPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
 
     return (
         <div className="max-w-3xl space-y-5">

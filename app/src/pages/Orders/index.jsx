@@ -8,6 +8,7 @@ import { Package, Clock, CheckCircle, ChevronDown, ChevronUp, Zap, Server, Shiel
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const getOrderStatusLabel = (orderMeta, t, intl) => {
     if (orderMeta.orderStatus === 'cancelled') {
@@ -80,7 +81,8 @@ const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const { currentUser } = useContext(AuthContext);
-    const { t, formatPrice } = useMarket();
+    const { t: legacyT, formatPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -300,7 +302,8 @@ const Orders = () => {
 
 export const OrderCard = ({ order, autoExpand = false }) => {
     const [expanded, setExpanded] = useState(false);
-    const { t, formatDateTime, formatPrice } = useMarket();
+    const { t: legacyT, formatDateTime, formatPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const [orderMeta, setOrderMeta] = useState({
         orderStatus: order.orderStatus || (order.isDelivered ? 'delivered' : 'placed'),

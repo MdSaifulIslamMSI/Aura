@@ -25,6 +25,7 @@ import StepReview from './components/StepReview';
 import OrderSummary from './components/OrderSummary';
 import OtpChallengeModal from './components/OtpChallengeModal';
 import useCheckoutDraft from './hooks/useCheckoutDraft';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const EMPTY_CONTACT = { name: '', phone: '', email: '' };
 const EMPTY_SHIPPING = { address: '', city: '', postalCode: '', country: 'India' };
@@ -223,8 +224,9 @@ const Checkout = () => {
         countryOptions,
         setCountryCode: setGlobalCountryCode,
         setCurrency: setGlobalCurrency,
-        t,
+        t: legacyT,
     } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const checkoutSession = useCommerceStore((state) => state.checkoutSession);
     const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
     const hydrateCart = useCommerceStore((state) => state.hydrateCart);

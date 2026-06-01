@@ -1,12 +1,14 @@
 import { MapPin, Plus, Save, Phone, Edit3, Trash2 } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function AddressesSection({
     profile, ADDRESS_TYPES, showAddressForm, setShowAddressForm, editingAddress,
     addressForm, setAddressForm, saving, handleSaveAddress, resetAddressForm,
     startEditAddress, handleDeleteAddress,
 }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
 
     const addressTypes = ADDRESS_TYPES.map((type) => ({
         ...type,

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Building2, CheckCircle, CreditCard, Clock, Loader2, Plus, ReceiptText, ShieldCheck } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const formatPaymentType = (type, t) => {
     const normalized = String(type || '').trim().toLowerCase();
@@ -70,7 +71,8 @@ export default function PaymentsSection({
     handleSetDefaultMethod,
     handleDeletePaymentMethod,
 }) {
-    const { t, formatDateTime, formatPrice } = useMarket();
+    const { t: legacyT, formatDateTime, formatPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [cardEnrollmentBusy, setCardEnrollmentBusy] = useState(false);
     const [bankEnrollmentBusy, setBankEnrollmentBusy] = useState(false);
     const [selectedBankCode, setSelectedBankCode] = useState('');

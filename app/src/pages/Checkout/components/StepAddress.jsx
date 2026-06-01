@@ -2,6 +2,7 @@ import { CheckCircle2, Loader2, MapPin, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const ADDRESS_TYPES = ['home', 'work', 'other'];
 
@@ -28,7 +29,8 @@ const StepAddress = ({
     onDetectGps,
     onContinue,
 }) => {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const administrativeAreaLabel = addressSchema.administrativeAreaLabel || 'State / Country';
     const postalCodeLabel = addressSchema.postalCodeLabel || 'Postal Code';
     const postalCodeExample = addressSchema.postalCodeExample || 'Postal code';

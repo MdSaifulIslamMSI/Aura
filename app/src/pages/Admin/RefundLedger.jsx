@@ -6,6 +6,7 @@ import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
 import { formatPrice } from '@/utils/format';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const STATUS_OPTIONS = ['', 'pending', 'approved', 'processed', 'rejected'];
 const SETTLEMENT_OPTIONS = ['', 'provider', 'manual', 'queued', 'manual_review', 'none'];
@@ -38,7 +39,8 @@ const RECON_BADGE = {
 const badgeClass = (map, value) => map[value] || 'bg-slate-100 text-slate-700 border-slate-200';
 
 export default function AdminRefundLedger() {
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [loading, setLoading] = useState(true);
     const [busyLedgerId, setBusyLedgerId] = useState('');
     const [page, setPage] = useState(1);

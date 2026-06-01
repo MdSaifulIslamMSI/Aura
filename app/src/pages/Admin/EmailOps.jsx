@@ -17,6 +17,7 @@ import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
 import { normalizeEnumToken, translateEnumLabel } from '@/utils/enumLocalization';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SUMMARY_FALLBACK = {
     provider: {
@@ -112,7 +113,8 @@ const formatEmailProvider = (t, value) => {
 const formatEmailEventType = (t, value) => translateEnumLabel(t, 'admin.email.eventType', value);
 
 export default function AdminEmailOps() {
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [summary, setSummary] = useState(SUMMARY_FALLBACK);
     const [summaryLoading, setSummaryLoading] = useState(true);
     const [deliveries, setDeliveries] = useState(DELIVERIES_FALLBACK);

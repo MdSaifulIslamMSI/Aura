@@ -5,10 +5,12 @@ import { priceAlertApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function PriceAlerts() {
     const { currentUser } = useContext(AuthContext);
-    const { t, formatPrice } = useMarket();
+    const { t: legacyT, formatPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(true);
 

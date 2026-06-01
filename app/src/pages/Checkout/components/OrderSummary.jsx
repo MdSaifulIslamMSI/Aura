@@ -3,6 +3,7 @@ import { formatPrice } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { getBaseCurrency, getLineBaseTotal } from '@/utils/pricing';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const OrderSummary = ({
     items,
@@ -18,7 +19,8 @@ const OrderSummary = ({
     onRemoveCoupon,
     onRecalculate,
 }) => {
-    const { t, currency: marketCurrency, formatPrice: formatMarketPrice } = useMarket();
+    const { t: legacyT, currency: marketCurrency, formatPrice: formatMarketPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const itemsPrice = quote?.itemsPrice ?? fallbackTotals.itemsPrice;
     const shippingPrice = quote?.shippingPrice ?? 0;
     const couponDiscount = quote?.couponDiscount ?? 0;

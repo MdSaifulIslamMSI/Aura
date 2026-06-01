@@ -9,6 +9,7 @@ import {
 } from '@/services/clientObservability';
 import { summarizeBackendFailureDetail } from '@/utils/backendFailurePresentation';
 import { cn } from '@/lib/utils';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const HEALTH_POLL_INTERVAL_MS = 30000;
 const HEALTH_TIMEOUT_MS = 4000;
@@ -101,7 +102,8 @@ const resolveFailureStatus = ({
 };
 
 const BackendStatusBanner = () => {
-  const { formatDateTime, t } = useMarket();
+  const { formatDateTime, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [status, setStatus] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const failureCountRef = useRef(0);

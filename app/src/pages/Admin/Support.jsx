@@ -30,6 +30,7 @@ import {
     createEmptySupportSummary,
     normalizeSupportSummary,
 } from '@/utils/supportArchitecture';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const TICKET_LIST_POLL_MS = 20000;
 const ACTIVE_TICKET_POLL_MS = 12000;
@@ -218,7 +219,8 @@ const formatSupportCategory = (t, value) => {
 
 export default function AdminSupport() {
     useSocketDemand('admin-support', true);
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const { socket, isConnected, connectionState } = useSocket();
     const { startCall, joinSupportCall, callStatus, activeCallContext } = useVideoCall();
     const [tickets, setTickets] = useState([]);

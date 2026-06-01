@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
 import { loadRazorpayScript } from '@/utils/razorpay';
 import OtpChallengeModal from '@/pages/Checkout/components/OtpChallengeModal';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 function timeAgo(dateStr, t) {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -131,7 +132,8 @@ export default function ListingDetail() {
     const location = useLocation();
     const navigate = useNavigate();
     const { currentUser, dbUser } = useContext(AuthContext);
-    const { t, formatPrice } = useMarket();
+    const { t: legacyT, formatPrice } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [listing, setListing] = useState(null);
     const [listingLiveCall, setListingLiveCall] = useState(null);
     const [trustPassport, setTrustPassport] = useState(null);

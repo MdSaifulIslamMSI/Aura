@@ -5,6 +5,7 @@ import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpan
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const LIMIT = 25;
 
@@ -22,7 +23,8 @@ const accountStateLabel = (t, value) => {
 };
 
 export default function AdminUsers() {
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState([]);
     const [stats, setStats] = useState({ active: 0, warned: 0, suspended: 0, deleted: 0 });

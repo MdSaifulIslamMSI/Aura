@@ -4,10 +4,12 @@ import { Heart, ShoppingCart, Trash2, Zap } from 'lucide-react';
 import { WishlistContext } from '@/context/WishlistContext';
 import { useMarket } from '@/context/MarketContext';
 import ProductCard from '@/components/features/product/ProductCard';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const Wishlist = () => {
   const { wishlistItems, removeFromWishlist, moveToCart } = useContext(WishlistContext);
-  const { t } = useMarket();
+  const { t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const wishlistItemLabel = t(wishlistItems.length === 1 ? 'wishlist.item' : 'wishlist.items', {}, wishlistItems.length === 1 ? 'item' : 'items');
   const handleMoveToCart = (productId) => {
     moveToCart(productId);

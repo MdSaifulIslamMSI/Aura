@@ -41,6 +41,7 @@ import { listingApi } from '@/services/api';
 import RevealOnScroll from '@/components/shared/RevealOnScroll';
 import { detectLocationFromGps } from '@/utils/geolocation';
 import { buildListingSafetyLens, buildMarketplaceSafetySummary } from '@/utils/commerceIntelligence';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const CATEGORIES = [
     { value: '', label: 'All', subtitle: 'Every live lane', icon: Grid3X3, color: '#60a5fa' },
@@ -443,7 +444,8 @@ const ListingCard = ({
 
 export default function Marketplace() {
     const { colorMode } = useColorMode();
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });

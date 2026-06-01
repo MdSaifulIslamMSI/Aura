@@ -26,6 +26,7 @@ import { convertAmount } from '@/utils/format';
 import { BROWSE_BASE_CURRENCY } from '@/config/marketConfig';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
 import { getBaseCurrency, getLineBaseTotal, getLineOriginalBaseTotal } from '@/utils/pricing';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const getCartItemId = (item) => item?.id ?? item?._id;
 const getItemQuantity = (item) => Math.max(1, Number(item?.quantity || 1));
@@ -37,7 +38,8 @@ const getItemStock = (item) => {
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, moveToWishlist, isLoading } = useContext(CartContext);
   const { isFeatureDisabled, readOnly } = useEmergencyStatus();
-  const { t, formatPrice } = useMarket();
+  const { t: legacyT, formatPrice } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const intl = useIntl();
   const clearDirectBuy = useCommerceStore((state) => state.clearDirectBuy);
   const navigate = useNavigate();

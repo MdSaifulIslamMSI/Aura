@@ -26,6 +26,7 @@ import { useMarket } from '@/context/MarketContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { adminApi } from '@/services/api/adminApi';
 import { translateEnumLabel } from '@/utils/enumLocalization';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const ClientDiagnosticsPanel = lazy(() => import('./ClientDiagnosticsPanel'));
 
@@ -174,7 +175,8 @@ const downloadBlob = (blob, filename) => {
 
 export default function AdminDashboard() {
     const { currentUser } = useContext(AuthContext);
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const navigate = useNavigate();
 
     const [summary, setSummary] = useState(SUMMARY_FALLBACK);
@@ -796,7 +798,8 @@ function ExportButton({ label, busy, onClick }) {
 }
 
 function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const values = points.map((item) => Number(item?.[dataKey] || 0));
     const max = Math.max(...values, 1);
     const visible = points.slice(-24);
@@ -839,7 +842,8 @@ function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
 }
 
 function HealthCell({ icon, label, value, ok, loading }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     return (
         <div className="admin-premium-subpanel rounded-lg p-2">
             <div className="flex items-center justify-between gap-2">

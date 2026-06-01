@@ -37,6 +37,7 @@ import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 import { getBaseAmount, getBaseCurrency } from '@/utils/pricing';
 import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const HOME_SECTION_REQUEST = {
   limit: 8,
@@ -95,7 +96,8 @@ const Home = () => {
   const { cartItems = [], isLoading: cartLoading = false } = useContext(CartContext) || {};
   const { wishlistItems = [], isLoading: wishlistLoading = false } = useContext(WishlistContext) || {};
   const { colorMode } = useColorMode();
-  const { t, formatPrice } = useMarket();
+  const { t: legacyT, formatPrice } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const isWhiteMode = colorMode === 'white';
   const modePalette = FIGMA_COLOR_MODE_OPTIONS.find((mode) => mode.value === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0];
   const accentPrimary = modePalette.primary;

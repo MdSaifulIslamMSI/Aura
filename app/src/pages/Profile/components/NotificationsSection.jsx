@@ -5,10 +5,12 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { resolveNotificationActionTarget } from '@/utils/navigation';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function NotificationsSection() {
     const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [filter, setFilter] = useState('all');
     const navigate = useNavigate();
 

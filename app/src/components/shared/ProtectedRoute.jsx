@@ -10,6 +10,7 @@ import {
     getAdminAccessLockOperatorMessage,
     getAdminAccessLockTitle,
 } from '@/utils/adminAccessLock';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 
@@ -152,7 +153,8 @@ export const AdminAccessLockedState = ({ adminAccessLock, onRetry }) => (
 const useAuthGate = () => {
     const auth = useContext(AuthContext);
     const intl = useIntl();
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const location = useLocation();
     const navigate = useNavigate();
     return { auth, intl, location, navigate, t };

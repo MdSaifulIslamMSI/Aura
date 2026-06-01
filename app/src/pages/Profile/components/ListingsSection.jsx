@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function ListingsSection({ stats }) {
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
 
     return (
         <div className="max-w-3xl">

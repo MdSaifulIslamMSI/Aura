@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { useMarket } from '@/context/MarketContext';
 import { getLocalizedCategoryLabel } from '@/config/catalogTaxonomy';
 import { formatPrice } from '@/utils/format';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const DEFAULT_MAX_PRICE = 200000;
 const REVIEW_OPTIONS = [0, 100, 500, 1000, 5000];
@@ -79,7 +80,8 @@ const sanitizeFilters = (raw = {}) => {
 };
 
 const Filters = ({ filters, onFilterChange, className, closeMobile }) => {
-  const { currency, t } = useMarket();
+  const { currency, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [expandedSections, setExpandedSections] = useState({
     price: true,
     category: false,

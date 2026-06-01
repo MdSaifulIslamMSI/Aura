@@ -11,6 +11,7 @@ import {
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const INITIAL_FILTERS = {
     limit: '25',
@@ -76,7 +77,8 @@ function MetaPill({ label, value }) {
 }
 
 export default function ClientDiagnosticsPanel() {
-    const { t, formatDateTime } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const [draftFilters, setDraftFilters] = useState(INITIAL_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(INITIAL_FILTERS);
     const [diagnostics, setDiagnostics] = useState([]);

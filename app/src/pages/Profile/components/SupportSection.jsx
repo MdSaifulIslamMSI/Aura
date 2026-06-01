@@ -30,6 +30,7 @@ import {
     buildSupportSummaryFromTickets,
     buildSupportTimeline,
 } from '@/utils/supportArchitecture';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const TICKET_LIST_POLL_MS = 25000;
 const ACTIVE_TICKET_POLL_MS = 15000;
@@ -273,7 +274,8 @@ export default function SupportSection({
     prefill = {},
 }) {
     useSocketDemand('profile-support', true);
-    const { t } = useMarket();
+    const { t: legacyT } = useMarket();
+    const t = useStableIcuMessages(legacyT);
     const { socket, isConnected, connectionState } = useSocket();
     const { callStatus, activeCallContext, joinSupportCall } = useVideoCall();
     const categoryOptions = useMemo(() => buildCategoryOptions(t), [t]);
