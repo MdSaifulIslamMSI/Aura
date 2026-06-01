@@ -122,6 +122,7 @@ const loadMarketTestKit = async () => {
 };
 
 beforeEach(() => {
+    vi.stubEnv('VITE_I18N_STABLE_UI_RUNTIME_TRANSLATION_ENABLED', 'true');
     window.localStorage.clear();
     window.sessionStorage.clear();
     clearRuntimeTranslationCache();
@@ -146,6 +147,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    vi.unstubAllEnvs();
     window.localStorage.clear();
     window.sessionStorage.clear();
     document.documentElement.removeAttribute('dir');
@@ -281,6 +283,26 @@ describe('MarketContext', () => {
         await waitFor(() => {
             expect(screen.getByTestId('runtime-fallback')).toHaveTextContent('es:Ready for translation');
         });
+    });
+
+    it('keeps missing stable UI copy in English when the legacy runtime fallback is disabled', async () => {
+        vi.stubEnv('VITE_I18N_STABLE_UI_RUNTIME_TRANSLATION_ENABLED', 'false');
+        const { MarketProvider, RuntimeFallbackProbe } = await loadMarketTestKit();
+
+        await act(async () => {
+            render(
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <RuntimeFallbackProbe />
+                </MarketProvider>
+            );
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'ES' }));
+
+        await waitFor(() => {
+            expect(screen.getByTestId('runtime-fallback')).toHaveTextContent('Ready for translation');
+        });
+        expect(translateTextsMock).not.toHaveBeenCalled();
     });
 
     it('runtime-translates stable templates without queueing ad-hoc rendered fallbacks', async () => {

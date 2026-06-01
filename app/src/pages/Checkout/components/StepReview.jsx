@@ -1,7 +1,9 @@
 import { CheckCircle2, ClipboardCheck, ShieldCheck } from 'lucide-react';
+import { useIntl } from 'react-intl';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/utils/format';
 import { useMarket } from '@/context/MarketContext';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 
 const StepReview = ({
     isActive,
@@ -22,6 +24,8 @@ const StepReview = ({
     onPlaceOrder,
 }) => {
     const { t } = useMarket();
+    const intl = useIntl();
+    const placeOrderLabel = intl.formatMessage(criticalMessages.placeOrder);
     const chargeAmount = Number(quote?.displayAmount ?? quote?.presentmentTotalPrice ?? quote?.totalPrice ?? 0);
     const chargeCurrency = quote?.displayCurrency || quote?.presentmentCurrency || quote?.settlementCurrency || 'INR';
     const baseAmount = Number(quote?.baseAmount ?? quote?.totalPrice ?? 0);
@@ -129,7 +133,7 @@ const StepReview = ({
                         >
                             {orderDisabled
                                 ? t('checkout.orderTemporarilyUnavailable', {}, 'Order Placement Paused')
-                                : isPlacingOrder ? t('checkout.placingOrderButton', {}, 'Placing Order...') : t('checkout.placeOrder', {}, 'Place Order')}
+                                : isPlacingOrder ? t('checkout.placingOrderButton', {}, 'Placing Order...') : placeOrderLabel}
                         </button>
                     </div>
                 </div>

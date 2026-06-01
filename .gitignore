@@ -49,6 +49,7 @@ server/uploads/
 coverage/
 security-reports/
 reports/
+artifacts/
 .trivycache/
 
 # Firebase
@@ -93,6 +94,7 @@ server/public/
 
 # Playwright/coverage output
 **/playwright-report/
+**/test-results/
 **/coverage/
 .vercel
 .netlify/

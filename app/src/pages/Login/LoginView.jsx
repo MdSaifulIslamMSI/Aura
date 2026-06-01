@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
+import { useIntl } from 'react-intl';
 import { Apple as AppleIcon, ArrowLeft, ChevronDown, ExternalLink, Eye, EyeOff, Github, Loader2, Lock, Mail, Network, Phone, Shield, User, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AuthAccelerationRail from '@/components/features/auth/AuthAccelerationRail';
 import TurnstileChallenge from '@/components/features/auth/TurnstileChallenge';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 
 const LoginView = ({
   OTP_TRANSPORT,
@@ -67,7 +69,14 @@ const LoginView = ({
   emergencyOtpDisabled = false,
   emergencyPasswordResetDisabled = false,
   emergencySignupDisabled = false,
-}) => (
+}) => {
+  const intl = useIntl();
+  const signInActionLabel = intl.formatMessage(criticalMessages.signInAction);
+  const signUpActionLabel = intl.formatMessage(criticalMessages.signUpAction);
+  const hidePasswordLabel = intl.formatMessage(criticalMessages.passwordVisible);
+  const showPasswordLabel = intl.formatMessage(criticalMessages.passwordHidden);
+
+  return (
   <div className="login-theme-shell min-h-[calc(100vh-var(--figma-nav-spacer-mobile))] pb-8 pt-4 sm:min-h-[calc(100vh-var(--figma-nav-spacer-sm))] sm:pb-12 sm:pt-6 md:min-h-[calc(100vh-var(--figma-nav-spacer-md))] md:pb-20 md:pt-8 relative flex items-center justify-center overflow-hidden">
     <div className="login-theme-shell__base absolute inset-0 bg-zinc-950 z-0" />
     <div className="login-theme-shell__center-glow absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.1)_0%,transparent_50%)] pointer-events-none z-0" />
@@ -264,6 +273,7 @@ const LoginView = ({
                         <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange} placeholder="........" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                           className="w-full pl-12 pr-14 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner" />
                         <button type="button" onClick={() => setShowPassword(!showPassword)}
+                          aria-label={showPassword ? hidePasswordLabel : showPasswordLabel}
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-1">
                           {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
@@ -411,6 +421,7 @@ const LoginView = ({
                           className="w-full pl-12 pr-14 py-4 bg-zinc-950/50 border border-white/10 rounded-2xl focus:outline-none focus:border-neo-cyan focus:ring-1 focus:ring-neo-cyan text-white placeholder:text-slate-600 font-medium transition-all shadow-inner"
                         />
                         <button type="button" onClick={() => setShowPassword(!showPassword)}
+                          aria-label={showPassword ? hidePasswordLabel : showPasswordLabel}
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-1">
                           {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
@@ -635,7 +646,7 @@ const LoginView = ({
                   <button type="button" onClick={() => switchMode('signin')}
                     disabled={emergencyAuthDisabled}
                     className="ml-2 text-white font-bold hover:text-neo-cyan transition-colors underline decoration-neo-cyan/50 decoration-2 underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50">
-                    {t('login.mode.signin.cta', {}, 'Sign In')}
+                    {signInActionLabel}
                   </button>
                 </p>
               ) : (
@@ -646,7 +657,7 @@ const LoginView = ({
                   <button type="button" onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
                     disabled={(mode === 'signin' && emergencySignupDisabled) || (mode === 'signup' && emergencyAuthDisabled)}
                     className="ml-2 text-white font-bold hover:text-neo-cyan transition-colors underline decoration-neo-cyan/50 decoration-2 underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50">
-                    {mode === 'signin' ? t('login.mode.signup.cta', {}, 'Sign Up') : t('login.mode.signin.cta', {}, 'Sign In')}
+                    {mode === 'signin' ? signUpActionLabel : signInActionLabel}
                   </button>
                 </p>
               )}
@@ -663,6 +674,7 @@ const LoginView = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default LoginView;

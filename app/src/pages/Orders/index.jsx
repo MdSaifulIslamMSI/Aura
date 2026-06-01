@@ -1,20 +1,22 @@
 import { useState, useEffect, useContext, useMemo, useRef, useCallback } from 'react';
+import { useIntl } from 'react-intl';
 import { orderApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
+import { criticalMessages } from '@/i18n/messages/criticalMessages';
 import { Package, Clock, CheckCircle, ChevronDown, ChevronUp, Zap, Server, ShieldCheck, AlertTriangle, Loader2, MessageSquare, RefreshCw, ShieldAlert, Wallet, XCircle } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 
-const getOrderStatusLabel = (orderMeta, t) => {
+const getOrderStatusLabel = (orderMeta, t, intl) => {
     if (orderMeta.orderStatus === 'cancelled') {
         return t('orders.status.cancelled', {}, 'Cancelled');
     }
     if (orderMeta.isDelivered) {
         return t('orders.status.delivered', {}, 'Delivered');
     }
-    return t('orders.status.inTransit', {}, 'In Transit');
+    return intl.formatMessage(criticalMessages.orderConfirmed);
 };
 
 const getCommandStatusLabel = (status, t) => {
@@ -40,9 +42,18 @@ const normalizePaymentState = (order) => {
     return 'pending';
 };
 
-const formatPaymentState = (state, t) => {
+const formatPaymentState = (state, t, intl) => {
     const normalized = String(state || '').trim().toLowerCase();
-    if (!normalized) return t('orders.payment.state.pending', {}, 'pending');
+    if (!normalized) return intl.formatMessage(criticalMessages.paymentPending);
+    if (['failed', 'expired', 'cancelled'].includes(normalized)) {
+        return intl.formatMessage(criticalMessages.paymentFailed);
+    }
+    if (['authorized', 'captured', 'paid', 'refunded', 'partially_refunded'].includes(normalized)) {
+        return intl.formatMessage(criticalMessages.paymentSuccess);
+    }
+    if (['pending', 'created', 'challenge_pending'].includes(normalized)) {
+        return intl.formatMessage(criticalMessages.paymentPending);
+    }
     return t(`orders.payment.state.${normalized}`, {}, normalized.replace(/_/g, ' '));
 };
 
@@ -70,6 +81,7 @@ const Orders = () => {
     const [loading, setLoading] = useState(true);
     const { currentUser } = useContext(AuthContext);
     const { t, formatPrice } = useMarket();
+    const intl = useIntl();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const focusOrderId = String(searchParams.get('focus') || '').trim();
@@ -176,7 +188,7 @@ const Orders = () => {
                         <h2 className="text-2xl font-black text-white uppercase tracking-widest mb-6 border-b border-white/10 pb-4">{t('orders.authRequiredTitle', {}, 'Authentication Required')}</h2>
                         <p className="text-slate-400 mb-8">{t('orders.authRequiredBody', {}, 'Sign in to view your order history.')}</p>
                         <button onClick={() => navigate('/login')} className="btn-primary w-full shadow-[0_0_15px_rgba(6,182,212,0.3)]">
-                            {t('orders.signIn', {}, 'Sign In')}
+                            {intl.formatMessage(criticalMessages.signInAction)}
                         </button>
                     </div>
                 </div>
@@ -289,6 +301,7 @@ const Orders = () => {
 export const OrderCard = ({ order, autoExpand = false }) => {
     const [expanded, setExpanded] = useState(false);
     const { t, formatDateTime, formatPrice } = useMarket();
+    const intl = useIntl();
     const [orderMeta, setOrderMeta] = useState({
         orderStatus: order.orderStatus || (order.isDelivered ? 'delivered' : 'placed'),
         isDelivered: Boolean(order.isDelivered),
@@ -454,7 +467,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             key: 'authorization',
             title: t('orders.payment.timeline.authorization', {}, 'Authorization'),
             detail: failedState
-                ? formatPaymentState(paymentState, t)
+                ? formatPaymentState(paymentState, t, intl)
                 : authorizedState
                     ? t('orders.payment.timeline.authorizedBody', {}, 'Provider authorization accepted')
                     : t('orders.payment.timeline.awaitingAuthorization', {}, 'Awaiting provider authorization'),
@@ -468,7 +481,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             detail: failedState
                 ? t('orders.payment.timeline.captureStopped', {}, 'Capture stopped because payment did not authorize')
                 : capturedState
-                    ? formatPaymentState(paymentState, t)
+                    ? formatPaymentState(paymentState, t, intl)
                     : authorizedState
                         ? t('orders.payment.timeline.capturePending', {}, 'Capture is pending in the backend queue')
                         : t('orders.payment.timeline.captureWaiting', {}, 'Waiting for authorization first'),
@@ -481,7 +494,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             items.push({
                 key: 'refund',
                 title: t('orders.payment.timeline.refund', {}, 'Refund'),
-                detail: formatPaymentState(refundStatus, t),
+                detail: formatPaymentState(refundStatus, t, intl),
                 at: latestRefund?.processedAt || latestRefund?.createdAt || order.updatedAt || order.createdAt,
                 state: ['processed', 'refunded', 'partially_refunded'].includes(String(refundStatus || '').toLowerCase())
                     ? 'complete'
@@ -492,6 +505,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
         return items;
     }, [
         commandCenter?.refunds,
+        intl,
         order,
         orderMeta.isPaid,
         t,
@@ -616,7 +630,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                                 : orderMeta.isDelivered
                                     ? <CheckCircle className="w-3 h-3" />
                                     : <Clock className="w-3 h-3" />}
-                            {getOrderStatusLabel(orderMeta, t)}
+                            {getOrderStatusLabel(orderMeta, t, intl)}
                         </span>
                     </div>
                     <div className="w-8 h-8 rounded-full bg-zinc-950/50 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-white transition-colors">
@@ -690,7 +704,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                                     ['failed', 'expired'].includes(normalizePaymentState(order)) ? 'failed' : orderMeta.isPaid ? 'complete' : 'active'
                                 )
                             )}>
-                                {formatPaymentState(normalizePaymentState(order), t)}
+                                {formatPaymentState(normalizePaymentState(order), t, intl)}
                             </span>
                         </div>
 

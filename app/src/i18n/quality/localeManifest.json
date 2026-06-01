@@ -1,0 +1,8 @@
+{
+  "en": { "direction": "ltr", "reviewStatus": "source" },
+  "hi": { "direction": "ltr", "reviewStatus": "reviewed-foundation" },
+  "bn": { "direction": "ltr", "reviewStatus": "reviewed-foundation" },
+  "ur": { "direction": "rtl", "reviewStatus": "reviewed-foundation" },
+  "ar": { "direction": "rtl", "reviewStatus": "reviewed-foundation" },
+  "en-XA": { "direction": "ltr", "reviewStatus": "generated-pseudo" }
+}

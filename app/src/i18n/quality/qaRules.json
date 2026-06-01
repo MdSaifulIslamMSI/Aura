@@ -1,0 +1,12 @@
+{
+  "englishLeakageAllowlist": [
+    "Aura",
+    "Aura Points",
+    "OTP"
+  ],
+  "maxCompactExpansionRatio": 2,
+  "rtlLocales": [
+    "ar",
+    "ur"
+  ]
+}

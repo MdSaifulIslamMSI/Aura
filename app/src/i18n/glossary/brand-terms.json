@@ -1,0 +1,10 @@
+{
+  "Aura": {
+    "description": "Product brand name. Never translate or transliterate.",
+    "doNotTranslate": true
+  },
+  "Aura Points": {
+    "description": "Aura loyalty points brand name. Keep the complete phrase unchanged.",
+    "doNotTranslate": true
+  }
+}

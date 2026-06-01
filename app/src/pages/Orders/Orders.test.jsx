@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { MarketProvider } from '@/context/MarketContext';
 import { AuthContext } from '@/context/AuthContext';
+import { LocaleProvider } from '@/i18n/LocaleProvider';
 import Orders, { OrderCard } from './index';
 
 vi.mock('@/services/api', async (importOriginal) => {
@@ -85,7 +86,9 @@ describe('OrderCard', () => {
 
         render(
             <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                <OrderCard order={baseOrder} />
+                <LocaleProvider>
+                    <OrderCard order={baseOrder} />
+                </LocaleProvider>
             </MarketProvider>
         );
 
@@ -126,7 +129,9 @@ describe('Orders page', () => {
             <MemoryRouter>
                 <AuthContext.Provider value={{ currentUser: { uid: 'user-1', email: 'user@example.com' } }}>
                     <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                        <Orders />
+                        <LocaleProvider>
+                            <Orders />
+                        </LocaleProvider>
                     </MarketProvider>
                 </AuthContext.Provider>
             </MemoryRouter>

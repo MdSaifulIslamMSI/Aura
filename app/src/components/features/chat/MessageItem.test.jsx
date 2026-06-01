@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MarketProvider } from '@/context/MarketContext';
+import { LocaleProvider } from '@/i18n/LocaleProvider';
 import MessageItem from './MessageItem';
 
 const product = {
@@ -25,7 +26,9 @@ const noopProps = {
 
 const renderWithMarket = (ui) => render(
     <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-        {ui}
+        <LocaleProvider>
+            {ui}
+        </LocaleProvider>
     </MarketProvider>
 );
 

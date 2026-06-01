@@ -31,6 +31,7 @@ import {
 } from '@/utils/format';
 import { marketApi, readCachedBrowseFxRates } from '@/services/api/marketApi';
 import { setActiveMarketHeaders } from '@/services/marketRuntime';
+import { isStableUiRuntimeTranslationEnabled } from '@/config/runtimeTranslationPolicy';
 
 const MarketContext = createContext(null);
 const DEFAULT_LIVE_BROWSE_FX_REFRESH_MS = 60 * 1000;
@@ -456,6 +457,10 @@ export function MarketProvider({
       const translationTemplate = englishTemplate || (!hasInterpolationValues ? fallbackTemplate : '');
 
       if (language.code === 'en') {
+        return englishText;
+      }
+
+      if (!isStableUiRuntimeTranslationEnabled()) {
         return englishText;
       }
 

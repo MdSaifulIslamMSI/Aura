@@ -5,16 +5,15 @@ import path from 'node:path';
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptDir = path.dirname(scriptPath);
 const appDir = path.resolve(scriptDir, '..');
+const playwrightCli = path.join(appDir, 'node_modules', '@playwright', 'test', 'cli.js');
 const args = [
-    'playwright',
     'test',
     'e2e/locale.visual.spec.js',
     '--config',
     'playwright.locale-qa.config.js',
 ];
-const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
-const child = spawn(command, args, {
+const child = spawn(process.execPath, [playwrightCli, ...args], {
     cwd: appDir,
     stdio: 'inherit',
     env: {

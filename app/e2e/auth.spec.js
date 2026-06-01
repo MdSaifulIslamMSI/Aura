@@ -22,7 +22,7 @@ test.describe('Authentication Guards', () => {
         await waitForAuthShell(page, '/cart');
         await expect(page).toHaveURL(/\/cart$/);
         await expect(page.locator('main')).toBeVisible();
-        await expect(page.getByRole('heading', { name: /your bag|your bag is empty/i })).toBeVisible();
+        await expect(page.getByRole('heading', { name: /your bag|your bag is empty|your cart is empty/i })).toBeVisible();
     });
 
     test('/wishlist remains accessible when not authenticated', async ({ page }) => {
