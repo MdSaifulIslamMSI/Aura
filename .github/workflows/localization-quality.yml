@@ -106,7 +106,7 @@ jobs:
         run: npm --prefix app ci
       - name: Install Chromium
         working-directory: app
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps --only-shell chromium
       - name: Run locale visual QA
         run: npm --prefix app run test:e2e:locale
       - name: Run locale accessibility QA
