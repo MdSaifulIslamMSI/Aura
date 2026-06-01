@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
+import { LocaleProvider } from '@/i18n/LocaleProvider';
 import { AdminRoute, ProtectedRoute } from './ProtectedRoute';
 
 const LocationProbe = () => {
@@ -21,25 +22,27 @@ const LocationProbe = () => {
 const renderProtectedRoute = (authValue, initialEntries = ['/profile']) => {
     render(
         <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-            <AuthContext.Provider value={authValue}>
-                <MemoryRouter initialEntries={initialEntries}>
-                    <LocationProbe />
-                    <Routes>
-                        <Route
-                            path="/login"
-                            element={<div>Login Screen</div>}
-                        />
-                        <Route
-                            path="*"
-                            element={(
-                                <ProtectedRoute>
-                                    <div>Profile Screen</div>
-                                </ProtectedRoute>
-                            )}
-                        />
-                    </Routes>
-                </MemoryRouter>
-            </AuthContext.Provider>
+            <LocaleProvider>
+                <AuthContext.Provider value={authValue}>
+                    <MemoryRouter initialEntries={initialEntries}>
+                        <LocationProbe />
+                        <Routes>
+                            <Route
+                                path="/login"
+                                element={<div>Login Screen</div>}
+                            />
+                            <Route
+                                path="*"
+                                element={(
+                                    <ProtectedRoute>
+                                        <div>Profile Screen</div>
+                                    </ProtectedRoute>
+                                )}
+                            />
+                        </Routes>
+                    </MemoryRouter>
+                </AuthContext.Provider>
+            </LocaleProvider>
         </MarketProvider>
     );
 };
@@ -47,20 +50,22 @@ const renderProtectedRoute = (authValue, initialEntries = ['/profile']) => {
 const renderAdminRoute = (authValue, initialEntries = ['/admin/dashboard']) => {
     render(
         <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-            <AuthContext.Provider value={authValue}>
-                <MemoryRouter initialEntries={initialEntries}>
-                    <Routes>
-                        <Route
-                            path="*"
-                            element={(
-                                <AdminRoute>
-                                    <div>Admin Dashboard</div>
-                                </AdminRoute>
-                            )}
-                        />
-                    </Routes>
-                </MemoryRouter>
-            </AuthContext.Provider>
+            <LocaleProvider>
+                <AuthContext.Provider value={authValue}>
+                    <MemoryRouter initialEntries={initialEntries}>
+                        <Routes>
+                            <Route
+                                path="*"
+                                element={(
+                                    <AdminRoute>
+                                        <div>Admin Dashboard</div>
+                                    </AdminRoute>
+                                )}
+                            />
+                        </Routes>
+                    </MemoryRouter>
+                </AuthContext.Provider>
+            </LocaleProvider>
         </MarketProvider>
     );
 };

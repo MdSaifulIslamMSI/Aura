@@ -29,3 +29,30 @@ language review before being considered final marketplace copy.
 - Auth and account-security copy: highest risk because misunderstanding can lock users out.
 - Order, refund, support, and seller dashboard copy: high risk because it affects post-purchase trust.
 - Navigation and product browsing copy: medium risk once transaction flows are stable.
+
+## Batch B Native Review Queue
+
+These entries were added in the Batch B high-risk ICU migration. They pass
+engineering QA, but still need native-speaker review for Hindi, Bengali, Urdu,
+and Arabic before being treated as final marketplace copy.
+
+| Message ID | English source | Context | Risk | Native review |
+| --- | --- | --- | --- | --- |
+| `auth.pending.title` | Session checkpoint | Protected route loading heading | High | Yes |
+| `auth.pending.resolveSession` | Resolving your session... | Protected route session check | High | Yes |
+| `auth.deviceChallenge.title` | Trusted device checkpoint | Device trust checkpoint heading | High | Yes |
+| `auth.deviceChallenge.message` | Approve this browser in the security checkpoint to continue. | Device trust checkpoint instruction | High | Yes |
+| `checkout.otp.closeDialog` | Close OTP dialog | OTP modal close label | High | Yes |
+| `checkout.otp.title` | Payment Challenge | Payment OTP modal heading | High | Yes |
+| `checkout.otp.subtitle` | Enter the 6-digit OTP sent to your registered contact. | Payment OTP modal instruction | High | Yes |
+| `checkout.otp.digitLabel` | OTP digit `{index}` | OTP digit input accessible label | High | Yes |
+| `checkout.otp.verify` | Verify OTP | Payment OTP submit action | High | Yes |
+| `checkout.otp.verifying` | Verifying... | Payment OTP busy state | High | Yes |
+| `checkout.otp.didNotReceive` | Didn't receive it? | Payment OTP retry prompt | High | Yes |
+| `checkout.otp.cancelRetry` | Cancel and retry | Payment OTP cancel/retry action | High | Yes |
+| `checkout.delivery.stepTitle` | 2. Delivery Slot | Checkout delivery step heading | High | Yes |
+| `checkout.delivery.dateLabel` | Delivery Date | Delivery date input label | High | Yes |
+| `checkout.delivery.windowLabel` | Delivery Window | Delivery time-window input label | High | Yes |
+| `checkout.delivery.selectSlot` | Select slot | Delivery slot placeholder option | High | Yes |
+| `checkout.action.back` | Back | Checkout step navigation | High | Yes |
+| `checkout.action.continue` | Continue | Checkout step navigation | High | Yes |

@@ -19,6 +19,22 @@
     "defaultMessage": "Sign up",
     "description": "Primary authentication action shown on account creation CTAs."
   },
+  "auth.deviceChallenge.message": {
+    "defaultMessage": "Approve this browser in the security checkpoint to continue.",
+    "description": "Instruction shown when a protected route requires trusted-device approval."
+  },
+  "auth.deviceChallenge.title": {
+    "defaultMessage": "Trusted device checkpoint",
+    "description": "Heading shown when a protected route requires trusted-device approval."
+  },
+  "auth.pending.resolveSession": {
+    "defaultMessage": "Resolving your session...",
+    "description": "Loading message shown while a protected route checks the current session."
+  },
+  "auth.pending.title": {
+    "defaultMessage": "Session checkpoint",
+    "description": "Short heading shown while account/session access is being checked."
+  },
   "auth.security.passwordHidden": {
     "defaultMessage": "Show password",
     "description": "Accessible action when the password is currently hidden."
@@ -43,6 +59,14 @@
     "defaultMessage": "Your cart is empty",
     "description": "Empty-state title for a cart with no products."
   },
+  "checkout.action.back": {
+    "defaultMessage": "Back",
+    "description": "Secondary checkout navigation action that returns to the previous step."
+  },
+  "checkout.action.continue": {
+    "defaultMessage": "Continue",
+    "description": "Primary checkout navigation action that advances to the next step."
+  },
   "checkout.action.placeOrder": {
     "defaultMessage": "Place order",
     "description": "Final checkout action that submits an order."
@@ -51,9 +75,57 @@
     "defaultMessage": "Amount due: {amount, number}",
     "description": "Checkout amount label using locale-aware numeric formatting."
   },
+  "checkout.delivery.dateLabel": {
+    "defaultMessage": "Delivery Date",
+    "description": "Label for the checkout delivery date input."
+  },
+  "checkout.delivery.selectSlot": {
+    "defaultMessage": "Select slot",
+    "description": "Placeholder option for choosing a checkout delivery slot."
+  },
+  "checkout.delivery.stepTitle": {
+    "defaultMessage": "2. Delivery Slot",
+    "description": "Checkout step heading for selecting delivery speed and slot."
+  },
+  "checkout.delivery.windowLabel": {
+    "defaultMessage": "Delivery Window",
+    "description": "Label for the checkout delivery time-window input."
+  },
   "checkout.deliveryDate": {
     "defaultMessage": "Delivery date: {date, date, medium}",
     "description": "Checkout delivery date label using locale-aware date formatting."
+  },
+  "checkout.otp.cancelRetry": {
+    "defaultMessage": "Cancel and retry",
+    "description": "Action for cancelling the current payment OTP challenge and trying again."
+  },
+  "checkout.otp.closeDialog": {
+    "defaultMessage": "Close OTP dialog",
+    "description": "Accessible label for closing the payment OTP challenge dialog."
+  },
+  "checkout.otp.didNotReceive": {
+    "defaultMessage": "Didn't receive it?",
+    "description": "Prompt shown near the payment OTP challenge retry action."
+  },
+  "checkout.otp.digitLabel": {
+    "defaultMessage": "OTP digit {index, number}",
+    "description": "Accessible label for an individual payment OTP digit input."
+  },
+  "checkout.otp.subtitle": {
+    "defaultMessage": "Enter the 6-digit OTP sent to your registered contact.",
+    "description": "Instruction text for the payment OTP challenge modal."
+  },
+  "checkout.otp.title": {
+    "defaultMessage": "Payment Challenge",
+    "description": "Title for the payment OTP challenge modal."
+  },
+  "checkout.otp.verify": {
+    "defaultMessage": "Verify OTP",
+    "description": "Action button label for submitting the payment OTP challenge."
+  },
+  "checkout.otp.verifying": {
+    "defaultMessage": "Verifying...",
+    "description": "Busy state shown while the payment OTP challenge is being verified."
   },
   "checkout.payNow": {
     "defaultMessage": "Pay now",
