@@ -5,6 +5,7 @@ const previewHost = '127.0.0.1';
 const previewPort = '4173';
 const previewBaseUrl = `http://localhost:${previewPort}`;
 const appDir = fileURLToPath(new URL('.', import.meta.url));
+const chromiumChannel = process.env.PLAYWRIGHT_CHROMIUM_CHANNEL || undefined;
 
 export default defineConfig({
   testDir: './e2e',
@@ -20,11 +21,11 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], channel: chromiumChannel },
     },
     {
       name: 'mobile-chrome',
-      use: { ...devices['Pixel 7'] },
+      use: { ...devices['Pixel 7'], channel: chromiumChannel },
     },
   ],
   webServer: {
