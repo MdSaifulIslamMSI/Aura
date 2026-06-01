@@ -44,6 +44,8 @@
     "i18n:codemod:dry-run": "node scripts/i18n/codemod-stable-ui-to-icu.mjs",
     "i18n:codemod:apply": "node scripts/i18n/codemod-stable-ui-to-icu.mjs --apply",
     "i18n:legacy-report": "node scripts/i18n/find-legacy-market-pack-usage.mjs",
+    "i18n:discover-text": "node scripts/i18n/discover-stable-ui-text.mjs",
+    "i18n:discover-text:check": "node scripts/i18n/discover-stable-ui-text.mjs --check",
     "scan:i18n-forbidden-endpoints": "node scripts/i18n/scan-forbidden-endpoints.mjs",
     "ci:doctor": "node scripts/ci-cd-doctor.mjs",
     "student-pack:doctor": "node scripts/student-pack-cli-doctor.mjs",

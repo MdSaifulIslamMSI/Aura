@@ -1,0 +1,207 @@
+{
+  "generatedAt": "2026-06-01T16:26:49.769Z",
+  "branch": "codex/i18n-expand-full-app-text-coverage",
+  "baseCommit": "bfe5ef003103d895651698829e911f7da23dd7ce",
+  "currentRequiredKeyCount": 2834,
+  "localeCoverage": [
+    {
+      "language": "en",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "bn",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "hi",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "te",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "mr",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "ur",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "gu",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "pa",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "ml",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "kn",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "or",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "as",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "sa",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "es",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "fr",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "de",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "ar",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "ja",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "pt",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    },
+    {
+      "language": "zh",
+      "totalKeys": 100,
+      "translatedKeys": 100,
+      "missingKeys": 2834,
+      "coveragePercent": 2834
+    }
+  ],
+  "productionLegacyLookupCount": 0,
+  "residualProductionLegacyLiteralIdCount": 0,
+  "dynamicProductionI18nLookupCount": 0,
+  "legacyInventory": {
+    "productionStableReferences": 3062,
+    "uniqueProductionStableIds": 2748,
+    "runtimeEnumCompatibilityReferences": 1,
+    "testHarnessReferences": 4
+  },
+  "requiredLocales": [
+    "en",
+    "hi",
+    "bn",
+    "ur",
+    "ar",
+    "en-XA"
+  ],
+  "catalogPaths": [
+    "app/src/i18n/messages/source/en.json",
+    "app/src/i18n/messages/reviewed/*.json",
+    "app/src/i18n/messages/compiled/*.json",
+    "app/src/config/marketMessagePacks/*.js"
+  ],
+  "excludedDynamicContentCategories": [
+    "seller product titles and descriptions",
+    "user reviews and chat messages",
+    "support conversation bodies",
+    "AI-generated response bodies",
+    "database/catalog seed content",
+    "profile names, addresses, order IDs, notes, uploaded document text"
+  ],
+  "testStatus": {
+    "npm --prefix app run i18n:check": "passed",
+    "npm run scan:i18n-forbidden-endpoints": "passed",
+    "npm run test:i18n": "passed",
+    "npm --prefix app run build": "passed",
+    "npm run i18n:legacy-report": "passed",
+    "npm run i18n:inventory": "passed",
+    "npm --prefix app run audit:locale": "passed"
+  },
+  "discoveryBaseline": {
+    "byClassification": {
+      "stable-accessibility-text": 230,
+      "stable-ui-text": 1275,
+      "stable-validation-toast-text": 29,
+      "stable-static-seo-template-text": 15
+    },
+    "byRisk": {
+      "high": 428,
+      "medium": 219,
+      "low": 902
+    },
+    "dynamicExclusions": 9,
+    "falsePositives": 15374,
+    "filesScanned": 338,
+    "generatedAt": "2026-06-01T16:23:35.239Z",
+    "parseErrors": 0,
+    "stableCandidates": 1549
+  }
+}

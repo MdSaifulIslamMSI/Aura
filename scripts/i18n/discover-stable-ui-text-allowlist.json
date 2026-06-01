@@ -1,0 +1,15 @@
+{
+  "allowlistVersion": 1,
+  "notes": [
+    "Use precise entries only. Broad path allowlists hide real user-visible text debt.",
+    "Each entry must include a reason."
+  ],
+  "entries": [
+    {
+      "file": "app/index.html",
+      "text": "Aura Marketplace",
+      "classification": "static-seo-follow-up",
+      "reason": "Document title is static shell metadata; locale-aware HTML metadata needs a separate static/SEO strategy."
+    }
+  ]
+}
