@@ -172,4 +172,3 @@ These files remain compatibility inputs while stable UI call sites move to ICU c
 ### Unresolved English defaults
 
 Any entry here needs a manual English descriptor before migration can be considered complete.
-

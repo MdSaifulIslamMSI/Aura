@@ -27,4 +27,3 @@ export const isFormatJsEnabled = () => parseBooleanEnv(
 export const resolveFormatJsLanguage = (language = 'en') => (
     isFormatJsEnabled() && catalogs[language] ? language : 'en'
 );
-

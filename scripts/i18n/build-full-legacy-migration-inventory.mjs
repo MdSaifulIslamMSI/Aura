@@ -80,7 +80,6 @@ fs.writeFileSync(markdownPath, [
     ...report.unresolvedEnglishDefaults.map((reference) => (
         `- \`${reference.file}:${reference.line}\` \`${reference.id}\``
     )),
-    '',
 ].join('\n'), 'utf8');
 
 console.log('Complete legacy ICU migration inventory generated.');
@@ -92,4 +91,3 @@ console.log('Report: artifacts/i18n/full-legacy-migration-inventory.md');
 if (summary.parseErrors > 0 || summary.unresolvedEnglishDefaults > 0) {
     process.exitCode = 1;
 }
-

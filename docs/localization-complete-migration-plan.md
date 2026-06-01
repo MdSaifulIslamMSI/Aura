@@ -32,4 +32,3 @@ One controlled pull request with focused commits. Keep the existing market-forma
 5. Run frontend tests, lint, build, locale browser visual QA, and locale accessibility QA.
 6. Run root regression, environment validation, CI doctor, production fallback scan, hardening audit, CSP checks, and the available security harness.
 7. Push one pull request, fix direct CI failures, merge only when required checks pass, then watch the main branch checks.
-
