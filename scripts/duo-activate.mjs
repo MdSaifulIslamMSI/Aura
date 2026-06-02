@@ -32,7 +32,7 @@ const writeReport = (value) => {
   writeFileSync(reportPath, `${JSON.stringify(safeValue, null, 2)}\n`);
 };
 
-const report = {
+const buildReport = (overrides = {}) => ({
   generatedAt: new Date().toISOString(),
   command: 'duo:activate',
   enabled: flags.enabled,
@@ -40,10 +40,11 @@ const report = {
   configured: flags.configured,
   missing,
   healthCheck: 'not_run',
-};
+  ...overrides,
+});
 
 if (missing.length > 0) {
-  writeReport(report);
+  writeReport(buildReport());
   console.error(`Cisco Duo activation blocked. Missing runtime secret(s): ${missing.join(', ')}`);
   console.error('Create a Duo Universal Prompt Web SDK/OIDC application, then store these values in local/staging secrets and rerun npm run duo:activate.');
   process.exit(1);
@@ -60,26 +61,30 @@ if (flags.mode === 'oidc') {
     const requiredMetadata = ['issuer', 'authorization_endpoint', 'token_endpoint', 'jwks_uri', 'userinfo_endpoint'];
     const missingMetadata = requiredMetadata.filter((key) => !String(discovery[key] || '').trim());
     const issuerMatches = String(discovery.issuer || '').replace(/\/+$/, '') === flags.oidcIssuer;
+    const discoveryValid = response.ok && issuerMatches && missingMetadata.length === 0;
 
-    report.healthCheck = response.ok && issuerMatches && missingMetadata.length === 0 ? 'passed' : 'failed';
-    report.discovery = {
-      reachable: response.ok,
-      issuerMatches,
-      requiredMetadataPresent: missingMetadata.length === 0,
-    };
-    report.readyToEnable = report.healthCheck === 'passed';
-    writeReport(report);
-
-    if (report.readyToEnable) {
+    if (discoveryValid) {
+      writeReport(buildReport({
+        healthCheck: 'passed',
+        discovery: 'validated',
+        readyToEnable: true,
+      }));
       console.log('Cisco Duo OIDC discovery check passed. Store the rotated client secret in staging secrets before enforcing Duo.');
       oidcActivationHandled = true;
     } else {
-      throw new Error('Duo OIDC discovery metadata did not validate.');
+      writeReport(buildReport({
+        healthCheck: 'failed',
+        discovery: 'invalid',
+        errorCode: 'duo_oidc_discovery_invalid',
+      }));
+      console.error('Cisco Duo activation blocked. OIDC discovery metadata did not validate.');
+      process.exit(1);
     }
   } catch {
-    report.healthCheck = 'failed';
-    report.errorCode = 'duo_oidc_discovery_failed';
-    writeReport(report);
+    writeReport(buildReport({
+      healthCheck: 'failed',
+      errorCode: 'duo_oidc_discovery_failed',
+    }));
     console.error('Cisco Duo activation blocked. OIDC discovery check failed.');
     process.exit(1);
   }
@@ -95,14 +100,16 @@ if (!oidcActivationHandled) {
 
   try {
     await client.healthCheck();
-    report.healthCheck = 'passed';
-    report.readyToEnable = true;
-    writeReport(report);
+    writeReport(buildReport({
+      healthCheck: 'passed',
+      readyToEnable: true,
+    }));
     console.log('Cisco Duo health check passed. Set DUO_ENABLED=true in staging to enforce Duo on wired high-risk flows.');
   } catch {
-    report.healthCheck = 'failed';
-    report.errorCode = 'duo_health_check_failed';
-    writeReport(report);
+    writeReport(buildReport({
+      healthCheck: 'failed',
+      errorCode: 'duo_health_check_failed',
+    }));
     console.error('Cisco Duo activation blocked. Duo health check failed.');
     process.exit(1);
   }
