@@ -240,6 +240,19 @@ const enclosingJsxAttributeName = (pathRef) => {
 
 const visibleLowercaseWords = new Set(['all', 'no', 'off', 'ok', 'on', 'yes']);
 
+const isIdentifierToken = (part = '') => {
+    const token = String(part || '');
+    const unwrapped = token.startsWith('{') && token.endsWith('}')
+        ? token.slice(1, -1)
+        : token;
+    return Boolean(unwrapped) && /^[A-Za-z0-9_]+$/.test(unwrapped);
+};
+
+const isLikelyIdentifierTokenChain = (text) => {
+    const parts = String(text || '').split(/[-_:]/);
+    return parts.length >= 2 && parts.every(isIdentifierToken);
+};
+
 const isLikelyStructuredToken = (text) => {
     const parts = String(text || '').split(/[._:-]/);
     return parts.length >= 3 && parts.every((part) => /^[a-z0-9]+$/i.test(part));
@@ -267,7 +280,7 @@ const isLikelyNonHumanText = (text) => {
     if (/^\/[A-Za-z0-9/_:.-]+$/.test(text)) return true;
     if (/^\d+\s?(ms|s|sec|secs|min|mins|h|hr|hrs|d|day|days)$/i.test(text)) return true;
     if (/^(ms|px|rem|em|vh|vw|fr)$/i.test(text)) return true;
-    if (/^\{?[A-Za-z0-9_]+\}?(?:[-_:]\{?[A-Za-z0-9_]+\}?)+$/.test(text)) return true;
+    if (isLikelyIdentifierTokenChain(text)) return true;
     if (/^[A-Z0-9_]+$/.test(text) && text.length > 3) return true;
     if (isLikelyStructuredToken(text)) return true;
     if (/^[a-z][a-z0-9_-]{2,}$/.test(text) && !visibleLowercaseWords.has(text)) return true;

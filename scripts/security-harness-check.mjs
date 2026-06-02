@@ -21,6 +21,7 @@ const securityRunner = read('scripts/security-runner.mjs');
 const secretScan = read('scripts/security-secret-scan.mjs');
 const dependencyAudit = read('scripts/security-dependency-audit.mjs');
 const supplyChainPinCheck = read('scripts/security/check-supply-chain-pins.mjs');
+const securityDockerTool = read('scripts/security/run-docker-tool.mjs');
 const gitleaksConfig = read('.gitleaks.toml');
 const gitignore = read('.gitignore');
 const dockerignore = read('server/.dockerignore');
@@ -301,6 +302,22 @@ addCheck(
     'OWASP ZAP baseline requires an explicit non-production target',
   ]),
   'scripts/security-free-scanners.mjs'
+);
+
+addCheck(
+  'accepted Checkov findings are scoped before SARIF upload',
+  includesAll(securityDockerTool, [
+    'acceptedCheckovFindings',
+    "ruleId: 'CKV_K8S_35'",
+    "path: 'k8s/base/deployment.yaml'",
+    "ruleId: 'CKV_K8S_43'",
+    "ruleId: 'CKV_AWS_18'",
+    "path: 'infra/aws/cloudformation-bootstrap.yml'",
+    "ruleId: 'CKV_AWS_111'",
+    'filterCheckovSarifReport',
+    'filterAcceptedCheckovFindings({ jsonReport: checkovReport, sarifReport: checkovSarifReport })',
+  ]),
+  'scripts/security/run-docker-tool.mjs filters only accepted Checkov baseline findings by rule and path'
 );
 
 addCheck(
