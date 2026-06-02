@@ -143,6 +143,18 @@ The assistant can use the recommendation APIs as a backend tool, so product sugg
 
 ## Security Implementation ✅ COMPLETE
 
+## Post-Quantum Readiness
+- Readiness guide: [`docs/security/post-quantum-readiness.md`](docs/security/post-quantum-readiness.md)
+- Production checklist: [`docs/security/pqc-production-runbook.md`](docs/security/pqc-production-runbook.md)
+- Staging-only OpenSSL/OQS lab: [`docs/security/openssl-oqs-staging-lab.md`](docs/security/openssl-oqs-staging-lab.md)
+- Free scanner stack: [`docs/security/free-security-scanners.md`](docs/security/free-security-scanners.md)
+- Local commands:
+  - `npm run security:pqc`
+  - `npm run security:pqc:inventory:strict`
+  - `npm run security:free-stack`
+
+The project does not implement custom cryptography. Post-quantum work is config-driven through [`config/security/post-quantum-policy.json`](config/security/post-quantum-policy.json), starts with hybrid migration, and keeps experimental OQS/liboqs TLS in staging or lab mode until deliberately approved.
+
 ### March 2026 Security Hardening
 All 10 identified login architecture vulnerabilities have been fixed and are production-ready:
 

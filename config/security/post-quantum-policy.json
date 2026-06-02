@@ -1,0 +1,73 @@
+{
+  "policyVersion": "2026-06-03",
+  "goal": "free-open-source-hybrid-post-quantum-readiness",
+  "securityClaim": "No system is 100% secure. This policy targets standards-aligned quantum readiness using free/open-source tooling.",
+  "nistPqcStandards": {
+    "keyEncapsulation": [
+      "ML-KEM"
+    ],
+    "digitalSignatures": [
+      "ML-DSA",
+      "SLH-DSA"
+    ]
+  },
+  "preferredHybridKeyExchange": [
+    "mlkem768x25519-sha256",
+    "X25519MLKEM768",
+    "sntrup761x25519-sha512"
+  ],
+  "minimumTlsVersion": "TLSv1.3",
+  "allowedSymmetricCrypto": [
+    "AES-256-GCM",
+    "ChaCha20-Poly1305"
+  ],
+  "allowedPasswordHashing": [
+    "argon2id",
+    "bcrypt",
+    "scrypt-with-approved-params"
+  ],
+  "forbiddenNewCrypto": [
+    "RSA publicEncrypt/privateDecrypt for application payload encryption",
+    "custom ECDH key exchange",
+    "custom DH/DiffieHellman key exchange",
+    "TLSv1",
+    "TLSv1.1",
+    "SSLv2",
+    "SSLv3",
+    "MD5",
+    "SHA1 for signatures or integrity",
+    "hardcoded private keys",
+    "homegrown post-quantum protocol wrappers"
+  ],
+  "warningCrypto": [
+    "RSA signatures",
+    "ECDSA signatures",
+    "Ed25519 signatures",
+    "JWT signing with classical-only algorithms",
+    "long-lived classical certificates",
+    "third-party SDK crypto outside direct app control"
+  ],
+  "productionRules": [
+    "Do not deploy experimental OQS/liboqs TLS directly to production without staging evidence.",
+    "Use hybrid migration first.",
+    "Keep rollback to classical TLS 1.3 possible.",
+    "Never invent app-level post-quantum crypto."
+  ],
+  "freeSoftwareStack": [
+    "OpenSSL 3.5+",
+    "OpenSSH 10+",
+    "Open Quantum Safe liboqs",
+    "OQS Provider",
+    "Nginx",
+    "Caddy",
+    "HAProxy",
+    "Step CA",
+    "Semgrep CE",
+    "CodeQL",
+    "Trivy",
+    "OSV-Scanner",
+    "Gitleaks",
+    "cryptodeps",
+    "custom local scanner scripts"
+  ]
+}
