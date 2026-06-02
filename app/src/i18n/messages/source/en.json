@@ -4878,10 +4878,12 @@
     "defaultMessage": "Authenticated session"
   },
   "auth.jsx.expression.authentication.and.trusted.session.continuity": {
-    "defaultMessage": "Authentication and trusted session continuity"
+    "defaultMessage": "Authentication and trusted session continuity",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "auth.jsx.expression.authenticity.signals.unavailable": {
-    "defaultMessage": "Authenticity signals unavailable."
+    "defaultMessage": "Authenticity signals unavailable.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "auth.jsx.expression.change.proof.method": {
     "defaultMessage": "Change Proof Method"
@@ -5107,7 +5109,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "auth.object.property.label.authenticity": {
-    "defaultMessage": "Authenticity"
+    "defaultMessage": "Authenticity",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "auth.pending.admin": {
     "defaultMessage": "Checking admin session access...",
@@ -7006,7 +7009,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.expression.launch.with.a.clean.voice.prompt": {
-    "defaultMessage": "Launch with a clean voice prompt."
+    "defaultMessage": "Launch with a clean voice prompt.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.expression.listening.6dab600d": {
     "defaultMessage": "Listening...",
@@ -7049,7 +7053,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.expression.no.explicit.shopper.brief.yet": {
-    "defaultMessage": "No explicit shopper brief yet."
+    "defaultMessage": "No explicit shopper brief yet.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.expression.no.monitoring.data.yet.bcaedfc6": {
     "defaultMessage": "No monitoring data yet",
@@ -7080,7 +7085,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.expression.please.confirm.before.i.continue": {
-    "defaultMessage": "Please confirm before I continue."
+    "defaultMessage": "Please confirm before I continue.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.expression.primary.candidates.93dc7e36": {
     "defaultMessage": "Primary candidates",
@@ -7123,7 +7129,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.expression.same.storefront.intent.with.independent.hosting": {
-    "defaultMessage": "Same storefront intent with independent hosting"
+    "defaultMessage": "Same storefront intent with independent hosting",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.expression.screen.share.ready.eb02167f": {
     "defaultMessage": "Screen share ready",
@@ -7134,17 +7141,20 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.expression.session.state.updated": {
-    "defaultMessage": "Session state updated."
+    "defaultMessage": "Session state updated.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.expression.share.screen": {
-    "defaultMessage": "Share screen"
+    "defaultMessage": "Share screen",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.expression.sharing.screen.abea1ea9": {
     "defaultMessage": "Sharing screen",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.expression.shopping.flow": {
-    "defaultMessage": "Shopping flow"
+    "defaultMessage": "Shopping flow",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.expression.shopping.mission.os.2ace800b": {
     "defaultMessage": "Shopping Mission OS",
@@ -7167,7 +7177,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.expression.switch": {
-    "defaultMessage": "Switch"
+    "defaultMessage": "Switch",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.expression.syncing.bf4b60e3": {
     "defaultMessage": "Syncing",
@@ -7274,7 +7285,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.back.to.app": {
-    "defaultMessage": "Back to app"
+    "defaultMessage": "Back to app",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.text.bangalore.560001.india.029e9526": {
     "defaultMessage": "Bangalore, 560001, India",
@@ -7821,7 +7833,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.update.check.needs.another.try": {
-    "defaultMessage": "Update check needs another try"
+    "defaultMessage": "Update check needs another try",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.jsx.text.use.back.to.app.and.the.call.ecee176e": {
     "defaultMessage": "Use back to app and the call keeps running in the corner.",
@@ -7868,223 +7881,296 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.object.property.label.aqua.frost": {
-    "defaultMessage": "Aqua Frost"
+    "defaultMessage": "Aqua Frost",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.arabic": {
-    "defaultMessage": "Arabic"
+    "defaultMessage": "Arabic",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.assamese": {
-    "defaultMessage": "Assamese"
+    "defaultMessage": "Assamese",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.balanced": {
-    "defaultMessage": "Balanced"
+    "defaultMessage": "Balanced",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.bengali": {
-    "defaultMessage": "Bengali"
+    "defaultMessage": "Bengali",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.brazil": {
-    "defaultMessage": "Brazil"
+    "defaultMessage": "Brazil",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.buy.this.cycle": {
-    "defaultMessage": "Buy this cycle"
+    "defaultMessage": "Buy this cycle",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.china": {
-    "defaultMessage": "China"
+    "defaultMessage": "China",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.chinese": {
-    "defaultMessage": "Chinese"
+    "defaultMessage": "Chinese",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.cinematic": {
-    "defaultMessage": "Cinematic"
+    "defaultMessage": "Cinematic",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.compare.winners": {
-    "defaultMessage": "Compare winners"
+    "defaultMessage": "Compare winners",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.creator.studio.stack": {
-    "defaultMessage": "Creator Studio Stack"
+    "defaultMessage": "Creator Studio Stack",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.emerald.wave": {
-    "defaultMessage": "Emerald Wave"
+    "defaultMessage": "Emerald Wave",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.english": {
-    "defaultMessage": "English"
+    "defaultMessage": "English",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.france": {
-    "defaultMessage": "France"
+    "defaultMessage": "France",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.french": {
-    "defaultMessage": "French"
+    "defaultMessage": "French",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.gaming.command.kit": {
-    "defaultMessage": "Gaming Command Kit"
+    "defaultMessage": "Gaming Command Kit",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.german": {
-    "defaultMessage": "German"
+    "defaultMessage": "German",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.get.estimate": {
-    "defaultMessage": "Get Estimate"
+    "defaultMessage": "Get Estimate",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.golden.ember": {
-    "defaultMessage": "Golden Ember"
+    "defaultMessage": "Golden Ember",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.gujarati": {
-    "defaultMessage": "Gujarati"
+    "defaultMessage": "Gujarati",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.helpline": {
-    "defaultMessage": "Helpline"
+    "defaultMessage": "Helpline",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.hindi": {
-    "defaultMessage": "Hindi"
+    "defaultMessage": "Hindi",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.home.gym.starter.kit": {
-    "defaultMessage": "Home Gym Starter Kit"
+    "defaultMessage": "Home Gym Starter Kit",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.japanese": {
-    "defaultMessage": "Japanese"
+    "defaultMessage": "Japanese",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.kannada": {
-    "defaultMessage": "Kannada"
+    "defaultMessage": "Kannada",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.malayalam": {
-    "defaultMessage": "Malayalam"
+    "defaultMessage": "Malayalam",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.marathi": {
-    "defaultMessage": "Marathi"
+    "defaultMessage": "Marathi",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.mexico": {
-    "defaultMessage": "Mexico"
+    "defaultMessage": "Mexico",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.midnight.sapphire": {
-    "defaultMessage": "Midnight Sapphire"
+    "defaultMessage": "Midnight Sapphire",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.minimal": {
-    "defaultMessage": "Minimal"
+    "defaultMessage": "Minimal",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.monochrome.steel": {
-    "defaultMessage": "Monochrome Steel"
+    "defaultMessage": "Monochrome Steel",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.neo.cyan": {
-    "defaultMessage": "Neo Cyan"
+    "defaultMessage": "Neo Cyan",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.odia": {
-    "defaultMessage": "Odia"
+    "defaultMessage": "Odia",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.older": {
-    "defaultMessage": "Older"
+    "defaultMessage": "Older",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.open.local.marketplace": {
-    "defaultMessage": "Open local marketplace"
+    "defaultMessage": "Open local marketplace",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.portuguese": {
-    "defaultMessage": "Portuguese"
+    "defaultMessage": "Portuguese",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.price.fairness": {
-    "defaultMessage": "Price Fairness"
+    "defaultMessage": "Price Fairness",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.protection": {
-    "defaultMessage": "Protection"
+    "defaultMessage": "Protection",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.pseudo.locale": {
-    "defaultMessage": "Pseudo locale"
+    "defaultMessage": "Pseudo locale",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.punjabi": {
-    "defaultMessage": "Punjabi"
+    "defaultMessage": "Punjabi",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.review.confidence": {
-    "defaultMessage": "Review Confidence"
+    "defaultMessage": "Review Confidence",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.ruby.flame": {
-    "defaultMessage": "Ruby Flame"
+    "defaultMessage": "Ruby Flame",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.sanskrit": {
-    "defaultMessage": "Sanskrit"
+    "defaultMessage": "Sanskrit",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.save.big": {
-    "defaultMessage": "Save Big"
+    "defaultMessage": "Save Big",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.select.trade.in": {
-    "defaultMessage": "Select Trade-In"
+    "defaultMessage": "Select Trade-In",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.set.a.price.alert": {
-    "defaultMessage": "Set a price alert"
+    "defaultMessage": "Set a price alert",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.smart.essentials": {
-    "defaultMessage": "Smart Essentials"
+    "defaultMessage": "Smart Essentials",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.spain": {
-    "defaultMessage": "Spain"
+    "defaultMessage": "Spain",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.spanish": {
-    "defaultMessage": "Spanish"
+    "defaultMessage": "Spanish",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.stylish.white": {
-    "defaultMessage": "Stylish White"
+    "defaultMessage": "Stylish White",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.sunset.pulse": {
-    "defaultMessage": "Sunset Pulse"
+    "defaultMessage": "Sunset Pulse",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.telugu": {
-    "defaultMessage": "Telugu"
+    "defaultMessage": "Telugu",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.track.price.drops": {
-    "defaultMessage": "Track price drops"
+    "defaultMessage": "Track price drops",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.united.arab.emirates": {
-    "defaultMessage": "United Arab Emirates"
+    "defaultMessage": "United Arab Emirates",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.urdu": {
-    "defaultMessage": "Urdu"
+    "defaultMessage": "Urdu",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.use.trade.in.credit": {
-    "defaultMessage": "Use trade-in credit"
+    "defaultMessage": "Use trade-in credit",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.use.trade.in.leverage": {
-    "defaultMessage": "Use trade-in leverage"
+    "defaultMessage": "Use trade-in leverage",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.label.violet.storm": {
-    "defaultMessage": "Violet Storm"
+    "defaultMessage": "Violet Storm",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.message.this.app.runtime.does.not.expose.camera": {
-    "defaultMessage": "This app runtime does not expose camera or microphone capture."
+    "defaultMessage": "This app runtime does not expose camera or microphone capture.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.name.about.us": {
-    "defaultMessage": "About Us"
+    "defaultMessage": "About Us",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.name.aura.stories": {
-    "defaultMessage": "Aura Stories"
+    "defaultMessage": "Aura Stories",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.name.careers": {
-    "defaultMessage": "Careers"
+    "defaultMessage": "Careers",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.name.faq": {
-    "defaultMessage": "FAQ"
+    "defaultMessage": "FAQ",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.name.press": {
-    "defaultMessage": "Press"
+    "defaultMessage": "Press",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.name.privacy": {
-    "defaultMessage": "Privacy"
+    "defaultMessage": "Privacy",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.name.report.infringement": {
-    "defaultMessage": "Report Infringement"
+    "defaultMessage": "Report Infringement",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.name.terms.of.use": {
-    "defaultMessage": "Terms Of Use"
+    "defaultMessage": "Terms Of Use",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.object.property.text.okay.i.will.hold.here": {
-    "defaultMessage": "Okay, I will hold here."
+    "defaultMessage": "Okay, I will hold here.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.static.aura.hybrid.marketplace": {
-    "defaultMessage": "Aura — Hybrid Marketplace"
+    "defaultMessage": "Aura — Hybrid Marketplace",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.static.aura.hybrid.marketplace.ac5574": {
-    "defaultMessage": "Aura - Hybrid Marketplace"
+    "defaultMessage": "Aura - Hybrid Marketplace",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.static.aura.status.snapshot": {
-    "defaultMessage": "Aura Status Snapshot"
+    "defaultMessage": "Aura Status Snapshot",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.static.open.aura.marketplace": {
-    "defaultMessage": "Open Aura Marketplace."
+    "defaultMessage": "Open Aura Marketplace.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "common.validation.jsx.text.a.ui.module.failed.to.load.correctly.547ea3f7": {
     "defaultMessage": "A UI module failed to load correctly. Refresh or retry to continue.",
@@ -11420,7 +11506,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "order.static.review.aura.orders": {
-    "defaultMessage": "Review Aura orders."
+    "defaultMessage": "Review Aura orders.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "order.status.confirmed": {
     "defaultMessage": "Order confirmed",
@@ -12012,7 +12099,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "product.jsx.expression.untitled.product": {
-    "defaultMessage": "Untitled Product"
+    "defaultMessage": "Untitled Product",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "product.jsx.expression.use.screenshot.or.pasted.image.when.you.4ebb4c79": {
     "defaultMessage": "Use screenshot or pasted image when you do not know product names yet.",
@@ -12023,10 +12111,12 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "product.jsx.prop.label.frequently.bought.together": {
-    "defaultMessage": "Frequently Bought Together"
+    "defaultMessage": "Frequently Bought Together",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "product.jsx.prop.label.recently.viewed.recommendations": {
-    "defaultMessage": "Recently Viewed Recommendations"
+    "defaultMessage": "Recently Viewed Recommendations",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "product.jsx.text.add.products.db32d71e": {
     "defaultMessage": "Add Products",
@@ -12053,7 +12143,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "product.object.property.label.choose.product": {
-    "defaultMessage": "Choose Product"
+    "defaultMessage": "Choose Product",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "product.off": {
     "defaultMessage": "% off",
@@ -12696,10 +12787,12 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.jsx.expression.aura.could.not.finish.resolving.the.commerce": {
-    "defaultMessage": "Aura could not finish resolving the commerce profile for this session."
+    "defaultMessage": "Aura could not finish resolving the commerce profile for this session.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "profile.jsx.expression.profile.updates.and.account.posture.consistency": {
-    "defaultMessage": "Profile updates and account posture consistency"
+    "defaultMessage": "Profile updates and account posture consistency",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "profile.jsx.text.account.deleted.740c2b4b": {
     "defaultMessage": "Account Deleted",
@@ -14594,7 +14687,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "search.jsx.expression.shopping.flow": {
-    "defaultMessage": "Shopping flow"
+    "defaultMessage": "Shopping flow",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "search.jsx.expression.start.listening.5d73b372": {
     "defaultMessage": "Start listening",
@@ -14605,10 +14699,12 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "search.jsx.expression.unknown.brand": {
-    "defaultMessage": "Unknown brand"
+    "defaultMessage": "Unknown brand",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "search.jsx.prop.placeholder.brand.color.category.model.use.case": {
-    "defaultMessage": "brand, color, category, model, use-case"
+    "defaultMessage": "brand, color, category, model, use-case",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "search.jsx.text.choose.image.15fa1bac": {
     "defaultMessage": "Choose Image",
@@ -14747,7 +14843,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "search.object.property.label.refine.with.visual.search": {
-    "defaultMessage": "Refine with visual search"
+    "defaultMessage": "Refine with visual search",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "search.open": {
     "defaultMessage": "Open",
@@ -15549,7 +15646,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "seller.object.property.label.listing": {
-    "defaultMessage": "Listing"
+    "defaultMessage": "Listing",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "seller.shared.daysAgo": {
     "defaultMessage": "{count}d ago",
@@ -15592,7 +15690,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "seller.static.create.a.marketplace.listing": {
-    "defaultMessage": "Create a marketplace listing."
+    "defaultMessage": "Create a marketplace listing.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "sellerBecome.activate": {
     "defaultMessage": "Activate Seller Mode",
@@ -16077,7 +16176,8 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "support.jsx.text.sign.in.for.support": {
-    "defaultMessage": "Sign in for support"
+    "defaultMessage": "Sign in for support",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "support.jsx.text.started.ce6b48f0": {
     "defaultMessage": "Started",
@@ -16107,10 +16207,12 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "support.object.property.label.support.email": {
-    "defaultMessage": "Support email"
+    "defaultMessage": "Support email",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "support.object.property.text.ask.about.products.a.cart.review.support": {
-    "defaultMessage": "Ask about products, a cart review, support handoff, or a live app flow. I will keep the next step controlled."
+    "defaultMessage": "Ask about products, a cart review, support handoff, or a live app flow. I will keep the next step controlled.",
+    "description": "Static UI/template coverage descriptor from stable text scanner."
   },
   "support.timeline.chat.label": {
     "defaultMessage": "Chat",

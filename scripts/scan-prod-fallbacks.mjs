@@ -110,6 +110,8 @@ const toRepoPath = (absolutePath) => path.relative(REPO_ROOT, absolutePath).repl
 const isGeneratedRepoPath = (repoPath = '') => repoPath.startsWith('app/android/app/src/main/assets/public/')
   || repoPath.startsWith('app/ios/App/App/public/')
   || repoPath.startsWith('app/dist/')
+  || repoPath === 'app/src/i18n/quality/humanReviewQueue.json'
+  || repoPath === 'app/src/i18n/quality/nativeReviewAudit.json'
   || repoPath.startsWith('desktop-release/')
   || repoPath.startsWith('generated/')
   || repoPath.startsWith('output/');
