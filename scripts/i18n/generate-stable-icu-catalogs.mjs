@@ -283,6 +283,30 @@ const getRiskForId = (id) => {
     )) ? 'medium' : 'low';
 };
 
+const missingLocaleReasonForId = (id) => (
+    reviewedFoundationIds.has(id)
+        ? 'missing-foundation-locale-uses-english-fallback'
+        : 'missing-legacy-locale-uses-english-fallback'
+);
+
+const invalidIcuReasonForId = (id) => (
+    reviewedFoundationIds.has(id)
+        ? 'invalid-foundation-icu-uses-english-fallback'
+        : 'invalid-legacy-icu-uses-english-fallback'
+);
+
+const placeholderMismatchReasonForId = (id) => (
+    reviewedFoundationIds.has(id)
+        ? 'foundation-placeholder-mismatch-uses-english-fallback'
+        : 'legacy-placeholder-mismatch-uses-english-fallback'
+);
+
+const promotionReasonForId = (id) => (
+    reviewedFoundationIds.has(id)
+        ? 'foundation-pack-promotion-needs-human-review'
+        : 'legacy-pack-promotion-needs-human-review'
+);
+
 const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) => {
     const existingMessage = existingCatalogs[locale][id];
     if (existingMessage) {
@@ -290,35 +314,73 @@ const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) =>
             const existingAst = parse(existingMessage);
             if (isStructurallySame(sourceAst, existingAst).success) {
                 if (existingMessage === sourceMessage) {
+                    // Preserve root-cause review reasons across repeated catalog generation.
                     const legacyTemplate = marketConfig.getMessageTemplate(locale, id);
                     const candidate = convertLegacyTemplateToIcu(legacyTemplate);
-                    if (candidate && candidate !== sourceMessage) {
-                        try {
-                            const candidateAst = parse(candidate);
-                            if (
-                                isStructurallySame(sourceAst, candidateAst).success
-                                && !findCandidateGlossaryIssue(sourceMessage, candidate)
-                            ) {
-                                enqueue({
-                                    id,
-                                    locale,
-                                    message: candidate,
-                                    reason: reviewedFoundationIds.has(id)
-                                        ? 'foundation-pack-promotion-needs-human-review'
-                                        : 'legacy-pack-promotion-needs-human-review',
-                                    risk,
-                                });
-                                return candidate;
-                            }
-                        } catch {
-                            // Keep the existing English fallback queued below.
-                        }
+                    if (!candidate) {
+                        enqueue({
+                            id,
+                            locale,
+                            message: sourceMessage,
+                            reason: missingLocaleReasonForId(id),
+                            risk,
+                        });
+                        return existingMessage;
                     }
+
+                    let candidateAst;
+                    try {
+                        candidateAst = parse(candidate);
+                    } catch {
+                        enqueue({
+                            id,
+                            locale,
+                            message: sourceMessage,
+                            reason: invalidIcuReasonForId(id),
+                            risk,
+                        });
+                        return existingMessage;
+                    }
+
+                    if (!isStructurallySame(sourceAst, candidateAst).success) {
+                        enqueue({
+                            id,
+                            locale,
+                            message: sourceMessage,
+                            reason: placeholderMismatchReasonForId(id),
+                            risk,
+                        });
+                        return existingMessage;
+                    }
+
+                    const glossaryIssue = findCandidateGlossaryIssue(sourceMessage, candidate);
+                    if (glossaryIssue) {
+                        enqueue({
+                            id,
+                            locale,
+                            message: sourceMessage,
+                            reason: glossaryIssue,
+                            risk,
+                        });
+                        return existingMessage;
+                    }
+
+                    if (candidate !== sourceMessage) {
+                        enqueue({
+                            id,
+                            locale,
+                            message: candidate,
+                            reason: promotionReasonForId(id),
+                            risk,
+                        });
+                        return candidate;
+                    }
+
                     enqueue({
                         id,
                         locale,
                         message: sourceMessage,
-                        reason: 'reviewed-catalog-english-fallback-needs-human-review',
+                        reason: 'exact-english-fallback-needs-human-review',
                         risk,
                     });
                 } else if (stableIdSet.has(id)) {
@@ -352,9 +414,7 @@ const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) =>
             id,
             locale,
             message: sourceMessage,
-            reason: reviewedFoundationIds.has(id)
-                ? 'missing-foundation-locale-uses-english-fallback'
-                : 'missing-legacy-locale-uses-english-fallback',
+            reason: missingLocaleReasonForId(id),
             risk,
         });
         return sourceMessage;
@@ -368,9 +428,7 @@ const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) =>
             id,
             locale,
             message: sourceMessage,
-            reason: reviewedFoundationIds.has(id)
-                ? 'invalid-foundation-icu-uses-english-fallback'
-                : 'invalid-legacy-icu-uses-english-fallback',
+            reason: invalidIcuReasonForId(id),
             risk,
         });
         return sourceMessage;
@@ -381,9 +439,7 @@ const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) =>
             id,
             locale,
             message: sourceMessage,
-            reason: reviewedFoundationIds.has(id)
-                ? 'foundation-placeholder-mismatch-uses-english-fallback'
-                : 'legacy-placeholder-mismatch-uses-english-fallback',
+            reason: placeholderMismatchReasonForId(id),
             risk,
         });
         return sourceMessage;
@@ -407,9 +463,7 @@ const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) =>
         message: candidate,
         reason: candidate === sourceMessage
             ? 'exact-english-fallback-needs-human-review'
-            : reviewedFoundationIds.has(id)
-                ? 'foundation-pack-promotion-needs-human-review'
-                : 'legacy-pack-promotion-needs-human-review',
+            : promotionReasonForId(id),
         risk,
     });
     return candidate;
@@ -471,6 +525,22 @@ const promotionReasons = new Set([
     'legacy-pack-promotion-needs-human-review',
     'foundation-pack-promotion-needs-human-review',
 ]);
+const reviewLocaleOrder = new Map(
+    reviewedLocales
+        .filter((locale) => locale !== 'en')
+        .map((locale, index) => [locale, index])
+);
+const compareText = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
+const compareLocales = (left, right) => {
+    const leftOrder = reviewLocaleOrder.has(left) ? reviewLocaleOrder.get(left) : Number.MAX_SAFE_INTEGER;
+    const rightOrder = reviewLocaleOrder.has(right) ? reviewLocaleOrder.get(right) : Number.MAX_SAFE_INTEGER;
+    return leftOrder - rightOrder || compareText(left, right);
+};
+const orderedLocaleSummaryEntries = (summary) => Object.entries(summary)
+    .sort(([left], [right]) => compareLocales(left, right));
+const orderedReasonSummaryEntries = (summary) => Object.entries(summary)
+    .sort(([left], [right]) => compareText(left, right));
+
 const createGroupedReviewUnits = (items) => {
     const groups = new Map();
     items.forEach((entry) => {
@@ -517,18 +587,18 @@ const createGroupedReviewUnits = (items) => {
             targets: group.targets
                 .map((target) => ({
                     ...target,
-                    ids: target.ids.sort((left, right) => left.localeCompare(right)),
+                    ids: target.ids.sort((left, right) => compareText(left, right)),
                 }))
                 .sort((left, right) => (
                     riskOrder[left.risk] - riskOrder[right.risk]
-                    || left.locale.localeCompare(right.locale)
-                    || left.message.localeCompare(right.message)
+                    || compareLocales(left.locale, right.locale)
+                    || compareText(left.message, right.message)
                 )),
         }))
         .sort((left, right) => (
             riskOrder[left.risk] - riskOrder[right.risk]
-            || left.reason.localeCompare(right.reason)
-            || left.sourceMessage.localeCompare(right.sourceMessage)
+            || compareText(left.reason, right.reason)
+            || compareText(left.sourceMessage, right.sourceMessage)
         ));
 };
 
@@ -589,17 +659,17 @@ fs.writeFileSync(queueDocPath, [
     '',
     '## Actionable Queue By Locale',
     '',
-    ...Object.entries(queueSummary.byLocale).map(([locale, count]) => `- \`${locale}\`: ${count} grouped entries / ${queueSummary.affectedByLocale[locale]} affected pairs`),
+    ...orderedLocaleSummaryEntries(queueSummary.byLocale).map(([locale, count]) => `- \`${locale}\`: ${count} grouped entries / ${queueSummary.affectedByLocale[locale]} affected pairs`),
     '',
     '## Actionable Queue By Reason',
     '',
-    ...Object.entries(queueSummary.byReason).map(([reason, count]) => `- \`${reason}\`: ${count} grouped entries / ${queueSummary.affectedByReason[reason]} affected pairs`),
+    ...orderedReasonSummaryEntries(queueSummary.byReason).map(([reason, count]) => `- \`${reason}\`: ${count} grouped entries / ${queueSummary.affectedByReason[reason]} affected pairs`),
     '',
     '## Native Review Audit',
     '',
     'Structurally valid legacy/foundation promotions are tracked separately because they need native linguistic signoff but do not block catalog integrity or English-leakage QA by themselves.',
     '',
-    ...Object.entries(nativeAuditSummary.byLocale).map(([locale, count]) => `- \`${locale}\`: ${count} grouped entries / ${nativeAuditSummary.affectedByLocale[locale]} affected pairs`),
+    ...orderedLocaleSummaryEntries(nativeAuditSummary.byLocale).map(([locale, count]) => `- \`${locale}\`: ${count} grouped entries / ${nativeAuditSummary.affectedByLocale[locale]} affected pairs`),
     '',
     '## Review Order',
     '',

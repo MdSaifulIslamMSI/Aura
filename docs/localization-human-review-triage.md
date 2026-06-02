@@ -18,7 +18,7 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Total tracked review pairs preserved: 82529
 - Unique review locale/id pairs: 82529
-- Actionable grouped queue entries: 2859
+- Actionable grouped queue entries: 2930
 - Actionable affected locale/message pairs: 37384
 - Native-review audit grouped entries: 2488
 - Native-review audit affected locale/message pairs: 45145
@@ -29,70 +29,70 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 987 | 16501 | ar 933, as 800, bn 791, de 960, es 941, fr 973, gu 824, hi 963, ja 959, kn 803, ml 804, mr 809, or 818, pa 816, pt 953, sa 804, te 803, ur 793, zh 954 |
-| high | 218 | 887 | ar 78, as 4, bn 7, de 81, es 75, fr 82, gu 11, hi 209, ja 82, kn 12, ml 15, mr 12, or 19, pa 13, pt 76, sa 7, te 12, ur 13, zh 79 |
-| medium | 1117 | 16573 | ar 1015, as 739, bn 735, de 1047, es 1048, fr 1057, gu 760, hi 1057, ja 1059, kn 740, ml 740, mr 741, or 751, pa 754, pt 1041, sa 749, te 742, ur 741, zh 1057 |
-| low | 537 | 3423 | ar 412, as 1, bn 2, de 409, es 408, fr 415, gu 2, hi 529, ja 412, kn 2, ml 1, mr 2, or 2, pa 1, pt 408, sa 3, te 1, ur 2, zh 411 |
+| critical | 1000 | 16574 | bn 796, hi 964, te 808, mr 814, ur 797, gu 829, pa 823, ml 809, kn 808, or 822, as 807, sa 811, es 943, fr 975, de 962, ar 935, ja 961, pt 954, zh 956 |
+| high | 230 | 947 | bn 10, hi 212, te 15, mr 15, ur 17, gu 14, pa 14, ml 18, kn 15, or 23, as 5, sa 8, es 79, fr 86, de 85, ar 82, ja 86, pt 80, zh 83 |
+| medium | 1152 | 16417 | bn 727, hi 1044, te 734, mr 733, ur 732, gu 751, pa 745, ml 732, kn 732, or 742, as 731, sa 741, es 1041, fr 1050, de 1038, ar 1008, ja 1052, pt 1034, zh 1050 |
+| low | 548 | 3446 | bn 2, hi 538, te 1, mr 2, ur 3, gu 3, pa 2, ml 1, kn 2, or 3, as 1, sa 3, es 409, fr 416, de 412, ar 413, ja 413, pt 410, zh 412 |
 
 ## Examples
 
 | Priority | Risk | Affected pairs | Source message | Sample IDs |
 | --- | --- | ---: | --- | --- |
-| critical | high | 19 | - {name} | checkout.payment.currency.option.name, checkout.payment.currency.option.name, checkout.payment.currency.option.name, checkout.payment.currency.option.name, checkout.payment.currency.option.name |
-| critical | high | 19 | {method} required | auth.jsx.expression.method.required, auth.jsx.expression.method.required, auth.jsx.expression.method.required, auth.jsx.expression.method.required, auth.jsx.expression.method.required |
-| critical | high | 19 | {selectedKey} activated | admin.feedback.activated, admin.feedback.activated, admin.feedback.activated, admin.feedback.activated, admin.feedback.activated |
-| critical | high | 19 | {selectedKey} deactivated | admin.feedback.deactivated, admin.feedback.deactivated, admin.feedback.deactivated, admin.feedback.deactivated, admin.feedback.deactivated |
-| critical | high | 19 | {selectedKey} expiry extended | admin.feedback.expiry.extended, admin.feedback.expiry.extended, admin.feedback.expiry.extended, admin.feedback.expiry.extended, admin.feedback.expiry.extended |
-| critical | high | 19 | {selectedKey} message updated | admin.feedback.message.updated, admin.feedback.message.updated, admin.feedback.message.updated, admin.feedback.message.updated, admin.feedback.message.updated |
-| critical | high | 19 | \| Expires | admin.jsx.text.expires, admin.jsx.text.expires, admin.jsx.text.expires, admin.jsx.text.expires, admin.jsx.text.expires |
-| critical | high | 19 | 90d uptime | admin.jsx.prop.label.90d.uptime, admin.jsx.prop.label.90d.uptime, admin.jsx.prop.label.90d.uptime, admin.jsx.prop.label.90d.uptime, admin.jsx.prop.label.90d.uptime |
-| high | high | 8 | 2-4 days | cart.defaultDeliveryWindow, cart.defaultDeliveryWindow, cart.defaultDeliveryWindow, cart.defaultDeliveryWindow, cart.defaultDeliveryWindow |
-| high | high | 1 | A live lane is active. | common.jsx.expression.a.live.lane.is.active.e6c9da1a |
-| high | high | 1 | A live lane is already active. | common.jsx.expression.a.live.lane.is.already.active.112f9357 |
-| high | high | 8 | active filters | listing.statsSignalsBody, listing.statsSignalsBody, listing.statsSignalsBody, listing.statsSignalsBody, listing.statsSignalsBody |
-| high | high | 1 | Active Orders | orders.summary.active.label |
-| high | high | 1 | Active route | common.jsx.text.active.route.adea24bd |
-| high | high | 8 | Additional payment verification was requested. | orders.payment.timeline.challengeBody, orders.payment.timeline.challengeBody, orders.payment.timeline.challengeBody, orders.payment.timeline.challengeBody, orders.payment.timeline.challengeBody |
-| high | high | 8 | All items ready | cart.allItemsReady, cart.allItemsReady, cart.allItemsReady, cart.allItemsReady, cart.allItemsReady |
-| medium | medium | 19 |  - {value} ms response | status.response.msSuffix, status.response.msSuffix, status.response.msSuffix, status.response.msSuffix, status.response.msSuffix |
-| medium | medium | 19 |  - Uptime since monitoring began: {uptime} | status.uptime.sinceMonitoringBeganSuffix, status.uptime.sinceMonitoringBeganSuffix, status.uptime.sinceMonitoringBeganSuffix, status.uptime.sinceMonitoringBeganSuffix, status.uptime.sinceMonitoringBeganSuffix |
-| medium | medium | 19 | , {value} minutes downtime | status.uptime.downtimeMinutes, status.uptime.downtimeMinutes, status.uptime.downtimeMinutes, status.uptime.downtimeMinutes, status.uptime.downtimeMinutes |
-| medium | medium | 19 | ({label}) | profile.payments.addBank.saved.option, profile.payments.addBank.saved.option, profile.payments.addBank.saved.option, profile.payments.addBank.saved.option, profile.payments.addBank.saved.option |
-| medium | medium | 19 | {count} components | status.components.count, status.components.count, status.components.count, status.components.count, status.components.count |
-| medium | medium | 19 | {dateLabel}: {label}, {uptime}{downtime} | status.uptime.dayStatusLabel, status.uptime.dayStatusLabel, status.uptime.dayStatusLabel, status.uptime.dayStatusLabel, status.uptime.dayStatusLabel |
-| medium | medium | 19 | {dateLabel}: No monitoring data for this day | status.uptime.dayNoDataLabel, status.uptime.dayNoDataLabel, status.uptime.dayNoDataLabel, status.uptime.dayNoDataLabel, status.uptime.dayNoDataLabel |
-| medium | medium | 19 | {name} 90 day uptime | status.uptime.ninetyDayLabel, status.uptime.ninetyDayLabel, status.uptime.ninetyDayLabel, status.uptime.ninetyDayLabel, status.uptime.ninetyDayLabel |
-| low | low | 8 | A few account and checkout actions may take an extra moment while everything reconnects. | status.banner.warmingMessage, status.banner.warmingMessage, status.banner.warmingMessage, status.banner.warmingMessage, status.banner.warmingMessage |
-| low | low | 1 | Account standing | profile.overview.standing.label |
-| low | low | 8 | Account, checkout, or support actions are temporarily unavailable. Please try again in a moment. | status.banner.unavailableMessage, status.banner.unavailableMessage, status.banner.unavailableMessage, status.banner.unavailableMessage, status.banner.unavailableMessage |
-| low | low | 8 | Action completed | admin.users.action.completed, admin.users.action.completed, admin.users.action.completed, admin.users.action.completed, admin.users.action.completed |
-| low | low | 8 | Action failed | admin.users.error.actionFailed, admin.users.error.actionFailed, admin.users.error.actionFailed, admin.users.error.actionFailed, admin.users.error.actionFailed |
-| low | low | 8 | Action Power Map | admin.users.panels.actionPowerMap, admin.users.panels.actionPowerMap, admin.users.panels.actionPowerMap, admin.users.panels.actionPowerMap, admin.users.panels.actionPowerMap |
-| low | low | 4 | Actions | admin.shared.actions, admin.shared.actions, admin.shared.actions, admin.shared.actions |
-| low | low | 2 | Active Alerts | priceAlerts.active.title, priceAlerts.stats.active |
+| critical | high | 57 | Recheck your email and phone details, then request a new code. | auth.error.noAccountFound.hint, auth.error.noAccountFoundWithThisEmail.hint, auth.error.noAccountFoundWithThisPhone.hint |
+| critical | high | 57 | Sign in for support | securePathDock.support.guest.title, support.jsx.text.sign.in.for.support, supportLauncher.guest.title |
+| critical | high | 57 | We could not verify those account details for OTP. | auth.error.noAccountFound.detail, auth.error.noAccountFoundWithThisEmail.detail, auth.error.noAccountFoundWithThisPhone.detail |
+| critical | high | 38 | Account | auth.jsx.text.account, mobileTabBar.account |
+| critical | high | 38 | Active incidents | status.incidents.active, support.jsx.prop.label.active.incidents |
+| critical | high | 38 | Authorize the exact live domain in Firebase Authentication settings, or continue with email and OTP sign-in. | auth.error.illegalIframe.hint, auth.error.illegalUrlForNewIframe.hint |
+| critical | high | 38 | Firebase rejected the current site host for popup-based sign-in. | auth.error.illegalIframe.detail, auth.error.illegalUrlForNewIframe.detail |
+| critical | high | 38 | Frontier AI Layer | common.jsx.text.frontier.ai.layer.21e85bce, common.jsx.text.frontier.ai.layer.39f8bb96 |
+| high | high | 10 | Aura Catalog | listing.catalogTitleFull |
+| high | high | 9 | Aura never asks for your OTP outside this secure verification step. | login.trust.otp.default.2 |
+| high | high | 9 | Keep all negotiation inside Aura chat. | listingDetail.safety.note4 |
+| high | high | 9 | Negotiate, ask for proof, lock an offer, and move to live inspection without leaving Aura. | listingDetail.chat.threadBody |
+| high | high | 9 | Reply to Aura Support and keep things moving... | profile.support.compose.replyPlaceholder |
+| high | high | 9 | Start your negotiation in Aura chat. | listingDetail.chat.readyPreview |
+| high | high | 9 | Tell Aura Support what happened | profile.support.compose.messageLabel |
+| high | high | 9 | This thread is the shared record for you and Aura Support. No more disconnected alerts. | profile.support.thread.activeBody |
+| medium | medium | 38 | Frequently Bought Together | product.jsx.prop.label.frequently.bought.together, recommendations.frequentlyBoughtTogether.title |
+| medium | medium | 38 | Resolved | status.incident.resolved, status.incident.state.resolved |
+| medium | low | 38 | Back to app | common.jsx.text.back.to.app, videoCall.backToApp.title |
+| medium | low | 38 | Home | assistant.intent.navigation.home, mobileTabBar.home |
+| medium | low | 38 | Later | desktopUpdate.later, mobileUpdate.later |
+| medium | low | 38 | Open the focused commerce copilot | assistantLauncher.openCopilot.ariaLabel, assistantLauncher.openCopilot.title |
+| medium | low | 38 | Opening {page}. | assistant.action.navigation.openingPage, assistant.intent.voice.openingPage |
+| medium | low | 38 | Share screen | common.jsx.expression.share.screen, videoCall.shareScreen.title |
+| low | low | 9 | Explore Aura | wishlist.explore |
+| low | low | 9 | Dashboard Sync | admin.diagnostics.cards.dashboardSync |
+| low | low | 9 | Ingested At | admin.diagnostics.meta.ingestedAt |
+| low | low | 9 | Processing | admin.email.processing, admin.email.status.processing, profile.overview.orders.status.processing |
+| low | low | 9 | admin | admin.shared.adminActor |
+| low | low | 8 | A few account and checkout actions may take an extra moment while everything reconnects. | status.banner.warmingMessage |
+| low | low | 8 | Account, checkout, or support actions are temporarily unavailable. Please try again in a moment. | status.banner.unavailableMessage |
+| low | low | 8 | Action Power Map | admin.users.panels.actionPowerMap |
 
 ## Native Review Audit By Locale
 
 | Locale | Affected pairs |
 | --- | ---: |
-| ar | 1788 |
-| as | 2831 |
 | bn | 2691 |
-| de | 1878 |
+| hi | 1468 |
+| te | 2817 |
+| mr | 2811 |
+| ur | 2677 |
+| gu | 2778 |
+| pa | 2791 |
+| ml | 2815 |
+| kn | 2818 |
+| or | 2785 |
+| as | 2831 |
+| sa | 2812 |
 | es | 1903 |
 | fr | 1848 |
-| gu | 2778 |
-| hi | 1468 |
+| de | 1878 |
+| ar | 1788 |
 | ja | 1863 |
-| kn | 2818 |
-| ml | 2815 |
-| mr | 2811 |
-| or | 2785 |
-| pa | 2791 |
 | pt | 1897 |
-| sa | 2812 |
-| te | 2817 |
-| ur | 2677 |
 | zh | 1874 |
 
 ## Files

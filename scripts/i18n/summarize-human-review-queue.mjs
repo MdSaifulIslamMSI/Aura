@@ -42,9 +42,17 @@ const countBy = (items, selector) => items.reduce((acc, item) => {
     return acc;
 }, {});
 
-const sortObject = (value) => Object.fromEntries(
-    Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+const localeOrder = new Map(requiredLocales.map((locale, index) => [locale, index]));
+const compareText = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
+const compareLocales = (left, right) => {
+    const leftOrder = localeOrder.has(left) ? localeOrder.get(left) : Number.MAX_SAFE_INTEGER;
+    const rightOrder = localeOrder.has(right) ? localeOrder.get(right) : Number.MAX_SAFE_INTEGER;
+    return leftOrder - rightOrder || compareText(left, right);
+};
+const sortObject = (value, compare = compareText) => Object.fromEntries(
+    Object.entries(value).sort(([left], [right]) => compare(left, right))
 );
+const sortLocaleObject = (value) => sortObject(value, compareLocales);
 
 const expandGroupedUnits = (units, bucket) => {
     const rows = [];
@@ -98,7 +106,7 @@ const summarizeGroupedUnits = (units, bucket) => {
     const rows = expandGroupedUnits(units, bucket);
     return {
         affectedMessagePairs: rows.length,
-        byLocale: sortObject(countBy(rows, (row) => row.locale)),
+        byLocale: sortLocaleObject(countBy(rows, (row) => row.locale)),
         byReason: sortObject(countBy(rows, (row) => row.reason)),
         byRisk: {
             high: rows.filter((row) => row.risk === 'high').length,
@@ -205,16 +213,16 @@ const actionablePriorities = humanReviewQueue.reduce((acc, entry) => {
     ensureArray(entry.targets).forEach((target) => {
         bucket.localeSpread[target.locale] = (bucket.localeSpread[target.locale] || 0) + (target.affectedMessageCount || ensureArray(target.ids).length);
     });
-    if (bucket.examples.length < 8) {
-        bucket.examples.push({
-            affectedMessagePairs: entry.affectedMessageCount || 0,
-            reason: entry.reason,
-            risk: entry.risk,
-            sampleIds: ensureArray(entry.targets).flatMap((target) => ensureArray(target.ids)).slice(0, 5),
-            sourceMessage: entry.sourceMessage,
-            targetCount: entry.targetCount || ensureArray(entry.targets).length,
-        });
-    }
+    bucket.examples.push({
+        affectedMessagePairs: entry.affectedMessageCount || 0,
+        reason: entry.reason,
+        risk: entry.risk,
+        sampleIds: [
+            ...new Set(ensureArray(entry.targets).flatMap((target) => ensureArray(target.ids))),
+        ].slice(0, 5),
+        sourceMessage: entry.sourceMessage,
+        targetCount: entry.targetCount || ensureArray(entry.targets).length,
+    });
     acc[priority] = bucket;
     return acc;
 }, {});
@@ -228,7 +236,15 @@ const actionablePriorities = humanReviewQueue.reduce((acc, entry) => {
             localeSpread: {},
         };
     }
-    actionablePriorities[priority].localeSpread = sortObject(actionablePriorities[priority].localeSpread);
+    actionablePriorities[priority].localeSpread = sortLocaleObject(actionablePriorities[priority].localeSpread);
+    actionablePriorities[priority].examples = actionablePriorities[priority].examples
+        .sort((left, right) => (
+            right.affectedMessagePairs - left.affectedMessagePairs
+            || riskOrder[left.risk] - riskOrder[right.risk]
+            || compareText(left.reason, right.reason)
+            || compareText(left.sourceMessage, right.sourceMessage)
+        ))
+        .slice(0, 8);
 });
 
 const summary = {
