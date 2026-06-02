@@ -128,6 +128,7 @@ export const buildSupportTimeline = ({
     ticket = null,
     activeCallContext = null,
     callStatus = 'idle',
+    t,
 } = {}) => {
     if (!ticket?._id) {
         return [];
@@ -144,19 +145,20 @@ export const buildSupportTimeline = ({
     const isActiveCall = activeContextMatches && ['calling', 'incoming', 'connected'].includes(String(callStatus || '').trim().toLowerCase());
     const liveCallStatus = String(ticket.liveCallLastStatus || '').trim().toLowerCase();
     const liveLabel = String(ticket.liveCallLastContextLabel || '').trim();
+    const label = (key, fallback) => (t ? t(key, {}, fallback) : fallback);
 
     return [
         {
             key: 'chat',
             icon: 'chat',
-            label: 'Chat',
+            label: label('support.timeline.chat.label', 'Chat'),
             state: ticket.status === 'closed' ? 'complete' : 'active',
             detail: ticket.lastMessagePreview || 'Thread is ready for support coordination.',
         },
         {
             key: 'voice',
             icon: 'voice',
-            label: 'Voice',
+            label: label('support.timeline.voice.label', 'Voice'),
             state: isActiveCall && activeMode === 'voice'
                 ? 'active'
                 : requestedMode === 'voice' && ticket.liveCallRequested
@@ -171,7 +173,7 @@ export const buildSupportTimeline = ({
         {
             key: 'video',
             icon: 'video',
-            label: 'Video',
+            label: label('support.timeline.video.label', 'Video'),
             state: isActiveCall && activeMode === 'video'
                 ? 'active'
                 : requestedMode === 'video' && ticket.liveCallRequested
@@ -186,7 +188,7 @@ export const buildSupportTimeline = ({
         {
             key: 'resolution',
             icon: 'resolution',
-            label: 'Resolution',
+            label: label('support.timeline.resolution.label', 'Resolution'),
             state: ['resolved', 'closed'].includes(String(ticket.status || '').trim().toLowerCase())
                 ? 'complete'
                 : ticket.userActionRequired

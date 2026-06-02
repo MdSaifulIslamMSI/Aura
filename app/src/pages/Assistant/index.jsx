@@ -18,6 +18,7 @@ import {
     X,
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import ActionBar from '@/components/features/chat/ActionBar';
 import MessageList from '@/components/features/chat/MessageList';
 import MultimodalDock from '@/components/features/chat/MultimodalDock';
@@ -30,42 +31,89 @@ import { useChatStore } from '@/store/chatStore';
 import { selectCartSummary, useCommerceStore } from '@/store/commerceStore';
 import { getAssistantRouteLabel } from '@/utils/assistantCommands';
 
+import { StableText } from '@/i18n/StableText';
 const MODE_COPY = {
-    explore: 'Exploration',
-    product: 'Product focus',
-    cart: 'Cart review',
-    checkout: 'Checkout',
-    support: 'Support',
+    explore: { id: 'assistant.mode.exploration', defaultMessage: 'Exploration' },
+    product: { id: 'assistant.mode.productFocus', defaultMessage: 'Product focus' },
+    cart: { id: 'assistant.mode.cartReview', defaultMessage: 'Cart review' },
+    checkout: { id: 'assistant.mode.checkout', defaultMessage: 'Checkout' },
+    support: { id: 'assistant.mode.support', defaultMessage: 'Support' },
 };
 
 const MAX_MEDIA_ATTACHMENTS = 3;
 const MAX_MEDIA_FILE_BYTES = 8 * 1024 * 1024;
+const starterPromptMessages = defineMessages({
+    compareTitle: {
+        id: 'assistant.starter.compare.title',
+        defaultMessage: 'Grounded comparison',
+    },
+    compareDetail: {
+        id: 'assistant.starter.compare.detail',
+        defaultMessage: 'Compare two real options and explain the trade-offs.',
+    },
+    cartTitle: {
+        id: 'assistant.starter.cart.title',
+        defaultMessage: 'Cart review',
+    },
+    cartDetail: {
+        id: 'assistant.starter.cart.detail',
+        defaultMessage: 'Audit the cart, surface risks, and recommend the next step.',
+    },
+    visualTitle: {
+        id: 'assistant.starter.visual.title',
+        defaultMessage: 'Photo match',
+    },
+    visualDetail: {
+        id: 'assistant.starter.visual.detail',
+        defaultMessage: 'Prepare a visual-search brief before you attach an image.',
+    },
+    ordersTitle: {
+        id: 'assistant.starter.orders.title',
+        defaultMessage: 'Order follow-up',
+    },
+    ordersDetail: {
+        id: 'assistant.starter.orders.detail',
+        defaultMessage: 'Track an order or escalate into support without losing context.',
+    },
+});
+const composerMessages = defineMessages({
+    listeningPlaceholder: {
+        id: 'common.jsx.expression.listening.6dab600d',
+        defaultMessage: 'Listening...',
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    promptPlaceholder: {
+        id: 'cart.jsx.expression.compare.products.review.a.cart.or.find.40cd3600',
+        defaultMessage: 'Compare products, review a cart, or find a match...',
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+});
 const STARTER_PROMPTS = [
     {
         id: 'compare',
-        title: 'Grounded comparison',
-        detail: 'Compare two real options and explain the trade-offs.',
+        titleMessage: starterPromptMessages.compareTitle,
+        detailMessage: starterPromptMessages.compareDetail,
         prompt: 'Compare the best phones under 50000 and tell me the strongest value pick.',
         intent: 'send',
     },
     {
         id: 'cart',
-        title: 'Cart review',
-        detail: 'Audit the cart, surface risks, and recommend the next step.',
+        titleMessage: starterPromptMessages.cartTitle,
+        detailMessage: starterPromptMessages.cartDetail,
         prompt: 'Review my cart and tell me the smartest next step before checkout.',
         intent: 'send',
     },
     {
         id: 'visual',
-        title: 'Photo match',
-        detail: 'Prepare a visual-search brief before you attach an image.',
+        titleMessage: starterPromptMessages.visualTitle,
+        detailMessage: starterPromptMessages.visualDetail,
         prompt: 'When I attach a product image, find the closest grounded match and explain confidence.',
         intent: 'prefill',
     },
     {
         id: 'orders',
-        title: 'Order follow-up',
-        detail: 'Track an order or escalate into support without losing context.',
+        titleMessage: starterPromptMessages.ordersTitle,
+        detailMessage: starterPromptMessages.ordersDetail,
         prompt: 'Help me track my latest order and tell me if I should open support.',
         intent: 'send',
     },
@@ -124,6 +172,7 @@ const getCapabilityTone = (enabled = false) => (
 );
 
 const AssistantPage = () => {
+    const intl = useIntl();
     const location = useLocation();
     const {
         currentUser,
@@ -206,7 +255,7 @@ const AssistantPage = () => {
 
         return `user:${identity}`;
     }, [currentUser?.email, currentUser?.uid, dbUser?._id, isAuthLoading, isAuthenticated]);
-    const modeLabel = MODE_COPY[mode] || MODE_COPY.explore;
+    const modeLabel = intl.formatMessage(MODE_COPY[mode] || MODE_COPY.explore);
     const lastUserMessage = useMemo(
         () => [...messages].reverse().find((message) => message?.role === 'user' && String(message?.text || '').trim())?.text || '',
         [messages],
@@ -227,10 +276,13 @@ const AssistantPage = () => {
         const providerName = String(latestAssistantMessage?.providerInfo?.name || latestAssistantMessage?.grounding?.provider || '').trim();
         const providerModel = String(latestAssistantMessage?.providerInfo?.model || latestAssistantMessage?.grounding?.providerModel || '').trim();
         if (providerName && providerModel) {
-            return `${providerName} \u00b7 ${providerModel}`;
+            return intl.formatMessage(
+                { id: 'assistant.provider.modelLabel', defaultMessage: '{providerName} · {providerModel}' },
+                { providerName, providerModel },
+            );
         }
-        return providerName || 'Awaiting first grounded turn';
-    }, [latestAssistantMessage]);
+        return providerName || intl.formatMessage({ id: 'assistant.provider.awaitingFirstTurn', defaultMessage: 'Awaiting first grounded turn' });
+    }, [intl, latestAssistantMessage]);
     const assistantCapabilities = useMemo(() => {
         const providerCapabilities = latestAssistantMessage?.providerCapabilities || null;
         const voiceCapabilities = voiceSessionConfig?.capabilities || {};
@@ -238,54 +290,58 @@ const AssistantPage = () => {
         return [
             {
                 id: 'text',
-                label: 'Text reasoning',
+                label: intl.formatMessage({ id: 'assistant.capability.textReasoning', defaultMessage: 'Text reasoning' }),
                 ready: providerCapabilities?.textInput !== false,
             },
             {
                 id: 'image',
-                label: 'Image grounding',
+                label: intl.formatMessage({ id: 'assistant.capability.imageGrounding', defaultMessage: 'Image grounding' }),
                 ready: Boolean(providerCapabilities?.imageInput),
             },
             {
                 id: 'audio',
-                label: 'Audio reasoning',
+                label: intl.formatMessage({ id: 'assistant.capability.audioReasoning', defaultMessage: 'Audio reasoning' }),
                 ready: Boolean(providerCapabilities?.audioInput),
             },
             {
                 id: 'speech',
-                label: 'Speech intake',
+                label: intl.formatMessage({ id: 'assistant.capability.speechIntake', defaultMessage: 'Speech intake' }),
                 ready: voiceSessionConfig?.supportsAudioUpload || voiceCapabilities?.speechToText?.mode === 'server_ready',
             },
             {
                 id: 'voice',
-                label: 'Voice output',
+                label: intl.formatMessage({ id: 'assistant.capability.voiceOutput', defaultMessage: 'Voice output' }),
                 ready: voiceCapabilities?.textToSpeech?.mode === 'server_ready',
             },
             {
                 id: 'live',
-                label: 'Live lane',
+                label: intl.formatMessage({ id: 'assistant.capability.liveLane', defaultMessage: 'Live lane' }),
                 ready: Boolean(voiceSessionConfig?.realtimeEnabled),
             },
         ];
-    }, [latestAssistantMessage, voiceSessionConfig]);
+    }, [intl, latestAssistantMessage, voiceSessionConfig]);
     const assistantReadinessCopy = useMemo(() => {
         if (voiceSessionError) {
             return voiceSessionError;
         }
         if (voiceSessionConfig?.realtimeEnabled) {
-            return 'Voice, speech, and live-lane controls are wired and ready from this workspace.';
+            return intl.formatMessage({ id: 'assistant.readiness.realtimeReady', defaultMessage: 'Voice, speech, and live-lane controls are wired and ready from this workspace.' });
         }
         if (voiceSessionConfig) {
-            return 'Text and image are grounded here. Voice stays turn-based until realtime media is available.';
+            return intl.formatMessage({ id: 'assistant.readiness.turnBasedVoice', defaultMessage: 'Text and image are grounded here. Voice stays turn-based until realtime media is available.' });
         }
-        return 'Preparing multimodal status surface.';
-    }, [voiceSessionConfig, voiceSessionError]);
+        return intl.formatMessage({ id: 'assistant.readiness.preparing', defaultMessage: 'Preparing multimodal status surface.' });
+    }, [intl, voiceSessionConfig, voiceSessionError]);
     const contextChips = [
         { id: 'route', label: routeLabel },
         { id: 'path', label: originPath },
-        { id: 'cart', label: `Cart ${cartSummary.totalItems || 0}` },
-        { id: 'auth', label: context.isAuthenticated ? 'Signed in' : 'Guest' },
-        { id: 'state', label: status === 'thinking' ? 'Analyzing' : modeLabel },
+        { id: 'cart', label: intl.formatMessage({ id: 'assistant.context.cartCount', defaultMessage: 'Cart {count}' }, { count: cartSummary.totalItems || 0 }) },
+        { id: 'auth', label: context.isAuthenticated
+            ? intl.formatMessage({ id: 'assistant.context.signedIn', defaultMessage: 'Signed in' })
+            : intl.formatMessage({ id: 'assistant.context.guest', defaultMessage: 'Guest' }) },
+        { id: 'state', label: status === 'thinking'
+            ? intl.formatMessage({ id: 'assistant.context.analyzing', defaultMessage: 'Analyzing' })
+            : modeLabel },
     ];
 
     useEffect(() => {
@@ -516,19 +572,19 @@ const AssistantPage = () => {
                                     <Sparkles className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-semibold text-white">Aura Terminal</p>
-                                    <p className="text-xs text-slate-400">Controlled commerce intelligence</p>
+                                    <p className="text-sm font-semibold text-white"><StableText id={"common.jsx.text.aura.terminal.2fded973"} defaultMessage={"Aura Terminal"} /></p>
+                                    <p className="text-xs text-slate-400"><StableText id={"common.jsx.text.controlled.commerce.intelligence.ac057065"} defaultMessage={"Controlled commerce intelligence"} /></p>
                                 </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                                 <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                                    {isAuthenticated ? 'Signed in' : 'Guest'}
+                                    {isAuthenticated ? <StableText id={"common.jsx.expression.signed.in.4347f904"} defaultMessage={"Signed in"} /> : <StableText id={"common.jsx.expression.guest.c539652f"} defaultMessage={"Guest"} />}
                                 </span>
                                 <button
                                     type="button"
                                     onClick={() => setIsSidebarOpen(false)}
                                     className="inline-flex h-10 w-10 touch-manipulation items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-slate-300 transition hover:bg-white/[0.1] lg:hidden"
-                                    aria-label="Close assistant history"
+                                    aria-label={intl.formatMessage({ id: 'assistant.history.close.ariaLabel', defaultMessage: 'Close assistant history' })}
                                 >
                                     <X className="h-4 w-4" />
                                 </button>
@@ -537,11 +593,11 @@ const AssistantPage = () => {
 
                         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
                             <div className="rounded-[1rem] border border-white/10 bg-white/[0.04] px-3 py-2.5">
-                                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Threads</p>
+                                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500"><FormattedMessage id="assistant.sidebar.threads" defaultMessage="Threads" /></p>
                                 <p className="mt-1 text-lg font-semibold text-white">{sessionCount}</p>
                             </div>
                             <div className="rounded-[1rem] border border-white/10 bg-white/[0.04] px-3 py-2.5">
-                                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Surface</p>
+                                <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500"><StableText id={"common.jsx.text.surface.35807d37"} defaultMessage={"Surface"} /></p>
                                 <p className="mt-1 text-lg font-semibold text-white">{modeLabel}</p>
                             </div>
                         </div>
@@ -553,7 +609,7 @@ const AssistantPage = () => {
                         className="mt-4 inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/20"
                     >
                         <Plus className="h-4 w-4" />
-                        New chat
+                        <FormattedMessage id="assistant.chat.new" defaultMessage="New chat" />
                     </button>
 
                     <label className="mt-4 flex items-center gap-2 rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-slate-300">
@@ -561,7 +617,7 @@ const AssistantPage = () => {
                         <input
                             value={sessionSearchQuery}
                             onChange={(event) => setSessionSearchQuery(event.target.value)}
-                            placeholder="Search conversations"
+                            placeholder={intl.formatMessage({ id: 'assistant.history.search.placeholder', defaultMessage: 'Search conversations' })}
                             className="w-full bg-transparent outline-none placeholder:text-slate-500"
                         />
                     </label>
@@ -608,7 +664,15 @@ const AssistantPage = () => {
                                                         event.stopPropagation();
                                                         togglePinnedSession(session.id);
                                                     }}
-                                                    aria-label={`${session.pinned ? 'Unpin' : 'Pin'} ${session.title}`}
+                                                    aria-label={intl.formatMessage(
+                                                        { id: 'assistant.history.pinToggle.ariaLabel', defaultMessage: '{action} {title}' },
+                                                        {
+                                                            action: session.pinned
+                                                                ? intl.formatMessage({ id: 'assistant.history.unpin', defaultMessage: 'Unpin' })
+                                                                : intl.formatMessage({ id: 'assistant.history.pin', defaultMessage: 'Pin' }),
+                                                            title: session.title,
+                                                        }
+                                                    )}
                                                     className={cn(
                                                         'mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition',
                                                         session.pinned
@@ -629,7 +693,7 @@ const AssistantPage = () => {
                             <div className="rounded-[1.45rem] border border-white/10 bg-white/[0.04] p-4">
                                 <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">
                                     <Orbit className="h-3.5 w-3.5" />
-                                    Model surface
+                                    <StableText id={"common.jsx.text.model.surface.dae6758e"} defaultMessage={"Model surface"} />
                                 </div>
                                 <p className="mt-2 text-sm font-semibold text-white">{providerLabel}</p>
                                 <p className="mt-1 text-xs leading-5 text-slate-400">{assistantReadinessCopy}</p>
@@ -647,8 +711,13 @@ const AssistantPage = () => {
 
                                 {latestAssistantMessage?.grounding?.route ? (
                                     <div className="mt-3 rounded-[1rem] border border-white/10 bg-[#08111f] px-3 py-2.5 text-[11px] text-slate-300">
-                                        Active route {latestAssistantMessage.grounding.route.replace(/_/g, ' ')}
-                                        {latestAssistantMessage?.grounding?.retrievalHitCount ? ` | ${latestAssistantMessage.grounding.retrievalHitCount} hits` : ''}
+                                        <StableText id={"common.jsx.text.active.route.adea24bd"} defaultMessage={"Active route"} /> {latestAssistantMessage.grounding.route.replace(/_/g, ' ')}
+                                        {latestAssistantMessage?.grounding?.retrievalHitCount
+                                            ? intl.formatMessage(
+                                                { id: 'assistant.grounding.hitsSuffix', defaultMessage: ' | {count} hits' },
+                                                { count: latestAssistantMessage.grounding.retrievalHitCount },
+                                            )
+                                            : ''}
                                     </div>
                                 ) : null}
                             </div>
@@ -658,7 +727,10 @@ const AssistantPage = () => {
                     </div>
                 </aside>
 
-                <section aria-label="Assistant workspace" className="flex h-screen min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0">
+                <section
+                    aria-label={intl.formatMessage({ id: 'assistant.workspace.ariaLabel', defaultMessage: 'Assistant workspace' })}
+                    className="flex h-screen min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0"
+                >
                     <header className="assistant-command-header shrink-0 border-b border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.9),rgba(5,8,17,0.78))] px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
                         <div className="assistant-command-header__panel rounded-[1rem] border border-white/10 bg-white/[0.03] px-3 py-3 shadow-lg sm:rounded-[1.2rem] sm:px-5 sm:py-4">
                             <div className="flex items-start justify-between gap-3 sm:flex-wrap sm:gap-4">
@@ -667,19 +739,19 @@ const AssistantPage = () => {
                                         type="button"
                                         onClick={() => setIsSidebarOpen(true)}
                                         className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-[1rem] border border-white/10 bg-white/[0.04] text-slate-200 transition hover:bg-white/[0.08] active:scale-95 lg:hidden"
-                                        aria-label="Open assistant history"
+                                        aria-label={intl.formatMessage({ id: 'assistant.history.open.ariaLabel', defaultMessage: 'Open assistant history' })}
                                     >
                                         <Menu className="h-5 w-5" />
                                     </button>
                                     <div>
                                         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-300 sm:text-[11px] sm:tracking-[0.2em]">
-                                            Commerce Copilot
+                                            <StableText id={"common.jsx.text.commerce.copilot.e872e317"} defaultMessage={"Commerce Copilot"} />
                                         </p>
                                         <h1 className="mt-1 text-lg font-semibold text-white sm:mt-1.5 sm:text-2xl">
-                                            {activeSession?.title || 'New chat'}
+                                            {activeSession?.title || intl.formatMessage({ id: 'assistant.chat.new', defaultMessage: 'New chat' })}
                                         </h1>
                                         <p className="mt-1 hidden max-w-3xl text-sm leading-6 text-slate-400 sm:block">
-                                            Ask for product picks, cart review, order support, or grounded marketplace decisions.
+                                            <StableText id={"order.jsx.text.ask.for.product.picks.cart.review.order.db04ca3e"} defaultMessage={"Ask for product picks, cart review, order support, or grounded marketplace decisions."} />
                                         </p>
                                     </div>
                                 </div>
@@ -693,7 +765,7 @@ const AssistantPage = () => {
                                     >
                                         <span className="inline-flex items-center gap-2">
                                             <RotateCcw className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline">Retry</span>
+                                            <span className="hidden sm:inline"><FormattedMessage id="assistant.action.retry" defaultMessage="Retry" /></span>
                                         </span>
                                     </button>
                                     <button
@@ -703,7 +775,7 @@ const AssistantPage = () => {
                                     >
                                         <span className="inline-flex items-center gap-2">
                                             <Trash2 className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline">Clear context</span>
+                                            <span className="hidden sm:inline"><StableText id={"common.jsx.text.clear.context.e550a0f3"} defaultMessage={"Clear context"} /></span>
                                         </span>
                                     </button>
                                 </div>
@@ -744,15 +816,17 @@ const AssistantPage = () => {
                                         <div>
                                             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300 sm:text-[11px] sm:tracking-[0.18em]">
                                                 <WandSparkles className="h-3.5 w-3.5" />
-                                                Fast starts
+                                                <FormattedMessage id="assistant.fastStarts.eyebrow" defaultMessage="Fast starts" />
                                             </div>
-                                            <p className="mt-1.5 text-sm font-semibold text-white sm:mt-2 sm:text-lg">Start with a grounded shopping workflow.</p>
+                                            <p className="mt-1.5 text-sm font-semibold text-white sm:mt-2 sm:text-lg">
+                                                <FormattedMessage id="assistant.fastStarts.title" defaultMessage="Start with a grounded shopping workflow." />
+                                            </p>
                                             <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-400 sm:block">
-                                                Pick a starter and the assistant will either launch the flow directly or stage the right brief for you to refine.
+                                                <FormattedMessage id="assistant.fastStarts.description" defaultMessage="Pick a starter and the assistant will either launch the flow directly or stage the right brief for you to refine." />
                                             </p>
                                         </div>
                                         <span className="hidden rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 sm:inline-flex sm:px-3 sm:text-xs">
-                                            Controlled by design
+                                            <FormattedMessage id="assistant.fastStarts.badge" defaultMessage="Controlled by design" />
                                         </span>
                                     </div>
 
@@ -766,10 +840,16 @@ const AssistantPage = () => {
                                             >
                                                 <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-300 sm:gap-2 sm:text-[10px] sm:tracking-[0.17em]">
                                                     <CheckCircle2 className="h-3.5 w-3.5" />
-                                                    {starter.intent === 'prefill' ? 'Stage' : 'Launch'}
+                                                    {starter.intent === 'prefill'
+                                                        ? <FormattedMessage id="assistant.starter.stage" defaultMessage="Stage" />
+                                                        : <FormattedMessage id="assistant.starter.launch" defaultMessage="Launch" />}
                                                 </div>
-                                                <p className="mt-1.5 text-sm font-semibold leading-snug text-white sm:mt-2.5">{starter.title}</p>
-                                                <p className="mt-1 hidden text-xs leading-5 text-slate-400 sm:block">{starter.detail}</p>
+                                                <p className="mt-1.5 text-sm font-semibold leading-snug text-white sm:mt-2.5">
+                                                    {intl.formatMessage(starter.titleMessage)}
+                                                </p>
+                                                <p className="mt-1 hidden text-xs leading-5 text-slate-400 sm:block">
+                                                    {intl.formatMessage(starter.detailMessage)}
+                                                </p>
                                             </button>
                                         ))}
                                     </div>
@@ -822,14 +902,19 @@ const AssistantPage = () => {
                                                 <div className="min-w-0">
                                                     <p className="truncate text-sm font-semibold">{attachment.fileName || 'attachment'}</p>
                                                     <p className="text-[11px] text-cyan-100/75">
-                                                        {attachment.kind === 'image' ? 'Image ready for grounding' : 'Audio ready for processing'}
+                                                        {attachment.kind === 'image' ? <StableText id={"common.jsx.expression.image.ready.for.grounding.152acb95"} defaultMessage={"Image ready for grounding"} /> : <StableText id={"common.jsx.expression.audio.ready.for.processing.68d50ec5"} defaultMessage={"Audio ready for processing"} />}
                                                     </p>
                                                 </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => removeAttachment(attachment.id)}
                                                     className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-cyan-300/20 transition hover:bg-cyan-300/10"
-                                                    aria-label={`Remove ${attachment.fileName || 'attachment'}`}
+                                                    aria-label={intl.formatMessage(
+                                                        { id: 'assistant.attachment.remove.ariaLabel', defaultMessage: 'Remove {fileName}' },
+                                                        {
+                                                            fileName: attachment.fileName || intl.formatMessage({ id: 'assistant.attachment.fallbackName', defaultMessage: 'attachment' }),
+                                                        }
+                                                    )}
                                                 >
                                                     <X className="h-3.5 w-3.5" />
                                                 </button>
@@ -871,7 +956,7 @@ const AssistantPage = () => {
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
                                             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
-                                            aria-label="Upload attachments"
+                                            aria-label={intl.formatMessage({ id: 'assistant.attachments.upload.ariaLabel', defaultMessage: 'Upload attachments' })}
                                         >
                                             <Paperclip className="h-4 w-4" />
                                         </button>
@@ -904,7 +989,9 @@ const AssistantPage = () => {
                                                     }
                                                 }}
                                                 rows={Math.min(Math.max(String(inputValue || '').split('\n').length, 1), 6)}
-                                                placeholder={isListening ? 'Listening...' : 'Compare products, review a cart, or find a match...'}
+                                                placeholder={isListening
+                                                    ? intl.formatMessage(composerMessages.listeningPlaceholder)
+                                                    : intl.formatMessage(composerMessages.promptPlaceholder)}
                                                 disabled={isLoading}
                                                 className="assistant-composer-textarea block max-h-28 min-h-10 w-full resize-none overflow-y-auto bg-transparent px-0 py-2 text-[15px] leading-6 text-white outline-none placeholder:text-slate-500 sm:min-h-12"
                                             />
@@ -916,7 +1003,9 @@ const AssistantPage = () => {
                                                     type="button"
                                                     onClick={toggleListening}
                                                     className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
-                                                    aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
+                                                aria-label={isListening
+                                                    ? intl.formatMessage({ id: 'assistant.dictation.stop.ariaLabel', defaultMessage: 'Stop dictation' })
+                                                    : intl.formatMessage({ id: 'assistant.dictation.start.ariaLabel', defaultMessage: 'Start dictation' })}
                                                 >
                                                     {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                                                 </button>
@@ -925,7 +1014,7 @@ const AssistantPage = () => {
                                                 type="submit"
                                                 disabled={(!String(inputValue || '').trim() && attachments.length === 0) || isLoading}
                                                 className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-cyan-400 text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
-                                                aria-label="Send message"
+                                                aria-label={intl.formatMessage({ id: 'assistant.composer.send.ariaLabel', defaultMessage: 'Send message' })}
                                             >
                                                 <ArrowUp className="h-4.5 w-4.5" />
                                             </button>

@@ -13,6 +13,7 @@ const { marketState } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/context/MarketContext', () => ({
+    useOptionalMarket: () => marketState,
     useMarket: () => marketState,
 }));
 

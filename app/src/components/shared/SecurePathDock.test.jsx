@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { IntlProvider } from 'react-intl';
 import { AuthContext } from '@/context/AuthContext';
 
 const mocks = vi.hoisted(() => ({
@@ -31,18 +32,20 @@ const renderDock = ({
     initialEntry = '/',
 } = {}) => render(
     <MemoryRouter initialEntries={[initialEntry]}>
-        <AuthContext.Provider value={{
-            currentUser: null,
-            dbUser: null,
-            deviceChallenge: null,
-            roles: {},
-            status: 'signed_out',
-            ...authValue,
-        }}
-        >
-            <SecurePathDock />
-            <LocationProbe />
-        </AuthContext.Provider>
+        <IntlProvider locale="en" messages={{}}>
+            <AuthContext.Provider value={{
+                currentUser: null,
+                dbUser: null,
+                deviceChallenge: null,
+                roles: {},
+                status: 'signed_out',
+                ...authValue,
+            }}
+            >
+                <SecurePathDock />
+                <LocationProbe />
+            </AuthContext.Provider>
+        </IntlProvider>
     </MemoryRouter>
 );
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { recommendationApi } from '@/services/api';
 import ProductCarousel from './ProductCarousel';
 import RecommendationSection from './RecommendationSection';
@@ -29,8 +30,8 @@ const SimilarProducts = ({ productId, limit = 8, sourcePage = 'product_detail' }
   return (
     <RecommendationSection
       eyebrow="Similar Products"
-      title="More Like This"
-      description="Based on category, brand, tags, price range, rating, stock, and freshness."
+      title={<FormattedMessage id="recommendations.similarProducts.title" defaultMessage="More Like This" />}
+      description={<FormattedMessage id="recommendations.similarProducts.description" defaultMessage="Based on category, brand, tags, price range, rating, stock, and freshness." />}
       actionHref="/search"
     >
       <ProductCarousel recommendations={recommendations} loading={loading} sourcePage={sourcePage} />

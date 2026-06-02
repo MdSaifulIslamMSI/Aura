@@ -10,6 +10,10 @@ vi.mock('./SocketContext', () => ({
 }));
 
 vi.mock('./MarketContext', () => ({
+    useOptionalMarket: () => ({
+        language: 'en',
+        t: (_key, _params, fallback) => fallback || '',
+    }),
     useMarket: () => ({
         language: 'en',
         t: (_key, _params, fallback) => fallback || '',

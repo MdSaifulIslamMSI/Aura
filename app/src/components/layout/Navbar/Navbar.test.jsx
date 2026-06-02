@@ -8,6 +8,7 @@ import { WishlistContext } from '@/context/WishlistContext';
 import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MarketProvider } from '@/context/MarketContext';
 import { MotionModeProvider } from '@/context/MotionModeContext';
+import { LocaleProvider } from '@/i18n/LocaleProvider';
 
 const { getRewardsMock } = vi.hoisted(() => ({
     getRewardsMock: vi.fn().mockResolvedValue({
@@ -90,14 +91,16 @@ describe('Navbar Component', () => {
                 <ColorModeProvider>
                     <MotionModeProvider>
                         <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                            <AuthContext.Provider value={{ ...mockAuth, ...authOverride }}>
-                                <CartContext.Provider value={{ ...mockCart, ...cartOverride }}>
-                                    <WishlistContext.Provider value={{ ...mockWishlist, ...wishlistOverride }}>
-                                        <Navbar />
-                                        <LocationProbe />
-                                    </WishlistContext.Provider>
-                                </CartContext.Provider>
-                            </AuthContext.Provider>
+                            <LocaleProvider>
+                                <AuthContext.Provider value={{ ...mockAuth, ...authOverride }}>
+                                    <CartContext.Provider value={{ ...mockCart, ...cartOverride }}>
+                                        <WishlistContext.Provider value={{ ...mockWishlist, ...wishlistOverride }}>
+                                            <Navbar />
+                                            <LocationProbe />
+                                        </WishlistContext.Provider>
+                                    </CartContext.Provider>
+                                </AuthContext.Provider>
+                            </LocaleProvider>
                         </MarketProvider>
                     </MotionModeProvider>
                 </ColorModeProvider>

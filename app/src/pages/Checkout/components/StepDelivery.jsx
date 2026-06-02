@@ -28,8 +28,16 @@ const StepDelivery = ({
     const availableShippingOptions = shippingOptions.length > 0
         ? shippingOptions
         : [
-            { id: 'standard', label: 'Standard', etaLabel: '3-5 business days' },
-            { id: 'express', label: 'Express', etaLabel: '1-2 business days' },
+            {
+                id: 'standard',
+                label: t('checkout.delivery.standard', {}, 'Standard'),
+                etaLabel: t('checkout.delivery.standardEta', {}, '3-5 business days'),
+            },
+            {
+                id: 'express',
+                label: t('checkout.delivery.express', {}, 'Express'),
+                etaLabel: t('checkout.delivery.expressEta', {}, '1-2 business days'),
+            },
         ];
 
     return (

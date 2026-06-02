@@ -4,6 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 import SettingsSection from './SettingsSection';
 
 vi.mock('@/context/MarketContext', () => ({
+    useOptionalMarket: () => ({
+        t: (_key, _values, fallback) => fallback,
+    }),
     useMarket: () => ({
         t: (_key, _values, fallback) => fallback,
     }),

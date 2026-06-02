@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useMultimodalAssistant } from '@/context/MultimodalAssistantContext';
 import { useChatStore } from '@/store/chatStore';
 
+import { StableText } from '@/i18n/StableText';
 const buildStatusTone = (tone = 'neutral', isWhiteMode = false) => {
     if (tone === 'success') {
         return isWhiteMode
@@ -64,10 +65,10 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                     <div>
                         <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300">
                             <Sparkles className="h-3.5 w-3.5" />
-                            Assistant lanes
+                            <StableText id={"common.jsx.text.assistant.lanes.00fbe316"} defaultMessage={"Assistant lanes"} />
                         </div>
                         <p className={cn('mt-1.5 text-sm font-semibold', isWhiteMode ? 'text-slate-900' : 'text-white')}>
-                            Voice and live help
+                            <StableText id={"common.jsx.text.voice.and.live.help.4900edb8"} defaultMessage={"Voice and live help"} />
                         </p>
                     </div>
 
@@ -77,7 +78,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                 </div>
 
                 <p className={cn('mt-2 text-[11px] leading-5', mutedTextClass)}>
-                    {activeCallSummary?.active ? 'A live lane is active.' : 'Open voice or inspection without leaving the current shopping brief.'}
+                    {activeCallSummary?.active ? <StableText id={"common.jsx.expression.a.live.lane.is.active.e6c9da1a"} defaultMessage={"A live lane is active."} /> : <StableText id={"common.jsx.expression.open.voice.or.inspection.without.leaving.the.81553c4f"} defaultMessage={"Open voice or inspection without leaving the current shopping brief."} />}
                 </p>
 
                 <div className="mt-3 grid gap-2">
@@ -91,7 +92,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                     >
                         <span className="inline-flex items-center gap-2">
                             <Mic className="h-4 w-4" />
-                            Voice copilot
+                            <StableText id={"common.jsx.text.voice.copilot.4a1c779c"} defaultMessage={"Voice copilot"} />
                         </span>
                         <span className="text-xs uppercase tracking-[0.16em]">Open</span>
                     </button>
@@ -104,7 +105,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                     >
                         <span className="inline-flex items-center gap-2">
                             <PhoneCall className="h-4 w-4" />
-                            Live voice
+                            <StableText id={"common.jsx.text.live.voice.b748e062"} defaultMessage={"Live voice"} />
                         </span>
                         <span className="text-xs uppercase tracking-[0.16em]">
                             {routeContext?.canLaunchInspection ? 'Ready' : 'Locked'}
@@ -119,10 +120,10 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                     >
                         <span className="inline-flex items-center gap-2">
                             <Video className="h-4 w-4" />
-                            Live video
+                            <StableText id={"common.jsx.text.live.video.72e92a0c"} defaultMessage={"Live video"} />
                         </span>
                         <span className="text-xs uppercase tracking-[0.16em]">
-                            {cameraReady ? 'Camera ready' : 'Camera check'}
+                            {cameraReady ? <StableText id={"common.jsx.expression.camera.ready.1394fc22"} defaultMessage={"Camera ready"} /> : <StableText id={"common.jsx.expression.camera.check.144f7426"} defaultMessage={"Camera check"} />}
                         </span>
                     </button>
                 </div>
@@ -136,13 +137,13 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                 <div>
                     <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300">
                         <Sparkles className="h-3.5 w-3.5" />
-                        Multimodal Fast Lane
+                        <StableText id={"common.jsx.text.multimodal.fast.lane.2253a5d9"} defaultMessage={"Multimodal Fast Lane"} />
                     </div>
                     <p className={cn('mt-2 text-sm font-semibold', isWhiteMode ? 'text-slate-900' : 'text-white')}>
-                        One continuity layer across chat, voice, and live calls.
+                        <StableText id={"common.jsx.text.one.continuity.layer.across.chat.voice.and.8554d950"} defaultMessage={"One continuity layer across chat, voice, and live calls."} />
                     </p>
                     <p className={cn('mt-1 text-xs', mutedTextClass)}>
-                        {routeContext?.routeLabel || 'Shopping flow'} | Active lane {String(activeChannel || 'chat').replace(/-/g, ' ')}
+                        {routeContext?.routeLabel || 'Shopping flow'} <StableText id={"common.jsx.text.active.lane.de283afd"} defaultMessage={"| Active lane"} /> {String(activeChannel || 'chat').replace(/-/g, ' ')}
                     </p>
                 </div>
 
@@ -154,7 +155,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                             : (isWhiteMode ? 'border-slate-200 bg-white text-slate-500' : 'border-white/10 bg-white/5 text-white/70')
                     )}>
                         <Mic className="h-3 w-3" />
-                        {microphoneReady ? 'Mic ready' : 'Mic check'}
+                        {microphoneReady ? <StableText id={"common.jsx.expression.mic.ready.c9cd2bb0"} defaultMessage={"Mic ready"} /> : <StableText id={"common.jsx.expression.mic.check.123c4ea4"} defaultMessage={"Mic check"} />}
                     </span>
                     <span className={cn(
                         'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold',
@@ -163,7 +164,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                             : (isWhiteMode ? 'border-slate-200 bg-white text-slate-500' : 'border-white/10 bg-white/5 text-white/70')
                     )}>
                         <Camera className="h-3 w-3" />
-                        {cameraReady ? 'Camera ready' : 'Camera check'}
+                        {cameraReady ? <StableText id={"common.jsx.expression.camera.ready.1394fc22"} defaultMessage={"Camera ready"} /> : <StableText id={"common.jsx.expression.camera.check.144f7426"} defaultMessage={"Camera check"} />}
                     </span>
                     <span className={cn(
                         'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold',
@@ -188,10 +189,10 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                 >
                     <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em]">
                         <Mic className="h-4 w-4" />
-                        Voice Copilot
+                        <StableText id={"common.jsx.text.voice.copilot.5388a8c8"} defaultMessage={"Voice Copilot"} />
                     </div>
                     <p className="mt-2 text-sm font-semibold">
-                        Lift the current brief into voice and keep the shopping context intact.
+                        <StableText id={"common.jsx.text.lift.the.current.brief.into.voice.and.e80137ff"} defaultMessage={"Lift the current brief into voice and keep the shopping context intact."} />
                     </p>
                     <p className={cn('mt-1 text-xs', isWhiteMode ? 'text-slate-300' : 'text-cyan-100/75')}>
                         {activeDraft || 'Launch with a clean voice prompt.'}
@@ -209,15 +210,15 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                 >
                     <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em]">
                         <PhoneCall className="h-4 w-4" />
-                        Live Voice
+                        <StableText id={"common.jsx.text.live.voice.11077867"} defaultMessage={"Live Voice"} />
                     </div>
                     <p className="mt-2 text-sm font-semibold">
-                        Start an audio-only inspection lane on the active marketplace listing.
+                        <StableText id={"seller.jsx.text.start.an.audio.only.inspection.lane.on.82d20057"} defaultMessage={"Start an audio-only inspection lane on the active marketplace listing."} />
                     </p>
                     <p className={cn('mt-1 text-xs', mutedTextClass)}>
                         {routeContext?.canLaunchInspection
-                            ? (activeCallSummary?.active ? 'A live lane is already active.' : 'Low-friction consult with the current listing context.')
-                            : 'Available when you open a marketplace listing.'}
+                            ? (activeCallSummary?.active ? <StableText id={"common.jsx.expression.a.live.lane.is.already.active.112f9357"} defaultMessage={"A live lane is already active."} /> : <StableText id={"seller.jsx.expression.low.friction.consult.with.the.current.listing.0b5c5c04"} defaultMessage={"Low-friction consult with the current listing context."} />)
+                            : <StableText id={"seller.jsx.expression.available.when.you.open.a.marketplace.listing.a5af193c"} defaultMessage={"Available when you open a marketplace listing."} />}
                     </p>
                 </button>
 
@@ -232,30 +233,30 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                 >
                     <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em]">
                         <Video className="h-4 w-4" />
-                        Live Video
+                        <StableText id={"common.jsx.text.live.video.24b6b896"} defaultMessage={"Live Video"} />
                     </div>
                     <p className="mt-2 text-sm font-semibold">
-                        Escalate into full live inspection without dropping the assistant continuity.
+                        <StableText id={"common.jsx.text.escalate.into.full.live.inspection.without.dropping.68c857d1"} defaultMessage={"Escalate into full live inspection without dropping the assistant continuity."} />
                     </p>
                     <p className={cn('mt-1 text-xs', mutedTextClass)}>
                         {routeContext?.canLaunchInspection
-                            ? (activeCallSummary?.active ? 'A live lane is already active.' : 'Best for high-trust walkthroughs and close-up verification.')
-                            : 'Open a marketplace listing to unlock live video.'}
+                            ? (activeCallSummary?.active ? <StableText id={"common.jsx.expression.a.live.lane.is.already.active.112f9357"} defaultMessage={"A live lane is already active."} /> : <StableText id={"common.jsx.expression.best.for.high.trust.walkthroughs.and.close.82b7e8a5"} defaultMessage={"Best for high-trust walkthroughs and close-up verification."} />)
+                            : <StableText id={"seller.jsx.expression.open.a.marketplace.listing.to.unlock.live.6b39cce7"} defaultMessage={"Open a marketplace listing to unlock live video."} />}
                     </p>
                 </button>
             </div>
 
             <div className="mt-4 grid gap-3 lg:grid-cols-[1.05fr_0.95fr]">
                 <div className={cn('rounded-[1.2rem] border p-3', surfaceClassName)}>
-                    <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">Continuity</div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300"><StableText id={"common.jsx.text.continuity.17ba6f4e"} defaultMessage={"Continuity"} /></div>
                     <p className={cn('mt-2 text-sm', mutedTextClass)}>
-                        Latest brief: <span className={cn('font-semibold', isWhiteMode ? 'text-slate-900' : 'text-white')}>
+                        <StableText id={"common.jsx.text.latest.brief.62cb2c64"} defaultMessage={"Latest brief:"} /> <span className={cn('font-semibold', isWhiteMode ? 'text-slate-900' : 'text-white')}>
                             {continuityContext?.lastQuery || 'No explicit shopper brief yet.'}
                         </span>
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
                         <span className={cn('rounded-full border px-2.5 py-1', surfaceClassName)}>
-                            Mode {continuityContext?.chatMode || 'explore'}
+                            <StableText id={"common.jsx.text.mode.f5737ed1"} defaultMessage={"Mode"} /> {continuityContext?.chatMode || 'explore'}
                         </span>
                         <span className={cn('rounded-full border px-2.5 py-1', surfaceClassName)}>
                             Cart {continuityContext?.cartCount || 0}
@@ -275,7 +276,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                 </div>
 
                 <div className={cn('rounded-[1.2rem] border p-3', surfaceClassName)}>
-                    <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">Recent Signals</div>
+                    <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300"><StableText id={"common.jsx.text.recent.signals.8acbff42"} defaultMessage={"Recent Signals"} /></div>
                     <div className="mt-3 space-y-2">
                         {deferredEvents.length > 0 ? deferredEvents.map((event) => (
                             <div key={event.id} className={cn('rounded-2xl border px-3 py-2.5', buildStatusTone(event.tone, isWhiteMode))}>
@@ -284,7 +285,7 @@ const MultimodalDock = ({ isWhiteMode = false, variant = 'full' }) => {
                             </div>
                         )) : (
                             <div className={cn('rounded-2xl border px-3 py-3 text-xs', surfaceClassName, mutedTextClass)}>
-                                The assistant will start threading chat, voice, and live-call events here as you use them.
+                                <StableText id={"common.jsx.text.the.assistant.will.start.threading.chat.voice.08684715"} defaultMessage={"The assistant will start threading chat, voice, and live-call events here as you use them."} />
                             </div>
                         )}
                     </div>

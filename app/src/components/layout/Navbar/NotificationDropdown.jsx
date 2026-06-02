@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useIntl } from 'react-intl';
 import { Bell, Check, ExternalLink } from 'lucide-react';
 import { useNotifications } from '../../../context/NotificationContext';
 import { cn } from '@/lib/utils';
@@ -6,7 +7,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDismissableLayer } from '@/hooks/useDismissableLayer';
 import { resolveNotificationActionTarget } from '@/utils/navigation';
 
+import { StableText } from '@/i18n/StableText';
 const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onOpenChange }) => {
+    const intl = useIntl();
     const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading, fetchNotifications } = useNotifications();
     const [internalIsOpen, setInternalIsOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -86,7 +89,7 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                     'relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.045] text-slate-200 transition-all hover:border-white/18 hover:bg-white/[0.08] hover:text-white',
                     isOpen && 'border-cyan-300/35 bg-cyan-400/12 text-white shadow-[0_0_18px_rgba(34,211,238,0.18)]'
                 )}
-                aria-label="Open notifications"
+                aria-label={intl.formatMessage({ id: 'notifications.open.ariaLabel', defaultMessage: 'Open notifications' })}
                 aria-expanded={isOpen}
             >
                 <Bell className="h-[1.125rem] w-[1.125rem]" />
@@ -102,7 +105,7 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                     {isCompact && (
                         <button
                             type="button"
-                            aria-label="Close notifications backdrop"
+                            aria-label={intl.formatMessage({ id: 'notifications.closeBackdrop.ariaLabel', defaultMessage: 'Close notifications backdrop' })}
                             className="fixed inset-0 z-[90] bg-zinc-950/45"
                             onClick={() => setIsOpen(false)}
                         />
@@ -118,7 +121,7 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                     <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-4 py-3">
                         <div>
                             <h3 className="text-sm font-semibold text-white">Notifications</h3>
-                            {isCompact && <p className="mt-0.5 text-[11px] text-slate-400">Priority updates without crowding the route.</p>}
+                            {isCompact && <p className="mt-0.5 text-[11px] text-slate-400"><StableText id={"notification.jsx.text.priority.updates.without.crowding.the.route.121ace61"} defaultMessage={"Priority updates without crowding the route."} /></p>}
                         </div>
                         <div className="flex items-center gap-2">
                             {unreadCount > 0 && (
@@ -130,7 +133,7 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                                     className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-neo-cyan transition-colors hover:bg-cyan-500/10"
                                 >
                                     <Check className="h-3 w-3" />
-                                    Mark all as read
+                                    <StableText id={"notification.jsx.text.mark.all.as.read.da16ba21"} defaultMessage={"Mark all as read"} />
                                 </button>
                             )}
                             {isCompact && (
@@ -154,8 +157,8 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                         ) : notifications.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 text-center">
                                 <Bell className="mb-2 h-8 w-8 text-slate-600" />
-                                <p className="text-sm font-medium text-slate-300">No new notifications</p>
-                                <p className="mt-1 text-xs text-slate-500">We'll let you know when something happens.</p>
+                                <p className="text-sm font-medium text-slate-300"><StableText id={"notification.jsx.text.no.new.notifications.9d6e5bf5"} defaultMessage={"No new notifications"} /></p>
+                                <p className="mt-1 text-xs text-slate-500"><StableText id={"notification.jsx.text.we.ll.let.you.know.when.something.a3ca62c5"} defaultMessage={"We'll let you know when something happens."} /></p>
                             </div>
                         ) : (
                             <div className="flex flex-col divide-y divide-white/5">
@@ -220,7 +223,7 @@ const NotificationDropdown = ({ isCompact = false, isOpen: controlledIsOpen, onO
                                 onClick={() => setIsOpen(false)}
                                 className="inline-block px-4 py-1 flex items-center justify-center text-xs font-semibold text-slate-400 hover:text-white transition-colors"
                             >
-                                View all in Profile
+                                <StableText id={"profile.jsx.text.view.all.in.profile.02e00beb"} defaultMessage={"View all in Profile"} />
                             </Link>
                         </div>
                     )}

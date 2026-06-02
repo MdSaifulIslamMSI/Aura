@@ -1,6 +1,7 @@
 import { CheckCircle2, PauseCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { StableText } from '@/i18n/StableText';
 const ConfirmationCard = ({
     confirmation,
     isWhiteMode = false,
@@ -23,7 +24,7 @@ const ConfirmationCard = ({
 
     return (
         <div className={cn('rounded-[1.35rem] border p-4 shadow-sm', cardClassName)}>
-            <p className="text-sm font-bold">Confirmation required</p>
+            <p className="text-sm font-bold"><StableText id={"common.jsx.text.confirmation.required.ec683de4"} defaultMessage={"Confirmation required"} /></p>
             <p className={cn('mt-2 text-xs leading-5', mutedTextClass)}>
                 {confirmation.message || 'Please confirm before I continue.'}
             </p>
@@ -35,7 +36,7 @@ const ConfirmationCard = ({
                     className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', confirmClassName)}
                 >
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    Confirm
+                    <StableText id={"common.jsx.text.confirm.ba313287"} defaultMessage={"Confirm"} />
                 </button>
                 <button
                     type="button"
@@ -51,7 +52,7 @@ const ConfirmationCard = ({
                     className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', cancelClassName)}
                 >
                     <PauseCircle className="h-3.5 w-3.5" />
-                    Modify
+                    <StableText id={"common.jsx.text.modify.b63f7e1f"} defaultMessage={"Modify"} />
                 </button>
             </div>
         </div>

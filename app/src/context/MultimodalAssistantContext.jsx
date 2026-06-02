@@ -10,6 +10,7 @@ import {
     useState,
 } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useIntl } from 'react-intl';
 import VoiceSearch from '@/components/shared/VoiceSearch';
 import { useChatStore } from '@/store/chatStore';
 import { useVideoCall } from './VideoCallContext';
@@ -88,6 +89,7 @@ const createTimelineEvent = (payload = {}) => ({
 export const useMultimodalAssistant = () => useContext(MultimodalAssistantContext);
 
 export const MultimodalAssistantProvider = ({ children }) => {
+    const intl = useIntl();
     const location = useLocation();
     const { startCall, callStatus, activeCallContext, callerInfo, callMeta } = useVideoCall();
 
@@ -259,10 +261,13 @@ export const MultimodalAssistantProvider = ({ children }) => {
         recordSessionEvent({
             channel: 'voice',
             tone: 'accent',
-            title: 'Voice copilot armed',
-            detail: initialCommand || `Opened from ${origin.replace(/_/g, ' ')}.`,
+            title: intl.formatMessage({ id: 'multimodal.voice.armed.title', defaultMessage: 'Voice copilot armed' }),
+            detail: initialCommand || intl.formatMessage(
+                { id: 'multimodal.voice.armed.detail', defaultMessage: 'Opened from {origin}.' },
+                { origin: origin.replace(/_/g, ' ') }
+            ),
         });
-    }, [recordSessionEvent]);
+    }, [intl, recordSessionEvent]);
 
     const openChatAssistant = useCallback(() => {
         closeVoiceAssistant();
@@ -270,18 +275,18 @@ export const MultimodalAssistantProvider = ({ children }) => {
         recordSessionEvent({
             channel: 'chat',
             tone: 'accent',
-            title: 'Chat resumed',
-            detail: 'The multimodal brief is now back inside the assistant panel.',
+            title: intl.formatMessage({ id: 'multimodal.chatResumed.title', defaultMessage: 'Chat resumed' }),
+            detail: intl.formatMessage({ id: 'multimodal.chatResumed.detail', defaultMessage: 'The multimodal brief is now back inside the assistant panel.' }),
         });
-    }, [closeVoiceAssistant, openChat, recordSessionEvent]);
+    }, [closeVoiceAssistant, intl, openChat, recordSessionEvent]);
 
     const startContextualCall = useCallback(async ({ mediaMode = 'video', source = 'multimodal_dock' } = {}) => {
         if (!routeContext.canLaunchInspection || !routeContext.listingId) {
             recordSessionEvent({
                 channel: 'call-routing',
                 tone: 'warning',
-                title: 'Live inspection needs a listing',
-                detail: 'Open a marketplace listing to launch a voice or video inspection lane.',
+                title: intl.formatMessage({ id: 'multimodal.liveInspectionNeedsListing.title', defaultMessage: 'Live inspection needs a listing' }),
+                detail: intl.formatMessage({ id: 'multimodal.liveInspectionNeedsListing.detail', defaultMessage: 'Open a marketplace listing to launch a voice or video inspection lane.' }),
             });
             return false;
         }
@@ -302,15 +307,18 @@ export const MultimodalAssistantProvider = ({ children }) => {
             channel: mediaMode === 'voice' ? 'call-voice' : 'call-video',
             tone: success ? 'success' : 'warning',
             title: success
-                ? `Live ${mediaMode} lane launched`
-                : `Live ${mediaMode} lane failed`,
+                ? intl.formatMessage({ id: 'multimodal.liveLane.launched', defaultMessage: 'Live {mediaMode} lane launched' }, { mediaMode })
+                : intl.formatMessage({ id: 'multimodal.liveLane.failed', defaultMessage: 'Live {mediaMode} lane failed' }, { mediaMode }),
             detail: success
-                ? `Opened from ${source.replace(/_/g, ' ')} on ${routeContext.routeLabel.toLowerCase()}.`
-                : 'The listing lane did not finish connecting. Try again in a moment.',
+                ? intl.formatMessage(
+                    { id: 'multimodal.liveLane.openedDetail', defaultMessage: 'Opened from {source} on {routeLabel}.' },
+                    { source: source.replace(/_/g, ' '), routeLabel: routeContext.routeLabel.toLowerCase() }
+                )
+                : intl.formatMessage({ id: 'multimodal.liveLane.failedDetail', defaultMessage: 'The listing lane did not finish connecting. Try again in a moment.' }),
         });
 
         return success;
-    }, [closeVoiceAssistant, recordSessionEvent, routeContext.canLaunchInspection, routeContext.listingId, routeContext.routeLabel, startCall]);
+    }, [closeVoiceAssistant, intl, recordSessionEvent, routeContext.canLaunchInspection, routeContext.listingId, routeContext.routeLabel, startCall]);
 
     const handleVoiceTelemetry = useCallback((event = {}) => {
         const type = String(event.type || '').trim();
@@ -320,8 +328,11 @@ export const MultimodalAssistantProvider = ({ children }) => {
             recordSessionEvent({
                 channel: 'voice',
                 tone: 'success',
-                title: 'Voice engine ready',
-                detail: `${event.provider || 'Browser'} speech stack is warmed up for ${event.locale || 'your locale'}.`,
+                title: intl.formatMessage({ id: 'multimodal.voiceEngineReady.title', defaultMessage: 'Voice engine ready' }),
+                detail: intl.formatMessage(
+                    { id: 'multimodal.voiceEngineReady.detail', defaultMessage: '{provider} speech stack is warmed up for {locale}.' },
+                    { provider: event.provider || 'Browser', locale: event.locale || 'your locale' }
+                ),
             });
             return;
         }
@@ -330,8 +341,8 @@ export const MultimodalAssistantProvider = ({ children }) => {
             recordSessionEvent({
                 channel: 'voice',
                 tone: 'accent',
-                title: 'Voice brief captured',
-                detail: String(event.transcript || '').trim() || 'A live voice prompt was captured.',
+                title: intl.formatMessage({ id: 'multimodal.voiceBriefCaptured.title', defaultMessage: 'Voice brief captured' }),
+                detail: String(event.transcript || '').trim() || intl.formatMessage({ id: 'multimodal.voiceBriefCaptured.detail', defaultMessage: 'A live voice prompt was captured.' }),
             });
             return;
         }
@@ -340,8 +351,8 @@ export const MultimodalAssistantProvider = ({ children }) => {
             recordSessionEvent({
                 channel: 'voice',
                 tone: 'success',
-                title: 'Voice command resolved',
-                detail: String(event.answer || event.transcript || '').trim() || 'The voice assistant completed a command.',
+                title: intl.formatMessage({ id: 'multimodal.voiceCommandResolved.title', defaultMessage: 'Voice command resolved' }),
+                detail: String(event.answer || event.transcript || '').trim() || intl.formatMessage({ id: 'multimodal.voiceCommandResolved.detail', defaultMessage: 'The voice assistant completed a command.' }),
             });
             return;
         }
@@ -350,11 +361,11 @@ export const MultimodalAssistantProvider = ({ children }) => {
             recordSessionEvent({
                 channel: 'voice',
                 tone: 'warning',
-                title: 'Voice fallback engaged',
-                detail: String(event.transcript || '').trim() || 'The assistant fell back to local voice handling.',
+                title: intl.formatMessage({ id: 'multimodal.voiceFallbackEngaged.title', defaultMessage: 'Voice fallback engaged' }),
+                detail: String(event.transcript || '').trim() || intl.formatMessage({ id: 'multimodal.voiceFallbackEngaged.detail', defaultMessage: 'The assistant fell back to local voice handling.' }),
             });
         }
-    }, [recordSessionEvent]);
+    }, [intl, recordSessionEvent]);
 
     const continuityContext = useMemo(() => ({
         routeLabel: routeContext.routeLabel,

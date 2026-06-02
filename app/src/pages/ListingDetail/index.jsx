@@ -35,6 +35,7 @@ import { loadRazorpayScript } from '@/utils/razorpay';
 import OtpChallengeModal from '@/pages/Checkout/components/OtpChallengeModal';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+import { StableText } from '@/i18n/StableText';
 function timeAgo(dateStr, t) {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -974,7 +975,7 @@ export default function ListingDetail() {
                                             onClick={handleEscrowCancel}
                                             className="w-full rounded-xl border border-rose-300/40 bg-rose-500/15 py-2.5 text-sm font-bold text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-60"
                                         >
-                                            Cancel Escrow
+                                            <StableText id={"seller.jsx.text.cancel.escrow.669f6f37"} defaultMessage={"Cancel Escrow"} />
                                         </button>
                                     </div>
                                 )}
@@ -984,17 +985,17 @@ export default function ListingDetail() {
                                         onClick={handleEscrowCancel}
                                         className="w-full rounded-xl border border-amber-300/45 bg-amber-500/15 py-2.5 text-sm font-bold text-amber-100 transition hover:bg-amber-500/25 disabled:opacity-60"
                                     >
-                                        Cancel Escrow Hold
+                                        <StableText id={"seller.jsx.text.cancel.escrow.hold.025e4821"} defaultMessage={"Cancel Escrow Hold"} />
                                     </button>
                                 )}
                                 {escrowState === 'released' && (
                                     <div className="rounded-xl border border-emerald-300/35 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-100">
-                                        Escrow completed. Funds were released after buyer confirmation.
+                                        <StableText id={"seller.jsx.text.escrow.completed.funds.were.released.after.buyer.a7c176fd"} defaultMessage={"Escrow completed. Funds were released after buyer confirmation."} />
                                     </div>
                                 )}
                                 {escrowState === 'cancelled' && (
                                     <div className="rounded-xl border border-amber-300/35 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100">
-                                        Escrow hold was cancelled. Listing is active again.
+                                        <StableText id={"seller.jsx.text.escrow.hold.was.cancelled.listing.is.active.07785741"} defaultMessage={"Escrow hold was cancelled. Listing is active again."} />
                                     </div>
                                 )}
                                 {escrowError && (

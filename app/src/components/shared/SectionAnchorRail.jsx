@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigation } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { cn } from '@/lib/utils';
 
 const SECTION_SELECTOR = '[data-scroll-anchor]';
@@ -40,6 +41,7 @@ const scrollToTarget = (targetId) => {
 };
 
 const SectionAnchorRail = () => {
+  const intl = useIntl();
   const location = useLocation();
   const [sections, setSections] = useState([]);
   const [activeId, setActiveId] = useState('');
@@ -98,11 +100,16 @@ const SectionAnchorRail = () => {
   if (visibleSections.length < 2) return null;
 
   return (
-    <aside className="aura-anchor-rail" aria-label="Section navigation">
+    <aside
+      className="aura-anchor-rail"
+      aria-label={intl.formatMessage({ id: 'sectionAnchorRail.navigation.ariaLabel', defaultMessage: 'Section navigation' })}
+    >
       <div className="aura-anchor-rail-shell">
         <div className="aura-anchor-rail-title">
           <Navigation className="w-3.5 h-3.5" />
-          <span className="aura-anchor-rail-title__text">Jump</span>
+          <span className="aura-anchor-rail-title__text">
+            <FormattedMessage id="sectionAnchorRail.jump" defaultMessage="Jump" />
+          </span>
         </div>
         <div className="aura-anchor-list">
           {visibleSections.map((section) => {

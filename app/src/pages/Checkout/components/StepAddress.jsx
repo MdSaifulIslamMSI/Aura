@@ -111,7 +111,7 @@ const StepAddress = ({
                                 value={contact.phone}
                                 onChange={(event) => onContactChange('phone', event.target.value)}
                                 className="checkout-premium-input"
-                                placeholder={`${phoneCode} 98XXXXXXXX`}
+                                placeholder={t('checkout.phonePlaceholder', { phoneCode }, '{{phoneCode}} 98XXXXXXXX')}
                             />
                         </label>
                         <label className="space-y-2 md:col-span-2">

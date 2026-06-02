@@ -9,20 +9,24 @@ import ProductCardInline from './ProductCardInline';
 import SupportHandoffCard from './SupportHandoffCard';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+import { StableText } from '@/i18n/StableText';
 const PRODUCT_SURFACES = new Set(['product_results', 'product_focus']);
 const STATUS_BADGES = {
     thinking: {
-        label: 'Analyzing',
+        labelId: 'assistant.message.status.analyzing',
+        labelDefault: 'Analyzing',
         darkClassName: 'border-cyan-400/20 bg-cyan-500/10 text-cyan-100',
         lightClassName: 'border-cyan-200 bg-cyan-50 text-cyan-800',
     },
     provisional: {
-        label: 'Fast',
+        labelId: 'assistant.message.status.fast',
+        labelDefault: 'Fast',
         darkClassName: 'border-amber-400/20 bg-amber-500/10 text-amber-100',
         lightClassName: 'border-amber-200 bg-amber-50 text-amber-900',
     },
     upgraded: {
-        label: 'Refined',
+        labelId: 'assistant.message.status.refined',
+        labelDefault: 'Refined',
         darkClassName: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100',
         lightClassName: 'border-emerald-200 bg-emerald-50 text-emerald-800',
     },
@@ -32,13 +36,6 @@ const STATUS_BADGES = {
         lightClassName: 'border-rose-200 bg-rose-50 text-rose-800',
     },
 };
-const VERIFICATION_LABELS = {
-    app_grounded: 'App-grounded',
-    runtime_grounded: 'Runtime-grounded',
-    model_knowledge: 'Model knowledge',
-    cannot_verify: 'Cannot verify',
-};
-
 const buildCapabilityEntries = (capabilities = null) => {
     if (!capabilities || typeof capabilities !== 'object') {
         return [];
@@ -47,17 +44,20 @@ const buildCapabilityEntries = (capabilities = null) => {
     return [
         {
             key: 'text',
-            label: 'Text',
+            labelId: 'assistant.capability.text',
+            labelDefault: 'Text',
             enabled: capabilities.textInput !== false,
         },
         {
             key: 'image',
-            label: 'Image',
+            labelId: 'assistant.capability.image',
+            labelDefault: 'Image',
             enabled: Boolean(capabilities.imageInput),
         },
         {
             key: 'audio',
-            label: 'Audio',
+            labelId: 'assistant.capability.audio',
+            labelDefault: 'Audio',
             enabled: Boolean(capabilities.audioInput),
         },
     ];
@@ -174,7 +174,18 @@ const getVerificationClassName = (label = '', isWhiteMode = false) => {
     }
 };
 
-const renderGroundingMeta = (message, isWhiteMode) => {
+const formatVerificationLabel = (label = '', t) => {
+    const defaults = {
+        app_grounded: ['assistant.verification.appGrounded', 'App-grounded'],
+        runtime_grounded: ['assistant.verification.runtimeGrounded', 'Runtime-grounded'],
+        model_knowledge: ['assistant.verification.modelKnowledge', 'Model knowledge'],
+        cannot_verify: ['assistant.verification.cannotVerify', 'Cannot verify'],
+    };
+    const [id, fallback] = defaults[label] || ['assistant.verification.verified', 'Verified'];
+    return t(id, {}, fallback);
+};
+
+const renderGroundingMeta = (message, isWhiteMode, t) => {
     const verification = message?.assistantTurn?.verification || null;
     const citations = Array.isArray(message?.assistantTurn?.citations) ? message.assistantTurn.citations.slice(0, 4) : [];
     const toolRuns = Array.isArray(message?.assistantTurn?.toolRuns) ? message.assistantTurn.toolRuns.slice(0, 6) : [];
@@ -204,7 +215,7 @@ const renderGroundingMeta = (message, isWhiteMode) => {
             {verification ? (
                 <div className="flex flex-wrap items-center gap-2">
                     <span className={cn('rounded-full border px-2.5 py-1 font-semibold', getVerificationClassName(verification.label, isWhiteMode))}>
-                        {VERIFICATION_LABELS[verification.label] || 'Verified'}
+                        {formatVerificationLabel(verification.label, t)}
                     </span>
                     {verification.summary ? (
                         <p className={cn('text-[11px]', subtleTextClass)}>{verification.summary}</p>
@@ -216,17 +227,17 @@ const renderGroundingMeta = (message, isWhiteMode) => {
                 <div className="mt-3 flex flex-wrap gap-2">
                     {route ? (
                         <span className={cn('rounded-full border px-2.5 py-1', chipClassName)}>
-                            Route: {route.replace(/_/g, ' ')}
+                            <StableText id={"common.jsx.text.route.7a78451f"} defaultMessage={"Route:"} /> {route.replace(/_/g, ' ')}
                         </span>
                     ) : null}
                     {retrievalHitCount > 0 ? (
                         <span className={cn('rounded-full border px-2.5 py-1', chipClassName)}>
-                            Hits: {retrievalHitCount}
+                            <StableText id={"common.jsx.text.hits.e3d06d10"} defaultMessage={"Hits:"} /> {retrievalHitCount}
                         </span>
                     ) : null}
                     {providerName ? (
                         <span className={cn('rounded-full border px-2.5 py-1', chipClassName)}>
-                            {providerModel ? `${providerName} \u00b7 ${providerModel}` : providerName}
+                            {providerModel ? t('assistant.grounding.providerModel', { providerName, providerModel }, '{{providerName}} · {{providerModel}}') : providerName}
                         </span>
                     ) : null}
                 </div>
@@ -234,7 +245,7 @@ const renderGroundingMeta = (message, isWhiteMode) => {
 
             {capabilityEntries.length > 0 ? (
                 <div className="mt-3">
-                    <p className={cn('mb-2 text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}>Input surface</p>
+                    <p className={cn('mb-2 text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}><StableText id={"common.jsx.text.input.surface.0baff8c8"} defaultMessage={"Input surface"} /></p>
                     <div className="flex flex-wrap gap-2">
                         {capabilityEntries.map((entry) => (
                             <span
@@ -248,7 +259,9 @@ const renderGroundingMeta = (message, isWhiteMode) => {
                                             : 'border-amber-300/20 bg-amber-500/10 text-amber-100')
                                 )}
                             >
-                                {entry.enabled ? `${entry.label} ready` : `${entry.label} gated`}
+                                {entry.enabled
+                                    ? t('assistant.capability.ready', { label: t(entry.labelId, {}, entry.labelDefault) }, '{{label}} ready')
+                                    : t('assistant.capability.gated', { label: t(entry.labelId, {}, entry.labelDefault) }, '{{label}} gated')}
                             </span>
                         ))}
                     </div>
@@ -257,7 +270,7 @@ const renderGroundingMeta = (message, isWhiteMode) => {
 
             {citations.length > 0 ? (
                 <div className="mt-3">
-                    <p className={cn('mb-2 text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}>Sources</p>
+                    <p className={cn('mb-2 text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}><StableText id={"common.jsx.text.sources.8575bd92"} defaultMessage={"Sources"} /></p>
                     <div className="flex flex-wrap gap-2">
                         {citations.map((citation) => (
                             <span key={citation.id || `${citation.path}-${citation.startLine}`} className={cn('rounded-full border px-2.5 py-1', chipClassName)}>
@@ -270,7 +283,7 @@ const renderGroundingMeta = (message, isWhiteMode) => {
 
             {toolRuns.length > 0 ? (
                 <div className="mt-3">
-                    <p className={cn('mb-2 text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}>Tool timeline</p>
+                    <p className={cn('mb-2 text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}><StableText id={"common.jsx.text.tool.timeline.375e9234"} defaultMessage={"Tool timeline"} /></p>
                     <div className="space-y-2">
                         {toolRuns.map((toolRun) => (
                             <div key={toolRun.id || toolRun.toolName} className="flex items-start justify-between gap-3">
@@ -281,7 +294,7 @@ const renderGroundingMeta = (message, isWhiteMode) => {
                                     ) : null}
                                 </div>
                                 <span className={cn('whitespace-nowrap text-[11px]', subtleTextClass)}>
-                                    {toolRun.latencyMs ? `${toolRun.latencyMs} ms` : toolRun.status || 'done'}
+                                    {toolRun.latencyMs ? `${toolRun.latencyMs} ms` : toolRun.status || t('assistant.tool.status.done', {}, 'done')}
                                 </span>
                             </div>
                         ))}
@@ -292,16 +305,16 @@ const renderGroundingMeta = (message, isWhiteMode) => {
             {(grounding?.traceId || grounding?.bundleVersion || providerInfo?.model) ? (
                 <details className="mt-3">
                     <summary className={cn('cursor-pointer text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}>
-                        Trace details
+                        <StableText id={"common.jsx.text.trace.details.af1f8b27"} defaultMessage={"Trace details"} />
                     </summary>
                     <div className={cn('mt-2 space-y-1 text-[11px]', subtleTextClass)}>
-                        {grounding?.status ? <p>Status: {grounding.status}</p> : null}
-                        {guardReason ? <p>Guard: {guardReason.replace(/_/g, ' ')}</p> : null}
-                        {grounding?.staleBundle ? <p>Bundle state: stale</p> : null}
-                        {grounding?.missingEvidence ? <p>Evidence state: missing</p> : null}
-                        {grounding?.bundleVersion ? <p>Index version: {grounding.bundleVersion}</p> : null}
-                        {grounding?.traceId ? <p>Trace id: {grounding.traceId}</p> : null}
-                        {providerInfo?.model ? <p>Model: {providerInfo.model}</p> : null}
+                        {grounding?.status ? <p><StableText id={"common.jsx.text.status.ff570aa3"} defaultMessage={"Status:"} /> {grounding.status}</p> : null}
+                        {guardReason ? <p><StableText id={"common.jsx.text.guard.9c93eb32"} defaultMessage={"Guard:"} /> {guardReason.replace(/_/g, ' ')}</p> : null}
+                        {grounding?.staleBundle ? <p><StableText id={"common.jsx.text.bundle.state.stale.89ba8d68"} defaultMessage={"Bundle state: stale"} /></p> : null}
+                        {grounding?.missingEvidence ? <p><StableText id={"common.jsx.text.evidence.state.missing.9db870cd"} defaultMessage={"Evidence state: missing"} /></p> : null}
+                        {grounding?.bundleVersion ? <p><StableText id={"common.jsx.text.index.version.286a2b27"} defaultMessage={"Index version:"} /> {grounding.bundleVersion}</p> : null}
+                        {grounding?.traceId ? <p><StableText id={"common.jsx.text.trace.id.000d6b80"} defaultMessage={"Trace id:"} /> {grounding.traceId}</p> : null}
+                        {providerInfo?.model ? <p><StableText id={"common.jsx.text.model.23184662"} defaultMessage={"Model:"} /> {providerInfo.model}</p> : null}
                     </div>
                 </details>
             ) : null}
@@ -309,7 +322,7 @@ const renderGroundingMeta = (message, isWhiteMode) => {
     );
 };
 
-const renderUserMediaAttachments = (message = {}, isWhiteMode = false) => {
+const renderUserMediaAttachments = (message = {}, isWhiteMode = false, t) => {
     const images = Array.isArray(message?.images) ? message.images.filter((entry) => String(entry?.dataUrl || entry?.url || '').trim()) : [];
     const audio = Array.isArray(message?.audio) ? message.audio.filter((entry) => String(entry?.fileName || entry?.mimeType || '').trim()) : [];
 
@@ -330,11 +343,11 @@ const renderUserMediaAttachments = (message = {}, isWhiteMode = false) => {
                         <div key={image.id || image.fileName || index} className={cn('overflow-hidden rounded-[1.15rem] border', surfaceClassName)}>
                             <div className="flex items-center gap-2 border-b border-black/5 px-3 py-2 text-[11px] font-semibold">
                                 <ImageIcon className="h-3.5 w-3.5" />
-                                <span className="truncate">{image.fileName || `Image ${index + 1}`}</span>
+                                <span className="truncate">{image.fileName || t('assistant.attachment.imageNumber', { value: index + 1 }, 'Image {{value}}')}</span>
                             </div>
                             <img
                                 src={image.dataUrl || image.url}
-                                alt={image.fileName || `Attachment ${index + 1}`}
+                                alt={image.fileName || t('assistant.attachment.number', { value: index + 1 }, 'Attachment {{value}}')}
                                 className="h-28 w-full object-cover"
                             />
                         </div>
@@ -353,8 +366,8 @@ const renderUserMediaAttachments = (message = {}, isWhiteMode = false) => {
                                 <AudioLines className="h-4 w-4" />
                             </span>
                             <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold">{entry.fileName || 'Audio note'}</p>
-                                <p className={cn('text-[11px]', subtleTextClass)}>{entry.mimeType || 'audio upload'}</p>
+                                <p className="truncate text-sm font-semibold">{entry.fileName || t('assistant.attachment.audioNote', {}, 'Audio note')}</p>
+                                <p className={cn('text-[11px]', subtleTextClass)}>{entry.mimeType || t('assistant.attachment.audioUpload', {}, 'audio upload')}</p>
                             </div>
                         </div>
                     ))}
@@ -401,7 +414,7 @@ const MessageItem = ({
         ? ''
         : message?.text;
     const messageBadge = getMessageBadge(message);
-    const userMedia = renderUserMediaAttachments(message, isWhiteMode);
+    const userMedia = renderUserMediaAttachments(message, isWhiteMode, t);
 
     return (
         <div className={cn('flex w-full flex-col gap-3.5', isUser ? 'items-end' : 'items-start')}>
@@ -430,7 +443,7 @@ const MessageItem = ({
                                         'inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]',
                                         isWhiteMode ? messageBadge.lightClassName : messageBadge.darkClassName,
                                     )}>
-                                        {messageBadge.label}
+                                        {t(messageBadge.labelId, {}, messageBadge.labelDefault)}
                                     </span>
                                 ) : null}
 
@@ -439,7 +452,7 @@ const MessageItem = ({
                                 ) : (
                                     <div className="flex items-center gap-2 text-sm text-slate-400">
                                         <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
-                                        <span>Working through live evidence...</span>
+                                        <span><StableText id={"common.jsx.text.working.through.live.evidence.856c66cc"} defaultMessage={"Working through live evidence..."} /></span>
                                     </div>
                                 )}
                             </div>
@@ -460,7 +473,7 @@ const MessageItem = ({
             ) : null}
             {!isUser ? (
                 <div className={cn(laneClass, 'max-w-[88%] sm:max-w-[78%]')}>
-                    {renderGroundingMeta(message, isWhiteMode)}
+                    {renderGroundingMeta(message, isWhiteMode, t)}
                 </div>
             ) : null}
 

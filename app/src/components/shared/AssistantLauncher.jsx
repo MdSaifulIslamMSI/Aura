@@ -1,4 +1,5 @@
 import { Brain, CornerDownLeft } from 'lucide-react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { pushClientDiagnostic } from '@/services/clientObservability';
@@ -10,6 +11,7 @@ import {
 } from '@/services/assistantUiConfig';
 
 const AssistantLauncher = () => {
+    const intl = useIntl();
     const location = useLocation();
     const navigate = useNavigate();
     const { isFeatureDisabled } = useEmergencyStatus();
@@ -33,7 +35,7 @@ const AssistantLauncher = () => {
         >
             <button
                 type="button"
-                aria-label="Open the focused commerce copilot"
+                aria-label={intl.formatMessage({ id: 'assistantLauncher.openCopilot.ariaLabel', defaultMessage: 'Open the focused commerce copilot' })}
                 onClick={() => {
                     pushClientDiagnostic('assistant_workspace.launcher_opened', {
                         context: {
@@ -48,8 +50,12 @@ const AssistantLauncher = () => {
                     <Brain className="h-5 w-5" />
                 </div>
                 <div className="aura-floating-utility__copy hidden sm:block">
-                    <p className="aura-floating-utility__eyebrow text-[10px] font-black uppercase tracking-[0.18em]">Assistant Workspace</p>
-                    <p className="aura-floating-utility__title text-sm font-semibold">Open the focused commerce copilot</p>
+                    <p className="aura-floating-utility__eyebrow text-[10px] font-black uppercase tracking-[0.18em]">
+                        <FormattedMessage id="assistantLauncher.eyebrow" defaultMessage="Assistant Workspace" />
+                    </p>
+                    <p className="aura-floating-utility__title text-sm font-semibold">
+                        <FormattedMessage id="assistantLauncher.openCopilot.title" defaultMessage="Open the focused commerce copilot" />
+                    </p>
                 </div>
                 <CornerDownLeft className="aura-floating-utility__hint hidden h-4 w-4 sm:block" />
             </button>

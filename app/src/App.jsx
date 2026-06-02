@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { useIntl } from 'react-intl';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CommerceProvider } from './context/CommerceContext';
 import { ColorModeProvider } from './context/ColorModeContext';
@@ -122,10 +123,10 @@ function AssistantDisabledNotice() {
   return (
     <div className="flex min-h-[70vh] items-center justify-center bg-slate-950 px-6 text-slate-100">
       <div className="max-w-lg text-center">
-        <p className="text-xs font-black uppercase tracking-widest text-amber-300">Assistant unavailable</p>
-        <h1 className="mt-3 text-3xl font-black">Support is still reachable.</h1>
+        <p className="text-xs font-black uppercase tracking-widest text-amber-300"><StableText id={"common.jsx.text.assistant.unavailable.965f19f5"} defaultMessage={"Assistant unavailable"} /></p>
+        <h1 className="mt-3 text-3xl font-black"><StableText id={"support.jsx.text.support.is.still.reachable.3120c970"} defaultMessage={"Support is still reachable."} /></h1>
         <p className="mt-3 text-sm leading-6 text-slate-300">
-          The AI assistant is temporarily paused while the team reviews the service. Please use the contact page for help.
+          <StableText id={"common.jsx.text.the.ai.assistant.is.temporarily.paused.while.6d35d05b"} defaultMessage={"The AI assistant is temporarily paused while the team reviews the service. Please use the contact page for help."} />
         </p>
       </div>
     </div>
@@ -133,6 +134,7 @@ function AssistantDisabledNotice() {
 }
 
 function AppContent() {
+  const intl = useIntl();
   const location = useLocation();
   const { currentUser, refreshSession, sessionIntelligence } = useAuth();
   const { effectiveMotionMode } = useMotionMode();
@@ -238,7 +240,7 @@ function AppContent() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:rounded-lg focus:bg-neo-cyan focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-zinc-950 focus:shadow-lg"
       >
-        Skip to main content
+        <StableText id={"common.jsx.text.skip.to.main.content.a891514d"} defaultMessage={"Skip to main content"} />
       </a>
       <SmoothScrollManager />
       <ScrollToTop />
@@ -259,7 +261,12 @@ function AppContent() {
           <BackendStatusBanner />
         </AppErrorBoundary>
       ) : null}
-      <main id="main-content" className="relative z-10 flex-1 min-w-0 overflow-x-hidden" role="main" aria-label="Main content">
+      <main
+        id="main-content"
+        className="relative z-10 flex-1 min-w-0 overflow-x-hidden"
+        role="main"
+        aria-label={intl.formatMessage({ id: 'app.mainContent.ariaLabel', defaultMessage: 'Main content' })}
+      >
         {adminAccessLock ? (
           <AdminAccessLockedState
             adminAccessLock={adminAccessLock}
@@ -387,6 +394,7 @@ function AppContent() {
 
 import { VideoCallProvider } from './context/VideoCallContext';
 
+import { StableText } from '@/i18n/StableText';
 function App() {
   return (
     <ColorModeProvider>

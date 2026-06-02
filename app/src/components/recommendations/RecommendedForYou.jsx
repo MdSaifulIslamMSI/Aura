@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { recommendationApi } from '@/services/api';
 import ProductCarousel from './ProductCarousel';
 import RecommendationSection from './RecommendationSection';
@@ -28,15 +29,15 @@ const RecommendedForYou = ({ limit = 8, sourcePage = 'home' }) => {
   return (
     <RecommendationSection
       eyebrow="Hybrid AI"
-      title="Recommended for You"
-      description="Personalized from browsing, cart, wishlist, search, and catalog quality signals."
+      title={<FormattedMessage id="recommendations.recommendedForYou.title" defaultMessage="Recommended for You" />}
+      description={<FormattedMessage id="recommendations.recommendedForYou.description" defaultMessage="Personalized from browsing, cart, wishlist, search, and catalog quality signals." />}
       actionHref="/search"
     >
       <ProductCarousel
         recommendations={recommendations}
         loading={loading}
         sourcePage={sourcePage}
-        emptyMessage="No personalized picks yet. Trending products will appear once the catalog has enough signal."
+        emptyMessage={<FormattedMessage id="recommendations.recommendedForYou.empty" defaultMessage="No personalized picks yet. Trending products will appear once the catalog has enough signal." />}
       />
     </RecommendationSection>
   );

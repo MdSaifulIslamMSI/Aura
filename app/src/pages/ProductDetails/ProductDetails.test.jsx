@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { IntlProvider } from 'react-intl';
 import { MarketProvider } from '@/context/MarketContext';
 import { ColorModeProvider } from '@/context/ColorModeContext';
 import { CartContext } from '@/context/CartContext';
@@ -84,17 +85,19 @@ vi.mock('@/components/features/product/ProductCard', () => ({
 const renderProductDetails = () => render(
     <ColorModeProvider>
         <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-            <AuthContext.Provider value={{ currentUser: null }}>
-                <CartContext.Provider value={{ cartItems: [], addToCart: vi.fn(), updateQuantity: vi.fn() }}>
-                    <WishlistContext.Provider value={{ toggleWishlist: vi.fn(), isInWishlist: vi.fn(() => false) }}>
-                        <MemoryRouter initialEntries={['/product/400046371']}>
-                            <Routes>
-                                <Route path="/product/:id" element={<ProductDetails />} />
-                            </Routes>
-                        </MemoryRouter>
-                    </WishlistContext.Provider>
-                </CartContext.Provider>
-            </AuthContext.Provider>
+            <IntlProvider locale="en" messages={{}}>
+                <AuthContext.Provider value={{ currentUser: null }}>
+                    <CartContext.Provider value={{ cartItems: [], addToCart: vi.fn(), updateQuantity: vi.fn() }}>
+                        <WishlistContext.Provider value={{ toggleWishlist: vi.fn(), isInWishlist: vi.fn(() => false) }}>
+                            <MemoryRouter initialEntries={['/product/400046371']}>
+                                <Routes>
+                                    <Route path="/product/:id" element={<ProductDetails />} />
+                                </Routes>
+                            </MemoryRouter>
+                        </WishlistContext.Provider>
+                    </CartContext.Provider>
+                </AuthContext.Provider>
+            </IntlProvider>
         </MarketProvider>
     </ColorModeProvider>
 );

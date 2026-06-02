@@ -225,7 +225,7 @@ const ProductList = () => {
                                 </tr>
                             ) : products.map((product) => {
                                 const productRef = resolveProductRef(product);
-                                const key = `${product._id || product.id || product.externalId}`;
+                                const key = String(product._id || product.id || product.externalId || '');
                                 return (
                                     <tr key={key}>
                                         <td>
@@ -233,7 +233,9 @@ const ProductList = () => {
                                                 <img src={product.image} alt="" className="h-12 w-12 rounded-xl border border-white/10 object-cover" />
                                                 <div>
                                                     <p className="admin-premium-text-strong font-semibold leading-5">{product.title}</p>
-                                                    <p className="admin-premium-text text-xs">{product.brand} | {product.category}</p>
+                                                    <p className="admin-premium-text text-xs">
+                                                        {t('admin.products.meta.brandCategory', { brand: product.brand, category: product.category }, '{{brand}} | {{category}}')}
+                                                    </p>
                                                     <p className="admin-premium-text-muted mt-1 text-[11px]">
                                                         {t('admin.products.meta.idRow', { id: product.id || '-', externalId: product.externalId || '-' }, `ID: ${product.id || '-'} | ${product.externalId || '-'}`)}
                                                     </p>

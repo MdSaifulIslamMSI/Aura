@@ -33,6 +33,7 @@ import { userApi } from '@/services/api/userApi';
 import NotificationDropdown from './NotificationDropdown';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+import { StableText } from '@/i18n/StableText';
 const NavbarSearchFallback = ({
   mobile = false,
   className,
@@ -70,11 +71,12 @@ const NavbarNotificationsFallback = ({
   </button>
 );
 
-const buildFrontendNavigationTargets = (currentOrigin = '') => resolveFrontendNavigationTargets({
+const buildFrontendNavigationTargets = (currentOrigin = '', formatMessage = null) => resolveFrontendNavigationTargets({
   gatewayUrl: import.meta.env.VITE_GATEWAY_FRONTEND_URL,
   vercelUrl: import.meta.env.VITE_VERCEL_FRONTEND_URL,
   netlifyUrl: import.meta.env.VITE_NETLIFY_FRONTEND_URL,
   currentOrigin,
+  formatMessage,
 });
 
 const RuntimeSwitchPanel = ({ targets = [], onNavigate, className }) => {
@@ -91,7 +93,7 @@ const RuntimeSwitchPanel = ({ targets = [], onNavigate, className }) => {
     >
       <div className="mb-3 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">
         <Globe2 className="h-4 w-4 text-neo-cyan" />
-        Live runtimes
+        <StableText id={"common.jsx.text.live.runtimes.ae649138"} defaultMessage={"Live runtimes"} />
       </div>
       <div className="grid gap-2">
         {targets.map((target) => (
@@ -99,7 +101,7 @@ const RuntimeSwitchPanel = ({ targets = [], onNavigate, className }) => {
             key={target.id}
             href={target.href}
             onClick={onNavigate}
-            aria-label={`Open ${target.label}`}
+            aria-label={t('nav.openRuntimeTarget', { label: target.label }, 'Open {{label}}')}
             className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm font-semibold text-slate-100 transition-colors hover:bg-white/[0.08] hover:text-white"
           >
             <div>
@@ -118,7 +120,7 @@ const RuntimeSwitchPanel = ({ targets = [], onNavigate, className }) => {
   );
 };
 
-const RuntimeSwitchMenuSection = ({ targets = [] }) => {
+const RuntimeSwitchMenuSection = ({ targets = [], t }) => {
   if (!targets.length) {
     return null;
   }
@@ -134,7 +136,7 @@ const RuntimeSwitchMenuSection = ({ targets = [] }) => {
           <a
             key={target.id}
             href={target.href}
-            aria-label={`Open ${target.label} from account menu`}
+            aria-label={t('nav.openRuntimeTargetFromAccountMenu', { label: target.label }, 'Open {{label}} from account menu')}
             title={target.originLabel}
             className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.08] hover:text-white"
           >
@@ -373,10 +375,11 @@ const Navbar = () => {
   const currentLanguage = languageOptions.find((option) => option.value === language) || languageOptions[0];
   const [rewardSnapshot, setRewardSnapshot] = useState(null);
   const runtimeSwitchTargets = useMemo(
-    () => buildFrontendNavigationTargets(typeof window !== 'undefined' ? window.location.origin : '').filter(
-      (target) => target.isLive && !target.isCurrent
-    ),
-    []
+    () => buildFrontendNavigationTargets(
+      typeof window !== 'undefined' ? window.location.origin : '',
+      (descriptor, values) => t(descriptor.id, values, descriptor.defaultMessage)
+    ).filter((target) => target.isLive && !target.isCurrent),
+    [t]
   );
   const goToLoginPage = () => {
     if (typeof window !== 'undefined') {
@@ -879,7 +882,7 @@ const Navbar = () => {
                             </>
                           )}
                           <div className="my-1 border-t border-white/10" />
-                          <RuntimeSwitchMenuSection targets={runtimeSwitchTargets} />
+                          <RuntimeSwitchMenuSection targets={runtimeSwitchTargets} t={t} />
                           <div className="my-1 border-t border-white/10" />
                           {colorModeSection}
                           <div className="my-1 border-t border-white/10" />

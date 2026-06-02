@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useIntl } from 'react-intl';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import {
     AlertCircle,
     Building2,
@@ -78,6 +78,16 @@ const MARKET_COUNTRY_PRESETS = [
     { code: 'CA', label: 'Canada' },
     { code: 'JP', label: 'Japan' },
 ];
+
+const marketCountryMessages = defineMessages({
+    IN: { id: 'checkout.payment.marketCountry.india', defaultMessage: 'India' },
+    US: { id: 'checkout.payment.marketCountry.unitedStates', defaultMessage: 'United States' },
+    GB: { id: 'checkout.payment.marketCountry.unitedKingdom', defaultMessage: 'United Kingdom' },
+    DE: { id: 'checkout.payment.marketCountry.germany', defaultMessage: 'Germany' },
+    AU: { id: 'checkout.payment.marketCountry.australia', defaultMessage: 'Australia' },
+    CA: { id: 'checkout.payment.marketCountry.canada', defaultMessage: 'Canada' },
+    JP: { id: 'checkout.payment.marketCountry.japan', defaultMessage: 'Japan' },
+});
 
 const STATUS_STYLES = {
     created: 'border-slate-500/30 bg-slate-500/10 text-slate-200',
@@ -379,6 +389,12 @@ const StepPayment = ({
     const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const [bankSearch, setBankSearch] = useState('');
+    const localizedMarketOptions = useMemo(() => marketOptions.map((country) => ({
+        ...country,
+        label: marketCountryMessages[country.code]
+            ? intl.formatMessage(marketCountryMessages[country.code])
+            : country.label,
+    })), [intl, marketOptions]);
     const isDigital = paymentMethod !== 'COD';
     const isNetbanking = paymentMethod === 'NETBANKING';
     const paymentStatus = String(paymentIntent?.status || 'idle').trim().toLowerCase();
@@ -882,11 +898,11 @@ const StepPayment = ({
                                 </div>
                                 <div className="checkout-card-field">
                                     <span>{t('checkout.payment.expirationDate', {}, 'Expiration date')}</span>
-                                    <strong>MM / YY</strong>
+                                    <strong><FormattedMessage id="checkout.jsx.text.mm.yy" defaultMessage="MM / YY" /></strong>
                                 </div>
                                 <div className="checkout-card-field">
                                     <span>{t('checkout.payment.securityCode', {}, 'Security code')}</span>
-                                    <strong>CVV</strong>
+                                    <strong><FormattedMessage id="checkout.jsx.text.cvv" defaultMessage="CVV" /></strong>
                                 </div>
                             </div>
 
@@ -900,7 +916,7 @@ const StepPayment = ({
                                 role="group"
                                 aria-label={t('checkout.payment.marketCountry', {}, 'Market Country')}
                             >
-                                {marketOptions.map((country) => (
+                                {localizedMarketOptions.map((country) => (
                                     <button
                                         key={country.code}
                                         type="button"
@@ -923,7 +939,7 @@ const StepPayment = ({
                                         value={selectedMarketCountryCode}
                                         onChange={(event) => onMarketCountryChange?.(event.target.value)}
                                         maxLength={2}
-                                        placeholder="IN"
+                                        placeholder={intl.formatMessage({ id: 'checkout.payment.marketCountry.placeholder', defaultMessage: 'IN' })}
                                         className="checkout-premium-input uppercase"
                                     />
                                 </label>
@@ -936,7 +952,10 @@ const StepPayment = ({
                                     >
                                         {cardCurrencyOptions.map((entry) => (
                                             <option key={entry.code} value={entry.code}>
-                                                {entry.code} {entry.name ? `- ${entry.name}` : ''}
+                                                {entry.code}{' '}
+                                                {entry.name
+                                                    ? intl.formatMessage({ id: 'checkout.payment.currency.option.name', defaultMessage: '- {name}' }, { name: entry.name })
+                                                    : ''}
                                             </option>
                                         ))}
                                     </select>

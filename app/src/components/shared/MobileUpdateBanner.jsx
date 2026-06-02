@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { DownloadCloud, ExternalLink, RefreshCw, Smartphone, X } from 'lucide-react';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { compareMobileVersions, resolveLatestMobileRelease } from '../../services/mobileReleaseChannel';
 import { getNativeMobilePlatform, isCapacitorNativeRuntime } from '../../utils/nativeRuntime';
 
+import { StableText } from '@/i18n/StableText';
 const DISMISS_PREFIX = 'aura_mobile_update_dismissed_';
 
 const platformLabel = (platform = '') => {
@@ -19,6 +21,7 @@ const shouldShowRelease = (release, installedVersion = '') => {
 };
 
 const MobileUpdateBanner = () => {
+  const intl = useIntl();
   const [state, setState] = useState({
     status: 'idle',
     platform: '',
@@ -89,7 +92,7 @@ const MobileUpdateBanner = () => {
             <RefreshCw className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">Mobile update channel</p>
+            <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]"><StableText id={"common.jsx.text.mobile.update.channel.233c2260"} defaultMessage={"Mobile update channel"} /></p>
             <h2 className="aura-floating-utility__title mt-1 text-base font-black">Update check needs another try</h2>
             <p className="aura-floating-utility__detail mt-1 text-sm leading-5">{state.error}</p>
           </div>
@@ -131,15 +134,15 @@ const MobileUpdateBanner = () => {
           <Smartphone className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">Mobile update channel</p>
+          <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]"><StableText id={"common.jsx.text.mobile.update.channel.233c2260"} defaultMessage={"Mobile update channel"} /></p>
           <h2 className="aura-floating-utility__title mt-1 text-base font-black">
-            Aura Mobile {release.version} is ready
+            <StableText id={"common.jsx.text.aura.mobile.fbf108da"} defaultMessage={"Aura Mobile"} /> {release.version} <StableText id={"common.jsx.text.is.ready.385beb77"} defaultMessage={"is ready"} />
           </h2>
           <p className="aura-floating-utility__detail mt-1 text-sm leading-5">
-            Your hosted Aura experience keeps updating automatically. This notice is for the native {platformName} shell when a new install package is published.
+            <StableText id={"common.jsx.text.your.hosted.aura.experience.keeps.updating.automatically.5f175dd0"} defaultMessage={"Your hosted Aura experience keeps updating automatically. This notice is for the native"} /> {platformName} <StableText id={"common.jsx.text.shell.when.a.new.install.package.is.7d8525a4"} defaultMessage={"shell when a new install package is published."} />
           </p>
           <p className="aura-floating-utility__detail mt-2 text-xs font-semibold">
-            Installed: {state.installedVersion || 'unknown'} | Latest: {release.version}
+            <StableText id={"common.jsx.text.installed.12e4a5de"} defaultMessage={"Installed:"} /> {state.installedVersion || 'unknown'} <StableText id={"common.jsx.text.latest.86686e15"} defaultMessage={"| Latest:"} /> {release.version}
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -159,20 +162,20 @@ const MobileUpdateBanner = () => {
               className="aura-update-banner__secondary inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition-colors"
             >
               <ExternalLink className="h-4 w-4" />
-              Release notes
+              <FormattedMessage id="mobileUpdate.releaseNotes" defaultMessage="Release notes" />
             </a>
             <button
               type="button"
               onClick={dismiss}
               className="aura-update-banner__secondary inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition-colors"
             >
-              Later
+              <FormattedMessage id="mobileUpdate.later" defaultMessage="Later" />
             </button>
           </div>
         </div>
         <button
           type="button"
-          aria-label="Dismiss mobile update notice"
+          aria-label={intl.formatMessage({ id: 'mobileUpdate.dismiss.ariaLabel', defaultMessage: 'Dismiss mobile update notice' })}
           onClick={dismiss}
           className="aura-update-banner__secondary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors"
         >

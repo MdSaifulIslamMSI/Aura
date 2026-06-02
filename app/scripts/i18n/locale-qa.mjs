@@ -24,7 +24,14 @@ const forbiddenTransliterations = readJson(path.join(glossaryDir, 'forbidden-tra
 const sourceMessages = readJson(path.join(reviewedDir, 'en.json'));
 const humanReviewQueuePath = path.join(qualityDir, 'humanReviewQueue.json');
 const humanReviewQueue = fs.existsSync(humanReviewQueuePath) ? readJson(humanReviewQueuePath) : [];
-const humanReviewQueueKeys = new Set(humanReviewQueue.map(({ id, locale }) => `${locale}\u0000${id}`));
+const humanReviewQueueKeys = new Set();
+humanReviewQueue.forEach((entry) => {
+    const targets = Array.isArray(entry.targets) ? entry.targets : [entry];
+    targets.forEach((target) => {
+        const ids = Array.isArray(target.ids) ? target.ids : [target.id].filter(Boolean);
+        ids.forEach((id) => humanReviewQueueKeys.add(`${target.locale}\u0000${id}`));
+    });
+});
 
 const MOJIBAKE_PATTERN = /\uFFFD|Ã|Â|â€™|â€œ|â€|ï¿½/;
 const RAW_HTML_RISK_PATTERN = /<script\b|javascript:|on[a-z]+\s*=/i;

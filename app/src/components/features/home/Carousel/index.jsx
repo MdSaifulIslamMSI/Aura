@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useIntl } from 'react-intl';
 import { cn } from '@/lib/utils';
 
 const Carousel = ({
@@ -10,6 +11,7 @@ const Carousel = ({
   showArrows = true,
   className
 }) => {
+  const intl = useIntl();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -42,7 +44,7 @@ const Carousel = ({
       onMouseLeave={() => setIsPaused(false)}
       role="region"
       aria-roledescription="carousel"
-      aria-label="Product carousel"
+      aria-label={intl.formatMessage({ id: 'carousel.product.ariaLabel', defaultMessage: 'Product carousel' })}
     >
       {/* Slides */}
       <div
@@ -55,14 +57,20 @@ const Carousel = ({
             className="w-full flex-shrink-0 relative h-[400px] md:h-[500px]"
             role="group"
             aria-roledescription="slide"
-            aria-label={`Slide ${index + 1} of ${slides.length}`}
+            aria-label={intl.formatMessage(
+              { id: 'carousel.slide.ariaLabel', defaultMessage: 'Slide {current} of {total}' },
+              { current: index + 1, total: slides.length }
+            )}
             aria-hidden={index !== currentSlide}
           >
             {slide.link ? (
               <a href={slide.link} className="block w-full h-full relative group/slide">
                 <img
                   src={slide.image}
-                  alt={slide.alt || `Slide ${index + 1}`}
+                  alt={slide.alt || intl.formatMessage(
+                    { id: 'carousel.slide.alt', defaultMessage: 'Slide {current}' },
+                    { current: index + 1 }
+                  )}
                   className="w-full h-full object-cover group-hover/slide:scale-105 transition-transform duration-1000"
                   loading={index === 0 ? 'eager' : 'lazy'}
                 />
@@ -103,7 +111,10 @@ const Carousel = ({
               <div className="w-full h-full relative">
                 <img
                   src={slide.image}
-                  alt={slide.alt || `Slide ${index + 1}`}
+                  alt={slide.alt || intl.formatMessage(
+                    { id: 'carousel.slide.alt', defaultMessage: 'Slide {current}' },
+                    { current: index + 1 }
+                  )}
                   className="w-full h-full object-cover"
                   loading={index === 0 ? 'eager' : 'lazy'}
                 />
@@ -119,14 +130,14 @@ const Carousel = ({
           <button
             onClick={prevSlide}
             className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-zinc-950/50 hover:bg-neo-cyan/20 border border-white/10 hover:border-neo-cyan/50 text-white rounded-full shadow-glass transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
-            aria-label="Previous slide"
+            aria-label={intl.formatMessage({ id: 'carousel.previousSlide.ariaLabel', defaultMessage: 'Previous slide' })}
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
           <button
             onClick={nextSlide}
             className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-zinc-950/50 hover:bg-neo-cyan/20 border border-white/10 hover:border-neo-cyan/50 text-white rounded-full shadow-glass transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
-            aria-label="Next slide"
+            aria-label={intl.formatMessage({ id: 'carousel.nextSlide.ariaLabel', defaultMessage: 'Next slide' })}
           >
             <ChevronRight className="w-6 h-6" />
           </button>
@@ -146,7 +157,10 @@ const Carousel = ({
                   ? 'bg-neo-cyan w-8 shadow-[0_0_10px_rgba(6,182,212,0.8)]'
                   : 'bg-white/30 hover:bg-white/60 w-2'
               )}
-              aria-label={`Go to slide ${index + 1}`}
+              aria-label={intl.formatMessage(
+                { id: 'carousel.goToSlide.ariaLabel', defaultMessage: 'Go to slide {slide}' },
+                { slide: index + 1 }
+              )}
               aria-current={index === currentSlide ? 'true' : 'false'}
             />
           ))}

@@ -12,6 +12,8 @@ const scriptDir = path.dirname(scriptPath);
 const appDir = path.resolve(scriptDir, '..');
 const srcDir = path.resolve(scriptDir, '../src');
 const coverageCsvPath = path.resolve(appDir, 'translation-coverage.csv');
+const reviewedIcuDir = path.resolve(appDir, 'src/i18n/messages/reviewed');
+const requiredIcuLocalesPath = path.resolve(appDir, 'src/i18n/quality/requiredLocales.json');
 
 const SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const IGNORE_FILE_PATTERN = /\.(test|spec)\.[jt]sx?$/i;
@@ -132,6 +134,44 @@ const writeCoverageCsv = (marketMessages, requiredKeys) => {
     fs.writeFileSync(coverageCsvPath, `${lines.join('\n')}\n`, 'utf8');
 };
 
+const readJson = (filePath, fallback = null) => {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+};
+
+const summarizeReviewedIcuCoverage = () => {
+    const sourceMessages = readJson(path.join(reviewedIcuDir, 'en.json'), {});
+    const requiredLocales = readJson(requiredIcuLocalesPath, []);
+    const sourceIds = Object.keys(sourceMessages);
+    const expectedPairs = requiredLocales.length * sourceIds.length;
+    const byLocale = {};
+    const missing = [];
+
+    requiredLocales.forEach((locale) => {
+        const messages = readJson(path.join(reviewedIcuDir, `${locale}.json`), {});
+        const covered = sourceIds.filter((id) => (
+            typeof messages[id] === 'string' && messages[id].trim().length > 0
+        ));
+        byLocale[locale] = {
+            covered: covered.length,
+            total: sourceIds.length,
+        };
+        sourceIds
+            .filter((id) => !covered.includes(id))
+            .forEach((id) => missing.push({ id, locale }));
+    });
+
+    const coveredPairs = Object.values(byLocale).reduce((total, entry) => total + entry.covered, 0);
+    return {
+        byLocale,
+        coveredPairs,
+        expectedPairs,
+        missing,
+        requiredLocales,
+        sourceIds,
+    };
+};
+
 const walkSourceFiles = (directoryPath) => {
     const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
     const files = [];
@@ -199,6 +239,7 @@ const requiredKeys = new Set([
     ...Object.keys(MARKET_MESSAGES.en || {}),
 ]);
 const sortedKeys = [...requiredKeys].sort((left, right) => left.localeCompare(right));
+const reviewedIcuCoverage = summarizeReviewedIcuCoverage();
 const missingByLocale = Object.fromEntries(localeCodes.map((locale) => [locale, []]));
 const resolvedCountByLocale = Object.fromEntries(localeCodes.map((locale) => [locale, 0]));
 
@@ -216,17 +257,26 @@ sortedKeys.forEach((key) => {
 console.log('Locale coverage audit');
 console.log(`Source files scanned: ${walkSourceFiles(srcDir).length}`);
 console.log(`Runtime files with static translation keys: ${filesWithKeys.size}`);
-console.log(`Required translation keys: ${sortedKeys.length}`);
-console.log(`Required English pack keys: ${Object.keys(MARKET_MESSAGES.en || {}).length}`);
+console.log(`Required legacy runtime translation keys: ${sortedKeys.length}`);
+console.log(`Required English legacy pack keys: ${Object.keys(MARKET_MESSAGES.en || {}).length}`);
+console.log(`Reviewed ICU source keys: ${reviewedIcuCoverage.sourceIds.length}`);
+console.log(`Reviewed ICU required locale/message pairs: ${reviewedIcuCoverage.expectedPairs}`);
 console.log('');
-console.log('Overall locale coverage:');
+console.log('Legacy runtime locale coverage:');
 localeCodes.forEach((locale) => {
     const resolvedCount = resolvedCountByLocale[locale];
     console.log(`- ${locale}: ${formatPercent(resolvedCount, sortedKeys.length)} (${resolvedCount}/${sortedKeys.length})`);
 });
 
 console.log('');
-console.log('Area coverage:');
+console.log('Reviewed ICU catalog coverage:');
+reviewedIcuCoverage.requiredLocales.forEach((locale) => {
+    const resolvedCount = reviewedIcuCoverage.byLocale[locale]?.covered || 0;
+    console.log(`- ${locale}: ${formatPercent(resolvedCount, reviewedIcuCoverage.sourceIds.length)} (${resolvedCount}/${reviewedIcuCoverage.sourceIds.length})`);
+});
+
+console.log('');
+console.log('Legacy runtime area coverage:');
 [...areaKeyMap.entries()]
     .sort(([leftArea], [rightArea]) => leftArea.localeCompare(rightArea))
     .forEach(([areaName, keys]) => {
@@ -253,18 +303,32 @@ const missingEntries = sortedKeys
     }))
     .filter((entry) => entry.locales.length > 0);
 
-if (missingEntries.length === 0) {
+if (missingEntries.length === 0 && reviewedIcuCoverage.missing.length === 0) {
     console.log('');
     console.log('No missing locale keys found for static runtime translations.');
+    console.log('No missing locale/message pairs found for reviewed ICU catalogs.');
     process.exit(0);
 }
 
-console.log('');
-console.log('Missing locale keys:');
-missingEntries.forEach((entry) => {
-    console.log(`- ${entry.key}`);
-    console.log(`  locales: ${entry.locales.join(', ')}`);
-    console.log(`  files: ${entry.files.join(', ')}`);
-});
+if (missingEntries.length > 0) {
+    console.log('');
+    console.log('Missing legacy runtime locale keys:');
+    missingEntries.forEach((entry) => {
+        console.log(`- ${entry.key}`);
+        console.log(`  locales: ${entry.locales.join(', ')}`);
+        console.log(`  files: ${entry.files.join(', ')}`);
+    });
+}
+
+if (reviewedIcuCoverage.missing.length > 0) {
+    console.log('');
+    console.log('Missing reviewed ICU locale/message pairs:');
+    reviewedIcuCoverage.missing.slice(0, 100).forEach((entry) => {
+        console.log(`- ${entry.locale}: ${entry.id}`);
+    });
+    if (reviewedIcuCoverage.missing.length > 100) {
+        console.log(`- ... ${reviewedIcuCoverage.missing.length - 100} more`);
+    }
+}
 
 process.exitCode = 1;

@@ -12,6 +12,7 @@ import {
 } from '@/utils/adminAccessLock';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+import { StableText } from '@/i18n/StableText';
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 
 const AuthPendingState = ({ message = 'Resolving your session...', title = 'Session checkpoint' }) => (
@@ -98,7 +99,7 @@ const AuthRecoveryState = ({
                 </button>
             </div>
             <div className="mt-5 flex flex-wrap gap-4 text-xs text-slate-400">
-                <a href="mailto:support@aura.shop" className="transition-colors hover:text-white">support@aura.shop</a>
+                <a href="mailto:support@aura.shop" className="transition-colors hover:text-white"><StableText id={"support.jsx.text.support.aura.shop.6e88e9bf"} defaultMessage={"support@aura.shop"} /></a>
                 <a href="tel:1-800-AURA-01" className="transition-colors hover:text-white">1-800-AURA-01</a>
             </div>
         </div>
@@ -109,7 +110,7 @@ export const AdminAccessLockedState = ({ adminAccessLock, onRetry }) => (
     <div className="flex min-h-[70vh] items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
         <section className="w-full max-w-2xl rounded-3xl border border-rose-300/20 bg-rose-950/20 p-8 shadow-glass">
             <div className="inline-flex rounded-full border border-rose-300/25 bg-rose-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.24em] text-rose-100">
-                Admin safety lock
+                <StableText id={"admin.jsx.text.admin.safety.lock.ad4f61f6"} defaultMessage={"Admin safety lock"} />
             </div>
             <h1 className="mt-5 text-3xl font-black text-white">
                 {getAdminAccessLockTitle(adminAccessLock)}
@@ -118,10 +119,10 @@ export const AdminAccessLockedState = ({ adminAccessLock, onRetry }) => (
                 {getAdminAccessLockOperatorMessage(adminAccessLock)}
             </p>
             <p className="mt-3 text-xs leading-5 text-slate-400">
-                Server reason: <span className="font-semibold text-slate-200">{adminAccessLock?.reason || 'allowlist_missing'}</span>
+                <StableText id={"common.jsx.text.server.reason.9e07fa1a"} defaultMessage={"Server reason:"} /> <span className="font-semibold text-slate-200">{adminAccessLock?.reason || 'allowlist_missing'}</span>
                 {adminAccessLock?.requestId ? (
                     <>
-                        {' '}Request ID: <span className="font-semibold text-slate-200">{adminAccessLock.requestId}</span>
+                        {' '}<StableText id={"common.jsx.text.request.id.5d9e393e"} defaultMessage={"Request ID:"} /> <span className="font-semibold text-slate-200">{adminAccessLock.requestId}</span>
                     </>
                 ) : null}
             </p>
@@ -131,19 +132,19 @@ export const AdminAccessLockedState = ({ adminAccessLock, onRetry }) => (
                     onClick={onRetry}
                     className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-neo-cyan transition-colors hover:bg-white/[0.1]"
                 >
-                    Retry policy check
+                    <StableText id={"common.jsx.text.retry.policy.check.cc6f8bdb"} defaultMessage={"Retry policy check"} />
                 </button>
                 <a
                     href="/"
                     className="inline-flex items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/12 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-400/18"
                 >
-                    Go to storefront
+                    <StableText id={"common.jsx.text.go.to.storefront.0b3d8c87"} defaultMessage={"Go to storefront"} />
                 </a>
                 <a
                     href="mailto:support@aura.shop"
                     className="inline-flex items-center justify-center rounded-full border border-rose-300/20 bg-rose-300/10 px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-rose-100 transition-colors hover:bg-rose-300/16"
                 >
-                    Contact support
+                    <StableText id={"support.jsx.text.contact.support.9c8e1198"} defaultMessage={"Contact support"} />
                 </a>
             </div>
         </section>

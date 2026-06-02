@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { defineMessages, useIntl } from 'react-intl';
 import {
     CreditCard,
     LayoutDashboard,
@@ -15,16 +16,28 @@ import { useColorMode } from '@/context/ColorModeContext';
 import { FIGMA_COLOR_MODE_OPTIONS } from '@/config/figmaTokens';
 import { cn } from '@/lib/utils';
 
+const adminShellMessages = defineMessages({
+    dashboard: { id: 'admin.shell.nav.dashboard', defaultMessage: 'Dashboard' },
+    products: { id: 'admin.shell.nav.products', defaultMessage: 'Products' },
+    orders: { id: 'admin.shell.nav.orders', defaultMessage: 'Orders' },
+    payments: { id: 'admin.shell.nav.payments', defaultMessage: 'Payments' },
+    refunds: { id: 'admin.shell.nav.refunds', defaultMessage: 'Refunds' },
+    emailOps: { id: 'admin.shell.nav.emailOps', defaultMessage: 'Email Ops' },
+    users: { id: 'admin.shell.nav.users', defaultMessage: 'Users' },
+    support: { id: 'admin.shell.nav.support', defaultMessage: 'Support' },
+    status: { id: 'admin.shell.nav.status', defaultMessage: 'Status' },
+});
+
 const ADMIN_LINKS = [
-    { href: '/admin/dashboard', prefix: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/products', prefix: '/admin/product', label: 'Products', icon: Package },
-    { href: '/admin/orders', prefix: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-    { href: '/admin/payments', prefix: '/admin/payments', label: 'Payments', icon: CreditCard },
-    { href: '/admin/refunds', prefix: '/admin/refunds', label: 'Refunds', icon: ReceiptText },
-    { href: '/admin/email-ops', prefix: '/admin/email-ops', label: 'Email Ops', icon: Mail },
-    { href: '/admin/users', prefix: '/admin/users', label: 'Users', icon: Users },
-    { href: '/admin/support', prefix: '/admin/support', label: 'Support', icon: MessageSquare },
-    { href: '/admin/status', prefix: '/admin/status', label: 'Status', icon: Signal },
+    { href: '/admin/dashboard', prefix: '/admin/dashboard', label: 'Dashboard', message: adminShellMessages.dashboard, icon: LayoutDashboard },
+    { href: '/admin/products', prefix: '/admin/product', label: 'Products', message: adminShellMessages.products, icon: Package },
+    { href: '/admin/orders', prefix: '/admin/orders', label: 'Orders', message: adminShellMessages.orders, icon: ShoppingBag },
+    { href: '/admin/payments', prefix: '/admin/payments', label: 'Payments', message: adminShellMessages.payments, icon: CreditCard },
+    { href: '/admin/refunds', prefix: '/admin/refunds', label: 'Refunds', message: adminShellMessages.refunds, icon: ReceiptText },
+    { href: '/admin/email-ops', prefix: '/admin/email-ops', label: 'Email Ops', message: adminShellMessages.emailOps, icon: Mail },
+    { href: '/admin/users', prefix: '/admin/users', label: 'Users', message: adminShellMessages.users, icon: Users },
+    { href: '/admin/support', prefix: '/admin/support', label: 'Support', message: adminShellMessages.support, icon: MessageSquare },
+    { href: '/admin/status', prefix: '/admin/status', label: 'Status', message: adminShellMessages.status, icon: Signal },
 ];
 
 const hexToRgb = (hex) => {
@@ -89,6 +102,7 @@ export default function AdminPremiumShell({
 }) {
     const location = useLocation();
     const { colorMode } = useColorMode();
+    const intl = useIntl();
 
     const activeMode = useMemo(
         () => FIGMA_COLOR_MODE_OPTIONS.find((option) => option.id === colorMode) || FIGMA_COLOR_MODE_OPTIONS[0],
@@ -150,7 +164,7 @@ export default function AdminPremiumShell({
                                         className={cn('admin-premium-nav-pill', isActive && 'admin-premium-nav-pill-active')}
                                     >
                                         <Icon className="h-4 w-4" />
-                                        {item.label}
+                                        {intl.formatMessage(item.message)}
                                     </Link>
                                 );
                             })}

@@ -1,3 +1,5 @@
+import { defineMessages } from 'react-intl';
+
 const AUTH_JOURNEY_STORAGE_KEY = 'aura_auth_journey_v1';
 const AUTH_IDENTITY_MEMORY_KEY = 'aura_auth_identity_memory_v1';
 const AUTH_JOURNEY_TTL_MS = 15 * 60 * 1000;
@@ -7,6 +9,29 @@ const AUTH_MODES = new Set(['signin', 'signup', 'forgot-password']);
 const AUTH_STEPS = new Set(['form', 'otp', 'reset-password']);
 const OTP_STAGES = new Set(['single', 'email', 'phone']);
 const OTP_TRANSPORTS = new Set(['backend_otp', 'firebase_sms']);
+
+const authAccelerationMessages = defineMessages({
+    verificationReady: { id: 'auth.acceleration.verificationReady.title', defaultMessage: 'Verification ready' },
+    accountActivationOtpOpen: { id: 'auth.acceleration.accountActivationOtpOpen.detail', defaultMessage: 'Your account activation OTP window is still open.' },
+    recoveryOtpOpen: { id: 'auth.acceleration.recoveryOtpOpen.detail', defaultMessage: 'Your recovery OTP window is still open.' },
+    fastRecoveryReady: { id: 'auth.acceleration.fastRecoveryReady.title', defaultMessage: 'Fast recovery ready' },
+    restoredPasswordRestart: { id: 'auth.acceleration.restoredPasswordRestart.detail', defaultMessage: 'We restored your identity details. Re-enter your password to restart the secure sign-in lane.' },
+    restoredFlowRestart: { id: 'auth.acceleration.restoredFlowRestart.detail', defaultMessage: 'We restored your identity details so you can restart the secure flow without typing everything again.' },
+    instantReturnLanes: { id: 'auth.acceleration.instantReturnLanes.title', defaultMessage: 'Instant return lanes' },
+    instantReturnLanesDetail: { id: 'auth.acceleration.instantReturnLanes.detail', defaultMessage: 'Social sign-in is available here, and the password plus OTP path is also ready if you want stronger verification.' },
+    dualChannelSecureLane: { id: 'auth.acceleration.dualChannelSecureLane.title', defaultMessage: 'Dual-channel secure lane' },
+    dualChannelSignupDetail: { id: 'auth.acceleration.dualChannelSignup.detail', defaultMessage: 'Email verification and Firebase phone proof will run as one continuous activation chain.' },
+    dualChannelRecoveryDetail: { id: 'auth.acceleration.dualChannelRecovery.detail', defaultMessage: 'Recovery will verify email first, then finish with Firebase phone proof.' },
+    dualChannelSigninDetail: { id: 'auth.acceleration.dualChannelSignin.detail', defaultMessage: 'Password verification, email proof, and Firebase phone proof are all available in one accelerated path.' },
+    backupOtpLane: { id: 'auth.acceleration.backupOtpLane.title', defaultMessage: 'Backup OTP lane' },
+    backupOtpLaneDetail: { id: 'auth.acceleration.backupOtpLane.detail', defaultMessage: 'Firebase phone delivery is paused on this host, so Aura will keep the flow moving with backup OTP on the available secure verification channel.' },
+    standardOtpLane: { id: 'auth.acceleration.standardOtpLane.title', defaultMessage: 'Standard OTP lane' },
+    standardOtpLaneDetail: { id: 'auth.acceleration.standardOtpLane.detail', defaultMessage: 'Email and OTP verification are available, with your known identity details restored for a faster restart.' },
+});
+
+const formatAccelerationMessage = (intl, descriptor, fallback) => (
+    intl?.formatMessage ? intl.formatMessage(descriptor) : fallback
+);
 
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeEmail = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
@@ -117,25 +142,25 @@ const canResumeOtpStep = ({ mode, step, otpStage, otpTransport }) => (
     && otpTransport === 'backend_otp'
 );
 
-const buildResumeMessage = ({ canResumeOtp, mode }) => {
+const buildResumeMessage = ({ canResumeOtp, mode, intl }) => {
     if (canResumeOtp) {
         return {
-            title: 'Verification ready',
+            title: formatAccelerationMessage(intl, authAccelerationMessages.verificationReady, 'Verification ready'),
             detail: mode === 'signup'
-                ? 'Your account activation OTP window is still open.'
-                : 'Your recovery OTP window is still open.',
+                ? formatAccelerationMessage(intl, authAccelerationMessages.accountActivationOtpOpen, 'Your account activation OTP window is still open.')
+                : formatAccelerationMessage(intl, authAccelerationMessages.recoveryOtpOpen, 'Your recovery OTP window is still open.'),
         };
     }
 
     return {
-        title: 'Fast recovery ready',
+        title: formatAccelerationMessage(intl, authAccelerationMessages.fastRecoveryReady, 'Fast recovery ready'),
         detail: mode === 'signin'
-            ? 'We restored your identity details. Re-enter your password to restart the secure sign-in lane.'
-            : 'We restored your identity details so you can restart the secure flow without typing everything again.',
+            ? formatAccelerationMessage(intl, authAccelerationMessages.restoredPasswordRestart, 'We restored your identity details. Re-enter your password to restart the secure sign-in lane.')
+            : formatAccelerationMessage(intl, authAccelerationMessages.restoredFlowRestart, 'We restored your identity details so you can restart the secure flow without typing everything again.'),
     };
 };
 
-export const readAuthJourneyDraft = () => {
+export const readAuthJourneyDraft = (intl) => {
     const storage = getStorage('session');
     const parsed = purgeIfExpired(storage, AUTH_JOURNEY_STORAGE_KEY, AUTH_JOURNEY_TTL_MS);
     if (!parsed) return null;
@@ -165,7 +190,7 @@ export const readAuthJourneyDraft = () => {
         return null;
     }
 
-    const resumeMessage = buildResumeMessage({ canResumeOtp: resumeOtp, mode });
+    const resumeMessage = buildResumeMessage({ canResumeOtp: resumeOtp, mode, intl });
 
     return {
         ...draft,
@@ -298,35 +323,36 @@ export const describeAccelerationLane = ({
     canUseFirebasePhoneOtp = false,
     socialAuthSupported = false,
     fallbackToBackupOtp = false,
+    intl,
 }) => {
     if (mode === 'signin' && socialAuthSupported) {
         return {
-            title: 'Instant return lanes',
-            detail: 'Social sign-in is available here, and the password plus OTP path is also ready if you want stronger verification.',
+            title: formatAccelerationMessage(intl, authAccelerationMessages.instantReturnLanes, 'Instant return lanes'),
+            detail: formatAccelerationMessage(intl, authAccelerationMessages.instantReturnLanesDetail, 'Social sign-in is available here, and the password plus OTP path is also ready if you want stronger verification.'),
         };
     }
 
     if (canUseFirebasePhoneOtp) {
         return {
-            title: 'Dual-channel secure lane',
+            title: formatAccelerationMessage(intl, authAccelerationMessages.dualChannelSecureLane, 'Dual-channel secure lane'),
             detail: mode === 'signup'
-                ? 'Email verification and Firebase phone proof will run as one continuous activation chain.'
+                ? formatAccelerationMessage(intl, authAccelerationMessages.dualChannelSignupDetail, 'Email verification and Firebase phone proof will run as one continuous activation chain.')
                 : mode === 'forgot-password'
-                    ? 'Recovery will verify email first, then finish with Firebase phone proof.'
-                    : 'Password verification, email proof, and Firebase phone proof are all available in one accelerated path.',
+                    ? formatAccelerationMessage(intl, authAccelerationMessages.dualChannelRecoveryDetail, 'Recovery will verify email first, then finish with Firebase phone proof.')
+                    : formatAccelerationMessage(intl, authAccelerationMessages.dualChannelSigninDetail, 'Password verification, email proof, and Firebase phone proof are all available in one accelerated path.'),
         };
     }
 
     if (fallbackToBackupOtp) {
         return {
-            title: 'Backup OTP lane',
-            detail: 'Firebase phone delivery is paused on this host, so Aura will keep the flow moving with backup OTP on the available secure verification channel.',
+            title: formatAccelerationMessage(intl, authAccelerationMessages.backupOtpLane, 'Backup OTP lane'),
+            detail: formatAccelerationMessage(intl, authAccelerationMessages.backupOtpLaneDetail, 'Firebase phone delivery is paused on this host, so Aura will keep the flow moving with backup OTP on the available secure verification channel.'),
         };
     }
 
     return {
-        title: 'Standard OTP lane',
-        detail: 'Email and OTP verification are available, with your known identity details restored for a faster restart.',
+        title: formatAccelerationMessage(intl, authAccelerationMessages.standardOtpLane, 'Standard OTP lane'),
+        detail: formatAccelerationMessage(intl, authAccelerationMessages.standardOtpLaneDetail, 'Email and OTP verification are available, with your known identity details restored for a faster restart.'),
     };
 };
 

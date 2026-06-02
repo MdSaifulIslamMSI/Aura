@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { getBaseAmount, getBaseCurrency, getOriginalBaseAmount } from '@/utils/pricing';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+import { StableText } from '@/i18n/StableText';
 const ProductCardInline = ({
     product,
     mode = 'explore',
@@ -63,7 +64,7 @@ const ProductCardInline = ({
                         <div className="min-w-0">
                             <h4 className="truncate text-sm font-bold">{translatedProductTitle}</h4>
                             <div className={cn('mt-1 flex flex-wrap items-center gap-1.5 text-[11px]', mutedTextClass)}>
-                                <span className="truncate">{product?.brand || 'Aura catalog'}</span>
+                                <span className="truncate">{product?.brand || t('product.brand.auraCatalog', {}, 'Aura catalog')}</span>
                                 {product?.category ? <span className="rounded-full border border-current/10 px-2 py-0.5">{product.category}</span> : null}
                             </div>
                         </div>
@@ -90,7 +91,7 @@ const ProductCardInline = ({
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
                         {discountPercentage > 0 ? (
                             <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 font-semibold text-emerald-500">
-                                Save {discountPercentage}%
+                                {t('product.discount.savePercent', { value: discountPercentage }, 'Save {{value}}%')}
                             </span>
                         ) : null}
                         <span className={cn(
@@ -99,14 +100,16 @@ const ProductCardInline = ({
                                 ? 'border-cyan-400/20 bg-cyan-400/10 text-cyan-400'
                                 : 'border-rose-400/20 bg-rose-500/10 text-rose-400'
                         )}>
-                            {inStock ? `${product?.stock || 0} in stock` : 'Out of stock'}
+                            {inStock
+                                ? t('product.stock.inStockCount', { count: product?.stock || 0 }, '{{count}} in stock')
+                                : t('product.stock.outOfStock', {}, 'Out of stock')}
                         </span>
                     </div>
 
                     {assistantReason || assistantWatchout ? (
                         <div className={cn('mt-2 space-y-1 text-[11px] leading-5', mutedTextClass)}>
                             {assistantReason ? <p>{assistantReason}</p> : null}
-                            {assistantWatchout ? <p>Watch: {assistantWatchout}</p> : null}
+                            {assistantWatchout ? <p><StableText id={"product.jsx.text.watch.3139f8c4"} defaultMessage={"Watch:"} /> {assistantWatchout}</p> : null}
                         </div>
                     ) : null}
                 </div>

@@ -488,7 +488,10 @@ export default function AdminPayments() {
                                         value={refundForm.amount}
                                         onChange={(e) => setRefundForm((prev) => ({ ...prev, amount: e.target.value }))}
                                         className="admin-premium-control"
-                                        placeholder={`${getRefundInputLabel(t, selectedDetail, refundForm.amountMode)} (${t('admin.shared.optional', {}, 'optional')})`}
+                                        placeholder={t('admin.payments.refund.amountPlaceholder', {
+                                            label: getRefundInputLabel(t, selectedDetail, refundForm.amountMode),
+                                            optional: t('admin.shared.optional', {}, 'optional'),
+                                        }, '{{label}} ({{optional}})')}
                                     />
                                     <PremiumSelect
                                         value={refundForm.amountMode}

@@ -7,6 +7,7 @@ import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
 import { formatPrice } from '@/utils/format';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { FormattedMessage } from 'react-intl';
 
 const STATUS_OPTIONS = ['', 'pending', 'approved', 'processed', 'rejected'];
 const SETTLEMENT_OPTIONS = ['', 'provider', 'manual', 'queued', 'manual_review', 'none'];
@@ -231,9 +232,9 @@ export default function AdminRefundLedger() {
                                         <tr key={row.ledgerId} className="align-top">
                                             <td className="px-3 py-3 text-xs text-gray-700">
                                                 <div className="font-mono text-[11px] text-gray-900">{row.orderId}</div>
-                                                <div className="mt-1 font-mono text-[11px] text-gray-500">Req: {row.requestId}</div>
-                                                <div className="mt-1 text-[11px]">Order status: <span className="font-semibold">{row.order?.status || '-'}</span></div>
-                                                <div className="text-[11px]">Order total: <span className="font-semibold">{formatPrice(row.order?.totalPrice || 0)}</span></div>
+                                                <div className="mt-1 font-mono text-[11px] text-gray-500"><FormattedMessage id="payment.jsx.text.req" defaultMessage="Req:" />{' '}{row.requestId}</div>
+                                                <div className="mt-1 text-[11px]"><FormattedMessage id="payment.jsx.text.order.status" defaultMessage="Order status:" />{' '}<span className="font-semibold">{row.order?.status || '-'}</span></div>
+                                                <div className="text-[11px]"><FormattedMessage id="payment.jsx.text.order.total" defaultMessage="Order total:" />{' '}<span className="font-semibold">{formatPrice(row.order?.totalPrice || 0)}</span></div>
                                             </td>
                                             <td className="px-3 py-3 text-xs text-gray-700">
                                                 <div className="font-semibold text-gray-900">{row.user?.name || t('admin.refunds.unknownUser', {}, 'Unknown')}</div>

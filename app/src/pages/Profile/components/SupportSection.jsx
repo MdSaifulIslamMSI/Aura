@@ -891,6 +891,7 @@ export default function SupportSection({
                 ticket: activeTicket,
                 activeCallContext,
                 callStatus,
+                t,
             });
         }
 
@@ -898,7 +899,7 @@ export default function SupportSection({
             {
                 key: 'chat',
                 icon: 'chat',
-                label: 'Chat',
+                label: t('support.timeline.chat.label', {}, 'Chat'),
                 state: supportSummary.totalTickets > 0 ? 'active' : 'pending',
                 detail: supportSummary.totalTickets > 0
                     ? `${supportSummary.totalTickets} support conversations already preserve their written history.`
@@ -907,7 +908,7 @@ export default function SupportSection({
             {
                 key: 'voice',
                 icon: 'voice',
-                label: 'Voice',
+                label: t('support.timeline.voice.label', {}, 'Voice'),
                 state: supportSummary.voiceLiveCalls > 0 ? 'active' : 'pending',
                 detail: supportSummary.voiceLiveCalls > 0
                     ? `${supportSummary.voiceLiveCalls} voice escalations are active or queued.`
@@ -916,7 +917,7 @@ export default function SupportSection({
             {
                 key: 'video',
                 icon: 'video',
-                label: 'Video',
+                label: t('support.timeline.video.label', {}, 'Video'),
                 state: supportSummary.videoLiveCalls > 0 ? 'active' : 'pending',
                 detail: supportSummary.videoLiveCalls > 0
                     ? `${supportSummary.videoLiveCalls} video escalations are active or queued.`
@@ -925,7 +926,7 @@ export default function SupportSection({
             {
                 key: 'resolution',
                 icon: 'resolution',
-                label: 'Resolution',
+                label: t('support.timeline.resolution.label', {}, 'Resolution'),
                 state: (supportSummary.resolvedTickets + supportSummary.closedTickets) > 0 ? 'complete' : 'active',
                 detail: `${supportSummary.resolvedTickets + supportSummary.closedTickets} threads already have durable outcomes saved here.`,
             },

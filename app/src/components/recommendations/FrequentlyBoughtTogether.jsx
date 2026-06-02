@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { recommendationApi } from '@/services/api';
 import ProductCarousel from './ProductCarousel';
 import RecommendationSection from './RecommendationSection';
@@ -29,8 +30,8 @@ const FrequentlyBoughtTogether = ({ productId, limit = 6, sourcePage = 'product_
   return (
     <RecommendationSection
       eyebrow="Bought together"
-      title="Frequently Bought Together"
-      description="Order-history co-occurrence first, then category and accessory fallbacks."
+      title={<FormattedMessage id="recommendations.frequentlyBoughtTogether.title" defaultMessage="Frequently Bought Together" />}
+      description={<FormattedMessage id="recommendations.frequentlyBoughtTogether.description" defaultMessage="Order-history co-occurrence first, then category and accessory fallbacks." />}
       actionHref="/search"
     >
       <ProductCarousel recommendations={recommendations} loading={loading} sourcePage={sourcePage} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { recommendationApi } from '@/services/api';
 import ProductCarousel from './ProductCarousel';
 import RecommendationSection from './RecommendationSection';
@@ -29,8 +30,8 @@ const SearchRecommendations = ({ query = '', limit = 8, sourcePage = 'search' })
   return (
     <RecommendationSection
       eyebrow="Search intent"
-      title="Related to Your Search"
-      description={`Products connected to "${query}" and reranked with live recommendation signals.`}
+      title={<FormattedMessage id="recommendations.search.title" defaultMessage="Related to Your Search" />}
+      description={<FormattedMessage id="recommendations.search.description" defaultMessage={'Products connected to "{query}" and reranked with live recommendation signals.'} values={{ query }} />}
       actionHref={`/search?q=${encodeURIComponent(query)}`}
     >
       <ProductCarousel recommendations={recommendations} loading={loading} sourcePage={sourcePage} />

@@ -1,21 +1,22 @@
 import { Link } from 'react-router-dom';
 import { Package, MapPin, CreditCard } from 'lucide-react';
 
+import { StableText } from '@/i18n/StableText';
 export default function OrdersSection({ recentOrders, stats }) {
     return (
         <div className="max-w-3xl">
             <div className="bg-white rounded-2xl border shadow-sm p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
                     <h3 className="text-lg font-bold text-gray-900">Order History</h3>
-                    <span className="text-sm text-gray-400">{stats.totalOrders || 0} total orders</span>
+                    <span className="text-sm text-gray-400">{stats.totalOrders || 0} <StableText id={"order.jsx.text.total.orders.eed7543a"} defaultMessage={"total orders"} /></span>
                 </div>
                 {recentOrders.length === 0 ? (
                     <div className="text-center py-12">
                         <Package className="w-16 h-16 text-gray-200 mx-auto mb-3" />
                         <h3 className="text-lg font-bold text-gray-900 mb-1">No orders yet</h3>
-                        <p className="text-gray-400 text-sm mb-4">Start shopping to see your orders here</p>
+                        <p className="text-gray-400 text-sm mb-4"><StableText id={"order.jsx.text.start.shopping.to.see.your.orders.here.b15e523d"} defaultMessage={"Start shopping to see your orders here"} /></p>
                         <Link to="/products" className="inline-flex px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg text-sm hover:bg-indigo-700">
-                            Shop Now
+                            <StableText id={"order.jsx.text.shop.now.7bbc4028"} defaultMessage={"Shop Now"} />
                         </Link>
                     </div>
                 ) : (
@@ -24,7 +25,7 @@ export default function OrdersSection({ recentOrders, stats }) {
                             <div key={order._id} className="border rounded-xl p-4 hover:bg-gray-50 transition-colors">
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                                     <div>
-                                        <p className="text-xs text-gray-400">Order #{order._id?.slice(-8).toUpperCase()}</p>
+                                        <p className="text-xs text-gray-400"><StableText id={"order.jsx.text.order.449420.7246c296"} defaultMessage={"Order #"} />{order._id?.slice(-8).toUpperCase()}</p>
                                         <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                                     </div>
                                     <div className="text-right">
@@ -41,7 +42,7 @@ export default function OrdersSection({ recentOrders, stats }) {
                                             <img src={item.image} alt="" className="w-10 h-10 rounded-lg object-cover" />
                                             <div>
                                                 <p className="text-xs font-semibold text-gray-700 line-clamp-1 max-w-[150px]">{item.title}</p>
-                                                <p className="text-[10px] text-gray-400">Qty: {item.quantity} · ₹{item.price}</p>
+                                                <p className="text-[10px] text-gray-400"><StableText id={"order.jsx.text.qty.68ff921a"} defaultMessage={"Qty:"} /> {item.quantity} · ₹{item.price}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -53,7 +54,7 @@ export default function OrdersSection({ recentOrders, stats }) {
                             </div>
                         ))}
                         <Link to="/orders" className="block text-center py-3 text-indigo-600 font-bold text-sm hover:underline">
-                            View All Orders →
+                            <StableText id={"order.jsx.text.view.all.orders.7f96ae61"} defaultMessage={"View All Orders →"} />
                         </Link>
                     </div>
                 )}

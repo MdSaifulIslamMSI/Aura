@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { IntlProvider } from 'react-intl';
 import { useAuth } from '../../../context/AuthContext';
 import {
   getTrustedDeviceSupportProfile,
@@ -57,9 +58,11 @@ const loadComponent = async () => {
 };
 
 const renderWithRoute = (ui, route = '/admin/dashboard') => render(
-  <MemoryRouter initialEntries={[route]}>
-    {ui}
-  </MemoryRouter>
+  <IntlProvider locale="en" messages={{}}>
+    <MemoryRouter initialEntries={[route]}>
+      {ui}
+    </MemoryRouter>
+  </IntlProvider>
 );
 
 describe('AuraTrustedDeviceChallenge', () => {

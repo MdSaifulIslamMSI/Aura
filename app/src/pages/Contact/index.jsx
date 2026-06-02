@@ -12,7 +12,9 @@ import {
 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
 import SupportSection from '@/pages/Profile/components/SupportSection';
+import { FormattedMessage } from 'react-intl';
 
+import { StableText } from '@/i18n/StableText';
 const SUPPORT_CHANNELS = [
     {
         label: 'Support email',
@@ -76,7 +78,7 @@ export default function ContactPage() {
                     <div className="flex flex-wrap items-center gap-3">
                         <span className="contact-support-chip inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em]">
                             <LifeBuoy className="h-3.5 w-3.5" />
-                            Admin Support Access
+                            <StableText id={"support.jsx.text.admin.support.access.41f5b6f5"} defaultMessage={"Admin Support Access"} />
                         </span>
                         <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] ${
                             blockedBySessionRecovery
@@ -86,15 +88,13 @@ export default function ContactPage() {
                                     : 'border-white/10 bg-white/5 text-slate-300'
                         }`}>
                             {blockedBySessionRecovery ? <ShieldAlert className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-                            {blockedBySessionRecovery ? 'Recovery-safe route' : currentUser ? 'In-app support active' : 'Public contact route'}
+                            {blockedBySessionRecovery ? <StableText id={"common.jsx.expression.recovery.safe.route.de725448"} defaultMessage={"Recovery-safe route"} /> : currentUser ? <StableText id={"support.jsx.expression.in.app.support.active.40666978"} defaultMessage={"In-app support active"} /> : <StableText id={"common.jsx.expression.public.contact.route.e7c3c9f3"} defaultMessage={"Public contact route"} />}
                         </span>
                     </div>
 
-                    <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl">
-                        Reach a real support queue when checkout, account, or governance issues block you.
-                    </h1>
+                    <h1 className="mt-5 max-w-4xl text-4xl font-black tracking-tight text-white sm:text-5xl"><FormattedMessage id="checkout.jsx.text.reach.a.real.support.queue.when.checkout" defaultMessage="Reach a real support queue when checkout, account, or governance issues block you." /></h1>
                     <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-                        This page is the operational handoff into Aura support. Tickets opened here are durable, visible to the admin support desk, and can escalate into a live support call when text alone is too slow.
+                        <StableText id={"support.jsx.text.this.page.is.the.operational.handoff.into.cef0fbf5"} defaultMessage={"This page is the operational handoff into Aura support. Tickets opened here are durable, visible to the admin support desk, and can escalate into a live support call when text alone is too slow."} />
                     </p>
 
                     {blockedBySessionRecovery ? (
@@ -103,13 +103,13 @@ export default function ContactPage() {
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 text-sm font-black text-amber-100">
                                         <AlertTriangle className="h-4 w-4" />
-                                        Session recovery is degraded, but support access is still open.
+                                        <StableText id={"support.jsx.text.session.recovery.is.degraded.but.support.access.d135ad8e"} defaultMessage={"Session recovery is degraded, but support access is still open."} />
                                     </div>
                                     <p className="mt-2 text-sm leading-6 text-amber-50/90">
                                         {sessionError?.message || 'Aura could not finish resolving the commerce profile for this session.'}
                                     </p>
                                     <p className="mt-2 text-xs uppercase tracking-[0.18em] text-amber-100/70">
-                                        Open a ticket below and the admin queue can continue the recovery path.
+                                        <StableText id={"admin.jsx.text.open.a.ticket.below.and.the.admin.c6f2e1b3"} defaultMessage={"Open a ticket below and the admin queue can continue the recovery path."} />
                                     </p>
                                 </div>
                                 <button
@@ -149,18 +149,16 @@ export default function ContactPage() {
                         })}
 
                         <div className="contact-support-card rounded-[1.25rem] border p-5">
-                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">What happens next</p>
+                            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400"><StableText id={"common.jsx.text.what.happens.next.b72f0e71"} defaultMessage={"What happens next"} /></p>
                             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
-                                <p>1. Open or continue a support thread.</p>
-                                <p>2. Admin replies stay attached to the same ticket.</p>
-                                <p>3. If needed, the ticket can escalate into a live support call.</p>
+                                <p><StableText id={"support.jsx.text.1.open.or.continue.a.support.thread.1c7480a4"} defaultMessage={"1. Open or continue a support thread."} /></p>
+                                <p><StableText id={"admin.jsx.text.2.admin.replies.stay.attached.to.the.e8b9864e"} defaultMessage={"2. Admin replies stay attached to the same ticket."} /></p>
+                                <p><StableText id={"support.jsx.text.3.if.needed.the.ticket.can.escalate.f2a61191"} defaultMessage={"3. If needed, the ticket can escalate into a live support call."} /></p>
                             </div>
                             <Link
                                 to="/security"
                                 className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-cyan-100 transition-colors hover:text-white"
-                            >
-                                Review security policy
-                                <ArrowRight className="h-4 w-4" />
+                            ><FormattedMessage id="account.security.jsx.text.review.security.policy" defaultMessage="Review security policy" /><ArrowRight className="h-4 w-4" />
                             </Link>
                         </div>
                     </aside>
@@ -176,10 +174,10 @@ export default function ContactPage() {
                         ) : (
                             <div className="contact-support-card rounded-[1.5rem] border p-6 sm:p-8">
                                 <div className="max-w-3xl">
-                                    <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Sign-in required for tracked admin replies</p>
-                                    <h2 className="mt-3 text-3xl font-black text-white">Use sign-in if you want a persistent support thread.</h2>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400"><StableText id={"admin.jsx.text.sign.in.required.for.tracked.admin.replies.ebbebbf0"} defaultMessage={"Sign-in required for tracked admin replies"} /></p>
+                                    <h2 className="mt-3 text-3xl font-black text-white"><StableText id={"support.jsx.text.use.sign.in.if.you.want.a.3be0d816"} defaultMessage={"Use sign-in if you want a persistent support thread."} /></h2>
                                     <p className="mt-4 text-sm leading-7 text-slate-300">
-                                        The direct email and helpline above always work. To create an in-app ticket that admins can answer, escalate, and keep attached to your account history, sign in first and we will bring you straight back here.
+                                        <StableText id={"admin.jsx.text.the.direct.email.and.helpline.above.always.3cb458ba"} defaultMessage={"The direct email and helpline above always work. To create an in-app ticket that admins can answer, escalate, and keep attached to your account history, sign in first and we will bring you straight back here."} />
                                     </p>
                                     <div className="mt-6 flex flex-wrap gap-3">
                                         <Link
@@ -193,7 +191,7 @@ export default function ContactPage() {
                                             href="mailto:support@aura.shop"
                                             className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
                                         >
-                                            Email support
+                                            <StableText id={"support.jsx.text.email.support.67e014d8"} defaultMessage={"Email support"} />
                                         </a>
                                     </div>
                                 </div>

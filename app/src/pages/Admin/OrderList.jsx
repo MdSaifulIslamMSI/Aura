@@ -9,6 +9,7 @@ import AdminPremiumShell, { AdminHeroStat } from '@/components/shared/AdminPremi
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { FormattedMessage } from 'react-intl';
 
 const STATUS_OPTIONS = ['processing', 'shipped', 'delivered'];
 
@@ -304,7 +305,7 @@ const OrderList = () => {
                                                         {latestRefund.status}
                                                     </div>
                                                     <div>{latestRefund.message || latestRefund.reason || '-'}</div>
-                                                    {latestRefund.refundId && <div className="font-mono text-[10px]">ID: {latestRefund.refundId}</div>}
+                                                    {latestRefund.refundId && <div className="font-mono text-[10px]"><FormattedMessage id="order.jsx.text.id" defaultMessage="ID:" />{' '}{latestRefund.refundId}</div>}
                                                     {['pending', 'approved'].includes(String(latestRefund.status || '').toLowerCase()) ? (
                                                         <div className="flex gap-1 pt-1">
                                                             <button
@@ -343,8 +344,8 @@ const OrderList = () => {
                                                     )}>
                                                         {latestReplacement.status}
                                                     </div>
-                                                    <div>{latestReplacement.itemTitle || 'Item'}</div>
-                                                    {latestReplacement.trackingId && <div className="font-mono text-[10px]">TRK: {latestReplacement.trackingId}</div>}
+                                                    <div>{latestReplacement.itemTitle || <FormattedMessage id="order.jsx.expression.item" defaultMessage="Item" />}</div>
+                                                    {latestReplacement.trackingId && <div className="font-mono text-[10px]"><FormattedMessage id="order.jsx.text.trk" defaultMessage="TRK:" />{' '}{latestReplacement.trackingId}</div>}
                                                     {['pending', 'approved'].includes(String(latestReplacement.status || '').toLowerCase()) ? (
                                                         <>
                                                             <input
