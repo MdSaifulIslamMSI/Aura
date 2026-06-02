@@ -20,6 +20,7 @@ const productionWorkflow = read('.github/workflows/production-cicd.yml');
 const securityRunner = read('scripts/security-runner.mjs');
 const secretScan = read('scripts/security-secret-scan.mjs');
 const dependencyAudit = read('scripts/security-dependency-audit.mjs');
+const supplyChainPinCheck = read('scripts/security/check-supply-chain-pins.mjs');
 const gitleaksConfig = read('.gitleaks.toml');
 const gitignore = read('.gitignore');
 const dockerignore = read('server/.dockerignore');
@@ -276,6 +277,20 @@ addCheck(
     'staging-dast-security-reports',
   ]),
   '.github/workflows/staging-ops-watch.yml'
+);
+
+addCheck(
+  'staging ops watch action refs are immutable',
+  includesAll(stagingOpsWatchWorkflow, [
+    'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd',
+    'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
+    'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
+  ]) && includesAll(supplyChainPinCheck, [
+    'strictPinnedWorkflowFiles',
+    'staging-ops-watch.yml',
+    'strict workflow action refs',
+  ]),
+  '.github/workflows/staging-ops-watch.yml uses full action SHAs and the pin checker enforces it'
 );
 
 addCheck(

@@ -1,11 +1,11 @@
 # Security Risk Register
 
-Last updated: 2026-06-01
+Last updated: 2026-06-02
 
 | ID | Risk | Likelihood | Impact | Current Controls | Owner | Status | Next Evidence |
 |---|---|---:|---:|---|---|---|---|
 | R-001 | Production MFA/passkey enforcement is not proven from repo-only evidence | Medium | High | Admin policy flags, Duo/OIDC tests, trusted-device services | Security owner | Open | Capture production config and admin MFA test evidence |
-| R-002 | Upload malware scanner unavailable in production could block users or allow unsafe files depending on config | Medium | Critical | Upload pipeline fails closed on scan error in code paths, runtime validation script | Platform owner | Open | Prove ClamAV/YARA deployment and quarantine behavior |
+| R-002 | Upload malware scanner unavailable in production could block users or allow unsafe files depending on config | Medium | Critical | Upload pipeline fails closed on scan error in code paths, runtime validation script records EICAR, scanner env contract, and local quarantine behavior | Platform owner | Open | Run staging with `MALWARE_RUNTIME_REQUIRED=true`, `UPLOAD_MALWARE_SCAN_ENABLED=true`, and `CLAMAV_ENABLED=true`; retain ClamAV/YARA and quarantine artifact evidence |
 | R-003 | Tenant/object authorization may be inconsistent across all controllers | Medium | Critical | IDOR tests, admin tests, controller owner checks | Backend owner | Open | Complete route-by-route owner/tenant matrix |
 | R-004 | Raw scan reports may contain sensitive paths or findings if committed | Medium | Medium | Security reports are gitignored, CI artifacts retained separately | Security owner | Accepted | Store reports as CI artifacts, summarize in docs |
 | R-005 | Runtime hardening is not fully enforced | Medium | High | Dockerfile and compose assets, Trivy image scan script | Platform owner | Open | Non-root/read-only/capability evidence and Falco deployment |
