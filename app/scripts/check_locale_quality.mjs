@@ -11,6 +11,8 @@ const scriptPath = fileURLToPath(import.meta.url);
 const scriptDir = path.dirname(scriptPath);
 const appDir = path.resolve(scriptDir, '..');
 const qualityCsvPath = path.resolve(appDir, 'translation-quality.csv');
+const reviewedIcuDir = path.resolve(appDir, 'src/i18n/messages/reviewed');
+const requiredIcuLocalesPath = path.resolve(appDir, 'src/i18n/quality/requiredLocales.json');
 
 const SOURCE_LANGUAGE = 'en';
 const REPORT_ONLY_FLAG = '--report-only';
@@ -131,11 +133,18 @@ const getSampleKeys = (row) => [
     ...row.zeroNativeScriptKeys,
 ].slice(0, 8);
 
+const readJson = (filePath, fallback = null) => {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+};
+
 await ensureAllMarketMessagesLoaded();
 
 const supportedLanguageCodes = SUPPORTED_LANGUAGES.map((language) => language.code);
 const localeCodes = supportedLanguageCodes.filter((code) => code !== SOURCE_LANGUAGE);
 const englishMessages = MARKET_MESSAGES[SOURCE_LANGUAGE] || {};
+const reviewedIcuMessages = readJson(path.join(reviewedIcuDir, 'en.json'), {});
+const requiredIcuLocales = readJson(requiredIcuLocalesPath, []);
 const canonicalKeys = Object.keys(englishMessages)
     .filter((key) => typeof englishMessages[key] === 'string' && englishMessages[key].trim().length > 0)
     .sort((left, right) => left.localeCompare(right));
@@ -251,7 +260,10 @@ const csvLines = [
 fs.writeFileSync(qualityCsvPath, `${csvLines.join('\n')}\n`, 'utf8');
 
 console.log('Locale quality audit');
-console.log(`Canonical English keys: ${canonicalKeys.length}`);
+console.log('Scope: legacy market-message pack quality. Reviewed ICU catalog quality is enforced by i18n:check / i18n:qa.');
+console.log(`Canonical English legacy pack keys: ${canonicalKeys.length}`);
+console.log(`Reviewed ICU source keys: ${Object.keys(reviewedIcuMessages).length}`);
+console.log(`Reviewed ICU required locales: ${requiredIcuLocales.length}`);
 console.log(`Exact English fallback ceiling: ${MAX_EXACT_ENGLISH_PERCENT}%`);
 console.log(`Native-script letter floor: ${MIN_NATIVE_LETTER_PERCENT}%`);
 console.log(`Mode: ${isReportOnly ? 'report-only' : 'strict'}`);

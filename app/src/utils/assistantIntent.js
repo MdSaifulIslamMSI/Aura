@@ -1,29 +1,160 @@
+import { defineMessages } from 'react-intl';
+
+export const assistantIntentMessages = defineMessages({
+    categoryMobiles: {
+        id: 'assistant.intent.category.mobiles',
+        defaultMessage: 'Mobiles',
+    },
+    categoryLaptops: {
+        id: 'assistant.intent.category.laptops',
+        defaultMessage: 'Laptops',
+    },
+    categoryElectronics: {
+        id: 'assistant.intent.category.electronics',
+        defaultMessage: 'Electronics',
+    },
+    categoryGaming: {
+        id: 'assistant.intent.category.gaming',
+        defaultMessage: 'Gaming',
+    },
+    categoryBooks: {
+        id: 'assistant.intent.category.books',
+        defaultMessage: 'Books',
+    },
+    navHome: {
+        id: 'assistant.intent.navigation.home',
+        defaultMessage: 'Home',
+    },
+    navMarketplace: {
+        id: 'assistant.intent.navigation.marketplace',
+        defaultMessage: 'Marketplace',
+    },
+    navCart: {
+        id: 'assistant.intent.navigation.cart',
+        defaultMessage: 'Cart',
+    },
+    navWishlist: {
+        id: 'assistant.intent.navigation.wishlist',
+        defaultMessage: 'Wishlist',
+    },
+    navOrders: {
+        id: 'assistant.intent.navigation.orders',
+        defaultMessage: 'Orders',
+    },
+    navProfile: {
+        id: 'assistant.intent.navigation.profile',
+        defaultMessage: 'Profile',
+    },
+    navSell: {
+        id: 'assistant.intent.navigation.sell',
+        defaultMessage: 'Sell',
+    },
+    navBundles: {
+        id: 'assistant.intent.navigation.bundles',
+        defaultMessage: 'Bundles',
+    },
+    navCompare: {
+        id: 'assistant.intent.navigation.aiCompare',
+        defaultMessage: 'AI Compare',
+    },
+    navVisualSearch: {
+        id: 'assistant.intent.navigation.visualSearch',
+        defaultMessage: 'Visual Search',
+    },
+    navDeals: {
+        id: 'assistant.intent.navigation.deals',
+        defaultMessage: 'Deals',
+    },
+    navTrending: {
+        id: 'assistant.intent.navigation.trending',
+        defaultMessage: 'Trending',
+    },
+    navNewArrivals: {
+        id: 'assistant.intent.navigation.newArrivals',
+        defaultMessage: 'New Arrivals',
+    },
+    navCheckout: {
+        id: 'assistant.intent.navigation.checkout',
+        defaultMessage: 'Checkout',
+    },
+    browseCategory: {
+        id: 'assistant.intent.action.browseCategory',
+        defaultMessage: 'Browse {category}',
+    },
+    closeVoiceAssistant: {
+        id: 'assistant.intent.voice.close',
+        defaultMessage: 'Closing voice assistant.',
+    },
+    openingProduct: {
+        id: 'assistant.intent.voice.openingProduct',
+        defaultMessage: 'Opening product {productId}.',
+    },
+    openingPage: {
+        id: 'assistant.intent.voice.openingPage',
+        defaultMessage: 'Opening {page}.',
+    },
+    fallbackPage: {
+        id: 'assistant.intent.voice.fallbackPage',
+        defaultMessage: 'that page',
+    },
+    showResultsFor: {
+        id: 'assistant.intent.voice.showResultsFor',
+        defaultMessage: 'Show results for {query}.',
+    },
+    helpExamples: {
+        id: 'assistant.intent.voice.helpExamples',
+        defaultMessage: 'Try saying search for iPhone fifteen, open cart, show laptops category, or open marketplace.',
+    },
+    unknownCommand: {
+        id: 'assistant.intent.voice.unknownCommand',
+        defaultMessage: 'I could not understand that. Say help for examples.',
+    },
+});
+
 const CATEGORY_ALIASES = [
-    { aliases: ['mobiles', 'mobile', 'phone', 'smartphone', 'iphone', 'android'], value: 'mobiles', label: 'Mobiles' },
-    { aliases: ['laptops', 'laptop', 'notebook', 'macbook'], value: 'laptops', label: 'Laptops' },
-    { aliases: ['electronics', 'electronic', 'gadgets', 'gadget'], value: 'electronics', label: 'Electronics' },
-    { aliases: ['gaming', 'games', 'console'], value: 'gaming', label: 'Gaming' },
-    { aliases: ['books', 'book'], value: 'books', label: 'Books' },
+    { aliases: ['mobiles', 'mobile', 'phone', 'smartphone', 'iphone', 'android'], value: 'mobiles', message: assistantIntentMessages.categoryMobiles },
+    { aliases: ['laptops', 'laptop', 'notebook', 'macbook'], value: 'laptops', message: assistantIntentMessages.categoryLaptops },
+    { aliases: ['electronics', 'electronic', 'gadgets', 'gadget'], value: 'electronics', message: assistantIntentMessages.categoryElectronics },
+    { aliases: ['gaming', 'games', 'console'], value: 'gaming', message: assistantIntentMessages.categoryGaming },
+    { aliases: ['books', 'book'], value: 'books', message: assistantIntentMessages.categoryBooks },
 ];
 
 const NAVIGATION_TARGETS = [
-    { aliases: ['home', 'homepage'], page: 'home', path: '/', label: 'Home' },
-    { aliases: ['marketplace', 'market place'], page: 'marketplace', path: '/marketplace', label: 'Marketplace' },
-    { aliases: ['cart', 'bag', 'basket'], page: 'cart', path: '/cart', label: 'Cart' },
-    { aliases: ['wishlist', 'favorites', 'favourites'], page: 'wishlist', path: '/wishlist', label: 'Wishlist' },
-    { aliases: ['orders', 'my orders', 'order history'], page: 'orders', path: '/orders', label: 'Orders' },
-    { aliases: ['profile', 'account'], page: 'profile', path: '/profile', label: 'Profile' },
-    { aliases: ['sell', 'sell item'], page: 'sell', path: '/sell', label: 'Sell' },
-    { aliases: ['bundles', 'smart bundles'], page: 'bundles', path: '/bundles', label: 'Bundles' },
-    { aliases: ['compare', 'ai compare'], page: 'compare', path: '/compare', label: 'AI Compare' },
-    { aliases: ['visual search', 'camera search'], page: 'visual_search', path: '/visual-search', label: 'Visual Search' },
-    { aliases: ['deals', 'offers'], page: 'deals', path: '/deals', label: 'Deals' },
-    { aliases: ['trending'], page: 'trending', path: '/trending', label: 'Trending' },
-    { aliases: ['new arrivals', 'latest'], page: 'new_arrivals', path: '/new-arrivals', label: 'New Arrivals' },
-    { aliases: ['checkout'], page: 'checkout', path: '/checkout', label: 'Checkout' },
+    { aliases: ['home', 'homepage'], page: 'home', path: '/', message: assistantIntentMessages.navHome },
+    { aliases: ['marketplace', 'market place'], page: 'marketplace', path: '/marketplace', message: assistantIntentMessages.navMarketplace },
+    { aliases: ['cart', 'bag', 'basket'], page: 'cart', path: '/cart', message: assistantIntentMessages.navCart },
+    { aliases: ['wishlist', 'favorites', 'favourites'], page: 'wishlist', path: '/wishlist', message: assistantIntentMessages.navWishlist },
+    { aliases: ['orders', 'my orders', 'order history'], page: 'orders', path: '/orders', message: assistantIntentMessages.navOrders },
+    { aliases: ['profile', 'account'], page: 'profile', path: '/profile', message: assistantIntentMessages.navProfile },
+    { aliases: ['sell', 'sell item'], page: 'sell', path: '/sell', message: assistantIntentMessages.navSell },
+    { aliases: ['bundles', 'smart bundles'], page: 'bundles', path: '/bundles', message: assistantIntentMessages.navBundles },
+    { aliases: ['compare', 'ai compare'], page: 'compare', path: '/compare', message: assistantIntentMessages.navCompare },
+    { aliases: ['visual search', 'camera search'], page: 'visual_search', path: '/visual-search', message: assistantIntentMessages.navVisualSearch },
+    { aliases: ['deals', 'offers'], page: 'deals', path: '/deals', message: assistantIntentMessages.navDeals },
+    { aliases: ['trending'], page: 'trending', path: '/trending', message: assistantIntentMessages.navTrending },
+    { aliases: ['new arrivals', 'latest'], page: 'new_arrivals', path: '/new-arrivals', message: assistantIntentMessages.navNewArrivals },
+    { aliases: ['checkout'], page: 'checkout', path: '/checkout', message: assistantIntentMessages.navCheckout },
 ];
 
 const safeString = (value = '') => String(value ?? '').trim();
+
+const interpolateDefaultMessage = (template = '', values = {}) => safeString(template).replace(/\{(\w+)\}/g, (_match, key) => (
+    values[key] === undefined || values[key] === null ? '' : String(values[key])
+));
+
+const formatAssistantIntentMessage = (formatMessage, descriptor, values = {}) => {
+    if (!descriptor) return '';
+
+    if (typeof formatMessage === 'function') {
+        try {
+            return formatMessage(descriptor, values);
+        } catch {
+            return interpolateDefaultMessage(descriptor.defaultMessage, values);
+        }
+    }
+
+    return interpolateDefaultMessage(descriptor.defaultMessage, values);
+};
 
 export const normalizeAssistantText = (value = '') => safeString(value)
     .toLowerCase()
@@ -61,7 +192,8 @@ export const extractAssistantBudget = (value = '') => {
     return 0;
 };
 
-export const parseClientAssistantIntent = (value = '') => {
+export const parseClientAssistantIntent = (value = '', options = {}) => {
+    const formatMessage = options?.formatMessage;
     const raw = safeString(value);
     if (!raw) {
         return {
@@ -162,7 +294,9 @@ export const parseClientAssistantIntent = (value = '') => {
             action: {
                 type: 'navigate',
                 path: `/category/${category.value}`,
-                label: `Browse ${category.label}`,
+                label: formatAssistantIntentMessage(formatMessage, assistantIntentMessages.browseCategory, {
+                    category: formatAssistantIntentMessage(formatMessage, category.message),
+                }),
                 params: {
                     category: category.value,
                 },
@@ -180,7 +314,7 @@ export const parseClientAssistantIntent = (value = '') => {
             action: {
                 type: 'navigate',
                 path: pageTarget.path,
-                label: pageTarget.label,
+                label: formatAssistantIntentMessage(formatMessage, pageTarget.message),
             },
         };
     }
@@ -252,14 +386,15 @@ export const parseSemanticSearchIntent = (value = '') => {
     };
 };
 
-export const buildLocalVoiceCommand = (value = '') => {
+export const buildLocalVoiceCommand = (value = '', options = {}) => {
     const raw = safeString(value);
-    const parsed = parseClientAssistantIntent(raw);
+    const formatMessage = options?.formatMessage;
+    const parsed = parseClientAssistantIntent(raw, { formatMessage });
 
     if (parsed.action?.type === 'close') {
         return {
             type: 'close',
-            message: 'Closing voice assistant.',
+            message: formatAssistantIntentMessage(formatMessage, assistantIntentMessages.closeVoiceAssistant),
         };
     }
 
@@ -267,7 +402,9 @@ export const buildLocalVoiceCommand = (value = '') => {
         return {
             type: 'product',
             productId: parsed.action.productId,
-            message: `Opening product ${parsed.action.productId}.`,
+            message: formatAssistantIntentMessage(formatMessage, assistantIntentMessages.openingProduct, {
+                productId: parsed.action.productId,
+            }),
         };
     }
 
@@ -275,7 +412,9 @@ export const buildLocalVoiceCommand = (value = '') => {
         return {
             type: 'navigate',
             path: parsed.action.path,
-            message: `Opening ${parsed.action.label || 'that page'}.`,
+            message: formatAssistantIntentMessage(formatMessage, assistantIntentMessages.openingPage, {
+                page: parsed.action.label || formatAssistantIntentMessage(formatMessage, assistantIntentMessages.fallbackPage),
+            }),
         };
     }
 
@@ -283,14 +422,16 @@ export const buildLocalVoiceCommand = (value = '') => {
         return {
             type: 'search',
             query: parsed.entities.query,
-            message: `Show results for ${parsed.entities.query}.`,
+            message: formatAssistantIntentMessage(formatMessage, assistantIntentMessages.showResultsFor, {
+                query: parsed.entities.query,
+            }),
         };
     }
 
     return {
         type: parsed.intent === 'general_knowledge' ? 'help' : 'unknown',
         message: parsed.intent === 'general_knowledge'
-            ? 'Try saying search for iPhone fifteen, open cart, show laptops category, or open marketplace.'
-            : 'I could not understand that. Say help for examples.',
+            ? formatAssistantIntentMessage(formatMessage, assistantIntentMessages.helpExamples)
+            : formatAssistantIntentMessage(formatMessage, assistantIntentMessages.unknownCommand),
     };
 };

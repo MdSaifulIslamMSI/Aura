@@ -1,7 +1,54 @@
+import { defineMessages } from 'react-intl';
+
 export const FRONTEND_LAUNCH_HUB_PATH = '/launch';
 export const DEFAULT_GATEWAY_FRONTEND_URL = '';
 
 const SUPPORTED_PROTOCOLS = new Set(['http:', 'https:']);
+
+export const frontendTargetMessages = defineMessages({
+  vercelLabel: {
+    id: 'frontendTargets.vercel.label',
+    defaultMessage: 'Vercel frontend',
+  },
+  vercelDescription: {
+    id: 'frontendTargets.vercel.description',
+    defaultMessage: 'Open the Vercel-hosted Aura storefront running on the shared production backend.',
+  },
+  netlifyLabel: {
+    id: 'frontendTargets.netlify.label',
+    defaultMessage: 'Netlify frontend',
+  },
+  netlifyDescription: {
+    id: 'frontendTargets.netlify.description',
+    defaultMessage: 'Open the Netlify-hosted Aura storefront mirroring the same production commerce state.',
+  },
+  gatewayLabel: {
+    id: 'frontendTargets.gateway.label',
+    defaultMessage: 'Gateway',
+  },
+  gatewayDescription: {
+    id: 'frontendTargets.gateway.description',
+    defaultMessage: 'Return to the Aura gateway and choose the frontend runtime you want from the dedicated entry layer.',
+  },
+  deploymentUrlPending: {
+    id: 'frontendTargets.origin.pending',
+    defaultMessage: 'Deployment URL pending',
+  },
+});
+
+const formatFrontendTargetMessage = (formatMessage, descriptor, values = {}) => {
+  if (!descriptor) return '';
+
+  if (typeof formatMessage === 'function') {
+    try {
+      return formatMessage(descriptor, values);
+    } catch {
+      return descriptor.defaultMessage || '';
+    }
+  }
+
+  return descriptor.defaultMessage || '';
+};
 
 export const normalizeFrontendUrl = (value = '') => {
   const candidate = String(value || '').trim();
@@ -57,22 +104,25 @@ const getHostname = (url = '') => {
 const createTarget = ({
   id = '',
   label = '',
+  labelMessage = null,
   platform = '',
   description = '',
+  descriptionMessage = null,
   href = '',
   currentOrigin = '',
+  formatMessage = null,
 }) => {
   const hostname = getHostname(href);
   const normalizedCurrentOrigin = normalizeFrontendUrl(currentOrigin);
 
   return {
     id,
-    label,
+    label: label || formatFrontendTargetMessage(formatMessage, labelMessage),
     platform,
-    description,
+    description: description || formatFrontendTargetMessage(formatMessage, descriptionMessage),
     href,
     hostname,
-    originLabel: hostname || 'Deployment URL pending',
+    originLabel: hostname || formatFrontendTargetMessage(formatMessage, frontendTargetMessages.deploymentUrlPending),
     isCurrent: Boolean(href) && href === normalizedCurrentOrigin,
     isLive: Boolean(href),
   };
@@ -82,6 +132,7 @@ export const resolveFrontendTargets = ({
   vercelUrl = '',
   netlifyUrl = '',
   currentOrigin = '',
+  formatMessage = null,
 } = {}) => {
   const normalizedCurrentOrigin = normalizeFrontendUrl(currentOrigin);
   const detectedPlatform = detectFrontendPlatform(getHostname(normalizedCurrentOrigin));
@@ -94,19 +145,21 @@ export const resolveFrontendTargets = ({
   return [
     createTarget({
       id: 'vercel',
-      label: 'Vercel frontend',
+      labelMessage: frontendTargetMessages.vercelLabel,
       platform: 'Vercel',
-      description: 'Open the Vercel-hosted Aura storefront running on the shared production backend.',
+      descriptionMessage: frontendTargetMessages.vercelDescription,
       href: resolvedTargets.vercel,
       currentOrigin: normalizedCurrentOrigin,
+      formatMessage,
     }),
     createTarget({
       id: 'netlify',
-      label: 'Netlify frontend',
+      labelMessage: frontendTargetMessages.netlifyLabel,
       platform: 'Netlify',
-      description: 'Open the Netlify-hosted Aura storefront mirroring the same production commerce state.',
+      descriptionMessage: frontendTargetMessages.netlifyDescription,
       href: resolvedTargets.netlify,
       currentOrigin: normalizedCurrentOrigin,
+      formatMessage,
     }),
   ];
 };
@@ -116,20 +169,23 @@ export const resolveFrontendNavigationTargets = ({
   vercelUrl = '',
   netlifyUrl = '',
   currentOrigin = '',
+  formatMessage = null,
 } = {}) => {
   const normalizedCurrentOrigin = normalizeFrontendUrl(currentOrigin);
   const storefrontTargets = resolveFrontendTargets({
     vercelUrl,
     netlifyUrl,
     currentOrigin: normalizedCurrentOrigin,
+    formatMessage,
   });
   const gatewayTarget = createTarget({
     id: 'gateway',
-    label: 'Gateway',
+    labelMessage: frontendTargetMessages.gatewayLabel,
     platform: 'Gateway',
-    description: 'Return to the Aura gateway and choose the frontend runtime you want from the dedicated entry layer.',
+    descriptionMessage: frontendTargetMessages.gatewayDescription,
     href: normalizeFrontendUrl(gatewayUrl) || DEFAULT_GATEWAY_FRONTEND_URL,
     currentOrigin: normalizedCurrentOrigin,
+    formatMessage,
   });
   const gatewayIsCurrent = gatewayTarget.isCurrent;
 

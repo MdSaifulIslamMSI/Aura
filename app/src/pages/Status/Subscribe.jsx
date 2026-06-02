@@ -2,14 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Mail } from 'lucide-react';
 import { statusApi } from '@/services/api/statusApi';
+import { FormattedMessage, useIntl } from 'react-intl';
 
+import { StableText } from '@/i18n/StableText';
 const LEVELS = [
-  { value: 'all', label: 'All incidents' },
-  { value: 'major', label: 'Major incidents' },
-  { value: 'maintenance', label: 'Maintenance only' },
+  { value: 'all', labelMessage: { id: 'status.subscribe.level.all', defaultMessage: 'All incidents' } },
+  { value: 'major', labelMessage: { id: 'status.subscribe.level.major', defaultMessage: 'Major incidents' } },
+  { value: 'maintenance', labelMessage: { id: 'status.subscribe.level.maintenance', defaultMessage: 'Maintenance only' } },
 ];
 
 export default function StatusSubscribePage() {
+  const intl = useIntl();
   const [searchParams] = useSearchParams();
   const unsubscribeToken = searchParams.get('unsubscribe') || '';
   const [payload, setPayload] = useState(null);
@@ -70,7 +73,7 @@ export default function StatusSubscribePage() {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
         <Link to="/status" className="inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-600">
           <ArrowLeft className="h-4 w-4" />
-          Status
+          <FormattedMessage id="status.page.label" defaultMessage="Status" />
         </Link>
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-start gap-3">
@@ -78,27 +81,27 @@ export default function StatusSubscribePage() {
               <Mail className="h-5 w-5" />
             </span>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-normal text-slate-950">Subscribe to updates</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Receive incident and maintenance notifications for selected Aura systems.</p>
+              <h1 className="text-2xl font-extrabold tracking-normal text-slate-950"><StableText id={"common.jsx.text.subscribe.to.updates.6a3924dd"} defaultMessage={"Subscribe to updates"} /></h1>
+              <p className="mt-2 text-sm leading-6 text-slate-600"><StableText id={"support.jsx.text.receive.incident.and.maintenance.notifications.for.selected.1bd07e76"} defaultMessage={"Receive incident and maintenance notifications for selected Aura systems."} /></p>
             </div>
           </div>
 
           {unsubscribeToken ? (
             <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-700">This link can remove the matching subscription.</p>
+              <p className="text-sm font-semibold text-slate-700"><StableText id={"common.jsx.text.this.link.can.remove.the.matching.subscription.0dd2716d"} defaultMessage={"This link can remove the matching subscription."} /></p>
               <button
                 type="button"
                 disabled={busy}
                 onClick={submitUnsubscribe}
                 className="mt-4 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
               >
-                Unsubscribe
+                <StableText id={"common.jsx.text.unsubscribe.ad8525fd"} defaultMessage={"Unsubscribe"} />
               </button>
             </div>
           ) : (
             <form onSubmit={submitSubscribe} className="mt-6 space-y-5">
               <label className="block">
-                <span className="text-sm font-bold text-slate-700">Email</span>
+                <span className="text-sm font-bold text-slate-700"><StableText id={"common.jsx.text.email.c5f7832f"} defaultMessage={"Email"} /></span>
                 <input
                   type="email"
                   required
@@ -109,7 +112,7 @@ export default function StatusSubscribePage() {
                 />
               </label>
               <fieldset>
-                <legend className="text-sm font-bold text-slate-700">Notification type</legend>
+                <legend className="text-sm font-bold text-slate-700"><StableText id={"notification.jsx.text.notification.type.fd6856dc"} defaultMessage={"Notification type"} /></legend>
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {LEVELS.map((level) => (
                     <label key={level.value} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-3 text-sm font-bold ${notificationLevel === level.value ? 'border-slate-950 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-700'}`}>
@@ -119,13 +122,13 @@ export default function StatusSubscribePage() {
                         checked={notificationLevel === level.value}
                         onChange={() => setNotificationLevel(level.value)}
                       />
-                      {level.label}
+                      {intl.formatMessage(level.labelMessage)}
                     </label>
                   ))}
                 </div>
               </fieldset>
               <fieldset>
-                <legend className="text-sm font-bold text-slate-700">Components</legend>
+                <legend className="text-sm font-bold text-slate-700"><StableText id={"common.jsx.text.components.dcf72b86"} defaultMessage={"Components"} /></legend>
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {groups.map((group) => (
                     <label key={group.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700">
@@ -145,7 +148,7 @@ export default function StatusSubscribePage() {
               </fieldset>
               <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:opacity-60">
                 <CheckCircle2 className="h-4 w-4" />
-                Save subscription
+                <StableText id={"common.jsx.text.save.subscription.7d065402"} defaultMessage={"Save subscription"} />
               </button>
             </form>
           )}

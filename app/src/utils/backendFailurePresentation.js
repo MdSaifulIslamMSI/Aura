@@ -1,3 +1,40 @@
+import { defineMessages } from 'react-intl';
+
+const backendFailureMessages = defineMessages({
+  catalogTimeoutTitle: {
+    id: 'backendFailure.catalog.timeout.title',
+    defaultMessage: 'Catalog request timed out',
+  },
+  catalogTimeoutMessage: {
+    id: 'backendFailure.catalog.timeout.message',
+    defaultMessage: 'The catalog service took too long to respond. Please retry in a few seconds.',
+  },
+  catalogUnavailableTitle: {
+    id: 'backendFailure.catalog.unavailable.title',
+    defaultMessage: 'Catalog backend unavailable',
+  },
+  catalogUnavailableMessage: {
+    id: 'backendFailure.catalog.unavailable.message',
+    defaultMessage: 'The catalog service is temporarily offline or waking up. Please retry in a few moments.',
+  },
+  catalogUnreachableTitle: {
+    id: 'backendFailure.catalog.unreachable.title',
+    defaultMessage: 'Catalog service unreachable',
+  },
+  catalogUnreachableMessage: {
+    id: 'backendFailure.catalog.unreachable.message',
+    defaultMessage: 'The frontend cannot reach the catalog service right now. Please retry shortly.',
+  },
+  catalogFailedTitle: {
+    id: 'backendFailure.catalog.failed.title',
+    defaultMessage: 'Catalog fetch failed',
+  },
+  catalogFailedMessage: {
+    id: 'backendFailure.catalog.failed.message',
+    defaultMessage: 'Unable to load products right now. Please retry.',
+  },
+});
+
 const HTML_RESPONSE_PATTERN = /<!doctype html|<html[\s>]/i;
 const NETWORK_FAILURE_PATTERNS = [
   /failed to fetch/i,
@@ -25,6 +62,18 @@ const SERVICE_OUTAGE_STATUSES = new Set([500, 502, 503, 504]);
 const collapseWhitespace = (value = '') => String(value || '').replace(/\s+/g, ' ').trim();
 
 const matchesAnyPattern = (value = '', patterns = []) => patterns.some((pattern) => pattern.test(value));
+
+const formatBackendFailureMessage = (formatMessage, descriptor, values = {}) => {
+  if (typeof formatMessage === 'function') {
+    try {
+      return formatMessage(descriptor, values);
+    } catch {
+      return descriptor.defaultMessage;
+    }
+  }
+
+  return descriptor.defaultMessage;
+};
 
 const buildErrorSourceText = (error) => collapseWhitespace([
   error?.message,
@@ -60,38 +109,38 @@ export const summarizeBackendFailureDetail = ({ status = 0, detail = '' } = {}) 
     : normalizedDetail;
 };
 
-export const resolveProductListingFetchCopy = (error) => {
+export const resolveProductListingFetchCopy = (error, formatMessage = null) => {
   const status = Number(error?.status) || 0;
   const sourceText = buildErrorSourceText(error);
   const detail = summarizeBackendFailureDetail({ status, detail: sourceText });
 
   if (matchesAnyPattern(sourceText, TIMEOUT_PATTERNS)) {
     return {
-      title: 'Catalog request timed out',
-      message: 'The catalog service took too long to respond. Please retry in a few seconds.',
+      title: formatBackendFailureMessage(formatMessage, backendFailureMessages.catalogTimeoutTitle),
+      message: formatBackendFailureMessage(formatMessage, backendFailureMessages.catalogTimeoutMessage),
       detail,
     };
   }
 
   if (SERVICE_OUTAGE_STATUSES.has(status) || matchesAnyPattern(sourceText, UPSTREAM_OUTAGE_PATTERNS)) {
     return {
-      title: 'Catalog backend unavailable',
-      message: 'The catalog service is temporarily offline or waking up. Please retry in a few moments.',
+      title: formatBackendFailureMessage(formatMessage, backendFailureMessages.catalogUnavailableTitle),
+      message: formatBackendFailureMessage(formatMessage, backendFailureMessages.catalogUnavailableMessage),
       detail,
     };
   }
 
   if (status === 0 || matchesAnyPattern(sourceText, NETWORK_FAILURE_PATTERNS)) {
     return {
-      title: 'Catalog service unreachable',
-      message: 'The frontend cannot reach the catalog service right now. Please retry shortly.',
+      title: formatBackendFailureMessage(formatMessage, backendFailureMessages.catalogUnreachableTitle),
+      message: formatBackendFailureMessage(formatMessage, backendFailureMessages.catalogUnreachableMessage),
       detail,
     };
   }
 
   return {
-    title: 'Catalog fetch failed',
-    message: 'Unable to load products right now. Please retry.',
+    title: formatBackendFailureMessage(formatMessage, backendFailureMessages.catalogFailedTitle),
+    message: formatBackendFailureMessage(formatMessage, backendFailureMessages.catalogFailedMessage),
     detail,
   };
 };

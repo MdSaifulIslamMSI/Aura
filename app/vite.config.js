@@ -155,6 +155,8 @@ export default defineConfig(({ mode }) => {
     __AURA_RELEASE__: JSON.stringify(releaseInfo),
   },
   build: {
+    // LiveKit's vendor ESM bundle is route-split but lands just above Vite's 500 kB default.
+    chunkSizeWarningLimit: 520,
     modulePreload: {
       resolveDependencies(_filename, deps) {
         return deps.filter((dependency) => !DEFERRED_ROUTE_PRELOAD_PATTERNS.some((pattern) => pattern.test(dependency)));

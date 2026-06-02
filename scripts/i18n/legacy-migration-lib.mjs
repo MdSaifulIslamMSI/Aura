@@ -74,6 +74,18 @@ const readStaticString = (node) => {
     return '';
 };
 
+const readStaticJsxAttribute = (attributes = [], name) => {
+    const attribute = attributes.find((entry) => (
+        entry.type === 'JSXAttribute'
+        && entry.name?.type === 'JSXIdentifier'
+        && entry.name.name === name
+    ));
+    if (!attribute?.value) return '';
+    if (attribute.value.type === 'StringLiteral') return attribute.value.value;
+    if (attribute.value.type === 'JSXExpressionContainer') return readStaticString(attribute.value.expression);
+    return '';
+};
+
 const readSourceSlice = (source, node) => (
     Number.isInteger(node?.start) && Number.isInteger(node?.end)
         ? source.slice(node.start, node.end)
@@ -232,6 +244,40 @@ export const collectLegacyMigrationInventory = async () => {
                         fileDynamicReferences.push(reference);
                         dynamicLookupReferences.push(reference);
                     }
+                    return;
+                }
+
+                const legacyEnglishTemplate = marketConfig.getMessageTemplate('en', id);
+                const reference = summarizeReference({
+                    fallback,
+                    file,
+                    id,
+                    kind: isTestFile ? 'test-harness-literal' : 'stable-ui-literal',
+                    legacyEnglishTemplate,
+                    node,
+                    reason: isTestFile
+                        ? 'Test harness literal is tracked but excluded from production call-site migration.'
+                        : '',
+                });
+                fileStableReferences.push(reference);
+                stableReferences.push(reference);
+            },
+            JSXOpeningElement(openingPath) {
+                const { node } = openingPath;
+                if (node.name?.type !== 'JSXIdentifier' || node.name.name !== 'StableText') return;
+
+                const id = readStaticJsxAttribute(node.attributes, 'id');
+                const fallback = readStaticJsxAttribute(node.attributes, 'defaultMessage');
+                if (!id || id.includes('${')) {
+                    const reference = summarizeReference({
+                        fallback,
+                        file,
+                        kind: 'dynamic-lookup',
+                        node,
+                        reason: 'StableText id is computed and requires manual review.',
+                    });
+                    fileDynamicReferences.push(reference);
+                    dynamicLookupReferences.push(reference);
                     return;
                 }
 

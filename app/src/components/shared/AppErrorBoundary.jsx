@@ -1,6 +1,7 @@
 import React from 'react';
 import { reportClientError } from '@/services/clientObservability';
 
+import { StableText } from '@/i18n/StableText';
 class AppErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -41,9 +42,9 @@ class AppErrorBoundary extends React.Component {
     return (
       <div className="min-h-[50vh] flex items-center justify-center px-4">
         <div className="max-w-lg w-full rounded-2xl border border-neo-rose/35 bg-zinc-950/90 p-6 text-center shadow-glass">
-          <h2 className="text-xl font-black text-white tracking-tight">Something went wrong</h2>
+          <h2 className="text-xl font-black text-white tracking-tight"><StableText id={"common.validation.jsx.text.something.went.wrong.f8e9bcdd"} defaultMessage={"Something went wrong"} /></h2>
           <p className="mt-2 text-sm text-slate-300">
-            A UI module failed to load correctly. Refresh or retry to continue.
+            <StableText id={"common.validation.jsx.text.a.ui.module.failed.to.load.correctly.547ea3f7"} defaultMessage={"A UI module failed to load correctly. Refresh or retry to continue."} />
           </p>
           <div className="mt-5 flex items-center justify-center gap-3">
             <button
@@ -51,7 +52,7 @@ class AppErrorBoundary extends React.Component {
               onClick={this.handleReset}
               className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15 transition-colors"
             >
-              Retry Render
+              <StableText id={"common.validation.jsx.text.retry.render.5060ff9e"} defaultMessage={"Retry Render"} />
             </button>
             <button
               type="button"

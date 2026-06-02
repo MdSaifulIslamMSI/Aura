@@ -1,1 +1,7 @@
 *.sh text eol=lf
+
+# Localization build outputs and audit queues are deterministic machine artifacts.
+# Review the source descriptors, scripts, and markdown summaries first.
+app/src/i18n/messages/compiled/*.json text eol=lf linguist-generated=true
+app/src/i18n/quality/humanReviewQueue.json text eol=lf linguist-generated=true
+app/src/i18n/quality/nativeReviewAudit.json text eol=lf linguist-generated=true

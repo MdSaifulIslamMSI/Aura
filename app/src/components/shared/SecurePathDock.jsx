@@ -7,6 +7,7 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useIntl } from 'react-intl';
 import { AuthContext } from '@/context/AuthContext';
 import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { cn } from '@/lib/utils';
@@ -57,6 +58,7 @@ const shouldShowSupportAction = (pathname = '/', search = '') => {
 };
 
 const SecurePathDock = () => {
+    const intl = useIntl();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
@@ -91,9 +93,9 @@ const SecurePathDock = () => {
         items.push({
             id: 'market',
             icon: Globe2,
-            eyebrow: 'Market studio',
-            title: 'Region controls',
-            detail: 'Country, language, currency',
+            eyebrow: intl.formatMessage({ id: 'securePathDock.market.eyebrow', defaultMessage: 'Market studio' }),
+            title: intl.formatMessage({ id: 'securePathDock.market.title', defaultMessage: 'Region controls' }),
+            detail: intl.formatMessage({ id: 'securePathDock.market.detail', defaultMessage: 'Country, language, currency' }),
             onClick: () => {
                 pushClientDiagnostic('market_studio.secure_path_opened', {
                     context: {
@@ -117,9 +119,11 @@ const SecurePathDock = () => {
         items.push({
             id: 'trust',
             icon: ShieldCheck,
-            eyebrow: status === 'device_challenge_required' ? 'Verification needed' : 'Trust checkpoint',
-            title: 'Admin proof lane',
-            detail: 'Opens only inside protected actions',
+            eyebrow: status === 'device_challenge_required'
+                ? intl.formatMessage({ id: 'securePathDock.trust.verificationNeeded', defaultMessage: 'Verification needed' })
+                : intl.formatMessage({ id: 'securePathDock.trust.eyebrow', defaultMessage: 'Trust checkpoint' }),
+            title: intl.formatMessage({ id: 'securePathDock.trust.title', defaultMessage: 'Admin proof lane' }),
+            detail: intl.formatMessage({ id: 'securePathDock.trust.detail', defaultMessage: 'Opens only inside protected actions' }),
             onClick: () => navigate('/admin/dashboard'),
         });
     }
@@ -128,9 +132,9 @@ const SecurePathDock = () => {
         items.push({
             id: 'assistant',
             icon: Brain,
-            eyebrow: 'Commerce assistant',
-            title: 'Focused copilot',
-            detail: 'Carries this page context',
+            eyebrow: intl.formatMessage({ id: 'securePathDock.assistant.eyebrow', defaultMessage: 'Commerce assistant' }),
+            title: intl.formatMessage({ id: 'securePathDock.assistant.title', defaultMessage: 'Focused copilot' }),
+            detail: intl.formatMessage({ id: 'securePathDock.assistant.detail', defaultMessage: 'Carries this page context' }),
             onClick: () => {
                 pushClientDiagnostic('assistant_workspace.launcher_opened', {
                     context: {
@@ -148,9 +152,15 @@ const SecurePathDock = () => {
         items.push({
             id: 'support',
             icon: LifeBuoy,
-            eyebrow: isAuthenticated ? 'Support panel' : 'Support access',
-            title: isAuthenticated ? 'Support desk' : 'Sign in for support',
-            detail: isAuthenticated ? 'Appeals, refunds, account issues' : 'Keeps the help route ready',
+            eyebrow: isAuthenticated
+                ? intl.formatMessage({ id: 'securePathDock.support.authenticated.eyebrow', defaultMessage: 'Support panel' })
+                : intl.formatMessage({ id: 'securePathDock.support.guest.eyebrow', defaultMessage: 'Support access' }),
+            title: isAuthenticated
+                ? intl.formatMessage({ id: 'securePathDock.support.authenticated.title', defaultMessage: 'Support desk' })
+                : intl.formatMessage({ id: 'securePathDock.support.guest.title', defaultMessage: 'Sign in for support' }),
+            detail: isAuthenticated
+                ? intl.formatMessage({ id: 'securePathDock.support.authenticated.detail', defaultMessage: 'Appeals, refunds, account issues' })
+                : intl.formatMessage({ id: 'securePathDock.support.guest.detail', defaultMessage: 'Keeps the help route ready' }),
             onClick: () => {
                 if (isAuthenticated) {
                     navigate(SUPPORT_HANDOFF_PATH);
@@ -173,18 +183,18 @@ const SecurePathDock = () => {
     return (
         <nav
             className={cn('aura-secure-path-dock', isMobileOpen && 'aura-secure-path-dock--open')}
-            aria-label="Secure path tools"
+            aria-label={intl.formatMessage({ id: 'securePathDock.tools.ariaLabel', defaultMessage: 'Secure path tools' })}
         >
             <div className="aura-secure-path-dock__rail">
                 <button
                     type="button"
                     className="aura-secure-path-dock__header"
-                    aria-label="Secure path tools"
+                    aria-label={intl.formatMessage({ id: 'securePathDock.tools.ariaLabel', defaultMessage: 'Secure path tools' })}
                     aria-expanded={isMobileOpen}
                     onClick={() => setIsMobileOpen((current) => !current)}
                 >
                     <LockKeyhole className="h-4 w-4" />
-                    <span>Secure path</span>
+                    <span>{intl.formatMessage({ id: 'securePathDock.header', defaultMessage: 'Secure path' })}</span>
                 </button>
                 <div className="aura-secure-path-dock__items">
                     {items.map((item) => {
@@ -198,7 +208,10 @@ const SecurePathDock = () => {
                                     setIsMobileOpen(false);
                                 }}
                                 className={cn('aura-secure-path-dock__item', `aura-secure-path-dock__item--${item.id}`)}
-                                aria-label={`${item.eyebrow}: ${item.title}`}
+                                aria-label={intl.formatMessage(
+                                    { id: 'securePathDock.item.ariaLabel', defaultMessage: '{eyebrow}: {title}' },
+                                    { eyebrow: item.eyebrow, title: item.title }
+                                )}
                             >
                                 <span className="aura-secure-path-dock__icon">
                                     <Icon className="h-4 w-4" />

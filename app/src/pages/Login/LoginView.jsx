@@ -239,7 +239,10 @@ const LoginView = ({
                         placeholder={t('login.placeholder.phoneLocal', {}, 'Phone number')}
                         autoComplete="tel-national"
                         inputMode="tel"
-                        aria-label={`${t('login.field.phone', {}, 'Phone Number')} ${selectedPhoneCountry?.dialCode || ''}`}
+                        aria-label={t('login.field.phoneWithDialCode', {
+                          label: t('login.field.phone', {}, 'Phone Number'),
+                          dialCode: selectedPhoneCountry?.dialCode || '',
+                        }, '{{label}} {{dialCode}}')}
                         className="min-w-0 border-0 bg-transparent px-4 py-4 font-medium text-white outline-none placeholder:text-slate-600"
                       />
                     </div>

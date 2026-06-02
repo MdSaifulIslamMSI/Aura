@@ -27,30 +27,33 @@ import TurnstileChallenge from '@/components/features/auth/TurnstileChallenge';
 import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { cn } from '@/lib/utils';
 import { useLoginController } from '@/pages/Login/useLoginController';
+import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { FormattedMessage } from 'react-intl';
 
+import { StableText } from '@/i18n/StableText';
 const providerButtonClass = 'flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-[1rem] border border-white/10 bg-[#0a1427]/90 px-4 py-3 text-sm font-bold text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-cyan-300/35 hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50';
 const fieldClass = 'min-w-0 w-full rounded-[1rem] border border-slate-600/55 bg-[#071225]/90 py-4 pl-12 pr-4 text-base font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/20';
 
 const bridgeSignals = [
-  { label: 'Delivery', value: 'Hosted', icon: Cloud, accent: 'text-cyan-300' },
-  { label: 'API', value: 'Protected', icon: ShieldCheck, accent: 'text-emerald-300' },
-  { label: 'Callback', value: 'Loopback', icon: RefreshCw, accent: 'text-amber-300' },
+  { id: 'delivery', label: <StableText id="desktopLogin.bridge.delivery" defaultMessage="Delivery" />, value: <StableText id="desktopLogin.bridge.hosted" defaultMessage="Hosted" />, icon: Cloud, accent: 'text-cyan-300' },
+  { id: 'api', label: <StableText id="desktopLogin.bridge.api" defaultMessage="API" />, value: <StableText id="desktopLogin.bridge.protected" defaultMessage="Protected" />, icon: ShieldCheck, accent: 'text-emerald-300' },
+  { id: 'callback', label: <StableText id="desktopLogin.bridge.callback" defaultMessage="Callback" />, value: <StableText id="desktopLogin.bridge.loopback" defaultMessage="Loopback" />, icon: RefreshCw, accent: 'text-amber-300' },
 ];
 
 const desktopCapabilities = [
-  { label: 'Request locked', icon: ShieldCheck, accent: 'text-cyan-300' },
-  { label: 'Verified proof', icon: Fingerprint, accent: 'text-cyan-300' },
-  { label: 'Sealed token', icon: Lock, accent: 'text-indigo-300' },
-  { label: 'Loopback only', icon: Network, accent: 'text-lime-300' },
-  { label: 'Desktop only', icon: Monitor, accent: 'text-cyan-300' },
-  { label: 'Trace ready', icon: Activity, accent: 'text-sky-300' },
+  { id: 'request-locked', label: <StableText id="desktopLogin.capability.requestLocked" defaultMessage="Request locked" />, icon: ShieldCheck, accent: 'text-cyan-300' },
+  { id: 'verified-proof', label: <StableText id="desktopLogin.capability.verifiedProof" defaultMessage="Verified proof" />, icon: Fingerprint, accent: 'text-cyan-300' },
+  { id: 'sealed-token', label: <StableText id="desktopLogin.capability.sealedToken" defaultMessage="Sealed token" />, icon: Lock, accent: 'text-indigo-300' },
+  { id: 'loopback-only', label: <StableText id="desktopLogin.capability.loopbackOnly" defaultMessage="Loopback only" />, icon: Network, accent: 'text-lime-300' },
+  { id: 'desktop-only', label: <StableText id="desktopLogin.capability.desktopOnly" defaultMessage="Desktop only" />, icon: Monitor, accent: 'text-cyan-300' },
+  { id: 'trace-ready', label: <StableText id="desktopLogin.capability.traceReady" defaultMessage="Trace ready" />, icon: Activity, accent: 'text-sky-300' },
 ];
 
 const statusPills = [
-  { label: 'Secure by design', icon: ShieldCheck },
-  { label: 'Privacy first', icon: Lock },
-  { label: 'Built for trust', icon: CheckCircle2 },
+  { id: 'secure-by-design', label: <StableText id="desktopLogin.status.secureByDesign" defaultMessage="Secure by design" />, icon: ShieldCheck },
+  { id: 'privacy-first', label: <StableText id="desktopLogin.status.privacyFirst" defaultMessage="Privacy first" />, icon: Lock },
+  { id: 'built-for-trust', label: <StableText id="desktopLogin.status.builtForTrust" defaultMessage="Built for trust" />, icon: CheckCircle2 },
 ];
 
 const AuraMark = () => (
@@ -111,6 +114,8 @@ const DesktopInputShell = ({ icon: Icon, children }) => (
 
 const DesktopLogin = () => {
   const controller = useLoginController();
+  const { t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const { isFeatureDisabled } = useEmergencyStatus();
   const loginDisabled = isFeatureDisabled('login');
   const signupDisabled = isFeatureDisabled('signup');
@@ -128,12 +133,12 @@ const DesktopLogin = () => {
   const socialDisabled = controller.isLoading || loginDisabled || !handoffActive;
   const showProviderGrid = controller.isDuoLoginEnabled || controller.socialAuthStatus.supported;
   const stepLabel = controller.step === 'otp'
-    ? 'OTP lane'
+    ? <StableText id="desktopLogin.step.otpLane" defaultMessage="OTP lane" />
     : controller.step === 'reset-password'
-      ? 'Recovery lane'
+      ? <StableText id="desktopLogin.step.recoveryLane" defaultMessage="Recovery lane" />
       : controller.mode === 'signup'
-        ? 'Account lane'
-        : 'Credential lane';
+        ? <StableText id="desktopLogin.step.accountLane" defaultMessage="Account lane" />
+        : <StableText id="desktopLogin.step.credentialLane" defaultMessage="Credential lane" />;
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#020712] text-white">
@@ -144,7 +149,7 @@ const DesktopLogin = () => {
         <header className="flex items-center justify-between gap-4 py-1">
           <div className="flex min-w-0 items-center gap-4">
             <AuraMark />
-            <p className="truncate text-xl font-black uppercase text-slate-100 sm:text-2xl">Aura Desktop</p>
+            <p className="truncate text-xl font-black uppercase text-slate-100 sm:text-2xl"><StableText id={"auth.jsx.text.aura.desktop.9942bc8a"} defaultMessage={"Aura Desktop"} /></p>
           </div>
           <div className={cn(
             'hidden items-center gap-2 rounded-full border px-6 py-3 text-sm font-black uppercase sm:inline-flex',
@@ -153,7 +158,7 @@ const DesktopLogin = () => {
               : 'border-amber-300/35 bg-amber-300/10 text-amber-200'
           )}>
             <ShieldCheck className="h-5 w-5" />
-            {handoffActive ? 'Request armed' : 'Request missing'}
+            {handoffActive ? <StableText id={"auth.jsx.expression.request.armed.b9bf993d"} defaultMessage={"Request armed"} /> : <StableText id={"auth.jsx.expression.request.missing.3c67b181"} defaultMessage={"Request missing"} />}
           </div>
         </header>
 
@@ -170,10 +175,10 @@ const DesktopLogin = () => {
                 <div className="mt-8 grid flex-1 items-center gap-8 lg:grid-cols-[1fr_0.82fr]">
                   <div className="min-w-0">
                     <h1 className="max-w-xl text-4xl font-black leading-[1.15] tracking-normal text-white sm:text-5xl xl:text-6xl">
-                      One focused login bridge for <span className="text-cyan-300">Aura Desktop.</span>
+                      <StableText id={"auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f"} defaultMessage={"One focused login bridge for"} /> <span className="text-cyan-300"><StableText id={"auth.jsx.text.aura.desktop.e8fd0ce4"} defaultMessage={"Aura Desktop."} /></span>
                     </h1>
                     <p className="mt-6 max-w-xl break-words text-lg font-semibold leading-8 text-slate-300">
-                      Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.
+                      <StableText id={"auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe"} defaultMessage={"Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge."} />
                     </p>
                   </div>
                   <DesktopShieldVisual />
@@ -182,13 +187,13 @@ const DesktopLogin = () => {
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {desktopCapabilities.map((capability) => (
-                  <CapabilityTile key={capability.label} {...capability} />
+                  <CapabilityTile key={capability.id} {...capability} />
                 ))}
               </div>
 
               <div className="grid overflow-hidden rounded-[1rem] border border-white/10 bg-[#071225]/80 sm:grid-cols-3">
-                {statusPills.map(({ label, icon: Icon }, index) => (
-                  <div key={label} className={cn('flex items-center justify-center gap-3 px-4 py-4 text-sm font-semibold text-slate-200', index > 0 && 'border-t border-white/10 sm:border-l sm:border-t-0')}>
+                {statusPills.map(({ id, label, icon: Icon }, index) => (
+                  <div key={id} className={cn('flex items-center justify-center gap-3 px-4 py-4 text-sm font-semibold text-slate-200', index > 0 && 'border-t border-white/10 sm:border-l sm:border-t-0')}>
                     <Icon className="h-5 w-5 text-cyan-300" />
                     {label}
                   </div>
@@ -203,16 +208,16 @@ const DesktopLogin = () => {
                 <div className="flex h-16 w-16 items-center justify-center rounded-[1.1rem] border border-amber-300/25 bg-amber-300/10">
                   <TimerReset className="h-8 w-8 text-amber-200" />
                 </div>
-                <h2 className="mt-5 text-2xl font-black tracking-normal">Desktop request not active</h2>
+                <h2 className="mt-5 text-2xl font-black tracking-normal"><StableText id={"auth.jsx.text.desktop.request.not.active.e348cafc"} defaultMessage={"Desktop request not active"} /></h2>
                 <p className="mt-3 max-w-sm text-sm font-semibold leading-6 text-slate-400">
-                  Start again from Aura Desktop so this browser lane can bind to the local session request.
+                  <StableText id={"auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d"} defaultMessage={"Start again from Aura Desktop so this browser lane can bind to the local session request."} />
                 </p>
               </div>
             ) : (
               <>
                 <div className="mb-7 grid gap-3 sm:grid-cols-3">
                   {bridgeSignals.map((signal) => (
-                    <SignalCard key={signal.label} {...signal} />
+                    <SignalCard key={signal.id} {...signal} />
                   ))}
                 </div>
 
@@ -242,25 +247,25 @@ const DesktopLogin = () => {
                     <>
                       {controller.mode === 'signup' ? (
                         <div>
-                          <FieldLabel>Full Name *</FieldLabel>
+                          <FieldLabel><StableText id="desktopLogin.field.fullName" defaultMessage="Full Name *" /></FieldLabel>
                           <DesktopInputShell icon={User}>
-                            <input name="name" value={controller.formData.name} onChange={controller.handleChange} autoComplete="name" placeholder="Your full name" className={fieldClass} />
+                            <input name="name" value={controller.formData.name} onChange={controller.handleChange} autoComplete="name" placeholder={t('desktopLogin.placeholder.fullName', {}, 'Your full name')} className={fieldClass} />
                           </DesktopInputShell>
                         </div>
                       ) : null}
 
                       <div>
-                        <FieldLabel>{controller.mode === 'forgot-password' ? 'Registered Email *' : 'Email Address *'}</FieldLabel>
+                        <FieldLabel>{controller.mode === 'forgot-password' ? <StableText id={"auth.jsx.expression.registered.email.27c6cef1"} defaultMessage={"Registered Email *"} /> : <StableText id={"auth.jsx.expression.email.address.cef5d897"} defaultMessage={"Email Address *"} />}</FieldLabel>
                         <DesktopInputShell icon={Mail}>
                           <input type="email" name="email" value={controller.formData.email} onChange={controller.handleChange} autoComplete={controller.mode === 'signin' ? 'username' : 'email'} placeholder="name@example.com" className={fieldClass} />
                         </DesktopInputShell>
                       </div>
 
                       <div>
-                        <FieldLabel>Phone Number *</FieldLabel>
+                        <FieldLabel><StableText id="desktopLogin.field.phoneNumber" defaultMessage="Phone Number *" /></FieldLabel>
                         <div className="relative flex min-h-14 overflow-hidden rounded-[1rem] border border-slate-600/55 bg-[#071225]/90 transition focus-within:border-cyan-300 focus-within:ring-2 focus-within:ring-cyan-300/20">
                           <Phone className="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                          <select value={controller.phoneCountryCode} onChange={controller.handlePhoneCountryChange} aria-label="Country calling code" className="h-full shrink-0 appearance-none border-0 border-r border-white/10 bg-transparent py-4 pl-11 pr-7 text-sm font-black text-white outline-none" style={{ width: '9rem' }}>
+                          <select value={controller.phoneCountryCode} onChange={controller.handlePhoneCountryChange} aria-label={t('desktopLogin.phone.countryCallingCode', {}, 'Country calling code')} className="h-full shrink-0 appearance-none border-0 border-r border-white/10 bg-transparent py-4 pl-11 pr-7 text-sm font-black text-white outline-none" style={{ width: '9rem' }}>
                             {controller.phoneCountryOptions.map((option) => (
                               <option key={option.countryCode} value={option.countryCode} title={option.label} className="bg-slate-950 text-white">
                                 {option.flag} {option.dialCode}
@@ -277,15 +282,15 @@ const DesktopLogin = () => {
                           <FieldLabel
                             action={controller.mode === 'signin' ? (
                               <button type="button" onClick={() => controller.switchMode('forgot-password')} disabled={passwordResetDisabled} className="text-sm font-bold text-cyan-300 transition hover:text-white disabled:opacity-50">
-                                Forgot password?
+                                <StableText id={"auth.jsx.text.forgot.password.823e0b60"} defaultMessage={"Forgot password?"} />
                               </button>
                             ) : null}
                           >
-                            Password *
+                            <StableText id={"auth.jsx.text.password.464054c2"} defaultMessage={"Password *"} />
                           </FieldLabel>
                           <DesktopInputShell icon={Lock}>
-                            <input type={controller.showPassword ? 'text' : 'password'} name="password" value={controller.formData.password} onChange={controller.handleChange} autoComplete={controller.mode === 'signup' ? 'new-password' : 'current-password'} placeholder="Enter your password" className={`${fieldClass} pr-14`} />
-                            <button type="button" onClick={() => controller.setShowPassword(!controller.showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-white" aria-label={controller.showPassword ? 'Hide password' : 'Show password'}>
+                            <input type={controller.showPassword ? 'text' : 'password'} name="password" value={controller.formData.password} onChange={controller.handleChange} autoComplete={controller.mode === 'signup' ? 'new-password' : 'current-password'} placeholder={t('desktopLogin.placeholder.password', {}, 'Enter your password')} className={`${fieldClass} pr-14`} />
+                            <button type="button" onClick={() => controller.setShowPassword(!controller.showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-white" aria-label={controller.showPassword ? t('desktopLogin.password.hide', {}, 'Hide password') : t('desktopLogin.password.show', {}, 'Show password')}>
                               {controller.showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                             </button>
                           </DesktopInputShell>
@@ -294,9 +299,9 @@ const DesktopLogin = () => {
 
                       {controller.mode === 'signup' ? (
                         <div>
-                          <FieldLabel>Confirm Password *</FieldLabel>
+                          <FieldLabel><StableText id={"auth.jsx.text.confirm.password.8b9db931"} defaultMessage={"Confirm Password *"} /></FieldLabel>
                           <DesktopInputShell icon={KeyRound}>
-                            <input type={controller.showPassword ? 'text' : 'password'} name="confirmPassword" value={controller.formData.confirmPassword} onChange={controller.handleChange} autoComplete="new-password" placeholder="Confirm your password" className={fieldClass} />
+                            <input type={controller.showPassword ? 'text' : 'password'} name="confirmPassword" value={controller.formData.confirmPassword} onChange={controller.handleChange} autoComplete="new-password" placeholder={t('desktopLogin.placeholder.confirmPassword', {}, 'Confirm your password')} className={fieldClass} />
                           </DesktopInputShell>
                         </div>
                       ) : null}
@@ -306,11 +311,11 @@ const DesktopLogin = () => {
                   {controller.step === 'otp' ? (
                     <div>
                       <button type="button" onClick={controller.goBack} className="mb-5 inline-flex items-center gap-2 text-sm font-black uppercase text-slate-400 transition hover:text-white">
-                        <ArrowLeft className="h-4 w-4" /> Back
+                        <ArrowLeft className="h-4 w-4" /> <StableText id="common.action.back" defaultMessage="Back" />
                       </button>
                       <div className="mb-6 rounded-[1rem] border border-cyan-300/20 bg-cyan-300/10 p-4">
-                        <p className="text-xs font-black uppercase text-cyan-100">{controller.isEmailOtpStage ? 'Email verification' : controller.isPhoneOtpStage ? 'Phone verification' : 'Verification code'}</p>
-                        <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">{controller.isEmailOtpStage ? `Code sent to ${controller.formData.email}.` : controller.isPhoneOtpStage ? `Code sent to ${controller.formData.phone}.` : <FormattedMessage id="auth.jsx.expression.enter.the.secure.otp.to.continue" defaultMessage="Enter the secure OTP to continue." />}</p>
+                        <p className="text-xs font-black uppercase text-cyan-100">{controller.isEmailOtpStage ? <StableText id={"auth.jsx.expression.email.verification.fa2c19cf"} defaultMessage={"Email verification"} /> : controller.isPhoneOtpStage ? <StableText id={"auth.jsx.expression.phone.verification.94e84a2f"} defaultMessage={"Phone verification"} /> : <StableText id={"auth.jsx.expression.verification.code.0c41bf58"} defaultMessage={"Verification code"} />}</p>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">{controller.isEmailOtpStage ? <StableText id="desktopLogin.otp.emailSent" defaultMessage="Code sent to {email}." values={{ email: controller.formData.email }} /> : controller.isPhoneOtpStage ? <StableText id="desktopLogin.otp.phoneSent" defaultMessage="Code sent to {phone}." values={{ phone: controller.formData.phone }} /> : <FormattedMessage id="auth.jsx.expression.enter.the.secure.otp.to.continue" defaultMessage="Enter the secure OTP to continue." />}</p>
                       </div>
                       <div className="mb-6 flex justify-center gap-2 sm:gap-3">
                         {controller.otpValues.map((digit, index) => (
@@ -332,7 +337,7 @@ const DesktopLogin = () => {
                       </div>
                       <div className="mb-2 text-center">
                         {controller.countdown > 0 ? (
-                          <p className="text-xs font-black uppercase text-slate-500">Resend in {controller.countdown}s</p>
+                          <p className="text-xs font-black uppercase text-slate-500"><StableText id={"auth.jsx.text.resend.in.eeb75215"} defaultMessage={"Resend in"} /> {controller.countdown}s</p>
                         ) : (
                           <button type="button" onClick={controller.handleResendOtp} disabled={controller.isLoading || otpDisabled} className="text-xs font-black uppercase text-cyan-300 transition hover:text-white disabled:opacity-50"><FormattedMessage id="auth.jsx.text.resend.otp" defaultMessage="Resend OTP" /></button>
                         )}
@@ -343,13 +348,13 @@ const DesktopLogin = () => {
                   {controller.step === 'reset-password' ? (
                     <div className="space-y-4">
                       <button type="button" onClick={controller.goBack} className="inline-flex items-center gap-2 text-sm font-black uppercase text-slate-400 transition hover:text-white">
-                        <ArrowLeft className="h-4 w-4" /> Back
+                        <ArrowLeft className="h-4 w-4" /> <StableText id="common.action.back" defaultMessage="Back" />
                       </button>
                       <DesktopInputShell icon={Lock}>
-                        <input type={controller.showPassword ? 'text' : 'password'} name="password" value={controller.formData.password} onChange={controller.handleChange} autoComplete="new-password" placeholder="New password" className={fieldClass} />
+                        <input type={controller.showPassword ? 'text' : 'password'} name="password" value={controller.formData.password} onChange={controller.handleChange} autoComplete="new-password" placeholder={t('desktopLogin.placeholder.newPassword', {}, 'New password')} className={fieldClass} />
                       </DesktopInputShell>
                       <DesktopInputShell icon={KeyRound}>
-                        <input type={controller.showPassword ? 'text' : 'password'} name="confirmPassword" value={controller.formData.confirmPassword} onChange={controller.handleChange} autoComplete="new-password" placeholder="Confirm password" className={fieldClass} />
+                        <input type={controller.showPassword ? 'text' : 'password'} name="confirmPassword" value={controller.formData.confirmPassword} onChange={controller.handleChange} autoComplete="new-password" placeholder={t('desktopLogin.placeholder.confirmPasswordShort', {}, 'Confirm password')} className={fieldClass} />
                       </DesktopInputShell>
                     </div>
                   ) : null}
@@ -360,7 +365,7 @@ const DesktopLogin = () => {
 
                   <button type="submit" disabled={actionDisabled} className="group relative mt-1 flex min-h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-[1rem] bg-cyan-300 px-5 py-4 text-sm font-black uppercase text-slate-950 shadow-[0_18px_42px_rgba(34,211,238,0.22)] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-55">
                     {controller.isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
-                    {emergencyActionDisabled ? 'Temporarily Unavailable' : controller.submitLabel}
+                    {emergencyActionDisabled ? <StableText id="desktopLogin.action.temporarilyUnavailable" defaultMessage="Temporarily Unavailable" /> : controller.submitLabel}
                   </button>
                 </form>
 
@@ -368,7 +373,7 @@ const DesktopLogin = () => {
                   <div className="mt-5">
                     <div className="mb-4 flex items-center gap-4">
                       <div className="h-px flex-1 bg-white/10" />
-                      <span className="text-xs font-black uppercase text-slate-500">or</span>
+                      <span className="text-xs font-black uppercase text-slate-500"><StableText id="common.choice.or" defaultMessage="or" /></span>
                       <div className="h-px flex-1 bg-white/10" />
                     </div>
                     {showProviderGrid ? (
@@ -376,7 +381,7 @@ const DesktopLogin = () => {
                         {controller.isDuoLoginEnabled ? (
                           <button type="button" onClick={controller.handleDuoSignIn} disabled={socialDisabled} className={cn(providerButtonClass, 'border-emerald-300/25 bg-emerald-300/10 text-emerald-50 hover:border-emerald-300/50 hover:bg-emerald-300/15 sm:col-span-2')}>
                             <ShieldCheck className="h-5 w-5 text-emerald-300" />
-                            Cisco Duo
+                            <StableText id={"auth.jsx.text.cisco.duo.5fa9322e"} defaultMessage={"Cisco Duo"} />
                           </button>
                         ) : null}
                         {controller.socialAuthStatus.supported ? (
@@ -408,7 +413,7 @@ const DesktopLogin = () => {
                     ) : null}
                     {!controller.socialAuthStatus.supported ? (
                       <div className="rounded-[1rem] border border-amber-300/20 bg-amber-300/10 p-4 text-sm font-semibold text-amber-100">
-                        Social access is unavailable for this deployment.
+                        <StableText id={"auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2"} defaultMessage={"Social access is unavailable for this deployment."} />
                       </div>
                     ) : null}
                   </div>
@@ -416,9 +421,9 @@ const DesktopLogin = () => {
 
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs font-black uppercase text-slate-400">
                   <button type="button" onClick={() => controller.switchMode(controller.mode === 'signup' ? 'signin' : 'signup')} disabled={controller.isLoading || signupDisabled} className="transition hover:text-cyan-200 disabled:opacity-50">
-                    {controller.mode === 'signup' ? 'Use existing account' : 'Create account'}
+                    {controller.mode === 'signup' ? <StableText id={"auth.jsx.expression.use.existing.account.78f61e74"} defaultMessage={"Use existing account"} /> : <StableText id={"auth.jsx.expression.create.account.2428c1b6"} defaultMessage={"Create account"} />}
                   </button>
-                  <span className="inline-flex items-center gap-2 text-emerald-200"><CheckCircle2 className="h-4 w-4" />Desktop handoff active</span>
+                  <span className="inline-flex items-center gap-2 text-emerald-200"><CheckCircle2 className="h-4 w-4" /><StableText id={"auth.jsx.text.desktop.handoff.active.3cb7b554"} defaultMessage={"Desktop handoff active"} /></span>
                 </div>
               </>
             )}
@@ -427,7 +432,7 @@ const DesktopLogin = () => {
 
         <footer className="flex items-center justify-center gap-2 pb-2 text-sm font-semibold text-slate-500">
           <ShieldCheck className="h-5 w-5" />
-          Aura Desktop keeps your session secure and private.
+          <StableText id={"auth.jsx.text.aura.desktop.keeps.your.session.secure.and.f6004bed"} defaultMessage={"Aura Desktop keeps your session secure and private."} />
         </footer>
       </div>
     </div>

@@ -1,16 +1,17 @@
 import { Link, useLocation } from 'react-router-dom';
 import { AlertTriangle, ShieldCheck, FileText, ArrowRight } from 'lucide-react';
 import { getTrustPageContent, trustMeta, trustRouteToKey } from '@/config/trustContent';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 const getKeyFromPath = (pathname = '') => {
   return trustRouteToKey[pathname] || 'security';
 };
 
 export default function TrustPage() {
+  const intl = useIntl();
   const location = useLocation();
   const pageKey = getKeyFromPath(location.pathname);
-  const content = getTrustPageContent(pageKey);
+  const content = getTrustPageContent(pageKey, intl);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-slate-200">
@@ -19,13 +20,17 @@ export default function TrustPage() {
         <div className="max-w-5xl mx-auto px-4 py-14 sm:py-20 relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-neo-cyan/30 bg-neo-cyan/10 text-neo-cyan text-xs font-bold tracking-wider uppercase">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Trust Center
+            <FormattedMessage id="trust.jsx.text.trust.center" defaultMessage="Trust Center" />
           </div>
           <h1 className="mt-4 text-3xl sm:text-4xl font-black text-white leading-tight">{content.title}</h1>
           <p className="mt-4 text-slate-300 max-w-3xl leading-relaxed">{content.summary}</p>
           <div className="mt-5 text-xs text-slate-400 flex items-center gap-2">
             <FileText className="w-3.5 h-3.5" />
-            Last updated: {trustMeta.lastUpdated}
+            <FormattedMessage
+              id="trust.jsx.text.last.updated"
+              defaultMessage="Last updated: {date}"
+              values={{ date: trustMeta.lastUpdated }}
+            />
           </div>
         </div>
       </div>

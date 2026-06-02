@@ -18,8 +18,9 @@ import {
 import { statusApi } from '@/services/api/statusApi';
 import UptimeBars from './UptimeBars';
 import { formatDate, formatPercent, relativeTime, statusMeta } from './statusMeta';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
+import { StableText } from '@/i18n/StableText';
 const POLL_MS = 45000;
 
 function StatusBadge({ status }) {
@@ -90,7 +91,7 @@ function IncidentStrip({ title, items = [] }) {
               <StatusBadge status={incident.impact === 'maintenance' ? 'maintenance' : incident.impact === 'critical' ? 'major_outage' : 'degraded_performance'} />
             </div>
             <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
-              Started {formatDate(incident.startedAt, { year: true, time: true })}
+              <StableText id={"common.jsx.text.started.e10f130f"} defaultMessage={"Started"} /> {formatDate(incident.startedAt, { year: true, time: true })}
             </p>
           </Link>
           );
@@ -101,6 +102,7 @@ function IncidentStrip({ title, items = [] }) {
 }
 
 function ResponseTimeSparkline({ values = [] }) {
+  const intl = useIntl();
   const safeValues = values.map(Number).filter((value) => Number.isFinite(value) && value >= 0).slice(-30);
   if (safeValues.length < 2) return null;
   const max = Math.max(...safeValues, 1);
@@ -110,7 +112,10 @@ function ResponseTimeSparkline({ values = [] }) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
   return (
-    <div className="h-9 w-32" aria-label="Response time sparkline">
+    <div
+      className="h-9 w-32"
+      aria-label={intl.formatMessage({ id: 'status.responseTimeSparkline.ariaLabel', defaultMessage: 'Response time sparkline' })}
+    >
       <svg viewBox="0 0 120 36" role="img" className="h-full w-full overflow-visible">
         <polyline points={points} fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -131,13 +136,13 @@ export function StatusPowerCard({ power = null }) {
         <div className="min-w-0">
           <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-normal text-slate-600">
             <Gauge className="h-4 w-4" />
-            Status power
+            <StableText id={"common.jsx.text.status.power.9676a934"} defaultMessage={"Status power"} />
           </div>
           <h2 id="status-power-heading" className="mt-3 text-xl font-extrabold tracking-normal text-slate-950">
             {score}/100 {level}
           </h2>
           <p className="mt-2 text-sm font-semibold text-slate-600">
-            {Number(coverage.groups || 0)} groups, {Number(coverage.components || 0)} components, {Number(coverage.healthSignals || 0)} health signals
+            {Number(coverage.groups || 0)} <StableText id={"common.jsx.text.groups.9780c562"} defaultMessage={"groups,"} /> {Number(coverage.components || 0)} <StableText id={"common.jsx.text.components.edf20371"} defaultMessage={"components,"} /> {Number(coverage.healthSignals || 0)} <StableText id={"common.accessibility.jsx.text.health.signals.533914d8"} defaultMessage={"health signals"} />
           </p>
         </div>
         <div className="min-w-[10rem] rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">
@@ -169,11 +174,19 @@ export function StatusPowerCard({ power = null }) {
 }
 
 function StatusGroupRow({ group, expanded, onToggle }) {
+  const intl = useIntl();
   const meta = statusMeta(group.status);
   const Chevron = expanded ? ChevronDown : ChevronRight;
   const monitoringText = group.monitoringStartedAt
-    ? `Monitoring started ${formatDate(group.monitoringStartedAt, { year: true })}`
-    : 'No monitoring data yet';
+    ? intl.formatMessage(
+      { id: 'status.monitoring.startedAt', defaultMessage: 'Monitoring started {date}' },
+      { date: formatDate(group.monitoringStartedAt, { year: true }) },
+    )
+    : intl.formatMessage({ id: 'status.monitoring.noDataYet', defaultMessage: 'No monitoring data yet' });
+  const formatUptimeLabel = (name) => intl.formatMessage(
+    { id: 'status.uptime.ninetyDayLabel', defaultMessage: '{name} 90 day uptime' },
+    { name },
+  );
   return (
     <div className="border-t border-slate-200">
       <div className="flex w-full items-start justify-between gap-3 px-5 py-4 transition hover:bg-slate-50">
@@ -188,12 +201,14 @@ function StatusGroupRow({ group, expanded, onToggle }) {
               <Check className="h-3.5 w-3.5" />
             </span>
             <span className="font-bold text-slate-950">{group.name}</span>
-            <span className="text-sm text-slate-500">{group.componentsCount} components</span>
+            <span className="text-sm text-slate-500">
+              {intl.formatMessage({ id: 'status.components.count', defaultMessage: '{count} components' }, { count: group.componentsCount })}
+            </span>
             <Chevron className="h-4 w-4 text-slate-400" />
           </button>
           <p className="mt-1 text-xs font-semibold text-slate-500">{monitoringText}</p>
           <div className="mt-3">
-            <UptimeBars history={group.history90d} label={`${group.name} 90 day uptime`} />
+            <UptimeBars history={group.history90d} label={formatUptimeLabel(group.name)} />
           </div>
         </div>
         <div className="text-right text-sm font-semibold text-slate-500">{formatPercent(group.uptimePercent90d)}</div>
@@ -208,20 +223,28 @@ function StatusGroupRow({ group, expanded, onToggle }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge status={component.status} />
                       <p className="font-semibold text-slate-900">{component.name}</p>
-                      <p className="text-xs text-slate-500">Checked {relativeTime(component.lastCheckedAt)}</p>
+                      <p className="text-xs text-slate-500"><StableText id={"common.jsx.text.checked.a765e9cb"} defaultMessage={"Checked"} /> {relativeTime(component.lastCheckedAt)}</p>
                     </div>
                     <p className="mt-2 text-xs text-slate-500">
                       {formatPercent(component.uptimePercent90d)}
-                      {component.lastResponseTimeMs ? ` - ${component.lastResponseTimeMs} ms response` : ''}
+                      {component.lastResponseTimeMs
+                        ? intl.formatMessage(
+                          { id: 'status.response.msSuffix', defaultMessage: ' - {value} ms response' },
+                          { value: component.lastResponseTimeMs },
+                        )
+                        : ''}
                     </p>
                     <p className="mt-1 text-xs font-semibold text-slate-500">
                       {component.monitoringStartedAt
-                        ? `Monitoring started ${formatDate(component.monitoringStartedAt, { year: true })}`
-                        : 'No monitoring data yet'}
+                        ? intl.formatMessage(
+                          { id: 'status.monitoring.startedAt', defaultMessage: 'Monitoring started {date}' },
+                          { date: formatDate(component.monitoringStartedAt, { year: true }) },
+                        )
+                        : <StableText id={"common.jsx.expression.no.monitoring.data.yet.bcaedfc6"} defaultMessage={"No monitoring data yet"} />}
                     </p>
                   </div>
                   <div className="flex-1" style={{ minWidth: '14rem' }}>
-                    <UptimeBars history={component.history90d} compact label={`${component.name} 90 day uptime`} />
+                    <UptimeBars history={component.history90d} compact label={formatUptimeLabel(component.name)} />
                     <div className="mt-2 flex items-center justify-end">
                       <ResponseTimeSparkline values={component.responseTimeSparkline || []} />
                     </div>
@@ -237,6 +260,7 @@ function StatusGroupRow({ group, expanded, onToggle }) {
 }
 
 export function SystemStatusCard({ groups = [], monitoringStartedAt = null, uptimeSinceMonitoringBegan = null }) {
+  const intl = useIntl();
   const [expanded, setExpanded] = useState(() => new Set());
   const dateRange = useMemo(() => {
     const firstHistory = groups.find((group) => group.history90d?.length)?.history90d || [];
@@ -248,7 +272,7 @@ export function SystemStatusCard({ groups = [], monitoringStartedAt = null, upti
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" aria-labelledby="system-status-heading">
       <div className="flex flex-col gap-2 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 id="system-status-heading" className="text-xl font-extrabold tracking-normal text-slate-950">System status</h2>
+          <h2 id="system-status-heading" className="text-xl font-extrabold tracking-normal text-slate-950"><StableText id={"common.jsx.text.system.status.d541b0a1"} defaultMessage={"System status"} /></h2>
           <span className="inline-flex items-center gap-2 text-sm text-slate-500">
             <CalendarDays className="h-4 w-4" />
             {dateRange}
@@ -256,9 +280,12 @@ export function SystemStatusCard({ groups = [], monitoringStartedAt = null, upti
         </div>
         {monitoringStartedAt ? (
           <p className="text-sm font-semibold text-slate-600">
-            Monitoring started {formatDate(monitoringStartedAt, { year: true })}
+            <StableText id={"common.jsx.text.monitoring.started.5d1383ef"} defaultMessage={"Monitoring started"} /> {formatDate(monitoringStartedAt, { year: true })}
             {uptimeSinceMonitoringBegan !== null && uptimeSinceMonitoringBegan !== undefined
-              ? ` - Uptime since monitoring began: ${formatPercent(uptimeSinceMonitoringBegan)}`
+              ? intl.formatMessage(
+                { id: 'status.uptime.sinceMonitoringBeganSuffix', defaultMessage: ' - Uptime since monitoring began: {uptime}' },
+                { uptime: formatPercent(uptimeSinceMonitoringBegan) },
+              )
               : ''}
           </p>
         ) : null}
@@ -281,7 +308,7 @@ export function SystemStatusCard({ groups = [], monitoringStartedAt = null, upti
           />
         );
       }) : (
-        <div className="px-5 py-10 text-center text-slate-500">No public status components are configured.</div>
+        <div className="px-5 py-10 text-center text-slate-500"><StableText id={"common.jsx.text.no.public.status.components.are.configured.d7eb3b70"} defaultMessage={"No public status components are configured."} /></div>
       )}
     </section>
   );
@@ -301,8 +328,15 @@ const harnessStatusToPublicStatus = (status) => {
 };
 
 function HarnessStatusBadge({ status }) {
+  const intl = useIntl();
   const meta = statusMeta(harnessStatusToPublicStatus(status));
-  const label = status === 'ready' ? 'Ready' : status === 'partial' ? 'Partial' : status === 'blocked' ? 'Blocked' : 'Unknown';
+  const label = status === 'ready'
+    ? intl.formatMessage({ id: 'status.harness.ready', defaultMessage: 'Ready' })
+    : status === 'partial'
+      ? intl.formatMessage({ id: 'status.harness.partial', defaultMessage: 'Partial' })
+      : status === 'blocked'
+        ? intl.formatMessage({ id: 'status.harness.blocked', defaultMessage: 'Blocked' })
+        : intl.formatMessage({ id: 'status.harness.unknown', defaultMessage: 'Unknown' });
   return (
     <span
       className="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-normal"
@@ -331,7 +365,7 @@ function SecurityProviderTile({ provider }) {
       <div className="mt-4 flex flex-wrap gap-2">
         <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
           <KeyRound className="h-3.5 w-3.5" />
-          {configuredCount} env set
+          {configuredCount} <StableText id={"common.jsx.text.env.set.59da8b3a"} defaultMessage={"env set"} />
         </span>
         <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
           <Gauge className="h-3.5 w-3.5" />
@@ -341,7 +375,7 @@ function SecurityProviderTile({ provider }) {
       {provider.liveAuth ? (
         <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-black uppercase tracking-normal text-slate-500">Live auth</p>
+            <p className="text-xs font-black uppercase tracking-normal text-slate-500"><StableText id={"auth.jsx.text.live.auth.67a9883c"} defaultMessage={"Live auth"} /></p>
             <HarnessStatusBadge status={provider.liveAuth.status} />
           </div>
           <p className="mt-2 text-xs leading-5 text-slate-600">{provider.liveAuth.detail}</p>
@@ -354,7 +388,7 @@ function SecurityProviderTile({ provider }) {
       ) : null}
       {missing.length ? (
         <div className="mt-4">
-          <p className="text-xs font-black uppercase tracking-normal text-slate-500">Missing</p>
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500"><StableText id={"common.jsx.text.missing.a7552a40"} defaultMessage={"Missing"} /></p>
           <div className="mt-2 flex flex-wrap gap-2">
             {missing.map((key) => (
               <code key={key} className="rounded-md bg-rose-50 px-2 py-1 text-xs font-bold text-rose-800">
@@ -366,7 +400,7 @@ function SecurityProviderTile({ provider }) {
       ) : null}
       {provider.commands?.length ? (
         <div className="mt-4">
-          <p className="text-xs font-black uppercase tracking-normal text-slate-500">CLI</p>
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500"><StableText id={"common.jsx.text.cli.d8cfa7cf"} defaultMessage={"CLI"} /></p>
           <div className="mt-2 space-y-2">
             {provider.commands.slice(0, 2).map((command) => (
               <code key={command} className="block break-words rounded-md bg-slate-950 px-2.5 py-2 text-xs font-bold text-white">
@@ -453,10 +487,10 @@ export function SecurityHarnessCard({ harness = null }) {
             <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-normal text-slate-600">
               <ShieldCheck className="h-4 w-4" /><FormattedMessage id="account.security.jsx.text.security.harness" defaultMessage="Security harness" /></div>
             <h2 id="security-harness-heading" className="mt-3 text-xl font-extrabold tracking-normal text-slate-950">
-              Student Pack command matrix
+              <StableText id={"common.jsx.text.student.pack.command.matrix.6ce5d29d"} defaultMessage={"Student Pack command matrix"} />
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Sentry, Datadog, Doppler, Testmail, LambdaTest, and LocalStack readiness for this Aura workspace.
+              <StableText id={"common.jsx.text.sentry.datadog.doppler.testmail.lambdatest.and.localstack.8c9720ae"} defaultMessage={"Sentry, Datadog, Doppler, Testmail, LambdaTest, and LocalStack readiness for this Aura workspace."} />
             </p>
           </div>
           <div
@@ -464,7 +498,7 @@ export function SecurityHarnessCard({ harness = null }) {
             style={{ backgroundColor: meta.softColor, borderColor: meta.borderColor, color: meta.textColor }}
           >
             <span className="text-3xl font-black leading-none">{Number(harness.readinessPercent || 0)}%</span>
-            <span className="mt-1 text-xs font-black uppercase tracking-normal">Harness ready</span>
+            <span className="mt-1 text-xs font-black uppercase tracking-normal"><StableText id={"common.jsx.text.harness.ready.8275fff8"} defaultMessage={"Harness ready"} /></span>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -486,7 +520,7 @@ export function SecurityHarnessCard({ harness = null }) {
           {harness.liveAuth?.available ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
               <Terminal className="h-3.5 w-3.5" />
-              Live auth {relativeTime(harness.liveAuth.generatedAt)}
+              <StableText id={"auth.jsx.text.live.auth.67a9883c"} defaultMessage={"Live auth"} /> {relativeTime(harness.liveAuth.generatedAt)}
             </span>
           ) : null}
         </div>
@@ -497,7 +531,7 @@ export function SecurityHarnessCard({ harness = null }) {
       {controls.length ? (
         <div className="border-t border-slate-200 px-5 py-4">
           <div className="flex flex-col gap-1">
-            <p className="text-xs font-black uppercase tracking-normal text-slate-500">Advanced controls</p>
+            <p className="text-xs font-black uppercase tracking-normal text-slate-500"><StableText id={"common.jsx.text.advanced.controls.037c1ff0"} defaultMessage={"Advanced controls"} /></p>
             <h3 className="text-lg font-extrabold tracking-normal text-slate-950"><FormattedMessage id="account.security.jsx.text.security.control.coverage" defaultMessage="Security control coverage" /></h3>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -508,15 +542,15 @@ export function SecurityHarnessCard({ harness = null }) {
       {gatedFlows.length ? (
         <div className="border-t border-slate-200">
           <div className="px-5 py-4">
-            <p className="text-xs font-black uppercase tracking-normal text-slate-500">Gated flows</p>
-            <h3 className="text-lg font-extrabold tracking-normal text-slate-950">What can be verified now</h3>
+            <p className="text-xs font-black uppercase tracking-normal text-slate-500"><StableText id={"common.jsx.text.gated.flows.ae8d462c"} defaultMessage={"Gated flows"} /></p>
+            <h3 className="text-lg font-extrabold tracking-normal text-slate-950"><StableText id={"common.jsx.text.what.can.be.verified.now.bf834b85"} defaultMessage={"What can be verified now"} /></h3>
           </div>
           {gatedFlows.map((flow) => <SecurityFlowRow key={flow.id} flow={flow} />)}
         </div>
       ) : null}
       {nextActions.length ? (
         <div className="border-t border-slate-200 px-5 py-4">
-          <p className="text-xs font-black uppercase tracking-normal text-slate-500">Next actions</p>
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500"><StableText id={"common.jsx.text.next.actions.009c0d35"} defaultMessage={"Next actions"} /></p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {nextActions.map((action) => (
               <div key={action.id} className="rounded-lg border border-slate-200 bg-white p-3">
@@ -545,7 +579,7 @@ export function SecurityHarnessCard({ harness = null }) {
         <div className="border-t border-slate-200 px-5 py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-normal text-slate-500">Next unlocks</p>
+              <p className="text-xs font-black uppercase tracking-normal text-slate-500"><StableText id={"common.jsx.text.next.unlocks.763d6c50"} defaultMessage={"Next unlocks"} /></p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {missingPreview.map((key) => (
                   <code key={key} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">
@@ -556,7 +590,7 @@ export function SecurityHarnessCard({ harness = null }) {
             </div>
             <code className="inline-flex max-w-full items-center gap-2 break-words rounded-lg bg-slate-950 px-3 py-2 text-xs font-bold text-white">
               <Terminal className="h-4 w-4 shrink-0" />
-              npm run student-pack:doctor
+              <StableText id={"common.jsx.text.npm.run.student.pack.doctor.577acd82"} defaultMessage={"npm run student-pack:doctor"} />
             </code>
           </div>
         </div>
@@ -566,6 +600,7 @@ export function SecurityHarnessCard({ harness = null }) {
 }
 
 export default function StatusPage() {
+  const intl = useIntl();
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -599,7 +634,7 @@ export default function StatusPage() {
           <h1 className="text-3xl font-extrabold tracking-normal text-slate-950">
             <Link to="/" className="inline-flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-base font-black text-white">A</span>
-              Aura Status
+              <StableText id={"common.jsx.text.aura.status.e81a8e71"} defaultMessage={"Aura Status"} />
             </Link>
           </h1>
           <div className="flex flex-wrap items-center gap-3">
@@ -611,14 +646,14 @@ export default function StatusPage() {
             ) : null}
             {payload?.fallbackSource && payload.fallbackSource !== 'live' ? (
               <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800">
-                Last known status
+                <StableText id={"common.jsx.text.last.known.status.1d47edef"} defaultMessage={"Last known status"} />
               </span>
             ) : null}
             <button
               type="button"
               onClick={() => loadStatus({ silent: true })}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
-              aria-label="Refresh status"
+              aria-label={intl.formatMessage({ id: 'status.refresh.ariaLabel', defaultMessage: 'Refresh status' })}
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -627,7 +662,7 @@ export default function StatusPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
             >
               <Mail className="h-4 w-4" />
-              Subscribe to updates
+              <StableText id={"common.jsx.text.subscribe.to.updates.a5bfc6e3"} defaultMessage={"Subscribe to updates"} />
             </Link>
           </div>
         </header>
@@ -635,15 +670,18 @@ export default function StatusPage() {
         {loading ? <StatusSkeleton /> : null}
         {!loading && error ? (
           <section className="rounded-xl border border-slate-200 bg-white p-5 text-slate-700">
-            <h1 className="text-lg font-extrabold tracking-normal">Status unavailable</h1>
+            <h1 className="text-lg font-extrabold tracking-normal"><StableText id={"common.jsx.text.status.unavailable.22bb4dd1"} defaultMessage={"Status unavailable"} /></h1>
             <p className="mt-2 text-sm">{error}</p>
           </section>
         ) : null}
         {!loading && payload ? (
           <>
             <OverallStatusBanner status={payload.overallStatus} message={payload.message} />
-            <IncidentStrip title="Active incidents" items={payload.activeIncidents || []} />
-            <IncidentStrip title="Scheduled maintenance" items={payload.activeMaintenance || []} />
+            <IncidentStrip title={<FormattedMessage id="status.incidents.active" defaultMessage="Active incidents" />} items={payload.activeIncidents || []} />
+            <IncidentStrip
+              title={intl.formatMessage({ id: 'status.scheduledMaintenance.title', defaultMessage: 'Scheduled maintenance' })}
+              items={payload.activeMaintenance || []}
+            />
             <StatusPowerCard power={payload.statusPower} />
             <SecurityHarnessCard harness={payload.securityHarness} />
             <SystemStatusCard
@@ -657,16 +695,16 @@ export default function StatusPage() {
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-base font-bold text-slate-950 shadow-sm transition hover:bg-slate-50"
               >
                 <History className="h-5 w-5" />
-                View history
+                <StableText id={"common.jsx.text.view.history.74a3ac4e"} defaultMessage={"View history"} />
               </Link>
             </div>
           </>
         ) : null}
 
         <footer className="flex flex-col items-center justify-center gap-2 pb-4 text-sm text-slate-500 sm:flex-row">
-          <span>Powered by Aura status</span>
+          <span><StableText id={"common.jsx.text.powered.by.aura.status.9f496e1b"} defaultMessage={"Powered by Aura status"} /></span>
           <span className="hidden sm:inline">-</span>
-          <a href="/api/status/rss.xml" className="font-semibold text-slate-700">RSS</a>
+          <a href="/api/status/rss.xml" className="font-semibold text-slate-700"><StableText id={"common.jsx.text.rss.343bc2b9"} defaultMessage={"RSS"} /></a>
         </footer>
       </div>
     </div>

@@ -6,14 +6,15 @@ import App from './App.jsx'
 import { ErrorBoundary } from 'react-error-boundary';
 import { initClientObservability } from './services/clientObservability'
 import { publishReleaseInfo } from './config/releaseInfo'
+import { StableText } from '@/i18n/StableText';
 
 function RootRenderFallback({ error, resetErrorBoundary }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-lg rounded-3xl border border-neo-rose/35 bg-zinc-950/90 p-6 text-center shadow-glass">
-        <h1 className="text-2xl font-black tracking-tight text-white">Aura failed to boot</h1>
+        <h1 className="text-2xl font-black tracking-tight text-white"><StableText id={"common.jsx.text.aura.failed.to.boot.c2290ff2"} defaultMessage={"Aura failed to boot"} /></h1>
         <p className="mt-3 text-sm leading-6 text-slate-300">
-          A startup module crashed before the interface finished loading. Retry the render or refresh the page to recover.
+          <StableText id={"common.jsx.text.a.startup.module.crashed.before.the.interface.99c3d53c"} defaultMessage={"A startup module crashed before the interface finished loading. Retry the render or refresh the page to recover."} />
         </p>
         {error?.message ? (
           <p className="mt-3 text-xs font-medium text-neo-cyan/90">{error.message}</p>
@@ -24,7 +25,7 @@ function RootRenderFallback({ error, resetErrorBoundary }) {
             onClick={resetErrorBoundary}
             className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/15"
           >
-            Retry Render
+            <StableText id={"common.jsx.text.retry.render.0ff9a05e"} defaultMessage={"Retry Render"} />
           </button>
           <button
             type="button"

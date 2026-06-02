@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { recommendationApi } from '@/services/api';
 import ProductCarousel from './ProductCarousel';
 import RecommendationSection from './RecommendationSection';
@@ -28,8 +29,8 @@ const TrendingProducts = ({ limit = 8, sourcePage = 'home' }) => {
   return (
     <RecommendationSection
       eyebrow="Live momentum"
-      title="Trending Now"
-      description="Ranked from recent product views, cart adds, wishlist saves, purchases, and recommendation clicks."
+      title={<FormattedMessage id="recommendations.trending.title" defaultMessage="Trending Now" />}
+      description={<FormattedMessage id="recommendations.trending.description" defaultMessage="Ranked from recent product views, cart adds, wishlist saves, purchases, and recommendation clicks." />}
       actionHref="/trending"
     >
       <ProductCarousel recommendations={recommendations} loading={loading} sourcePage={sourcePage} />

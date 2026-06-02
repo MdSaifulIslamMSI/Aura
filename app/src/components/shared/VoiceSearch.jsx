@@ -5,8 +5,9 @@ import { useMarket } from '@/context/MarketContext';
 import { aiApi } from '@/services/aiApi';
 import { buildLocalVoiceCommand } from '@/utils/assistantIntent';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
+import { StableText } from '@/i18n/StableText';
 const COMMAND_HINTS = [
   'Search for iPhone 15',
   'Open marketplace',
@@ -16,8 +17,8 @@ const COMMAND_HINTS = [
   'Help',
 ];
 
-const buildLocalAssistantResponse = (rawInput) => {
-  const command = buildLocalVoiceCommand(rawInput);
+const buildLocalAssistantResponse = (rawInput, formatMessage) => {
+  const command = buildLocalVoiceCommand(rawInput, { formatMessage });
   const answer = command.message || 'Done.';
 
   switch (command.type) {
@@ -75,6 +76,7 @@ const VoiceSearch = ({
   const audioRef = useRef(null);
   const audioUrlRef = useRef('');
   const navigate = useNavigate();
+  const intl = useIntl();
   const { t: legacyT, voiceLocale } = useMarket();
   const t = useStableIcuMessages(legacyT);
 
@@ -181,13 +183,16 @@ const VoiceSearch = ({
 
   const executeLocalCommand = useCallback(
     (rawInput, nextError = '') => {
-      const response = buildLocalAssistantResponse(rawInput);
+      const response = buildLocalAssistantResponse(
+        rawInput,
+        (descriptor, values) => intl.formatMessage(descriptor, values)
+      );
       setAssistantReply(response.answer || 'Done.');
       setError(nextError);
       void speak(response.answer || 'Done.');
       applyAssistantActions(response.actions || []);
     },
-    [applyAssistantActions, speak]
+    [applyAssistantActions, intl, speak]
   );
 
   const executeCommand = useCallback(
@@ -243,8 +248,8 @@ const VoiceSearch = ({
 
   const startListening = useCallback(() => {
     if (!browserSupportsSpeechRecognition) {
-      setError('Voice commands are not supported in this browser.');
-      setAssistantReply('Please use typed command mode.');
+      setError(intl.formatMessage({ id: 'voice.error.unsupportedBrowser', defaultMessage: 'Voice commands are not supported in this browser.' }));
+      setAssistantReply(intl.formatMessage({ id: 'voice.typedModePrompt', defaultMessage: 'Please use typed command mode.' }));
       return;
     }
 
@@ -262,7 +267,7 @@ const VoiceSearch = ({
 
     recognition.onstart = () => {
       setIsListening(true);
-      setAssistantReply('Listening...');
+      setAssistantReply(intl.formatMessage({ id: 'voice.listening', defaultMessage: 'Listening for command...' }));
     };
 
     recognition.onresult = (event) => {
@@ -289,25 +294,25 @@ const VoiceSearch = ({
       if (finalTranscript) {
         executeCommand(finalTranscript);
       } else {
-        setAssistantReply('No command detected. Try again.');
+        setAssistantReply(intl.formatMessage({ id: 'voice.noCommandDetected', defaultMessage: 'No command detected. Try again.' }));
       }
     };
 
     recognition.onerror = (event) => {
       setIsListening(false);
       if (event.error === 'no-speech') {
-        setError('No speech detected. Try again.');
+        setError(intl.formatMessage({ id: 'voice.error.noSpeech', defaultMessage: 'No speech detected. Try again.' }));
       } else if (event.error === 'not-allowed') {
-        setError('Microphone permission denied. Allow microphone access and retry.');
+        setError(intl.formatMessage({ id: 'voice.error.microphoneDenied', defaultMessage: 'Microphone permission denied. Allow microphone access and retry.' }));
       } else if (event.error === 'audio-capture') {
-        setError('No microphone detected. Connect a mic and retry.');
+        setError(intl.formatMessage({ id: 'voice.error.noMicrophone', defaultMessage: 'No microphone detected. Connect a mic and retry.' }));
       } else {
-        setError(`Voice error: ${event.error}`);
+        setError(intl.formatMessage({ id: 'voice.error.generic', defaultMessage: 'Voice error: {error}' }, { error: event.error }));
       }
     };
 
     recognition.start();
-  }, [browserSupportsSpeechRecognition, executeCommand]);
+  }, [browserSupportsSpeechRecognition, executeCommand, intl, voiceLocale]);
 
   useEffect(() => {
     let active = true;
@@ -375,7 +380,7 @@ const VoiceSearch = ({
                 type="button"
                 onClick={onClose}
                 className="rounded-lg border border-white/15 bg-white/5 p-2 text-slate-300 hover:text-white hover:border-white/25"
-                aria-label="Close voice assistant"
+                aria-label={intl.formatMessage({ id: 'voice.closeAssistant.ariaLabel', defaultMessage: 'Close voice assistant' })}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -389,10 +394,10 @@ const VoiceSearch = ({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">
-                    Multimodal Handoff
+                    <StableText id={"search.jsx.text.multimodal.handoff.10ff1393"} defaultMessage={"Multimodal Handoff"} />
                   </div>
                   <p className="mt-2 text-sm text-slate-100">
-                    {handoffContext.routeLabel || 'Shopping flow'} stays attached while voice takes over.
+                    {handoffContext.routeLabel || 'Shopping flow'} <StableText id={"search.jsx.text.stays.attached.while.voice.takes.over.e08a4aec"} defaultMessage={"stays attached while voice takes over."} />
                   </p>
                 </div>
                 {typeof onOpenChat === 'function' ? (
@@ -406,7 +411,7 @@ const VoiceSearch = ({
 
               <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-200">
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                  Mode {handoffContext.chatMode || 'explore'}
+                  <StableText id={"search.jsx.text.mode.fd01fca5"} defaultMessage={"Mode"} /> {handoffContext.chatMode || 'explore'}
                 </span>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
                   Cart {handoffContext.cartCount || 0}
@@ -416,7 +421,7 @@ const VoiceSearch = ({
                 </span>
                 {handoffContext.canLaunchInspection ? (
                   <span className="rounded-full border border-emerald-300/20 bg-emerald-500/10 px-3 py-1.5 text-emerald-100">
-                    Live inspection ready
+                    <StableText id={"search.jsx.text.live.inspection.ready.cd160962"} defaultMessage={"Live inspection ready"} />
                   </span>
                 ) : null}
               </div>
@@ -447,7 +452,7 @@ const VoiceSearch = ({
                       ? 'bg-gradient-to-br from-cyan-500 to-emerald-500 text-white border-cyan-300/50 scale-105'
                       : 'bg-white/[0.06] text-slate-200 border-white/15 hover:bg-white/[0.1]'
                   }`}
-                  title={isListening ? 'Stop listening' : 'Start listening'}
+                  title={isListening ? <StableText id={"search.jsx.expression.stop.listening.5f3b2910"} defaultMessage={"Stop listening"} /> : <StableText id={"search.jsx.expression.start.listening.5d73b372"} defaultMessage={"Start listening"} />}
                 >
                   {isListening ? <Mic className="w-8 h-8 animate-pulse" /> : <MicOff className="w-7 h-7" />}
                 </button>
@@ -520,7 +525,7 @@ const VoiceSearch = ({
                       setManualCommand('');
                     }}
                     className="rounded-xl border border-cyan-300/35 bg-cyan-500/15 px-3 py-2 text-cyan-100 hover:bg-cyan-500/25"
-                    aria-label="Execute typed command"
+                  aria-label={intl.formatMessage({ id: 'voice.executeTypedCommand.ariaLabel', defaultMessage: 'Execute typed command' })}
                     disabled={isProcessing}
                   >
                     <Send className="w-4 h-4" />

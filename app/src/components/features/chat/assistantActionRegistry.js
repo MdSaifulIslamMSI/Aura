@@ -1,3 +1,4 @@
+import { defineMessages } from 'react-intl';
 import { orderApi, productApi } from '@/services/api';
 import { useCommerceStore, selectCartItems, selectCartSummary } from '@/store/commerceStore';
 import { useChatStore } from '@/store/chatStore';
@@ -5,6 +6,46 @@ import { buildSupportHandoffPath, normalizeProductSummary } from '@/utils/assist
 
 const safeString = (value = '') => String(value ?? '').trim();
 const ACTION_DEDUPE_WINDOW_MS = 2000;
+
+const assistantActionMessages = defineMessages({
+    takingToCheckout: { id: 'assistant.action.checkout.navigation', defaultMessage: 'Taking you to checkout.' },
+    chooseOrderForReturn: { id: 'assistant.action.return.chooseOrder', defaultMessage: 'Open your orders and choose the order for the return or refund request.' },
+    unsupportedAction: { id: 'assistant.action.unsupported', defaultMessage: 'That action is not supported yet.' },
+    searchResults: { id: 'assistant.action.search.results', defaultMessage: 'Showing {count} result{pluralSuffix}{querySuffix}.' },
+    searchQuerySuffix: { id: 'assistant.action.search.querySuffix', defaultMessage: ' for {query}' },
+    noValidatedSearchResults: { id: 'assistant.action.search.noValidatedResults', defaultMessage: 'No validated search results are available yet.' },
+    openedProduct: { id: 'assistant.action.product.opened', defaultMessage: 'Opened {title}.' },
+    openedSelectedProduct: { id: 'assistant.action.product.openedSelected', defaultMessage: 'Opened the selected product.' },
+    addToCartMissingProduct: { id: 'assistant.action.cart.addMissingProduct', defaultMessage: 'I could not find that product to add it to your cart.' },
+    addedToCart: { id: 'assistant.action.cart.added', defaultMessage: 'Added {title} to your cart.' },
+    removedFromCart: { id: 'assistant.action.cart.removed', defaultMessage: 'Removed {title} from your cart.' },
+    removedCartItem: { id: 'assistant.action.cart.removedItem', defaultMessage: 'Removed that item from your cart.' },
+    openTrackingForOrder: { id: 'assistant.action.orders.openTracking', defaultMessage: 'Opening tracking for order {orderId}.' },
+    openingOrders: { id: 'assistant.action.orders.opening', defaultMessage: 'Opening your orders.' },
+    chooseOrderToCancel: { id: 'assistant.action.orders.chooseCancel', defaultMessage: 'Open your orders and choose the order to cancel.' },
+    cancelledOrder: { id: 'assistant.action.orders.cancelled', defaultMessage: 'Cancelled order {orderId}.' },
+    unableToCancelOrder: { id: 'assistant.action.orders.cancelUnavailable', defaultMessage: 'Unable to cancel that order right now.' },
+    createdOrderRequest: { id: 'assistant.action.orders.createdRequest', defaultMessage: 'Created {requestType} request for order {orderId}.' },
+    unableToCreateOrderRequest: { id: 'assistant.action.orders.createRequestUnavailable', defaultMessage: 'Unable to create that request right now.' },
+    openCheckoutForCoupon: { id: 'assistant.action.checkout.openCoupon', defaultMessage: 'Opening checkout to validate coupon {couponCode}.' },
+    openCheckoutForValidation: { id: 'assistant.action.checkout.openValidation', defaultMessage: 'Opening checkout to validate your coupon.' },
+    needsTwoProductsToCompare: { id: 'assistant.action.compare.needsTwoProducts', defaultMessage: 'I need at least two products to compare.' },
+    openingProductComparison: { id: 'assistant.action.compare.opening', defaultMessage: 'Opening product comparison.' },
+    openingPaymentForOrder: { id: 'assistant.action.payments.openingOrder', defaultMessage: 'Opening payment details for order {orderId}.' },
+    openingPage: { id: 'assistant.action.navigation.openingPage', defaultMessage: 'Opening {page}.' },
+    thatPage: { id: 'assistant.action.navigation.thatPage', defaultMessage: 'that page' },
+    openingSupportForOrder: { id: 'assistant.action.support.openingOrder', defaultMessage: 'Opening support for order {orderId}.' },
+    openingSupportDesk: { id: 'assistant.action.support.openingDesk', defaultMessage: 'Opening the support desk.' },
+});
+
+const interpolateDefaultMessage = (message = '', values = {}) => String(message || '').replace(
+    /\{([A-Za-z][A-Za-z0-9_]*)\}/g,
+    (match, key) => (values[key] === undefined || values[key] === null ? match : String(values[key]))
+);
+
+const formatAssistantActionMessage = (formatMessage, descriptor, values = {}) => (
+    formatMessage ? formatMessage(descriptor, values) : interpolateDefaultMessage(descriptor.defaultMessage, values)
+);
 
 const DEFAULT_PAGE_PATHS = {
     home: '/',
@@ -141,6 +182,7 @@ export const createAssistantActionRegistry = ({
     navigate,
     isAuthenticated = false,
     candidates = [],
+    formatMessage = null,
 } = {}) => {
     const readLastActionState = () => {
         const memory = useChatStore.getState().context?.sessionMemory || {};
@@ -157,8 +199,14 @@ export const createAssistantActionRegistry = ({
     const searchProducts = async (query = '', filters = {}, uiProducts = []) => ({
         success: true,
         message: Array.isArray(uiProducts) && uiProducts.length > 0
-            ? `Showing ${uiProducts.length} result${uiProducts.length === 1 ? '' : 's'}${safeString(query) ? ` for ${query}` : ''}.`
-            : 'No validated search results are available yet.',
+            ? formatAssistantActionMessage(formatMessage, assistantActionMessages.searchResults, {
+                count: uiProducts.length,
+                pluralSuffix: uiProducts.length === 1 ? '' : 's',
+                querySuffix: safeString(query)
+                    ? formatAssistantActionMessage(formatMessage, assistantActionMessages.searchQuerySuffix, { query: safeString(query) })
+                    : '',
+            })
+            : formatAssistantActionMessage(formatMessage, assistantActionMessages.noValidatedSearchResults),
         products: Array.isArray(uiProducts) ? uiProducts.map((product) => normalizeProductSummary(product)) : [],
         filters,
     });
@@ -172,7 +220,9 @@ export const createAssistantActionRegistry = ({
 
         return {
             success: Boolean(normalizedId),
-            message: product?.title ? `Opened ${product.title}.` : 'Opened the selected product.',
+            message: product?.title
+                ? formatAssistantActionMessage(formatMessage, assistantActionMessages.openedProduct, { title: product.title })
+                : formatAssistantActionMessage(formatMessage, assistantActionMessages.openedSelectedProduct),
             product,
             activeProductId: normalizedId || null,
         };
@@ -183,7 +233,7 @@ export const createAssistantActionRegistry = ({
         if (!product?.id) {
             return {
                 success: false,
-                message: 'I could not find that product to add it to your cart.',
+                message: formatAssistantActionMessage(formatMessage, assistantActionMessages.addToCartMissingProduct),
             };
         }
 
@@ -194,7 +244,7 @@ export const createAssistantActionRegistry = ({
 
         return {
             success: true,
-            message: `Added ${product.title} to your cart.`,
+            message: formatAssistantActionMessage(formatMessage, assistantActionMessages.addedToCart, { title: product.title }),
             product,
             cartItems: selectCartItems(useCommerceStore.getState()),
             cartSummary: selectCartSummary(useCommerceStore.getState()),
@@ -207,7 +257,9 @@ export const createAssistantActionRegistry = ({
 
         return {
             success: true,
-            message: product?.title ? `Removed ${product.title} from your cart.` : 'Removed that item from your cart.',
+            message: product?.title
+                ? formatAssistantActionMessage(formatMessage, assistantActionMessages.removedFromCart, { title: product.title })
+                : formatAssistantActionMessage(formatMessage, assistantActionMessages.removedCartItem),
             product,
             cartItems: selectCartItems(useCommerceStore.getState()),
             cartSummary: selectCartSummary(useCommerceStore.getState()),
@@ -229,7 +281,7 @@ export const createAssistantActionRegistry = ({
 
         return {
             success: true,
-            message: 'Taking you to checkout.',
+            message: formatAssistantActionMessage(formatMessage, assistantActionMessages.takingToCheckout),
             navigation: {
                 page: 'checkout',
                 path: '/checkout',
@@ -245,8 +297,8 @@ export const createAssistantActionRegistry = ({
         return {
             success: Boolean(safeString(orderId)),
             message: safeString(orderId)
-                ? `Opening tracking for order ${orderId}.`
-                : 'Opening your orders.',
+                ? formatAssistantActionMessage(formatMessage, assistantActionMessages.openTrackingForOrder, { orderId })
+                : formatAssistantActionMessage(formatMessage, assistantActionMessages.openingOrders),
             navigation: {
                 page: 'orders',
                 path,
@@ -260,7 +312,7 @@ export const createAssistantActionRegistry = ({
             navigate('/orders');
             return {
                 success: false,
-                message: 'Open your orders and choose the order to cancel.',
+                message: formatAssistantActionMessage(formatMessage, assistantActionMessages.chooseOrderToCancel),
                 navigation: {
                     page: 'orders',
                     path: '/orders',
@@ -276,7 +328,7 @@ export const createAssistantActionRegistry = ({
             navigate(path);
             return {
                 success: true,
-                message: result?.message || `Cancelled order ${normalizedOrderId}.`,
+                message: result?.message || formatAssistantActionMessage(formatMessage, assistantActionMessages.cancelledOrder, { orderId: normalizedOrderId }),
                 order: result?.order || null,
                 navigation: {
                     page: 'orders',
@@ -286,7 +338,7 @@ export const createAssistantActionRegistry = ({
         } catch (error) {
             return {
                 success: false,
-                message: safeString(error?.message || 'Unable to cancel that order right now.'),
+                message: safeString(error?.message) || formatAssistantActionMessage(formatMessage, assistantActionMessages.unableToCancelOrder),
             };
         }
     };
@@ -302,7 +354,7 @@ export const createAssistantActionRegistry = ({
             navigate('/orders');
             return {
                 success: false,
-                message: 'Open your orders and choose the order for the return or refund request.',
+                message: formatAssistantActionMessage(formatMessage, assistantActionMessages.chooseOrderForReturn),
                 navigation: {
                     page: 'orders',
                     path: '/orders',
@@ -327,7 +379,10 @@ export const createAssistantActionRegistry = ({
             navigate(path);
             return {
                 success: true,
-                message: result?.message || `Created ${normalizedType} request for order ${normalizedOrderId}.`,
+                message: result?.message || formatAssistantActionMessage(formatMessage, assistantActionMessages.createdOrderRequest, {
+                    orderId: normalizedOrderId,
+                    requestType: normalizedType,
+                }),
                 commandCenter: result?.commandCenter || null,
                 navigation: {
                     page: 'orders',
@@ -337,7 +392,7 @@ export const createAssistantActionRegistry = ({
         } catch (error) {
             return {
                 success: false,
-                message: safeString(error?.message || 'Unable to create that request right now.'),
+                message: safeString(error?.message) || formatAssistantActionMessage(formatMessage, assistantActionMessages.unableToCreateOrderRequest),
             };
         }
     };
@@ -351,8 +406,8 @@ export const createAssistantActionRegistry = ({
         return {
             success: true,
             message: safeString(couponCode)
-                ? `Opening checkout to validate coupon ${safeString(couponCode).toUpperCase()}.`
-                : 'Opening checkout to validate your coupon.',
+                ? formatAssistantActionMessage(formatMessage, assistantActionMessages.openCheckoutForCoupon, { couponCode: safeString(couponCode).toUpperCase() })
+                : formatAssistantActionMessage(formatMessage, assistantActionMessages.openCheckoutForValidation),
             navigation: {
                 page: 'checkout',
                 path,
@@ -366,7 +421,7 @@ export const createAssistantActionRegistry = ({
         if (ids.length < 2) {
             return {
                 success: false,
-                message: 'I need at least two products to compare.',
+                message: formatAssistantActionMessage(formatMessage, assistantActionMessages.needsTwoProductsToCompare),
             };
         }
 
@@ -374,7 +429,7 @@ export const createAssistantActionRegistry = ({
         navigate(path);
         return {
             success: true,
-            message: 'Opening product comparison.',
+            message: formatAssistantActionMessage(formatMessage, assistantActionMessages.openingProductComparison),
             navigation: {
                 page: 'compare',
                 path,
@@ -389,8 +444,8 @@ export const createAssistantActionRegistry = ({
         return {
             success: Boolean(safeString(orderId)),
             message: safeString(orderId)
-                ? `Opening payment details for order ${orderId}.`
-                : 'Opening your orders.',
+                ? formatAssistantActionMessage(formatMessage, assistantActionMessages.openingPaymentForOrder, { orderId })
+                : formatAssistantActionMessage(formatMessage, assistantActionMessages.openingOrders),
             navigation: {
                 page: 'orders',
                 path,
@@ -404,7 +459,11 @@ export const createAssistantActionRegistry = ({
 
         return {
             success: true,
-            message: `Opening ${titleCase(page || 'that page')}.`,
+            message: formatAssistantActionMessage(formatMessage, assistantActionMessages.openingPage, {
+                page: safeString(page)
+                    ? titleCase(page)
+                    : formatAssistantActionMessage(formatMessage, assistantActionMessages.thatPage),
+            }),
             navigation: {
                 page: safeString(page),
                 path,
@@ -421,7 +480,7 @@ export const createAssistantActionRegistry = ({
 
             return {
                 success: true,
-                message: `Opening support for order ${orderId}.`,
+                message: formatAssistantActionMessage(formatMessage, assistantActionMessages.openingSupportForOrder, { orderId }),
                 supportPrefill: prefill,
                 navigation: {
                     page: 'orders',
@@ -440,7 +499,7 @@ export const createAssistantActionRegistry = ({
 
         return {
             success: true,
-            message: 'Opening the support desk.',
+            message: formatAssistantActionMessage(formatMessage, assistantActionMessages.openingSupportDesk),
             supportPrefill: prefill,
             navigation: {
                 page: 'support',
@@ -548,7 +607,7 @@ export const createAssistantActionRegistry = ({
 
         return finalize({
             success: false,
-            message: 'That action is not supported yet.',
+            message: formatAssistantActionMessage(formatMessage, assistantActionMessages.unsupportedAction),
         });
     };
 

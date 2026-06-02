@@ -18,15 +18,32 @@ import {
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
 import { adminStatusApi } from '@/services/api/statusApi';
 import { formatDate, formatPercent, statusMeta } from '@/pages/Status/statusMeta';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
+
+const statusDashboardMessages = defineMessages({
+  statusAuto: { id: 'admin.status.option.auto', defaultMessage: 'Auto' },
+  statusOperational: { id: 'admin.status.option.operational', defaultMessage: 'Operational' },
+  statusDegraded: { id: 'admin.status.option.degraded', defaultMessage: 'Degraded' },
+  statusPartialOutage: { id: 'admin.status.option.partialOutage', defaultMessage: 'Partial outage' },
+  statusMajorOutage: { id: 'admin.status.option.majorOutage', defaultMessage: 'Major outage' },
+  statusMaintenance: { id: 'admin.status.option.maintenance', defaultMessage: 'Maintenance' },
+  impactNone: { id: 'admin.status.impact.none', defaultMessage: 'None' },
+  impactMinor: { id: 'admin.status.impact.minor', defaultMessage: 'Minor' },
+  impactMajor: { id: 'admin.status.impact.major', defaultMessage: 'Major' },
+  impactCritical: { id: 'admin.status.impact.critical', defaultMessage: 'Critical' },
+  incidentInvestigating: { id: 'admin.status.incident.investigating', defaultMessage: 'Investigating' },
+  incidentIdentified: { id: 'admin.status.incident.identified', defaultMessage: 'Identified' },
+  incidentMonitoring: { id: 'admin.status.incident.monitoring', defaultMessage: 'Monitoring' },
+  incidentResolved: { id: 'admin.status.incident.resolved', defaultMessage: 'Resolved' },
+});
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'Auto' },
-  { value: 'operational', label: 'Operational' },
-  { value: 'degraded_performance', label: 'Degraded' },
-  { value: 'partial_outage', label: 'Partial outage' },
-  { value: 'major_outage', label: 'Major outage' },
-  { value: 'maintenance', label: 'Maintenance' },
+  { value: '', label: 'Auto', message: statusDashboardMessages.statusAuto },
+  { value: 'operational', label: 'Operational', message: statusDashboardMessages.statusOperational },
+  { value: 'degraded_performance', label: 'Degraded', message: statusDashboardMessages.statusDegraded },
+  { value: 'partial_outage', label: 'Partial outage', message: statusDashboardMessages.statusPartialOutage },
+  { value: 'major_outage', label: 'Major outage', message: statusDashboardMessages.statusMajorOutage },
+  { value: 'maintenance', label: 'Maintenance', message: statusDashboardMessages.statusMaintenance },
 ];
 
 const SEVERITY_OPTIONS = [
@@ -37,17 +54,17 @@ const SEVERITY_OPTIONS = [
 ];
 
 const IMPACT_OPTIONS = [
-  { value: 'none', label: 'None' },
-  { value: 'minor', label: 'Minor' },
-  { value: 'major', label: 'Major' },
-  { value: 'critical', label: 'Critical' },
+  { value: 'none', label: 'None', message: statusDashboardMessages.impactNone },
+  { value: 'minor', label: 'Minor', message: statusDashboardMessages.impactMinor },
+  { value: 'major', label: 'Major', message: statusDashboardMessages.impactMajor },
+  { value: 'critical', label: 'Critical', message: statusDashboardMessages.impactCritical },
 ];
 
 const INCIDENT_STATUS_OPTIONS = [
-  { value: 'investigating', label: 'Investigating' },
-  { value: 'identified', label: 'Identified' },
-  { value: 'monitoring', label: 'Monitoring' },
-  { value: 'resolved', label: 'Resolved' },
+  { value: 'investigating', label: 'Investigating', message: statusDashboardMessages.incidentInvestigating },
+  { value: 'identified', label: 'Identified', message: statusDashboardMessages.incidentIdentified },
+  { value: 'monitoring', label: 'Monitoring', message: statusDashboardMessages.incidentMonitoring },
+  { value: 'resolved', label: 'Resolved', message: statusDashboardMessages.incidentResolved },
 ];
 
 const blankComponentForm = {
@@ -149,6 +166,7 @@ function ComponentMultiSelect({ components = [], value = [], onChange }) {
 }
 
 export default function AdminStatusDashboard() {
+  const intl = useIntl();
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -181,6 +199,15 @@ export default function AdminStatusDashboard() {
   const incidents = dashboard?.incidents || [];
   const activeIncidents = incidents.filter((incident) => incident.status !== 'resolved');
   const templates = dashboard?.templates || {};
+  const localizeOptions = useCallback((options) => options.map((option) => ({
+    ...option,
+    label: option.message
+      ? intl.formatMessage(option.message)
+      : option.label,
+  })), [intl]);
+  const statusOptions = useMemo(() => localizeOptions(STATUS_OPTIONS), [localizeOptions]);
+  const impactOptions = useMemo(() => localizeOptions(IMPACT_OPTIONS), [localizeOptions]);
+  const incidentStatusOptions = useMemo(() => localizeOptions(INCIDENT_STATUS_OPTIONS), [localizeOptions]);
 
   const componentGroupNames = useMemo(() => {
     const names = groups.map((group) => group.name);
@@ -304,7 +331,7 @@ export default function AdminStatusDashboard() {
                 </FormField>
                 <FormField label={<FormattedMessage id="admin.jsx.prop.label.manual.override" defaultMessage="Manual override" />}>
                   <ControlSelect value={componentForm.manualStatusOverride} onChange={(event) => setComponentForm((prev) => ({ ...prev, manualStatusOverride: event.target.value }))}>
-                    {STATUS_OPTIONS.map((option) => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
+                    {statusOptions.map((option) => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
                   </ControlSelect>
                 </FormField>
                 <FormField label={<FormattedMessage id="admin.jsx.prop.label.check.url" defaultMessage="Check URL" />}>
@@ -338,9 +365,12 @@ export default function AdminStatusDashboard() {
                           value={component.manualStatusOverride || ''}
                           onChange={(event) => runAction(`override-${component.id}`, () => adminStatusApi.updateComponent(component.id, { manualStatusOverride: event.target.value || null }), 'Component override updated')}
                           className="max-w-xs"
-                          aria-label={`Manual override for ${component.name}`}
+                          aria-label={intl.formatMessage(
+                            { id: 'admin.accessibility.manual.override.for', defaultMessage: 'Manual override for {name}' },
+                            { name: component.name },
+                          )}
                         >
-                          {STATUS_OPTIONS.map((option) => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
+                          {statusOptions.map((option) => <option key={option.value || 'auto'} value={option.value}>{option.label}</option>)}
                         </ControlSelect>
                         <button type="button" onClick={() => runAction(`public-${component.id}`, () => adminStatusApi.updateComponent(component.id, { isPublic: !component.isPublic }), 'Public visibility updated')} className="admin-premium-button px-3 py-2 text-xs font-black">
                           {component.isPublic ? <FormattedMessage id="admin.jsx.expression.public" defaultMessage="Public" /> : <FormattedMessage id="admin.jsx.expression.private" defaultMessage="Private" />}
@@ -369,16 +399,20 @@ export default function AdminStatusDashboard() {
                   </FormField>
                   <FormField label={<FormattedMessage id="admin.jsx.prop.label.impact" defaultMessage="Impact" />}>
                     <ControlSelect value={incidentForm.impact} onChange={(event) => setIncidentForm((prev) => ({ ...prev, impact: event.target.value }))}>
-                      {IMPACT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      {impactOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </ControlSelect>
                   </FormField>
                   <FormField label="Status">
                     <ControlSelect value={incidentForm.status} onChange={(event) => setIncidentForm((prev) => ({ ...prev, status: event.target.value }))}>
-                      {INCIDENT_STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      {incidentStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </ControlSelect>
                   </FormField>
                   <FormField label={<FormattedMessage id="admin.jsx.prop.label.commander" defaultMessage="Commander" />}>
-                    <ControlInput value={incidentForm.commander} onChange={(event) => setIncidentForm((prev) => ({ ...prev, commander: event.target.value }))} placeholder="Incident commander" />
+                    <ControlInput
+                      value={incidentForm.commander}
+                      onChange={(event) => setIncidentForm((prev) => ({ ...prev, commander: event.target.value }))}
+                      placeholder={intl.formatMessage({ id: 'support.jsx.prop.placeholder.incident.commander', defaultMessage: 'Incident commander' })}
+                    />
                   </FormField>
                   <FormField label="Source">
                     <ControlSelect value={incidentForm.source} onChange={(event) => setIncidentForm((prev) => ({ ...prev, source: event.target.value }))}>
@@ -404,7 +438,7 @@ export default function AdminStatusDashboard() {
                   <ControlTextarea value={incidentForm.updateMessage} onChange={(event) => setIncidentForm((prev) => ({ ...prev, updateMessage: event.target.value }))} />
                 </FormField>
                 <div className="flex flex-wrap gap-2">
-                  {INCIDENT_STATUS_OPTIONS.map((option) => (
+                  {incidentStatusOptions.map((option) => (
                     <button
                       key={option.value}
                       type="button"
@@ -498,7 +532,7 @@ export default function AdminStatusDashboard() {
                       value={updateDrafts[incident.id] || ''}
                       onChange={(event) => setUpdateDrafts((prev) => ({ ...prev, [incident.id]: event.target.value }))}
                       className="admin-premium-control mt-3 min-h-20 w-full"
-                      placeholder="Post update..."
+                      placeholder={intl.formatMessage({ id: 'admin.jsx.prop.placeholder.post.update', defaultMessage: 'Post update...' })}
                     />
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button

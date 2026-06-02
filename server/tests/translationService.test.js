@@ -176,6 +176,7 @@ describe('translationService', () => {
     });
 
     test('falls back when the provider times out', async () => {
+        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
         jest.useFakeTimers();
         configureLibreTranslate({
             I18N_TRANSLATION_PROVIDER_TIMEOUT_MS: '500',
@@ -195,6 +196,11 @@ describe('translationService', () => {
         await expect(resultPromise).resolves.toEqual({
             'Pay securely': 'Pay securely',
         });
+        expect(warnSpy).toHaveBeenCalledWith('i18n.translation_provider_failed', expect.objectContaining({
+            provider: 'libretranslate',
+            textHash: expect.any(String),
+        }));
+        warnSpy.mockRestore();
         jest.useRealTimers();
     });
 

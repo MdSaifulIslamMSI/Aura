@@ -961,7 +961,7 @@ const ProductDetails = () => {
                     type="button"
                     onClick={() => handleUpdateQty(-1)}
                     disabled={cartItem.quantity <= 1}
-                    aria-label={`Decrease quantity for ${translatedHeroTitle}`}
+                    aria-label={t('product.quantity.decrease.ariaLabel', { product: translatedHeroTitle }, 'Decrease quantity for {{product}}')}
                     className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
                   >
                     <Minus className="w-5 h-5" />
@@ -971,7 +971,7 @@ const ProductDetails = () => {
                     type="button"
                     onClick={() => handleUpdateQty(1)}
                     disabled={cartItem.quantity >= stock}
-                    aria-label={`Increase quantity for ${translatedHeroTitle}`}
+                    aria-label={t('product.quantity.increase.ariaLabel', { product: translatedHeroTitle }, 'Increase quantity for {{product}}')}
                     className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
                   >
                     <Plus className="w-5 h-5" />
@@ -1037,7 +1037,7 @@ const ProductDetails = () => {
                   {dealDna && (
                     <span className={cn('text-[10px] px-3 py-1 rounded-full border font-black uppercase tracking-widest inline-flex items-center gap-1.5', dealTone)}>
                       <BadgeCheck className="w-3 h-3" />
-                      {t('productPage.dealDnaScore', { score: dealDna.score, label: dealLabel }, `Deal DNA ${dealDna.score} â€¢ ${dealLabel}`)}
+                      {t('productPage.dealDnaScore', { score: dealDna.score, label: dealLabel }, 'Deal DNA {{score}} - {{label}}')}
                     </span>
                   )}
                 </div>
@@ -1092,7 +1092,7 @@ const ProductDetails = () => {
                             type="button"
                             onClick={() => handleUpdateQty(-1)}
                             disabled={cartItem.quantity <= 1}
-                            aria-label={`Decrease quantity for ${translatedHeroTitle}`}
+                            aria-label={t('product.quantity.decrease.ariaLabel', { product: translatedHeroTitle }, 'Decrease quantity for {{product}}')}
                             className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
                           >
                             <Minus className="w-6 h-6" />
@@ -1102,7 +1102,7 @@ const ProductDetails = () => {
                             type="button"
                             onClick={() => handleUpdateQty(1)}
                             disabled={cartItem.quantity >= stock}
-                            aria-label={`Increase quantity for ${translatedHeroTitle}`}
+                            aria-label={t('product.quantity.increase.ariaLabel', { product: translatedHeroTitle }, 'Increase quantity for {{product}}')}
                             className="text-neo-cyan transition-colors hover:text-white disabled:opacity-50"
                           >
                             <Plus className="w-6 h-6" />
@@ -1278,7 +1278,7 @@ const ProductDetails = () => {
                           <>
                             <div className={cn('rounded-2xl border p-5', dealTone)}>
                               <p className="text-xs font-black uppercase tracking-[0.16em]">{t('productPage.trustVerdict', {}, 'Trust Verdict')}</p>
-                              <p className="mt-2 text-2xl font-black">{dealLabel} â€¢ Score {dealDna.score}/100</p>
+                              <p className="mt-2 text-2xl font-black">{dealLabel} - <StableText id="productPage.dealDna.scoreLabel" defaultMessage="Score" /> {dealDna.score}/100</p>
                               <p className="mt-2 text-sm text-slate-100/90">{dealDna.message}</p>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1333,7 +1333,7 @@ const ProductDetails = () => {
                                         <img src={item.image} alt={item.translatedTitle} className="w-14 h-14 rounded-lg object-cover bg-zinc-900/70" />
                                         <div className="min-w-0">
                                           <p className={cn('text-sm font-bold truncate', strongTextClass)}>{item.translatedTitle}</p>
-                                          <p className={cn('text-xs truncate', mutedTextClass)}>{item.brand} â€¢ {item.category}</p>
+                                          <p className={cn('text-xs truncate', mutedTextClass)}>{item.brand} - {item.category}</p>
                                           <p className="text-xs text-neo-cyan font-bold mt-1">
                                             {t('productPage.compatibilityScore', { score: item.compatibilityScore }, `Compatibility ${item.compatibilityScore}/100`)}
                                           </p>

@@ -20,7 +20,7 @@ import {
   signTrustedDeviceChallenge,
 } from '../../../services/deviceTrustClient';
 import { isAdminPath } from '../../../services/assistantUiConfig';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 const TRUSTED_DEVICE_METHOD_ORDER = ['webauthn', 'browser_key'];
 const TRUSTED_DEVICE_FOCUSABLE_SELECTOR = [
@@ -216,6 +216,7 @@ const buildTrustedDeviceErrorMessage = ({
 };
 
 const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
+  const intl = useIntl();
   const location = useLocation();
   const { currentUser, deviceChallenge, refreshSession, status, verifyDeviceChallenge } = useAuth();
   const [isWorking, setIsWorking] = useState(false);
@@ -496,7 +497,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
         <motion.button
           key="trusted-device-minimized"
           type="button"
-          aria-label="Open trusted device checkpoint"
+          aria-label={intl.formatMessage({
+            id: 'auth.accessibility.open.trusted.device.checkpoint',
+            defaultMessage: 'Open trusted device checkpoint',
+          })}
           initial={{ opacity: 0, y: 18, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -548,8 +552,12 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
 
       toast.success(
         signedChallenge?.method === 'webauthn'
-          ? (challengeMode === 'enroll' ? 'Face/device passkey registered.' : 'Face/device passkey verified.')
-          : (challengeMode === 'enroll' ? 'Trusted browser registered.' : 'Trusted browser verified.')
+          ? (challengeMode === 'enroll'
+            ? intl.formatMessage({ id: 'auth.feedback.face.device.passkey.registered', defaultMessage: 'Face/device passkey registered.' })
+            : intl.formatMessage({ id: 'auth.feedback.face.device.passkey.verified', defaultMessage: 'Face/device passkey verified.' }))
+          : (challengeMode === 'enroll'
+            ? intl.formatMessage({ id: 'auth.feedback.trusted.browser.registered', defaultMessage: 'Trusted browser registered.' })
+            : intl.formatMessage({ id: 'auth.feedback.trusted.browser.verified', defaultMessage: 'Trusted browser verified.' }))
       );
 
       if (currentUser) {
@@ -579,7 +587,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
       if (currentUser) {
         await refreshSession(currentUser, { force: true, silent: true });
       }
-      toast.success('Local device identity reset. You can register this device again.');
+      toast.success(intl.formatMessage({
+        id: 'auth.feedback.local.device.identity.reset.you.can.register',
+        defaultMessage: 'Local device identity reset. You can register this device again.',
+      }));
     } catch (error) {
       const nextMessage = String(error?.message || 'Unable to reset this browser identity.');
       setErrorMessage(nextMessage);
@@ -675,13 +686,19 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                       {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.choose.verification.method" defaultMessage="Choose verification method" /> : <FormattedMessage id="auth.jsx.expression.verification.method" defaultMessage="Verification method" />}
                     </p>
                     <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                      {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.fresh.assertion.required" defaultMessage="Fresh assertion required" /> : `${selectedMethodLabel} required`}
+                      {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.fresh.assertion.required" defaultMessage="Fresh assertion required" /> : intl.formatMessage({
+                        id: 'auth.jsx.expression.method.required',
+                        defaultMessage: '{method} required',
+                      }, { method: selectedMethodLabel })}
                     </p>
                   </div>
 
                   <div
                     role="radiogroup"
-                    aria-label="Trusted device proof methods"
+                    aria-label={intl.formatMessage({
+                      id: 'auth.accessibility.trusted.device.proof.methods',
+                      defaultMessage: 'Trusted device proof methods',
+                    })}
                     className="grid gap-2 sm:grid-cols-2"
                   >
                     {displayedProofMethods.map((method) => {
@@ -836,7 +853,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                     type="button"
                     onClick={() => setIsCollapsed(true)}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition-colors hover:bg-white/[0.08]"
-                    aria-label="Minimize trusted device panel"
+                    aria-label={intl.formatMessage({
+                      id: 'auth.accessibility.minimize.trusted.device.panel',
+                      defaultMessage: 'Minimize trusted device panel',
+                    })}
                   >
                     <Minimize2 className="h-4 w-4" />
                   </button>
@@ -937,7 +957,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
 
                     <div
                       role="radiogroup"
-                      aria-label="Trusted device proof methods"
+                      aria-label={intl.formatMessage({
+                        id: 'auth.accessibility.trusted.device.proof.methods',
+                        defaultMessage: 'Trusted device proof methods',
+                      })}
                       className="grid gap-3 sm:grid-cols-2"
                     >
                       {displayedProofMethods.map((method) => {

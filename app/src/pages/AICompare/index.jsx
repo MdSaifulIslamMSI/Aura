@@ -2,17 +2,19 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Brain, Loader2, Search, Sparkles, Trophy, X } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { productApi } from '@/services/api';
 import { aiApi } from '@/services/aiApi';
 import { cn } from '@/lib/utils';
 import { formatEntityPrice } from '@/utils/pricing';
 
+import { StableText } from '@/i18n/StableText';
 const MAX_COMPARE_ITEMS = 4;
 const MODES = [
-  { value: 'balanced', label: 'Balanced AI' },
-  { value: 'budget', label: 'Budget Hunter' },
-  { value: 'premium', label: 'Premium First' },
-  { value: 'speed', label: 'Fast Delivery' },
+  { value: 'balanced', labelId: 'compare.mode.balancedAi', labelDefault: 'Balanced AI' },
+  { value: 'budget', labelId: 'compare.mode.budgetHunter', labelDefault: 'Budget Hunter' },
+  { value: 'premium', labelId: 'compare.mode.premiumFirst', labelDefault: 'Premium First' },
+  { value: 'speed', labelId: 'compare.mode.fastDelivery', labelDefault: 'Fast Delivery' },
 ];
 
 const parseDaysFromDelivery = (deliveryTime = '') => {
@@ -82,9 +84,15 @@ const scoreProduct = ({ product, mode, minPrice, maxPrice, minDays, maxDays, max
 
 const getProductId = (product) => product?.id || product?._id || '';
 
+const formatCompareModeLabel = (mode, t) => {
+  const entry = MODES.find((item) => item.value === mode) || MODES[0];
+  return t(entry.labelId, {}, entry.labelDefault);
+};
+
 const AICompare = () => {
   const navigate = useNavigate();
-  const { formatPrice } = useMarket();
+  const { formatPrice, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [query, setQuery] = useState('');
@@ -95,6 +103,7 @@ const AICompare = () => {
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
+  const modeLabel = formatCompareModeLabel(mode, t);
 
   useEffect(() => {
     const idsFromQuery = (searchParams.get('ids') || '')
@@ -113,11 +122,11 @@ const AICompare = () => {
         setSelectedProducts(valid);
       })
       .catch(() => {
-        if (active) setError('Failed to load products from compare link.');
+        if (active) setError(t('compare.error.loadFromLink', {}, 'Failed to load products from compare link.'));
       });
 
     return () => { active = false; };
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   useEffect(() => {
     if (query.trim().length < 2) {
@@ -165,7 +174,7 @@ const AICompare = () => {
     }
 
     if (selectedProducts.length >= MAX_COMPARE_ITEMS) {
-      setError(`You can compare up to ${MAX_COMPARE_ITEMS} products.`);
+      setError(t('compare.error.maxProducts', { count: MAX_COMPARE_ITEMS }, 'You can compare up to {{count}} products.'));
       return;
     }
 
@@ -207,17 +216,32 @@ const AICompare = () => {
   const verdictLines = useMemo(() => {
     if (!winner) return [];
     const lines = [];
-    lines.push(`${winner.product.title} leads in ${MODES.find((entry) => entry.value === mode)?.label || 'Balanced AI'} mode.`);
+    lines.push(t(
+      'compare.verdict.leadsMode',
+      { title: winner.product.title, modeLabel },
+      '{{title}} leads in {{modeLabel}} mode.'
+    ));
 
     const { metrics } = winner;
-    if (metrics.priceScore > 0.7) lines.push('It offers strong price efficiency against other selected options.');
-    if (metrics.ratingScore > 0.75) lines.push('Its rating profile is among the strongest in this set.');
-    if (metrics.deliveryScore > 0.7) lines.push('Delivery speed is better than most compared products.');
-    if (metrics.warrantyScore > 0.9) lines.push('Warranty coverage adds long-term confidence.');
-    if (metrics.stockScore < 0.5) lines.push('Inventory risk exists. If this is urgent, consider backup options.');
+    if (metrics.priceScore > 0.7) lines.push(t('compare.verdict.priceEfficiency', {}, 'It offers strong price efficiency against other selected options.'));
+    if (metrics.ratingScore > 0.75) lines.push(t('compare.verdict.ratingProfile', {}, 'Its rating profile is among the strongest in this set.'));
+    if (metrics.deliveryScore > 0.7) lines.push(t('compare.verdict.deliverySpeed', {}, 'Delivery speed is better than most compared products.'));
+    if (metrics.warrantyScore > 0.9) lines.push(t('compare.verdict.warrantyConfidence', {}, 'Warranty coverage adds long-term confidence.'));
+    if (metrics.stockScore < 0.5) lines.push(t('compare.verdict.inventoryRisk', {}, 'Inventory risk exists. If this is urgent, consider backup options.'));
 
     return lines.slice(0, 4);
-  }, [winner, mode]);
+  }, [modeLabel, t, winner]);
+
+  const specRows = useMemo(() => [
+    { key: 'price', label: t('compare.spec.price', {}, 'Price'), formatter: (p) => formatEntityPrice(formatPrice, p) },
+    { key: 'rating', label: t('compare.spec.rating', {}, 'Rating'), formatter: (p) => `${p.rating || 0}/5` },
+    { key: 'reviews', label: t('compare.spec.reviews', {}, 'Reviews'), formatter: (p) => (p.ratingCount || 0).toLocaleString('en-IN') },
+    { key: 'discount', label: t('compare.spec.discount', {}, 'Discount'), formatter: (p) => `${p.discountPercentage || 0}%` },
+    { key: 'delivery', label: t('compare.spec.delivery', {}, 'Delivery'), formatter: (p) => p.deliveryTime || t('compare.spec.notAvailable', {}, 'N/A') },
+    { key: 'stock', label: t('compare.spec.stock', {}, 'Stock'), formatter: (p) => (p.stock > 0 ? t('compare.spec.inStock', {}, 'In Stock') : t('compare.spec.outOfStock', {}, 'Out of Stock')) },
+    { key: 'warranty', label: t('compare.spec.warranty', {}, 'Warranty'), formatter: (p) => (p.warranty ? t('common.answer.yes', {}, 'Yes') : t('common.answer.no', {}, 'No')) },
+    { key: 'ai-score', label: t('compare.spec.aiScore', {}, 'AI Score'), formatter: (_p, row) => `${row.totalScore}` },
+  ], [formatPrice, t]);
 
   useEffect(() => {
     const productIds = selectedProducts
@@ -239,7 +263,7 @@ const AICompare = () => {
 
       try {
         const response = await aiApi.chat({
-          message: `Compare these products in ${mode} mode and recommend the best grounded option.`,
+          message: t('compare.ai.prompt.groundedRecommendation', { mode }, 'Compare these products in {{mode}} mode and recommend the best grounded option.'),
           assistantMode: 'compare',
           context: {
             productIds,
@@ -252,7 +276,7 @@ const AICompare = () => {
       } catch (requestError) {
         if (!active) return;
         setAiSummary(null);
-        setAiError(requestError.message || 'AI comparison is unavailable right now.');
+        setAiError(requestError.message || t('compare.ai.error.unavailable', {}, 'AI comparison is unavailable right now.'));
       } finally {
         if (active) setAiLoading(false);
       }
@@ -262,7 +286,7 @@ const AICompare = () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [mode, selectedProducts]);
+  }, [mode, selectedProducts, t]);
 
   const aiWinnerAction = useMemo(
     () => (aiSummary?.actions || []).find((action) => action?.type === 'open_product' && action?.productId),
@@ -273,18 +297,18 @@ const AICompare = () => {
     <div className="container-custom max-w-7xl mx-auto px-4 py-8 min-h-screen">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold">Decision Engine</p>
-          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">AI Compare Lab</h1>
-          <p className="text-slate-400 mt-2">Select up to 4 products and let the engine pick the best fit.</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold"><StableText id={"common.jsx.text.decision.engine.ec27ce72"} defaultMessage={"Decision Engine"} /></p>
+          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight"><StableText id={"common.jsx.text.ai.compare.lab.8b1b5855"} defaultMessage={"AI Compare Lab"} /></h1>
+          <p className="text-slate-400 mt-2"><StableText id={"product.jsx.text.select.up.to.4.products.and.let.02c6cece"} defaultMessage={"Select up to 4 products and let the engine pick the best fit."} /></p>
         </div>
-        <Link to="/visual-search" className="btn-secondary text-xs uppercase tracking-widest">Open Visual Search</Link>
+        <Link to="/visual-search" className="btn-secondary text-xs uppercase tracking-widest"><StableText id={"search.jsx.text.open.visual.search.069e1ee0"} defaultMessage={"Open Visual Search"} /></Link>
       </div>
 
       <div className="grid lg:grid-cols-12 gap-6">
         <section className="lg:col-span-4 rounded-2xl border border-white/10 bg-white/5 p-5">
           <div className="flex items-center gap-2 text-white font-black text-sm uppercase tracking-wider mb-4">
             <Search className="w-4 h-4 text-neo-cyan" />
-            Add Products
+            <StableText id={"product.jsx.text.add.products.db32d71e"} defaultMessage={"Add Products"} />
           </div>
 
           <div className="space-y-3">
@@ -292,11 +316,11 @@ const AICompare = () => {
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search products to compare"
+              placeholder={t('compare.search.placeholder', {}, 'Search products to compare')}
               className="w-full rounded-xl border border-white/15 bg-zinc-950/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-neo-cyan"
             />
             {suggestionLoading && (
-              <p className="text-xs text-slate-400">Scanning catalog...</p>
+              <p className="text-xs text-slate-400"><StableText id={"common.jsx.text.scanning.catalog.a5663ba2"} defaultMessage={"Scanning catalog..."} /></p>
             )}
             {suggestions.length > 0 && (
               <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
@@ -319,7 +343,7 @@ const AICompare = () => {
           </div>
 
           <div className="mt-5">
-            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">Compare Mode</p>
+            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2"><StableText id={"common.jsx.text.compare.mode.0d5f6e3b"} defaultMessage={"Compare Mode"} /></p>
             <div className="grid grid-cols-2 gap-2">
               {MODES.map((entry) => (
                 <button
@@ -333,7 +357,7 @@ const AICompare = () => {
                       : 'border-white/10 bg-white/5 text-slate-300 hover:text-white hover:border-white/20'
                   )}
                 >
-                  {entry.label}
+                  {t(entry.labelId, {}, entry.labelDefault)}
                 </button>
               ))}
             </div>
@@ -351,13 +375,13 @@ const AICompare = () => {
             <div className="flex items-center justify-between gap-3 mb-3">
               <h2 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-neo-cyan" />
-                Compare Deck
+                <StableText id={"common.jsx.text.compare.deck.2ba24d3b"} defaultMessage={"Compare Deck"} />
               </h2>
-              <span className="text-xs text-slate-400">{selectedProducts.length}/{MAX_COMPARE_ITEMS} selected</span>
+              <span className="text-xs text-slate-400">{t('compare.deck.selectedCount', { count: selectedProducts.length, max: MAX_COMPARE_ITEMS }, '{{count}}/{{max}} selected')}</span>
             </div>
 
             {selectedProducts.length === 0 ? (
-              <p className="text-sm text-slate-400">Add products from the left panel to start comparing.</p>
+              <p className="text-sm text-slate-400"><StableText id={"product.jsx.text.add.products.from.the.left.panel.to.3b04af45"} defaultMessage={"Add products from the left panel to start comparing."} /></p>
             ) : (
               <div className="grid md:grid-cols-2 gap-3">
                 {selectedProducts.map((product) => {
@@ -380,7 +404,7 @@ const AICompare = () => {
                         </button>
                       </div>
                       {score && (
-                        <div className="mt-2 text-xs text-slate-300">AI score: <span className="text-white font-bold">{score.totalScore}</span></div>
+                        <div className="mt-2 text-xs text-slate-300"><StableText id={"common.jsx.text.ai.score.0eea053d"} defaultMessage={"AI score:"} /> <span className="text-white font-bold">{score.totalScore}</span></div>
                       )}
                     </div>
                   );
@@ -393,10 +417,10 @@ const AICompare = () => {
             <div className="rounded-2xl border border-neo-cyan/25 bg-neo-cyan/10 p-5">
               <div className="flex items-center gap-2 text-neo-cyan text-sm font-black uppercase tracking-wider">
                 <Trophy className="w-4 h-4" />
-                AI Verdict
+                <StableText id={"common.jsx.text.ai.verdict.aa138e57"} defaultMessage={"AI Verdict"} />
               </div>
               <h3 className="mt-2 text-xl font-black text-white">{winner.product.title}</h3>
-              <p className="text-sm text-slate-300 mt-1">Mode: {MODES.find((entry) => entry.value === mode)?.label}</p>
+              <p className="text-sm text-slate-300 mt-1"><StableText id={"common.jsx.text.mode.5bbe3bb2"} defaultMessage={"Mode:"} /> {modeLabel}</p>
               <ul className="mt-3 space-y-1.5 text-sm text-slate-200">
                 {verdictLines.map((line) => (
                   <li key={line} className="flex gap-2">
@@ -412,18 +436,18 @@ const AICompare = () => {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold">Frontier AI Layer</p>
-                  <h3 className="text-lg font-black text-white mt-1">Grounded Compare Analysis</h3>
+                  <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold"><StableText id={"common.jsx.text.frontier.ai.layer.39f8bb96"} defaultMessage={"Frontier AI Layer"} /></p>
+                  <h3 className="text-lg font-black text-white mt-1"><StableText id={"common.jsx.text.grounded.compare.analysis.445d2870"} defaultMessage={"Grounded Compare Analysis"} /></h3>
                 </div>
                 <span className="rounded-full border border-white/10 bg-zinc-950/70 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                  {aiLoading ? 'Thinking' : (aiSummary?.provider || 'local')}
+                  {aiLoading ? <StableText id={"common.jsx.expression.thinking.83119a8c"} defaultMessage={"Thinking"} /> : (aiSummary?.provider || t('compare.provider.local', {}, 'local'))}
                 </span>
               </div>
 
               {aiLoading && (
                 <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-slate-300">
                   <Loader2 className="w-4 h-4 animate-spin text-neo-cyan" />
-                  Building grounded verdict...
+                  <StableText id={"common.jsx.text.building.grounded.verdict.356b5430"} defaultMessage={"Building grounded verdict..."} />
                 </div>
               )}
 
@@ -456,7 +480,7 @@ const AICompare = () => {
                       onClick={() => navigate(`/product/${aiWinnerAction.productId}`)}
                       className="mt-4 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:border-neo-cyan/40 hover:text-neo-cyan transition-colors"
                     >
-                      Open AI Winner
+                      <StableText id={"common.jsx.text.open.ai.winner.4f94b94d"} defaultMessage={"Open AI Winner"} />
                     </button>
                   )}
                 </>
@@ -466,22 +490,22 @@ const AICompare = () => {
 
           {compareData.length >= 2 && (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5 overflow-x-auto">
-              <h3 className="text-sm font-black uppercase tracking-wider text-white mb-3">Spec Matrix</h3>
+              <h3 className="text-sm font-black uppercase tracking-wider text-white mb-3"><StableText id={"common.jsx.text.spec.matrix.7bde8495"} defaultMessage={"Spec Matrix"} /></h3>
               <table className="w-full min-w-[680px] text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wider text-slate-400 border-b border-white/10">
-                    <th className="py-2 pr-3">Metric</th>
+                    <th className="py-2 pr-3"><StableText id={"common.jsx.text.metric.b04b7cce"} defaultMessage={"Metric"} /></th>
                     {compareData.map((entry) => (
                       <th key={entry.product.id || entry.product._id} className="py-2 pr-3 text-white">{entry.product.title.slice(0, 24)}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {[['Price', (p) => formatEntityPrice(formatPrice, p)], ['Rating', (p) => `${p.rating || 0}/5`], ['Reviews', (p) => (p.ratingCount || 0).toLocaleString('en-IN')], ['Discount', (p) => `${p.discountPercentage || 0}%`], ['Delivery', (p) => p.deliveryTime || 'N/A'], ['Stock', (p) => (p.stock > 0 ? 'In Stock' : 'Out of Stock')], ['Warranty', (p) => (p.warranty ? 'Yes' : 'No')], ['AI Score', (p, row) => `${row.totalScore}`]].map(([label, formatter]) => (
-                    <tr key={label} className="border-b border-white/5 last:border-b-0">
+                  {specRows.map(({ key, label, formatter }) => (
+                    <tr key={key} className="border-b border-white/5 last:border-b-0">
                       <td className="py-2 pr-3 text-slate-300 font-semibold">{label}</td>
                       {compareData.map((entry) => (
-                        <td key={`${entry.product.id || entry.product._id}-${label}`} className="py-2 pr-3 text-white">
+                        <td key={`${entry.product.id || entry.product._id}-${key}`} className="py-2 pr-3 text-white">
                           {formatter(entry.product, entry)}
                         </td>
                       ))}

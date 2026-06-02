@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
+import { IntlProvider } from 'react-intl';
 import { AuthContext } from '@/context/AuthContext';
 import GlobalSupportLauncher from './GlobalSupportLauncher';
 
@@ -22,10 +23,12 @@ const renderLauncher = ({
     initialEntry = '/',
 } = {}) => render(
     <MemoryRouter initialEntries={[initialEntry]}>
-        <AuthContext.Provider value={{ currentUser }}>
-            <GlobalSupportLauncher />
-            <LocationProbe />
-        </AuthContext.Provider>
+        <IntlProvider locale="en" messages={{}}>
+            <AuthContext.Provider value={{ currentUser }}>
+                <GlobalSupportLauncher />
+                <LocationProbe />
+            </AuthContext.Provider>
+        </IntlProvider>
     </MemoryRouter>
 );
 

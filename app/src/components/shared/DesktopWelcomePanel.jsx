@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { DownloadCloud, MonitorCheck, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 const WELCOME_SEEN_KEY = 'aura_desktop_welcome_seen_v1';
 
@@ -10,6 +11,7 @@ const getDesktopBridge = () => (
 );
 
 const DesktopWelcomePanel = () => {
+  const intl = useIntl();
   const [isVisible, setIsVisible] = useState(false);
   const [appInfo, setAppInfo] = useState(null);
   const desktopBridge = getDesktopBridge();
@@ -53,7 +55,7 @@ const DesktopWelcomePanel = () => {
 
         <button
           type="button"
-          aria-label="Close Aura desktop welcome"
+          aria-label={intl.formatMessage({ id: 'desktopWelcome.close.ariaLabel', defaultMessage: 'Close Aura desktop welcome' })}
           onClick={dismiss}
           className="absolute right-5 top-5 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-slate-300 transition-colors hover:bg-white/[0.1] hover:text-white"
         >
@@ -64,21 +66,27 @@ const DesktopWelcomePanel = () => {
           <div className="border-b border-white/10 p-8 sm:p-10 lg:border-b-0 lg:border-r">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
               <Sparkles className="h-3.5 w-3.5" />
-              Installed desktop app
+              <FormattedMessage id="desktopWelcome.eyebrow" defaultMessage="Installed desktop app" />
             </div>
             <h2 className="mt-5 text-4xl font-black tracking-tight text-white">
-              Aura is ready on this device.
+              <FormattedMessage id="desktopWelcome.title" defaultMessage="Aura is ready on this device." />
             </h2>
             <p className="mt-4 text-sm leading-6 text-slate-300">
-              This is the desktop edition: stable sign-in, local runtime routing, trusted-device memory, and automatic release checks wrapped around the same Aura web experience.
+              <FormattedMessage id="desktopWelcome.body" defaultMessage="This is the desktop edition: stable sign-in, local runtime routing, trusted-device memory, and automatic release checks wrapped around the same Aura web experience." />
             </p>
             <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Current build</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                <FormattedMessage id="desktopWelcome.currentBuild" defaultMessage="Current build" />
+              </p>
               <p className="mt-2 text-sm font-semibold text-white">
-                {appInfo?.version ? `Aura Marketplace ${appInfo.version}` : 'Aura Marketplace Desktop'}
+                {appInfo?.version
+                  ? intl.formatMessage({ id: 'desktopWelcome.versionedBuild', defaultMessage: 'Aura Marketplace {version}' }, { version: appInfo.version })
+                  : intl.formatMessage({ id: 'desktopWelcome.desktopBuild', defaultMessage: 'Aura Marketplace Desktop' })}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {appInfo?.platform ? `${appInfo.platform} desktop channel` : 'Desktop release channel'}
+                {appInfo?.platform
+                  ? intl.formatMessage({ id: 'desktopWelcome.platformChannel', defaultMessage: '{platform} desktop channel' }, { platform: appInfo.platform })
+                  : intl.formatMessage({ id: 'desktopWelcome.releaseChannel', defaultMessage: 'Desktop release channel' })}
               </p>
             </div>
           </div>
@@ -88,18 +96,18 @@ const DesktopWelcomePanel = () => {
               {[
                 {
                   icon: MonitorCheck,
-                  title: 'Browser-perfect layout',
-                  detail: 'Aura opens maximized at 1x zoom so desktop alignment matches the production web app.',
+                  title: intl.formatMessage({ id: 'desktopWelcome.browserPerfect.title', defaultMessage: 'Browser-perfect layout' }),
+                  detail: intl.formatMessage({ id: 'desktopWelcome.browserPerfect.detail', defaultMessage: 'Aura opens maximized at 1x zoom so desktop alignment matches the production web app.' }),
                 },
                 {
                   icon: ShieldCheck,
-                  title: 'Sign-in survives app close',
-                  detail: 'The desktop runtime uses a stable local identity so closing the X does not create a new login origin.',
+                  title: intl.formatMessage({ id: 'desktopWelcome.stableSignIn.title', defaultMessage: 'Sign-in survives app close' }),
+                  detail: intl.formatMessage({ id: 'desktopWelcome.stableSignIn.detail', defaultMessage: 'The desktop runtime uses a stable local identity so closing the X does not create a new login origin.' }),
                 },
                 {
                   icon: DownloadCloud,
-                  title: 'Updates are harder to miss',
-                  detail: 'Aura checks on startup, resume, scheduled intervals, and shows update state inside the app.',
+                  title: intl.formatMessage({ id: 'desktopWelcome.updates.title', defaultMessage: 'Updates are harder to miss' }),
+                  detail: intl.formatMessage({ id: 'desktopWelcome.updates.detail', defaultMessage: 'Aura checks on startup, resume, scheduled intervals, and shows update state inside the app.' }),
                 },
               ].map((item) => {
                 const Icon = item.icon;
@@ -125,14 +133,14 @@ const DesktopWelcomePanel = () => {
                 onClick={openMarketplace}
                 className="inline-flex flex-1 items-center justify-center rounded-full bg-cyan-300 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-950 transition-transform hover:scale-[1.02]"
               >
-                Open marketplace
+                <FormattedMessage id="desktopWelcome.openMarketplace" defaultMessage="Open marketplace" />
               </button>
               <button
                 type="button"
                 onClick={dismiss}
                 className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.1]"
               >
-                Stay here
+                <FormattedMessage id="desktopWelcome.stayHere" defaultMessage="Stay here" />
               </button>
             </div>
           </div>

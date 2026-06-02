@@ -7,7 +7,6 @@ import { useMarket } from '@/context/MarketContext';
 import { paymentApi } from '@/services/api/paymentApi';
 import { formatPrice } from '@/utils/format';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
-import { FormattedMessage } from 'react-intl';
 
 const STATUS_COLORS = {
     created: 'bg-slate-100 text-slate-700',
@@ -489,7 +488,10 @@ export default function AdminPayments() {
                                         value={refundForm.amount}
                                         onChange={(e) => setRefundForm((prev) => ({ ...prev, amount: e.target.value }))}
                                         className="admin-premium-control"
-                                        placeholder={`${getRefundInputLabel(t, selectedDetail, refundForm.amountMode)} (${t('admin.shared.optional', {}, 'optional')})`}
+                                        placeholder={t('admin.payments.refund.amountPlaceholder', {
+                                            label: getRefundInputLabel(t, selectedDetail, refundForm.amountMode),
+                                            optional: t('admin.shared.optional', {}, 'optional'),
+                                        }, '{{label}} ({{optional}})')}
                                     />
                                     <PremiumSelect
                                         value={refundForm.amountMode}
@@ -564,11 +566,11 @@ export default function AdminPayments() {
                                                     <span className="text-gray-400">{refund.status || t('admin.payments.timeline.processed', {}, 'processed')}</span>
                                                 </div>
                                                 <p className="mt-1 text-gray-700">
-                                                    {formatPrice(refund.amount || refund.presentmentAmount || 0, refund.currency || refund.presentmentCurrency || <FormattedMessage id="payment.jsx.expression.inr" defaultMessage="INR" />)}
+                                                    {formatPrice(refund.amount || refund.presentmentAmount || 0, refund.currency || refund.presentmentCurrency || 'INR')}
                                                 </p>
                                                 {(refund.presentmentCurrency || refund.settlementCurrency) && (refund.presentmentCurrency !== refund.settlementCurrency) ? (
                                                     <p className="mt-1 text-gray-500">
-                                                        {t('admin.payments.detail.settlementValue', { amount: formatPrice(refund.settlementAmount || 0, refund.settlementCurrency || <FormattedMessage id="payment.jsx.expression.inr" defaultMessage="INR" />) }, `Settlement ${formatPrice(refund.settlementAmount || 0, refund.settlementCurrency || <FormattedMessage id="payment.jsx.expression.inr" defaultMessage="INR" />)}`)}
+                                                        {t('admin.payments.detail.settlementValue', { amount: formatPrice(refund.settlementAmount || 0, refund.settlementCurrency || 'INR') }, `Settlement ${formatPrice(refund.settlementAmount || 0, refund.settlementCurrency || 'INR')}`)}
                                                     </p>
                                                 ) : null}
                                             </div>

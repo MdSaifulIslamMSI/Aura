@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { reportClientError } from '@/services/clientObservability';
 
+import { StableText } from '@/i18n/StableText';
 /**
  * SectionErrorBoundary — lightweight inline error isolation.
  *
@@ -52,10 +53,10 @@ class SectionErrorBoundary extends React.Component {
         <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-black uppercase tracking-widest text-amber-200">
-            {label} failed to load
+            {label} <StableText id={"common.validation.jsx.text.failed.to.load.920b5b20"} defaultMessage={"failed to load"} />
           </p>
           <p className="mt-1 text-xs text-amber-100/70">
-            An unexpected error occurred in this section. The rest of the page is working normally.
+            <StableText id={"common.validation.jsx.text.an.unexpected.error.occurred.in.this.section.5b3902e0"} defaultMessage={"An unexpected error occurred in this section. The rest of the page is working normally."} />
           </p>
         </div>
         <button

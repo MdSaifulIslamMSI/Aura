@@ -563,6 +563,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Warning",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.dashboard.timelinePoint.title": {
+        id: "admin.dashboard.timelinePoint.title",
+        defaultMessage: "{bucket}: {value}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.dashboard.title": {
         id: "admin.dashboard.title",
         defaultMessage: "Admin operations portal",
@@ -663,6 +668,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Request ID",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.diagnostics.filters.requestIdPlaceholder": {
+        id: "admin.diagnostics.filters.requestIdPlaceholder",
+        defaultMessage: "req-...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.diagnostics.filters.routeContains": {
         id: "admin.diagnostics.filters.routeContains",
         defaultMessage: "Route Contains",
@@ -671,6 +681,11 @@ export const stableUiMessages = defineMessages({
     "admin.diagnostics.filters.session": {
         id: "admin.diagnostics.filters.session",
         defaultMessage: "Session",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.diagnostics.filters.sessionPlaceholder": {
+        id: "admin.diagnostics.filters.sessionPlaceholder",
+        defaultMessage: "session-...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "admin.diagnostics.filters.severity": {
@@ -1223,6 +1238,31 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Worker online",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.jsx.text.2.admin.replies.stay.attached.to.the.e8b9864e": {
+        id: "admin.jsx.text.2.admin.replies.stay.attached.to.the.e8b9864e",
+        defaultMessage: "2. Admin replies stay attached to the same ticket.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.jsx.text.admin.safety.lock.ad4f61f6": {
+        id: "admin.jsx.text.admin.safety.lock.ad4f61f6",
+        defaultMessage: "Admin safety lock",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.jsx.text.open.a.ticket.below.and.the.admin.c6f2e1b3": {
+        id: "admin.jsx.text.open.a.ticket.below.and.the.admin.c6f2e1b3",
+        defaultMessage: "Open a ticket below and the admin queue can continue the recovery path.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.jsx.text.sign.in.required.for.tracked.admin.replies.ebbebbf0": {
+        id: "admin.jsx.text.sign.in.required.for.tracked.admin.replies.ebbebbf0",
+        defaultMessage: "Sign-in required for tracked admin replies",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.jsx.text.the.direct.email.and.helpline.above.always.3cb458ba": {
+        id: "admin.jsx.text.the.direct.email.and.helpline.above.always.3cb458ba",
+        defaultMessage: "The direct email and helpline above always work. To create an in-app ticket that admins can answer, escalate, and keep attached to your account history, sign in first and we will bring you straight back here.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.orders.actions.adminCancel": {
         id: "admin.orders.actions.adminCancel",
         defaultMessage: "Admin Cancel",
@@ -1771,6 +1811,11 @@ export const stableUiMessages = defineMessages({
     "admin.payments.overview.providerStatus": {
         id: "admin.payments.overview.providerStatus",
         defaultMessage: "Provider {value1} is {value2}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.payments.refund.amountPlaceholder": {
+        id: "admin.payments.refund.amountPlaceholder",
+        defaultMessage: "{label} ({optional})",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "admin.payments.refund.chargeAmount": {
@@ -2361,6 +2406,11 @@ export const stableUiMessages = defineMessages({
     "admin.products.loading": {
         id: "admin.products.loading",
         defaultMessage: "Loading products...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.products.meta.brandCategory": {
+        id: "admin.products.meta.brandCategory",
+        defaultMessage: "{brand} | {category}",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "admin.products.meta.highlightCount": {
@@ -3168,6 +3218,26 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Support desk",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.support.timeline.chatIntake.label": {
+        id: "admin.support.timeline.chatIntake.label",
+        defaultMessage: "Chat intake",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.support.timeline.resolutionRecord.label": {
+        id: "admin.support.timeline.resolutionRecord.label",
+        defaultMessage: "Resolution record",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.support.timeline.videoEscalation.label": {
+        id: "admin.support.timeline.videoEscalation.label",
+        defaultMessage: "Video escalation",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.support.timeline.voiceEscalation.label": {
+        id: "admin.support.timeline.voiceEscalation.label",
+        defaultMessage: "Voice escalation",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.support.title": {
         id: "admin.support.title",
         defaultMessage: "Support & Appeals",
@@ -3688,6 +3758,171 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Unnamed User",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "assistant.attachment.audioNote": {
+        id: "assistant.attachment.audioNote",
+        defaultMessage: "Audio note",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.attachment.audioUpload": {
+        id: "assistant.attachment.audioUpload",
+        defaultMessage: "audio upload",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.attachment.imageNumber": {
+        id: "assistant.attachment.imageNumber",
+        defaultMessage: "Image {value}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.attachment.number": {
+        id: "assistant.attachment.number",
+        defaultMessage: "Attachment {value}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.capability.gated": {
+        id: "assistant.capability.gated",
+        defaultMessage: "{label} gated",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.capability.ready": {
+        id: "assistant.capability.ready",
+        defaultMessage: "{label} ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.grounding.providerModel": {
+        id: "assistant.grounding.providerModel",
+        defaultMessage: "{providerName} · {providerModel}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.tool.status.done": {
+        id: "assistant.tool.status.done",
+        defaultMessage: "done",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.create.account.2428c1b6": {
+        id: "auth.jsx.expression.create.account.2428c1b6",
+        defaultMessage: "Create account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.email.address.cef5d897": {
+        id: "auth.jsx.expression.email.address.cef5d897",
+        defaultMessage: "Email Address *",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.email.verification.fa2c19cf": {
+        id: "auth.jsx.expression.email.verification.fa2c19cf",
+        defaultMessage: "Email verification",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.phone.verification.94e84a2f": {
+        id: "auth.jsx.expression.phone.verification.94e84a2f",
+        defaultMessage: "Phone verification",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.registered.email.27c6cef1": {
+        id: "auth.jsx.expression.registered.email.27c6cef1",
+        defaultMessage: "Registered Email *",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.request.armed.b9bf993d": {
+        id: "auth.jsx.expression.request.armed.b9bf993d",
+        defaultMessage: "Request armed",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.request.missing.3c67b181": {
+        id: "auth.jsx.expression.request.missing.3c67b181",
+        defaultMessage: "Request missing",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.use.existing.account.78f61e74": {
+        id: "auth.jsx.expression.use.existing.account.78f61e74",
+        defaultMessage: "Use existing account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.expression.verification.code.0c41bf58": {
+        id: "auth.jsx.expression.verification.code.0c41bf58",
+        defaultMessage: "Verification code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.aura.desktop.9942bc8a": {
+        id: "auth.jsx.text.aura.desktop.9942bc8a",
+        defaultMessage: "Aura Desktop",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.aura.desktop.e8fd0ce4": {
+        id: "auth.jsx.text.aura.desktop.e8fd0ce4",
+        defaultMessage: "Aura Desktop.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.aura.desktop.keeps.your.session.secure.and.f6004bed": {
+        id: "auth.jsx.text.aura.desktop.keeps.your.session.secure.and.f6004bed",
+        defaultMessage: "Aura Desktop keeps your session secure and private.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.cisco.duo.5fa9322e": {
+        id: "auth.jsx.text.cisco.duo.5fa9322e",
+        defaultMessage: "Cisco Duo",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.confirm.password.8b9db931": {
+        id: "auth.jsx.text.confirm.password.8b9db931",
+        defaultMessage: "Confirm Password *",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.desktop.handoff.active.3cb7b554": {
+        id: "auth.jsx.text.desktop.handoff.active.3cb7b554",
+        defaultMessage: "Desktop handoff active",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.desktop.request.not.active.e348cafc": {
+        id: "auth.jsx.text.desktop.request.not.active.e348cafc",
+        defaultMessage: "Desktop request not active",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.forgot.password.823e0b60": {
+        id: "auth.jsx.text.forgot.password.823e0b60",
+        defaultMessage: "Forgot password?",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.live.auth.67a9883c": {
+        id: "auth.jsx.text.live.auth.67a9883c",
+        defaultMessage: "Live auth",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f": {
+        id: "auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f",
+        defaultMessage: "One focused login bridge for",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.password.464054c2": {
+        id: "auth.jsx.text.password.464054c2",
+        defaultMessage: "Password *",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.resend.in.eeb75215": {
+        id: "auth.jsx.text.resend.in.eeb75215",
+        defaultMessage: "Resend in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2": {
+        id: "auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2",
+        defaultMessage: "Social access is unavailable for this deployment.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d": {
+        id: "auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d",
+        defaultMessage: "Start again from Aura Desktop so this browser lane can bind to the local session request.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df": {
+        id: "auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df",
+        defaultMessage: "Upload or paste a screenshot, then rank closest products with price-gap and authenticity hints.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe": {
+        id: "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe",
+        defaultMessage: "Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "auth.pending.admin": {
         id: "auth.pending.admin",
         defaultMessage: "Checking admin session access...",
@@ -3736,6 +3971,11 @@ export const stableUiMessages = defineMessages({
     "auth.recovery.title": {
         id: "auth.recovery.title",
         defaultMessage: "This account needs a fresh session sync.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "bundles.ai.prompt.explainGroundedBundle": {
+        id: "bundles.ai.prompt.explainGroundedBundle",
+        defaultMessage: "Explain this grounded bundle for the shopper, highlight tradeoffs, and suggest next actions.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "cart.action.save": {
@@ -3801,6 +4041,16 @@ export const stableUiMessages = defineMessages({
     "cart.items": {
         id: "cart.items",
         defaultMessage: "items",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "cart.jsx.expression.compare.products.review.a.cart.or.find.40cd3600": {
+        id: "cart.jsx.expression.compare.products.review.a.cart.or.find.40cd3600",
+        defaultMessage: "Compare products, review a cart, or find a match...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "cart.jsx.text.add.all.to.cart.ae4c6b49": {
+        id: "cart.jsx.text.add.all.to.cart.ae4c6b49",
+        defaultMessage: "Add All To Cart",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "cart.lineTotal": {
@@ -4153,6 +4403,26 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Delivery",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "checkout.delivery.express": {
+        id: "checkout.delivery.express",
+        defaultMessage: "Express",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.delivery.expressEta": {
+        id: "checkout.delivery.expressEta",
+        defaultMessage: "1-2 business days",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.delivery.standard": {
+        id: "checkout.delivery.standard",
+        defaultMessage: "Standard",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.delivery.standardEta": {
+        id: "checkout.delivery.standardEta",
+        defaultMessage: "3-5 business days",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "checkout.deliveryInsight": {
         id: "checkout.deliveryInsight",
         defaultMessage: "Aura Density Insight",
@@ -4481,6 +4751,21 @@ export const stableUiMessages = defineMessages({
     "checkout.loadingTitle": {
         id: "checkout.loadingTitle",
         defaultMessage: "Preparing a secure session",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.logistics.containerItems": {
+        id: "checkout.logistics.containerItems",
+        defaultMessage: "{type} ({count} items)",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.logistics.direct": {
+        id: "checkout.logistics.direct",
+        defaultMessage: "Direct",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.logistics.standard": {
+        id: "checkout.logistics.standard",
+        defaultMessage: "Standard",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "checkout.logisticsInsight": {
@@ -5118,6 +5403,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Payment Adjustment",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "checkout.paymentAdjustment.amount": {
+        id: "checkout.paymentAdjustment.amount",
+        defaultMessage: "{sign} {amount}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "checkout.paymentAuthorized": {
         id: "checkout.paymentAuthorized",
         defaultMessage: "Payment Authorized",
@@ -5136,6 +5426,11 @@ export const stableUiMessages = defineMessages({
     "checkout.phoneNumber": {
         id: "checkout.phoneNumber",
         defaultMessage: "Phone Number",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "checkout.phonePlaceholder": {
+        id: "checkout.phonePlaceholder",
+        defaultMessage: "{phoneCode} 98XXXXXXXX",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "checkout.placingOrder": {
@@ -5483,6 +5778,1336 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Additional OTP verification is required before payment confirmation",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "common.accessibility.jsx.text.health.signals.533914d8": {
+        id: "common.accessibility.jsx.text.health.signals.533914d8",
+        defaultMessage: "health signals",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.action.back": {
+        id: "common.action.back",
+        defaultMessage: "Back",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.answer.no": {
+        id: "common.answer.no",
+        defaultMessage: "No",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.answer.yes": {
+        id: "common.answer.yes",
+        defaultMessage: "Yes",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.choice.or": {
+        id: "common.choice.or",
+        defaultMessage: "or",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.a.live.lane.is.active.e6c9da1a": {
+        id: "common.jsx.expression.a.live.lane.is.active.e6c9da1a",
+        defaultMessage: "A live lane is active.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.a.live.lane.is.already.active.112f9357": {
+        id: "common.jsx.expression.a.live.lane.is.already.active.112f9357",
+        defaultMessage: "A live lane is already active.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.audio.only.4c272d78": {
+        id: "common.jsx.expression.audio.only.4c272d78",
+        defaultMessage: "Audio only",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.audio.ready.for.processing.68d50ec5": {
+        id: "common.jsx.expression.audio.ready.for.processing.68d50ec5",
+        defaultMessage: "Audio ready for processing",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.best.for.high.trust.walkthroughs.and.close.82b7e8a5": {
+        id: "common.jsx.expression.best.for.high.trust.walkthroughs.and.close.82b7e8a5",
+        defaultMessage: "Best for high-trust walkthroughs and close-up verification.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.building.8b01fe84": {
+        id: "common.jsx.expression.building.8b01fe84",
+        defaultMessage: "Building...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.bundle.and.lifecycle.e498118c": {
+        id: "common.jsx.expression.bundle.and.lifecycle.e498118c",
+        defaultMessage: "Bundle and lifecycle",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.bundle.total.8f9879d5": {
+        id: "common.jsx.expression.bundle.total.8f9879d5",
+        defaultMessage: "Bundle total",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.camera.check.144f7426": {
+        id: "common.jsx.expression.camera.check.144f7426",
+        defaultMessage: "Camera check",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.camera.mic.3f0bced6": {
+        id: "common.jsx.expression.camera.mic.3f0bced6",
+        defaultMessage: "Camera + mic",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.camera.off.586b7a7f": {
+        id: "common.jsx.expression.camera.off.586b7a7f",
+        defaultMessage: "Camera off",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.camera.on.02df25ad": {
+        id: "common.jsx.expression.camera.on.02df25ad",
+        defaultMessage: "Camera on",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.camera.ready.1394fc22": {
+        id: "common.jsx.expression.camera.ready.1394fc22",
+        defaultMessage: "Camera ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.checking.20c680de": {
+        id: "common.jsx.expression.checking.20c680de",
+        defaultMessage: "Checking",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.current.host.da7c5d43": {
+        id: "common.jsx.expression.current.host.da7c5d43",
+        defaultMessage: "Current host",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.describe.the.mission.instead.of.specific.skus.1490bce5": {
+        id: "common.jsx.expression.describe.the.mission.instead.of.specific.skus.1490bce5",
+        defaultMessage: "Describe the mission instead of specific SKUs to get trust-ranked candidates and bundles.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.end.call.5d79cf02": {
+        id: "common.jsx.expression.end.call.5d79cf02",
+        defaultMessage: "End call",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.end.live.call.4a6e50ef": {
+        id: "common.jsx.expression.end.live.call.4a6e50ef",
+        defaultMessage: "End live call",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.example.build.a.gaming.setup.under.rs.09e19f88": {
+        id: "common.jsx.expression.example.build.a.gaming.setup.under.rs.09e19f88",
+        defaultMessage: "Example: Build a gaming setup under Rs 80k before Friday.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.guest.c539652f": {
+        id: "common.jsx.expression.guest.c539652f",
+        defaultMessage: "Guest",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.host.aligned.cf15d78e": {
+        id: "common.jsx.expression.host.aligned.cf15d78e",
+        defaultMessage: "Host aligned",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.host.drift.detected.f97beb6c": {
+        id: "common.jsx.expression.host.drift.detected.f97beb6c",
+        defaultMessage: "Host drift detected",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.image.ready.for.grounding.152acb95": {
+        id: "common.jsx.expression.image.ready.for.grounding.152acb95",
+        defaultMessage: "Image ready for grounding",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.include.trade.in.and.upgrade.path.fb12dbda": {
+        id: "common.jsx.expression.include.trade.in.and.upgrade.path.fb12dbda",
+        defaultMessage: "Include trade-in and upgrade path.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.listening.6dab600d": {
+        id: "common.jsx.expression.listening.6dab600d",
+        defaultMessage: "Listening...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.live.target.07b371c6": {
+        id: "common.jsx.expression.live.target.07b371c6",
+        defaultMessage: "Live target",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.local.safety.2f828dea": {
+        id: "common.jsx.expression.local.safety.2f828dea",
+        defaultMessage: "Local safety",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.mic.check.123c4ea4": {
+        id: "common.jsx.expression.mic.check.123c4ea4",
+        defaultMessage: "Mic check",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.mic.off.24f68399": {
+        id: "common.jsx.expression.mic.off.24f68399",
+        defaultMessage: "Mic off",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.mic.on.c5a42908": {
+        id: "common.jsx.expression.mic.on.c5a42908",
+        defaultMessage: "Mic on",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.mic.ready.c9cd2bb0": {
+        id: "common.jsx.expression.mic.ready.c9cd2bb0",
+        defaultMessage: "Mic ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.mission.input.abcc1e40": {
+        id: "common.jsx.expression.mission.input.abcc1e40",
+        defaultMessage: "Mission Input",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.mission.readiness.6e520e73": {
+        id: "common.jsx.expression.mission.readiness.6e520e73",
+        defaultMessage: "Mission readiness",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.my.trade.in.requests.98e4cc10": {
+        id: "common.jsx.expression.my.trade.in.requests.98e4cc10",
+        defaultMessage: "My Trade-In Requests",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.no.monitoring.data.yet.bcaedfc6": {
+        id: "common.jsx.expression.no.monitoring.data.yet.bcaedfc6",
+        defaultMessage: "No monitoring data yet",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.no.trade.ins.yet.eaa47467": {
+        id: "common.jsx.expression.no.trade.ins.yet.eaa47467",
+        defaultMessage: "No trade-ins yet",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.open.bundle.lane.4a8b5a5a": {
+        id: "common.jsx.expression.open.bundle.lane.4a8b5a5a",
+        defaultMessage: "Open bundle lane",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.open.compare.09410d00": {
+        id: "common.jsx.expression.open.compare.09410d00",
+        defaultMessage: "Open compare",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.open.marketplace.safety.mode.c1a71f83": {
+        id: "common.jsx.expression.open.marketplace.safety.mode.c1a71f83",
+        defaultMessage: "Open marketplace safety mode",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.open.trade.in.lane.e123c7df": {
+        id: "common.jsx.expression.open.trade.in.lane.e123c7df",
+        defaultMessage: "Open trade-in lane",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.open.voice.or.inspection.without.leaving.the.81553c4f": {
+        id: "common.jsx.expression.open.voice.or.inspection.without.leaving.the.81553c4f",
+        defaultMessage: "Open voice or inspection without leaving the current shopping brief.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.primary.candidates.93dc7e36": {
+        id: "common.jsx.expression.primary.candidates.93dc7e36",
+        defaultMessage: "Primary candidates",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.protected.ad671e1c": {
+        id: "common.jsx.expression.protected.ad671e1c",
+        defaultMessage: "Protected",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.public.contact.route.e7c3c9f3": {
+        id: "common.jsx.expression.public.contact.route.e7c3c9f3",
+        defaultMessage: "Public contact route",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.ready.to.trade.in.8a0f44bd": {
+        id: "common.jsx.expression.ready.to.trade.in.8a0f44bd",
+        defaultMessage: "Ready to trade in?",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.rebuild.bundle.dc534506": {
+        id: "common.jsx.expression.rebuild.bundle.dc534506",
+        defaultMessage: "Rebuild Bundle",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.recovery.safe.route.de725448": {
+        id: "common.jsx.expression.recovery.safe.route.de725448",
+        defaultMessage: "Recovery-safe route",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.review.meetup.terms.and.item.condition.before.a308652f": {
+        id: "common.jsx.expression.review.meetup.terms.and.item.condition.before.a308652f",
+        defaultMessage: "Review meetup terms and item condition before paying.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.run.all.five.commerce.systems.in.one.308b004f": {
+        id: "common.jsx.expression.run.all.five.commerce.systems.in.one.308b004f",
+        defaultMessage: "Run all five commerce systems in one place.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.run.mission.412569d0": {
+        id: "common.jsx.expression.run.mission.412569d0",
+        defaultMessage: "Run mission",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.running.mission.b966f27a": {
+        id: "common.jsx.expression.running.mission.b966f27a",
+        defaultMessage: "Running mission",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.screen.share.ready.eb02167f": {
+        id: "common.jsx.expression.screen.share.ready.eb02167f",
+        defaultMessage: "Screen share ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.screenshot.hint.owned.device.favorite.brand.c00d0b60": {
+        id: "common.jsx.expression.screenshot.hint.owned.device.favorite.brand.c00d0b60",
+        defaultMessage: "Screenshot hint, owned device, favorite brand",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.sharing.screen.abea1ea9": {
+        id: "common.jsx.expression.sharing.screen.abea1ea9",
+        defaultMessage: "Sharing screen",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.shopping.mission.os.2ace800b": {
+        id: "common.jsx.expression.shopping.mission.os.2ace800b",
+        defaultMessage: "Shopping Mission OS",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.signed.in.4347f904": {
+        id: "common.jsx.expression.signed.in.4347f904",
+        defaultMessage: "Signed in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.start.from.screenshot.e2ba722e": {
+        id: "common.jsx.expression.start.from.screenshot.e2ba722e",
+        defaultMessage: "Start from screenshot",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.stop.share.73aa6d2a": {
+        id: "common.jsx.expression.stop.share.73aa6d2a",
+        defaultMessage: "Stop share",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.strict.active.4d8694e8": {
+        id: "common.jsx.expression.strict.active.4d8694e8",
+        defaultMessage: "Strict Active",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.syncing.bf4b60e3": {
+        id: "common.jsx.expression.syncing.bf4b60e3",
+        defaultMessage: "Syncing",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.thinking.83119a8c": {
+        id: "common.jsx.expression.thinking.83119a8c",
+        defaultMessage: "Thinking",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.thinking.fabb1016": {
+        id: "common.jsx.expression.thinking.fabb1016",
+        defaultMessage: "Thinking",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.top.trust.a860cd2c": {
+        id: "common.jsx.expression.top.trust.a860cd2c",
+        defaultMessage: "Top trust",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.trade.value.36e7e05f": {
+        id: "common.jsx.expression.trade.value.36e7e05f",
+        defaultMessage: "Trade Value",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.use.trade.in.5b0ad95d": {
+        id: "common.jsx.expression.use.trade.in.5b0ad95d",
+        defaultMessage: "Use trade-in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.you.pay.bba5beab": {
+        id: "common.jsx.expression.you.pay.bba5beab",
+        defaultMessage: "You Pay",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.your.item.36f6881c": {
+        id: "common.jsx.expression.your.item.36f6881c",
+        defaultMessage: "Your Item",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.expression.zero.query.entry.f4765066": {
+        id: "common.jsx.expression.zero.query.entry.f4765066",
+        defaultMessage: "Zero-Query Entry",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.a.sharper.front.door.for.aura.s.45afdbee": {
+        id: "common.jsx.text.a.sharper.front.door.for.aura.s.45afdbee",
+        defaultMessage: "A sharper front door for Aura's live frontend stack.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.a.startup.module.crashed.before.the.interface.99c3d53c": {
+        id: "common.jsx.text.a.startup.module.crashed.before.the.interface.99c3d53c",
+        defaultMessage: "A startup module crashed before the interface finished loading. Retry the render or refresh the page to recover.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.active.lane.de283afd": {
+        id: "common.jsx.text.active.lane.de283afd",
+        defaultMessage: "| Active lane",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.active.route.adea24bd": {
+        id: "common.jsx.text.active.route.adea24bd",
+        defaultMessage: "Active route",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.advanced.controls.037c1ff0": {
+        id: "common.jsx.text.advanced.controls.037c1ff0",
+        defaultMessage: "Advanced controls",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.ai.compare.lab.8b1b5855": {
+        id: "common.jsx.text.ai.compare.lab.8b1b5855",
+        defaultMessage: "AI Compare Lab",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.ai.score.0eea053d": {
+        id: "common.jsx.text.ai.score.0eea053d",
+        defaultMessage: "AI score:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.ai.verdict.aa138e57": {
+        id: "common.jsx.text.ai.verdict.aa138e57",
+        defaultMessage: "AI Verdict",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.any.state.54d61e33": {
+        id: "common.jsx.text.any.state.54d61e33",
+        defaultMessage: "Any state",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.assistant.lanes.00fbe316": {
+        id: "common.jsx.text.assistant.lanes.00fbe316",
+        defaultMessage: "Assistant lanes",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.assistant.unavailable.965f19f5": {
+        id: "common.jsx.text.assistant.unavailable.965f19f5",
+        defaultMessage: "Assistant unavailable",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.aura.failed.to.boot.c2290ff2": {
+        id: "common.jsx.text.aura.failed.to.boot.c2290ff2",
+        defaultMessage: "Aura failed to boot",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.aura.gateway.02299ec6": {
+        id: "common.jsx.text.aura.gateway.02299ec6",
+        defaultMessage: "Aura Gateway",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.aura.global.hq.a16ecbd5": {
+        id: "common.jsx.text.aura.global.hq.a16ecbd5",
+        defaultMessage: "Aura Global HQ,",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.aura.mobile.fbf108da": {
+        id: "common.jsx.text.aura.mobile.fbf108da",
+        defaultMessage: "Aura Mobile",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.aura.status.e81a8e71": {
+        id: "common.jsx.text.aura.status.e81a8e71",
+        defaultMessage: "Aura Status",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.aura.terminal.2fded973": {
+        id: "common.jsx.text.aura.terminal.2fded973",
+        defaultMessage: "Aura Terminal",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.bangalore.560001.india.029e9526": {
+        id: "common.jsx.text.bangalore.560001.india.029e9526",
+        defaultMessage: "Bangalore, 560001, India",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.both.links.should.feel.ideologically.identical.5600db39": {
+        id: "common.jsx.text.both.links.should.feel.ideologically.identical.5600db39",
+        defaultMessage: "Both links should feel ideologically identical.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.budget.c9a30fc0": {
+        id: "common.jsx.text.budget.c9a30fc0",
+        defaultMessage: "Budget (",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.build.id.4b254665": {
+        id: "common.jsx.text.build.id.4b254665",
+        defaultMessage: "Build ID",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.building.grounded.verdict.356b5430": {
+        id: "common.jsx.text.building.grounded.verdict.356b5430",
+        defaultMessage: "Building grounded verdict...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.built.5bb02b71": {
+        id: "common.jsx.text.built.5bb02b71",
+        defaultMessage: "Built",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.built.d5378f24": {
+        id: "common.jsx.text.built.d5378f24",
+        defaultMessage: "Built",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.bundle.controls.f884667c": {
+        id: "common.jsx.text.bundle.controls.f884667c",
+        defaultMessage: "Bundle Controls",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.bundle.intelligence.53ded863": {
+        id: "common.jsx.text.bundle.intelligence.53ded863",
+        defaultMessage: "Bundle Intelligence",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.bundle.state.stale.89ba8d68": {
+        id: "common.jsx.text.bundle.state.stale.89ba8d68",
+        defaultMessage: "Bundle state: stale",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.bundle.total.f7950807": {
+        id: "common.jsx.text.bundle.total.f7950807",
+        defaultMessage: "Bundle Total",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.call.keeps.running.while.you.browse.aura.f32c9137": {
+        id: "common.jsx.text.call.keeps.running.while.you.browse.aura.f32c9137",
+        defaultMessage: "Call keeps running while you browse Aura.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.camera.preview.on.4d45b043": {
+        id: "common.jsx.text.camera.preview.on.4d45b043",
+        defaultMessage: "Camera preview on",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.cancel.call.ce5d87e2": {
+        id: "common.jsx.text.cancel.call.ce5d87e2",
+        defaultMessage: "Cancel call",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.checked.a765e9cb": {
+        id: "common.jsx.text.checked.a765e9cb",
+        defaultMessage: "Checked",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.cleaner.calmer.and.less.toy.like.f04ff1ed": {
+        id: "common.jsx.text.cleaner.calmer.and.less.toy.like.f04ff1ed",
+        defaultMessage: "Cleaner, calmer, and less toy-like.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.clear.context.e550a0f3": {
+        id: "common.jsx.text.clear.context.e550a0f3",
+        defaultMessage: "Clear context",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.cli.d8cfa7cf": {
+        id: "common.jsx.text.cli.d8cfa7cf",
+        defaultMessage: "CLI",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.commerce.copilot.e872e317": {
+        id: "common.jsx.text.commerce.copilot.e872e317",
+        defaultMessage: "Commerce Copilot",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.commit.301904c6": {
+        id: "common.jsx.text.commit.301904c6",
+        defaultMessage: "· Commit",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.commit.975b7130": {
+        id: "common.jsx.text.commit.975b7130",
+        defaultMessage: "Commit",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.compare.deck.2ba24d3b": {
+        id: "common.jsx.text.compare.deck.2ba24d3b",
+        defaultMessage: "Compare Deck",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.compare.mode.0d5f6e3b": {
+        id: "common.jsx.text.compare.mode.0d5f6e3b",
+        defaultMessage: "Compare Mode",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.components.dcf72b86": {
+        id: "common.jsx.text.components.dcf72b86",
+        defaultMessage: "Components",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.components.edf20371": {
+        id: "common.jsx.text.components.edf20371",
+        defaultMessage: "components,",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.confirm.ba313287": {
+        id: "common.jsx.text.confirm.ba313287",
+        defaultMessage: "Confirm",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.confirmation.required.ec683de4": {
+        id: "common.jsx.text.confirmation.required.ec683de4",
+        defaultMessage: "Confirmation required",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.continuity.17ba6f4e": {
+        id: "common.jsx.text.continuity.17ba6f4e",
+        defaultMessage: "Continuity",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.controlled.commerce.intelligence.ac057065": {
+        id: "common.jsx.text.controlled.commerce.intelligence.ac057065",
+        defaultMessage: "Controlled commerce intelligence",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.copyright.cb65dd27": {
+        id: "common.jsx.text.copyright.cb65dd27",
+        defaultMessage: "Copyright",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.current.release.6530b9c3": {
+        id: "common.jsx.text.current.release.6530b9c3",
+        defaultMessage: "Current release",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.decision.engine.ec27ce72": {
+        id: "common.jsx.text.decision.engine.ec27ce72",
+        defaultMessage: "Decision Engine",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.deployment.contract.00f9b039": {
+        id: "common.jsx.text.deployment.contract.00f9b039",
+        defaultMessage: "Deployment contract",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.deployment.target.pending.3f1c8241": {
+        id: "common.jsx.text.deployment.target.pending.3f1c8241",
+        defaultMessage: "Deployment target pending",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.design.standard.c1185458": {
+        id: "common.jsx.text.design.standard.c1185458",
+        defaultMessage: "Design standard",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.different.domains.are.fine.missing.state.weaker.7fdad2af": {
+        id: "common.jsx.text.different.domains.are.fine.missing.state.weaker.7fdad2af",
+        defaultMessage: "Different domains are fine. Missing state, weaker flows, or reduced capability are not. This gateway makes that expectation explicit before the user enters either runtime.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.email.c5f7832f": {
+        id: "common.jsx.text.email.c5f7832f",
+        defaultMessage: "Email",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.env.set.59da8b3a": {
+        id: "common.jsx.text.env.set.59da8b3a",
+        defaultMessage: "env set",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.escalate.into.full.live.inspection.without.dropping.68c857d1": {
+        id: "common.jsx.text.escalate.into.full.live.inspection.without.dropping.68c857d1",
+        defaultMessage: "Escalate into full live inspection without dropping the assistant continuity.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.evidence.state.missing.9db870cd": {
+        id: "common.jsx.text.evidence.state.missing.9db870cd",
+        defaultMessage: "Evidence state: missing",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.explaining.bundle.strategy.3189b0ee": {
+        id: "common.jsx.text.explaining.bundle.strategy.3189b0ee",
+        defaultMessage: "Explaining bundle strategy...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.frontier.ai.layer.21e85bce": {
+        id: "common.jsx.text.frontier.ai.layer.21e85bce",
+        defaultMessage: "Frontier AI Layer",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.frontier.ai.layer.39f8bb96": {
+        id: "common.jsx.text.frontier.ai.layer.39f8bb96",
+        defaultMessage: "Frontier AI Layer",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.gated.flows.ae8d462c": {
+        id: "common.jsx.text.gated.flows.ae8d462c",
+        defaultMessage: "Gated flows",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.general.link.direction.e0b93b2a": {
+        id: "common.jsx.text.general.link.direction.e0b93b2a",
+        defaultMessage: "General Link Direction",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.go.to.storefront.0b3d8c87": {
+        id: "common.jsx.text.go.to.storefront.0b3d8c87",
+        defaultMessage: "Go to storefront",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.grounded.compare.analysis.445d2870": {
+        id: "common.jsx.text.grounded.compare.analysis.445d2870",
+        defaultMessage: "Grounded Compare Analysis",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.groups.9780c562": {
+        id: "common.jsx.text.groups.9780c562",
+        defaultMessage: "groups,",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.guard.9c93eb32": {
+        id: "common.jsx.text.guard.9c93eb32",
+        defaultMessage: "Guard:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.harness.ready.8275fff8": {
+        id: "common.jsx.text.harness.ready.8275fff8",
+        defaultMessage: "Harness ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.hits.e3d06d10": {
+        id: "common.jsx.text.hits.e3d06d10",
+        defaultMessage: "Hits:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.hosts.3cf51fa9": {
+        id: "common.jsx.text.hosts.3cf51fa9",
+        defaultMessage: "Hosts",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.if.netlify.and.vercel.ever.show.different.d0e31777": {
+        id: "common.jsx.text.if.netlify.and.vercel.ever.show.different.d0e31777",
+        defaultMessage: "If Netlify and Vercel ever show different build IDs, commits, or a runtime/target mismatch here, the public storefront runtimes are out of sync.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.if.you.spin.up.a.separate.vercel.e1bcb147": {
+        id: "common.jsx.text.if.you.spin.up.a.separate.vercel.e1bcb147",
+        defaultMessage: "If you spin up a separate Vercel project such as",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.index.version.286a2b27": {
+        id: "common.jsx.text.index.version.286a2b27",
+        defaultMessage: "Index version:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.input.surface.0baff8c8": {
+        id: "common.jsx.text.input.surface.0baff8c8",
+        defaultMessage: "Input surface",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.installed.12e4a5de": {
+        id: "common.jsx.text.installed.12e4a5de",
+        defaultMessage: "Installed:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.is.ready.385beb77": {
+        id: "common.jsx.text.is.ready.385beb77",
+        defaultMessage: "is ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.items.budget.use.2bbd9815": {
+        id: "common.jsx.text.items.budget.use.2bbd9815",
+        defaultMessage: "items • Budget use",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.last.known.status.1d47edef": {
+        id: "common.jsx.text.last.known.status.1d47edef",
+        defaultMessage: "Last known status",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.latest.86686e15": {
+        id: "common.jsx.text.latest.86686e15",
+        defaultMessage: "| Latest:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.latest.brief.62cb2c64": {
+        id: "common.jsx.text.latest.brief.62cb2c64",
+        defaultMessage: "Latest brief:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.lift.the.current.brief.into.voice.and.e80137ff": {
+        id: "common.jsx.text.lift.the.current.brief.into.voice.and.e80137ff",
+        defaultMessage: "Lift the current brief into voice and keep the shopping context intact.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.live.domain.bc1cccb3": {
+        id: "common.jsx.text.live.domain.bc1cccb3",
+        defaultMessage: "Live domain",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.live.runtimes.ae649138": {
+        id: "common.jsx.text.live.runtimes.ae649138",
+        defaultMessage: "Live runtimes",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.live.video.24b6b896": {
+        id: "common.jsx.text.live.video.24b6b896",
+        defaultMessage: "Live Video",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.live.video.72e92a0c": {
+        id: "common.jsx.text.live.video.72e92a0c",
+        defaultMessage: "Live video",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.live.voice.11077867": {
+        id: "common.jsx.text.live.voice.11077867",
+        defaultMessage: "Live Voice",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.live.voice.b748e062": {
+        id: "common.jsx.text.live.voice.b748e062",
+        defaultMessage: "Live voice",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.max.items.ca714e15": {
+        id: "common.jsx.text.max.items.ca714e15",
+        defaultMessage: "Max Items",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.metric.b04b7cce": {
+        id: "common.jsx.text.metric.b04b7cce",
+        defaultMessage: "Metric",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.missing.a7552a40": {
+        id: "common.jsx.text.missing.a7552a40",
+        defaultMessage: "Missing",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.mobile.update.channel.233c2260": {
+        id: "common.jsx.text.mobile.update.channel.233c2260",
+        defaultMessage: "Mobile update channel",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.mode.5bbe3bb2": {
+        id: "common.jsx.text.mode.5bbe3bb2",
+        defaultMessage: "Mode:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.mode.f5737ed1": {
+        id: "common.jsx.text.mode.f5737ed1",
+        defaultMessage: "Mode",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.model.23184662": {
+        id: "common.jsx.text.model.23184662",
+        defaultMessage: "Model:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.model.surface.dae6758e": {
+        id: "common.jsx.text.model.surface.dae6758e",
+        defaultMessage: "Model surface",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.modify.b63f7e1f": {
+        id: "common.jsx.text.modify.b63f7e1f",
+        defaultMessage: "Modify",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.monitoring.started.5d1383ef": {
+        id: "common.jsx.text.monitoring.started.5d1383ef",
+        defaultMessage: "Monitoring started",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.multimodal.fast.lane.2253a5d9": {
+        id: "common.jsx.text.multimodal.fast.lane.2253a5d9",
+        defaultMessage: "Multimodal Fast Lane",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.needs.url.6a1ab20b": {
+        id: "common.jsx.text.needs.url.6a1ab20b",
+        defaultMessage: "Needs URL",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.next.actions.009c0d35": {
+        id: "common.jsx.text.next.actions.009c0d35",
+        defaultMessage: "Next actions",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.next.unlocks.763d6c50": {
+        id: "common.jsx.text.next.unlocks.763d6c50",
+        defaultMessage: "Next unlocks",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.no.matching.history.a3f8b96c": {
+        id: "common.jsx.text.no.matching.history.a3f8b96c",
+        defaultMessage: "No matching history",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.no.public.status.components.are.configured.d7eb3b70": {
+        id: "common.jsx.text.no.public.status.components.are.configured.d7eb3b70",
+        defaultMessage: "No public status components are configured.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.npm.run.student.pack.doctor.577acd82": {
+        id: "common.jsx.text.npm.run.student.pack.doctor.577acd82",
+        defaultMessage: "npm run student-pack:doctor",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.one.continuity.layer.across.chat.voice.and.8554d950": {
+        id: "common.jsx.text.one.continuity.layer.across.chat.voice.and.8554d950",
+        defaultMessage: "One continuity layer across chat, voice, and live calls.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.open.ai.winner.4f94b94d": {
+        id: "common.jsx.text.open.ai.winner.4f94b94d",
+        defaultMessage: "Open AI Winner",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.open.storefront.9a0fe7ee": {
+        id: "common.jsx.text.open.storefront.9a0fe7ee",
+        defaultMessage: "Open storefront",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.open.suggested.bundle.view.02976b67": {
+        id: "common.jsx.text.open.suggested.bundle.view.02976b67",
+        defaultMessage: "Open Suggested Bundle View",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.powered.by.aura.status.9f496e1b": {
+        id: "common.jsx.text.powered.by.aura.status.9f496e1b",
+        defaultMessage: "Powered by Aura status",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.ready.for.a.dedicated.gateway.project.dd866a0b": {
+        id: "common.jsx.text.ready.for.a.dedicated.gateway.project.dd866a0b",
+        defaultMessage: "Ready for a dedicated gateway project.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.recent.signals.8acbff42": {
+        id: "common.jsx.text.recent.signals.8acbff42",
+        defaultMessage: "Recent Signals",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.reconnecting.864d4686": {
+        id: "common.jsx.text.reconnecting.864d4686",
+        defaultMessage: "Reconnecting",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.request.id.5d9e393e": {
+        id: "common.jsx.text.request.id.5d9e393e",
+        defaultMessage: "Request ID:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.retry.policy.check.cc6f8bdb": {
+        id: "common.jsx.text.retry.policy.check.cc6f8bdb",
+        defaultMessage: "Retry policy check",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.retry.render.0ff9a05e": {
+        id: "common.jsx.text.retry.render.0ff9a05e",
+        defaultMessage: "Retry Render",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.route.7a78451f": {
+        id: "common.jsx.text.route.7a78451f",
+        defaultMessage: "Route:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.rs.81723069": {
+        id: "common.jsx.text.rs.81723069",
+        defaultMessage: ": Rs",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.rss.343bc2b9": {
+        id: "common.jsx.text.rss.343bc2b9",
+        defaultMessage: "RSS",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.runtime.afc86fdf": {
+        id: "common.jsx.text.runtime.afc86fdf",
+        defaultMessage: "Runtime",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.runtime.vs.target.bab208a2": {
+        id: "common.jsx.text.runtime.vs.target.bab208a2",
+        defaultMessage: "Runtime vs Target",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.save.subscription.7d065402": {
+        id: "common.jsx.text.save.subscription.7d065402",
+        defaultMessage: "Save subscription",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.savings.ef1e285b": {
+        id: "common.jsx.text.savings.ef1e285b",
+        defaultMessage: "Savings",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.scanning.catalog.a5663ba2": {
+        id: "common.jsx.text.scanning.catalog.a5663ba2",
+        defaultMessage: "Scanning catalog...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.sentry.datadog.doppler.testmail.lambdatest.and.localstack.8c9720ae": {
+        id: "common.jsx.text.sentry.datadog.doppler.testmail.lambdatest.and.localstack.8c9720ae",
+        defaultMessage: "Sentry, Datadog, Doppler, Testmail, LambdaTest, and LocalStack readiness for this Aura workspace.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.server.reason.9e07fa1a": {
+        id: "common.jsx.text.server.reason.9e07fa1a",
+        defaultMessage: "Server reason:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.shared.behavior.33436b63": {
+        id: "common.jsx.text.shared.behavior.33436b63",
+        defaultMessage: "Shared behavior",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.shell.when.a.new.install.package.is.7d8525a4": {
+        id: "common.jsx.text.shell.when.a.new.install.package.is.7d8525a4",
+        defaultMessage: "shell when a new install package is published.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.skip.to.main.content.a891514d": {
+        id: "common.jsx.text.skip.to.main.content.a891514d",
+        defaultMessage: "Skip to main content",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.smart.bundle.builder.196a2b01": {
+        id: "common.jsx.text.smart.bundle.builder.196a2b01",
+        defaultMessage: "Smart Bundle Builder",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.source.1a933962": {
+        id: "common.jsx.text.source.1a933962",
+        defaultMessage: "· Source",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.sources.8575bd92": {
+        id: "common.jsx.text.sources.8575bd92",
+        defaultMessage: "Sources",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.spec.matrix.7bde8495": {
+        id: "common.jsx.text.spec.matrix.7bde8495",
+        defaultMessage: "Spec Matrix",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.started.e10f130f": {
+        id: "common.jsx.text.started.e10f130f",
+        defaultMessage: "Started",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.status.ff570aa3": {
+        id: "common.jsx.text.status.ff570aa3",
+        defaultMessage: "Status:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.status.power.9676a934": {
+        id: "common.jsx.text.status.power.9676a934",
+        defaultMessage: "Status power",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.status.unavailable.22bb4dd1": {
+        id: "common.jsx.text.status.unavailable.22bb4dd1",
+        defaultMessage: "Status unavailable",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.student.pack.command.matrix.6ce5d29d": {
+        id: "common.jsx.text.student.pack.command.matrix.6ce5d29d",
+        defaultMessage: "Student Pack command matrix",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.subscribe.to.updates.6a3924dd": {
+        id: "common.jsx.text.subscribe.to.updates.6a3924dd",
+        defaultMessage: "Subscribe to updates",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.subscribe.to.updates.a5bfc6e3": {
+        id: "common.jsx.text.subscribe.to.updates.a5bfc6e3",
+        defaultMessage: "Subscribe to updates",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.surface.35807d37": {
+        id: "common.jsx.text.surface.35807d37",
+        defaultMessage: "Surface",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.system.status.d541b0a1": {
+        id: "common.jsx.text.system.status.d541b0a1",
+        defaultMessage: "System status",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.target.7598ea83": {
+        id: "common.jsx.text.target.7598ea83",
+        defaultMessage: "Target",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.the.ai.assistant.is.temporarily.paused.while.6d35d05b": {
+        id: "common.jsx.text.the.ai.assistant.is.temporarily.paused.while.6d35d05b",
+        defaultMessage: "The AI assistant is temporarily paused while the team reviews the service. Please use the contact page for help.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.the.assistant.will.start.threading.chat.voice.08684715": {
+        id: "common.jsx.text.the.assistant.will.start.threading.chat.voice.08684715",
+        defaultMessage: "The assistant will start threading chat, voice, and live-call events here as you use them.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.the.page.now.behaves.more.like.a.7b3c852e": {
+        id: "common.jsx.text.the.page.now.behaves.more.like.a.7b3c852e",
+        defaultMessage: "The page now behaves more like a premium access layer than a temporary glossy experiment: better hierarchy, stronger language, clearer deployment context, and a more controlled visual system.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.theme.fe958fe1": {
+        id: "common.jsx.text.theme.fe958fe1",
+        defaultMessage: "Theme",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.this.gateway.can.be.the.calm.handoff.f648ea99": {
+        id: "common.jsx.text.this.gateway.can.be.the.calm.handoff.f648ea99",
+        defaultMessage: ", this gateway can be the calm handoff layer above both live storefronts instead of a rough technical switchboard living inside one of them.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.this.link.can.remove.the.matching.subscription.0dd2716d": {
+        id: "common.jsx.text.this.link.can.remove.the.matching.subscription.0dd2716d",
+        defaultMessage: "This link can remove the matching subscription.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.tool.timeline.375e9234": {
+        id: "common.jsx.text.tool.timeline.375e9234",
+        defaultMessage: "Tool timeline",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.tower.7.innovation.district.9a662aca": {
+        id: "common.jsx.text.tower.7.innovation.district.9a662aca",
+        defaultMessage: "Tower 7, Innovation District,",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.trace.details.af1f8b27": {
+        id: "common.jsx.text.trace.details.af1f8b27",
+        defaultMessage: "Trace details",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.trace.id.000d6b80": {
+        id: "common.jsx.text.trace.id.000d6b80",
+        defaultMessage: "Trace id:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.trying.to.restore.the.call.161003b5": {
+        id: "common.jsx.text.trying.to.restore.the.call.161003b5",
+        defaultMessage: "Trying to restore the call",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.unsubscribe.ad8525fd": {
+        id: "common.jsx.text.unsubscribe.ad8525fd",
+        defaultMessage: "Unsubscribe",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.use.back.to.app.and.the.call.ecee176e": {
+        id: "common.jsx.text.use.back.to.app.and.the.call.ecee176e",
+        defaultMessage: "Use back to app and the call keeps running in the corner.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.vercel.netlify.f28e116f": {
+        id: "common.jsx.text.vercel.netlify.f28e116f",
+        defaultMessage: "Vercel + Netlify",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.view.history.74a3ac4e": {
+        id: "common.jsx.text.view.history.74a3ac4e",
+        defaultMessage: "View history",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.voice.and.live.help.4900edb8": {
+        id: "common.jsx.text.voice.and.live.help.4900edb8",
+        defaultMessage: "Voice and live help",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.voice.copilot.4a1c779c": {
+        id: "common.jsx.text.voice.copilot.4a1c779c",
+        defaultMessage: "Voice copilot",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.voice.copilot.5388a8c8": {
+        id: "common.jsx.text.voice.copilot.5388a8c8",
+        defaultMessage: "Voice Copilot",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.what.can.be.verified.now.bf834b85": {
+        id: "common.jsx.text.what.can.be.verified.now.bf834b85",
+        defaultMessage: "What can be verified now",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.what.happens.next.b72f0e71": {
+        id: "common.jsx.text.what.happens.next.b72f0e71",
+        defaultMessage: "What happens next",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.working.through.live.evidence.856c66cc": {
+        id: "common.jsx.text.working.through.live.evidence.856c66cc",
+        defaultMessage: "Working through live evidence...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.your.camera.preview.is.live.029460fd": {
+        id: "common.jsx.text.your.camera.preview.is.live.029460fd",
+        defaultMessage: "Your camera preview is live",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.your.hosted.aura.experience.keeps.updating.automatically.5f175dd0": {
+        id: "common.jsx.text.your.hosted.aura.experience.keeps.updating.automatically.5f175dd0",
+        defaultMessage: "Your hosted Aura experience keeps updating automatically. This notice is for the native",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.validation.jsx.text.a.ui.module.failed.to.load.correctly.547ea3f7": {
+        id: "common.validation.jsx.text.a.ui.module.failed.to.load.correctly.547ea3f7",
+        defaultMessage: "A UI module failed to load correctly. Refresh or retry to continue.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.validation.jsx.text.an.unexpected.error.occurred.in.this.section.5b3902e0": {
+        id: "common.validation.jsx.text.an.unexpected.error.occurred.in.this.section.5b3902e0",
+        defaultMessage: "An unexpected error occurred in this section. The rest of the page is working normally.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.validation.jsx.text.failed.to.load.920b5b20": {
+        id: "common.validation.jsx.text.failed.to.load.920b5b20",
+        defaultMessage: "failed to load",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.validation.jsx.text.retry.render.5060ff9e": {
+        id: "common.validation.jsx.text.retry.render.5060ff9e",
+        defaultMessage: "Retry Render",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.validation.jsx.text.something.went.wrong.f8e9bcdd": {
+        id: "common.validation.jsx.text.something.went.wrong.f8e9bcdd",
+        defaultMessage: "Something went wrong",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.ai.error.unavailable": {
+        id: "compare.ai.error.unavailable",
+        defaultMessage: "AI comparison is unavailable right now.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.ai.prompt.groundedRecommendation": {
+        id: "compare.ai.prompt.groundedRecommendation",
+        defaultMessage: "Compare these products in {mode} mode and recommend the best grounded option.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.deck.selectedCount": {
+        id: "compare.deck.selectedCount",
+        defaultMessage: "{count}/{max} selected",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.error.loadFromLink": {
+        id: "compare.error.loadFromLink",
+        defaultMessage: "Failed to load products from compare link.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.error.maxProducts": {
+        id: "compare.error.maxProducts",
+        defaultMessage: "You can compare up to {count} products.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.provider.local": {
+        id: "compare.provider.local",
+        defaultMessage: "local",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.search.placeholder": {
+        id: "compare.search.placeholder",
+        defaultMessage: "Search products to compare",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.aiScore": {
+        id: "compare.spec.aiScore",
+        defaultMessage: "AI Score",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.delivery": {
+        id: "compare.spec.delivery",
+        defaultMessage: "Delivery",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.discount": {
+        id: "compare.spec.discount",
+        defaultMessage: "Discount",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.inStock": {
+        id: "compare.spec.inStock",
+        defaultMessage: "In Stock",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.notAvailable": {
+        id: "compare.spec.notAvailable",
+        defaultMessage: "N/A",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.outOfStock": {
+        id: "compare.spec.outOfStock",
+        defaultMessage: "Out of Stock",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.price": {
+        id: "compare.spec.price",
+        defaultMessage: "Price",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.rating": {
+        id: "compare.spec.rating",
+        defaultMessage: "Rating",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.reviews": {
+        id: "compare.spec.reviews",
+        defaultMessage: "Reviews",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.stock": {
+        id: "compare.spec.stock",
+        defaultMessage: "Stock",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.spec.warranty": {
+        id: "compare.spec.warranty",
+        defaultMessage: "Warranty",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.verdict.deliverySpeed": {
+        id: "compare.verdict.deliverySpeed",
+        defaultMessage: "Delivery speed is better than most compared products.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.verdict.inventoryRisk": {
+        id: "compare.verdict.inventoryRisk",
+        defaultMessage: "Inventory risk exists. If this is urgent, consider backup options.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.verdict.leadsMode": {
+        id: "compare.verdict.leadsMode",
+        defaultMessage: "{title} leads in {modeLabel} mode.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.verdict.priceEfficiency": {
+        id: "compare.verdict.priceEfficiency",
+        defaultMessage: "It offers strong price efficiency against other selected options.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.verdict.ratingProfile": {
+        id: "compare.verdict.ratingProfile",
+        defaultMessage: "Its rating profile is among the strongest in this set.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "compare.verdict.warrantyConfidence": {
+        id: "compare.verdict.warrantyConfidence",
+        defaultMessage: "Warranty coverage adds long-term confidence.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "deliveryWindow.1to2Days": {
         id: "deliveryWindow.1to2Days",
         defaultMessage: "1-2 days",
@@ -5506,6 +7131,166 @@ export const stableUiMessages = defineMessages({
     "deliveryWindow.7PlusDays": {
         id: "deliveryWindow.7PlusDays",
         defaultMessage: "7+ days",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.action.temporarilyUnavailable": {
+        id: "desktopLogin.action.temporarilyUnavailable",
+        defaultMessage: "Temporarily Unavailable",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.bridge.api": {
+        id: "desktopLogin.bridge.api",
+        defaultMessage: "API",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.bridge.callback": {
+        id: "desktopLogin.bridge.callback",
+        defaultMessage: "Callback",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.bridge.delivery": {
+        id: "desktopLogin.bridge.delivery",
+        defaultMessage: "Delivery",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.bridge.hosted": {
+        id: "desktopLogin.bridge.hosted",
+        defaultMessage: "Hosted",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.bridge.loopback": {
+        id: "desktopLogin.bridge.loopback",
+        defaultMessage: "Loopback",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.bridge.protected": {
+        id: "desktopLogin.bridge.protected",
+        defaultMessage: "Protected",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.capability.desktopOnly": {
+        id: "desktopLogin.capability.desktopOnly",
+        defaultMessage: "Desktop only",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.capability.loopbackOnly": {
+        id: "desktopLogin.capability.loopbackOnly",
+        defaultMessage: "Loopback only",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.capability.requestLocked": {
+        id: "desktopLogin.capability.requestLocked",
+        defaultMessage: "Request locked",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.capability.sealedToken": {
+        id: "desktopLogin.capability.sealedToken",
+        defaultMessage: "Sealed token",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.capability.traceReady": {
+        id: "desktopLogin.capability.traceReady",
+        defaultMessage: "Trace ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.capability.verifiedProof": {
+        id: "desktopLogin.capability.verifiedProof",
+        defaultMessage: "Verified proof",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.field.fullName": {
+        id: "desktopLogin.field.fullName",
+        defaultMessage: "Full Name *",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.field.phoneNumber": {
+        id: "desktopLogin.field.phoneNumber",
+        defaultMessage: "Phone Number *",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.otp.emailSent": {
+        id: "desktopLogin.otp.emailSent",
+        defaultMessage: "Code sent to {email}.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.otp.phoneSent": {
+        id: "desktopLogin.otp.phoneSent",
+        defaultMessage: "Code sent to {phone}.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.password.hide": {
+        id: "desktopLogin.password.hide",
+        defaultMessage: "Hide password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.password.show": {
+        id: "desktopLogin.password.show",
+        defaultMessage: "Show password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.phone.countryCallingCode": {
+        id: "desktopLogin.phone.countryCallingCode",
+        defaultMessage: "Country calling code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.placeholder.confirmPassword": {
+        id: "desktopLogin.placeholder.confirmPassword",
+        defaultMessage: "Confirm your password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.placeholder.confirmPasswordShort": {
+        id: "desktopLogin.placeholder.confirmPasswordShort",
+        defaultMessage: "Confirm password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.placeholder.fullName": {
+        id: "desktopLogin.placeholder.fullName",
+        defaultMessage: "Your full name",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.placeholder.newPassword": {
+        id: "desktopLogin.placeholder.newPassword",
+        defaultMessage: "New password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.placeholder.password": {
+        id: "desktopLogin.placeholder.password",
+        defaultMessage: "Enter your password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.status.builtForTrust": {
+        id: "desktopLogin.status.builtForTrust",
+        defaultMessage: "Built for trust",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.status.privacyFirst": {
+        id: "desktopLogin.status.privacyFirst",
+        defaultMessage: "Privacy first",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.status.secureByDesign": {
+        id: "desktopLogin.status.secureByDesign",
+        defaultMessage: "Secure by design",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.step.accountLane": {
+        id: "desktopLogin.step.accountLane",
+        defaultMessage: "Account lane",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.step.credentialLane": {
+        id: "desktopLogin.step.credentialLane",
+        defaultMessage: "Credential lane",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.step.otpLane": {
+        id: "desktopLogin.step.otpLane",
+        defaultMessage: "OTP lane",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.step.recoveryLane": {
+        id: "desktopLogin.step.recoveryLane",
+        defaultMessage: "Recovery lane",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "filters.any": {
@@ -5551,6 +7336,11 @@ export const stableUiMessages = defineMessages({
     "filters.clear": {
         id: "filters.clear",
         defaultMessage: "Clear",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "filters.closeBackdrop.ariaLabel": {
+        id: "filters.closeBackdrop.ariaLabel",
+        defaultMessage: "Close filters backdrop",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "filters.deliveryWindow": {
@@ -7118,6 +8908,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Country calling code",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "login.field.phoneWithDialCode": {
+        id: "login.field.phoneWithDialCode",
+        defaultMessage: "{label} {dialCode}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "login.field.registeredEmail": {
         id: "login.field.registeredEmail",
         defaultMessage: "Registered Email",
@@ -7278,9 +9073,44 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "and",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "login.otp.backend.checkForCode.title": {
+        id: "login.otp.backend.checkForCode.title",
+        defaultMessage: "Check for a Code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.backend.codeResent.detail": {
+        id: "login.otp.backend.codeResent.detail",
+        defaultMessage: "If the account details are valid, a fresh verification code has been sent.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.backend.codeSent.detail": {
+        id: "login.otp.backend.codeSent.detail",
+        defaultMessage: "If the account details are valid, a 6-digit verification code has been sent.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "login.otp.defaultSent": {
         id: "login.otp.defaultSent",
         defaultMessage: "We sent a 6-digit code to",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.email.codeSent.detail": {
+        id: "login.otp.email.codeSent.detail",
+        defaultMessage: "Your email code is ready. After that, you will confirm the same {mode} with Firebase SMS on your phone.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.email.codeSent.title": {
+        id: "login.otp.email.codeSent.title",
+        defaultMessage: "Email Code Sent",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.email.codesResent.detail": {
+        id: "login.otp.email.codesResent.detail",
+        defaultMessage: "Fresh {mode} codes were sent. Enter the email code first, then confirm the same flow with Firebase SMS.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.email.codesResent.title": {
+        id: "login.otp.email.codesResent.title",
+        defaultMessage: "Codes Re-Sent",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.otp.emailStepForgotPrefix": {
@@ -7318,9 +9148,84 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "will finish activating this account next.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "login.otp.error.incomplete": {
+        id: "login.otp.error.incomplete",
+        defaultMessage: "Enter complete 6-digit OTP",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.error.phoneChallengeExpired": {
+        id: "login.otp.error.phoneChallengeExpired",
+        defaultMessage: "Secure phone challenge expired. Please request a new code.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.error.signInProofExpired": {
+        id: "login.otp.error.signInProofExpired",
+        defaultMessage: "Secure sign-in proof expired. Please re-enter credentials.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.firebase.codeResent.detail": {
+        id: "login.otp.firebase.codeResent.detail",
+        defaultMessage: "A fresh 6-digit Firebase verification code is on its way to your phone.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.firebase.codeResent.title": {
+        id: "login.otp.firebase.codeResent.title",
+        defaultMessage: "Firebase Code Re-Sent",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.firebase.smsSent.detail": {
+        id: "login.otp.firebase.smsSent.detail",
+        defaultMessage: "A 6-digit Firebase verification code has been sent to your phone.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.firebase.smsSent.title": {
+        id: "login.otp.firebase.smsSent.title",
+        defaultMessage: "Firebase SMS Sent",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "login.otp.firebaseSent": {
         id: "login.otp.firebaseSent",
         defaultMessage: "We sent a 6-digit Firebase SMS code to",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.mode.accountSetup": {
+        id: "login.otp.mode.accountSetup",
+        defaultMessage: "account setup",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.mode.passwordRecovery": {
+        id: "login.otp.mode.passwordRecovery",
+        defaultMessage: "password recovery",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.mode.signIn": {
+        id: "login.otp.mode.signIn",
+        defaultMessage: "sign-in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.phone.emailVerified.detail": {
+        id: "login.otp.phone.emailVerified.detail",
+        defaultMessage: "Step 1 is complete. Enter the Firebase SMS code sent to your phone to {outcome}.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.phone.emailVerified.title": {
+        id: "login.otp.phone.emailVerified.title",
+        defaultMessage: "Email Verified",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.phoneOutcome.activateAccount": {
+        id: "login.otp.phoneOutcome.activateAccount",
+        defaultMessage: "finish activating your account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.phoneOutcome.finishSignIn": {
+        id: "login.otp.phoneOutcome.finishSignIn",
+        defaultMessage: "finish signing in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.phoneOutcome.unlockReset": {
+        id: "login.otp.phoneOutcome.unlockReset",
+        defaultMessage: "unlock password reset",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.otp.phoneStepForgot": {
@@ -7973,6 +9878,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "All",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "marketplace.category.all.subtitle": {
+        id: "marketplace.category.all.subtitle",
+        defaultMessage: "Every live lane",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "marketplace.category.allCategories": {
         id: "marketplace.category.allCategories",
         defaultMessage: "All Categories",
@@ -7983,9 +9893,19 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Books",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "marketplace.category.books.subtitle": {
+        id: "marketplace.category.books.subtitle",
+        defaultMessage: "Study and collectible shelves",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "marketplace.category.electronics": {
         id: "marketplace.category.electronics",
         defaultMessage: "Electronics",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.category.electronics.subtitle": {
+        id: "marketplace.category.electronics.subtitle",
+        defaultMessage: "Audio, cameras, wearables",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "marketplace.category.fashion": {
@@ -7993,9 +9913,19 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Fashion",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "marketplace.category.fashion.subtitle": {
+        id: "marketplace.category.fashion.subtitle",
+        defaultMessage: "Apparel and sneakers",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "marketplace.category.furniture": {
         id: "marketplace.category.furniture",
         defaultMessage: "Furniture",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.category.furniture.subtitle": {
+        id: "marketplace.category.furniture.subtitle",
+        defaultMessage: "Home and office pieces",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "marketplace.category.gaming": {
@@ -8003,9 +9933,19 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Gaming",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "marketplace.category.gaming.subtitle": {
+        id: "marketplace.category.gaming.subtitle",
+        defaultMessage: "Consoles and accessories",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "marketplace.category.homeAppliances": {
         id: "marketplace.category.homeAppliances",
         defaultMessage: "Home",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.category.homeAppliances.subtitle": {
+        id: "marketplace.category.homeAppliances.subtitle",
+        defaultMessage: "Kitchen and utility",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "marketplace.category.laptops": {
@@ -8013,9 +9953,19 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Laptops",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "marketplace.category.laptops.subtitle": {
+        id: "marketplace.category.laptops.subtitle",
+        defaultMessage: "Workstations and rigs",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "marketplace.category.mobiles": {
         id: "marketplace.category.mobiles",
         defaultMessage: "Mobiles",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.category.mobiles.subtitle": {
+        id: "marketplace.category.mobiles.subtitle",
+        defaultMessage: "Phones and accessories",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "marketplace.category.other": {
@@ -8023,14 +9973,29 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Other",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "marketplace.category.other.subtitle": {
+        id: "marketplace.category.other.subtitle",
+        defaultMessage: "Rare and niche finds",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "marketplace.category.sports": {
         id: "marketplace.category.sports",
         defaultMessage: "Sports",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "marketplace.category.sports.subtitle": {
+        id: "marketplace.category.sports.subtitle",
+        defaultMessage: "Fitness and training gear",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "marketplace.category.vehicles": {
         id: "marketplace.category.vehicles",
         defaultMessage: "Vehicles",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.category.vehicles.subtitle": {
+        id: "marketplace.category.vehicles.subtitle",
+        defaultMessage: "Cars and bikes",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "marketplace.condition.any": {
@@ -8488,6 +10453,76 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Buyer discipline stays premium.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "missionControl.bundle.empty": {
+        id: "missionControl.bundle.empty",
+        defaultMessage: "Bundle generation did not return a stack for this mission yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.form.cityPlaceholder": {
+        id: "missionControl.form.cityPlaceholder",
+        defaultMessage: "City",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.lifecycle.tradeInResaleBand": {
+        id: "missionControl.lifecycle.tradeInResaleBand",
+        defaultMessage: "Trade-in estimate {tradeInEstimate} and resale band {resaleLow} - {resaleHigh}.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.localSafety.escrowCoverage": {
+        id: "missionControl.localSafety.escrowCoverage",
+        defaultMessage: "Escrow coverage",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.localSafety.title": {
+        id: "missionControl.localSafety.title",
+        defaultMessage: "Local commerce safety mode",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.localSafety.verifiedSellers": {
+        id: "missionControl.localSafety.verifiedSellers",
+        defaultMessage: "Verified sellers",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.marketplace.escrow": {
+        id: "missionControl.marketplace.escrow",
+        defaultMessage: "Escrow",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.marketplace.seller": {
+        id: "missionControl.marketplace.seller",
+        defaultMessage: "Seller",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.marketplace.unknownCity": {
+        id: "missionControl.marketplace.unknownCity",
+        defaultMessage: "Unknown city",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.marketplace.verifiedSeller": {
+        id: "missionControl.marketplace.verifiedSeller",
+        defaultMessage: "Verified seller",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.safetyScore": {
+        id: "missionControl.safetyScore",
+        defaultMessage: "Safety {score}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.trustGraph": {
+        id: "missionControl.trustGraph",
+        defaultMessage: "Trust Graph",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.trustScore": {
+        id: "missionControl.trustScore",
+        defaultMessage: "Trust {overallScore}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "missionControl.zeroQuery.tradeInLeverage": {
+        id: "missionControl.zeroQuery.tradeInLeverage",
+        defaultMessage: "Turn on trade-in to expose upgrade leverage before checkout or price alerts.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "nav.account": {
         id: "nav.account",
         defaultMessage: "Account",
@@ -8618,6 +10653,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Open profile menu",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "nav.openRuntimeTarget": {
+        id: "nav.openRuntimeTarget",
+        defaultMessage: "Open {label}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "nav.openRuntimeTargetFromAccountMenu": {
+        id: "nav.openRuntimeTargetFromAccountMenu",
+        defaultMessage: "Open {label} from account menu",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "nav.orders": {
         id: "nav.orders",
         defaultMessage: "Orders",
@@ -8668,9 +10713,74 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Wishlist",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "notification.jsx.text.mark.all.as.read.da16ba21": {
+        id: "notification.jsx.text.mark.all.as.read.da16ba21",
+        defaultMessage: "Mark all as read",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "notification.jsx.text.no.new.notifications.9d6e5bf5": {
+        id: "notification.jsx.text.no.new.notifications.9d6e5bf5",
+        defaultMessage: "No new notifications",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "notification.jsx.text.notification.type.fd6856dc": {
+        id: "notification.jsx.text.notification.type.fd6856dc",
+        defaultMessage: "Notification type",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "notification.jsx.text.priority.updates.without.crowding.the.route.121ace61": {
+        id: "notification.jsx.text.priority.updates.without.crowding.the.route.121ace61",
+        defaultMessage: "Priority updates without crowding the route.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "notification.jsx.text.we.ll.let.you.know.when.something.a3ca62c5": {
+        id: "notification.jsx.text.we.ll.let.you.know.when.something.a3ca62c5",
+        defaultMessage: "We'll let you know when something happens.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "notifications.new": {
         id: "notifications.new",
         defaultMessage: "New notification",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "order.jsx.text.ask.for.product.picks.cart.review.order.db04ca3e": {
+        id: "order.jsx.text.ask.for.product.picks.cart.review.order.db04ca3e",
+        defaultMessage: "Ask for product picks, cart review, order support, or grounded marketplace decisions.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "order.jsx.text.choose.the.runtime.you.want.enter.the.0555cac3": {
+        id: "order.jsx.text.choose.the.runtime.you.want.enter.the.0555cac3",
+        defaultMessage: "Choose the runtime you want, enter the same production commerce system, and keep the same identity, cart, wishlist, profile, and order state across both domains. This is the gateway surface that can also graduate into a dedicated general-domain project when you want it to.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "order.jsx.text.order.449420.7246c296": {
+        id: "order.jsx.text.order.449420.7246c296",
+        defaultMessage: "Order #",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "order.jsx.text.qty.68ff921a": {
+        id: "order.jsx.text.qty.68ff921a",
+        defaultMessage: "Qty:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "order.jsx.text.shop.now.7bbc4028": {
+        id: "order.jsx.text.shop.now.7bbc4028",
+        defaultMessage: "Shop Now",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "order.jsx.text.start.shopping.to.see.your.orders.here.b15e523d": {
+        id: "order.jsx.text.start.shopping.to.see.your.orders.here.b15e523d",
+        defaultMessage: "Start shopping to see your orders here",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "order.jsx.text.total.orders.eed7543a": {
+        id: "order.jsx.text.total.orders.eed7543a",
+        defaultMessage: "total orders",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "order.jsx.text.view.all.orders.7f96ae61": {
+        id: "order.jsx.text.view.all.orders.7f96ae61",
+        defaultMessage: "View All Orders →",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "orders.addressTitle": {
@@ -9298,6 +11408,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Avoid",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "product.brand.auraCatalog": {
+        id: "product.brand.auraCatalog",
+        defaultMessage: "Aura catalog",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "product.bundleAi": {
         id: "product.bundleAi",
         defaultMessage: "Bundle AI",
@@ -9323,6 +11438,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Deal DNA",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "product.discount.savePercent": {
+        id: "product.discount.savePercent",
+        defaultMessage: "Save {value}%",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "product.fastDispatch": {
         id: "product.fastDispatch",
         defaultMessage: "Fast dispatch",
@@ -9343,9 +11463,89 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Items",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "product.jsx.expression.browse.products.and.look.for.the.trade.2cd4392d": {
+        id: "product.jsx.expression.browse.products.and.look.for.the.trade.2cd4392d",
+        defaultMessage: "Browse products and look for the \"Trade-In\" button on any product page",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.expression.describe.the.goal.once.the.page.ranks.d0ef4b16": {
+        id: "product.jsx.expression.describe.the.goal.once.the.page.ranks.d0ef4b16",
+        defaultMessage: "Describe the goal once. The page ranks products, checks trust, opens zero-query paths, estimates lifecycle leverage, and scans local marketplace safety.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.expression.exchange.your.old.items.for.discounts.on.68954b5c": {
+        id: "product.jsx.expression.exchange.your.old.items.for.discounts.on.68954b5c",
+        defaultMessage: "Exchange your old items for discounts on new products",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.expression.new.product.1cd24744": {
+        id: "product.jsx.expression.new.product.1cd24744",
+        defaultMessage: "New Product",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.expression.no.product.lane.matched.the.current.mission.951f6696": {
+        id: "product.jsx.expression.no.product.lane.matched.the.current.mission.951f6696",
+        defaultMessage: "No product lane matched the current mission yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.expression.open.product.2c5aa835": {
+        id: "product.jsx.expression.open.product.2c5aa835",
+        defaultMessage: "Open product",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.expression.use.screenshot.or.pasted.image.when.you.4ebb4c79": {
+        id: "product.jsx.expression.use.screenshot.or.pasted.image.when.you.4ebb4c79",
+        defaultMessage: "Use screenshot or pasted image when you do not know product names yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.expression.visit.any.product.page.and.click.trade.c67059de": {
+        id: "product.jsx.expression.visit.any.product.page.and.click.trade.c67059de",
+        defaultMessage: "Visit any product page and click \"Trade-In\" to get started",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.text.add.products.db32d71e": {
+        id: "product.jsx.text.add.products.db32d71e",
+        defaultMessage: "Add Products",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.text.add.products.from.the.left.panel.to.3b04af45": {
+        id: "product.jsx.text.add.products.from.the.left.panel.to.3b04af45",
+        defaultMessage: "Add products from the left panel to start comparing.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.text.matched.product.8b686b00": {
+        id: "product.jsx.text.matched.product.8b686b00",
+        defaultMessage: "matched product",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.text.select.up.to.4.products.and.let.02c6cece": {
+        id: "product.jsx.text.select.up.to.4.products.and.let.02c6cece",
+        defaultMessage: "Select up to 4 products and let the engine pick the best fit.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.text.shared.production.data.f8bd2f6b": {
+        id: "product.jsx.text.shared.production.data.f8bd2f6b",
+        defaultMessage: "Shared production data",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.jsx.text.watch.3139f8c4": {
+        id: "product.jsx.text.watch.3139f8c4",
+        defaultMessage: "Watch:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "product.off": {
         id: "product.off",
         defaultMessage: "% off",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.quantity.decrease.ariaLabel": {
+        id: "product.quantity.decrease.ariaLabel",
+        defaultMessage: "Decrease quantity for {product}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.quantity.increase.ariaLabel": {
+        id: "product.quantity.increase.ariaLabel",
+        defaultMessage: "Increase quantity for {product}",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "product.removeFromWishlist": {
@@ -9401,6 +11601,16 @@ export const stableUiMessages = defineMessages({
     "product.sponsored": {
         id: "product.sponsored",
         defaultMessage: "Sponsored",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.stock.inStockCount": {
+        id: "product.stock.inStockCount",
+        defaultMessage: "{count} in stock",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "product.stock.outOfStock": {
+        id: "product.stock.outOfStock",
+        defaultMessage: "Out of stock",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "product.total": {
@@ -9481,6 +11691,11 @@ export const stableUiMessages = defineMessages({
     "productPage.coverage": {
         id: "productPage.coverage",
         defaultMessage: "Coverage",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "productPage.dealDna.scoreLabel": {
+        id: "productPage.dealDna.scoreLabel",
+        defaultMessage: "Score",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "productPage.dealDnaScore": {
@@ -9973,6 +12188,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Work",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.avatar.alt": {
+        id: "profile.avatar.alt",
+        defaultMessage: "{profileName} avatar",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.confirm.deleteAddress": {
         id: "profile.confirm.deleteAddress",
         defaultMessage: "Delete this address?",
@@ -10111,6 +12331,51 @@ export const stableUiMessages = defineMessages({
     "profile.heroMetric.wishlist.label": {
         id: "profile.heroMetric.wishlist.label",
         defaultMessage: "Wishlist intent",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.account.deleted.740c2b4b": {
+        id: "profile.jsx.text.account.deleted.740c2b4b",
+        defaultMessage: "Account Deleted",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.account.warning.2e5b1e8d": {
+        id: "profile.jsx.text.account.warning.2e5b1e8d",
+        defaultMessage: "Account Warning",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.reason.b9e5920b": {
+        id: "profile.jsx.text.reason.b9e5920b",
+        defaultMessage: "Reason:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.some.features.like.purchasing.or.selling.may.7986d041": {
+        id: "profile.jsx.text.some.features.like.purchasing.or.selling.may.7986d041",
+        defaultMessage: ". Some features like purchasing or selling may be restricted.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.this.account.is.scheduled.for.permanent.deletion.6d5841ab": {
+        id: "profile.jsx.text.this.account.is.scheduled.for.permanent.deletion.6d5841ab",
+        defaultMessage: "This account is scheduled for permanent deletion.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.total.please.adhere.to.our.community.guidelines.0282a567": {
+        id: "profile.jsx.text.total.please.adhere.to.our.community.guidelines.0282a567",
+        defaultMessage: "total). Please adhere to our community guidelines to avoid suspension.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.view.all.in.profile.02e00beb": {
+        id: "profile.jsx.text.view.all.in.profile.02e00beb",
+        defaultMessage: "View all in Profile",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.your.account.has.been.suspended.until.1595f211": {
+        id: "profile.jsx.text.your.account.has.been.suspended.until.1595f211",
+        defaultMessage: "Your account has been suspended until",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.jsx.text.your.account.has.received.a.warning.1c051ca0": {
+        id: "profile.jsx.text.your.account.has.received.a.warning.1c051ca0",
+        defaultMessage: "Your account has received a warning (",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.listings.active": {
@@ -12338,6 +14603,181 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Global search",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "search.jsx.expression.optional.image.url.for.visual.search.3b28096f": {
+        id: "search.jsx.expression.optional.image.url.for.visual.search.3b28096f",
+        defaultMessage: "Optional image URL for visual search",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.expression.run.visual.search.db1e93fa": {
+        id: "search.jsx.expression.run.visual.search.db1e93fa",
+        defaultMessage: "Run Visual Search",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.expression.scanning.catalog.f1f44d07": {
+        id: "search.jsx.expression.scanning.catalog.f1f44d07",
+        defaultMessage: "Scanning Catalog...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.expression.start.listening.5d73b372": {
+        id: "search.jsx.expression.start.listening.5d73b372",
+        defaultMessage: "Start listening",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.expression.stop.listening.5f3b2910": {
+        id: "search.jsx.expression.stop.listening.5f3b2910",
+        defaultMessage: "Stop listening",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.choose.image.15fa1bac": {
+        id: "search.jsx.text.choose.image.15fa1bac",
+        defaultMessage: "Choose Image",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.clear.upload.75485bae": {
+        id: "search.jsx.text.clear.upload.75485bae",
+        defaultMessage: "Clear Upload",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.compare.top.matches.4555d135": {
+        id: "search.jsx.text.compare.top.matches.4555d135",
+        defaultMessage: "Compare Top Matches",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.derived.keyword.eb081899": {
+        id: "search.jsx.text.derived.keyword.eb081899",
+        defaultMessage: "Derived keyword:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.file.name.optional.ac353e76": {
+        id: "search.jsx.text.file.name.optional.ac353e76",
+        defaultMessage: "File Name (optional)",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.from.live.catalog.8df55cd8": {
+        id: "search.jsx.text.from.live.catalog.8df55cd8",
+        defaultMessage: "from live catalog.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.highest.62013f0d": {
+        id: "search.jsx.text.highest.62013f0d",
+        defaultMessage: "Highest",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.hints.18758c62": {
+        id: "search.jsx.text.hints.18758c62",
+        defaultMessage: "Hints",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.input.preview.deada035": {
+        id: "search.jsx.text.input.preview.deada035",
+        defaultMessage: "Input Preview",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.live.inspection.ready.cd160962": {
+        id: "search.jsx.text.live.inspection.ready.cd160962",
+        defaultMessage: "Live inspection ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.lowest.05ec1fbb": {
+        id: "search.jsx.text.lowest.05ec1fbb",
+        defaultMessage: "Lowest",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.match.intelligence.74bc104f": {
+        id: "search.jsx.text.match.intelligence.74bc104f",
+        defaultMessage: "Match Intelligence",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.max.matches.1860e29d": {
+        id: "search.jsx.text.max.matches.1860e29d",
+        defaultMessage: "Max Matches",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.median.1e89a3f6": {
+        id: "search.jsx.text.median.1e89a3f6",
+        defaultMessage: "Median",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.mode.fd01fca5": {
+        id: "search.jsx.text.mode.fd01fca5",
+        defaultMessage: "Mode",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.multimodal.handoff.10ff1393": {
+        id: "search.jsx.text.multimodal.handoff.10ff1393",
+        defaultMessage: "Multimodal Handoff",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.no.image.dd0e0b47": {
+        id: "search.jsx.text.no.image.dd0e0b47",
+        defaultMessage: "No image",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.no.matches.yet.71b37d2b": {
+        id: "search.jsx.text.no.matches.yet.71b37d2b",
+        defaultMessage: "No matches yet",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.open.ai.compare.44e05796": {
+        id: "search.jsx.text.open.ai.compare.44e05796",
+        defaultMessage: "Open AI Compare",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.open.visual.search.069e1ee0": {
+        id: "search.jsx.text.open.visual.search.069e1ee0",
+        defaultMessage: "Open Visual Search",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.paste.screenshot.with.ctrl.v.anywhere.on.ce44511e": {
+        id: "search.jsx.text.paste.screenshot.with.ctrl.v.anywhere.on.ce44511e",
+        defaultMessage: "Paste screenshot with Ctrl+V anywhere on this page.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.quick.hints.30e95fa8": {
+        id: "search.jsx.text.quick.hints.30e95fa8",
+        defaultMessage: "Quick Hints",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.sample.9f86bc7f": {
+        id: "search.jsx.text.sample.9f86bc7f",
+        defaultMessage: "Sample",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.scan.signals.abc546d3": {
+        id: "search.jsx.text.scan.signals.abc546d3",
+        defaultMessage: "Scan Signals",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.search.input.bf54e1ea": {
+        id: "search.jsx.text.search.input.bf54e1ea",
+        defaultMessage: "Search Input",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.search.lab.da423c24": {
+        id: "search.jsx.text.search.lab.da423c24",
+        defaultMessage: "Search Lab",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.stays.attached.while.voice.takes.over.e08a4aec": {
+        id: "search.jsx.text.stays.attached.while.voice.takes.over.e08a4aec",
+        defaultMessage: "stays attached while voice takes over.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.upload.paste.a.cleaner.image.or.add.6c3cc76a": {
+        id: "search.jsx.text.upload.paste.a.cleaner.image.or.add.6c3cc76a",
+        defaultMessage: "Upload/paste a cleaner image or add specific hints (brand + model + category).",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.upload.screenshot.5f2083fa": {
+        id: "search.jsx.text.upload.screenshot.5f2083fa",
+        defaultMessage: "Upload / Screenshot",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "search.jsx.text.visual.search.pro.bca7ad0b": {
+        id: "search.jsx.text.visual.search.pro.bca7ad0b",
+        defaultMessage: "Visual Search Pro",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "search.liveSuggestions": {
         id: "search.liveSuggestions",
         defaultMessage: "Live Suggestions",
@@ -13228,6 +15668,56 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Your item is now live.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "seller.jsx.expression.available.when.you.open.a.marketplace.listing.a5af193c": {
+        id: "seller.jsx.expression.available.when.you.open.a.marketplace.listing.a5af193c",
+        defaultMessage: "Available when you open a marketplace listing.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.expression.low.friction.consult.with.the.current.listing.0b5c5c04": {
+        id: "seller.jsx.expression.low.friction.consult.with.the.current.listing.0b5c5c04",
+        defaultMessage: "Low-friction consult with the current listing context.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.expression.no.nearby.listings.matched.this.mission.yet.15f73361": {
+        id: "seller.jsx.expression.no.nearby.listings.matched.this.mission.yet.15f73361",
+        defaultMessage: "No nearby listings matched this mission yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.expression.open.a.marketplace.listing.to.unlock.live.6b39cce7": {
+        id: "seller.jsx.expression.open.a.marketplace.listing.to.unlock.live.6b39cce7",
+        defaultMessage: "Open a marketplace listing to unlock live video.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.text.cancel.escrow.669f6f37": {
+        id: "seller.jsx.text.cancel.escrow.669f6f37",
+        defaultMessage: "Cancel Escrow",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.text.cancel.escrow.hold.025e4821": {
+        id: "seller.jsx.text.cancel.escrow.hold.025e4821",
+        defaultMessage: "Cancel Escrow Hold",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.text.debug.ref.9ab68032": {
+        id: "seller.jsx.text.debug.ref.9ab68032",
+        defaultMessage: "Debug Ref",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.text.escrow.completed.funds.were.released.after.buyer.a7c176fd": {
+        id: "seller.jsx.text.escrow.completed.funds.were.released.after.buyer.a7c176fd",
+        defaultMessage: "Escrow completed. Funds were released after buyer confirmation.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.text.escrow.hold.was.cancelled.listing.is.active.07785741": {
+        id: "seller.jsx.text.escrow.hold.was.cancelled.listing.is.active.07785741",
+        defaultMessage: "Escrow hold was cancelled. Listing is active again.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "seller.jsx.text.start.an.audio.only.inspection.lane.on.82d20057": {
+        id: "seller.jsx.text.start.an.audio.only.inspection.lane.on.82d20057",
+        defaultMessage: "Start an audio-only inspection lane on the active marketplace listing.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "seller.shared.daysAgo": {
         id: "seller.shared.daysAgo",
         defaultMessage: "{count}d ago",
@@ -13621,6 +16111,156 @@ export const stableUiMessages = defineMessages({
     "status.bannerRetry": {
         id: "status.bannerRetry",
         defaultMessage: "Check Again",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.expression.copied.a4f59665": {
+        id: "support.jsx.expression.copied.a4f59665",
+        defaultMessage: "Copied",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.expression.copy.link.275b8de8": {
+        id: "support.jsx.expression.copy.link.275b8de8",
+        defaultMessage: "Copy link",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.expression.in.app.support.active.40666978": {
+        id: "support.jsx.expression.in.app.support.active.40666978",
+        defaultMessage: "In-app support active",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.expression.not.resolved.c7bf6762": {
+        id: "support.jsx.expression.not.resolved.c7bf6762",
+        defaultMessage: "Not resolved",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.1.open.or.continue.a.support.thread.1c7480a4": {
+        id: "support.jsx.text.1.open.or.continue.a.support.thread.1c7480a4",
+        defaultMessage: "1. Open or continue a support thread.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.3.if.needed.the.ticket.can.escalate.f2a61191": {
+        id: "support.jsx.text.3.if.needed.the.ticket.can.escalate.f2a61191",
+        defaultMessage: "3. If needed, the ticket can escalate into a live support call.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.admin.support.access.41f5b6f5": {
+        id: "support.jsx.text.admin.support.access.41f5b6f5",
+        defaultMessage: "Admin Support Access",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.affected.48152932": {
+        id: "support.jsx.text.affected.48152932",
+        defaultMessage: "Affected",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.contact.support.9c8e1198": {
+        id: "support.jsx.text.contact.support.9c8e1198",
+        defaultMessage: "Contact support",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.email.support.67e014d8": {
+        id: "support.jsx.text.email.support.67e014d8",
+        defaultMessage: "Email support",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.history.ba2a7653": {
+        id: "support.jsx.text.history.ba2a7653",
+        defaultMessage: "History",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.incident.history.3356ca32": {
+        id: "support.jsx.text.incident.history.3356ca32",
+        defaultMessage: "Incident history",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.past.incidents.maintenance.windows.and.resolution.timelines.9ba76518": {
+        id: "support.jsx.text.past.incidents.maintenance.windows.and.resolution.timelines.9ba76518",
+        defaultMessage: "Past incidents, maintenance windows, and resolution timelines.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.public.url.39569a0c": {
+        id: "support.jsx.text.public.url.39569a0c",
+        defaultMessage: "Public URL",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.receive.incident.and.maintenance.notifications.for.selected.1bd07e76": {
+        id: "support.jsx.text.receive.incident.and.maintenance.notifications.for.selected.1bd07e76",
+        defaultMessage: "Receive incident and maintenance notifications for selected Aura systems.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.session.recovery.is.degraded.but.support.access.d135ad8e": {
+        id: "support.jsx.text.session.recovery.is.degraded.but.support.access.d135ad8e",
+        defaultMessage: "Session recovery is degraded, but support access is still open.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.started.ce6b48f0": {
+        id: "support.jsx.text.started.ce6b48f0",
+        defaultMessage: "Started",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.support.aura.shop.6e88e9bf": {
+        id: "support.jsx.text.support.aura.shop.6e88e9bf",
+        defaultMessage: "support@aura.shop",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.support.aura.shop.859c28ac": {
+        id: "support.jsx.text.support.aura.shop.859c28ac",
+        defaultMessage: "support@aura.shop",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.support.is.still.reachable.3120c970": {
+        id: "support.jsx.text.support.is.still.reachable.3120c970",
+        defaultMessage: "Support is still reachable.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.this.page.is.the.operational.handoff.into.cef0fbf5": {
+        id: "support.jsx.text.this.page.is.the.operational.handoff.into.cef0fbf5",
+        defaultMessage: "This page is the operational handoff into Aura support. Tickets opened here are durable, visible to the admin support desk, and can escalate into a live support call when text alone is too slow.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.jsx.text.use.sign.in.if.you.want.a.3be0d816": {
+        id: "support.jsx.text.use.sign.in.if.you.want.a.3be0d816",
+        defaultMessage: "Use sign-in if you want a persistent support thread.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.timeline.chat.label": {
+        id: "support.timeline.chat.label",
+        defaultMessage: "Chat",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.timeline.resolution.label": {
+        id: "support.timeline.resolution.label",
+        defaultMessage: "Resolution",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.timeline.video.label": {
+        id: "support.timeline.video.label",
+        defaultMessage: "Video",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "support.timeline.voice.label": {
+        id: "support.timeline.voice.label",
+        defaultMessage: "Voice",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "visualSearch.error.compareNeedsMatches": {
+        id: "visualSearch.error.compareNeedsMatches",
+        defaultMessage: "Need at least 2 matched products to open AI Compare.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "visualSearch.error.missingInput": {
+        id: "visualSearch.error.missingInput",
+        defaultMessage: "Provide image URL, uploaded screenshot, filename, or hint text.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "visualSearch.error.unsupportedImageType": {
+        id: "visualSearch.error.unsupportedImageType",
+        defaultMessage: "Only PNG, JPEG, GIF, and WebP image files are supported for visual search.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "visualSearch.inputPreview.alt": {
+        id: "visualSearch.inputPreview.alt",
+        defaultMessage: "Visual search input",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "voice.captureUnavailable": {

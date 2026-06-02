@@ -6,6 +6,7 @@ import {
     useRef,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useIntl } from 'react-intl';
 import { AuthContext } from '@/context/AuthContext';
 import { useSocket } from '@/context/SocketContext';
 import { WishlistContext } from '@/context/WishlistContext';
@@ -173,6 +174,7 @@ const mergeExecutionResults = (results = []) => results.reduce((acc, result) => 
 export const useAssistantController = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const intl = useIntl();
     const { isAuthenticated } = useContext(AuthContext);
     const { wishlistItems = [] } = useContext(WishlistContext);
     const { socket } = useSocket() || {};
@@ -238,7 +240,8 @@ export const useAssistantController = () => {
         navigate,
         isAuthenticated,
         candidates: productCandidates,
-    }), [isAuthenticated, navigate, productCandidates]);
+        formatMessage: (descriptor, values) => intl.formatMessage(descriptor, values),
+    }), [intl, isAuthenticated, navigate, productCandidates]);
 
     useEffect(() => {
         const nextCandidateProductIds = routeProductId

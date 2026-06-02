@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Building2, CheckCircle, CreditCard, Clock, Loader2, Plus, ReceiptText, ShieldCheck } from 'lucide-react';
+import { useIntl } from 'react-intl';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
-import { FormattedMessage } from 'react-intl';
 
 const formatPaymentType = (type, t) => {
     const normalized = String(type || '').trim().toLowerCase();
@@ -103,6 +103,7 @@ export default function PaymentsSection({
 }) {
     const { t: legacyT, formatDateTime, formatPrice } = useMarket();
     const t = useStableIcuMessages(legacyT);
+    const intl = useIntl();
     const [cardEnrollmentBusy, setCardEnrollmentBusy] = useState(false);
     const [bankEnrollmentBusy, setBankEnrollmentBusy] = useState(false);
     const [selectedBankCode, setSelectedBankCode] = useState('');
@@ -176,7 +177,10 @@ export default function PaymentsSection({
                             </option>
                             {banks.map((bank) => (
                                 <option key={bank.code} value={bank.code}>
-                                    {bank.name}{bank.isSaved ? ` (${t('profile.payments.addBank.saved', {}, 'saved')})` : ''}
+                                    {bank.name}{bank.isSaved ? ' ' + intl.formatMessage(
+                                        { id: 'profile.payments.addBank.saved.option', defaultMessage: '({label})' },
+                                        { label: t('profile.payments.addBank.saved', {}, 'saved') },
+                                    ) : ''}
                                 </option>
                             ))}
                         </select>
@@ -211,8 +215,14 @@ export default function PaymentsSection({
                                     <div>
                                         <p className="font-semibold text-gray-900">
                                             {formatPaymentType(method.type, t)}
-                                            {method.brand ? ` | ${method.brand}` : ''}
-                                            {method.last4 ? ` | **** ${method.last4}` : ''}
+                                            {method.brand ? ' ' + intl.formatMessage(
+                                                { id: 'profile.payments.method.brandSuffix', defaultMessage: '| {brand}' },
+                                                { brand: method.brand },
+                                            ) : ''}
+                                            {method.last4 ? ' ' + intl.formatMessage(
+                                                { id: 'profile.payments.method.last4Suffix', defaultMessage: '| **** {last4}' },
+                                                { last4: method.last4 },
+                                            ) : ''}
                                         </p>
                                         <p className="mt-1 text-xs text-gray-500">{t('profile.payments.provider', { provider: method.provider || 'razorpay' }, `Provider: ${method.provider || 'razorpay'}`)}</p>
                                         {methodDetail ? (
@@ -268,7 +278,7 @@ export default function PaymentsSection({
                         {paymentActivity.map((order) => {
                             const state = getOrderPaymentState(order);
                             const StateIcon = getPaymentStateIcon(state);
-                            const method = String(order.paymentMethod || <FormattedMessage id="payment.jsx.expression.cod" defaultMessage="COD" />).trim().toUpperCase();
+                            const method = String(order.paymentMethod || 'COD').trim().toUpperCase();
                             const isDigitalMethod = DIGITAL_PAYMENT_METHODS.has(method);
                             const provider = order.paymentProvider || (isDigitalMethod ? t('profile.payments.activity.providerRouted', {}, 'provider routed') : '');
                             const refundStatus = getRefundStatus(order);
@@ -282,11 +292,17 @@ export default function PaymentsSection({
                                             </p>
                                             <p className="mt-1 font-semibold text-gray-900">
                                                 {method}
-                                                {provider ? ` | ${provider}` : ''}
+                                                {provider ? ' ' + intl.formatMessage(
+                                                    { id: 'profile.payments.activity.providerSuffix', defaultMessage: '| {provider}' },
+                                                    { provider },
+                                                ) : ''}
                                             </p>
                                             <p className="mt-1 text-xs text-gray-500">
                                                 {formatDateTime(order.createdAt)}
-                                                {order.paymentIntentId ? ` | ${order.paymentIntentId}` : ''}
+                                                {order.paymentIntentId ? ' ' + intl.formatMessage(
+                                                    { id: 'profile.payments.activity.paymentIntentSuffix', defaultMessage: '| {paymentIntentId}' },
+                                                    { paymentIntentId: order.paymentIntentId },
+                                                ) : ''}
                                             </p>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -295,7 +311,7 @@ export default function PaymentsSection({
                                                 {formatPaymentState(state, t)}
                                             </span>
                                             <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-600">
-                                                {formatPrice(order.presentmentTotalPrice || order.totalPrice || 0, order.presentmentCurrency || order.currency || <FormattedMessage id="payment.jsx.expression.inr" defaultMessage="INR" />)}
+                                                {formatPrice(order.presentmentTotalPrice || order.totalPrice || 0, order.presentmentCurrency || order.currency || 'INR')}
                                             </span>
                                         </div>
                                     </div>

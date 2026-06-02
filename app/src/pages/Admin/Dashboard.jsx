@@ -829,7 +829,10 @@ function SeriesCard({ title, icon, points, dataKey, formatter, loading }) {
                                     key={`${dataKey}-${point.bucket}`}
                                     className="w-full rounded-t bg-gradient-to-t from-cyan-500 to-indigo-500"
                                     style={{ height: `${height}%` }}
-                                    title={`${point.bucket}: ${formatter(value)}`}
+                                    title={t('admin.dashboard.timelinePoint.title', {
+                                        bucket: point.bucket,
+                                        value: formatter(value),
+                                    }, '{{bucket}}: {{value}}')}
                                 />
                             );
                         })}

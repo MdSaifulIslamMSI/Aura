@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useMotionValue } from 'framer-motion';
+import { useIntl } from 'react-intl';
 import {
     ArrowLeft,
     Clock3,
@@ -17,6 +18,7 @@ import {
     WifiOff,
 } from 'lucide-react';
 
+import { StableText } from '@/i18n/StableText';
 const getInitials = (value = '') => {
     const parts = String(value || '')
         .trim()
@@ -68,6 +70,7 @@ const VideoCallOverlay = ({
     onSwitchCamera,
     onToggleScreenShare,
 }) => {
+    const intl = useIntl();
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
@@ -319,22 +322,22 @@ const VideoCallOverlay = ({
                                     {isReconnecting ? (
                                         <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/20 bg-amber-500/12 px-2.5 py-1 text-amber-100">
                                             <WifiOff className="h-3 w-3" />
-                                            Reconnecting
+                                            <StableText id={"common.jsx.text.reconnecting.864d4686"} defaultMessage={"Reconnecting"} />
                                         </span>
                                     ) : null}
                                     {showConnectedControls ? (
                                         <>
                                             <span className={`rounded-full border px-2.5 py-1 ${isMuted ? 'border-rose-300/20 bg-rose-500/12 text-rose-100' : 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100'}`}>
-                                                {isMuted ? 'Mic off' : 'Mic on'}
+                                                {isMuted ? <StableText id={"common.jsx.expression.mic.off.24f68399"} defaultMessage={"Mic off"} /> : <StableText id={"common.jsx.expression.mic.on.c5a42908"} defaultMessage={"Mic on"} />}
                                             </span>
                                             {!isVoiceCall ? (
                                                 <span className={`rounded-full border px-2.5 py-1 ${isVideoOff ? 'border-rose-300/20 bg-rose-500/12 text-rose-100' : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'}`}>
-                                                    {isVideoOff ? 'Camera off' : 'Camera on'}
+                                                    {isVideoOff ? <StableText id={"common.jsx.expression.camera.off.586b7a7f"} defaultMessage={"Camera off"} /> : <StableText id={"common.jsx.expression.camera.on.02df25ad"} defaultMessage={"Camera on"} />}
                                                 </span>
                                             ) : null}
                                             {canScreenShare ? (
                                                 <span className={`rounded-full border px-2.5 py-1 ${isScreenSharing ? 'border-emerald-300/20 bg-emerald-500/12 text-emerald-100' : 'border-white/10 bg-white/5 text-white/75'}`}>
-                                                    {isScreenSharing ? 'Sharing screen' : 'Screen share ready'}
+                                                    {isScreenSharing ? <StableText id={"common.jsx.expression.sharing.screen.abea1ea9"} defaultMessage={"Sharing screen"} /> : <StableText id={"common.jsx.expression.screen.share.ready.eb02167f"} defaultMessage={"Screen share ready"} />}
                                                 </span>
                                             ) : null}
                                             {canSwitchCamera ? (
@@ -394,7 +397,7 @@ const VideoCallOverlay = ({
                         showLocalVideoBackdrop ? (
                             <div className="absolute inset-x-0 bottom-32 flex justify-center px-6 text-center">
                                 <div className="max-w-xl rounded-[2rem] border border-white/10 bg-black/35 px-6 py-5 shadow-[0_24px_60px_rgba(2,8,23,0.35)] backdrop-blur-md">
-                                    <div className="text-xs font-black uppercase tracking-[0.3em] text-cyan-200">Your camera preview is live</div>
+                                    <div className="text-xs font-black uppercase tracking-[0.3em] text-cyan-200"><StableText id={"common.jsx.text.your.camera.preview.is.live.029460fd"} defaultMessage={"Your camera preview is live"} /></div>
                                     <div className="mt-3 text-3xl font-black tracking-tight text-white">{callerName}</div>
                                     <div className="mt-2 text-sm uppercase tracking-[0.24em] text-white/55">{callLabel}</div>
                                     <div className="mt-4 text-base font-medium text-white/80">{statusCopy}</div>
@@ -405,16 +408,16 @@ const VideoCallOverlay = ({
                                         </div>
                                         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-500/12 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
                                             <PhoneCall className="h-3.5 w-3.5" />
-                                            Camera preview on
+                                            <StableText id={"common.jsx.text.camera.preview.on.4d45b043"} defaultMessage={"Camera preview on"} />
                                         </div>
                                         {isReconnecting ? (
                                             <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-500/12 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100">
                                                 <WifiOff className="h-3.5 w-3.5" />
-                                                Trying to restore the call
+                                                <StableText id={"common.jsx.text.trying.to.restore.the.call.161003b5"} defaultMessage={"Trying to restore the call"} />
                                             </div>
                                         ) : null}
                                     </div>
-                                    <div className="mt-3 text-sm text-white/55">Use back to app and the call keeps running in the corner.</div>
+                                    <div className="mt-3 text-sm text-white/55"><StableText id={"common.jsx.text.use.back.to.app.and.the.call.ecee176e"} defaultMessage={"Use back to app and the call keeps running in the corner."} /></div>
                                     {callError ? (
                                         <div className="mt-4 rounded-full border border-rose-300/20 bg-rose-500/12 px-4 py-2 text-sm text-rose-100">
                                             {callError}
@@ -446,15 +449,15 @@ const VideoCallOverlay = ({
                                             : 'border-cyan-300/20 bg-cyan-500/12 text-cyan-100'
                                     }`}>
                                         <PhoneCall className="h-3.5 w-3.5" />
-                                        {isVoiceCall ? 'Audio only' : 'Camera + mic'}
+                                        {isVoiceCall ? <StableText id={"common.jsx.expression.audio.only.4c272d78"} defaultMessage={"Audio only"} /> : <StableText id={"common.jsx.expression.camera.mic.3f0bced6"} defaultMessage={"Camera + mic"} />}
                                     </div>
                                     {isReconnecting ? (
                                         <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-500/12 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100">
                                             <WifiOff className="h-3.5 w-3.5" />
-                                            Trying to restore the call
+                                            <StableText id={"common.jsx.text.trying.to.restore.the.call.161003b5"} defaultMessage={"Trying to restore the call"} />
                                         </div>
                                     ) : null}
-                                    <div className="mt-3 text-sm text-white/55">Use back to app and the call keeps running in the corner.</div>
+                                    <div className="mt-3 text-sm text-white/55"><StableText id={"common.jsx.text.use.back.to.app.and.the.call.ecee176e"} defaultMessage={"Use back to app and the call keeps running in the corner."} /></div>
                                     {callError ? (
                                         <div className="mt-4 rounded-full border border-rose-300/20 bg-rose-500/12 px-4 py-2 text-sm text-rose-100">
                                             {callError}
@@ -475,7 +478,7 @@ const VideoCallOverlay = ({
                                 type="button"
                                 onClick={collapseIntoFloatingCall}
                                 className="support-chat-utility h-12 w-12 bg-white/10 text-white"
-                                title="Back to app"
+                                title={intl.formatMessage({ id: 'videoCall.backToApp.title', defaultMessage: 'Back to app' })}
                             >
                                 <ArrowLeft className="h-4 w-4" />
                             </button>
@@ -507,9 +510,11 @@ const VideoCallOverlay = ({
                                             ? 'bg-emerald-500 text-white shadow-[0_18px_34px_rgba(16,185,129,0.3)] hover:bg-emerald-600'
                                             : 'border border-white/10 bg-white/10 text-white hover:bg-white/15'
                                     }`}
-                                    title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
+                                    title={isScreenSharing
+                                        ? intl.formatMessage({ id: 'videoCall.stopSharingScreen.title', defaultMessage: 'Stop sharing screen' })
+                                        : intl.formatMessage({ id: 'videoCall.shareScreen.title', defaultMessage: 'Share screen' })}
                                 >
-                                    {isScreenSharing ? 'Stop share' : 'Share screen'}
+                                    {isScreenSharing ? <StableText id={"common.jsx.expression.stop.share.73aa6d2a"} defaultMessage={"Stop share"} /> : 'Share screen'}
                                 </button>
                             ) : null}
 
@@ -519,7 +524,7 @@ const VideoCallOverlay = ({
                                     onClick={onSwitchCamera}
                                     disabled={switchingCamera}
                                     className="support-chat-utility h-12 w-12 bg-white/10 text-white disabled:cursor-not-allowed disabled:opacity-55"
-                                    title="Switch camera"
+                                    title={intl.formatMessage({ id: 'videoCall.switchCamera.title', defaultMessage: 'Switch camera' })}
                                 >
                                     {switchingCamera ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                                 </button>
@@ -531,7 +536,7 @@ const VideoCallOverlay = ({
                                 className="inline-flex h-12 items-center gap-2 rounded-full bg-rose-500 px-5 text-sm font-black text-white shadow-[0_18px_34px_rgba(244,63,94,0.3)] transition-colors hover:bg-rose-600"
                             >
                                 <PhoneOff className="h-4 w-4" />
-                                {isSupportCall ? 'End live call' : 'End call'}
+                                {isSupportCall ? <StableText id={"common.jsx.expression.end.live.call.4a6e50ef"} defaultMessage={"End live call"} /> : <StableText id={"common.jsx.expression.end.call.5d79cf02"} defaultMessage={"End call"} />}
                             </button>
                         </motion.div>
                     ) : null}
@@ -581,7 +586,7 @@ const VideoCallOverlay = ({
                                 className="inline-flex h-14 items-center gap-2 rounded-full bg-rose-500 px-6 text-sm font-black text-white shadow-[0_20px_44px_rgba(244,63,94,0.35)] transition-colors hover:bg-rose-600"
                             >
                                 <PhoneOff className="h-4 w-4" />
-                                Cancel call
+                                <StableText id={"common.jsx.text.cancel.call.ce5d87e2"} defaultMessage={"Cancel call"} />
                             </button>
                         </div>
                     ) : null}
@@ -602,11 +607,11 @@ const VideoCallOverlay = ({
                                         {isReconnecting ? (
                                             <span className="inline-flex items-center gap-1 text-amber-200">
                                                 <WifiOff className="h-3 w-3" />
-                                                Reconnecting
+                                                <StableText id={"common.jsx.text.reconnecting.864d4686"} defaultMessage={"Reconnecting"} />
                                             </span>
                                         ) : null}
                                     </div>
-                                    <div className="mt-1 text-[11px] text-white/55">Call keeps running while you browse Aura.</div>
+                                    <div className="mt-1 text-[11px] text-white/55"><StableText id={"common.jsx.text.call.keeps.running.while.you.browse.aura.f32c9137"} defaultMessage={"Call keeps running while you browse Aura."} /></div>
                                 </div>
 
                                 <div className="flex items-center gap-2">

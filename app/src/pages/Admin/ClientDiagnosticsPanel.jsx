@@ -221,7 +221,7 @@ export default function ClientDiagnosticsPanel() {
                             type="text"
                             value={draftFilters.requestId}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, requestId: event.target.value }))}
-                            placeholder="req-..."
+                            placeholder={t('admin.diagnostics.filters.requestIdPlaceholder', {}, 'req-...')}
                             className="admin-premium-control"
                         />
                     </label>
@@ -232,7 +232,7 @@ export default function ClientDiagnosticsPanel() {
                             type="text"
                             value={draftFilters.sessionId}
                             onChange={(event) => setDraftFilters((prev) => ({ ...prev, sessionId: event.target.value }))}
-                            placeholder="session-..."
+                            placeholder={t('admin.diagnostics.filters.sessionPlaceholder', {}, 'session-...')}
                             className="admin-premium-control"
                         />
                     </label>

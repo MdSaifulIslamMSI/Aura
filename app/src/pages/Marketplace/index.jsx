@@ -133,6 +133,37 @@ const formatCategoryLabel = (value, fallback, t) => {
     }
 };
 
+const formatCategorySubtitle = (value, fallback, t) => {
+    switch (value) {
+        case '':
+            return t('marketplace.category.all.subtitle', {}, 'Every live lane');
+        case 'mobiles':
+            return t('marketplace.category.mobiles.subtitle', {}, 'Phones and accessories');
+        case 'laptops':
+            return t('marketplace.category.laptops.subtitle', {}, 'Workstations and rigs');
+        case 'electronics':
+            return t('marketplace.category.electronics.subtitle', {}, 'Audio, cameras, wearables');
+        case 'vehicles':
+            return t('marketplace.category.vehicles.subtitle', {}, 'Cars and bikes');
+        case 'furniture':
+            return t('marketplace.category.furniture.subtitle', {}, 'Home and office pieces');
+        case 'fashion':
+            return t('marketplace.category.fashion.subtitle', {}, 'Apparel and sneakers');
+        case 'books':
+            return t('marketplace.category.books.subtitle', {}, 'Study and collectible shelves');
+        case 'sports':
+            return t('marketplace.category.sports.subtitle', {}, 'Fitness and training gear');
+        case 'home-appliances':
+            return t('marketplace.category.homeAppliances.subtitle', {}, 'Kitchen and utility');
+        case 'gaming':
+            return t('marketplace.category.gaming.subtitle', {}, 'Consoles and accessories');
+        case 'other':
+            return t('marketplace.category.other.subtitle', {}, 'Rare and niche finds');
+        default:
+            return fallback;
+    }
+};
+
 const formatSortLabel = (value, fallback, t) => {
     switch (value) {
         case 'newest':
@@ -642,6 +673,7 @@ export default function Marketplace() {
     const translatedCategories = useMemo(() => CATEGORIES.map((category) => ({
         ...category,
         label: formatCategoryLabel(category.value, category.label, t),
+        subtitle: formatCategorySubtitle(category.value, category.subtitle, t),
     })), [t]);
 
     const translatedSorts = useMemo(() => SORTS.map((sort) => ({

@@ -5,6 +5,7 @@ import AdminSupport from './Support';
 import { supportApi } from '@/services/api/supportApi';
 import { ColorModeProvider } from '@/context/ColorModeContext';
 import { MarketProvider } from '@/context/MarketContext';
+import { LocaleProvider } from '@/i18n/LocaleProvider';
 
 const socketHandlers = new Map();
 const socketMock = {
@@ -63,9 +64,11 @@ describe('AdminSupport', () => {
     const renderAdminSupport = () => render(
         <MemoryRouter initialEntries={['/admin/support']}>
             <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                <ColorModeProvider>
-                    <AdminSupport />
-                </ColorModeProvider>
+                <LocaleProvider>
+                    <ColorModeProvider>
+                        <AdminSupport />
+                    </ColorModeProvider>
+                </LocaleProvider>
             </MarketProvider>
         </MemoryRouter>
     );

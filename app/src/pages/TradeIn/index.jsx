@@ -5,6 +5,7 @@ import { tradeInApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 
+import { StableText } from '@/i18n/StableText';
 const STATUS_STYLES = {
     pending: { bg: 'bg-amber-100', text: 'text-amber-700', icon: Clock },
     'under-review': { bg: 'bg-blue-100', text: 'text-blue-700', icon: RefreshCw },
@@ -101,7 +102,7 @@ export default function TradeIn() {
                         </div>
                         <div>
                             <h1 className="text-3xl font-black text-white sm:text-4xl">{translateTradeText('Trade-In') || 'Trade-In'}</h1>
-                            <p className="text-sm text-white/70">{translateTradeText('Exchange your old items for discounts on new products') || 'Exchange your old items for discounts on new products'}</p>
+                            <p className="text-sm text-white/70">{<StableText id={"product.jsx.expression.exchange.your.old.items.for.discounts.on.68954b5c"} defaultMessage={"Exchange your old items for discounts on new products"} />}</p>
                         </div>
                     </div>
 
@@ -120,8 +121,8 @@ export default function TradeIn() {
             <div className="mx-auto max-w-6xl px-4 py-8">
                 <div className="mb-8 flex flex-col gap-4 rounded-2xl border bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">{translateTradeText('Ready to trade in?') || 'Ready to trade in?'}</h2>
-                        <p className="mt-1 text-sm text-gray-500">{translateTradeText('Browse products and look for the "Trade-In" button on any product page') || 'Browse products and look for the "Trade-In" button on any product page'}</p>
+                        <h2 className="text-xl font-bold text-gray-900">{<StableText id={"common.jsx.expression.ready.to.trade.in.8a0f44bd"} defaultMessage={"Ready to trade in?"} />}</h2>
+                        <p className="mt-1 text-sm text-gray-500">{<StableText id={"product.jsx.expression.browse.products.and.look.for.the.trade.2cd4392d"} defaultMessage={"Browse products and look for the \"Trade-In\" button on any product page"} />}</p>
                     </div>
                     <Link to="/products" className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-3 font-bold text-white shadow-lg transition-all hover:from-orange-600 hover:to-amber-600">
                         {translateTradeText('Browse Products') || 'Browse Products'}
@@ -129,7 +130,7 @@ export default function TradeIn() {
                     </Link>
                 </div>
 
-                <h3 className="mb-4 text-lg font-bold text-gray-900">{translateTradeText('My Trade-In Requests') || 'My Trade-In Requests'}</h3>
+                <h3 className="mb-4 text-lg font-bold text-gray-900">{<StableText id={"common.jsx.expression.my.trade.in.requests.98e4cc10"} defaultMessage={"My Trade-In Requests"} />}</h3>
 
                 {loading ? (
                     <div className="space-y-4">
@@ -148,8 +149,8 @@ export default function TradeIn() {
                 ) : translatedTradeIns.length === 0 ? (
                     <div className="rounded-2xl border bg-white p-12 text-center shadow-sm">
                         <ArrowLeftRight className="mx-auto mb-3 h-16 w-16 text-gray-200" />
-                        <h3 className="mb-1 text-lg font-bold text-gray-900">{translateTradeText('No trade-ins yet') || 'No trade-ins yet'}</h3>
-                        <p className="text-sm text-gray-400">{translateTradeText('Visit any product page and click "Trade-In" to get started') || 'Visit any product page and click "Trade-In" to get started'}</p>
+                        <h3 className="mb-1 text-lg font-bold text-gray-900">{<StableText id={"common.jsx.expression.no.trade.ins.yet.eaa47467"} defaultMessage={"No trade-ins yet"} />}</h3>
+                        <p className="text-sm text-gray-400">{<StableText id={"product.jsx.expression.visit.any.product.page.and.click.trade.c67059de"} defaultMessage={"Visit any product page and click \"Trade-In\" to get started"} />}</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -173,7 +174,7 @@ export default function TradeIn() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <p className="mt-1 text-[10px] font-bold text-gray-400">{translateTradeText('Your Item') || 'Your Item'}</p>
+                                            <p className="mt-1 text-[10px] font-bold text-gray-400">{<StableText id={"common.jsx.expression.your.item.36f6881c"} defaultMessage={"Your Item"} />}</p>
                                         </div>
 
                                         <ArrowRight className="h-5 w-5 flex-shrink-0 text-orange-400" />
@@ -188,15 +189,15 @@ export default function TradeIn() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <p className="mt-1 text-[10px] font-bold text-gray-400">{translateTradeText('New Product') || 'New Product'}</p>
+                                            <p className="mt-1 text-[10px] font-bold text-gray-400">{<StableText id={"product.jsx.expression.new.product.1cd24744"} defaultMessage={"New Product"} />}</p>
                                         </div>
 
                                         <div className="min-w-0 flex-1 sm:ml-2">
                                             <p className="truncate text-sm font-bold text-gray-900">{itemTitle} {'->'} {targetTitle}</p>
                                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs sm:gap-3">
-                                                <span className="font-black text-orange-600">{translateTradeText('Trade Value') || 'Trade Value'}: Rs {entry.estimatedValue?.toLocaleString('en-IN')}</span>
+                                                <span className="font-black text-orange-600">{<StableText id={"common.jsx.expression.trade.value.36e7e05f"} defaultMessage={"Trade Value"} />}<StableText id={"common.jsx.text.rs.81723069"} defaultMessage={": Rs"} /> {entry.estimatedValue?.toLocaleString('en-IN')}</span>
                                                 <span className="text-gray-400">|</span>
-                                                <span className="font-bold text-green-600">{translateTradeText('You Pay') || 'You Pay'}: Rs {(entry.targetProduct?.price - entry.estimatedValue)?.toLocaleString('en-IN')}</span>
+                                                <span className="font-bold text-green-600">{<StableText id={"common.jsx.expression.you.pay.bba5beab"} defaultMessage={"You Pay"} />}<StableText id={"common.jsx.text.rs.81723069"} defaultMessage={": Rs"} /> {(entry.targetProduct?.price - entry.estimatedValue)?.toLocaleString('en-IN')}</span>
                                             </div>
                                             <div className="mt-2 flex items-center gap-2">
                                                 <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusStyle.bg} ${statusStyle.text}`}>

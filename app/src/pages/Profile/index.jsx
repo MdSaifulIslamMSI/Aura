@@ -902,7 +902,11 @@ export default function Profile() {
                             >
                                 <div className="w-32 h-32 rounded-[1.9rem] border border-white/15 bg-white/10 overflow-hidden shadow-[0_24px_60px_rgba(2,8,23,0.32)] backdrop-blur-xl">
                                     {profile?.avatar ? (
-                                        <img src={profile.avatar} alt={`${profileName} avatar`} className="w-full h-full object-cover" />
+                                        <img
+                                            src={profile.avatar}
+                                            alt={t('profile.avatar.alt', { profileName }, '{{profileName}} avatar')}
+                                            className="w-full h-full object-cover"
+                                        />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-4xl font-black text-white">
                                             {initials}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, DownloadCloud, Loader2, RefreshCw, Rocket, X } from 'lucide-react';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 const getDesktopBridge = () => (
   typeof window !== 'undefined' && window.auraDesktop?.isDesktop
@@ -7,49 +8,58 @@ const getDesktopBridge = () => (
     : null
 );
 
-const buildUpdateCopy = (state) => {
+const buildUpdateCopy = (state, intl) => {
   switch (state.type) {
     case 'checking':
       return {
         tone: 'cyan',
         icon: Loader2,
-        title: 'Checking for Aura updates',
-        detail: 'The desktop app is quietly looking for the newest safe release.',
+        title: intl.formatMessage({ id: 'desktopUpdate.checking.title', defaultMessage: 'Checking for Aura updates' }),
+        detail: intl.formatMessage({ id: 'desktopUpdate.checking.detail', defaultMessage: 'The desktop app is quietly looking for the newest safe release.' }),
       };
     case 'available':
       return {
         tone: 'emerald',
         icon: DownloadCloud,
-        title: state.version ? `Aura ${state.version} is downloading` : 'A new Aura update is downloading',
-        detail: 'Keep working. Aura will let you restart as soon as the update is ready.',
+        title: state.version
+          ? intl.formatMessage({ id: 'desktopUpdate.available.versionTitle', defaultMessage: 'Aura {version} is downloading' }, { version: state.version })
+          : intl.formatMessage({ id: 'desktopUpdate.available.title', defaultMessage: 'A new Aura update is downloading' }),
+        detail: intl.formatMessage({ id: 'desktopUpdate.available.detail', defaultMessage: 'Keep working. Aura will let you restart as soon as the update is ready.' }),
       };
     case 'downloading':
       return {
         tone: 'emerald',
         icon: DownloadCloud,
-        title: 'Downloading desktop update',
-        detail: `${Math.max(0, Math.min(100, Math.round(state.percent || 0)))}% complete. The app stays usable while this runs.`,
+        title: intl.formatMessage({ id: 'desktopUpdate.downloading.title', defaultMessage: 'Downloading desktop update' }),
+        detail: intl.formatMessage(
+          { id: 'desktopUpdate.downloading.detail', defaultMessage: '{percent}% complete. The app stays usable while this runs.' },
+          { percent: Math.max(0, Math.min(100, Math.round(state.percent || 0))) }
+        ),
       };
     case 'downloaded':
       return {
         tone: 'emerald',
         icon: Rocket,
-        title: state.version ? `Aura ${state.version} is ready` : 'Aura update is ready',
-        detail: 'Restart now to install it, or it will install automatically when you quit.',
+        title: state.version
+          ? intl.formatMessage({ id: 'desktopUpdate.downloaded.versionTitle', defaultMessage: 'Aura {version} is ready' }, { version: state.version })
+          : intl.formatMessage({ id: 'desktopUpdate.downloaded.title', defaultMessage: 'Aura update is ready' }),
+        detail: intl.formatMessage({ id: 'desktopUpdate.downloaded.detail', defaultMessage: 'Restart now to install it, or it will install automatically when you quit.' }),
       };
     case 'not-available':
       return {
         tone: 'slate',
         icon: CheckCircle2,
-        title: 'Aura desktop is current',
-        detail: state.version ? `You are already on ${state.version}.` : 'No update is needed right now.',
+        title: intl.formatMessage({ id: 'desktopUpdate.current.title', defaultMessage: 'Aura desktop is current' }),
+        detail: state.version
+          ? intl.formatMessage({ id: 'desktopUpdate.current.versionDetail', defaultMessage: 'You are already on {version}.' }, { version: state.version })
+          : intl.formatMessage({ id: 'desktopUpdate.current.detail', defaultMessage: 'No update is needed right now.' }),
       };
     case 'error':
       return {
         tone: 'amber',
         icon: RefreshCw,
-        title: 'Update check needs another try',
-        detail: state.message || 'Aura could not reach the release channel. You can retry from here.',
+        title: intl.formatMessage({ id: 'desktopUpdate.error.title', defaultMessage: 'Update check needs another try' }),
+        detail: state.message || intl.formatMessage({ id: 'desktopUpdate.error.detail', defaultMessage: 'Aura could not reach the release channel. You can retry from here.' }),
       };
     default:
       return null;
@@ -64,6 +74,7 @@ const toneClasses = {
 };
 
 const DesktopUpdateBanner = () => {
+  const intl = useIntl();
   const [updateState, setUpdateState] = useState(null);
   const [dismissedType, setDismissedType] = useState('');
   const desktopBridge = getDesktopBridge();
@@ -83,7 +94,7 @@ const DesktopUpdateBanner = () => {
     return null;
   }
 
-  const copy = buildUpdateCopy(updateState);
+  const copy = buildUpdateCopy(updateState, intl);
   if (!copy) {
     return null;
   }
@@ -101,7 +112,9 @@ const DesktopUpdateBanner = () => {
           <Icon className={`h-5 w-5 ${isChecking ? 'animate-spin' : ''}`} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">Desktop update channel</p>
+          <p className="aura-floating-utility__eyebrow text-[11px] font-black uppercase tracking-[0.22em]">
+            <FormattedMessage id="desktopUpdate.eyebrow" defaultMessage="Desktop update channel" />
+          </p>
           <h2 className="aura-floating-utility__title mt-1 text-base font-black">{copy.title}</h2>
           <p className="aura-floating-utility__detail mt-1 text-sm leading-5">{copy.detail}</p>
 
@@ -112,7 +125,7 @@ const DesktopUpdateBanner = () => {
                 onClick={() => desktopBridge.installUpdateNow?.()}
                 className="aura-update-banner__primary inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition-transform hover:scale-[1.02]"
               >
-                Restart and update
+                <FormattedMessage id="desktopUpdate.restartAndUpdate" defaultMessage="Restart and update" />
               </button>
             ) : null}
             {updateState.type === 'error' || isTransient ? (
@@ -121,7 +134,7 @@ const DesktopUpdateBanner = () => {
                 onClick={() => desktopBridge.checkForUpdates?.()}
                 className="aura-update-banner__secondary inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors"
               >
-                Check again
+                <FormattedMessage id="desktopUpdate.checkAgain" defaultMessage="Check again" />
               </button>
             ) : null}
             <button
@@ -129,13 +142,13 @@ const DesktopUpdateBanner = () => {
               onClick={() => setDismissedType(updateState.type)}
               className="aura-update-banner__secondary inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition-colors"
             >
-              Later
+              <FormattedMessage id="desktopUpdate.later" defaultMessage="Later" />
             </button>
           </div>
         </div>
         <button
           type="button"
-          aria-label="Dismiss desktop update notice"
+          aria-label={intl.formatMessage({ id: 'desktopUpdate.dismiss.ariaLabel', defaultMessage: 'Dismiss desktop update notice' })}
           onClick={() => setDismissedType(updateState.type)}
           className="aura-update-banner__secondary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors"
         >

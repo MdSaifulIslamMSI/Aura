@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useIntl } from 'react-intl';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { useSocketDemand } from './SocketContext';
@@ -284,6 +285,7 @@ const collectRemoteTracks = (room, trackApi) => {
 };
 
 export const VideoCallProvider = ({ children }) => {
+    const intl = useIntl();
     const { currentUser, profile, roles } = useAuth();
     const socketContext = useSocketDemand('video-calls-global', Boolean(currentUser));
     const { socket } = socketContext || {};
@@ -548,13 +550,19 @@ export const VideoCallProvider = ({ children }) => {
 
     const toggleScreenShare = async () => {
         if (!canUseScreenShareInBrowser()) {
-            toast.error('Screen sharing is available on desktop browsers only right now.');
+            toast.error(intl.formatMessage({
+                id: 'common.feedback.screen.sharing.is.available.on.desktop.browsers',
+                defaultMessage: 'Screen sharing is available on desktop browsers only right now.',
+            }));
             return false;
         }
 
         const room = supportRoomRef.current;
         if (!room || typeof room.localParticipant?.setScreenShareEnabled !== 'function') {
-            toast.error('Screen sharing is not available in this call yet.');
+            toast.error(intl.formatMessage({
+                id: 'common.feedback.screen.sharing.is.not.available.in.this',
+                defaultMessage: 'Screen sharing is not available in this call yet.',
+            }));
             return false;
         }
 
@@ -998,20 +1006,29 @@ export const VideoCallProvider = ({ children }) => {
         }
 
         if (normalizeLiveCallMediaMode(callContextRef.current?.mediaMode) !== 'video') {
-            toast.error('Camera switching is available during video calls only.');
+            toast.error(intl.formatMessage({
+                id: 'common.feedback.camera.switching.is.available.during.video.calls',
+                defaultMessage: 'Camera switching is available during video calls only.',
+            }));
             return false;
         }
 
         const room = supportRoomRef.current;
         if (!room || typeof room.switchActiveDevice !== 'function') {
-            toast.error('Camera switching is not available in this call yet.');
+            toast.error(intl.formatMessage({
+                id: 'common.feedback.camera.switching.is.not.available.in.this',
+                defaultMessage: 'Camera switching is not available in this call yet.',
+            }));
             return false;
         }
 
         const devices = await refreshVideoInputDevices();
         const nextDevices = Array.isArray(devices) && devices.length > 0 ? devices : videoInputDevices;
         if (nextDevices.length < 2) {
-            toast.error('Connect another camera to switch video input.');
+            toast.error(intl.formatMessage({
+                id: 'common.feedback.connect.another.camera.to.switch.video.input',
+                defaultMessage: 'Connect another camera to switch video input.',
+            }));
             return false;
         }
 
@@ -1033,7 +1050,15 @@ export const VideoCallProvider = ({ children }) => {
             const liveKitApi = await loadLiveKitModule();
             await syncSupportRoomState(room, liveKitApi.Track);
             await refreshVideoInputDevices();
-            toast.success(`Switched to ${nextDevice.label || 'next camera'}`);
+            toast.success(intl.formatMessage({
+                id: 'common.feedback.switched.to',
+                defaultMessage: 'Switched to {label}',
+            }, {
+                label: nextDevice.label || intl.formatMessage({
+                    id: 'common.feedback.next.camera',
+                    defaultMessage: 'next camera',
+                }),
+            }));
             return true;
         } catch (error) {
             console.error('LiveKit: Failed to switch camera', error);
@@ -1042,7 +1067,7 @@ export const VideoCallProvider = ({ children }) => {
         } finally {
             setSwitchingCamera(false);
         }
-    }, [activeVideoInputId, refreshVideoInputDevices, switchingCamera, videoInputDevices]);
+    }, [activeVideoInputId, intl, refreshVideoInputDevices, switchingCamera, videoInputDevices]);
 
     useEffect(() => {
         if (!currentUser || typeof window === 'undefined') {
@@ -1099,7 +1124,10 @@ export const VideoCallProvider = ({ children }) => {
             }
 
             if (incomingCallDisposition === 'busy') {
-                toast.warning('Another live call reached you while you were already on one, so it was declined.');
+                toast.warning(intl.formatMessage({
+                    id: 'common.feedback.another.live.call.reached.you.while.you',
+                    defaultMessage: 'Another live call reached you while you were already on one, so it was declined.',
+                }));
                 void endLiveKitSessionForContext(nextContext, {
                     reason: 'declined',
                 }).catch(() => null);
@@ -1154,7 +1182,7 @@ export const VideoCallProvider = ({ children }) => {
             socket.off('listing:video:incoming', handleIncoming);
             socket.off('listing:video:terminated', handleSupportTerminated);
         };
-    }, [socket]);
+    }, [intl, socket]);
 
     const callMetaValue = useMemo(() => ({
         roomConnectionState,

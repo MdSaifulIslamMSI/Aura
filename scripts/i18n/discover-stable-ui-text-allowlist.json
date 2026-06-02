@@ -10,6 +10,24 @@
       "text": "Aura Marketplace",
       "classification": "static-seo-follow-up",
       "reason": "Document title is static shell metadata; locale-aware HTML metadata needs a separate static/SEO strategy."
+    },
+    {
+      "file": "server/services/email/activityEmailService.js",
+      "text": "Refund Request Submitted",
+      "classification": "server-email-template-follow-up",
+      "reason": "Transactional email templates are rendered in the Node server path, which does not yet have recipient-locale catalog binding; tracked in docs/i18n-static-template-coverage.md."
+    },
+    {
+      "file": "server/services/email/activityEmailService.js",
+      "text": "A refund request was created from your post-purchase command center.",
+      "classification": "server-email-template-follow-up",
+      "reason": "Transactional email templates are rendered in the Node server path, which does not yet have recipient-locale catalog binding; tracked in docs/i18n-static-template-coverage.md."
+    },
+    {
+      "file": "server/services/email/templates/otpTemplate.js",
+      "text": "Payment Security Challenge",
+      "classification": "server-email-template-follow-up",
+      "reason": "OTP email templates are rendered in the Node server path, which does not yet have recipient-locale catalog binding; tracked in docs/i18n-static-template-coverage.md."
     }
   ]
 }

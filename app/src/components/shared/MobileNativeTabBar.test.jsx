@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { IntlProvider } from 'react-intl';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 
@@ -20,11 +21,13 @@ const renderTabBar = ({
   initialEntry = '/',
 } = {}) => render(
   <MemoryRouter initialEntries={[initialEntry]}>
-    <AuthContext.Provider value={{ currentUser }}>
-      <CartContext.Provider value={{ cartItems }}>
-        <MobileNativeTabBar />
-      </CartContext.Provider>
-    </AuthContext.Provider>
+    <IntlProvider locale="en" messages={{}}>
+      <AuthContext.Provider value={{ currentUser }}>
+        <CartContext.Provider value={{ cartItems }}>
+          <MobileNativeTabBar />
+        </CartContext.Provider>
+      </AuthContext.Provider>
+    </IntlProvider>
   </MemoryRouter>
 );
 

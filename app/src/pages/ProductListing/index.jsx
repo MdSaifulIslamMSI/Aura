@@ -32,6 +32,7 @@ import { useMarket } from '@/context/MarketContext';
 import { formatPrice } from '@/utils/format';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+import { StableText } from '@/i18n/StableText';
 const SORT_OPTIONS = new Set(['relevance', 'price-asc', 'price-desc', 'newest', 'rating', 'discount']);
 const DEFAULT_MIN_PRICE = 0;
 const DEFAULT_MAX_PRICE = 200000;
@@ -397,7 +398,10 @@ const ProductListing = () => {
       setProducts([]);
       setTotalProducts(0);
       setFetchErrorReference(getErrorReference(error));
-      setFetchError(resolveProductListingFetchCopy(error));
+      setFetchError(resolveProductListingFetchCopy(
+        error,
+        (descriptor, values) => t(descriptor.id, values, descriptor.defaultMessage)
+      ));
     } finally {
       if (!signal?.aborted && activeRequestRef.current === requestId) {
         setLoading(false);
@@ -538,7 +542,7 @@ const ProductListing = () => {
       {showMobileFilters && (
         <button
           type="button"
-          aria-label="Close filters backdrop"
+          aria-label={t('filters.closeBackdrop.ariaLabel', {}, 'Close filters backdrop')}
           className="fixed inset-0 bg-black/60 z-30 lg:hidden"
           onClick={() => setShowMobileFilters(false)}
         />
@@ -685,7 +689,7 @@ const ProductListing = () => {
               ) : null}
               {fetchErrorReference ? (
                 <p className="mb-6 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  Debug Ref {fetchErrorReference}
+                  <StableText id={"seller.jsx.text.debug.ref.9ab68032"} defaultMessage={"Debug Ref"} /> {fetchErrorReference}
                 </p>
               ) : null}
               <div className="flex flex-wrap items-center justify-center gap-3">

@@ -1,5 +1,6 @@
 import { useContext, useMemo } from 'react';
 import { LifeBuoy, ShieldAlert } from 'lucide-react';
+import { useIntl } from 'react-intl';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -64,6 +65,7 @@ const shouldHideSupportLauncher = (pathname = '/', search = '') => {
 const shouldUseCompactLauncher = (pathname = '/') => pathname.startsWith('/product/');
 
 const GlobalSupportLauncher = () => {
+    const intl = useIntl();
     const navigate = useNavigate();
     const location = useLocation();
     const { currentUser } = useContext(AuthContext);
@@ -77,11 +79,18 @@ const GlobalSupportLauncher = () => {
     const isAuthenticated = Boolean(currentUser);
     const isLoginRoute = location.pathname === '/login';
     const useCompactLauncher = shouldUseCompactLauncher(location.pathname) || isLoginRoute;
-    const eyebrow = isAuthenticated ? 'Need help now?' : (isLoginRoute ? 'Blocked account?' : 'Need admin help?');
-    const title = isAuthenticated ? 'Chat, voice, video support' : 'Sign in for support';
+    const ariaLabel = intl.formatMessage({ id: 'supportLauncher.talkToAdminSupport.ariaLabel', defaultMessage: 'Talk to admin support' });
+    const eyebrow = isAuthenticated
+        ? intl.formatMessage({ id: 'supportLauncher.authenticated.eyebrow', defaultMessage: 'Need help now?' })
+        : (isLoginRoute
+            ? intl.formatMessage({ id: 'supportLauncher.login.eyebrow', defaultMessage: 'Blocked account?' })
+            : intl.formatMessage({ id: 'supportLauncher.guest.eyebrow', defaultMessage: 'Need admin help?' }));
+    const title = isAuthenticated
+        ? intl.formatMessage({ id: 'supportLauncher.authenticated.title', defaultMessage: 'Chat, voice, video support' })
+        : intl.formatMessage({ id: 'supportLauncher.guest.title', defaultMessage: 'Sign in for support' });
     const detail = isAuthenticated
-        ? 'Open the support desk for issues, appeals, refunds, or account problems with one thread that can escalate into voice or video.'
-        : 'Keep your sign-in flow pointed at the support desk so a suspension or warning is not a dead end.';
+        ? intl.formatMessage({ id: 'supportLauncher.authenticated.detail', defaultMessage: 'Open the support desk for issues, appeals, refunds, or account problems with one thread that can escalate into voice or video.' })
+        : intl.formatMessage({ id: 'supportLauncher.guest.detail', defaultMessage: 'Keep your sign-in flow pointed at the support desk so a suspension or warning is not a dead end.' });
 
     const handleOpenSupport = () => {
         if (isAuthenticated) {
@@ -103,7 +112,7 @@ const GlobalSupportLauncher = () => {
                     type="button"
                     onClick={handleOpenSupport}
                     className="aura-support-launcher aura-floating-utility aura-floating-utility--support fixed bottom-[calc(5.9rem+env(safe-area-inset-bottom))] left-4 z-[71] flex h-14 w-14 items-center justify-center rounded-full border text-slate-50 transition-transform duration-200 hover:-translate-y-1 sm:hidden"
-                    aria-label="Talk to admin support"
+                    aria-label={ariaLabel}
                     title={title}
                 >
                     {isAuthenticated ? <LifeBuoy className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
@@ -113,7 +122,7 @@ const GlobalSupportLauncher = () => {
                     type="button"
                     onClick={handleOpenSupport}
                     className="aura-support-launcher aura-floating-utility aura-floating-utility--support fixed bottom-6 left-6 z-[71] hidden items-center gap-3 rounded-full border px-3 py-3 text-left text-slate-50 transition-transform duration-200 hover:-translate-y-1 sm:flex"
-                    aria-label="Talk to admin support"
+                    aria-label={ariaLabel}
                 >
                     <div className="aura-floating-utility__icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full border">
                         {isAuthenticated ? <LifeBuoy className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
@@ -135,7 +144,7 @@ const GlobalSupportLauncher = () => {
             type="button"
             onClick={handleOpenSupport}
             className="aura-support-launcher aura-floating-utility aura-floating-utility--support fixed bottom-4 left-4 z-[71] flex items-center gap-3 rounded-full border px-3 py-3 text-left text-slate-50 transition-transform duration-200 hover:-translate-y-1 sm:bottom-6 sm:left-6"
-            aria-label="Talk to admin support"
+            aria-label={ariaLabel}
         >
             <div className="aura-floating-utility__icon flex h-11 w-11 shrink-0 items-center justify-center rounded-full border">
                 {isAuthenticated ? <LifeBuoy className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}

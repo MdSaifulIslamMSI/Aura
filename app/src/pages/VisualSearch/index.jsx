@@ -15,11 +15,13 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { productApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { formatBasePrice, formatEntityPrice } from '@/utils/pricing';
 import { toSafePreviewImage } from '@/utils/visualSearchPreview';
 
+import { StableText } from '@/i18n/StableText';
 const QUICK_HINTS = [
   'iPhone 15 Pro Max titanium',
   'gaming laptop rtx',
@@ -119,7 +121,8 @@ const formatSize = (sizeBytes = 0) => {
 
 const VisualSearch = () => {
   const navigate = useNavigate();
-  const { formatPrice } = useMarket();
+  const { formatPrice, t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const [searchParams] = useSearchParams();
   const bootstrappedFromQueryRef = useRef(false);
   const fileInputRef = useRef(null);
@@ -159,7 +162,7 @@ const VisualSearch = () => {
   const applyImageFile = useCallback(async (file, source = 'upload') => {
     if (!file) return;
     if (!ALLOWED_IMAGE_MIME_TYPES.has(String(file.type || '').toLowerCase())) {
-      setError('Only PNG, JPEG, GIF, and WebP image files are supported for visual search.');
+      setError(t('visualSearch.error.unsupportedImageType', {}, 'Only PNG, JPEG, GIF, and WebP image files are supported for visual search.'));
       return;
     }
 
@@ -198,7 +201,7 @@ const VisualSearch = () => {
         .trim()
         .slice(0, 180);
     });
-  }, []);
+  }, [t]);
 
   const runSearchWithPayload = async ({
     incomingUrl = imageUrl,
@@ -217,7 +220,7 @@ const VisualSearch = () => {
       || (cleanedImageDataUrl ? { source: 'upload' } : (cleanedUrl ? { source: 'url' } : undefined));
 
     if (!cleanedUrl && !cleanedImageDataUrl && !cleanedHints && !cleanedFileName && !metadata) {
-      setError('Provide image URL, uploaded screenshot, filename, or hint text.');
+      setError(t('visualSearch.error.missingInput', {}, 'Provide image URL, uploaded screenshot, filename, or hint text.'));
       return;
     }
 
@@ -268,7 +271,7 @@ const VisualSearch = () => {
       .slice(0, 4);
 
     if (ids.length < 2) {
-      setError('Need at least 2 matched products to open AI Compare.');
+      setError(t('visualSearch.error.compareNeedsMatches', {}, 'Need at least 2 matched products to open AI Compare.'));
       return;
     }
 
@@ -327,11 +330,11 @@ const VisualSearch = () => {
     <div className="visual-search-theme-shell container-custom max-w-7xl mx-auto px-4 py-8 min-h-screen">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold">Search Lab</p>
-          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">Visual Search Pro</h1>
-          <p className="text-slate-400 mt-2">Upload or paste a screenshot, then rank closest products with price-gap and authenticity hints.</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-neo-cyan font-bold"><StableText id={"search.jsx.text.search.lab.da423c24"} defaultMessage={"Search Lab"} /></p>
+          <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight"><StableText id={"search.jsx.text.visual.search.pro.bca7ad0b"} defaultMessage={"Visual Search Pro"} /></h1>
+          <p className="text-slate-400 mt-2"><StableText id={"auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df"} defaultMessage={"Upload or paste a screenshot, then rank closest products with price-gap and authenticity hints."} /></p>
         </div>
-        <Link to="/compare" className="btn-secondary text-xs uppercase tracking-widest">Open AI Compare</Link>
+        <Link to="/compare" className="btn-secondary text-xs uppercase tracking-widest"><StableText id={"search.jsx.text.open.ai.compare.44e05796"} defaultMessage={"Open AI Compare"} /></Link>
       </div>
 
       <div className="grid lg:grid-cols-12 gap-6">
@@ -339,12 +342,12 @@ const VisualSearch = () => {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2 mb-4">
               <Camera className="w-4 h-4 text-neo-cyan" />
-              Search Input
+              <StableText id={"search.jsx.text.search.input.bf54e1ea"} defaultMessage={"Search Input"} />
             </h2>
 
             <div className="space-y-3">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                Upload / Screenshot
+                <StableText id={"search.jsx.text.upload.screenshot.5f2083fa"} defaultMessage={"Upload / Screenshot"} />
                 <div className="mt-1.5 rounded-xl border border-dashed border-white/20 bg-zinc-950/70 p-3">
                   <input
                     ref={fileInputRef}
@@ -360,7 +363,7 @@ const VisualSearch = () => {
                       className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold text-white hover:border-neo-cyan/45 hover:text-neo-cyan transition-colors"
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      Choose Image
+                      <StableText id={"search.jsx.text.choose.image.15fa1bac"} defaultMessage={"Choose Image"} />
                     </button>
                     {uploadedPreview && (
                       <button
@@ -369,13 +372,13 @@ const VisualSearch = () => {
                         className="inline-flex items-center gap-1 rounded-lg border border-neo-rose/35 bg-neo-rose/10 px-2.5 py-1.5 text-[11px] font-bold text-neo-rose"
                       >
                         <XCircle className="w-3.5 h-3.5" />
-                        Clear Upload
+                        <StableText id={"search.jsx.text.clear.upload.75485bae"} defaultMessage={"Clear Upload"} />
                       </button>
                     )}
                   </div>
                   <p className="mt-2 text-[11px] text-slate-400 inline-flex items-center gap-1.5">
                     <ClipboardPaste className="w-3.5 h-3.5 text-neo-cyan" />
-                    Paste screenshot with Ctrl+V anywhere on this page.
+                    <StableText id={"search.jsx.text.paste.screenshot.with.ctrl.v.anywhere.on.ce44511e"} defaultMessage={"Paste screenshot with Ctrl+V anywhere on this page."} />
                   </p>
                   {imageMeta && (
                     <p className="mt-1.5 text-[11px] text-slate-500">
@@ -409,7 +412,7 @@ const VisualSearch = () => {
               </label>
 
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                File Name (optional)
+                <StableText id={"search.jsx.text.file.name.optional.ac353e76"} defaultMessage={"File Name (optional)"} />
                 <input
                   type="text"
                   value={fileName}
@@ -420,7 +423,7 @@ const VisualSearch = () => {
               </label>
 
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                Hints
+                <StableText id={"search.jsx.text.hints.18758c62"} defaultMessage={"Hints"} />
                 <textarea
                   value={hints}
                   onChange={(event) => setHints(event.target.value)}
@@ -431,7 +434,7 @@ const VisualSearch = () => {
               </label>
 
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                Max Matches
+                <StableText id={"search.jsx.text.max.matches.1860e29d"} defaultMessage={"Max Matches"} />
                 <input
                   type="range"
                   min={4}
@@ -453,13 +456,13 @@ const VisualSearch = () => {
             >
               <span className="inline-flex items-center gap-2 justify-center">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                {loading ? 'Scanning Catalog...' : 'Run Visual Search'}
+                {loading ? <StableText id={"search.jsx.expression.scanning.catalog.f1f44d07"} defaultMessage={"Scanning Catalog..."} /> : <StableText id={"search.jsx.expression.run.visual.search.db1e93fa"} defaultMessage={"Run Visual Search"} />}
               </span>
             </button>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h3 className="text-xs font-black uppercase tracking-[0.18em] text-slate-300 mb-3">Quick Hints</h3>
+            <h3 className="text-xs font-black uppercase tracking-[0.18em] text-slate-300 mb-3"><StableText id={"search.jsx.text.quick.hints.30e95fa8"} defaultMessage={"Quick Hints"} /></h3>
             <div className="flex flex-wrap gap-2">
               {QUICK_HINTS.map((hint) => (
                 <button
@@ -481,9 +484,9 @@ const VisualSearch = () => {
               <div>
                 <h2 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-neo-cyan" />
-                  Match Intelligence
+                  <StableText id={"search.jsx.text.match.intelligence.74bc104f"} defaultMessage={"Match Intelligence"} />
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">{total} matched product{total === 1 ? '' : 's'} from live catalog.</p>
+                <p className="text-xs text-slate-400 mt-1">{total} <StableText id={"product.jsx.text.matched.product.8b686b00"} defaultMessage={"matched product"} />{total === 1 ? '' : 's'} <StableText id={"search.jsx.text.from.live.catalog.8df55cd8"} defaultMessage={"from live catalog."} /></p>
               </div>
               <button
                 type="button"
@@ -493,7 +496,7 @@ const VisualSearch = () => {
               >
                 <span className="inline-flex items-center gap-2">
                   <Brain className="w-4 h-4" />
-                  Compare Top Matches
+                  <StableText id={"search.jsx.text.compare.top.matches.4555d135"} defaultMessage={"Compare Top Matches"} />
                 </span>
               </button>
             </div>
@@ -501,19 +504,19 @@ const VisualSearch = () => {
             {marketSnapshot && (
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
                 <div className="rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Median</p>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500"><StableText id={"search.jsx.text.median.1e89a3f6"} defaultMessage={"Median"} /></p>
                   <p className="text-sm font-black text-white">{formatBrowseAmount(marketSnapshot.medianMatchPrice || 0)}</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Lowest</p>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500"><StableText id={"search.jsx.text.lowest.05ec1fbb"} defaultMessage={"Lowest"} /></p>
                   <p className="text-sm font-black text-neo-emerald">{formatBrowseAmount(marketSnapshot.minMatchPrice || 0)}</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Highest</p>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500"><StableText id={"search.jsx.text.highest.62013f0d"} defaultMessage={"Highest"} /></p>
                   <p className="text-sm font-black text-neo-rose">{formatBrowseAmount(marketSnapshot.maxMatchPrice || 0)}</p>
                 </div>
                 <div className="rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Sample</p>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500"><StableText id={"search.jsx.text.sample.9f86bc7f"} defaultMessage={"Sample"} /></p>
                   <p className="text-sm font-black text-white">{Number(marketSnapshot.sampleSize || 0)}</p>
                 </div>
               </div>
@@ -523,10 +526,10 @@ const VisualSearch = () => {
               <div className="mt-4 rounded-xl border border-white/10 bg-zinc-950/60 p-3">
                 <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-bold text-neo-cyan">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  Scan Signals
+                  <StableText id={"search.jsx.text.scan.signals.abc546d3"} defaultMessage={"Scan Signals"} />
                 </div>
                 {derivedKeyword && (
-                  <p className="text-xs text-slate-300 mt-2">Derived keyword: <span className="text-white font-semibold">{derivedKeyword}</span></p>
+                  <p className="text-xs text-slate-300 mt-2"><StableText id={"search.jsx.text.derived.keyword.eb081899"} defaultMessage={"Derived keyword:"} /> <span className="text-white font-semibold">{derivedKeyword}</span></p>
                 )}
                 {tokens.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -542,10 +545,10 @@ const VisualSearch = () => {
 
             {previewImage && (
               <div className="mt-4 rounded-xl border border-white/10 bg-zinc-950/60 p-3">
-                <p className="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-2">Input Preview</p>
+                <p className="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-2"><StableText id={"search.jsx.text.input.preview.deada035"} defaultMessage={"Input Preview"} /></p>
                 <img
                   src={previewImage}
-                  alt="Visual search input"
+                  alt={t('visualSearch.inputPreview.alt', {}, 'Visual search input')}
                   className="h-40 w-full object-contain rounded-lg border border-white/10 bg-zinc-900"
                   loading="lazy"
                 />
@@ -578,7 +581,7 @@ const VisualSearch = () => {
                     {image ? (
                       <img src={image} alt={product.title} className="w-full h-full object-contain" loading="lazy" />
                     ) : (
-                      <div className="text-slate-500 text-sm">No image</div>
+                      <div className="text-slate-500 text-sm"><StableText id={"search.jsx.text.no.image.dd0e0b47"} defaultMessage={"No image"} /></div>
                     )}
                   </div>
 
@@ -618,8 +621,8 @@ const VisualSearch = () => {
 
           {!loading && matches.length === 0 && !error && (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
-              <p className="text-lg font-black text-white">No matches yet</p>
-              <p className="text-sm text-slate-400 mt-2">Upload/paste a cleaner image or add specific hints (brand + model + category).</p>
+              <p className="text-lg font-black text-white"><StableText id={"search.jsx.text.no.matches.yet.71b37d2b"} defaultMessage={"No matches yet"} /></p>
+              <p className="text-sm text-slate-400 mt-2"><StableText id={"search.jsx.text.upload.paste.a.cleaner.image.or.add.6c3cc76a"} defaultMessage={"Upload/paste a cleaner image or add specific hints (brand + model + category)."} /></p>
             </div>
           )}
         </section>

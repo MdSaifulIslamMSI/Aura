@@ -217,6 +217,7 @@ const isInsideExistingIcu = (pathRef) => {
     const jsxOpening = pathRef.findParent((candidate) => candidate.isJSXOpeningElement());
     const tagName = keyName(jsxOpening?.node?.name);
     if (tagName === 'FormattedMessage') return true;
+    if (tagName === 'StableText') return true;
 
     const file = normalizePath(pathRef.hub?.file?.opts?.filename || '');
     return file.includes('app/src/i18n/');
@@ -238,6 +239,21 @@ const visibleLowercaseWords = new Set(['all', 'no', 'off', 'ok', 'on', 'yes']);
 const isLikelyNonHumanText = (text) => {
     if (!text || text.length < 2) return true;
     if (!/[A-Za-z\u0600-\u06FF\u0900-\u097F\u0980-\u09FF]/.test(text)) return true;
+    if (/^(?:Apple|Facebook|GitHub|Google|Instagram|Microsoft|Stripe|Twitter|YouTube|Aura|X)$/i.test(text)) return true;
+    if (/^n\/a$/i.test(text)) return true;
+    if (/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/i.test(text)) return true;
+    if (/^\d{5,}$/.test(text.replace(/\s+/g, ''))) return true;
+    if (/^\(\{[A-Za-z_][A-Za-z0-9_]*\}\)$/.test(text)) return true;
+    if (/^["']?\{[A-Za-z_][A-Za-z0-9_]*\}["']?[.!?]?$/.test(text)) return true;
+    if (/^[\-|·]\s*\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(text)) return true;
+    if (/^·\s*\{[A-Za-z_][A-Za-z0-9_]*\}x\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(text)) return true;
+    if (/^\{[A-Za-z_][A-Za-z0-9_]*\}\+$/.test(text)) return true;
+    if (/^\{[A-Za-z_][A-Za-z0-9_]*\}%\+$/.test(text)) return true;
+    if (/^\{[A-Za-z_][A-Za-z0-9_]*\}(?:\s*[-:|/x]\s*\{[A-Za-z_][A-Za-z0-9_]*\})+$/.test(text)) return true;
+    if (/^\{[A-Za-z_][A-Za-z0-9_]*\}(?:\/5|%| ms)?$/i.test(text)) return true;
+    if (/^(?:[A-Za-z]+:)?\/[A-Za-z0-9/_{}:.-]+$/.test(text)) return true;
+    if (/\b(?:bg|border|text|hover|from|to|shadow|ring|rounded)-[A-Za-z0-9/:[\].%-]+/.test(text)) return true;
+    if (/^(COD|EMI|INR|UPI|USD)$/i.test(text)) return true;
     if (/^https?:\/\//i.test(text) || /^mailto:/i.test(text) || /^tel:/i.test(text)) return true;
     if (/^\/[A-Za-z0-9/_:.-]+$/.test(text)) return true;
     if (/^\d+\s?(ms|s|sec|secs|min|mins|h|hr|hrs|d|day|days)$/i.test(text)) return true;
@@ -369,6 +385,13 @@ const classifyCandidate = ({ file, text, context, detectionKind, propName, pathR
             classification: 'existing-icu-text',
             excluded: true,
             reason: 'String belongs to an ICU/FormatJS descriptor or stable ICU lookup fallback.',
+        };
+    }
+    if (file.startsWith('server/services/email/')) {
+        return {
+            classification: 'server-email-template-follow-up',
+            excluded: true,
+            reason: 'Server transactional email templates are user-visible, but this Node path has no recipient-locale catalog binding yet; tracked in docs/i18n-static-template-coverage.md.',
         };
     }
     if (propName && ['aria-label', 'aria-description', 'aria-roledescription', 'alt', 'title'].includes(propName)) {
@@ -843,9 +866,7 @@ if (parseErrors.length > 0) {
 
 if (checkMode) {
     const blocking = stableCandidates.filter((candidate) => (
-        candidate.risk === 'high'
-        || candidate.classification === 'stable-accessibility-text'
-        || candidate.classification === 'stable-validation-toast-text'
+        !candidate.alreadyCoveredByIcu
     ));
     if (blocking.length > 0) {
         console.error(`Stable UI text discovery guard failed with ${blocking.length} blocking candidates.`);

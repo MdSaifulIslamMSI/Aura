@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
 import { AuthContext } from '@/context/AuthContext';
 import { emergencyApi } from '@/services/api';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 const CONFIRMATION_KEYS = new Set(['GLOBAL_MAINTENANCE', 'READ_ONLY_MODE', 'FORCE_LOGOUT_ALL_USERS']);
 const DEFAULT_MESSAGES = {
@@ -27,6 +27,7 @@ const fromLocalInputValue = (value = '') => {
 };
 
 const EmergencyControls = () => {
+    const intl = useIntl();
     const { dbUser, roles } = useContext(AuthContext) || {};
     const [flags, setFlags] = useState([]);
     const [auditLogs, setAuditLogs] = useState([]);
@@ -91,20 +92,32 @@ const EmergencyControls = () => {
                     noExpiryConfirmed,
                     confirmationPhrase,
                 });
-                toast.success(`${selectedKey} activated`);
+                toast.success(intl.formatMessage(
+                    { id: 'admin.feedback.activated', defaultMessage: '{selectedKey} activated' },
+                    { selectedKey },
+                ));
             } else if (action === 'deactivate') {
                 await emergencyApi.deactivate(selectedKey, { reason, confirmationPhrase });
-                toast.success(`${selectedKey} deactivated`);
+                toast.success(intl.formatMessage(
+                    { id: 'admin.feedback.deactivated', defaultMessage: '{selectedKey} deactivated' },
+                    { selectedKey },
+                ));
             } else if (action === 'extend') {
                 await emergencyApi.extend(selectedKey, {
                     reason,
                     expiresAt: fromLocalInputValue(expiresAt),
                     confirmationPhrase,
                 });
-                toast.success(`${selectedKey} expiry extended`);
+                toast.success(intl.formatMessage(
+                    { id: 'admin.feedback.expiry.extended', defaultMessage: '{selectedKey} expiry extended' },
+                    { selectedKey },
+                ));
             } else if (action === 'message') {
                 await emergencyApi.updateMessage(selectedKey, { reason, userMessage });
-                toast.success(`${selectedKey} message updated`);
+                toast.success(intl.formatMessage(
+                    { id: 'admin.feedback.message.updated', defaultMessage: '{selectedKey} message updated' },
+                    { selectedKey },
+                ));
             }
             setReason('');
             await loadControls();
@@ -189,7 +202,7 @@ const EmergencyControls = () => {
                     <label className="grid gap-2 text-sm font-semibold text-slate-200"><FormattedMessage id="admin.jsx.text.internal.reason" defaultMessage="Internal reason" /><textarea value={reason} onChange={(event) => setReason(event.target.value)} className="checkout-premium-input min-h-24" />
                     </label>
                     {CONFIRMATION_KEYS.has(selectedKey) ? (
-                        <label className="grid gap-2 text-sm font-semibold text-slate-200"><FormattedMessage id="admin.jsx.text.confirmation.phrase" defaultMessage="Confirmation phrase" /><input value={confirmationPhrase} onChange={(event) => setConfirmationPhrase(event.target.value)} className="checkout-premium-input" placeholder="I UNDERSTAND" />
+                        <label className="grid gap-2 text-sm font-semibold text-slate-200"><FormattedMessage id="admin.jsx.text.confirmation.phrase" defaultMessage="Confirmation phrase" /><input value={confirmationPhrase} onChange={(event) => setConfirmationPhrase(event.target.value)} className="checkout-premium-input" placeholder={intl.formatMessage({ id: 'admin.jsx.prop.placeholder.i.understand', defaultMessage: 'I UNDERSTAND' })} />
                         </label>
                     ) : null}
                     <label className="grid gap-2 text-sm font-semibold text-slate-200"><FormattedMessage id="admin.jsx.text.expires.at" defaultMessage="Expires at" /><input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className="checkout-premium-input" disabled={noExpiryConfirmed} />

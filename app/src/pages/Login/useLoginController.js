@@ -18,7 +18,7 @@ import {
   readAuthJourneyDraft,
   writeAuthJourneyDraft,
 } from '@/utils/authAcceleration';
-import { AUTH_SUCCESS, resolveAuthError } from '@/utils/authErrors';
+import { resolveAuthError, resolveAuthSuccess } from '@/utils/authErrors';
 import { resolveFirebasePhoneFallback } from '@/utils/firebasePhoneFallback';
 import { resolveNavigationTarget } from '@/utils/navigation';
 import { verifyCredentialsWithoutSession } from '@/utils/precheckCredentials';
@@ -314,6 +314,9 @@ export const useLoginController = () => {
   const location = useLocation();
   const { countryCode: marketCountryCode, t: legacyT } = useMarket();
   const t = useStableIcuMessages(legacyT);
+  const authAccelerationIntl = useMemo(() => ({
+    formatMessage: (descriptor = {}) => t(descriptor.id, {}, descriptor.defaultMessage || ''),
+  }), [t]);
   const launchMode = resolveLaunchMode(location.state?.authMode);
   const launchPrefill = resolveLaunchPrefill(location.state);
   const {
@@ -418,7 +421,7 @@ export const useLoginController = () => {
     [formData.phone, phoneCountryCode]
   );
 
-  const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr));
+  const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr, t));
   const turnstileEnabled = isTurnstileEnabled();
 
   const completeDesktopBrowserHandoff = useCallback(async ({ firebaseUser = null, isCancelled = () => false } = {}) => {
@@ -492,7 +495,7 @@ export const useLoginController = () => {
     } catch (error) {
       desktopBrowserHandoffCompletedRef.current = '';
       if (!isCancelled()) {
-        setAuthError(resolveAuthError(error));
+        setAuthError(resolveAuthError(error, t));
       }
     } finally {
       if (!isCancelled()) {
@@ -674,7 +677,7 @@ export const useLoginController = () => {
     authAccelerationHydratedRef.current = true;
 
     const storedIdentity = readAuthIdentityMemory();
-    const storedDraft = readAuthJourneyDraft();
+    const storedDraft = readAuthJourneyDraft(authAccelerationIntl);
 
     if (storedIdentity) {
       setIdentityMemory(storedIdentity);
@@ -708,7 +711,7 @@ export const useLoginController = () => {
       setOtpTransport(storedDraft.otpTransport);
       setCountdown(storedDraft.countdown);
     }
-  }, [hasLaunchDirective]);
+  }, [authAccelerationIntl, hasLaunchDirective]);
 
   useEffect(() => () => {
     clearFirebaseChallenge().catch(() => {});
@@ -867,15 +870,15 @@ export const useLoginController = () => {
     fallback = null,
   } = {}) => {
     const modeLabel = mode === 'signup'
-      ? 'account setup'
+      ? t('login.otp.mode.accountSetup', {}, 'account setup')
       : mode === 'forgot-password'
-        ? 'password recovery'
-        : 'sign-in';
+        ? t('login.otp.mode.passwordRecovery', {}, 'password recovery')
+        : t('login.otp.mode.signIn', {}, 'sign-in');
     const phoneOutcome = mode === 'signup'
-      ? 'finish activating your account'
+      ? t('login.otp.phoneOutcome.activateAccount', {}, 'finish activating your account')
       : mode === 'forgot-password'
-        ? 'unlock password reset'
-        : 'finish signing in';
+        ? t('login.otp.phoneOutcome.unlockReset', {}, 'unlock password reset')
+        : t('login.otp.phoneOutcome.finishSignIn', {}, 'finish signing in');
 
     if (fallback) {
       return resend ? fallback.resendSuccess : fallback.success;
@@ -883,34 +886,38 @@ export const useLoginController = () => {
 
     if (stage === OTP_STAGE.EMAIL) {
       return {
-        title: resend ? 'Codes Re-Sent' : 'Email Code Sent',
+        title: resend
+          ? t('login.otp.email.codesResent.title', {}, 'Codes Re-Sent')
+          : t('login.otp.email.codeSent.title', {}, 'Email Code Sent'),
         detail: resend
-          ? `Fresh ${modeLabel} codes were sent. Enter the email code first, then confirm the same flow with Firebase SMS.`
-          : `Your email code is ready. After that, you will confirm the same ${modeLabel} with Firebase SMS on your phone.`,
+          ? t('login.otp.email.codesResent.detail', { mode: modeLabel }, 'Fresh {{mode}} codes were sent. Enter the email code first, then confirm the same flow with Firebase SMS.')
+          : t('login.otp.email.codeSent.detail', { mode: modeLabel }, 'Your email code is ready. After that, you will confirm the same {{mode}} with Firebase SMS on your phone.'),
       };
     }
 
     if (stage === OTP_STAGE.PHONE && transport === OTP_TRANSPORT.FIREBASE_SMS) {
       return {
-        title: 'Email Verified',
-        detail: `Step 1 is complete. Enter the Firebase SMS code sent to your phone to ${phoneOutcome}.`,
+        title: t('login.otp.phone.emailVerified.title', {}, 'Email Verified'),
+        detail: t('login.otp.phone.emailVerified.detail', { outcome: phoneOutcome }, 'Step 1 is complete. Enter the Firebase SMS code sent to your phone to {{outcome}}.'),
       };
     }
 
     if (transport === OTP_TRANSPORT.FIREBASE_SMS) {
       return {
-        title: resend ? 'Firebase Code Re-Sent' : 'Firebase SMS Sent',
+        title: resend
+          ? t('login.otp.firebase.codeResent.title', {}, 'Firebase Code Re-Sent')
+          : t('login.otp.firebase.smsSent.title', {}, 'Firebase SMS Sent'),
         detail: resend
-          ? 'A fresh 6-digit Firebase verification code is on its way to your phone.'
-          : 'A 6-digit Firebase verification code has been sent to your phone.',
+          ? t('login.otp.firebase.codeResent.detail', {}, 'A fresh 6-digit Firebase verification code is on its way to your phone.')
+          : t('login.otp.firebase.smsSent.detail', {}, 'A 6-digit Firebase verification code has been sent to your phone.'),
       };
     }
 
     return {
-      title: 'Check for a Code',
+      title: t('login.otp.backend.checkForCode.title', {}, 'Check for a Code'),
       detail: resend
-        ? 'If the account details are valid, a fresh verification code has been sent.'
-        : 'If the account details are valid, a 6-digit verification code has been sent.',
+        ? t('login.otp.backend.codeResent.detail', {}, 'If the account details are valid, a fresh verification code has been sent.')
+        : t('login.otp.backend.codeSent.detail', {}, 'If the account details are valid, a 6-digit verification code has been sent.'),
     };
   };
 
@@ -1138,7 +1145,7 @@ export const useLoginController = () => {
   const handleVerifyOtp = async () => {
     const otpString = getOtpString();
     if (otpString.length !== OTP_LENGTH) {
-      setErr({ message: 'Enter complete 6-digit OTP' });
+      setErr({ message: t('login.otp.error.incomplete', {}, 'Enter complete 6-digit OTP') });
       return;
     }
 
@@ -1177,7 +1184,7 @@ export const useLoginController = () => {
       if (isPhoneOtpStage) {
         const activeChallenge = firebasePhoneChallengeRef.current;
         if (!activeChallenge) {
-          setErr({ message: 'Secure phone challenge expired. Please request a new code.' });
+          setErr({ message: t('login.otp.error.phoneChallengeExpired', {}, 'Secure phone challenge expired. Please request a new code.') });
           setStep('form');
           return;
         }
@@ -1207,11 +1214,11 @@ export const useLoginController = () => {
         if (mode === 'signin') {
           await finalizePhoneBackedSignIn(email, verifiedPhoneFactor);
           resetOtpFlowState();
-          finishAuthAndNavigate(AUTH_SUCCESS.signin_success);
+          finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
         } else if (mode === 'signup') {
           await signup(email, formData.password, formData.name.trim(), phone);
           resetOtpFlowState();
-          finishAuthAndNavigate(AUTH_SUCCESS.signup_success);
+          finishAuthAndNavigate(resolveAuthSuccess('signup_success', t));
         } else if (mode === 'forgot-password') {
           openResetPasswordStep(
             t(
@@ -1229,7 +1236,7 @@ export const useLoginController = () => {
 
       if (mode === 'signup') {
         await signup(email, formData.password, formData.name.trim(), phone);
-        finishAuthAndNavigate(AUTH_SUCCESS.signup_success);
+        finishAuthAndNavigate(resolveAuthSuccess('signup_success', t));
       } else if (mode === 'signin') {
         const flowToken = String(otpResult?.flowToken || '').trim();
         if (!flowToken) {
@@ -1240,7 +1247,7 @@ export const useLoginController = () => {
           phone,
         });
         resetOtpFlowState();
-        finishAuthAndNavigate(AUTH_SUCCESS.signin_success);
+        finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
       } else if (mode === 'forgot-password') {
         const flowToken = String(otpResult?.flowToken || '').trim();
         if (!flowToken) {
@@ -1309,7 +1316,7 @@ export const useLoginController = () => {
       }
 
       if (mode === 'signin' && !signInProofToken) {
-        setErr({ message: 'Secure sign-in proof expired. Please re-enter credentials.' });
+        setErr({ message: t('login.otp.error.signInProofExpired', {}, 'Secure sign-in proof expired. Please re-enter credentials.') });
         setStep('form');
         return;
       }
@@ -1377,7 +1384,7 @@ export const useLoginController = () => {
       });
       refreshTurnstile();
 
-      setAuthSuccess(AUTH_SUCCESS.password_reset_success);
+      setAuthSuccess(resolveAuthSuccess('password_reset_success', t));
       setTimeout(() => {
         setMode('signin');
         resetToFormStep();
@@ -1670,6 +1677,7 @@ export const useLoginController = () => {
       canUseFirebasePhoneOtp,
       socialAuthSupported: socialAuthStatus.supported,
       fallbackToBackupOtp: Boolean(firebasePhoneFallback?.disableFirebasePhoneOtp || resumeDraft?.fallbackToBackupOtp),
+      intl: authAccelerationIntl,
     });
 
     cards.push({
@@ -1682,6 +1690,7 @@ export const useLoginController = () => {
 
     return cards;
   }, [
+    authAccelerationIntl,
     canUseFirebasePhoneOtp,
     firebasePhoneFallback?.disableFirebasePhoneOtp,
     identityMemory,
@@ -1720,7 +1729,7 @@ export const useLoginController = () => {
         return;
       }
       if (result?.dbUser) {
-        finishAuthAndNavigate(AUTH_SUCCESS.signin_success);
+        finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
       } else {
         navigate(from, { replace: true });
       }
@@ -1748,7 +1757,7 @@ export const useLoginController = () => {
     try {
       const result = await signInWithDesktopBrowser({ returnTo: from });
       if (result?.dbUser) {
-        finishAuthAndNavigate(AUTH_SUCCESS.signin_success);
+        finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
       } else {
         navigate(from, { replace: true });
       }

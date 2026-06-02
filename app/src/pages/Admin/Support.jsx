@@ -672,6 +672,7 @@ export default function AdminSupport() {
                 ticket: activeTicket,
                 activeCallContext,
                 callStatus,
+                t,
             });
         }
 
@@ -679,14 +680,14 @@ export default function AdminSupport() {
             {
                 key: 'chat',
                 icon: 'chat',
-                label: 'Chat intake',
+                label: t('admin.support.timeline.chatIntake.label', {}, 'Chat intake'),
                 state: queueSummary.openTickets > 0 ? 'active' : 'complete',
                 detail: `${queueSummary.openTickets} open tickets are flowing through the durable support thread.`,
             },
             {
                 key: 'voice',
                 icon: 'voice',
-                label: 'Voice escalation',
+                label: t('admin.support.timeline.voiceEscalation.label', {}, 'Voice escalation'),
                 state: queueSummary.voiceLiveCalls > 0 ? 'active' : 'pending',
                 detail: queueSummary.voiceLiveCalls > 0
                     ? `${queueSummary.voiceLiveCalls} voice lanes are active or queued.`
@@ -695,7 +696,7 @@ export default function AdminSupport() {
             {
                 key: 'video',
                 icon: 'video',
-                label: 'Video escalation',
+                label: t('admin.support.timeline.videoEscalation.label', {}, 'Video escalation'),
                 state: queueSummary.videoLiveCalls > 0 ? 'active' : 'pending',
                 detail: queueSummary.videoLiveCalls > 0
                     ? `${queueSummary.videoLiveCalls} video lanes are active or queued.`
@@ -704,7 +705,7 @@ export default function AdminSupport() {
             {
                 key: 'resolution',
                 icon: 'resolution',
-                label: 'Resolution record',
+                label: t('admin.support.timeline.resolutionRecord.label', {}, 'Resolution record'),
                 state: (queueSummary.resolvedTickets + queueSummary.closedTickets) > 0 ? 'complete' : 'active',
                 detail: `${queueSummary.resolvedTickets + queueSummary.closedTickets} tickets already have durable outcomes captured in-thread.`,
             },

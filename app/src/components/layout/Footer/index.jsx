@@ -20,6 +20,7 @@ import { buildSupportHandoffPath } from '@/utils/supportRouting';
 import { formatReleaseBuiltAt, releaseInfo, resolveRuntimeHost } from '@/config/releaseInfo';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+import { StableText } from '@/i18n/StableText';
 const STATUS_CLASSES = {
   healthy: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 shadow-emerald-500/0 hover:shadow-emerald-500/20',
   degraded: 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-amber-500/0 hover:shadow-amber-500/20',
@@ -178,7 +179,7 @@ const Footer = () => {
                   {systemHealthStatus === 'healthy'
                     ? 'Healthy'
                     : systemHealthStatus === 'checking'
-                      ? 'Checking'
+                      ? <StableText id={"common.jsx.expression.checking.20c680de"} defaultMessage={"Checking"} />
                       : 'Degraded'}
                 </p>
               </div>
@@ -187,7 +188,7 @@ const Footer = () => {
                 <p className="text-[10px] uppercase tracking-wider font-bold">{t('footer.paymentSafety', {}, 'Payments Safety')}</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  {paymentSafetyStatus === 'healthy' ? 'Protected' : 'Monitoring'}
+                  {paymentSafetyStatus === 'healthy' ? <StableText id={"common.jsx.expression.protected.ad671e1c"} defaultMessage={"Protected"} /> : 'Monitoring'}
                 </p>
               </div>
 
@@ -195,7 +196,7 @@ const Footer = () => {
                 <p className="text-[10px] uppercase tracking-wider font-bold">{t('footer.emailSecurity', {}, 'Email Security')}</p>
                 <p className="text-sm font-semibold mt-0.5 flex items-center gap-2">
                   <Lock className="w-3.5 h-3.5" />
-                  {emailSecurityStatus === 'healthy' ? 'Strict Active' : 'Syncing'}
+                  {emailSecurityStatus === 'healthy' ? <StableText id={"common.jsx.expression.strict.active.4d8694e8"} defaultMessage={"Strict Active"} /> : <StableText id={"common.jsx.expression.syncing.bf4b60e3"} defaultMessage={"Syncing"} />}
                 </p>
               </div>
             </div>
@@ -272,17 +273,17 @@ const Footer = () => {
               <div className="footer-contact-card">
                 <MapPin className="w-5 h-5 text-neo-cyan flex-shrink-0 mt-1" />
                 <p className="text-sm text-slate-400 leading-relaxed">
-                  Aura Global HQ,
+                  <StableText id={"common.jsx.text.aura.global.hq.a16ecbd5"} defaultMessage={"Aura Global HQ,"} />
                   <br />
-                  Tower 7, Innovation District,
+                  <StableText id={"common.jsx.text.tower.7.innovation.district.9a662aca"} defaultMessage={"Tower 7, Innovation District,"} />
                   <br />
-                  Bangalore, 560001, India
+                  <StableText id={"common.jsx.text.bangalore.560001.india.029e9526"} defaultMessage={"Bangalore, 560001, India"} />
                 </p>
               </div>
               <div className="flex flex-col gap-2">
                 <a href="mailto:support@aura.shop" className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors group">
                   <Mail className="w-5 h-5 text-neo-emerald flex-shrink-0 group-hover:scale-110 transition-transform" />
-                  <span className="text-sm text-slate-400 group-hover:text-white transition-colors">support@aura.shop</span>
+                  <span className="text-sm text-slate-400 group-hover:text-white transition-colors"><StableText id={"support.jsx.text.support.aura.shop.859c28ac"} defaultMessage={"support@aura.shop"} /></span>
                 </a>
                 <a href="tel:1-800-AURA-01" className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors group">
                   <Phone className="w-5 h-5 text-neo-cyan flex-shrink-0 group-hover:scale-110 transition-transform" />
@@ -299,7 +300,7 @@ const Footer = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2 text-sm text-slate-500">
               <span className="text-neo-cyan font-black tracking-widest uppercase text-xs">Aura</span>
-              <span>Copyright {new Date().getFullYear()} {t('footer.rights', {}, 'All Rights Reserved.')}</span>
+              <span><StableText id={"common.jsx.text.copyright.cb65dd27"} defaultMessage={"Copyright"} /> {new Date().getFullYear()} {t('footer.rights', {}, 'All Rights Reserved.')}</span>
             </div>
             <div className="flex flex-col items-center gap-3 md:items-end">
               <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
@@ -308,17 +309,17 @@ const Footer = () => {
                     ? 'border-amber-400/35 bg-amber-500/15 text-amber-100'
                     : 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100'
                 }`}>
-                  Runtime {runtimeHost}
+                  <StableText id={"common.jsx.text.runtime.afc86fdf"} defaultMessage={"Runtime"} /> {runtimeHost}
                 </span>
                 <span className="inline-flex items-center rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">
-                  Target {releaseInfo.deployTarget}
+                  <StableText id={"common.jsx.text.target.7598ea83"} defaultMessage={"Target"} /> {releaseInfo.deployTarget}
                 </span>
                 <span className="inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-3 py-1 font-mono text-[11px] font-semibold text-slate-200">
                   {releaseInfo.id}
                 </span>
               </div>
               <p className="text-center text-[11px] text-slate-500 md:text-right">
-                Built {releaseBuiltAtLabel} · Commit {releaseInfo.shortCommitSha} · Source {releaseInfo.source}
+                <StableText id={"common.jsx.text.built.d5378f24"} defaultMessage={"Built"} /> {releaseBuiltAtLabel} <StableText id={"common.jsx.text.commit.301904c6"} defaultMessage={"· Commit"} /> {releaseInfo.shortCommitSha} <StableText id={"common.jsx.text.source.1a933962"} defaultMessage={"· Source"} /> {releaseInfo.source}
               </p>
               <div className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity duration-300">
                 <div className="h-8 w-12 bg-white/10 rounded-md flex items-center justify-center">

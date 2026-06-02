@@ -1,6 +1,7 @@
 import { useContext, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Search, ShoppingCart, Store, User } from 'lucide-react';
+import { useIntl } from 'react-intl';
 import { AuthContext } from '@/context/AuthContext';
 import { CartContext } from '@/context/CartContext';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ const matchesPath = (pathname, paths = []) => paths.some((path) => {
 });
 
 const MobileNativeTabBar = () => {
+  const intl = useIntl();
   const location = useLocation();
   const { currentUser } = useContext(AuthContext) || {};
   const { cartItems = [] } = useContext(CartContext) || {};
@@ -34,44 +36,49 @@ const MobileNativeTabBar = () => {
 
   const tabs = useMemo(() => [
     {
-      label: 'Home',
+      label: intl.formatMessage({ id: 'mobileTabBar.home', defaultMessage: 'Home' }),
       to: '/',
       icon: Home,
       active: pathname === '/',
     },
     {
-      label: 'Search',
+      label: intl.formatMessage({ id: 'mobileTabBar.search', defaultMessage: 'Search' }),
       to: '/search',
       icon: Search,
       active: matchesPath(pathname, ['/search', '/products', '/category/*', '/deals', '/trending', '/new-arrivals']),
     },
     {
-      label: 'Market',
+      label: intl.formatMessage({ id: 'mobileTabBar.market', defaultMessage: 'Market' }),
       to: '/marketplace',
       icon: Store,
       active: matchesPath(pathname, ['/marketplace', '/listing/*', '/seller/*']),
     },
     {
-      label: 'Cart',
+      label: intl.formatMessage({ id: 'mobileTabBar.cart', defaultMessage: 'Cart' }),
       to: '/cart',
       icon: ShoppingCart,
       active: pathname === '/cart',
       badge: cartItemCount,
     },
     {
-      label: currentUser ? 'Account' : 'Login',
+      label: currentUser
+        ? intl.formatMessage({ id: 'mobileTabBar.account', defaultMessage: 'Account' })
+        : intl.formatMessage({ id: 'mobileTabBar.login', defaultMessage: 'Login' }),
       to: currentUser ? '/profile' : '/login',
       icon: User,
       active: matchesPath(pathname, ['/profile', '/orders', '/wishlist', '/my-listings', '/become-seller', '/sell']),
     },
-  ], [cartItemCount, currentUser, pathname]);
+  ], [cartItemCount, currentUser, intl, pathname]);
 
   if (!isCapacitorNativeRuntime() || shouldHideTabBar(pathname)) {
     return null;
   }
 
   return (
-    <nav className="aura-mobile-tabbar md:hidden" aria-label="Primary mobile app navigation">
+    <nav
+      className="aura-mobile-tabbar md:hidden"
+      aria-label={intl.formatMessage({ id: 'mobileTabBar.primaryNavigation.ariaLabel', defaultMessage: 'Primary mobile app navigation' })}
+    >
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const badge = Number(tab.badge || 0);

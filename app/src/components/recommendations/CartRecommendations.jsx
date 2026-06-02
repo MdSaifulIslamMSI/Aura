@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { recommendationApi } from '@/services/api';
 import ProductCarousel from './ProductCarousel';
 import RecommendationSection from './RecommendationSection';
@@ -34,8 +35,8 @@ const CartRecommendations = ({ cartItems = [], limit = 8, sourcePage = 'cart' })
   return (
     <RecommendationSection
       eyebrow="Cart intelligence"
-      title="Complete Your Cart"
-      description="Add-ons and frequently bought together picks, excluding what is already in your bag."
+      title={<FormattedMessage id="recommendations.cart.title" defaultMessage="Complete Your Cart" />}
+      description={<FormattedMessage id="recommendations.cart.description" defaultMessage="Add-ons and frequently bought together picks, excluding what is already in your bag." />}
       actionHref="/search"
     >
       <ProductCarousel recommendations={recommendations} loading={loading} sourcePage={sourcePage} />

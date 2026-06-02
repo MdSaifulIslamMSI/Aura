@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { IntlProvider } from 'react-intl';
 
 const mocks = vi.hoisted(() => ({
   resolveFrontendTargets: vi.fn(() => [
@@ -36,7 +37,11 @@ import Launch from './index';
 
 describe('Launch gateway page', () => {
   it('renders the upgraded gateway framing and live storefront links', () => {
-    render(<Launch />);
+    render(
+      <IntlProvider locale="en" messages={{}}>
+        <Launch />
+      </IntlProvider>
+    );
 
     expect(screen.getByText(/a sharper front door for aura's live frontend stack/i)).toBeInTheDocument();
     expect(screen.getByText(/ready for a dedicated gateway project/i)).toBeInTheDocument();

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import {
     AlertCircle,
     Building2,
@@ -78,6 +78,16 @@ const MARKET_COUNTRY_PRESETS = [
     { code: 'CA', label: 'Canada' },
     { code: 'JP', label: 'Japan' },
 ];
+
+const marketCountryMessages = defineMessages({
+    IN: { id: 'checkout.payment.marketCountry.india', defaultMessage: 'India' },
+    US: { id: 'checkout.payment.marketCountry.unitedStates', defaultMessage: 'United States' },
+    GB: { id: 'checkout.payment.marketCountry.unitedKingdom', defaultMessage: 'United Kingdom' },
+    DE: { id: 'checkout.payment.marketCountry.germany', defaultMessage: 'Germany' },
+    AU: { id: 'checkout.payment.marketCountry.australia', defaultMessage: 'Australia' },
+    CA: { id: 'checkout.payment.marketCountry.canada', defaultMessage: 'Canada' },
+    JP: { id: 'checkout.payment.marketCountry.japan', defaultMessage: 'Japan' },
+});
 
 const STATUS_STYLES = {
     created: 'border-slate-500/30 bg-slate-500/10 text-slate-200',
@@ -379,6 +389,12 @@ const StepPayment = ({
     const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const [bankSearch, setBankSearch] = useState('');
+    const localizedMarketOptions = useMemo(() => marketOptions.map((country) => ({
+        ...country,
+        label: marketCountryMessages[country.code]
+            ? intl.formatMessage(marketCountryMessages[country.code])
+            : country.label,
+    })), [intl, marketOptions]);
     const isDigital = paymentMethod !== 'COD';
     const isNetbanking = paymentMethod === 'NETBANKING';
     const paymentStatus = String(paymentIntent?.status || 'idle').trim().toLowerCase();
@@ -600,7 +616,7 @@ const StepPayment = ({
                                 {PAYMENT_OPTIONS.map((option) => {
                                     const Icon = option.icon;
                                     const selected = paymentMethod === option.id;
-                                    const digitalEmergencyDisabled = paymentGatewayDisabled && option.id !== <FormattedMessage id="checkout.jsx.expression.cod" defaultMessage="COD" />;
+                                    const digitalEmergencyDisabled = paymentGatewayDisabled && option.id !== 'COD';
                                     const unavailable = !enabledPaymentMethodSet.has(option.id) || digitalEmergencyDisabled;
                                     const unavailableReason = digitalEmergencyDisabled
                                         ? t('checkout.payment.gatewayPaused', {}, 'Digital payments are temporarily unavailable.')
@@ -900,7 +916,7 @@ const StepPayment = ({
                                 role="group"
                                 aria-label={t('checkout.payment.marketCountry', {}, 'Market Country')}
                             >
-                                {marketOptions.map((country) => (
+                                {localizedMarketOptions.map((country) => (
                                     <button
                                         key={country.code}
                                         type="button"
@@ -923,7 +939,7 @@ const StepPayment = ({
                                         value={selectedMarketCountryCode}
                                         onChange={(event) => onMarketCountryChange?.(event.target.value)}
                                         maxLength={2}
-                                        placeholder="IN"
+                                        placeholder={intl.formatMessage({ id: 'checkout.payment.marketCountry.placeholder', defaultMessage: 'IN' })}
                                         className="checkout-premium-input uppercase"
                                     />
                                 </label>
@@ -936,7 +952,10 @@ const StepPayment = ({
                                     >
                                         {cardCurrencyOptions.map((entry) => (
                                             <option key={entry.code} value={entry.code}>
-                                                {entry.code} {entry.name ? `- ${entry.name}` : ''}
+                                                {entry.code}{' '}
+                                                {entry.name
+                                                    ? intl.formatMessage({ id: 'checkout.payment.currency.option.name', defaultMessage: '- {name}' }, { name: entry.name })
+                                                    : ''}
                                             </option>
                                         ))}
                                     </select>
@@ -947,11 +966,11 @@ const StepPayment = ({
                                 <div className="checkout-premium-alert border-emerald-500/20 bg-emerald-500/10 text-emerald-100">
                                     <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200">{t('checkout.payment.chargeQuote', {}, 'Charge Quote')}</p>
                                     <p className="mt-2 text-sm leading-6">
-                                        {formatPrice(chargeQuote.amount || 0, chargeQuote.currency || <FormattedMessage id="checkout.jsx.expression.inr" defaultMessage="INR" />)}
+                                        {formatPrice(chargeQuote.amount || 0, chargeQuote.currency || 'INR')}
                                         {chargeQuote.currency !== chargeQuote.settlementCurrency
                                             ? t('checkout.payment.targetSettlement', {
-                                                amount: formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || <FormattedMessage id="checkout.jsx.expression.inr" defaultMessage="INR" />),
-                                            }, ` | target settlement ${formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || <FormattedMessage id="checkout.jsx.expression.inr" defaultMessage="INR" />)}`)
+                                                amount: formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || 'INR'),
+                                            }, ` | target settlement ${formatPrice(chargeQuote.settlementAmount || 0, chargeQuote.settlementCurrency || 'INR')}`)
                                             : t('checkout.payment.domesticSettlement', {}, ' | domestic settlement')}
                                     </p>
                                 </div>

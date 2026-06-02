@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+import { IntlProvider } from 'react-intl';
 
 const mocks = vi.hoisted(() => ({
     pushClientDiagnostic: vi.fn(),
@@ -26,8 +27,10 @@ const LocationProbe = () => {
 
 const renderLauncher = (initialEntry = '/product/101?ref=home') => render(
     <MemoryRouter initialEntries={[initialEntry]}>
-        <AssistantLauncher />
-        <LocationProbe />
+        <IntlProvider locale="en" messages={{}}>
+            <AssistantLauncher />
+            <LocationProbe />
+        </IntlProvider>
     </MemoryRouter>
 );
 

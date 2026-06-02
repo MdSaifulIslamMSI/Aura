@@ -4,6 +4,7 @@ import { ArrowRight, Camera, Loader2, Radar, ShieldCheck, Sparkles, Target } fro
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { productApi, listingApi } from '@/services/api';
 import { CATALOG_CATEGORY_OPTIONS, getCategoryApiValue, getLocalizedCategoryLabel, normalizeCategorySlug } from '@/config/catalogTaxonomy';
 import { formatPrice } from '@/utils/format';
@@ -15,13 +16,13 @@ import {
   buildMissionPlan,
   buildProductTrustGraph,
 } from '@/utils/commerceIntelligence';
-import { FormattedMessage } from 'react-intl';
 
+import { StableText } from '@/i18n/StableText';
 const QUICK_MISSIONS = [
-  { label: 'Gaming Setup', goal: 'gaming setup under Rs 80000', category: 'gaming', budget: 80000 },
-  { label: 'Creator Desk', goal: 'creator studio desk refresh', category: 'electronics', budget: 120000 },
-  { label: 'Phone Upgrade', goal: 'premium phone upgrade', category: 'mobiles', budget: 70000 },
-  { label: 'Smart Home', goal: 'first apartment smart essentials', category: 'home-kitchen', budget: 45000 },
+  { labelDefault: 'Gaming Setup', labelId: 'missionControl.quickMission.gamingSetup', goal: 'gaming setup under Rs 80000', category: 'gaming', budget: 80000 },
+  { labelDefault: 'Creator Desk', labelId: 'missionControl.quickMission.creatorDesk', goal: 'creator studio desk refresh', category: 'electronics', budget: 120000 },
+  { labelDefault: 'Phone Upgrade', labelId: 'missionControl.quickMission.phoneUpgrade', goal: 'premium phone upgrade', category: 'mobiles', budget: 70000 },
+  { labelDefault: 'Smart Home', labelId: 'missionControl.quickMission.smartHome', goal: 'first apartment smart essentials', category: 'home-kitchen', budget: 45000 },
 ];
 
 const clampBudget = (value) => {
@@ -40,7 +41,8 @@ const toneClasses = {
 export default function MissionControl() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useMarket();
+  const { t: legacyT } = useMarket();
+  const t = useStableIcuMessages(legacyT);
   const autoRunRef = useRef(false);
   const [form, setForm] = useState(() => ({
     goal: searchParams.get('goal') || searchParams.get('theme') || 'gaming setup under Rs 80000',
@@ -170,47 +172,7 @@ export default function MissionControl() {
     city: form.city,
   }), [form.city, results.hotspots, results.listings]);
   const missionDynamicTexts = useMemo(() => ([
-    'Shopping Mission OS',
-    'Run all five commerce systems in one place.',
-    'Describe the goal once. The page ranks products, checks trust, opens zero-query paths, estimates lifecycle leverage, and scans local marketplace safety.',
-    'Mission Input',
-    'Example: Build a gaming setup under Rs 80k before Friday.',
-    'City',
-    'Screenshot hint, owned device, favorite brand',
-    'Optional image URL for visual search',
-    'Include trade-in and upgrade path.',
-    'Running mission',
-    'Run mission',
-    'Start from screenshot',
-    'Zero-Query Entry',
-    'Use screenshot or pasted image when you do not know product names yet.',
-    'Describe the mission instead of specific SKUs to get trust-ranked candidates and bundles.',
-    'Turn on trade-in to expose upgrade leverage before checkout or price alerts.',
-    'Open trade-in lane',
-    'Mission readiness',
-    'Top trust',
-    'Bundle total',
-    'Local safety',
-    'Trust Graph',
-    'Primary candidates',
-    'Open compare',
-    'Open product',
-    'Bundle and lifecycle',
-    'Bundle generation did not return a stack for this mission yet.',
-    'Open bundle lane',
-    'Use trade-in',
-    'Local commerce safety mode',
-    'Escrow coverage',
-    'Verified sellers',
-    'Open marketplace safety mode',
-    'No product lane matched the current mission yet.',
-    'No nearby listings matched this mission yet.',
-    'Unknown city',
-    'Seller',
-    'Escrow',
-    'Verified seller',
-    'Review meetup terms and item condition before paying.',
-    ...QUICK_MISSIONS.flatMap((mission) => [mission.label, mission.goal]),
+    ...QUICK_MISSIONS.map((mission) => mission.goal),
     ...candidateDeck.flatMap(({ product, trust, lifecycle }) => [
       product?.title,
       trust?.headline,
@@ -313,13 +275,13 @@ export default function MissionControl() {
 
       <div className="mx-auto max-w-7xl px-4 py-8">
         <section className="rounded-[2rem] border border-cyan-300/20 bg-gradient-to-r from-cyan-500/12 via-slate-950/80 to-emerald-500/12 p-6 shadow-[0_0_60px_rgba(34,211,238,0.08)] md:p-8">
-          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-100">{translateMissionText('Shopping Mission OS') || 'Shopping Mission OS'}</p>
-          <h1 className="mt-3 text-4xl font-black tracking-tight text-white md:text-5xl">{translateMissionText('Run all five commerce systems in one place.') || 'Run all five commerce systems in one place.'}</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 md:text-base">{translateMissionText('Describe the goal once. The page ranks products, checks trust, opens zero-query paths, estimates lifecycle leverage, and scans local marketplace safety.') || 'Describe the goal once. The page ranks products, checks trust, opens zero-query paths, estimates lifecycle leverage, and scans local marketplace safety.'}</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-100">{<StableText id={"common.jsx.expression.shopping.mission.os.2ace800b"} defaultMessage={"Shopping Mission OS"} />}</p>
+          <h1 className="mt-3 text-4xl font-black tracking-tight text-white md:text-5xl">{<StableText id={"common.jsx.expression.run.all.five.commerce.systems.in.one.308b004f"} defaultMessage={"Run all five commerce systems in one place."} />}</h1>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 md:text-base">{<StableText id={"product.jsx.expression.describe.the.goal.once.the.page.ranks.d0ef4b16"} defaultMessage={"Describe the goal once. The page ranks products, checks trust, opens zero-query paths, estimates lifecycle leverage, and scans local marketplace safety."} />}</p>
           <div className="mt-5 flex flex-wrap gap-2">
             {QUICK_MISSIONS.map((preset) => (
-              <button key={preset.label} type="button" onClick={() => setForm((prev) => ({ ...prev, goal: preset.goal, category: preset.category, budget: preset.budget }))} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100">
-                {translateMissionText(preset.label) || preset.label}
+              <button key={preset.labelId} type="button" onClick={() => setForm((prev) => ({ ...prev, goal: preset.goal, category: preset.category, budget: preset.budget }))} className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-slate-200 transition hover:border-cyan-300/35 hover:text-cyan-100">
+                <StableText id={preset.labelId} defaultMessage={preset.labelDefault} />
               </button>
             ))}
           </div>
@@ -327,41 +289,41 @@ export default function MissionControl() {
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <form onSubmit={runMission} className="rounded-3xl border border-white/10 bg-white/[0.045] p-6 shadow-glass">
-            <div className="mb-5 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-cyan-100"><Radar className="h-4 w-4" /> {translateMissionText('Mission Input') || 'Mission Input'}</div>
+            <div className="mb-5 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-cyan-100"><Radar className="h-4 w-4" /> {<StableText id={"common.jsx.expression.mission.input.abcc1e40"} defaultMessage={"Mission Input"} />}</div>
             <div className="grid gap-4 md:grid-cols-2">
-              <textarea value={form.goal} onChange={(event) => updateForm('goal', event.target.value)} rows={3} className="md:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" placeholder={translateMissionText('Example: Build a gaming setup under Rs 80k before Friday.') || 'Example: Build a gaming setup under Rs 80k before Friday.'} />
+              <textarea value={form.goal} onChange={(event) => updateForm('goal', event.target.value)} rows={3} className="md:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" placeholder={<StableText id={"common.jsx.expression.example.build.a.gaming.setup.under.rs.09e19f88"} defaultMessage={"Example: Build a gaming setup under Rs 80k before Friday."} />} />
               <PremiumSelect value={form.category} onChange={(event) => updateForm('category', event.target.value)} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none focus:border-cyan-300/35">
                 {CATALOG_CATEGORY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{getLocalizedCategoryLabel(option.value, t) || option.label}</option>)}
               </PremiumSelect>
               <input type="number" min={5000} max={250000} step={1000} value={form.budget} onChange={(event) => updateForm('budget', clampBudget(event.target.value))} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none focus:border-cyan-300/35" />
-              <input type="text" value={form.city} onChange={(event) => updateForm('city', event.target.value)} placeholder={translateMissionText('City') || 'City'} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" />
+              <input type="text" value={form.city} onChange={(event) => updateForm('city', event.target.value)} placeholder={t('missionControl.form.cityPlaceholder', {}, 'City')} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" />
               <input type="date" value={form.deadline} onChange={(event) => updateForm('deadline', event.target.value)} className="h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none focus:border-cyan-300/35" />
-              <input type="text" value={form.hints} onChange={(event) => updateForm('hints', event.target.value)} placeholder={translateMissionText('Screenshot hint, owned device, favorite brand') || 'Screenshot hint, owned device, favorite brand'} className="md:col-span-2 h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" />
-              <input type="url" value={form.imageUrl} onChange={(event) => updateForm('imageUrl', event.target.value)} placeholder={translateMissionText('Optional image URL for visual search') || 'Optional image URL for visual search'} className="md:col-span-2 h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" />
+              <input type="text" value={form.hints} onChange={(event) => updateForm('hints', event.target.value)} placeholder={<StableText id={"common.jsx.expression.screenshot.hint.owned.device.favorite.brand.c00d0b60"} defaultMessage={"Screenshot hint, owned device, favorite brand"} />} className="md:col-span-2 h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" />
+              <input type="url" value={form.imageUrl} onChange={(event) => updateForm('imageUrl', event.target.value)} placeholder={<StableText id={"search.jsx.expression.optional.image.url.for.visual.search.3b28096f"} defaultMessage={"Optional image URL for visual search"} />} className="md:col-span-2 h-12 rounded-2xl border border-white/10 bg-zinc-950/70 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-300/35" />
             </div>
             <label className="mt-4 inline-flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
               <input type="checkbox" checked={form.needsTradeIn} onChange={(event) => updateForm('needsTradeIn', event.target.checked)} className="h-4 w-4 rounded border-emerald-300/40 bg-transparent text-emerald-300" />
-              {translateMissionText('Include trade-in and upgrade path.') || 'Include trade-in and upgrade path.'}
+              {<StableText id={"common.jsx.expression.include.trade.in.and.upgrade.path.fb12dbda"} defaultMessage={"Include trade-in and upgrade path."} />}
             </label>
             <div className="mt-5 flex flex-wrap gap-3">
               <button type="submit" disabled={loading} className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/35 bg-cyan-500/15 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-cyan-100 transition hover:bg-cyan-500/25 disabled:opacity-60">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
-                {loading ? (translateMissionText('Running mission') || 'Running mission') : (translateMissionText('Run mission') || 'Run mission')}
+                {loading ? <StableText id={"common.jsx.expression.running.mission.b966f27a"} defaultMessage={"Running mission"} /> : <StableText id={"common.jsx.expression.run.mission.412569d0"} defaultMessage={"Run mission"} />}
               </button>
               <button type="button" onClick={launchVisualSearch} className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-200 transition hover:border-emerald-400/35 hover:text-emerald-200">
                 <Camera className="h-4 w-4" />
-                {translateMissionText('Start from screenshot') || 'Start from screenshot'}
+                {<StableText id={"common.jsx.expression.start.from.screenshot.e2ba722e"} defaultMessage={"Start from screenshot"} />}
               </button>
             </div>
           </form>
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-6 shadow-glass">
-            <div className="mb-5 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-emerald-100"><Sparkles className="h-4 w-4" /> {translateMissionText('Zero-Query Entry') || 'Zero-Query Entry'}</div>
+            <div className="mb-5 flex items-center gap-2 text-sm font-black uppercase tracking-[0.18em] text-emerald-100"><Sparkles className="h-4 w-4" /> {<StableText id={"common.jsx.expression.zero.query.entry.f4765066"} defaultMessage={"Zero-Query Entry"} />}</div>
             <div className="space-y-4 text-sm text-slate-300">
-              <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{translateMissionText('Use screenshot or pasted image when you do not know product names yet.') || 'Use screenshot or pasted image when you do not know product names yet.'}</div>
-              <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{translateMissionText('Describe the mission instead of specific SKUs to get trust-ranked candidates and bundles.') || 'Describe the mission instead of specific SKUs to get trust-ranked candidates and bundles.'}</div>
-              <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{translateMissionText(<FormattedMessage id="checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade" defaultMessage="Turn on trade-in to expose upgrade leverage before checkout or price alerts." />) || <FormattedMessage id="checkout.jsx.expression.turn.on.trade.in.to.expose.upgrade" defaultMessage="Turn on trade-in to expose upgrade leverage before checkout or price alerts." />}</div>
-              <Link to="/trade-in" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-100">{translateMissionText('Open trade-in lane') || 'Open trade-in lane'} <ArrowRight className="h-4 w-4" /></Link>
+              <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{<StableText id={"product.jsx.expression.use.screenshot.or.pasted.image.when.you.4ebb4c79"} defaultMessage={"Use screenshot or pasted image when you do not know product names yet."} />}</div>
+              <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4">{<StableText id={"common.jsx.expression.describe.the.mission.instead.of.specific.skus.1490bce5"} defaultMessage={"Describe the mission instead of specific SKUs to get trust-ranked candidates and bundles."} />}</div>
+              <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-4"><StableText id={"missionControl.zeroQuery.tradeInLeverage"} defaultMessage={"Turn on trade-in to expose upgrade leverage before checkout or price alerts."} /></div>
+              <Link to="/trade-in" className="inline-flex items-center gap-2 text-sm font-bold text-emerald-100">{<StableText id={"common.jsx.expression.open.trade.in.lane.e123c7df"} defaultMessage={"Open trade-in lane"} />} <ArrowRight className="h-4 w-4" /></Link>
             </div>
           </section>
         </div>
@@ -369,10 +331,10 @@ export default function MissionControl() {
         {missionRan && (
           <>
             <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Mission readiness') || 'Mission readiness'}</p><p className="mt-3 text-3xl font-black text-white">{translatedMissionPlan.readinessScore}</p></article>
-              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Top trust') || 'Top trust'}</p><p className="mt-3 text-3xl font-black text-white">{translatedCandidateDeck[0]?.trust?.overallScore || 0}</p></article>
-              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Bundle total') || 'Bundle total'}</p><p className="mt-3 text-3xl font-black text-white">{formatBasePrice(formatPrice, results.bundle?.totalPrice || 0)}</p></article>
-              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateMissionText('Local safety') || 'Local safety'}</p><p className="mt-3 text-3xl font-black text-white">{translatedMarketplaceSummary.averageSafety || 0}</p></article>
+              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{<StableText id={"common.jsx.expression.mission.readiness.6e520e73"} defaultMessage={"Mission readiness"} />}</p><p className="mt-3 text-3xl font-black text-white">{translatedMissionPlan.readinessScore}</p></article>
+              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{<StableText id={"common.jsx.expression.top.trust.a860cd2c"} defaultMessage={"Top trust"} />}</p><p className="mt-3 text-3xl font-black text-white">{translatedCandidateDeck[0]?.trust?.overallScore || 0}</p></article>
+              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{<StableText id={"common.jsx.expression.bundle.total.8f9879d5"} defaultMessage={"Bundle total"} />}</p><p className="mt-3 text-3xl font-black text-white">{formatBasePrice(formatPrice, results.bundle?.totalPrice || 0)}</p></article>
+              <article className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-glass"><p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{<StableText id={"common.jsx.expression.local.safety.2f828dea"} defaultMessage={"Local safety"} />}</p><p className="mt-3 text-3xl font-black text-white">{translatedMarketplaceSummary.averageSafety || 0}</p></article>
             </section>
 
             <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.045] p-6 shadow-glass">
@@ -389,8 +351,8 @@ export default function MissionControl() {
             <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-6 shadow-glass">
                 <div className="mb-5 flex items-center justify-between gap-3">
-                  <div><p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">{translateMissionText('Trust Graph') || 'Trust Graph'}</p><h2 className="mt-2 text-2xl font-black text-white">{translateMissionText('Primary candidates') || 'Primary candidates'}</h2></div>
-                  <Link to={comparePath} className="text-sm font-bold text-cyan-100">{translateMissionText('Open compare') || 'Open compare'} <ArrowRight className="ml-1 inline h-4 w-4" /></Link>
+                  <div><p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100"><StableText id={"missionControl.trustGraph"} defaultMessage={"Trust Graph"} /></p><h2 className="mt-2 text-2xl font-black text-white">{<StableText id={"common.jsx.expression.primary.candidates.93dc7e36"} defaultMessage={"Primary candidates"} />}</h2></div>
+                  <Link to={comparePath} className="text-sm font-bold text-cyan-100">{<StableText id={"common.jsx.expression.open.compare.09410d00"} defaultMessage={"Open compare"} />} <ArrowRight className="ml-1 inline h-4 w-4" /></Link>
                 </div>
                 <div className="space-y-4">
                   {translatedCandidateDeck.slice(0, 3).map(({ product, trust, lifecycle }) => (
@@ -404,7 +366,7 @@ export default function MissionControl() {
                               <h3 className="mt-1 text-lg font-black text-white">{product.title}</h3>
                               <p className="mt-2 text-sm text-slate-400">{trust.headline}</p>
                             </div>
-                            <div className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em] ${toneClasses[trust.tone] || toneClasses.cyan}`}>{translateMissionText(`Trust ${trust.overallScore}`) || `Trust ${trust.overallScore}`}</div>
+                            <div className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.14em] ${toneClasses[trust.tone] || toneClasses.cyan}`}><StableText id={"missionControl.trustScore"} defaultMessage={"Trust {overallScore}"} values={{ overallScore: trust.overallScore }} /></div>
                           </div>
                           <div className="mt-3 grid gap-2 md:grid-cols-2">
                             {trust.metrics.slice(0, 4).map((metric) => (
@@ -415,23 +377,27 @@ export default function MissionControl() {
                             ))}
                           </div>
                           <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm text-slate-200">
-                            {lifecycle.upgradeWindow}. {translateMissionText(`Trade-in estimate ${formatBasePrice(formatPrice, lifecycle.tradeInEstimate)} and resale band ${formatBasePrice(formatPrice, lifecycle.resaleLow)} - ${formatBasePrice(formatPrice, lifecycle.resaleHigh)}.`) || `Trade-in estimate ${formatBasePrice(formatPrice, lifecycle.tradeInEstimate)} and resale band ${formatBasePrice(formatPrice, lifecycle.resaleLow)} - ${formatBasePrice(formatPrice, lifecycle.resaleHigh)}.`}
+                            {lifecycle.upgradeWindow}. <StableText id={"missionControl.lifecycle.tradeInResaleBand"} defaultMessage={"Trade-in estimate {tradeInEstimate} and resale band {resaleLow} - {resaleHigh}."} values={{
+                              resaleHigh: formatBasePrice(formatPrice, lifecycle.resaleHigh),
+                              resaleLow: formatBasePrice(formatPrice, lifecycle.resaleLow),
+                              tradeInEstimate: formatBasePrice(formatPrice, lifecycle.tradeInEstimate),
+                            }} />
                           </div>
                           <div className="mt-4 flex flex-wrap gap-2">
-                            <Link to={`/product/${product.id || product._id}`} className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-100">{translateMissionText('Open product') || 'Open product'}</Link>
+                            <Link to={`/product/${product.id || product._id}`} className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-100">{<StableText id={"product.jsx.expression.open.product.2c5aa835"} defaultMessage={"Open product"} />}</Link>
                             <Link to={lifecycle.nextBestAction.path} className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-slate-200">{lifecycle.nextBestAction.label}</Link>
                           </div>
                         </div>
                       </div>
                     </article>
                   ))}
-                  {translatedCandidateDeck.length === 0 && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400">{translateMissionText('No product lane matched the current mission yet.') || 'No product lane matched the current mission yet.'}</div>}
+                  {translatedCandidateDeck.length === 0 && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400">{<StableText id={"product.jsx.expression.no.product.lane.matched.the.current.mission.951f6696"} defaultMessage={"No product lane matched the current mission yet."} />}</div>}
                 </div>
               </section>
 
               <div className="space-y-6">
                 <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-6 shadow-glass">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">{translateMissionText('Bundle and lifecycle') || 'Bundle and lifecycle'}</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">{<StableText id={"common.jsx.expression.bundle.and.lifecycle.e498118c"} defaultMessage={"Bundle and lifecycle"} />}</p>
                   <div className="mt-4 space-y-3">
                     {translatedBundleItems.slice(0, 4).map((item) => (
                       <Link key={item.id || item._id} to={`/product/${item.id || item._id}`} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-zinc-950/45 p-3">
@@ -439,20 +405,20 @@ export default function MissionControl() {
                         <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-white">{item.title}</p><p className="text-xs text-slate-400">{item.brand} | {formatEntityPrice(formatPrice, item)}</p></div>
                       </Link>
                     ))}
-                    {!translatedBundleItems.length && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400">{translateMissionText(<FormattedMessage id="order.jsx.expression.bundle.generation.did.not.return.a.stack" defaultMessage="Bundle generation did not return a stack for this mission yet." />) || <FormattedMessage id="order.jsx.expression.bundle.generation.did.not.return.a.stack" defaultMessage="Bundle generation did not return a stack for this mission yet." />}</div>}
+                    {!translatedBundleItems.length && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400"><StableText id={"missionControl.bundle.empty"} defaultMessage={"Bundle generation did not return a stack for this mission yet."} /></div>}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Link to={`/bundles?theme=${encodeURIComponent(form.goal)}&budget=${encodeURIComponent(String(form.budget))}`} className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-100">{translateMissionText('Open bundle lane') || 'Open bundle lane'}</Link>
-                    {form.needsTradeIn && <Link to="/trade-in" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-slate-200">{translateMissionText('Use trade-in') || 'Use trade-in'}</Link>}
+                    <Link to={`/bundles?theme=${encodeURIComponent(form.goal)}&budget=${encodeURIComponent(String(form.budget))}`} className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-100">{<StableText id={"common.jsx.expression.open.bundle.lane.4a8b5a5a"} defaultMessage={"Open bundle lane"} />}</Link>
+                    {form.needsTradeIn && <Link to="/trade-in" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-slate-200">{<StableText id={"common.jsx.expression.use.trade.in.5b0ad95d"} defaultMessage={"Use trade-in"} />}</Link>}
                   </div>
                 </section>
 
                 <section className="rounded-3xl border border-white/10 bg-white/[0.045] p-6 shadow-glass">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">{translateMissionText('Local commerce safety mode') || 'Local commerce safety mode'}</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100"><StableText id={"missionControl.localSafety.title"} defaultMessage={"Local commerce safety mode"} /></p>
                   <p className="mt-3 text-sm text-slate-400">{translatedMarketplaceSummary.meetupBrief}</p>
                   <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-3"><p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">{translateMissionText('Escrow coverage') || 'Escrow coverage'}</p><p className="mt-2 text-2xl font-black text-white">{translatedMarketplaceSummary.escrowCoverage || 0}%</p></div>
-                    <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-3"><p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">{translateMissionText('Verified sellers') || 'Verified sellers'}</p><p className="mt-2 text-2xl font-black text-white">{translatedMarketplaceSummary.verifiedSellerRate || 0}%</p></div>
+                    <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-3"><p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400"><StableText id={"missionControl.localSafety.escrowCoverage"} defaultMessage={"Escrow coverage"} /></p><p className="mt-2 text-2xl font-black text-white">{translatedMarketplaceSummary.escrowCoverage || 0}%</p></div>
+                    <div className="rounded-2xl border border-white/10 bg-zinc-950/45 p-3"><p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400"><StableText id={"missionControl.localSafety.verifiedSellers"} defaultMessage={"Verified sellers"} /></p><p className="mt-2 text-2xl font-black text-white">{translatedMarketplaceSummary.verifiedSellerRate || 0}%</p></div>
                   </div>
                   <div className="mt-4 space-y-3">
                     {translatedMarketplaceDeck.map(({ listing, safety }) => (
@@ -461,22 +427,22 @@ export default function MissionControl() {
                           <img src={listing.images?.[0] || '/placeholder.png'} alt={listing.title} className="h-20 w-20 rounded-2xl object-cover" />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div><p className="truncate text-sm font-bold text-white">{listing.title}</p><p className="text-xs text-slate-400">{listing.location?.city || (translateMissionText('Unknown city') || 'Unknown city')} | {listing.seller?.name || (translateMissionText('Seller') || 'Seller')}</p></div>
-                              <div className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100">{translateMissionText(`Safety ${safety.score}`) || `Safety ${safety.score}`}</div>
+                              <div><p className="truncate text-sm font-bold text-white">{listing.title}</p><p className="text-xs text-slate-400">{listing.location?.city || <StableText id={"missionControl.marketplace.unknownCity"} defaultMessage={"Unknown city"} />} | {listing.seller?.name || <StableText id={"missionControl.marketplace.seller"} defaultMessage={"Seller"} />}</p></div>
+                              <div className="rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100"><StableText id={"missionControl.safetyScore"} defaultMessage={"Safety {score}"} values={{ score: safety.score }} /></div>
                             </div>
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                               <span className="font-black text-white">{formatEntityPrice(formatPrice, listing)}</span>
-                              {listing.escrowOptIn && <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-100"><ShieldCheck className="h-3 w-3" />{translateMissionText('Escrow') || 'Escrow'}</span>}
-                              {listing.seller?.isVerified && <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-bold text-slate-200">{translateMissionText('Verified seller') || 'Verified seller'}</span>}
+                              {listing.escrowOptIn && <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-100"><ShieldCheck className="h-3 w-3" /><StableText id={"missionControl.marketplace.escrow"} defaultMessage={"Escrow"} /></span>}
+                              {listing.seller?.isVerified && <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-bold text-slate-200"><StableText id={"missionControl.marketplace.verifiedSeller"} defaultMessage={"Verified seller"} /></span>}
                             </div>
-                            <p className="mt-2 text-xs text-slate-400">{safety.highlights[0] || safety.watchouts[0] || (translateMissionText('Review meetup terms and item condition before paying.') || 'Review meetup terms and item condition before paying.')}</p>
+                            <p className="mt-2 text-xs text-slate-400">{safety.highlights[0] || safety.watchouts[0] || <StableText id={"common.jsx.expression.review.meetup.terms.and.item.condition.before.a308652f"} defaultMessage={"Review meetup terms and item condition before paying."} />}</p>
                           </div>
                         </div>
                       </Link>
                     ))}
-                    {translatedMarketplaceDeck.length === 0 && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400">{translateMissionText('No nearby listings matched this mission yet.') || 'No nearby listings matched this mission yet.'}</div>}
+                    {translatedMarketplaceDeck.length === 0 && <div className="rounded-2xl border border-white/10 bg-zinc-950/45 px-4 py-8 text-center text-sm text-slate-400">{<StableText id={"seller.jsx.expression.no.nearby.listings.matched.this.mission.yet.15f73361"} defaultMessage={"No nearby listings matched this mission yet."} />}</div>}
                   </div>
-                  <div className="mt-4"><Link to="/marketplace" className="inline-flex items-center gap-2 text-sm font-bold text-cyan-100">{translateMissionText('Open marketplace safety mode') || 'Open marketplace safety mode'} <ArrowRight className="h-4 w-4" /></Link></div>
+                  <div className="mt-4"><Link to="/marketplace" className="inline-flex items-center gap-2 text-sm font-bold text-cyan-100">{<StableText id={"common.jsx.expression.open.marketplace.safety.mode.c1a71f83"} defaultMessage={"Open marketplace safety mode"} />} <ArrowRight className="h-4 w-4" /></Link></div>
                 </section>
               </div>
             </div>

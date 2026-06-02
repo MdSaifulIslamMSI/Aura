@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FormattedMessage } from 'react-intl';
 import { recommendationApi } from '@/services/api';
 import ProductCarousel from './ProductCarousel';
 import RecommendationSection from './RecommendationSection';
@@ -28,8 +29,8 @@ const RecentlyViewedRecommendations = ({ limit = 8, sourcePage = 'product_detail
   return (
     <RecommendationSection
       eyebrow="Recently viewed"
-      title="Inspired by Your Recent Views"
-      description="A session-aware lane for guests and signed-in shoppers."
+      title={<FormattedMessage id="recommendations.recentlyViewed.title" defaultMessage="Inspired by Your Recent Views" />}
+      description={<FormattedMessage id="recommendations.recentlyViewed.description" defaultMessage="A session-aware lane for guests and signed-in shoppers." />}
       actionHref="/search"
     >
       <ProductCarousel recommendations={recommendations} loading={loading} sourcePage={sourcePage} />

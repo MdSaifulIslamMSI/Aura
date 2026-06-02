@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { IntlProvider } from 'react-intl';
 import UptimeBars from './UptimeBars';
 import { SecurityHarnessCard, StatusPowerCard, SystemStatusCard } from './index';
 
@@ -10,15 +11,21 @@ const history90d = Array.from({ length: 90 }, (_, index) => ({
   downtimeMinutes: index % 17 === 0 ? 4 : 0,
 }));
 
+const renderWithIntl = (ui) => render(
+  <IntlProvider locale="en" messages={{}}>
+    {ui}
+  </IntlProvider>
+);
+
 describe('status page components', () => {
   it('renders 90 uptime bars with accessible labels', () => {
-    render(<UptimeBars history={history90d} label="API uptime" />);
+    renderWithIntl(<UptimeBars history={history90d} label="API uptime" />);
     expect(screen.getAllByRole('listitem')).toHaveLength(90);
     expect(screen.getAllByLabelText(/99.99% uptime/i).length).toBeGreaterThan(0);
   });
 
   it('labels unknown uptime bars as no monitoring data', () => {
-    render(
+    renderWithIntl(
       <UptimeBars
         history={[{ date: '2026-05-18', status: 'unknown', uptimePercent: null, downtimeMinutes: null }]}
         label="API uptime"
@@ -29,7 +36,7 @@ describe('status page components', () => {
   });
 
   it('expands component group details', () => {
-    render(
+    renderWithIntl(
       <SystemStatusCard
         monitoringStartedAt="2026-05-19T00:00:00.000Z"
         uptimeSinceMonitoringBegan={100}
@@ -63,7 +70,7 @@ describe('status page components', () => {
   });
 
   it('renders status page power measurement dimensions', () => {
-    render(
+    renderWithIntl(
       <StatusPowerCard
         power={{
           score: 96,
@@ -89,7 +96,7 @@ describe('status page components', () => {
   });
 
   it('renders the Student Pack security harness without secret values', () => {
-    render(
+    renderWithIntl(
       <SecurityHarnessCard
         harness={{
           enabled: true,

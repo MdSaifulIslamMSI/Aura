@@ -36,6 +36,8 @@
     "app/src/i18n/messages/reviewed/",
     "app/src/i18n/messages/source/",
     "app/src/i18n/messages/stableUiMessages.js",
+    "app/src/i18n/quality/humanReviewQueue.json",
+    "app/src/i18n/quality/nativeReviewAudit.json",
     "app/src/config/marketMessages.generated",
     "app/src/config/marketMessagePacks",
     "coverage/",

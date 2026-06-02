@@ -565,3 +565,7 @@ export function useMarket() {
   }
   return context;
 }
+
+export function useOptionalMarket() {
+  return useContext(MarketContext);
+}

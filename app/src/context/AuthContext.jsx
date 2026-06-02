@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createIntl, createIntlCache, defineMessages } from 'react-intl';
 import {
   createUserWithEmailAndPassword,
   FacebookAuthProvider,
@@ -45,6 +46,8 @@ import {
 import { clearAuthJourneyDraft, writeAuthIdentityMemory } from '../utils/authAcceleration';
 import { getUserVisibleEmail } from '../utils/authIdentity';
 import { useActiveWindowRefresh } from '../hooks/useActiveWindowRefresh';
+import { catalogs } from '../i18n/catalogs';
+import { useOptionalLocale } from '../i18n/LocaleProvider';
 import {
   buildFirebaseSessionFallback,
   isAuthenticatedSessionStatus,
@@ -76,6 +79,13 @@ const BOOTSTRAP_TIMEOUT_MS = 6000;
 const DESKTOP_BROWSER_SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
 const REDIRECT_AUTH_PENDING_KEY = 'aura-social-auth-redirect-pending';
 const REDIRECT_AUTH_PENDING_TTL_MS = 5 * 60 * 1000;
+const authContextIntlCache = createIntlCache();
+const authContextMessages = defineMessages({
+  bootstrapTimedOut: {
+    id: 'auth.session.bootstrapTimedOut',
+    defaultMessage: 'Authentication bootstrap timed out. Retry to recover your session.',
+  },
+});
 const OAUTH_CREDENTIAL_EXTRACTORS = [
   GithubAuthProvider,
   GoogleAuthProvider,
@@ -158,8 +168,17 @@ const buildRecoverableSessionErrorMessage = (error, fallbackMessage) => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const localeContext = useOptionalLocale();
+  const authIntl = useMemo(() => createIntl({
+    defaultLocale: 'en',
+    locale: localeContext?.locale || 'en',
+    messages: localeContext?.messages || catalogs.en,
+    onError: () => {},
+  }, authContextIntlCache), [localeContext?.locale, localeContext?.messages]);
   const [currentUser, setCurrentUser] = useState(null);
   const [sessionState, setSessionStateInternal] = useState(EMPTY_SESSION_STATE);
+  const authIntlRef = useRef(authIntl);
+  authIntlRef.current = authIntl;
 
   const setSessionState = (next) => {
     setSessionStateInternal((prev) => {
@@ -1088,7 +1107,7 @@ export const AuthProvider = ({ children }) => {
         profile: null,
         roles: EMPTY_ROLES,
         error: {
-          message: 'Authentication bootstrap timed out. Retry to recover your session.',
+          message: authIntlRef.current.formatMessage(authContextMessages.bootstrapTimedOut),
         },
       });
     }, BOOTSTRAP_TIMEOUT_MS);
