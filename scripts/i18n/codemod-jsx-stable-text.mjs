@@ -15,7 +15,6 @@ const MagicString = appRequire('magic-string');
 const artifactPath = path.join(repoDir, 'artifacts/i18n/discovered-stable-ui-text.json');
 const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
 
-const normalizeText = (value = '') => String(value).replace(/\s+/g, ' ').trim();
 const hashText = (value = '') => crypto.createHash('sha1').update(value).digest('hex').slice(0, 8);
 const toMessageId = (candidate) => {
     const base = String(candidate.suggestedIcuId || '')

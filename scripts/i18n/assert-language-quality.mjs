@@ -71,7 +71,6 @@ const stripQualityNoise = (value = '') => String(value)
     .replace(PLACEHOLDER_PATTERN, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-const normalizeForFallbackCheck = (value = '') => stripQualityNoise(value).toLocaleLowerCase('en-US');
 const formatPercent = (value) => (Number.isFinite(value) ? `${value.toFixed(1)}%` : 'n/a');
 const formatCsvPercent = (value) => (Number.isFinite(value) ? value.toFixed(2) : '');
 const formatNativeLetterCell = (percent, nativeCount, totalCount) => {
@@ -154,7 +153,6 @@ const nativeAuditPairs = expandReviewPairs(nativeReviewAudit);
 const actionableByLocale = countPairsByLocale(actionablePairs);
 const nativeAuditByLocale = countPairsByLocale(nativeAuditPairs);
 const actionablePairSet = createPairSet(actionablePairs);
-const nativeAuditPairSet = createPairSet(nativeAuditPairs);
 const trackedReviewPairSet = createPairSet([...actionablePairs, ...nativeAuditPairs]);
 const sourceIds = Object.keys(sourceMessages).sort((left, right) => left.localeCompare(right));
 const allowlistedEnglishMessages = new Set(qaRules.englishLeakageAllowlist || []);
@@ -281,9 +279,7 @@ for (const locale of requiredLocales) {
 
         if (isExactEnglishFallback) {
             row.exactEnglishFallbacks += 1;
-            if (actionablePairSet.has(localeId)) {
-                row.actionableReviewPairs = row.actionableReviewPairs;
-            } else if (!trackedReviewPairSet.has(localeId)) {
+            if (!actionablePairSet.has(localeId) && !trackedReviewPairSet.has(localeId)) {
                 row.untrackedEnglishFallbacks += 1;
             }
         }
@@ -321,9 +317,6 @@ for (const locale of requiredLocales) {
             }
         }
 
-        if (!isExactEnglishFallback && nativeAuditPairSet.has(localeId)) {
-            row.nativeAuditPairs = row.nativeAuditPairs;
-        }
     });
 
     row.nativeLetterPercent = nativeRule && totalLetters > 0

@@ -32,6 +32,11 @@ const normalizeText = (value = '') => String(value)
     .replace(/\s+/g, ' ')
     .replace(/\u00a0/g, ' ')
     .trim();
+const escapeMarkdownTableCell = (value = '') => String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ')
+    .trim();
 
 const pathIncludes = (file, needles = []) => needles.some((needle) => file.includes(needle));
 const lowerPathIncludes = (file, needles = []) => {
@@ -47,7 +52,6 @@ const toastMethodNames = new Set(config.toastMethodNames || []);
 const validationFunctionNames = new Set(config.validationFunctionNames || []);
 const validationPropertyNames = new Set(config.validationPropertyNames || []);
 const codeExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
-const staticExtensions = new Set(['.html', '.json']);
 
 const catalogTextToIds = Object.entries(englishCatalog).reduce((acc, [id, message]) => {
     const normalized = normalizeText(message);
@@ -236,6 +240,11 @@ const enclosingJsxAttributeName = (pathRef) => {
 
 const visibleLowercaseWords = new Set(['all', 'no', 'off', 'ok', 'on', 'yes']);
 
+const isLikelyStructuredToken = (text) => {
+    const parts = String(text || '').split(/[._:-]/);
+    return parts.length >= 3 && parts.every((part) => /^[a-z0-9]+$/i.test(part));
+};
+
 const isLikelyNonHumanText = (text) => {
     if (!text || text.length < 2) return true;
     if (!/[A-Za-z\u0600-\u06FF\u0900-\u097F\u0980-\u09FF]/.test(text)) return true;
@@ -260,7 +269,7 @@ const isLikelyNonHumanText = (text) => {
     if (/^(ms|px|rem|em|vh|vw|fr)$/i.test(text)) return true;
     if (/^\{?[A-Za-z0-9_]+\}?(?:[-_:]\{?[A-Za-z0-9_]+\}?)+$/.test(text)) return true;
     if (/^[A-Z0-9_]+$/.test(text) && text.length > 3) return true;
-    if (/^[a-z0-9]+([._:-][a-z0-9]+){2,}$/i.test(text)) return true;
+    if (isLikelyStructuredToken(text)) return true;
     if (/^[a-z][a-z0-9_-]{2,}$/.test(text) && !visibleLowercaseWords.has(text)) return true;
     if (/^[#.][A-Za-z0-9_-]+$/.test(text)) return true;
     if (/^[a-f0-9]{16,}$/i.test(text)) return true;
@@ -818,9 +827,9 @@ const markdownRows = stableCandidates.slice(0, 250).map((candidate) => [
     `| ${candidate.risk}`,
     `\`${candidate.file}:${candidate.line}\``,
     candidate.classification,
-    candidate.detectedText.replace(/\|/g, '\\|'),
+    escapeMarkdownTableCell(candidate.detectedText),
     candidate.suggestedIcuId,
-    candidate.reason.replace(/\|/g, '\\|'),
+    escapeMarkdownTableCell(candidate.reason),
     '|',
 ].join(' | '));
 

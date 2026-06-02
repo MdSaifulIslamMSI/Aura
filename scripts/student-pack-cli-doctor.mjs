@@ -72,51 +72,36 @@ const installHints = {
   awslocal: 'Install awscli-local, or use aws --endpoint-url=http://127.0.0.1:4566.',
 };
 
-const pathCandidates = (command) => {
-  const candidates = [];
-
-  if (process.platform === 'win32') {
-    candidates.push(
-      join(repoRoot, 'bin', `${command}.cmd`),
-      join(repoRoot, 'bin', `${command}.js`),
-    );
-  }
-
-  return candidates.filter(Boolean);
-};
-
 const resolveCommand = (command) => {
   if (!ALLOWED_COMMANDS.has(command)) {
     throw new Error(`Unsupported CLI doctor command: ${command}`);
   }
   if (command === 'node') {
-    return process.execPath;
+    return {
+      commandForSpawn: process.execPath,
+      argsPrefix: [],
+      detail: process.execPath,
+    };
   }
-  for (const candidate of pathCandidates(command)) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
+  if (process.platform === 'win32') {
+    return {
+      commandForSpawn: 'cmd.exe',
+      argsPrefix: ['/d', '/c', command],
+      detail: command,
+    };
   }
-  return command;
+  return {
+    commandForSpawn: command,
+    argsPrefix: [],
+    detail: command,
+  };
 };
 
 const run = (command, args = []) => {
-  const executable = resolveCommand(command);
-  const isWindowsShim = process.platform === 'win32' && /\.(cmd|bat)$/i.test(executable);
-  const isPowerShellScript = process.platform === 'win32' && /\.ps1$/i.test(executable);
-  const commandForSpawn = isWindowsShim
-    ? 'cmd.exe'
-    : isPowerShellScript
-      ? 'powershell.exe'
-      : executable;
-  const argsForSpawn = isWindowsShim
-    ? ['/d', '/c', executable, ...args]
-    : isPowerShellScript
-      ? ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', executable, ...args]
-      : args;
+  const { commandForSpawn, argsPrefix, detail } = resolveCommand(command);
+  const argsForSpawn = [...argsPrefix, ...args];
 
   // Command names are static doctor checks guarded by ALLOWED_COMMANDS; shell execution is disabled.
-  // codeql[js/indirect-command-line-injection]
   const result = spawnSync(commandForSpawn, argsForSpawn, {
     cwd: repoRoot,
     encoding: 'utf8',
@@ -138,7 +123,7 @@ const run = (command, args = []) => {
 
   return {
     ok: result.status === 0,
-    detail: executable === command ? output : `${output} (${executable})`,
+    detail: detail === command ? output : `${output} (${detail})`,
   };
 };
 

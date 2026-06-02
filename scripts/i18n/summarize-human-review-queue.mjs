@@ -44,6 +44,11 @@ const countBy = (items, selector) => items.reduce((acc, item) => {
 
 const localeOrder = new Map(requiredLocales.map((locale, index) => [locale, index]));
 const compareText = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
+const escapeMarkdownTableCell = (value = '') => String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ')
+    .trim();
 const compareLocales = (left, right) => {
     const leftOrder = localeOrder.has(left) ? localeOrder.get(left) : Number.MAX_SAFE_INTEGER;
     const rightOrder = localeOrder.has(right) ? localeOrder.get(right) : Number.MAX_SAFE_INTEGER;
@@ -302,7 +307,7 @@ const exampleRows = ['critical', 'high', 'medium', 'low'].flatMap((priority) => 
         `| ${priority}`,
         example.risk,
         example.affectedMessagePairs,
-        example.sourceMessage.replace(/\|/g, '\\|'),
+        escapeMarkdownTableCell(example.sourceMessage),
         example.sampleIds.join(', '),
     ].join(' | ')} |`)
 ));

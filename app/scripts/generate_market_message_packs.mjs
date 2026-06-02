@@ -297,15 +297,6 @@ const restorePlaceholders = (text, placeholders) => placeholders.reduce(
     String(text || ''),
 );
 
-const parseTranslationPayload = async (response) => {
-    const payload = await response.json();
-    const segments = Array.isArray(payload?.[0]) ? payload[0] : [];
-    return segments
-        .map((segment) => (Array.isArray(segment) ? String(segment[0] || '') : ''))
-        .join('')
-        .trim();
-};
-
 const wait = (durationMs) => new Promise((resolve) => {
     setTimeout(resolve, durationMs);
 });
