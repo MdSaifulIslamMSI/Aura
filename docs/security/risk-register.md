@@ -1,11 +1,11 @@
 # Security Risk Register
 
-Last updated: 2026-05-25
+Last updated: 2026-06-02
 
 | ID | Risk | Likelihood | Impact | Current Controls | Owner | Status | Next Evidence |
 |---|---|---:|---:|---|---|---|---|
 | R-001 | Production MFA/passkey enforcement is not proven from repo-only evidence | Medium | High | Admin policy flags, Duo/OIDC tests, trusted-device services | Security owner | Open | Capture production config and admin MFA test evidence |
-| R-002 | Upload malware scanner unavailable in production could block users or allow unsafe files depending on config | Medium | Critical | Upload pipeline fails closed on scan error in code paths, runtime validation script | Platform owner | Open | Prove ClamAV/YARA deployment and quarantine behavior |
+| R-002 | Upload malware scanner unavailable in production could block users or allow unsafe files depending on config | Medium | Critical | Upload pipeline fails closed on scan error in code paths, runtime validation script records EICAR, scanner env contract, and local quarantine behavior | Platform owner | Open | Run staging with `MALWARE_RUNTIME_REQUIRED=true`, `UPLOAD_MALWARE_SCAN_ENABLED=true`, and `CLAMAV_ENABLED=true`; retain ClamAV/YARA and quarantine artifact evidence |
 | R-003 | Tenant/object authorization may be inconsistent across all controllers | Medium | Critical | IDOR tests, admin tests, controller owner checks | Backend owner | Open | Complete route-by-route owner/tenant matrix |
 | R-004 | Raw scan reports may contain sensitive paths or findings if committed | Medium | Medium | Security reports are gitignored, CI artifacts retained separately | Security owner | Accepted | Store reports as CI artifacts, summarize in docs |
 | R-005 | Runtime hardening is not fully enforced | Medium | High | Dockerfile and compose assets, Trivy image scan script | Platform owner | Open | Non-root/read-only/capability evidence and Falco deployment |
@@ -13,7 +13,7 @@ Last updated: 2026-05-25
 | R-007 | Branch protection cannot be guaranteed from repo contents alone | Medium | High | CODEOWNERS, security-gates workflow | Repo admin | Open | Screenshot/export of GitHub branch protection settings |
 | R-008 | SIEM/alert delivery proof is incomplete | Medium | High | Prometheus alert rules, structured security logs | Observability owner | Open | Alert test evidence and notification route proof |
 | R-009 | Image signing/SLSA provenance not implemented | Low | High | SBOM workflow step | Platform owner | Backlog | Add Cosign/Sigstore signing and provenance |
-| R-010 | External staging DAST target is not configured for live environment coverage | Medium | High | ZAP baseline now falls back to local preview and uploads reports | Release owner | Partial | Configure `STAGING_URL` and compare local-preview vs staging reports |
+| R-010 | External staging DAST target needs retained live-environment evidence | Medium | High | Local-preview ZAP report plus scheduled `staging-ops-watch` live staging ZAP baseline with retained artifacts | Release owner | Partial | Confirm the scheduled staging artifact contains a completed `zap-baseline` run and compare local-preview vs staging findings |
 | R-011 | Password spraying and account takeover patterns may outpace static login limits | Medium | High | Login throttling, auth telemetry, abuse detection policy | Security owner | Open | Impossible-travel/password-spraying alert test |
 | R-012 | SSRF or unsafe egress could reach internal services through new integrations | Medium | Critical | Safe egress policy, private IP block requirements | Backend owner | Open | Metadata IP and redirect-to-private regression tests |
 | R-013 | Webhook replay or stale events could mutate payment/order state | Low | High | Webhook signature tests and replay policy | Payments owner | Partial | Event ID replay store evidence |

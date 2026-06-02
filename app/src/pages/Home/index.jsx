@@ -93,6 +93,16 @@ const formatHomeCategory = (category, t) => {
   }
 };
 
+const isExpectedOptionalAuthError = (error) => {
+  const status = Number(error?.status || error?.data?.statusCode || 0);
+  if (status === 401 || status === 403) return true;
+
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('not authorized')
+    || message.includes('session expired')
+    || message.includes('token failed');
+};
+
 const Home = () => {
   // Independent State (Decoupled from Global Context)
   const [dealsOfTheDay, setDealsOfTheDay] = useState([]);
@@ -365,7 +375,7 @@ const Home = () => {
         const localProducts = await loadLocalRecommendations();
         nextProducts = mergeUniqueProducts(nextProducts, localProducts);
       } catch (error) {
-        if (!isTrustedDeviceChallengeError(error)) {
+        if (!isTrustedDeviceChallengeError(error) && !isExpectedOptionalAuthError(error)) {
           console.error('Personalized recommendations failed:', error);
         }
         nextProducts = await loadLocalRecommendations();

@@ -2,6 +2,9 @@ import { execSync } from "node:child_process"
 import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig, loadEnv } from "vite"
+import {
+  FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY,
+} from "./config/vercelRoutingContract.mjs"
 
 const DEFERRED_ROUTE_PRELOAD_PATTERNS = [
   /^assets\/admin-/,
@@ -106,6 +109,17 @@ const auraReleaseMetaPlugin = {
   },
 }
 
+const auraDevelopmentCspPlugin = {
+  name: 'aura-development-csp',
+  apply: 'serve',
+  transformIndexHtml(html) {
+    return html.replace(
+      /(<meta\s+http-equiv="Content-Security-Policy"\s+content=")[^"]*("\s*\/?>)/,
+      `$1${FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY}$2`
+    )
+  },
+}
+
 const resolveDevApiProxyTarget = (mode) => {
   const env = loadEnv(mode, process.cwd(), '')
   const rawTarget = firstNonEmptyValue(
@@ -134,7 +148,7 @@ const createProxyConfig = (target) => ({
 })
 
 const DEV_SECURITY_HEADERS = Object.freeze({
-  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtrhsolhec1s.cloudfront.net wss://dbtrhsolhec1s.cloudfront.net http://localhost:* http://127.0.0.1:* http://host.docker.internal:* https://api.github.com https://api.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firebaselogging.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app https://*.livekit.cloud wss://*.livekit.cloud; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'",
+  'Content-Security-Policy': FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY,
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
@@ -207,7 +221,7 @@ export default defineConfig(({ mode }) => {
       '/uploads': createProxyConfig(devApiProxyTarget),
     },
   },
-  plugins: [react(), auraReleaseMetaPlugin],
+  plugins: [react(), auraDevelopmentCspPlugin, auraReleaseMetaPlugin],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

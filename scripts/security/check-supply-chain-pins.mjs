@@ -6,6 +6,9 @@ const workflowDir = path.join(repoRoot, '.github', 'workflows');
 const mutableRefs = new Set(['main', 'master', 'latest', 'stable', 'edge', 'nightly']);
 const mutableImageTags = new Set(['latest']);
 const pinnedCommitPattern = /^[0-9a-f]{40}$/i;
+const strictPinnedWorkflowFiles = new Set([
+  'staging-ops-watch.yml',
+]);
 
 const isGitHubMaintainedAction = (action = '') => (
   action.startsWith('actions/')
@@ -15,21 +18,30 @@ const isGitHubMaintainedAction = (action = '') => (
 const failures = [];
 let checkedActionRefs = 0;
 let checkedImageRefs = 0;
+let checkedStrictWorkflowActionRefs = 0;
 
 if (existsSync(workflowDir)) {
   for (const fileName of readdirSync(workflowDir)) {
     if (!/\.ya?ml$/i.test(fileName)) continue;
     const filePath = path.join(workflowDir, fileName);
     const content = readFileSync(filePath, 'utf8');
+    const requireImmutableActionRefs = strictPinnedWorkflowFiles.has(fileName);
     const usesMatches = content.matchAll(/uses:\s*([^\s#]+)@([^\s#]+)/g);
     for (const match of usesMatches) {
       checkedActionRefs += 1;
+      const action = match[1].replace(/^['"]|['"]$/g, '');
       const ref = match[2].replace(/^['"]|['"]$/g, '');
       if (mutableRefs.has(ref) || ref.includes('${{')) {
-        failures.push(`${path.relative(repoRoot, filePath)} uses mutable action ref ${match[1]}@${ref}`);
+        failures.push(`${path.relative(repoRoot, filePath)} uses mutable action ref ${action}@${ref}`);
       }
-      if (!isGitHubMaintainedAction(match[1]) && !pinnedCommitPattern.test(ref)) {
-        failures.push(`${path.relative(repoRoot, filePath)} uses third-party action ref ${match[1]}@${ref}; pin it to a full commit SHA`);
+      if (requireImmutableActionRefs) {
+        checkedStrictWorkflowActionRefs += 1;
+        if (!pinnedCommitPattern.test(ref)) {
+          failures.push(`${path.relative(repoRoot, filePath)} uses security-sensitive action ref ${action}@${ref}; pin it to a full commit SHA`);
+        }
+      }
+      if (!isGitHubMaintainedAction(action) && !pinnedCommitPattern.test(ref)) {
+        failures.push(`${path.relative(repoRoot, filePath)} uses third-party action ref ${action}@${ref}; pin it to a full commit SHA`);
       }
     }
   }
@@ -56,4 +68,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`[security:supply-chain-pins] Checked ${checkedActionRefs} workflow action refs and ${checkedImageRefs} Docker image refs.`);
+console.log(`[security:supply-chain-pins] Checked ${checkedActionRefs} workflow action refs, ${checkedStrictWorkflowActionRefs} strict workflow action refs, and ${checkedImageRefs} Docker image refs.`);

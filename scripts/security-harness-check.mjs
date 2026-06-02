@@ -20,6 +20,7 @@ const productionWorkflow = read('.github/workflows/production-cicd.yml');
 const securityRunner = read('scripts/security-runner.mjs');
 const secretScan = read('scripts/security-secret-scan.mjs');
 const dependencyAudit = read('scripts/security-dependency-audit.mjs');
+const supplyChainPinCheck = read('scripts/security/check-supply-chain-pins.mjs');
 const gitleaksConfig = read('.gitleaks.toml');
 const gitignore = read('.gitignore');
 const dockerignore = read('server/.dockerignore');
@@ -31,6 +32,7 @@ const frontendAwsDeploy = read('.github/workflows/deploy-frontend-aws.yml');
 const netlifyDeploy = read('.github/workflows/deploy-netlify.yml');
 const desktopRelease = read('.github/workflows/desktop-release.yml');
 const freeScannerWorkflow = read('.github/workflows/free-security-scanners.yml');
+const stagingOpsWatchWorkflow = read('.github/workflows/staging-ops-watch.yml');
 const freeScannerScript = read('scripts/security-free-scanners.mjs');
 const edgeNginx = read('infra/edge/nginx/auth-rate-limit.conf');
 const edgeCrsCompose = read('infra/edge/modsecurity-crs/docker-compose.example.yml');
@@ -185,6 +187,13 @@ addCheck(
 );
 
 addCheck(
+  'desktop update signatures are verified by default',
+  rootPackage.build?.win?.signAndEditExecutable === true
+    && rootPackage.build?.win?.verifyUpdateCodeSignature === true,
+  'package.json Windows desktop signing and updater verification defaults'
+);
+
+addCheck(
   'status page power is measured in public payload',
   includesAll(statusService, ['measureStatusPagePower', 'statusPower:', 'surface_coverage', 'health_signal_depth', 'history_depth']),
   'statusPower score, coverage, signal, and history dimensions'
@@ -258,6 +267,43 @@ addCheck(
 );
 
 addCheck(
+  'staging ops watch runs live DAST',
+  includesAll(stagingOpsWatchWorkflow, [
+    'Run live staging DAST baseline',
+    'STAGING_URL:',
+    'FREE_SECURITY_SCANNERS_REQUIRED: "true"',
+    'FREE_SECURITY_ZAP_BASELINE_REQUIRED: "true"',
+    'npm run security:free-scanners -- --only=zap-baseline',
+    'staging-dast-security-reports',
+  ]),
+  '.github/workflows/staging-ops-watch.yml'
+);
+
+addCheck(
+  'staging ops watch action refs are immutable',
+  includesAll(stagingOpsWatchWorkflow, [
+    'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd',
+    'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e',
+    'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
+  ]) && includesAll(supplyChainPinCheck, [
+    'strictPinnedWorkflowFiles',
+    'staging-ops-watch.yml',
+    'strict workflow action refs',
+  ]),
+  '.github/workflows/staging-ops-watch.yml uses full action SHAs and the pin checker enforces it'
+);
+
+addCheck(
+  'required ZAP baseline cannot silently skip without staging URL',
+  includesAll(freeScannerScript, [
+    'FREE_SECURITY_ZAP_BASELINE_REQUIRED',
+    "status: zapBaselineRequired ? 'failed' : 'skipped'",
+    'OWASP ZAP baseline requires an explicit non-production target',
+  ]),
+  'scripts/security-free-scanners.mjs'
+);
+
+addCheck(
   'upload malware runtime validation is wired',
   includesAll(rootPackage.scripts?.['security:malware-runtime'] || '', ['validate-upload-malware-runtime.mjs'])
     && includesAll(splitRuntimeCompose, ['clamav/clamav:1.4', 'UPLOAD_MALWARE_SCAN_FAIL_CLOSED', 'YARA_RULES_PATH'])
@@ -288,6 +334,12 @@ addCheck(
   'production admin access requires passkey in runtime compose',
   includesAll(awsRuntimeCompose, ['ADMIN_REQUIRE_PASSKEY: "true"', 'AUTH_DEVICE_CHALLENGE_MODE: always']),
   'admin passkey enforcement remains enabled for EC2 runtime'
+);
+
+addCheck(
+  'production AI chat defaults closed in runtime compose',
+  awsRuntimeCompose.includes('AI_PUBLIC_CHAT_ACCESS_ENABLED: ${AI_PUBLIC_CHAT_ACCESS_ENABLED:-false}'),
+  'infra/aws/docker-compose.ec2.yml keeps anonymous AI chat opt-in'
 );
 
 addCheck(

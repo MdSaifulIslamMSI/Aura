@@ -11,6 +11,7 @@ This layer adds the remaining safe staging operations around the AWS Free Tier s
 | Backend + frontend redeploy | `npm run staging:deploy` | Runs Compose deploy, Docker frontend deploy, and live staging smoke. |
 | Staging backup | `npm run staging:backup` | Writes Postgres/Mongo/Redis staging backup artifacts to the private staging S3 bucket under `backups/`. It uses Docker on EC2 and falls back to SSM Run Command when SSH port 22 is unavailable. |
 | Local observability | `npm run staging:observability` | Installs a systemd timer on the staging EC2 instance and writes JSONL health evidence to `/opt/aura-staging/logs/staging-health.jsonl`. |
+| Live staging DAST | `staging-ops-watch.yml` | Runs `npm run security:free-scanners -- --only=zap-baseline` against explicit `STAGING_URL` after staging smoke passes, fails if the target is missing, and uploads the ZAP artifacts. |
 | Cost watch | `npm run staging:cost-watch` | Reads Cost Explorer for tagged staging spend and compares it with `STAGING_MONTHLY_BUDGET_USD`. |
 | HTTPS/domain | `npm run staging:https` | Skips unless `ENABLE_STAGING_HTTPS=true` and a real `STAGING_API_HOST` resolves to the staging EC2 public IP. |
 

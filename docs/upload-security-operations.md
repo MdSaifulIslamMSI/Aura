@@ -47,7 +47,7 @@ Review media uploads are now quarantine-first: new files are written with `pendi
 
 ## Validation
 
-- `npm run security:malware-runtime` verifies built-in EICAR blocking and, when enabled, confirms configured scanner engines do not fail closed on a clean PNG.
+- `npm run security:malware-runtime` verifies built-in EICAR blocking, records the `UPLOAD_MALWARE_SCAN_ENABLED`/`CLAMAV_ENABLED` runtime contract, and writes local review-media quarantine evidence showing pending/infected objects stay blocked while clean-promoted objects can be served. When scanner engines are enabled, it also confirms they do not fail closed on a clean PNG.
 - `npm run security:post-merge-smoke` runs repo-safe checks and runs live staging smoke only when `SMOKE_BASE_URL` is set.
 - `npm run observability:validate` confirms Prometheus has upload alerts for malware blocks, scan failures, and MIME/magic mismatch bursts.
 

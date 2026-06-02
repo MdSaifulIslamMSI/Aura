@@ -8,6 +8,8 @@ Security Level: Medium
 
 One-line verdict: This codebase has unusually strong application-security controls for a marketplace app, but current production/deployment defaults and desktop release settings keep it out of production-grade territory.
 
+2026-06-01 hardening update: the desktop signing/update defaults, EC2 anonymous AI default, Resend webhook route limiter, and production CSP localhost/inline-style findings were tightened after this report. The original rows remain below as historical review context; use the current code, `docs/security/risk-register.md`, and the security harness checks as the live posture source.
+
 ## 2. Project Overview
 
 - App type: Public commerce marketplace with AI shopping assistant, payment flows, admin operations, web frontend, API backend, Electron desktop shell, and Capacitor mobile app.
