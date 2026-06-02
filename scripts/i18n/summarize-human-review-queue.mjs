@@ -282,14 +282,13 @@ const priorityRows = ['critical', 'high', 'medium', 'low'].map((priority) => {
 });
 
 const exampleRows = ['critical', 'high', 'medium', 'low'].flatMap((priority) => (
-    actionablePriorities[priority].examples.map((example) => [
+    actionablePriorities[priority].examples.map((example) => `${[
         `| ${priority}`,
         example.risk,
         example.affectedMessagePairs,
         example.sourceMessage.replace(/\|/g, '\\|'),
         example.sampleIds.join(', '),
-        '|',
-    ].join(' | '))
+    ].join(' | ')} |`)
 ));
 
 const nativeLocaleRows = Object.entries(nativeAuditSummary.byLocale).map(([locale, count]) => (

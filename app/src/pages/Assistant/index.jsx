@@ -76,6 +76,18 @@ const starterPromptMessages = defineMessages({
         defaultMessage: 'Track an order or escalate into support without losing context.',
     },
 });
+const composerMessages = defineMessages({
+    listeningPlaceholder: {
+        id: 'common.jsx.expression.listening.6dab600d',
+        defaultMessage: 'Listening...',
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    promptPlaceholder: {
+        id: 'cart.jsx.expression.compare.products.review.a.cart.or.find.40cd3600',
+        defaultMessage: 'Compare products, review a cart, or find a match...',
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+});
 const STARTER_PROMPTS = [
     {
         id: 'compare',
@@ -978,16 +990,8 @@ const AssistantPage = () => {
                                                 }}
                                                 rows={Math.min(Math.max(String(inputValue || '').split('\n').length, 1), 6)}
                                                 placeholder={isListening
-                                                    ? intl.formatMessage({
-                                                        id: 'common.jsx.expression.listening.6dab600d',
-                                                        defaultMessage: 'Listening...',
-                                                        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-                                                    })
-                                                    : intl.formatMessage({
-                                                        id: 'cart.jsx.expression.compare.products.review.a.cart.or.find.40cd3600',
-                                                        defaultMessage: 'Compare products, review a cart, or find a match...',
-                                                        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-                                                    })}
+                                                    ? intl.formatMessage(composerMessages.listeningPlaceholder)
+                                                    : intl.formatMessage(composerMessages.promptPlaceholder)}
                                                 disabled={isLoading}
                                                 className="assistant-composer-textarea block max-h-28 min-h-10 w-full resize-none overflow-y-auto bg-transparent px-0 py-2 text-[15px] leading-6 text-white outline-none placeholder:text-slate-500 sm:min-h-12"
                                             />

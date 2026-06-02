@@ -101,6 +101,28 @@ const readObjectProperty = (objectNode, name) => {
     return property?.value || null;
 };
 
+const getStaticJsxAttribute = (attributes, name) => {
+    const attribute = attributes.find((entry) => (
+        entry.type === 'JSXAttribute'
+        && entry.name.type === 'JSXIdentifier'
+        && entry.name.name === name
+    ));
+    if (!attribute?.value) return '';
+    if (attribute.value.type === 'StringLiteral') return attribute.value.value;
+    if (attribute.value.type === 'JSXExpressionContainer') return readStaticString(attribute.value.expression);
+    return '';
+};
+
+const isFormatMessageCall = (callee) => {
+    if (callee.type === 'Identifier') return callee.name === 'formatMessage';
+    return (
+        callee.type === 'MemberExpression'
+        && !callee.computed
+        && callee.property.type === 'Identifier'
+        && callee.property.name === 'formatMessage'
+    );
+};
+
 const collectFormatJsSourceMessages = () => {
     const messages = {};
 
@@ -137,6 +159,10 @@ const collectFormatJsSourceMessages = () => {
         traverse(ast, {
             CallExpression(callPath) {
                 const { node } = callPath;
+                if (isFormatMessageCall(node.callee)) {
+                    collectDescriptorObject(node.arguments[0]);
+                    return;
+                }
                 if (node.callee.type !== 'Identifier') return;
                 if (node.callee.name === 'defineMessage') {
                     collectDescriptorObject(node.arguments[0]);
@@ -149,6 +175,13 @@ const collectFormatJsSourceMessages = () => {
                     if (property.type !== 'ObjectProperty') return;
                     collectDescriptorObject(property.value);
                 });
+            },
+            JSXOpeningElement(openPath) {
+                const { node } = openPath;
+                if (node.name.type !== 'JSXIdentifier' || node.name.name !== 'FormattedMessage') return;
+                const id = getStaticJsxAttribute(node.attributes, 'id');
+                const defaultMessage = getStaticJsxAttribute(node.attributes, 'defaultMessage');
+                if (id && defaultMessage) messages[id] = defaultMessage;
             },
         });
     });

@@ -17,6 +17,7 @@ const traverse = traverseModule.default || traverseModule;
 const CODE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', 'test-results']);
 const TEST_FILE_PATTERN = /\.(test|spec)\.[jt]sx?$/i;
+const STABLE_ICU_CALL_NAMES = new Set(['t', 'formatStablePlaceholder']);
 const RUNTIME_ENUM_COMPATIBILITY_FILES = new Set([
     'app/src/utils/enumLocalization.js',
 ]);
@@ -223,7 +224,7 @@ export const collectLegacyMigrationInventory = async () => {
         traverse(ast, {
             CallExpression(callPath) {
                 const { node } = callPath;
-                if (node.callee.type !== 'Identifier' || node.callee.name !== 't') return;
+                if (node.callee.type !== 'Identifier' || !STABLE_ICU_CALL_NAMES.has(node.callee.name)) return;
 
                 const id = readStaticString(node.arguments[0]);
                 const fallback = readFallbackTemplate(source, node.arguments[2], node.arguments[1]);

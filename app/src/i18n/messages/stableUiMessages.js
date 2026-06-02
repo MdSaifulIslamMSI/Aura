@@ -4043,11 +4043,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "items",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "cart.jsx.expression.compare.products.review.a.cart.or.find.40cd3600": {
-        id: "cart.jsx.expression.compare.products.review.a.cart.or.find.40cd3600",
-        defaultMessage: "Compare products, review a cart, or find a match...",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "cart.jsx.text.add.all.to.cart.ae4c6b49": {
         id: "cart.jsx.text.add.all.to.cart.ae4c6b49",
         defaultMessage: "Add All To Cart",
@@ -5921,11 +5916,6 @@ export const stableUiMessages = defineMessages({
     "common.jsx.expression.include.trade.in.and.upgrade.path.fb12dbda": {
         id: "common.jsx.expression.include.trade.in.and.upgrade.path.fb12dbda",
         defaultMessage: "Include trade-in and upgrade path.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "common.jsx.expression.listening.6dab600d": {
-        id: "common.jsx.expression.listening.6dab600d",
-        defaultMessage: "Listening...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "common.jsx.expression.live.target.07b371c6": {

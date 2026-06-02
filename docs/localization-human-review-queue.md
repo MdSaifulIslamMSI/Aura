@@ -4,40 +4,41 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 
 ## Summary
 
-- Stable ICU message IDs: 3276
-- Former raw review rows: 74834
-- Actionable grouped queue entries: 2462
-- Actionable affected locale-message pairs: 29689
+- Stable ICU message IDs: 3274
+- Former raw review rows: 82529
+- Actionable grouped queue entries: 2859
+- Actionable affected locale-message pairs: 37384
 - Native-review audit grouped entries: 2488
 - Native-review audit affected locale-message pairs: 45145
-- High-risk actionable entries: 1026 (13911 affected pairs)
-- Medium-risk actionable entries: 587 (7009 affected pairs)
-- Low-risk actionable entries: 849 (8769 affected pairs)
+- High-risk actionable entries: 1205 (17388 affected pairs)
+- Medium-risk actionable entries: 632 (7883 affected pairs)
+- Low-risk actionable entries: 1022 (12113 affected pairs)
 
 ## Actionable Queue By Locale
 
-- `ar`: 1974 grouped entries / 2033 affected pairs
-- `as`: 1119 grouped entries / 1139 affected pairs
-- `bn`: 1112 grouped entries / 1130 affected pairs
-- `de`: 2033 grouped entries / 2092 affected pairs
-- `fr`: 2056 grouped entries / 2122 affected pairs
-- `gu`: 1168 grouped entries / 1192 affected pairs
-- `hi`: 2244 grouped entries / 2353 affected pairs
-- `ja`: 2045 grouped entries / 2107 affected pairs
-- `kn`: 1133 grouped entries / 1152 affected pairs
-- `ml`: 1137 grouped entries / 1155 affected pairs
-- `mr`: 1140 grouped entries / 1159 affected pairs
-- `or`: 1163 grouped entries / 1185 affected pairs
-- `pa`: 1156 grouped entries / 1179 affected pairs
-- `pt`: 2017 grouped entries / 2073 affected pairs
-- `sa`: 1137 grouped entries / 1158 affected pairs
-- `te`: 1134 grouped entries / 1153 affected pairs
-- `ur`: 1125 grouped entries / 1144 affected pairs
-- `zh`: 2036 grouped entries / 2096 affected pairs
-- `es`: 2011 grouped entries / 2067 affected pairs
+- `ar`: 2371 grouped entries / 2438 affected pairs
+- `as`: 1516 grouped entries / 1544 affected pairs
+- `bn`: 1509 grouped entries / 1535 affected pairs
+- `de`: 2430 grouped entries / 2497 affected pairs
+- `es`: 2408 grouped entries / 2472 affected pairs
+- `fr`: 2453 grouped entries / 2527 affected pairs
+- `gu`: 1565 grouped entries / 1597 affected pairs
+- `hi`: 2641 grouped entries / 2758 affected pairs
+- `ja`: 2442 grouped entries / 2512 affected pairs
+- `kn`: 1530 grouped entries / 1557 affected pairs
+- `ml`: 1534 grouped entries / 1560 affected pairs
+- `mr`: 1537 grouped entries / 1564 affected pairs
+- `or`: 1560 grouped entries / 1590 affected pairs
+- `pa`: 1553 grouped entries / 1584 affected pairs
+- `pt`: 2414 grouped entries / 2478 affected pairs
+- `sa`: 1534 grouped entries / 1563 affected pairs
+- `te`: 1531 grouped entries / 1558 affected pairs
+- `ur`: 1522 grouped entries / 1549 affected pairs
+- `zh`: 2433 grouped entries / 2501 affected pairs
 
 ## Actionable Queue By Reason
 
+- `missing-legacy-locale-uses-english-fallback`: 397 grouped entries / 7695 affected pairs
 - `reviewed-catalog-english-fallback-needs-human-review`: 2462 grouped entries / 29689 affected pairs
 
 ## Native Review Audit
