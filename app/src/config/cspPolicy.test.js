@@ -60,6 +60,10 @@ const expectProductionStylePolicy = (policy = '') => {
   expect(getDirectiveSources(policy, 'style-src-attr')).toEqual(["'unsafe-inline'"]);
 };
 
+const expectFrameAncestorHeaderPolicy = (policy = '') => {
+  expect(getDirectiveSources(policy, 'frame-ancestors')).toEqual(["'none'"]);
+};
+
 const readVercelCsp = (relativePath) => {
   const config = JSON.parse(readProjectFile(relativePath));
   return config.headers?.[0]?.headers?.find((header) => header.key === 'Content-Security-Policy')?.value || '';
@@ -104,6 +108,7 @@ describe('auth CSP allowlists', () => {
     const htmlCsp = html.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]+)"/)?.[1] || '';
     expectHardenedConnectSrc(htmlCsp);
     expectProductionStylePolicy(htmlCsp);
+    expect(getDirective(htmlCsp, 'frame-ancestors')).toBe('');
   });
 
   it('keeps generated deployment CSP headers aligned with the hardened connect-src policy', () => {
@@ -114,6 +119,7 @@ describe('auth CSP allowlists', () => {
     ].forEach((policy) => {
       expectHardenedConnectSrc(policy);
       expectProductionStylePolicy(policy);
+      expectFrameAncestorHeaderPolicy(policy);
     });
   });
 
