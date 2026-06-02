@@ -38,6 +38,18 @@ const safeReportValue = (value) => {
   }
   return value;
 };
+const safeStatusCode = (value) => {
+  const status = Number(value);
+  return Number.isInteger(status) && status > 0 ? String(status) : 'unknown';
+};
+const classifyCustomEnvironmentFailure = (status, message = '') => {
+  const text = String(message || '').toLowerCase();
+  if (status === 409 || /already/.test(text)) return 'already_exists';
+  if (status === 402 || /limit|more than/.test(text)) return 'plan_or_limit';
+  if (status === 403 || /forbidden/.test(text)) return 'forbidden';
+  if (status === 404 || /unsupported|unavailable|custom environments|cannot create/.test(text)) return 'unavailable';
+  return 'api_error';
+};
 const trimTrailingSlash = (value = '') => clean(value).replace(/\/+$/, '');
 const requireEnv = (name) => {
   const value = clean(process.env[name]);
@@ -63,8 +75,7 @@ const ensureStateDir = () => fs.mkdirSync(path.dirname(resultPath), { recursive:
 
 const writeJson = (targetPath, value) => {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  // Local staging state/config only; network-derived fields are summarized and sanitized before this write.
-  // codeql[js/http-to-file-access]
+  // Local staging state/config only; remote data is reduced to enums before this write.
   fs.writeFileSync(targetPath, `${JSON.stringify(safeReportValue(value), null, 2)}\n`);
 };
 
@@ -86,8 +97,7 @@ const writeBlocker = (summary, details = []) => {
     '- Provide a Vercel token or local CLI authentication that can inspect the project and write the required staging or branch-scoped Preview variables before creating Preview deployments.',
     '- Re-run `npm run staging:vercel:autopilot` after credentials are corrected.',
   ].join('\n');
-  // This is a local blocker report; Vercel CLI/API output is sanitized and capped above.
-  // codeql[js/http-to-file-access]
+  // This is a local blocker report; Vercel CLI/API output is reduced to enums above.
   fs.writeFileSync(blockerReportPath, `${body}\n`);
 };
 
@@ -241,8 +251,9 @@ const tryCreateCustomEnvironment = async (project) => {
     const message = error.body?.error?.code || error.body?.error?.message || error.message || 'custom environment failed';
     if ([400, 402, 403, 404, 409].includes(status)
       || /already|limit|forbidden|unsupported|unavailable|cannot create|custom environments|more than/i.test(message)) {
-      warnings.push(`Custom environment staging unavailable (${status || 'unknown'} ${message}); using Preview branch fallback.`);
-      return { ok: false, reason: message };
+      const reason = classifyCustomEnvironmentFailure(status, message);
+      warnings.push(`Custom environment staging unavailable (${safeStatusCode(status)} ${reason}); using Preview branch fallback.`);
+      return { ok: false, reason };
     }
     throw error;
   }
@@ -254,7 +265,7 @@ const setVercelEnv = (key, value, environment, branch) => {
   const addArgs = ['vercel', 'env', 'add', key, environment, ...(branch ? [branch] : []), '--yes', ...cliAuthArgs()];
   const result = runNpx(addArgs, { input: value });
   if (result.status !== 0) {
-    warnings.push(`Could not set Vercel env ${key} for ${environment}${branch ? `/${branch}` : ''}: ${result.stderr || result.stdout}`);
+    warnings.push(`Could not set Vercel env ${key} for ${environment}${branch ? `/${branch}` : ''}: exit ${safeStatusCode(result.status)}`);
     return false;
   }
   return true;
@@ -351,7 +362,7 @@ const setGithubVar = (key, value) => {
   if (!env.githubRepo || !value) return false;
   const result = run(ghBin, ['variable', 'set', key, '--repo', env.githubRepo, '--env', 'staging'], { input: value });
   if (result.status !== 0) {
-    warnings.push(`Could not set GitHub staging variable ${key}: ${result.stderr || result.stdout}`);
+    warnings.push(`Could not set GitHub staging variable ${key}: exit ${safeStatusCode(result.status)}`);
     return false;
   }
   return true;
@@ -361,7 +372,7 @@ const setGithubSecret = (key, value) => {
   if (!env.githubRepo || !value) return false;
   const result = run(ghBin, ['secret', 'set', key, '--repo', env.githubRepo, '--env', 'staging'], { input: value });
   if (result.status !== 0) {
-    warnings.push(`Could not set GitHub staging secret ${key}: ${result.stderr || result.stdout}`);
+    warnings.push(`Could not set GitHub staging secret ${key}: exit ${safeStatusCode(result.status)}`);
     return false;
   }
   return true;
@@ -382,7 +393,7 @@ const getProtectionBypassSecret = async () => {
     warnings.push('Vercel Deployment Protection is enabled; smoke uses a project automation bypass secret without printing it.');
     return secret;
   } catch (error) {
-    warnings.push(`Could not create/read Vercel automation bypass secret: ${error.message || error}`);
+    warnings.push(`Could not create/read Vercel automation bypass secret: status ${safeStatusCode(error?.status)}`);
     return '';
   }
 };
@@ -410,7 +421,7 @@ let project;
 try {
   project = await inspectProject();
 } catch (error) {
-  const message = `Vercel project cannot be inspected with current token/scope or local CLI auth: ${error.message}`;
+  const message = `Vercel project cannot be inspected with current token/scope or local CLI auth: status ${safeStatusCode(error?.status)}`;
   writeBlocker(message, warnings);
   writeJson(resultPath, {
     mode: 'blocked',
@@ -486,13 +497,13 @@ try {
     if (domainResult.status === 0) {
       warnings.push(`Domain ${env.stagingDomain} exists, but automatic branch assignment is not supported by this autopilot yet.`);
     } else {
-      warnings.push(`Domain ${env.stagingDomain} could not be inspected or assigned: ${domainResult.stderr || domainResult.stdout}`);
+      warnings.push(`Domain ${env.stagingDomain} could not be inspected or assigned: exit ${safeStatusCode(domainResult.status)}`);
     }
   }
 
   smokeOutput = runFrontendSmoke(frontendUrl);
-} catch (error) {
-  const message = error?.message || 'Vercel staging deployment failed.';
+} catch {
+  const message = 'Vercel staging deployment or smoke check failed.';
   writeBlocker(message, warnings);
   writeJson(resultPath, {
     mode,
@@ -522,7 +533,7 @@ writeJson(resultPath, {
   blocked: false,
   authMode,
   protectionBypassConfigured,
-  smoke: smokeOutput,
+  smoke: smokeOutput ? 'passed' : 'not_run',
 });
 
 console.log(`PASS: Vercel staging frontend deployed (${mode})`);

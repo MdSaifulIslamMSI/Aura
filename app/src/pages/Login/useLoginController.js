@@ -61,10 +61,45 @@ const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
 const DESKTOP_AUTH_HANDOFF_STORAGE_KEY = 'aura_desktop_auth_handoff_v1';
 const DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS = 10 * 60 * 1000;
 
-const LOOPBACK_DESKTOP_AUTH_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
-const DESKTOP_AUTH_ALLOWED_CALLBACK_PORTS = new Set(
-  Array.from({ length: 10 }, (_, index) => String(47831 + index))
-);
+const normalizeDesktopAuthLoopbackHost = (hostname = '') => {
+  switch (String(hostname || '').trim().toLowerCase()) {
+    case 'localhost':
+      return 'localhost';
+    case '127.0.0.1':
+      return '127.0.0.1';
+    case '::1':
+    case '[::1]':
+      return '[::1]';
+    default:
+      return '';
+  }
+};
+
+const normalizeDesktopAuthCallbackPort = (port = '') => {
+  switch (String(port || '').trim()) {
+    case '47831':
+    case '47832':
+    case '47833':
+    case '47834':
+    case '47835':
+    case '47836':
+    case '47837':
+    case '47838':
+    case '47839':
+    case '47840':
+      return String(port).trim();
+    default:
+      return '';
+  }
+};
+
+const buildLoopbackDesktopAuthCallbackUrl = (hostname = '', port = '') => {
+  const trustedHost = normalizeDesktopAuthLoopbackHost(hostname);
+  const trustedPort = normalizeDesktopAuthCallbackPort(port);
+  return trustedHost && trustedPort
+    ? `http://${trustedHost}:${trustedPort}${DESKTOP_AUTH_COMPLETE_PATH}`
+    : '';
+};
 const DESKTOP_AUTH_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]{1,200}$/;
 const PROTOTYPE_SENSITIVE_REQUEST_IDS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -94,15 +129,8 @@ export const normalizeDesktopAuthCallbackUrl = (value = '') => {
     }
 
     const callbackPort = url.port || (url.protocol === 'http:' ? '80' : '');
-    if (
-      url.protocol === 'http:'
-      && LOOPBACK_DESKTOP_AUTH_HOSTS.has(url.hostname)
-      && DESKTOP_AUTH_ALLOWED_CALLBACK_PORTS.has(callbackPort)
-      && url.pathname === DESKTOP_AUTH_COMPLETE_PATH
-    ) {
-      url.search = '';
-      url.hash = '';
-      return url.toString();
+    if (url.protocol === 'http:' && url.pathname === DESKTOP_AUTH_COMPLETE_PATH) {
+      return buildLoopbackDesktopAuthCallbackUrl(url.hostname, callbackPort);
     }
   } catch {
     // Invalid callback URLs are rejected by returning an empty callback.
@@ -453,8 +481,7 @@ export const useLoginController = () => {
         throw new Error('Desktop sign-in token was not returned by the server.');
       }
 
-      // Callback URL is normalized to same-origin /desktop-auth/complete or fixed loopback desktop ports only.
-      // codeql[js/client-side-request-forgery]
+      // Callback URL is rebuilt from same-origin /desktop-auth/complete or fixed loopback desktop ports only.
       const response = await fetch(callbackUrl, {
         method: 'POST',
         headers: {

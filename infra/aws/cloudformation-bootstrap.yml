@@ -56,13 +56,9 @@ Resources:
       TargetKeyId: !Ref AuraS3KmsKey
 
   # ── S3 Buckets ────────────────────────────────────────────────────────────────
+  #checkov:skip=CKV_AWS_18:Dedicated destination for S3 server access logs; logging this sink recursively is intentionally avoided.
   AccessLogBucket:
     Type: AWS::S3::Bucket
-    Metadata:
-      checkov:
-        skip:
-          - id: CKV_AWS_18
-            comment: Dedicated destination for S3 server access logs.
     Properties:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
@@ -181,13 +177,9 @@ Resources:
           Value: deploy-artifacts
 
   # ── IAM Policy for the existing role ──────────────────────────────────────────
+  #checkov:skip=CKV_AWS_111:Bootstrap EC2 create and describe actions require Resource '*'; IAM, S3, KMS, and SSM permissions remain scoped.
   AuraResourcePolicy:
     Type: AWS::IAM::Policy
-    Metadata:
-      checkov:
-        skip:
-          - id: CKV_AWS_111
-            comment: Bootstrap EC2 create and describe actions require Resource '*'; IAM, S3, KMS, and SSM permissions remain scoped.
     Properties:
       PolicyName: AuraResourceAccess
       Roles:

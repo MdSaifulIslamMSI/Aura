@@ -28,8 +28,7 @@ const writeReport = (value) => {
   const safeValue = JSON.parse(JSON.stringify(value, (_key, entry) => (
     typeof entry === 'string' ? safeReportText(entry) : entry
   )));
-  // Local activation evidence only; remote health data is reduced to booleans/enums and sanitized above.
-  // codeql[js/http-to-file-access]
+  // Local activation evidence only; remote health data is reduced to booleans/enums above.
   writeFileSync(reportPath, `${JSON.stringify(safeValue, null, 2)}\n`);
 };
 
@@ -66,7 +65,7 @@ if (flags.mode === 'oidc') {
     report.discovery = {
       reachable: response.ok,
       issuerMatches,
-      missingMetadata,
+      requiredMetadataPresent: missingMetadata.length === 0,
     };
     report.readyToEnable = report.healthCheck === 'passed';
     writeReport(report);
@@ -77,9 +76,9 @@ if (flags.mode === 'oidc') {
     } else {
       throw new Error('Duo OIDC discovery metadata did not validate.');
     }
-  } catch (error) {
+  } catch {
     report.healthCheck = 'failed';
-    report.error = error?.message || 'Duo OIDC discovery check failed';
+    report.errorCode = 'duo_oidc_discovery_failed';
     writeReport(report);
     console.error('Cisco Duo activation blocked. OIDC discovery check failed.');
     process.exit(1);
@@ -100,9 +99,9 @@ if (!oidcActivationHandled) {
     report.readyToEnable = true;
     writeReport(report);
     console.log('Cisco Duo health check passed. Set DUO_ENABLED=true in staging to enforce Duo on wired high-risk flows.');
-  } catch (error) {
+  } catch {
     report.healthCheck = 'failed';
-    report.error = error?.message || 'Duo health check failed';
+    report.errorCode = 'duo_health_check_failed';
     writeReport(report);
     console.error('Cisco Duo activation blocked. Duo health check failed.');
     process.exit(1);

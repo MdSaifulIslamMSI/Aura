@@ -509,7 +509,7 @@ describe('AuthProvider', () => {
     });
 
     const Probe = () => {
-      const { signInWithX, currentUser, status } = useAuth();
+      const { signInWithX, status } = useAuth();
       const [error, setError] = React.useState('');
 
       React.useEffect(() => {
