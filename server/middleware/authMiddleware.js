@@ -43,6 +43,8 @@ const {
 } = require('../services/duoStepUpService');
 const { getAuthAdapter } = require('../services/auth/authProviderAdapter');
 const { hasRole } = require('../services/auth/authorizationService');
+const { evaluateSensitiveActionRequest } = require('../security/sensitiveActionPolicy');
+const { recordSensitiveActionDecision } = require('../services/securityAuditService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -255,12 +257,38 @@ const ADMIN_ALLOWLIST_EMAILS = new Set(
         .filter(Boolean)
 );
 
-const resolvePhishingResistantAdminPolicy = (env = process.env) => ({
-    requireWebAuthnStepUpForStateChangingAdminActions: parseBooleanEnv(
-        env.AUTH_REQUIRE_WEBAUTHN_STEP_UP_FOR_ADMIN_STATE_CHANGES,
-        isProductionEnv(env)
-    ),
-});
+const resolvePhishingResistantAdminPolicy = (env = process.env) => {
+    const productionDefault = isProductionEnv(env);
+    const stateChangeFlag = env.AUTH_REQUIRE_WEBAUTHN_FOR_ADMIN_STATE_CHANGES
+        ?? env.AUTH_REQUIRE_WEBAUTHN_STEP_UP_FOR_ADMIN_STATE_CHANGES;
+
+    return {
+        requireWebAuthnForAdminLogin: parseBooleanEnv(
+            env.AUTH_REQUIRE_WEBAUTHN_FOR_ADMIN_LOGIN,
+            productionDefault
+        ),
+        requireWebAuthnForAdminStateChanges: parseBooleanEnv(
+            stateChangeFlag,
+            productionDefault
+        ),
+        requireWebAuthnForAdminSecurityChanges: parseBooleanEnv(
+            env.AUTH_REQUIRE_WEBAUTHN_FOR_ADMIN_SECURITY_CHANGES,
+            productionDefault
+        ),
+        adminEnrollmentGraceDays: parsePositiveIntEnv(
+            env.AUTH_WEBAUTHN_ADMIN_ENROLLMENT_GRACE_DAYS,
+            0
+        ),
+        adminBreakGlassEnabled: parseBooleanEnv(
+            env.AUTH_WEBAUTHN_ADMIN_BREAK_GLASS_ENABLED,
+            false
+        ),
+        requireWebAuthnStepUpForStateChangingAdminActions: parseBooleanEnv(
+            stateChangeFlag,
+            productionDefault
+        ),
+    };
+};
 
 const phishingResistantAdminPolicy = resolvePhishingResistantAdminPolicy();
 
@@ -674,6 +702,41 @@ const buildAdminStepUpError = ({ message, code }) => {
     return error;
 };
 
+const recordSensitiveActionPolicyForRequest = (req = {}, options = {}) => {
+    const decision = evaluateSensitiveActionRequest(req, options);
+    req.sensitiveActionDecision = decision;
+    recordSensitiveActionDecision({ req, decision });
+    return decision;
+};
+
+const buildAdminStepUpErrorFromDecision = (decision = {}) => {
+    if (decision.reason === 'webauthn_registration_required') {
+        return buildAdminStepUpError({
+            code: 'ADMIN_WEBAUTHN_REGISTRATION_REQUIRED',
+            message: 'Admin state changes require a registered WebAuthn credential.',
+        });
+    }
+
+    if (decision.reason === 'webauthn_step_up_required') {
+        return buildAdminStepUpError({
+            code: 'ADMIN_WEBAUTHN_STEP_UP_REQUIRED',
+            message: 'Admin state changes require fresh WebAuthn step-up verification.',
+        });
+    }
+
+    if (decision.reason === 'webauthn_recent_auth_required') {
+        return buildAdminStepUpError({
+            code: 'ADMIN_WEBAUTHN_RECENT_AUTH_REQUIRED',
+            message: 'Admin state changes require recent re-authentication.',
+        });
+    }
+
+    return buildAdminStepUpError({
+        code: 'ADMIN_ASSURANCE_REQUIRED',
+        message: 'Additional admin assurance is required for this action.',
+    });
+};
+
 const enforceAdminWebAuthnStepUpForStateChange = (req = {}) => {
     if (!phishingResistantAdminPolicy.requireWebAuthnStepUpForStateChangingAdminActions
         || !isStateChangingRequest(req)) {
@@ -681,31 +744,28 @@ const enforceAdminWebAuthnStepUpForStateChange = (req = {}) => {
     }
 
     const actorEmail = normalizeEmail(req.user?.email || req.authToken?.email || '');
+    const decision = recordSensitiveActionPolicyForRequest(req, {
+        context: {
+            recentAuth: true,
+            webAuthnStepUpFresh: hasFreshWebAuthnSessionStepUp(req),
+            freshWebAuthnStepUp: hasFreshWebAuthnSessionStepUp(req),
+            stepUpUntil: req.authSession?.stepUpUntil,
+            amr: req.authSession?.amr || req.authToken?.amr || [],
+        },
+    });
 
-    if (!hasRegisteredWebAuthnCredential(req.user)) {
-        logger.warn('admin_access.blocked_missing_registered_webauthn', {
+    if (!decision.allowed) {
+        const missingRegistered = decision.reason === 'webauthn_registration_required';
+        logger.warn(missingRegistered
+            ? 'admin_access.blocked_missing_registered_webauthn'
+            : 'admin_access.blocked_missing_fresh_webauthn_step_up', {
             requestId: req.requestId || '',
             email: actorEmail,
             path: req.originalUrl,
+            reason: decision.reason,
         });
-        recordAdminBlock(req, 'webauthn_registration_required');
-        throw buildAdminStepUpError({
-            code: 'ADMIN_WEBAUTHN_REGISTRATION_REQUIRED',
-            message: 'Admin state changes require a registered WebAuthn credential.',
-        });
-    }
-
-    if (!hasFreshWebAuthnSessionStepUp(req)) {
-        logger.warn('admin_access.blocked_missing_fresh_webauthn_step_up', {
-            requestId: req.requestId || '',
-            email: actorEmail,
-            path: req.originalUrl,
-        });
-        recordAdminBlock(req, 'webauthn_step_up_required');
-        throw buildAdminStepUpError({
-            code: 'ADMIN_WEBAUTHN_STEP_UP_REQUIRED',
-            message: 'Admin state changes require fresh WebAuthn step-up verification.',
-        });
+        recordAdminBlock(req, decision.reason);
+        throw buildAdminStepUpErrorFromDecision(decision);
     }
 };
 

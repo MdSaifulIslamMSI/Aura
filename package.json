@@ -146,6 +146,7 @@
     "security:malware-runtime": "node scripts/validate-upload-malware-runtime.mjs",
     "security:edge-assets": "node scripts/validate-edge-security-assets.mjs",
     "security:post-merge-smoke": "node scripts/post-merge-security-smoke.mjs",
+    "security:backup-restore-check": "node scripts/smoke/backup-restore-check.mjs",
     "env:validate": "node scripts/validate-env-contract.mjs && node scripts/env/validate-env.mjs --environment development --env-file config/environments/development.example.env",
     "env:validate:staging": "node scripts/env/validate-env.mjs --environment staging --env-file config/environments/staging.example.env",
     "env:validate:production": "node scripts/env/validate-env.mjs --environment production --env-file config/environments/production.example.env",

@@ -21,12 +21,21 @@ Every code change is scanned, every sensitive action is authorized, every incide
 
 ## Current Implementation Slice
 
-This branch starts Track 2 after the PQC merge:
+The previous branch started Track 2 after the PQC merge:
 
 - Production admin state-changing actions require fresh WebAuthn step-up by default through `AUTH_REQUIRE_WEBAUTHN_STEP_UP_FOR_ADMIN_STATE_CHANGES`.
 - Admins without a registered WebAuthn credential fail closed before high-risk state changes when that policy is enabled.
 - Review upload writes are classified as sensitive actions, so stale sessions must re-authenticate before upload submission.
 - Existing Duo step-up remains available as an additional admin state-change gate when enabled, but WebAuthn step-up is the phishing-resistant control.
+
+This branch advances Track 6 and Track 8:
+
+- Central sensitive-action classification and decision output in `server/config/sensitiveActionPolicy.js` and `server/security/sensitiveActionPolicy.js`.
+- Critical admin WebAuthn decisions now flow through the central policy engine.
+- Reusable middleware exists for route-level sensitive action adoption.
+- Zero-trust resource authorization helpers exist for owner, tenant, role, and admin override checks.
+- Audit events use safe redaction and IP/user-agent minimization through `server/services/securityAuditService.js`.
+- Non-destructive backup/restore verification exists at `scripts/smoke/backup-restore-check.mjs`.
 
 ## Rollout Contract
 
@@ -48,4 +57,10 @@ Run broader auth/security checks before merging:
 ```sh
 npm test
 npm run security:free-stack
+```
+
+Run this branch's focused policy and DR checks:
+
+```sh
+npm --prefix server test -- --runTestsByPath tests/sensitiveActionPolicy.test.js tests/sensitiveActionMiddleware.test.js tests/authorizationPolicy.test.js tests/securityAuditService.test.js tests/disasterRecoveryRunbook.test.js tests/authMiddleware.webauthnStepUp.test.js tests/authSecurityTelemetryService.test.js --forceExit
 ```

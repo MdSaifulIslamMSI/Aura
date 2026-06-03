@@ -58,17 +58,38 @@ describe('authMiddleware admin WebAuthn step-up enforcement', () => {
     test('defaults production admin state changes to fresh WebAuthn step-up', () => {
         const { resolvePhishingResistantAdminPolicy } = loadAuthMiddleware();
 
-        expect(resolvePhishingResistantAdminPolicy({ NODE_ENV: 'production' })).toEqual({
+        expect(resolvePhishingResistantAdminPolicy({ NODE_ENV: 'production' })).toMatchObject({
+            requireWebAuthnForAdminLogin: true,
+            requireWebAuthnForAdminStateChanges: true,
+            requireWebAuthnForAdminSecurityChanges: true,
+            adminEnrollmentGraceDays: 0,
+            adminBreakGlassEnabled: false,
             requireWebAuthnStepUpForStateChangingAdminActions: true,
         });
-        expect(resolvePhishingResistantAdminPolicy({ NODE_ENV: 'development' })).toEqual({
+        expect(resolvePhishingResistantAdminPolicy({ NODE_ENV: 'development' })).toMatchObject({
+            requireWebAuthnForAdminLogin: false,
+            requireWebAuthnForAdminStateChanges: false,
+            requireWebAuthnForAdminSecurityChanges: false,
             requireWebAuthnStepUpForStateChangingAdminActions: false,
         });
         expect(resolvePhishingResistantAdminPolicy({
             NODE_ENV: 'production',
             AUTH_REQUIRE_WEBAUTHN_STEP_UP_FOR_ADMIN_STATE_CHANGES: 'false',
-        })).toEqual({
+        })).toMatchObject({
+            requireWebAuthnForAdminStateChanges: false,
             requireWebAuthnStepUpForStateChangingAdminActions: false,
+        });
+        expect(resolvePhishingResistantAdminPolicy({
+            NODE_ENV: 'production',
+            AUTH_REQUIRE_WEBAUTHN_FOR_ADMIN_STATE_CHANGES: 'false',
+            AUTH_REQUIRE_WEBAUTHN_FOR_ADMIN_SECURITY_CHANGES: 'false',
+            AUTH_WEBAUTHN_ADMIN_BREAK_GLASS_ENABLED: 'true',
+            AUTH_WEBAUTHN_ADMIN_ENROLLMENT_GRACE_DAYS: '7',
+        })).toMatchObject({
+            requireWebAuthnForAdminStateChanges: false,
+            requireWebAuthnForAdminSecurityChanges: false,
+            adminBreakGlassEnabled: true,
+            adminEnrollmentGraceDays: 7,
         });
     });
 
