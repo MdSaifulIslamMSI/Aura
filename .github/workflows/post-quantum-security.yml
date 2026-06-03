@@ -1,0 +1,126 @@
+name: Post-Quantum Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
+concurrency:
+  group: post-quantum-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pqc-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate crypto inventory
+        run: npm run security:pqc:inventory
+
+      - name: Upload crypto inventory
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pqc-crypto-inventory
+          path: |
+            reports/security/crypto-inventory.json
+            reports/security/crypto-inventory.md
+          retention-days: 14
+
+  pqc-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run PQC policy check
+        run: npm run security:pqc:policy
+
+      - name: Upload PQC policy reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pqc-policy-reports
+          path: |
+            reports/security/crypto-inventory.json
+            reports/security/crypto-inventory.md
+            reports/security/pqc-policy-check.json
+            reports/security/pqc-policy-check.md
+          retention-days: 14
+
+  semgrep-pqc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare report directory
+        run: mkdir -p reports/security
+
+      - name: Install Semgrep CE
+        id: semgrep-install
+        continue-on-error: true
+        run: python -m pip install --user semgrep
+
+      - name: Run Semgrep PQC rules
+        if: steps.semgrep-install.outcome == 'success'
+        continue-on-error: true
+        run: python -m semgrep scan --config security/semgrep/pqc-crypto-policy.yml --sarif --output reports/security/semgrep-pqc.sarif .
+
+      - name: Note Semgrep unavailable
+        if: steps.semgrep-install.outcome != 'success'
+        run: echo "Semgrep CE was not installable in this runner; npm run security:pqc still enforces blocker policy."
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('reports/security/semgrep-pqc.sarif') != ''
+        with:
+          sarif_file: reports/security/semgrep-pqc.sarif
+          category: semgrep-pqc
+
+      - name: Upload Semgrep artifact
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pqc-semgrep
+          path: reports/security/semgrep-pqc.sarif
+          if-no-files-found: ignore
+          retention-days: 14

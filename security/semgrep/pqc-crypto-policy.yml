@@ -1,0 +1,121 @@
+rules:
+  - id: nodejs-crypto-public-encrypt
+    message: Do not add RSA publicEncrypt application payload encryption; use standards-backed TLS and policy-tracked hybrid migration.
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: crypto.publicEncrypt(...)
+          - pattern: publicEncrypt(...)
+
+  - id: nodejs-crypto-private-decrypt
+    message: Do not add RSA privateDecrypt application payload paths; keep production crypto standards-aligned and config-driven.
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: crypto.privateDecrypt(...)
+          - pattern: privateDecrypt(...)
+
+  - id: nodejs-create-ecdh
+    message: Do not add custom ECDH key exchange. This policy prevents new quantum-vulnerable long-lived crypto from entering the app.
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createECDH(...)
+          - pattern: createECDH(...)
+
+  - id: nodejs-create-diffie-hellman
+    message: Do not add custom DH/Diffie-Hellman key exchange; prefer TLS 1.3 and staged hybrid PQC experiments.
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createDiffieHellman(...)
+          - pattern: createDiffieHellman(...)
+          - pattern: crypto.diffieHellman(...)
+          - pattern: diffieHellman(...)
+
+  - id: nodejs-md5
+    message: Do not add MD5 usage. Use modern integrity/signature primitives and document legacy exceptions with expiring allowlists.
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createHash("md5")
+          - pattern: crypto.createHash('md5')
+          - pattern: createHash("md5")
+          - pattern: createHash('md5')
+
+  - id: nodejs-sha1
+    message: Do not add SHA1 for signatures or integrity. Use SHA-256 or stronger where hashing is required.
+    severity: ERROR
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createHash("sha1")
+          - pattern: crypto.createHash('sha1')
+          - pattern: createHash("sha1")
+          - pattern: createHash('sha1')
+          - pattern: crypto.createSign("sha1")
+          - pattern: crypto.createSign('sha1')
+          - pattern: createSign("sha1")
+          - pattern: createSign('sha1')
+
+  - id: hardcoded-private-key
+    message: Remove hardcoded private key material and load secrets from approved runtime secret storage.
+    severity: ERROR
+    languages:
+      - generic
+    pattern-regex: "-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----"
+
+  - id: tls-v1-config
+    message: Disable TLS 1.0 in executable configuration; TLS 1.3 is the production-ready baseline.
+    severity: ERROR
+    languages:
+      - generic
+    pattern-regex: "\\bTLSv1(\\.0)?\\b(?!\\.\\d)"
+
+  - id: tls-v1-1-config
+    message: Disable TLS 1.1 in executable configuration; TLS 1.3 is the production-ready baseline.
+    severity: ERROR
+    languages:
+      - generic
+    pattern-regex: "\\bTLSv1\\.1\\b"
+
+  - id: insecure-cipher-config
+    message: Remove weak cipher or protocol configuration from executable proxy/TLS files.
+    severity: ERROR
+    languages:
+      - generic
+    pattern-regex: "\\b(SSLv2|SSLv3|RC4|DES-CBC|3DES|MD5)\\b"
+
+  - id: risky-jwt-classical-signing-warning
+    message: Classical JWT signatures are not bad today everywhere, but long-lived classical-only signing must stay tracked until PQ signatures are ecosystem-ready.
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: jwt.sign(...)
+          - pattern: $JWT.sign(...)
+          - pattern-regex: "\\b(RS256|ES256|PS256)\\b"
+
+# Notes:
+# - These rules do not claim RSA or ECC are universally broken today.
+# - The goal is to prevent new quantum-vulnerable, long-lived crypto from entering the app.
+# - Existing third-party classical crypto may remain until WebPKI, JWT, SDK, and provider ecosystems support production-ready PQ signatures.
