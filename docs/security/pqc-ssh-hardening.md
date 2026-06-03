@@ -21,6 +21,14 @@ node scripts/security/check-ssh-pqc-readiness.mjs --json --markdown
 
 If the KEX query does not list the preferred algorithms, record the host OS, OpenSSH version, package source, and upgrade path. This is a warning for local proof, not a reason to disable existing access controls.
 
+Optional staging evidence:
+
+```sh
+PQC_SSH_PROOF_MODE=staging PQC_SSH_HOST=<staging-host> node scripts/security/check-ssh-pqc-readiness.mjs --json --markdown
+```
+
+The environment proof report redacts host, user, key paths, and command output. It runs a local client configuration dry-run by default. A remote read-only connect probe stays disabled unless `PQC_SSH_CONNECT_PROBE=true` is explicitly set.
+
 ## Staging Rollout
 
 1. Snapshot current SSH daemon and client config through approved change-management notes.

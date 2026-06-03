@@ -15,6 +15,44 @@ import {
 } from './pqc-readiness-utils.mjs';
 
 export const SSH_REPORT_BASENAME = 'ssh-pqc-readiness';
+export const SSH_ENV_REPORT_BASENAME = 'ssh-pqc-environment-proof';
+
+const disabledModes = new Set(['', '0', 'false', 'off', 'disabled', 'skip', 'skipped']);
+
+const readArgValue = (argv, name) => {
+  const index = argv.indexOf(name);
+  return index >= 0 ? argv[index + 1] : '';
+};
+
+const parseSshArgs = (argv) => ({
+  ...parseReadinessArgs(argv),
+  sshProofMode: readArgValue(argv, '--ssh-proof-mode') || readArgValue(argv, '--mode'),
+  sshHost: readArgValue(argv, '--ssh-host') || readArgValue(argv, '--host'),
+  sshPort: readArgValue(argv, '--ssh-port') || readArgValue(argv, '--port'),
+  sshUser: readArgValue(argv, '--ssh-user') || readArgValue(argv, '--user'),
+  sshExpectedKex: readArgValue(argv, '--expected-kex'),
+  sshConnectProbe: readArgValue(argv, '--connect-probe'),
+});
+
+const splitList = (value) => String(value || '')
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean);
+
+const truthy = (value) => /^(1|true|yes|on)$/i.test(String(value || '').trim());
+
+const proofMode = (options, env = process.env) => String(
+  options.sshProofMode
+  || env.PQC_SSH_PROOF_MODE
+  || env.PQC_ENV_PROOF_MODE
+  || 'disabled',
+).trim().toLowerCase();
+
+const redactedSshTarget = ({ host, user, port }) => {
+  if (!host) return '[not configured]';
+  const userPart = user ? '[configured-user]@' : '';
+  return `${userPart}[configured-host]:${port || '22'}`;
+};
 
 const preferredKex = (root) => {
   const policy = readJsonIfExists(repoPath(root, 'config/security/post-quantum-policy.json'), {});
@@ -162,6 +200,169 @@ export const buildSshPqcReadinessReport = (options = {}) => {
   return report;
 };
 
+export const buildSshPqcEnvironmentProofReport = (options = {}) => {
+  const root = options.root || defaultRepoRoot;
+  const env = options.env || process.env;
+  const checks = [];
+  const mode = proofMode(options, env);
+  const enabled = !disabledModes.has(mode);
+  const host = String(options.sshHost || env.PQC_SSH_HOST || '').trim();
+  const user = String(options.sshUser || env.PQC_SSH_USER || '').trim();
+  const port = String(options.sshPort || env.PQC_SSH_PORT || '22').trim();
+  const expectedKex = splitList(options.sshExpectedKex || env.PQC_SSH_EXPECTED_KEX)
+    .concat(splitList(env.PQC_EXPECTED_HYBRID_KEX))
+    .filter((entry, index, list) => list.indexOf(entry) === index);
+  const expected = expectedKex.length > 0 ? expectedKex : preferredKex(root).slice(0, 1);
+  const redactedTarget = redactedSshTarget({ host, user, port });
+  const connectProbe = truthy(options.sshConnectProbe || env.PQC_SSH_CONNECT_PROBE);
+
+  checks.push(check({
+    id: 'ssh.environment-proof.mode',
+    title: 'SSH environment proof mode is explicit',
+    status: enabled ? 'pass' : 'skipped',
+    scope: 'system',
+    severity: enabled ? 'info' : 'medium',
+    summary: enabled
+      ? `SSH environment proof mode is ${mode}.`
+      : 'SSH environment proof is disabled; set PQC_SSH_PROOF_MODE=staging with a redacted target to collect staging evidence.',
+    evidence: { mode },
+  }));
+
+  checks.push(check({
+    id: 'ssh.environment-proof.target-configured',
+    title: 'SSH staging target is configured when proof mode is enabled',
+    status: enabled ? (host ? 'pass' : 'fail') : 'skipped',
+    scope: enabled ? 'policy' : 'system',
+    severity: enabled && !host ? 'high' : 'info',
+    summary: enabled
+      ? (host ? `SSH target is configured as ${redactedTarget}.` : 'PQC_SSH_HOST is required for enabled SSH environment proof.')
+      : 'No SSH target is required while proof mode is disabled.',
+    evidence: { target: redactedTarget },
+  }));
+
+  checks.push(check({
+    id: 'ssh.environment-proof.expected-kex-configured',
+    title: 'Expected hybrid KEX is configured or inherited from policy',
+    status: expected.length > 0 ? 'pass' : (enabled ? 'fail' : 'skipped'),
+    scope: enabled ? 'policy' : 'system',
+    severity: expected.length > 0 ? 'info' : 'high',
+    summary: expected.length > 0
+      ? 'Expected hybrid KEX list is available without printing host or key paths.'
+      : 'Expected hybrid KEX list is empty.',
+    evidence: { expectedHybridKeyExchange: expected },
+  }));
+
+  const kexResult = runCommand('ssh', ['-Q', 'kex'], { cwd: root, timeoutMs: 5000 });
+  const supportedKex = new Set(`${kexResult.stdout}\n${kexResult.stderr}`.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean));
+  const supportedExpected = expected.filter((entry) => supportedKex.has(entry));
+  checks.push(check({
+    id: 'ssh.environment-proof.client-supports-expected-kex',
+    title: 'Local SSH client supports at least one expected hybrid KEX',
+    status: supportedExpected.length > 0 ? 'pass' : (enabled ? 'fail' : 'warning'),
+    scope: enabled ? 'policy' : 'system',
+    severity: supportedExpected.length > 0 ? 'info' : 'medium',
+    summary: supportedExpected.length > 0
+      ? 'Local SSH client supports at least one expected hybrid key-exchange algorithm.'
+      : 'Local SSH client does not list the expected hybrid KEX; upgrade OpenSSH before staging proof.',
+    evidence: { command: 'ssh -Q kex', supportedExpected },
+  }));
+
+  if (enabled && host && expected.length > 0) {
+    const target = user ? `${user}@${host}` : host;
+    const dryRun = runCommand('ssh', [
+      '-G',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      `KexAlgorithms=${expected.join(',')}`,
+      '-p',
+      port,
+      target,
+    ], { cwd: root, timeoutMs: 5000 });
+    checks.push(check({
+      id: 'ssh.environment-proof.client-config-dry-run',
+      title: 'SSH client accepts the configured hybrid KEX preference',
+      status: dryRun.available && dryRun.status === 0 ? 'pass' : 'fail',
+      scope: 'policy',
+      severity: dryRun.available && dryRun.status === 0 ? 'info' : 'high',
+      summary: dryRun.available && dryRun.status === 0
+        ? `SSH client dry-run accepted the redacted target ${redactedTarget}.`
+        : `SSH client dry-run rejected the configured KEX for ${redactedTarget}.`,
+      evidence: { target: redactedTarget, status: dryRun.status },
+    }));
+  } else {
+    checks.push(check({
+      id: 'ssh.environment-proof.client-config-dry-run',
+      title: 'SSH client config dry-run is skipped without enabled target proof',
+      status: 'skipped',
+      scope: 'system',
+      severity: 'info',
+      summary: 'Client dry-run is skipped until proof mode and target are configured.',
+      evidence: { target: redactedTarget },
+    }));
+  }
+
+  if (enabled && host && connectProbe) {
+    const target = user ? `${user}@${host}` : host;
+    const connectResult = runCommand('ssh', [
+      '-vvv',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'NumberOfPasswordPrompts=0',
+      '-o',
+      'StrictHostKeyChecking=yes',
+      '-o',
+      'ConnectTimeout=5',
+      '-o',
+      `KexAlgorithms=${expected.join(',')}`,
+      '-p',
+      port,
+      target,
+      'true',
+    ], { cwd: root, timeoutMs: 10000 });
+    checks.push(check({
+      id: 'ssh.environment-proof.readonly-connect-probe',
+      title: 'Optional read-only SSH connect probe succeeds when explicitly enabled',
+      status: connectResult.available && connectResult.status === 0 ? 'pass' : 'fail',
+      scope: 'policy',
+      severity: connectResult.available && connectResult.status === 0 ? 'info' : 'high',
+      summary: connectResult.available && connectResult.status === 0
+        ? `Read-only SSH connect probe succeeded for ${redactedTarget}.`
+        : `Read-only SSH connect probe did not complete for ${redactedTarget}; keep production unchanged until staging is proven.`,
+      evidence: { target: redactedTarget, status: connectResult.status, command: 'ssh -vvv [redacted-target] true' },
+    }));
+  } else {
+    checks.push(check({
+      id: 'ssh.environment-proof.readonly-connect-probe',
+      title: 'Optional read-only SSH connect probe is explicitly disabled',
+      status: 'skipped',
+      scope: 'system',
+      severity: 'info',
+      summary: 'The probe does not open a remote SSH session unless PQC_SSH_CONNECT_PROBE=true.',
+      evidence: { target: redactedTarget, enabled: connectProbe },
+    }));
+  }
+
+  const summary = summarizeChecks(checks);
+  return {
+    title: 'OpenSSH PQC Environment Proof',
+    generatedAt: new Date().toISOString(),
+    status: shouldFail(checks, options) ? 'fail' : 'pass',
+    strict: Boolean(options.strict),
+    mode,
+    target: redactedTarget,
+    expectedHybridKeyExchange: expected,
+    summary,
+    checks,
+    limitations: [
+      'Disabled mode is an honest no-live-target report, not proof of remote SSH readiness.',
+      'SSH hostnames, usernames, key paths, and command output are redacted from evidence.',
+      'A connect probe is read-only and opt-in; production SSH changes still require explicit approval.',
+    ],
+  };
+};
+
 export const renderSshPqcReadinessMarkdown = (report) => renderChecksMarkdown(report, [
   '## Preferred Hybrid KEX',
   '',
@@ -172,19 +373,44 @@ export const renderSshPqcReadinessMarkdown = (report) => renderChecksMarkdown(re
   ...report.limitations.map((entry) => `- ${entry}`),
 ]);
 
+export const renderSshPqcEnvironmentProofMarkdown = (report) => renderChecksMarkdown(report, [
+  '## Environment Proof Target',
+  '',
+  `- Mode: ${report.mode}`,
+  `- Target: ${report.target}`,
+  '',
+  '## Expected Hybrid KEX',
+  '',
+  ...report.expectedHybridKeyExchange.map((entry) => `- ${entry}`),
+  '',
+  '## Limitations',
+  '',
+  ...report.limitations.map((entry) => `- ${entry}`),
+]);
+
 const main = () => {
-  const options = parseReadinessArgs(process.argv.slice(2));
+  const options = parseSshArgs(process.argv.slice(2));
   const report = buildSshPqcReadinessReport(options);
+  const environmentProof = buildSshPqcEnvironmentProofReport(options);
   const markdown = renderSshPqcReadinessMarkdown(report);
-  const written = writeReadinessReports({
+  const written = [
+    ...writeReadinessReports({
     report,
     markdown,
     reportDir: options.reportDir,
     baseName: SSH_REPORT_BASENAME,
     options,
-  });
+    }),
+    ...writeReadinessReports({
+      report: environmentProof,
+      markdown: renderSshPqcEnvironmentProofMarkdown(environmentProof),
+      reportDir: options.reportDir,
+      baseName: SSH_ENV_REPORT_BASENAME,
+      options,
+    }),
+  ];
   console.log(`[ssh-pqc-readiness] ${report.status}: wrote ${written.map((file) => path.relative(options.root, file)).join(', ')}`);
-  if (report.status === 'fail') process.exit(1);
+  if (report.status === 'fail' || environmentProof.status === 'fail') process.exit(1);
 };
 
 if (isMainModule(import.meta.url)) {

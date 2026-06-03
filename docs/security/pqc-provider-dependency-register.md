@@ -19,3 +19,11 @@ Unknown entries are intentionally recorded as `unknown/provider-dependent` unles
 ## Monitoring Rule
 
 Provider-dependent does not mean ignored. Each review records current provider documentation, migration triggers, and any required staging proof before production change.
+
+## Verification
+
+```sh
+node scripts/security/pqc-provider-register-check.mjs --json --markdown
+```
+
+Unknown/provider-dependent rows are warnings, not repo failures. They intentionally lower the full end-to-end PQC maturity score until provider evidence becomes verifiable.

@@ -15,8 +15,11 @@ import {
   writeReadinessReports,
 } from './pqc-readiness-utils.mjs';
 import {
+  SSH_ENV_REPORT_BASENAME,
   SSH_REPORT_BASENAME,
+  buildSshPqcEnvironmentProofReport,
   buildSshPqcReadinessReport,
+  renderSshPqcEnvironmentProofMarkdown,
   renderSshPqcReadinessMarkdown,
 } from './check-ssh-pqc-readiness.mjs';
 import {
@@ -25,20 +28,44 @@ import {
   renderTlsConfigReadinessMarkdown,
 } from './tls-config-readiness.mjs';
 import {
+  TLS_ENDPOINT_REPORT_BASENAME,
+  buildTlsEndpointPqcReadinessReport,
+  renderTlsEndpointPqcReadinessMarkdown,
+} from './tls-endpoint-pqc-readiness.mjs';
+import {
+  PQC_LAB_BENCHMARK_REPORT_BASENAME,
   PQC_LAB_REPORT_BASENAME,
+  buildPqcLabBenchmarkReport,
   buildPqcLabSmokeReport,
+  renderPqcLabBenchmarkMarkdown,
   renderPqcLabSmokeMarkdown,
 } from './pqc-lab-smoke.mjs';
 import {
+  INTERNAL_SERVICE_EVIDENCE_REPORT_BASENAME,
   INTERNAL_SERVICE_REPORT_BASENAME,
+  buildInternalServiceEncryptionEvidenceReport,
   buildInternalServiceEncryptionReport,
+  renderInternalServiceEncryptionEvidenceMarkdown,
   renderInternalServiceEncryptionMarkdown,
 } from './internal-service-encryption-check.mjs';
 import {
+  BACKUP_EVIDENCE_REPORT_BASENAME,
   BACKUP_REPORT_BASENAME,
   buildBackupCryptoAgilityReport,
+  buildBackupPqcEncryptionEvidenceReport,
   renderBackupCryptoAgilityMarkdown,
+  renderBackupPqcEncryptionEvidenceMarkdown,
 } from './backup-crypto-agility-check.mjs';
+import {
+  RELEASE_SIGNING_REPORT_BASENAME,
+  buildReleaseSigningReadinessReport,
+  renderReleaseSigningReadinessMarkdown,
+} from './release-signing-readiness-check.mjs';
+import {
+  PQC_PROVIDER_REGISTER_REPORT_BASENAME,
+  buildPqcProviderRegisterReport,
+  renderPqcProviderRegisterMarkdown,
+} from './pqc-provider-register-check.mjs';
 
 export const PQC_DEPLOYMENT_PROOF_BASENAME = 'pqc-deployment-proof';
 
@@ -47,6 +74,10 @@ const repoArtifacts = [
   'scripts/security/crypto-inventory.mjs',
   'scripts/security/pqc-policy-check.mjs',
   'scripts/security/route-enforcement-coverage.mjs',
+  'scripts/security/tls-endpoint-pqc-readiness.mjs',
+  'scripts/security/release-signing-readiness-check.mjs',
+  'scripts/security/pqc-provider-register-check.mjs',
+  'scripts/security/pqc-maturity-scorecard.mjs',
   'scripts/smoke/backup-restore-check.mjs',
   'docs/security/pqc-controlled-surface-matrix.md',
   'docs/security/pqc-ssh-hardening.md',
@@ -56,6 +87,8 @@ const repoArtifacts = [
   'docs/security/pqc-backup-key-agility.md',
   'docs/security/pqc-release-signing-readiness.md',
   'docs/security/pqc-provider-dependency-register.md',
+  'docs/security/pqc-maturity-scorecard.md',
+  'docs/security/pr-pqc-real-environment-evidence-upgrade.md',
 ];
 
 const reportArtifacts = [
@@ -65,14 +98,28 @@ const reportArtifacts = [
   'pqc-policy-check.md',
   `${SSH_REPORT_BASENAME}.json`,
   `${SSH_REPORT_BASENAME}.md`,
+  `${SSH_ENV_REPORT_BASENAME}.json`,
+  `${SSH_ENV_REPORT_BASENAME}.md`,
   `${TLS_REPORT_BASENAME}.json`,
   `${TLS_REPORT_BASENAME}.md`,
+  `${TLS_ENDPOINT_REPORT_BASENAME}.json`,
+  `${TLS_ENDPOINT_REPORT_BASENAME}.md`,
   `${PQC_LAB_REPORT_BASENAME}.json`,
   `${PQC_LAB_REPORT_BASENAME}.md`,
+  `${PQC_LAB_BENCHMARK_REPORT_BASENAME}.json`,
+  `${PQC_LAB_BENCHMARK_REPORT_BASENAME}.md`,
   `${INTERNAL_SERVICE_REPORT_BASENAME}.json`,
   `${INTERNAL_SERVICE_REPORT_BASENAME}.md`,
+  `${INTERNAL_SERVICE_EVIDENCE_REPORT_BASENAME}.json`,
+  `${INTERNAL_SERVICE_EVIDENCE_REPORT_BASENAME}.md`,
   `${BACKUP_REPORT_BASENAME}.json`,
   `${BACKUP_REPORT_BASENAME}.md`,
+  `${BACKUP_EVIDENCE_REPORT_BASENAME}.json`,
+  `${BACKUP_EVIDENCE_REPORT_BASENAME}.md`,
+  `${RELEASE_SIGNING_REPORT_BASENAME}.json`,
+  `${RELEASE_SIGNING_REPORT_BASENAME}.md`,
+  `${PQC_PROVIDER_REGISTER_REPORT_BASENAME}.json`,
+  `${PQC_PROVIDER_REGISTER_REPORT_BASENAME}.md`,
 ];
 
 const generateExistingPqcReports = (root, reportDir) => {
@@ -104,10 +151,24 @@ const writeSubReports = ({ subreports, options }) => {
     options,
   }));
   written.push(...writeReadinessReports({
+    report: subreports.sshEnvironment,
+    markdown: renderSshPqcEnvironmentProofMarkdown(subreports.sshEnvironment),
+    reportDir: options.reportDir,
+    baseName: SSH_ENV_REPORT_BASENAME,
+    options,
+  }));
+  written.push(...writeReadinessReports({
     report: subreports.tls,
     markdown: renderTlsConfigReadinessMarkdown(subreports.tls),
     reportDir: options.reportDir,
     baseName: TLS_REPORT_BASENAME,
+    options,
+  }));
+  written.push(...writeReadinessReports({
+    report: subreports.tlsEndpoint,
+    markdown: renderTlsEndpointPqcReadinessMarkdown(subreports.tlsEndpoint),
+    reportDir: options.reportDir,
+    baseName: TLS_ENDPOINT_REPORT_BASENAME,
     options,
   }));
   written.push(...writeReadinessReports({
@@ -118,6 +179,13 @@ const writeSubReports = ({ subreports, options }) => {
     options,
   }));
   written.push(...writeReadinessReports({
+    report: subreports.labBenchmark,
+    markdown: renderPqcLabBenchmarkMarkdown(subreports.labBenchmark),
+    reportDir: options.reportDir,
+    baseName: PQC_LAB_BENCHMARK_REPORT_BASENAME,
+    options,
+  }));
+  written.push(...writeReadinessReports({
     report: subreports.internalServices,
     markdown: renderInternalServiceEncryptionMarkdown(subreports.internalServices),
     reportDir: options.reportDir,
@@ -125,10 +193,38 @@ const writeSubReports = ({ subreports, options }) => {
     options,
   }));
   written.push(...writeReadinessReports({
+    report: subreports.internalEvidence,
+    markdown: renderInternalServiceEncryptionEvidenceMarkdown(subreports.internalEvidence),
+    reportDir: options.reportDir,
+    baseName: INTERNAL_SERVICE_EVIDENCE_REPORT_BASENAME,
+    options,
+  }));
+  written.push(...writeReadinessReports({
     report: subreports.backups,
     markdown: renderBackupCryptoAgilityMarkdown(subreports.backups),
     reportDir: options.reportDir,
     baseName: BACKUP_REPORT_BASENAME,
+    options,
+  }));
+  written.push(...writeReadinessReports({
+    report: subreports.backupEvidence,
+    markdown: renderBackupPqcEncryptionEvidenceMarkdown(subreports.backupEvidence),
+    reportDir: options.reportDir,
+    baseName: BACKUP_EVIDENCE_REPORT_BASENAME,
+    options,
+  }));
+  written.push(...writeReadinessReports({
+    report: subreports.releaseSigning,
+    markdown: renderReleaseSigningReadinessMarkdown(subreports.releaseSigning),
+    reportDir: options.reportDir,
+    baseName: RELEASE_SIGNING_REPORT_BASENAME,
+    options,
+  }));
+  written.push(...writeReadinessReports({
+    report: subreports.providerRegister,
+    markdown: renderPqcProviderRegisterMarkdown(subreports.providerRegister),
+    reportDir: options.reportDir,
+    baseName: PQC_PROVIDER_REGISTER_REPORT_BASENAME,
     options,
   }));
   return written;
@@ -212,10 +308,17 @@ export const buildPqcDeploymentProofReport = async (options = {}) => {
 
   const subreports = {
     ssh: buildSshPqcReadinessReport(options),
+    sshEnvironment: buildSshPqcEnvironmentProofReport(options),
     tls: buildTlsConfigReadinessReport(options),
+    tlsEndpoint: await buildTlsEndpointPqcReadinessReport(options),
     lab: buildPqcLabSmokeReport(options),
+    labBenchmark: buildPqcLabBenchmarkReport(options),
     internalServices: buildInternalServiceEncryptionReport(options),
+    internalEvidence: buildInternalServiceEncryptionEvidenceReport(options),
     backups: await buildBackupCryptoAgilityReport(options),
+    backupEvidence: await buildBackupPqcEncryptionEvidenceReport(options),
+    releaseSigning: buildReleaseSigningReadinessReport(options),
+    providerRegister: buildPqcProviderRegisterReport(options),
   };
   writeSubReports({ subreports, options });
 
@@ -260,8 +363,9 @@ export const buildPqcDeploymentProofReport = async (options = {}) => {
     ci: Boolean(options.ci),
     allowMissingSystemTools: Boolean(options.allowMissingSystemTools),
     readinessTargets: {
-      practicalPqcReadiness: '90-95% target posture, not a guarantee',
-      controllableSurfaceDeploymentProof: '55-70% target posture, provider and ecosystem limits excluded',
+      practicalPqcReadiness: '95-98% target posture for repo-owned controls, not a guarantee',
+      controllableSurfaceDeploymentProof: '75-85% target posture when optional environment proof is configured',
+      fullEndToEndPqcCoverage: '45-55% target posture until provider and ecosystem crypto become verifiable',
       migrationMode: 'hybrid-first',
     },
     summary,
@@ -284,6 +388,7 @@ export const renderPqcDeploymentProofMarkdown = (report) => renderChecksMarkdown
   '',
   `- Practical PQC readiness: ${report.readinessTargets.practicalPqcReadiness}`,
   `- Controllable-surface deployment proof: ${report.readinessTargets.controllableSurfaceDeploymentProof}`,
+  `- Full end-to-end PQC coverage: ${report.readinessTargets.fullEndToEndPqcCoverage}`,
   `- Migration mode: ${report.readinessTargets.migrationMode}`,
   '',
   '## Subreports',

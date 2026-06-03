@@ -26,7 +26,14 @@ describe('PQC deployment proof script', () => {
         ]));
         expect(fs.existsSync(path.join(reportDir, 'pqc-deployment-proof.md'))).toBe(true);
         expect(fs.existsSync(path.join(reportDir, 'ssh-pqc-readiness.json'))).toBe(true);
+        expect(fs.existsSync(path.join(reportDir, 'ssh-pqc-environment-proof.json'))).toBe(true);
         expect(fs.existsSync(path.join(reportDir, 'tls-config-readiness.json'))).toBe(true);
+        expect(fs.existsSync(path.join(reportDir, 'tls-endpoint-pqc-readiness.json'))).toBe(true);
+        expect(fs.existsSync(path.join(reportDir, 'pqc-lab-benchmark.json'))).toBe(true);
+        expect(fs.existsSync(path.join(reportDir, 'internal-service-encryption-evidence.json'))).toBe(true);
+        expect(fs.existsSync(path.join(reportDir, 'backup-pqc-encryption-evidence.json'))).toBe(true);
+        expect(fs.existsSync(path.join(reportDir, 'release-signing-readiness.json'))).toBe(true);
+        expect(fs.existsSync(path.join(reportDir, 'pqc-provider-register-check.json'))).toBe(true);
     });
 
     test('strict mode fails missing repo-owned artifacts', () => {

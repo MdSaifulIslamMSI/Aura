@@ -15,9 +15,23 @@ import {
 } from './pqc-readiness-utils.mjs';
 
 export const BACKUP_REPORT_BASENAME = 'backup-crypto-agility-check';
+export const BACKUP_EVIDENCE_REPORT_BASENAME = 'backup-pqc-encryption-evidence';
 
 const backupVerifier = 'scripts/smoke/backup-restore-check.mjs';
 const backupDoc = 'docs/security/pqc-backup-key-agility.md';
+const disabledModes = new Set(['', '0', 'false', 'off', 'disabled', 'skip', 'skipped']);
+
+const readArgValue = (argv, name) => {
+  const index = argv.indexOf(name);
+  return index >= 0 ? argv[index + 1] : '';
+};
+
+const parseBackupArgs = (argv) => ({
+  ...parseReadinessArgs(argv),
+  backupEvidenceMode: readArgValue(argv, '--backup-evidence-mode') || readArgValue(argv, '--mode'),
+});
+
+const isConfigured = (value) => Boolean(String(value || '').trim());
 
 const loadBackupPlanner = async (root) => {
   const moduleUrl = pathToFileURL(repoPath(root, backupVerifier)).href;
@@ -155,25 +169,201 @@ export const buildBackupCryptoAgilityReport = async (options = {}) => {
   return report;
 };
 
+export const buildBackupPqcEncryptionEvidenceReport = async (options = {}) => {
+  const root = options.root || defaultRepoRoot;
+  const env = options.env || process.env;
+  const checks = [];
+  const mode = String(
+    options.backupEvidenceMode
+    || env.PQC_BACKUP_EVIDENCE_MODE
+    || env.PQC_ENV_PROOF_MODE
+    || 'disabled',
+  ).trim().toLowerCase();
+  const enabled = !disabledModes.has(mode);
+  const doc = readTextIfExists(repoPath(root, backupDoc));
+  const verifierSource = readTextIfExists(repoPath(root, backupVerifier));
+
+  checks.push(check({
+    id: 'backup.environment-proof.mode',
+    title: 'Backup evidence mode is explicit',
+    status: enabled ? 'pass' : 'skipped',
+    scope: 'system',
+    severity: enabled ? 'info' : 'medium',
+    summary: enabled
+      ? `Backup evidence mode is ${mode}.`
+      : 'Backup environment evidence is disabled; set PQC_BACKUP_EVIDENCE_MODE=staging to validate dry-run restore shape.',
+    evidence: { mode },
+  }));
+
+  let plannerLoaded = false;
+  let plan = null;
+  if (verifierSource) {
+    try {
+      const planner = await loadBackupPlanner(root);
+      plannerLoaded = typeof planner.planBackupRestoreCheck === 'function';
+      if (plannerLoaded) {
+        plan = planner.planBackupRestoreCheck({
+          ...env,
+          DRY_RUN: env.DRY_RUN ?? 'true',
+          RESTORE_TARGET_ENV: env.RESTORE_TARGET_ENV || (enabled ? 'staging' : 'development'),
+        });
+      }
+    } catch {
+      plannerLoaded = false;
+    }
+  }
+
+  checks.push(check({
+    id: 'backup.environment-proof.planner-importable',
+    title: 'Backup restore planner is importable for non-destructive evidence',
+    status: plannerLoaded ? 'pass' : 'fail',
+    scope: 'repo',
+    severity: plannerLoaded ? 'info' : 'high',
+    summary: plannerLoaded
+      ? 'Backup restore planner was imported without executing backup or restore commands.'
+      : 'Backup restore planner could not be imported.',
+    evidence: { file: backupVerifier },
+  }));
+
+  const missing = Array.isArray(plan?.missing) ? plan.missing : [];
+  checks.push(check({
+    id: 'backup.environment-proof.runtime-config-present',
+    title: 'Backup, restore, and storage settings are configured when evidence mode is enabled',
+    status: enabled ? (missing.length === 0 ? 'pass' : 'fail') : 'skipped',
+    scope: enabled ? 'policy' : 'system',
+    severity: enabled && missing.length > 0 ? 'high' : 'info',
+    summary: enabled
+      ? (missing.length === 0
+        ? 'Backup/restore dry-run settings are configured without exposing command or storage values.'
+        : `Backup evidence is missing required setting group(s): ${missing.join(', ')}.`)
+      : 'Backup runtime settings are not required while evidence mode is disabled.',
+    evidence: { missing },
+  }));
+
+  const dryRun = plan?.checks?.dryRun !== false;
+  checks.push(check({
+    id: 'backup.environment-proof.dry-run-only',
+    title: 'Backup evidence remains a dry-run by default',
+    status: dryRun ? 'pass' : 'fail',
+    scope: enabled ? 'policy' : 'system',
+    severity: dryRun ? 'info' : 'high',
+    summary: dryRun
+      ? 'Backup evidence plan is dry-run only.'
+      : 'Backup evidence would allow a non-dry-run path; this branch must not run destructive restores.',
+    evidence: { dryRun },
+  }));
+
+  const productionWriteApproved = plan?.checks?.targetEnvironment === 'production'
+    && plan?.checks?.dryRun === false
+    && plan?.checks?.approveProductionRestore === true;
+  checks.push(check({
+    id: 'backup.environment-proof.no-production-write',
+    title: 'Production restore writes remain blocked for PQC evidence',
+    status: productionWriteApproved ? 'fail' : 'pass',
+    scope: 'policy',
+    severity: productionWriteApproved ? 'critical' : 'info',
+    summary: productionWriteApproved
+      ? 'Production restore approval variables are set; do not use this PQC evidence path for destructive production restore.'
+      : 'PQC backup evidence does not approve a production restore write.',
+    evidence: {
+      targetEnvironment: plan?.checks?.targetEnvironment || 'unknown',
+      dryRun,
+      approveProductionRestore: Boolean(plan?.checks?.approveProductionRestore),
+    },
+  }));
+
+  for (const required of ['AES-256-GCM', 'ChaCha20-Poly1305', 'envelope encryption', 'rotatable', 'restore dry run']) {
+    checks.push(check({
+      id: `backup.environment-proof.doc.${required.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      title: `Backup evidence keeps ${required} documented`,
+      status: doc.toLowerCase().includes(required.toLowerCase()) ? 'pass' : 'fail',
+      scope: 'repo',
+      severity: doc.toLowerCase().includes(required.toLowerCase()) ? 'info' : 'medium',
+      summary: doc.toLowerCase().includes(required.toLowerCase())
+        ? `Backup evidence references ${required}.`
+        : `Backup evidence is missing ${required}.`,
+      evidence: { file: backupDoc },
+    }));
+  }
+
+  const configuredKeys = [
+    'AURA_BACKUP_COMMAND',
+    'MONGODB_BACKUP_COMMAND',
+    'STAGING_BACKUP_COMMAND',
+    'AURA_RESTORE_COMMAND',
+    'MONGODB_RESTORE_COMMAND',
+    'AURA_BACKUP_STORAGE_URI',
+    'BACKUP_BUCKET_NAME',
+    'STAGING_BUCKET_NAME',
+  ].filter((key) => isConfigured(env[key]));
+  checks.push(check({
+    id: 'backup.environment-proof.no-raw-runtime-values',
+    title: 'Backup evidence stores only setting presence, not runtime values',
+    status: 'pass',
+    scope: 'repo',
+    severity: 'info',
+    summary: 'Runtime backup command and storage values are reduced to configured setting names.',
+    evidence: { configuredSettingNames: configuredKeys },
+  }));
+
+  const summary = summarizeChecks(checks);
+  return {
+    title: 'Backup PQC Encryption Evidence',
+    generatedAt: new Date().toISOString(),
+    status: shouldFail(checks, options) ? 'fail' : 'pass',
+    strict: Boolean(options.strict),
+    mode,
+    plannerReason: plan?.reason || 'not-run',
+    summary,
+    checks,
+    limitations: [
+      'This evidence path plans a dry-run restore check and never decrypts or writes production backups.',
+      'Symmetric backup encryption remains appropriate when keys are rotatable and stored outside the repo.',
+      'Future PQ KEM key wrapping remains a staging-only migration path until mature tooling exists.',
+    ],
+  };
+};
+
 export const renderBackupCryptoAgilityMarkdown = (report) => renderChecksMarkdown(report, [
   '## Limitations',
   '',
   ...report.limitations.map((entry) => `- ${entry}`),
 ]);
 
+export const renderBackupPqcEncryptionEvidenceMarkdown = (report) => renderChecksMarkdown(report, [
+  '## Planner',
+  '',
+  `- Mode: ${report.mode}`,
+  `- Reason: ${report.plannerReason}`,
+  '',
+  '## Limitations',
+  '',
+  ...report.limitations.map((entry) => `- ${entry}`),
+]);
+
 const main = async () => {
-  const options = parseReadinessArgs(process.argv.slice(2));
+  const options = parseBackupArgs(process.argv.slice(2));
   const report = await buildBackupCryptoAgilityReport(options);
+  const evidenceReport = await buildBackupPqcEncryptionEvidenceReport(options);
   const markdown = renderBackupCryptoAgilityMarkdown(report);
-  const written = writeReadinessReports({
+  const written = [
+    ...writeReadinessReports({
     report,
     markdown,
     reportDir: options.reportDir,
     baseName: BACKUP_REPORT_BASENAME,
     options,
-  });
+    }),
+    ...writeReadinessReports({
+      report: evidenceReport,
+      markdown: renderBackupPqcEncryptionEvidenceMarkdown(evidenceReport),
+      reportDir: options.reportDir,
+      baseName: BACKUP_EVIDENCE_REPORT_BASENAME,
+      options,
+    }),
+  ];
   console.log(`[backup-crypto-agility] ${report.status}: wrote ${written.map((file) => path.relative(options.root, file)).join(', ')}`);
-  if (report.status === 'fail') process.exit(1);
+  if (report.status === 'fail' || evidenceReport.status === 'fail') process.exit(1);
 };
 
 if (isMainModule(import.meta.url)) {

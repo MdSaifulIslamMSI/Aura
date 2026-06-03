@@ -24,3 +24,11 @@ Aura currently relies on classical ecosystem signing and provenance surfaces: El
 - Rollback to accepted classical release signing remains possible.
 - Provider/app-store compatibility is confirmed.
 - No custom cryptography is introduced.
+
+## Verification
+
+```sh
+node scripts/security/release-signing-readiness-check.mjs --json --markdown
+```
+
+The checker validates repo-owned signing posture: desktop package signing settings, explicit desktop/mobile release preflights, SBOM generation, provenance attestations, and absence of committed private key material. It does not claim that current operating systems, app stores, or release ecosystems support PQ signatures.

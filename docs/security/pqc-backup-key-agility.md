@@ -18,6 +18,14 @@ DRY_RUN=true npm run security:backup-restore-check
 node scripts/security/backup-crypto-agility-check.mjs --json --markdown
 ```
 
+Optional staging evidence:
+
+```sh
+PQC_BACKUP_EVIDENCE_MODE=staging DRY_RUN=true node scripts/security/backup-crypto-agility-check.mjs --json --markdown
+```
+
+The optional evidence path plans a dry-run restore check and records only missing/configured setting groups. It does not decrypt backups, write restore targets, or store backup commands, storage URIs, or key values in reports.
+
 ## Emergency Restore Checklist
 
 1. Confirm restore target and blast radius.
