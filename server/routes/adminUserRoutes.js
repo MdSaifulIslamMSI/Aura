@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
+const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const {
     listAdminUsers,
     getAdminUserById,
@@ -23,11 +24,10 @@ const {
 
 router.get('/', protect, admin, validate(adminUserListSchema), listAdminUsers);
 router.get('/:userId', protect, admin, validate(adminUserDetailSchema), getAdminUserById);
-router.post('/:userId/warn', protect, admin, validate(adminWarnUserSchema), warnAdminUser);
-router.post('/:userId/suspend', protect, admin, validate(adminSuspendUserSchema), suspendAdminUser);
-router.post('/:userId/dismiss-warning', protect, admin, validate(adminDismissWarningSchema), dismissAdminUserWarning);
-router.post('/:userId/reactivate', protect, admin, validate(adminReactivateUserSchema), reactivateAdminUser);
-router.post('/:userId/delete', protect, admin, validate(adminDeleteUserSchema), deleteAdminUser);
+router.post('/:userId/warn', protect, admin, validate(adminWarnUserSchema), sensitiveActions.adminUserMutation, warnAdminUser);
+router.post('/:userId/suspend', protect, admin, validate(adminSuspendUserSchema), sensitiveActions.adminUserMutation, suspendAdminUser);
+router.post('/:userId/dismiss-warning', protect, admin, validate(adminDismissWarningSchema), sensitiveActions.adminUserMutation, dismissAdminUserWarning);
+router.post('/:userId/reactivate', protect, admin, validate(adminReactivateUserSchema), sensitiveActions.adminUserMutation, reactivateAdminUser);
+router.post('/:userId/delete', protect, admin, validate(adminDeleteUserSchema), sensitiveActions.adminUserMutation, deleteAdminUser);
 
 module.exports = router;
-

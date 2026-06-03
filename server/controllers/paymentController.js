@@ -41,12 +41,56 @@ const {
     getStableUserKey,
     withIdempotency,
 } = require('../services/payments/idempotencyService');
+const {
+    SECURITY_AUDIT_EVENTS,
+    recordSecurityAuditEvent,
+} = require('../services/securityAuditService');
 
 const getRequestMeta = (req) => ({
     ip: req.ip || req.connection?.remoteAddress || '',
     userAgent: req.headers['user-agent'] || '',
     market: req.market || null,
 });
+
+const recordPaymentWebhookSecurityAudit = ({
+    req,
+    provider,
+    result,
+    reasonCode = '',
+    intentId = '',
+} = {}) => {
+    const auditKey = `${provider}:${reasonCode || result}`;
+    if (req?._paymentWebhookAuditKeys?.has(auditKey)) {
+        return null;
+    }
+    req._paymentWebhookAuditKeys = req._paymentWebhookAuditKeys || new Set();
+    req._paymentWebhookAuditKeys.add(auditKey);
+
+    const event = reasonCode === 'signature_invalid'
+        ? SECURITY_AUDIT_EVENTS.WEBHOOK_SIGNATURE_INVALID
+        : reasonCode === 'deduped'
+            ? SECURITY_AUDIT_EVENTS.WEBHOOK_REPLAYED
+            : SECURITY_AUDIT_EVENTS.WEBHOOK_ACCEPTED;
+
+    return recordSecurityAuditEvent({
+        event,
+        req,
+        actorId: `payment_webhook:${provider}`,
+        action: `payment.webhook.${provider}`,
+        resourceType: 'payment_webhook',
+        resourceId: intentId,
+        result,
+        reasonCode,
+        riskLevel: 'critical',
+        meta: {
+            provider,
+            signatureHeaderPresent: Boolean(
+                req.headers?.['stripe-signature']
+                || req.headers?.['x-razorpay-signature']
+            ),
+        },
+    });
+};
 
 const notifyPaymentOwnerAdminAction = async ({
     req,
@@ -665,13 +709,34 @@ const handleRazorpayWebhook = asyncHandler(async (req, res, next) => {
         const signature = req.headers['x-razorpay-signature'];
 
         if (!signature) {
+            recordPaymentWebhookSecurityAudit({
+                req,
+                provider: 'razorpay',
+                result: 'denied',
+                reasonCode: 'signature_invalid',
+            });
             throw new AppError('Missing webhook signature', 403);
         }
 
         const rawBody = req.rawBody || JSON.stringify(req.body || {});
         const result = await processRazorpayWebhook({ signature, rawBody });
+        recordPaymentWebhookSecurityAudit({
+            req,
+            provider: 'razorpay',
+            result: 'allowed',
+            reasonCode: result?.deduped ? 'deduped' : result?.reason || 'accepted',
+            intentId: result?.intentId || '',
+        });
         return res.status(200).json(result);
     } catch (error) {
+        if (/signature/i.test(String(error?.message || ''))) {
+            recordPaymentWebhookSecurityAudit({
+                req,
+                provider: 'razorpay',
+                result: 'denied',
+                reasonCode: 'signature_invalid',
+            });
+        }
         if (error instanceof AppError) return next(error);
         return next(new AppError(error.message || 'Failed to process webhook', 500));
     }
@@ -698,13 +763,34 @@ const handleStripeWebhook = asyncHandler(async (req, res, next) => {
         const signature = req.headers['stripe-signature'];
 
         if (!signature) {
+            recordPaymentWebhookSecurityAudit({
+                req,
+                provider: 'stripe',
+                result: 'denied',
+                reasonCode: 'signature_invalid',
+            });
             throw new AppError('Missing webhook signature', 403);
         }
 
         const rawBody = req.rawBody || JSON.stringify(req.body || {});
         const result = await processStripeWebhook({ signature, rawBody });
+        recordPaymentWebhookSecurityAudit({
+            req,
+            provider: 'stripe',
+            result: 'allowed',
+            reasonCode: result?.deduped ? 'deduped' : result?.reason || 'accepted',
+            intentId: result?.intentId || '',
+        });
         return res.status(200).json(result);
     } catch (error) {
+        if (/signature/i.test(String(error?.message || ''))) {
+            recordPaymentWebhookSecurityAudit({
+                req,
+                provider: 'stripe',
+                result: 'denied',
+                reasonCode: 'signature_invalid',
+            });
+        }
         if (error instanceof AppError) return next(error);
         return next(new AppError(error.message || 'Failed to process webhook', 500));
     }

@@ -4,10 +4,16 @@ jest.mock('../middleware/authMiddleware', () => ({
             _id: '69aa0000000000000000admin',
             email: 'admin@example.com',
             isAdmin: true,
+            trustedDevices: [{ method: 'webauthn' }],
         };
         req.authToken = {
             email_verified: true,
             auth_time: Math.floor(Date.now() / 1000),
+        };
+        req.authzPosture = {
+            fresh: true,
+            authAgeSeconds: 0,
+            webAuthnStepUpFresh: true,
         };
         return next();
     },

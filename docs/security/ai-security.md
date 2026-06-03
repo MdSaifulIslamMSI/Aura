@@ -4,6 +4,8 @@
 
 - AI write routes are classified as `AI_TOOL_ACTION` by the central sensitive-action policy.
 - AI audit event categories exist for allow and deny decisions.
+- `/api/ai/chat` and `/api/ai/chat/stream` screen mutating or sensitive `actionRequest` tool calls through `requireAiToolActionPolicy`.
+- AI session mutation routes use `sensitiveActions.aiSessionMutation`.
 - Existing AI route tests and validators continue to cover provider and media validation surfaces.
 
 ## Guardrails
@@ -22,6 +24,5 @@ npm --prefix server test -- --runTestsByPath tests/aiRoutes.test.js tests/aiCont
 
 ## Remaining Work
 
-- Add explicit tests proving AI tools cannot invoke payment/admin actions without policy approval.
-- Add prompt-injection regression fixtures for admin/payment/tool-call attempts.
+- Add broader prompt-injection regression fixtures for admin/payment/tool-call attempts.
 - Add provider-specific data minimization assertions.

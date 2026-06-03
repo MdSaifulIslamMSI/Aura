@@ -21,6 +21,8 @@ This document describes the current sensitive-action foundation. It is a real en
 - `server/middleware/authMiddleware.js` now routes critical admin WebAuthn state-change checks through the central policy evaluator.
 - `server/middleware/sensitiveActionMiddleware.js` lets future routes opt in without duplicating policy logic.
 - `server/security/authorizationPolicy.js` provides owner, tenant, role, and admin-override decisions for route-level resource checks.
+- `server/middleware/routeSecurityGuards.js` wires route-level sensitive actions and zero-trust owner checks into high-risk admin, payment, order, upload, auth-factor, AI, listing, and support routes.
+- `docs/security/route-enforcement-coverage.md` records the route-by-route coverage matrix, and `npm run security:routes:coverage:strict` fails when a discovered dangerous route is missing from the matrix.
 - `server/services/securityAuditService.js` records bounded audit events with token, OTP, cookie, webhook secret, raw payload, card-data, IP, and user-agent minimization.
 
 ## Rollback Flags
@@ -43,6 +45,5 @@ npm run security:admin
 
 ## Remaining Work
 
-- Gradually add `requireSensitiveAction` or `authorizeResource` to more payment, upload, recovery, seller, data export/delete, and AI tool routes.
 - Persist audit events to the durable event outbox where route ownership is clear.
-- Add route-specific resource resolvers for tenant/store/seller checks instead of only providing the shared policy engine.
+- Extend route-specific tenant/store resolvers beyond the owner checks now covering orders, payment methods, and seller listings.

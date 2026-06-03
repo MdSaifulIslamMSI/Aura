@@ -42,6 +42,10 @@ describe('payment routes OTP assurance', () => {
     const buildApp = (assurance) => {
         mockProtect.mockImplementation((req, _res, next) => {
             req.user = { _id: 'u1', authAssurance: assurance };
+            req.authzPosture = {
+                fresh: true,
+                authAgeSeconds: 0,
+            };
             next();
         });
 

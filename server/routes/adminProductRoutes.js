@@ -1,6 +1,7 @@
 const express = require('express');
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
+const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const {
     listAdminProducts,
     getAdminProductById,
@@ -30,11 +31,11 @@ router.use((req, res, next) => {
 });
 
 router.get('/', protect, admin, validate(adminProductListSchema), listAdminProducts);
-router.post('/', protect, admin, validate(adminCreateProductSchema), createAdminProduct);
+router.post('/', protect, admin, validate(adminCreateProductSchema), sensitiveActions.adminProductChange, createAdminProduct);
 router.get('/:id/logs', protect, admin, validate(adminProductDetailSchema), getAdminProductLogs);
 router.get('/:id', protect, admin, validate(adminProductDetailSchema), getAdminProductById);
-router.patch('/:id/core', protect, admin, validate(adminUpdateProductCoreSchema), updateAdminProductCore);
-router.patch('/:id/pricing', protect, admin, validate(adminUpdateProductPricingSchema), updateAdminProductPricing);
-router.delete('/:id', protect, admin, validate(adminDeleteProductSchema), deleteAdminProduct);
+router.patch('/:id/core', protect, admin, validate(adminUpdateProductCoreSchema), sensitiveActions.adminProductChange, updateAdminProductCore);
+router.patch('/:id/pricing', protect, admin, validate(adminUpdateProductPricingSchema), sensitiveActions.adminProductChange, updateAdminProductPricing);
+router.delete('/:id', protect, admin, validate(adminDeleteProductSchema), sensitiveActions.adminProductChange, deleteAdminProduct);
 
 module.exports = router;

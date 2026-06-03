@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
+const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const {
     listAdminNotifications,
     getAdminNotificationSummary,
@@ -16,7 +17,7 @@ const {
 
 router.get('/summary', protect, admin, getAdminNotificationSummary);
 router.get('/', protect, admin, validate(adminNotificationListSchema), listAdminNotifications);
-router.patch('/read-all', protect, admin, validate(adminNotificationMarkAllReadSchema), markAllAdminNotificationsRead);
-router.patch('/:notificationId/read', protect, admin, validate(adminNotificationMarkReadSchema), markAdminNotificationRead);
+router.patch('/read-all', protect, admin, validate(adminNotificationMarkAllReadSchema), sensitiveActions.adminNotificationChange, markAllAdminNotificationsRead);
+router.patch('/:notificationId/read', protect, admin, validate(adminNotificationMarkReadSchema), sensitiveActions.adminNotificationChange, markAdminNotificationRead);
 
 module.exports = router;

@@ -92,6 +92,8 @@
     "security:pqc:policy": "node scripts/security/pqc-policy-check.mjs",
     "security:pqc": "npm run security:pqc:inventory && npm run security:pqc:policy",
     "security:pqc:inventory:strict": "node scripts/security/crypto-inventory.mjs --markdown --json --fail-on-blocker",
+    "security:routes:coverage": "node scripts/security/route-enforcement-coverage.mjs",
+    "security:routes:coverage:strict": "node scripts/security/route-enforcement-coverage.mjs --strict",
     "security:free-stack": "node scripts/security/run-free-security-stack.mjs --local",
     "security:free-stack:ci": "node scripts/security/run-free-security-stack.mjs --ci",
     "security:audit:root": "npm audit --omit=dev --audit-level=low",

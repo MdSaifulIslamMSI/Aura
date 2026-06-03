@@ -12,6 +12,7 @@ const authorizeResource = ({
     allowOwner = true,
     allowAdmin = false,
     requireTenantMatch = false,
+    hideResourceExistence = false,
     resolveResource,
 } = {}) => async (req, _res, next) => {
     try {
@@ -48,7 +49,17 @@ const authorizeResource = ({
         });
 
         if (!decision.allowed) {
-            const error = new AppError('Not authorized for this resource', 403);
+            const responseStatus = hideResourceExistence && [
+                'owner_mismatch',
+                'owner_missing',
+                'resource_missing',
+            ].includes(decision.reasonCode)
+                ? 404
+                : 403;
+            const error = new AppError(
+                responseStatus === 404 ? 'Resource not found' : 'Not authorized for this resource',
+                responseStatus
+            );
             error.code = String(decision.reasonCode || 'resource_authorization_denied').toUpperCase();
             return next(error);
         }

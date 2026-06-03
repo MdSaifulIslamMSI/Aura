@@ -19,6 +19,7 @@ const {
 } = require('../controllers/productController');
 const { protect, admin, requireActiveAccount } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
+const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const {
     productSearchSchema,
     productRecommendationSchema,
@@ -38,7 +39,7 @@ const {
 // Public Routes
 router.route('/')
     .get(validate(productSearchSchema), getProducts)
-    .post(protect, admin, validate(createProductSchema), createProduct);
+    .post(protect, admin, validate(createProductSchema), sensitiveActions.adminProductChange, createProduct);
 
 router.route('/recommendations')
     .post(protect, validate(productRecommendationSchema), getRecommendedProducts);
@@ -66,11 +67,11 @@ router.route('/:id/compatibility')
 
 router.route('/:id/reviews')
     .get(validate(getProductReviewsSchema), getProductReviews)
-    .post(protect, requireActiveAccount, validate(createProductReviewSchema), createProductReview);
+    .post(protect, requireActiveAccount, validate(createProductReviewSchema), sensitiveActions.moderationAction, createProductReview);
 
 router.route('/:id')
     .get(validate(getProductByIdSchema), getProductById)
-    .delete(protect, admin, validate(deleteProductSchema), deleteProduct)
-    .put(protect, admin, validate(updateProductSchema), updateProduct);
+    .delete(protect, admin, validate(deleteProductSchema), sensitiveActions.adminProductChange, deleteProduct)
+    .put(protect, admin, validate(updateProductSchema), sensitiveActions.adminProductChange, updateProduct);
 
 module.exports = router;

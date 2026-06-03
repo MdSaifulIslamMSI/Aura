@@ -19,6 +19,7 @@ const {
 } = require('../controllers/authController');
 const { protect, protectOptional, protectPhoneFactorProof } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
+const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const { loginSchema } = require('../validators/userValidators');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const {
@@ -164,11 +165,11 @@ router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getS
 router.post('/sync', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);
 router.post('/logout', protectOptional, authenticatedSessionMutationLimiter, csrfTokenValidatorForCookieSession, logoutSession);
 router.post('/bootstrap-device-challenge', requireTurnstile({ routeName: 'auth_bootstrap_device_challenge' }), bootstrapDeviceChallengeLimiter, requestBootstrapDeviceChallenge);
-router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authenticatedSessionMutationLimiter, generateBackupRecoveryCodes);
+router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authenticatedSessionMutationLimiter, sensitiveActions.accountRecoveryChange, generateBackupRecoveryCodes);
 router.post('/recovery-codes/verify', requireTurnstile({ routeName: 'auth_recovery_code_verify' }), recoveryCodeLimiter, verifyBackupRecoveryCode);
-router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, completePhoneFactorLogin);
-router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, completePhoneFactorVerification);
-router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, trustedDeviceVerificationLimiter, verifyDeviceChallenge);
+router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorLogin);
+router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorVerification);
+router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, trustedDeviceVerificationLimiter, sensitiveActions.authFactorChange, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;

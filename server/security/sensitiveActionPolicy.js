@@ -132,7 +132,7 @@ const evaluateSensitiveActionPolicy = ({
     config = resolveSensitiveActionPolicyConfig(env),
     resourceType = '',
 } = {}) => {
-    const categoryPolicy = getCategoryPolicy(category, config);
+    const categoryPolicy = getCategoryPolicy(category, config, actor);
     const requiredAssurance = categoryPolicy.requiredAssurance;
     const actorUserId = toId(actor?._id || actor?.id || actor?.userId);
 

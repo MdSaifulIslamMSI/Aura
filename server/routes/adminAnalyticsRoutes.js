@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
+const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const {
     getAdminAnalyticsOverview,
     getAdminAnalyticsTimeSeries,
@@ -19,7 +20,7 @@ const {
 router.get('/overview', protect, admin, validate(adminAnalyticsOverviewSchema), getAdminAnalyticsOverview);
 router.get('/timeseries', protect, admin, validate(adminAnalyticsTimeSeriesSchema), getAdminAnalyticsTimeSeries);
 router.get('/anomalies', protect, admin, validate(adminAnalyticsAnomalySchema), getAdminAnalyticsAnomalies);
-router.get('/export', protect, admin, validate(adminAnalyticsExportSchema), exportAdminAnalyticsCsv);
+router.get('/export', protect, admin, validate(adminAnalyticsExportSchema), sensitiveActions.dataExport, exportAdminAnalyticsCsv);
 router.get('/bi-config', protect, admin, getAdminBiConfig);
 
 module.exports = router;
