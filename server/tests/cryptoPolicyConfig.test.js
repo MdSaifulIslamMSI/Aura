@@ -20,6 +20,17 @@ describe('cryptoPolicy config', () => {
         expect(policy.preferredHybridKeyExchange).toContain('mlkem768x25519-sha256');
         expect(policy.allowedSymmetricCrypto).toContain('AES-256-GCM');
         expect(policy.allowedPasswordHashing).toContain('bcrypt');
+        expect(policy.deploymentProof).toMatchObject({
+            sshHybridKexPreferred: true,
+            tls13RequiredWhereAppControlled: true,
+            oqsProviderLabOnly: true,
+            providerControlledSurfacesTracked: true,
+        });
+        expect(policy.controlledSurfaces).toMatchObject({
+            ssh: 'hybrid-pqc-ready',
+            tlsEdge: 'tls13-hardened-provider-dependent-pqc',
+            backups: 'symmetric-strong-key-agility',
+        });
     });
 
     test('throws on malformed policy in test mode', () => {
@@ -43,6 +54,7 @@ describe('cryptoPolicy config', () => {
         });
 
         expect(policy.minimumTlsVersion).toBe('TLSv1.3');
+        expect(policy.deploymentProof.tls13RequiredWhereAppControlled).toBe(true);
         expect(logger.warn).toHaveBeenCalledWith('crypto_policy.load_failed', expect.any(Object));
     });
 });

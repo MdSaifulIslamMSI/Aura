@@ -76,6 +76,46 @@ jobs:
             reports/security/pqc-policy-check.md
           retention-days: 14
 
+  pqc-deployment-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate controllable-surface PQC deployment proof
+        run: npm run security:pqc:proof:strict
+
+      - name: Upload PQC deployment proof reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pqc-deployment-proof-reports
+          path: |
+            reports/security/pqc-deployment-proof.json
+            reports/security/pqc-deployment-proof.md
+            reports/security/ssh-pqc-readiness.json
+            reports/security/ssh-pqc-readiness.md
+            reports/security/tls-config-readiness.json
+            reports/security/tls-config-readiness.md
+            reports/security/pqc-lab-smoke.json
+            reports/security/pqc-lab-smoke.md
+            reports/security/internal-service-encryption-check.json
+            reports/security/internal-service-encryption-check.md
+            reports/security/backup-crypto-agility-check.json
+            reports/security/backup-crypto-agility-check.md
+          if-no-files-found: error
+          retention-days: 14
+
   semgrep-pqc:
     runs-on: ubuntu-latest
     timeout-minutes: 25

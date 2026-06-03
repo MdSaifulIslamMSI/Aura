@@ -1,0 +1,19 @@
+# HAProxy TLS 1.3 readiness example for staging and edge review.
+# Included as a reference template; Aura does not currently require HAProxy.
+
+global
+    log stdout format raw local0
+
+defaults
+    mode http
+    timeout connect 5s
+    timeout client 30s
+    timeout server 30s
+
+frontend aura_tls
+    bind :443 ssl crt /etc/haproxy/certs/aura.pem ssl-min-ver TLSv1.3
+    http-response set-header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    default_backend aura_origin
+
+backend aura_origin
+    server api 127.0.0.1:5000 check

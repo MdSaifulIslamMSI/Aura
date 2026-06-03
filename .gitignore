@@ -51,6 +51,11 @@ security-reports/
 reports/
 artifacts/
 .trivycache/
+infra/labs/pqc/*.key
+infra/labs/pqc/*.pem
+infra/labs/pqc/*.crt
+infra/labs/pqc/*.csr
+infra/labs/pqc/*.pfx
 
 # Firebase
 .firebase/

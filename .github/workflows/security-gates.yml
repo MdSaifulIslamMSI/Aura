@@ -370,6 +370,7 @@ jobs:
           npm run security:cors-csrf
           npm run security:admin
           npm run security:routes:coverage:strict
+          npm run security:pqc:proof:strict
           npm run security:webhooks
           npm run security:headers
           npm run security:logging

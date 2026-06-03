@@ -53,6 +53,20 @@
     "Keep rollback to classical TLS 1.3 possible.",
     "Never invent app-level post-quantum crypto."
   ],
+  "deploymentProof": {
+    "sshHybridKexPreferred": true,
+    "tls13RequiredWhereAppControlled": true,
+    "openssl35NativePqcPreferred": true,
+    "oqsProviderLabOnly": true,
+    "providerControlledSurfacesTracked": true
+  },
+  "controlledSurfaces": {
+    "ssh": "hybrid-pqc-ready",
+    "tlsEdge": "tls13-hardened-provider-dependent-pqc",
+    "internalServices": "tls-readiness-required",
+    "backups": "symmetric-strong-key-agility",
+    "releaseSigning": "classical-now-pq-ready-future"
+  },
   "freeSoftwareStack": [
     "OpenSSL 3.5+",
     "OpenSSH 10+",

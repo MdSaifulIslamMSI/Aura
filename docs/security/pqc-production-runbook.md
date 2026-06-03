@@ -2,6 +2,8 @@
 
 Use this checklist for production hardening and rollout planning. Do not deploy experimental OQS/liboqs TLS directly to production without staging evidence and rollback approval.
 
+This runbook does not claim complete end-to-end PQC. Provider, browser/WebPKI, payment, email, hosted database, app-store, AI provider, and SDK cryptography remain ecosystem-dependent.
+
 ## A. Server SSH Hardening
 
 - Install or upgrade to OpenSSH 10+ where supported.
@@ -68,6 +70,7 @@ example.com {
 
 ```sh
 npm run security:pqc
+npm run security:pqc:proof
 ssh -Q kex
 openssl version -a
 openssl list -kem-algorithms
@@ -84,5 +87,15 @@ gitleaks detect
 - Revert proxy config.
 - Keep TLS 1.3 classical secure fallback.
 - Do not roll back CI policy unless a false positive is documented with owner, reason, and expiry.
-- Re-run `npm run security:pqc` after rollback.
+- Re-run `npm run security:pqc` and `npm run security:pqc:proof` after rollback.
 
+## H. Deployment Proof Links
+
+- Controlled-surface matrix: `docs/security/pqc-controlled-surface-matrix.md`
+- SSH hardening: `docs/security/pqc-ssh-hardening.md`
+- TLS edge readiness: `docs/security/pqc-tls-edge-readiness.md`
+- OpenSSL/OQS lab: `docs/security/pqc-openssl-oqs-lab-results.md`
+- Internal services: `docs/security/internal-service-encryption-readiness.md`
+- Backup key-agility: `docs/security/pqc-backup-key-agility.md`
+- Release signing: `docs/security/pqc-release-signing-readiness.md`
+- Provider limitations: `docs/security/pqc-provider-dependency-register.md`

@@ -14,12 +14,44 @@ const fallbackPolicy = {
     allowedPasswordHashing: [],
     forbiddenNewCrypto: [],
     warningCrypto: [],
+    deploymentProof: {
+        sshHybridKexPreferred: false,
+        tls13RequiredWhereAppControlled: true,
+        openssl35NativePqcPreferred: true,
+        oqsProviderLabOnly: true,
+        providerControlledSurfacesTracked: true,
+    },
+    controlledSurfaces: {},
 };
 
 const assertStringArray = (policy, key) => {
     if (!Array.isArray(policy[key]) || policy[key].some((entry) => !trim(entry))) {
         throw new Error(`PQC crypto policy field ${key} must be a non-empty string array`);
     }
+};
+
+const assertObject = (policy, key) => {
+    if (!policy[key] || typeof policy[key] !== 'object' || Array.isArray(policy[key])) {
+        throw new Error(`PQC crypto policy field ${key} must be an object`);
+    }
+};
+
+const assertBooleanObjectFields = (policy, key, fields) => {
+    assertObject(policy, key);
+    fields.forEach((field) => {
+        if (typeof policy[key][field] !== 'boolean') {
+            throw new Error(`PQC crypto policy field ${key}.${field} must be boolean`);
+        }
+    });
+};
+
+const assertStringObjectValues = (policy, key, requiredKeys) => {
+    assertObject(policy, key);
+    requiredKeys.forEach((field) => {
+        if (!trim(policy[key][field])) {
+            throw new Error(`PQC crypto policy field ${key}.${field} must be a non-empty string`);
+        }
+    });
 };
 
 const validateCryptoPolicy = (policy) => {
@@ -41,6 +73,22 @@ const validateCryptoPolicy = (policy) => {
         'warningCrypto',
     ].forEach((key) => assertStringArray(policy, key));
 
+    assertBooleanObjectFields(policy, 'deploymentProof', [
+        'sshHybridKexPreferred',
+        'tls13RequiredWhereAppControlled',
+        'openssl35NativePqcPreferred',
+        'oqsProviderLabOnly',
+        'providerControlledSurfacesTracked',
+    ]);
+
+    assertStringObjectValues(policy, 'controlledSurfaces', [
+        'ssh',
+        'tlsEdge',
+        'internalServices',
+        'backups',
+        'releaseSigning',
+    ]);
+
     return policy;
 };
 
@@ -52,6 +100,8 @@ const projectPolicyView = (policy) => ({
     allowedPasswordHashing: policy.allowedPasswordHashing,
     forbiddenNewCrypto: policy.forbiddenNewCrypto,
     warningCrypto: policy.warningCrypto,
+    deploymentProof: policy.deploymentProof,
+    controlledSurfaces: policy.controlledSurfaces,
 });
 
 const loadCryptoPolicy = (options = {}) => {
