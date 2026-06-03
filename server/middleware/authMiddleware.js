@@ -42,7 +42,10 @@ const {
     requireDuoStepUp,
 } = require('../services/duoStepUpService');
 const { getAuthAdapter } = require('../services/auth/authProviderAdapter');
-const { hasRole } = require('../services/auth/authorizationService');
+const {
+    evaluateAuthorization,
+    hasRole,
+} = require('../services/auth/authorizationService');
 const { evaluateSensitiveActionRequest } = require('../security/sensitiveActionPolicy');
 const { recordSensitiveActionDecision } = require('../services/securityAuditService');
 
@@ -323,6 +326,33 @@ const recordAdminBlock = (req, reason, statusCode = 403) => {
         req,
         meta: { statusCode },
     });
+};
+
+const enforceAdminAuthorizationPolicy = (req, user) => {
+    const decision = evaluateAuthorization({
+        user,
+        method: req.method,
+        path: req.originalUrl || req.path || req.url || '',
+        authSession: req.authSession || null,
+    });
+    req.authzDecision = decision;
+
+    if (decision.allowed) {
+        return decision;
+    }
+
+    logger.warn('admin_access.blocked_authorization_policy', {
+        requestId: req.requestId || '',
+        path: req.originalUrl,
+        permission: decision.permission,
+        reason: decision.reason,
+        code: decision.code,
+    });
+    recordAdminBlock(req, decision.reason || 'authorization_policy_denied', decision.statusCode || 403);
+    const error = new AppError(decision.message || 'Admin authorization denied by policy', decision.statusCode || 403);
+    error.code = decision.code;
+    error.authzDecision = decision;
+    throw error;
 };
 const CSRF_STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const isStateChangingRequest = (req = {}) => (
@@ -1401,6 +1431,8 @@ const admin = asyncHandler(async (req, res, next) => {
         recordAdminBlock(req, 'not_admin');
         throw new AppError('Not authorized as an admin', 403);
     }
+
+    enforceAdminAuthorizationPolicy(req, effectiveUser);
 
     if (!ADMIN_STRICT_ACCESS_ENABLED) {
         return next();
