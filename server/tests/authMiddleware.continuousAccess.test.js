@@ -182,4 +182,36 @@ describe('authMiddleware continuous access posture', () => {
             },
         });
     });
+
+    test('treats review upload writes as sensitive actions requiring recent auth', async () => {
+        const staleAuthTime = Math.floor(Date.now() / 1000) - (20 * 60);
+        const app = loadProtectedApp({
+            routePath: '/api/uploads/reviews/upload',
+            authSession: {
+                sessionId: 'session-risk-1',
+                userId: '507f1f77bcf86cd799439013',
+                firebaseUid: 'firebase-consumer-uid',
+                email: 'consumer@example.com',
+                emailVerified: true,
+                authTimeSeconds: staleAuthTime,
+                aal: 'aal1',
+            },
+            user: {
+                _id: '507f1f77bcf86cd799439013',
+                email: 'consumer@example.com',
+                isAdmin: false,
+                isSeller: false,
+                isVerified: true,
+                trustedDevices: [],
+            },
+        });
+
+        const res = await request(app)
+            .post('/api/uploads/reviews/upload')
+            .set('Cookie', 'aura_sid=session-risk-1')
+            .send({});
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toContain('Recent re-authentication required');
+    });
 });

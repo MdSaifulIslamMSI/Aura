@@ -255,6 +255,15 @@ const ADMIN_ALLOWLIST_EMAILS = new Set(
         .filter(Boolean)
 );
 
+const resolvePhishingResistantAdminPolicy = (env = process.env) => ({
+    requireWebAuthnStepUpForStateChangingAdminActions: parseBooleanEnv(
+        env.AUTH_REQUIRE_WEBAUTHN_STEP_UP_FOR_ADMIN_STATE_CHANGES,
+        isProductionEnv(env)
+    ),
+});
+
+const phishingResistantAdminPolicy = resolvePhishingResistantAdminPolicy();
+
 const recordLoginFailure = (req, reason, statusCode = 401) => {
     recordAuthSecurityEvent({
         event: 'login_failure',
@@ -545,6 +554,7 @@ const resolveRequestSensitivity = (req = {}) => {
     if (path.startsWith('/api/payments/')) return 'sensitive';
     if (path.startsWith('/api/orders/')) return 'sensitive';
     if (path.startsWith('/api/listings/')) return 'sensitive';
+    if (path.startsWith('/api/uploads/')) return 'sensitive';
     if (path.startsWith('/api/support/') && path.includes('/video/')) return 'sensitive';
     return 'standard';
 };
@@ -631,6 +641,72 @@ const hasPasskeySecondFactor = (req = {}) => {
 
     return resolveTrustedDeviceMethod(req) === 'webauthn'
         && getTrustedDeviceSessionVerification(req).success;
+};
+
+const hasRegisteredWebAuthnCredential = (user = {}) => (
+    Array.isArray(user?.trustedDevices)
+    && user.trustedDevices.some((entry) => (
+        String(entry?.method || '').trim().toLowerCase() === 'webauthn'
+        || Boolean(String(entry?.webauthnCredentialIdBase64Url || '').trim())
+    ))
+);
+
+const hasFreshWebAuthnSessionStepUp = (req = {}) => {
+    if (!hasActiveSessionStepUp(req)) {
+        return false;
+    }
+
+    const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
+    if (sessionDeviceMethod === 'webauthn') {
+        return hasSessionTrustedDeviceBinding(req);
+    }
+
+    const sessionAmr = Array.isArray(req.authSession?.amr)
+        ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
+        : [];
+    return sessionAmr.some((entry) => entry === 'webauthn');
+};
+
+const buildAdminStepUpError = ({ message, code }) => {
+    const error = new AppError(message, 403);
+    error.code = code;
+    error.feature = 'admin_webauthn_step_up';
+    return error;
+};
+
+const enforceAdminWebAuthnStepUpForStateChange = (req = {}) => {
+    if (!phishingResistantAdminPolicy.requireWebAuthnStepUpForStateChangingAdminActions
+        || !isStateChangingRequest(req)) {
+        return;
+    }
+
+    const actorEmail = normalizeEmail(req.user?.email || req.authToken?.email || '');
+
+    if (!hasRegisteredWebAuthnCredential(req.user)) {
+        logger.warn('admin_access.blocked_missing_registered_webauthn', {
+            requestId: req.requestId || '',
+            email: actorEmail,
+            path: req.originalUrl,
+        });
+        recordAdminBlock(req, 'webauthn_registration_required');
+        throw buildAdminStepUpError({
+            code: 'ADMIN_WEBAUTHN_REGISTRATION_REQUIRED',
+            message: 'Admin state changes require a registered WebAuthn credential.',
+        });
+    }
+
+    if (!hasFreshWebAuthnSessionStepUp(req)) {
+        logger.warn('admin_access.blocked_missing_fresh_webauthn_step_up', {
+            requestId: req.requestId || '',
+            email: actorEmail,
+            path: req.originalUrl,
+        });
+        recordAdminBlock(req, 'webauthn_step_up_required');
+        throw buildAdminStepUpError({
+            code: 'ADMIN_WEBAUTHN_STEP_UP_REQUIRED',
+            message: 'Admin state changes require fresh WebAuthn step-up verification.',
+        });
+    }
 };
 
 const resolveAuthAgeSeconds = (req = {}) => {
@@ -1364,6 +1440,7 @@ const admin = asyncHandler(async (req, res, next) => {
     }
 
     enforceTrustedDevice(req);
+    enforceAdminWebAuthnStepUpForStateChange(req);
     if (isStateChangingRequest(req)) {
         requireDuoStepUp(req, { action: DUO_STEP_UP_ACTIONS.ADMIN_SENSITIVE });
     }
@@ -1390,4 +1467,5 @@ module.exports = {
     invalidateUserCache,
     invalidateUserCacheByEmail,
     resolveAdminAccessPolicy,
+    resolvePhishingResistantAdminPolicy,
 };
