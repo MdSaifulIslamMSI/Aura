@@ -1,0 +1,24 @@
+groups:
+  - name: aura-traffic-fortress
+    rules:
+      - alert: AuraTrafficBudgetDenialsHigh
+        expr: sum(rate(aura_traffic_budget_denied_total[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Aura traffic budget denials are elevated
+      - alert: AuraAbuseShieldBlocksHigh
+        expr: sum(rate(aura_traffic_abuse_events_total{action="block"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Abuse shield is blocking suspicious traffic
+      - alert: AuraLoadSheddingActive
+        expr: aura_traffic_load_shedding_state > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Aura load shedding is active

@@ -1,0 +1,12 @@
+SecRuleEngine DetectionOnly
+SecDefaultAction "phase:1,log,auditlog,pass"
+SecDefaultAction "phase:2,log,auditlog,pass"
+
+# Tune these before switching selected rules to blocking mode.
+setvar:'tx.allowed_methods=GET HEAD POST PUT PATCH DELETE OPTIONS'
+setvar:'tx.paranoia_level=1'
+setvar:'tx.inbound_anomaly_score_threshold=8'
+setvar:'tx.outbound_anomaly_score_threshold=8'
+
+# Signed provider webhooks are validated by app signature/replay checks.
+SecRule REQUEST_URI "@beginsWith /api/payments/webhooks/" "id:100010,phase:1,pass,nolog,ctl:ruleRemoveByTag=attack-sqli,ctl:ruleRemoveByTag=attack-xss"

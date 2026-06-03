@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "generatedFor": "traffic-resilient-security-fortress",
+  "defaults": {
+    "productionFailMode": "fail-open-safe",
+    "auditOnDeny": true,
+    "rolloutFlag": "TRAFFIC_FORTRESS_ENABLED",
+    "userMessageCode": "TRAFFIC_BUDGET_DENIED"
+  },
+  "categories": {
+    "loginAttempts": {
+      "windowSeconds": 300,
+      "maxRequests": 40,
+      "burst": 10,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "AUTH_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_AUTH_LIMITS",
+      "costRisk": "critical"
+    },
+    "otpRequests": {
+      "windowSeconds": 300,
+      "maxRequests": 12,
+      "burst": 3,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "OTP_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_OTP_LIMITS",
+      "costRisk": "critical"
+    },
+    "recoveryAttempts": {
+      "windowSeconds": 900,
+      "maxRequests": 10,
+      "burst": 3,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "RECOVERY_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_AUTH_LIMITS",
+      "costRisk": "critical"
+    },
+    "webauthnChallenges": {
+      "windowSeconds": 300,
+      "maxRequests": 30,
+      "burst": 8,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "WEBAUTHN_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_AUTH_LIMITS",
+      "costRisk": "high"
+    },
+    "uploadWrites": {
+      "windowSeconds": 300,
+      "maxRequests": 20,
+      "burst": 6,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "UPLOAD_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_UPLOAD_LIMITS",
+      "costRisk": "high"
+    },
+    "aiRequests": {
+      "windowSeconds": 60,
+      "maxRequests": 30,
+      "burst": 8,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "AI_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_AI_LIMITS",
+      "costRisk": "critical"
+    },
+    "paymentIntents": {
+      "windowSeconds": 300,
+      "maxRequests": 50,
+      "burst": 10,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "PAYMENT_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_PAYMENT_LIMITS",
+      "costRisk": "critical"
+    },
+    "refunds": {
+      "windowSeconds": 900,
+      "maxRequests": 15,
+      "burst": 4,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "REFUND_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_PAYMENT_LIMITS",
+      "costRisk": "critical"
+    },
+    "orderMutations": {
+      "windowSeconds": 300,
+      "maxRequests": 80,
+      "burst": 15,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "ORDER_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_ORDER_LIMITS",
+      "costRisk": "high"
+    },
+    "searchRequests": {
+      "windowSeconds": 60,
+      "maxRequests": 120,
+      "burst": 30,
+      "productionFailMode": "fail-open-safe",
+      "auditOnDeny": true,
+      "userMessageCode": "SEARCH_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_SEARCH_LIMITS",
+      "costRisk": "medium"
+    },
+    "adminSensitiveActions": {
+      "windowSeconds": 300,
+      "maxRequests": 40,
+      "burst": 8,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "ADMIN_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_ADMIN_LIMITS",
+      "costRisk": "critical"
+    },
+    "dataExports": {
+      "windowSeconds": 900,
+      "maxRequests": 8,
+      "burst": 2,
+      "productionFailMode": "fail-closed",
+      "auditOnDeny": true,
+      "userMessageCode": "EXPORT_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_EXPORT_LIMITS",
+      "costRisk": "critical"
+    },
+    "webhookEvents": {
+      "windowSeconds": 60,
+      "maxRequests": 300,
+      "burst": 100,
+      "productionFailMode": "fail-open-safe",
+      "auditOnDeny": true,
+      "userMessageCode": "WEBHOOK_BUDGET_EXCEEDED",
+      "rolloutFlag": "TRAFFIC_FORTRESS_WEBHOOK_LIMITS",
+      "costRisk": "high"
+    }
+  }
+}

@@ -373,7 +373,31 @@ jobs:
           npm run security:pqc:proof:strict
           npm run security:pqc:scorecard:strict
           npm run security:pqc:provider-register
+          npm run security:pqc:real-target
+          npm run traffic:fortress:test
+          npm run security:traffic:matrix:strict
+          npm run security:traffic:rate-limits:strict
+          npm run security:traffic:proof:strict
+          npm run security:maturity:strict
           npm run security:webhooks
           npm run security:headers
           npm run security:logging
           npm run security:malware-runtime
+      - name: Upload PQC and traffic fortress reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pqc-traffic-fortress-reports
+          path: |
+            reports/security/pqc-real-target-proof.json
+            reports/security/pqc-real-target-proof.md
+            reports/security/traffic-resilience-matrix.json
+            reports/security/traffic-resilience-matrix.md
+            reports/security/rate-limit-coverage.json
+            reports/security/rate-limit-coverage.md
+            reports/security/traffic-resilience-proof.json
+            reports/security/traffic-resilience-proof.md
+            reports/security/security-maturity-scorecard.json
+            reports/security/security-maturity-scorecard.md
+          if-no-files-found: ignore
+          retention-days: 14

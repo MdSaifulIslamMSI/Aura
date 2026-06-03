@@ -1,0 +1,62 @@
+name: Traffic Resilience Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: traffic-resilience-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  traffic-fortress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
+
+      - name: Run focused traffic fortress tests
+        run: npm run traffic:fortress:test
+
+      - name: Run traffic fortress proof gate
+        run: npm run traffic:fortress:gate
+
+      - name: Run safe local simulation dry-run
+        run: npm run traffic:fortress:load:local
+
+      - name: Upload traffic fortress reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: traffic-fortress-reports
+          path: |
+            reports/security/traffic-resilience-matrix.json
+            reports/security/traffic-resilience-matrix.md
+            reports/security/rate-limit-coverage.json
+            reports/security/rate-limit-coverage.md
+            reports/security/traffic-resilience-proof.json
+            reports/security/traffic-resilience-proof.md
+            reports/security/security-maturity-scorecard.json
+            reports/security/security-maturity-scorecard.md
+            reports/security/safe-traffic-simulation.json
+            reports/security/safe-traffic-simulation.md
+          if-no-files-found: ignore
+          retention-days: 14

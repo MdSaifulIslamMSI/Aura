@@ -28,6 +28,7 @@ RUN apk add --no-cache tini yara \
 
 COPY --from=deps --chown=node:node /app/server/node_modules ./node_modules
 COPY --chown=node:node server ./
+COPY --chown=node:node config/security /app/config/security
 RUN mkdir -p uploads /tmp/aura \
     && chown -R node:node uploads /tmp/aura
 

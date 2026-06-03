@@ -101,6 +101,9 @@ jobs:
       - name: Verify provider dependency register
         run: npm run security:pqc:provider-register
 
+      - name: Generate real-target PQC proof envelope
+        run: npm run security:pqc:real-target
+
       - name: Upload PQC deployment proof reports
         uses: actions/upload-artifact@v7
         if: always()
@@ -133,6 +136,8 @@ jobs:
             reports/security/release-signing-readiness.md
             reports/security/pqc-provider-register-check.json
             reports/security/pqc-provider-register-check.md
+            reports/security/pqc-real-target-proof.json
+            reports/security/pqc-real-target-proof.md
             reports/security/pqc-maturity-scorecard.json
             reports/security/pqc-maturity-scorecard.md
           if-no-files-found: error
