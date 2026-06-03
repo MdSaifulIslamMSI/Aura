@@ -21,10 +21,13 @@ TLS 1.3 hardening is production-ready for Aura-controlled edge configurations to
 
 ```sh
 node scripts/security/tls-config-readiness.mjs --json --markdown
+node scripts/security/tls-endpoint-pqc-readiness.mjs --json --markdown
 npm run security:pqc:proof
 ```
 
 The checker fails repo-owned TLS examples that enable legacy protocol tokens or omit a TLS 1.3 minimum where the config terminates TLS. Plain internal HTTP templates are recorded as not TLS-terminating because they are expected to sit behind an edge or private-network control.
+
+Set `PQC_TLS_TARGET_URL` only for an explicitly approved read-only staging or production endpoint probe. The endpoint report validates negotiated TLS version, legacy protocol rejection, certificate metadata, and HSTS header presence without storing certificate bodies or response bodies. It does not prove browser/WebPKI PQC support.
 
 ## Rollback
 

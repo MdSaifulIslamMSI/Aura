@@ -95,6 +95,12 @@ jobs:
       - name: Generate controllable-surface PQC deployment proof
         run: npm run security:pqc:proof:strict
 
+      - name: Generate PQC maturity scorecard
+        run: npm run security:pqc:scorecard:strict
+
+      - name: Verify provider dependency register
+        run: npm run security:pqc:provider-register
+
       - name: Upload PQC deployment proof reports
         uses: actions/upload-artifact@v7
         if: always()
@@ -105,14 +111,30 @@ jobs:
             reports/security/pqc-deployment-proof.md
             reports/security/ssh-pqc-readiness.json
             reports/security/ssh-pqc-readiness.md
+            reports/security/ssh-pqc-environment-proof.json
+            reports/security/ssh-pqc-environment-proof.md
             reports/security/tls-config-readiness.json
             reports/security/tls-config-readiness.md
+            reports/security/tls-endpoint-pqc-readiness.json
+            reports/security/tls-endpoint-pqc-readiness.md
             reports/security/pqc-lab-smoke.json
             reports/security/pqc-lab-smoke.md
+            reports/security/pqc-lab-benchmark.json
+            reports/security/pqc-lab-benchmark.md
             reports/security/internal-service-encryption-check.json
             reports/security/internal-service-encryption-check.md
+            reports/security/internal-service-encryption-evidence.json
+            reports/security/internal-service-encryption-evidence.md
             reports/security/backup-crypto-agility-check.json
             reports/security/backup-crypto-agility-check.md
+            reports/security/backup-pqc-encryption-evidence.json
+            reports/security/backup-pqc-encryption-evidence.md
+            reports/security/release-signing-readiness.json
+            reports/security/release-signing-readiness.md
+            reports/security/pqc-provider-register-check.json
+            reports/security/pqc-provider-register-check.md
+            reports/security/pqc-maturity-scorecard.json
+            reports/security/pqc-maturity-scorecard.md
           if-no-files-found: error
           retention-days: 14
 

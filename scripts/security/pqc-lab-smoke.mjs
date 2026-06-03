@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import {
   check,
   createTempDir,
@@ -18,6 +19,7 @@ import {
 } from './pqc-readiness-utils.mjs';
 
 export const PQC_LAB_REPORT_BASENAME = 'pqc-lab-smoke';
+export const PQC_LAB_BENCHMARK_REPORT_BASENAME = 'pqc-lab-benchmark';
 
 const labFiles = [
   'docs/security/pqc-openssl-oqs-lab-results.md',
@@ -180,7 +182,117 @@ export const buildPqcLabSmokeReport = (options = {}) => {
   return report;
 };
 
+export const buildPqcLabBenchmarkReport = (options = {}) => {
+  const root = options.root || defaultRepoRoot;
+  const checks = [];
+  const opensslVersion = runCommand('openssl', ['version'], { cwd: root, timeoutMs: 10000 });
+  const kemList = runCommand('openssl', ['list', '-kem-algorithms'], { cwd: root, timeoutMs: 10000 });
+  const signatureList = runCommand('openssl', ['list', '-signature-algorithms'], { cwd: root, timeoutMs: 10000 });
+  const hasMlKem = outputIncludes(kemList, /ML-?KEM/i);
+  const hasMlDsa = outputIncludes(signatureList, /ML-?DSA/i);
+  const hasSlhDsa = outputIncludes(signatureList, /SLH-?DSA/i);
+  let sampleGeneration = { attempted: false, algorithm: 'ML-KEM-768', generated: false };
+  let durationMs = null;
+
+  checks.push(check({
+    id: 'lab.benchmark.openssl-version',
+    title: 'OpenSSL benchmark runtime is identified',
+    status: opensslVersion.available && opensslVersion.status === 0 ? 'pass' : 'warning',
+    scope: 'system',
+    severity: opensslVersion.available && opensslVersion.status === 0 ? 'info' : 'medium',
+    summary: opensslVersion.available && opensslVersion.status === 0
+      ? 'OpenSSL version was captured for benchmark context.'
+      : 'OpenSSL is unavailable locally; use the lab container for benchmark evidence.',
+    evidence: { command: opensslVersion.command, version: opensslVersion.stdout || opensslVersion.stderr || '' },
+  }));
+
+  checks.push(check({
+    id: 'lab.benchmark.standardized-algorithms-listed',
+    title: 'Standardized PQC algorithms are listed when local OpenSSL supports them',
+    status: hasMlKem || hasMlDsa || hasSlhDsa ? 'pass' : 'warning',
+    scope: 'system',
+    severity: hasMlKem || hasMlDsa || hasSlhDsa ? 'info' : 'medium',
+    summary: hasMlKem || hasMlDsa || hasSlhDsa
+      ? 'At least one standardized PQC algorithm family appears in local OpenSSL output.'
+      : 'Local OpenSSL did not list ML-KEM, ML-DSA, or SLH-DSA.',
+    evidence: { hasMlKem, hasMlDsa, hasSlhDsa },
+  }));
+
+  if (hasMlKem) {
+    const start = performance.now();
+    sampleGeneration = attemptSampleGeneration(root, 'ML-KEM-768');
+    durationMs = Math.round(performance.now() - start);
+  }
+  checks.push(check({
+    id: 'lab.benchmark.ml-kem-temp-generation',
+    title: 'ML-KEM sample generation benchmark runs only in temp storage',
+    status: sampleGeneration.attempted
+      ? (sampleGeneration.generated ? 'pass' : 'warning')
+      : 'skipped',
+    scope: 'system',
+    severity: sampleGeneration.generated ? 'info' : 'medium',
+    summary: sampleGeneration.attempted
+      ? (sampleGeneration.generated
+        ? `ML-KEM sample generation completed in ${durationMs}ms and temp output was removed.`
+        : 'ML-KEM sample generation was attempted in temp storage but did not complete locally.')
+      : 'ML-KEM sample generation benchmark skipped because local OpenSSL did not expose ML-KEM.',
+    evidence: { algorithm: sampleGeneration.algorithm, attempted: sampleGeneration.attempted, durationMs },
+  }));
+
+  const labDir = repoPath(root, 'infra/labs/pqc');
+  const committedLabMaterial = existsSync(labDir)
+    ? readdirSync(labDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && repoLabPrivateMaterialPattern.test(entry.name))
+      .map((entry) => `infra/labs/pqc/${entry.name}`)
+    : [];
+  checks.push(check({
+    id: 'lab.benchmark.no-generated-artifacts',
+    title: 'Benchmark leaves no generated key or certificate artifacts in the repo',
+    status: committedLabMaterial.length === 0 ? 'pass' : 'fail',
+    scope: 'repo',
+    severity: committedLabMaterial.length === 0 ? 'info' : 'critical',
+    summary: committedLabMaterial.length === 0
+      ? 'No generated PQC benchmark artifacts are present in the repo lab directory.'
+      : `Generated lab artifacts are present: ${committedLabMaterial.join(', ')}.`,
+    evidence: { directory: 'infra/labs/pqc' },
+  }));
+
+  const summary = summarizeChecks(checks);
+  return {
+    title: 'OpenSSL PQC Lab Benchmark',
+    generatedAt: new Date().toISOString(),
+    status: shouldFail(checks, options) ? 'fail' : 'pass',
+    strict: Boolean(options.strict),
+    benchmark: {
+      algorithm: sampleGeneration.algorithm,
+      attempted: sampleGeneration.attempted,
+      generated: sampleGeneration.generated,
+      durationMs,
+    },
+    summary,
+    checks,
+    limitations: [
+      'Benchmark values are local/lab context only and are not production performance claims.',
+      'Missing local PQC algorithms are warnings because CI and developer OpenSSL builds vary.',
+      'Generated sample material is created under the OS temp directory and removed immediately.',
+    ],
+  };
+};
+
 export const renderPqcLabSmokeMarkdown = (report) => renderChecksMarkdown(report, [
+  '## Limitations',
+  '',
+  ...report.limitations.map((entry) => `- ${entry}`),
+]);
+
+export const renderPqcLabBenchmarkMarkdown = (report) => renderChecksMarkdown(report, [
+  '## Benchmark',
+  '',
+  `- Algorithm: ${report.benchmark.algorithm}`,
+  `- Attempted: ${report.benchmark.attempted}`,
+  `- Generated: ${report.benchmark.generated}`,
+  `- Duration ms: ${report.benchmark.durationMs ?? 'not measured'}`,
+  '',
   '## Limitations',
   '',
   ...report.limitations.map((entry) => `- ${entry}`),
@@ -189,16 +301,26 @@ export const renderPqcLabSmokeMarkdown = (report) => renderChecksMarkdown(report
 const main = () => {
   const options = parseReadinessArgs(process.argv.slice(2));
   const report = buildPqcLabSmokeReport(options);
+  const benchmarkReport = buildPqcLabBenchmarkReport(options);
   const markdown = renderPqcLabSmokeMarkdown(report);
-  const written = writeReadinessReports({
+  const written = [
+    ...writeReadinessReports({
     report,
     markdown,
     reportDir: options.reportDir,
     baseName: PQC_LAB_REPORT_BASENAME,
     options,
-  });
+    }),
+    ...writeReadinessReports({
+      report: benchmarkReport,
+      markdown: renderPqcLabBenchmarkMarkdown(benchmarkReport),
+      reportDir: options.reportDir,
+      baseName: PQC_LAB_BENCHMARK_REPORT_BASENAME,
+      options,
+    }),
+  ];
   console.log(`[pqc-lab-smoke] ${report.status}: wrote ${written.map((file) => path.relative(options.root, file)).join(', ')}`);
-  if (report.status === 'fail') process.exit(1);
+  if (report.status === 'fail' || benchmarkReport.status === 'fail') process.exit(1);
 };
 
 if (isMainModule(import.meta.url)) {

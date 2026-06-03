@@ -98,6 +98,7 @@ Aura is PQC-ready and crypto-agile, but it is not 100% quantum-proof. Practical 
 - Backup encryption key-agility and non-destructive restore proof.
 - Release artifact signing readiness for future PQ signatures.
 - Provider limitation tracking for browser/WebPKI, Firebase, Stripe, Razorpay, Resend, hosted databases, AI providers, app stores, and SDK crypto.
+- Maturity scorecard that separates repo-owned proof from provider-dependent full end-to-end coverage.
 
 Primary evidence:
 
@@ -109,10 +110,13 @@ Primary evidence:
 - `docs/security/pqc-backup-key-agility.md`
 - `docs/security/pqc-release-signing-readiness.md`
 - `docs/security/pqc-provider-dependency-register.md`
+- `docs/security/pqc-maturity-scorecard.md`
 - `reports/security/pqc-deployment-proof.json`
+- `reports/security/pqc-maturity-scorecard.json`
 
 Run:
 
 ```sh
 npm run security:pqc:proof
+npm run security:pqc:scorecard
 ```

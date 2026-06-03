@@ -35,6 +35,14 @@ The checker redacts connection shapes and must never print raw connection string
 node scripts/security/internal-service-encryption-check.mjs --json --markdown
 ```
 
+Optional staging evidence:
+
+```sh
+PQC_INTERNAL_EVIDENCE_MODE=staging node scripts/security/internal-service-encryption-check.mjs --json --markdown
+```
+
+The optional evidence report records only redacted URI schemes and setting presence. It does not open MongoDB or Redis sockets and must not print raw `DATABASE_URL`, `MONGO_URI`, or `REDIS_URL` values.
+
 ## Rollout Checklist
 
 1. Validate staging env separation.
