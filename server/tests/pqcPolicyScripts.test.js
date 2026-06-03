@@ -111,6 +111,48 @@ describe('PQC inventory and policy scripts', () => {
 
         expect(valid.status).toBe(0);
 
+        const matchScanRoot = tempScanRoot('bad-md5.js');
+        const matchQualified = runNode(policyScript, [
+            '--root',
+            matchScanRoot,
+            '--report-dir',
+            path.join(matchScanRoot, 'match-qualified-reports'),
+            '--policy',
+            policyConfig,
+            '--allowlist',
+            writeAllowlist([
+                {
+                    file: 'bad-md5.js',
+                    category: 'MD5_USAGE',
+                    match: 'md5',
+                    reason: 'Legacy fixture exception constrained to the reviewed match.',
+                    expires: '2026-12-31',
+                },
+            ]),
+        ]);
+        expect(matchQualified.status).toBe(0);
+
+        const wrongMatchScanRoot = tempScanRoot('bad-md5.js');
+        const wrongMatch = runNode(policyScript, [
+            '--root',
+            wrongMatchScanRoot,
+            '--report-dir',
+            path.join(wrongMatchScanRoot, 'wrong-match-reports'),
+            '--policy',
+            policyConfig,
+            '--allowlist',
+            writeAllowlist([
+                {
+                    file: 'bad-md5.js',
+                    category: 'MD5_USAGE',
+                    match: 'sha1',
+                    reason: 'Wrong match should not allowlist the MD5 finding.',
+                    expires: '2026-12-31',
+                },
+            ]),
+        ]);
+        expect(wrongMatch.status).toBe(1);
+
         const expired = runNode(policyScript, [
             '--root',
             scanRoot,

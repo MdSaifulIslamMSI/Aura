@@ -2,36 +2,36 @@
   "allowedFindings": [
     {
       "file": "scripts/i18n/codemod-jsx-stable-text.mjs",
-      "line": 19,
       "category": "SHA1_SIGNATURE_OR_INTEGRITY",
+      "match": "sha1",
       "reason": "Existing short deterministic i18n message id suffix; not used for signatures, integrity, encryption, or secrets. Migration tracked in docs/security/post-quantum-readiness.md.",
       "expires": "2026-12-31"
     },
     {
       "file": "scripts/i18n/discover-stable-ui-text.mjs",
-      "line": 306,
       "category": "SHA1_SIGNATURE_OR_INTEGRITY",
+      "match": "sha1",
       "reason": "Existing short deterministic i18n discovery id suffix; not used for signatures, integrity, encryption, or secrets. Migration tracked in docs/security/post-quantum-readiness.md.",
       "expires": "2026-12-31"
     },
     {
       "file": "server/services/catalogArtworkService.js",
-      "line": 97,
       "category": "SHA1_SIGNATURE_OR_INTEGRITY",
+      "match": "sha1",
       "reason": "Existing deterministic catalog artwork bucketing hash; not used for signatures, integrity, encryption, or secrets. Migration tracked in docs/security/post-quantum-readiness.md.",
       "expires": "2026-12-31"
     },
     {
       "file": "server/services/listingService.js",
-      "line": 190,
       "category": "MD5_USAGE",
+      "match": "md5",
       "reason": "Existing non-secret payment event payload correlation hash in logs; not used for signatures, integrity, encryption, or secrets. Migration tracked in docs/security/post-quantum-readiness.md.",
       "expires": "2026-12-31"
     },
     {
       "file": "server/services/productImageResolver.js",
-      "line": 182,
       "category": "SHA1_SIGNATURE_OR_INTEGRITY",
+      "match": "sha1",
       "reason": "Existing deterministic product image UID hash; not used for signatures, integrity, encryption, or secrets. Migration tracked in docs/security/post-quantum-readiness.md.",
       "expires": "2026-12-31"
     }

@@ -499,4 +499,4 @@ export const renderInventoryMarkdown = (inventory) => {
   ].join('\n');
 };
 
-const escapeMarkdown = (value) => String(value || '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+const escapeMarkdown = (value) => String(value || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');

@@ -76,6 +76,7 @@ const findingMatchesEntry = (finding, entry) => (
   normalizePath(finding.file) === normalizePath(entry.file)
   && finding.category === entry.category
   && (entry.line === undefined || Number(entry.line) === Number(finding.line))
+  && (entry.match === undefined || String(entry.match) === String(finding.match))
 );
 
 const normalizePath = (value) => String(value || '').replace(/\\/g, '/').replace(/^\.\//, '');
@@ -123,7 +124,7 @@ const renderPolicyMarkdown = (report) => {
   ].join('\n');
 };
 
-const escapeMarkdown = (value) => String(value || '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+const escapeMarkdown = (value) => String(value || '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 
 const main = () => {
   const options = parseArgs(process.argv.slice(2));
