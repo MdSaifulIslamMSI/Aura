@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, admin } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
+const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const {
     createSupportTicket,
     sendSupportMessage,
@@ -40,7 +41,7 @@ router.route('/:id/video/request')
     .post(protect, validate(requestSupportLiveCallSchema), requestSupportLiveCall);
 
 router.route('/:id/video/start')
-    .post(protect, admin, validate(supportLiveCallStartSchema), startSupportLiveCallSession);
+    .post(protect, admin, validate(supportLiveCallStartSchema), sensitiveActions.supportModeration, startSupportLiveCallSession);
 
 router.route('/:id/video/join')
     .post(protect, validate(supportLiveCallActionSchema), joinSupportLiveCallSession);
@@ -56,7 +57,7 @@ router.route('/admin/all')
     .get(protect, admin, validate(supportTicketQuerySchema), adminGetTickets);
 
 router.route('/:id/status')
-    .patch(protect, admin, validate(adminUpdateTicketSchema), adminUpdateTicketStatus);
+    .patch(protect, admin, validate(adminUpdateTicketSchema), sensitiveActions.supportModeration, adminUpdateTicketStatus);
 
 // Internal helper for logging system events
 // No exported route, used programmatically by other controllers

@@ -182,6 +182,23 @@ describe('AI Routes', () => {
         }));
     });
 
+    test('POST /api/ai/chat blocks unauthenticated mutating tool actions', async () => {
+        const res = await request(app)
+            .post('/api/ai/chat')
+            .send({
+                actionRequest: {
+                    type: 'cancel_order',
+                    orderId: 'order_attack_1',
+                    reason: 'prompt injection refund attempt',
+                },
+                assistantMode: 'chat',
+            });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.code).toBe('SENSITIVE_ACTION_AUTHENTICATION_REQUIRED');
+        expect(processAssistantTurn).not.toHaveBeenCalled();
+    });
+
     test('POST /api/ai/chat/stream emits message metadata and final turn events', async () => {
         const res = await request(app)
             .post('/api/ai/chat/stream')

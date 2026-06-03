@@ -10,21 +10,29 @@ jest.mock('../middleware/authMiddleware', () => ({
 
         if (token === 'token-user-a') {
             req.authUid = 'uid-user-a';
-            req.authToken = { email: 'user-a@example.com' };
+            req.authToken = { email: 'user-a@example.com', auth_time: Math.floor(Date.now() / 1000) };
             req.user = { id: 'uid-user-a', email: 'user-a@example.com' };
+            req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
             return next();
         }
 
         if (token === 'token-user-b') {
             req.authUid = 'uid-user-b';
-            req.authToken = { email: 'user-b@example.com' };
+            req.authToken = { email: 'user-b@example.com', auth_time: Math.floor(Date.now() / 1000) };
             req.user = { id: 'uid-user-b', email: 'user-b@example.com' };
+            req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
             return next();
         }
 
         return next({ statusCode: 401, message: 'Unauthorized' });
     },
-    protectPhoneFactorProof: (_req, _res, next) => next(),
+    protectPhoneFactorProof: (req, _res, next) => {
+        req.authUid = 'uid-phone-factor-a';
+        req.authToken = { email: 'user-a@example.com', auth_time: Math.floor(Date.now() / 1000) };
+        req.user = { id: 'uid-phone-factor-a', email: 'user-a@example.com' };
+        req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
+        next();
+    },
     protectOptional: (req, _res, next) => {
         const cookie = String(req.headers.cookie || '');
         if (cookie.includes('aura_sid=session-cookie-a')) {

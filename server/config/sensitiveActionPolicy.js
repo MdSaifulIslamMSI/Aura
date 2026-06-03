@@ -28,10 +28,13 @@ const ADMIN_CATEGORIES = new Set([
     SENSITIVE_ACTION_CATEGORIES.ADMIN_STATE_CHANGE,
     SENSITIVE_ACTION_CATEGORIES.ADMIN_USER_MANAGEMENT,
     SENSITIVE_ACTION_CATEGORIES.ADMIN_SECURITY_CONFIG_CHANGE,
-    SENSITIVE_ACTION_CATEGORIES.PAYMENT_REFUND,
-    SENSITIVE_ACTION_CATEGORIES.PAYMENT_PAYOUT_CHANGE,
     SENSITIVE_ACTION_CATEGORIES.DATA_EXPORT,
     SENSITIVE_ACTION_CATEGORIES.DATA_DELETE,
+]);
+
+const ADMIN_PAYMENT_CATEGORIES = new Set([
+    SENSITIVE_ACTION_CATEGORIES.PAYMENT_REFUND,
+    SENSITIVE_ACTION_CATEGORIES.PAYMENT_PAYOUT_CHANGE,
 ]);
 
 const parseBooleanEnv = (value, fallback = false) => {
@@ -76,6 +79,16 @@ const resolveSensitiveActionPolicyConfig = (env = process.env) => {
 };
 
 const normalizePath = (value = '') => String(value || '').split('?')[0].trim().toLowerCase();
+
+const hasAdminRole = (actor = {}) => {
+    if (actor?.isAdmin === true) return true;
+    const roles = [
+        actor?.role,
+        ...(Array.isArray(actor?.roles) ? actor.roles : []),
+        ...(Array.isArray(actor?.adminRoles) ? actor.adminRoles : []),
+    ].map((entry) => String(entry || '').trim().toLowerCase());
+    return roles.includes('admin');
+};
 
 const classifyAdminAction = ({ method, path }) => {
     const stateChanging = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
@@ -240,10 +253,11 @@ const classifySensitiveActionFromRequest = (req = {}) => {
     return null;
 };
 
-const getCategoryPolicy = (category, config = resolveSensitiveActionPolicyConfig()) => {
+const getCategoryPolicy = (category, config = resolveSensitiveActionPolicyConfig(), actor = {}) => {
     const requiredAssurance = ['authenticated'];
+    const adminActor = hasAdminRole(actor);
 
-    if (ADMIN_CATEGORIES.has(category)) {
+    if (ADMIN_CATEGORIES.has(category) || (adminActor && ADMIN_PAYMENT_CATEGORIES.has(category))) {
         requiredAssurance.push('admin');
     }
 
@@ -262,6 +276,11 @@ const getCategoryPolicy = (category, config = resolveSensitiveActionPolicyConfig
     if ([
         SENSITIVE_ACTION_CATEGORIES.ADMIN_STATE_CHANGE,
         SENSITIVE_ACTION_CATEGORIES.ADMIN_USER_MANAGEMENT,
+    ].includes(category) && config.requireWebAuthnForAdminStateChanges) {
+        requiredAssurance.push('webauthn_registered', 'fresh_webauthn_step_up');
+    }
+
+    if (adminActor && [
         SENSITIVE_ACTION_CATEGORIES.PAYMENT_REFUND,
         SENSITIVE_ACTION_CATEGORIES.PAYMENT_PAYOUT_CHANGE,
     ].includes(category) && config.requireWebAuthnForAdminStateChanges) {
@@ -291,6 +310,7 @@ module.exports = {
     RISK_LEVELS,
     classifySensitiveActionFromRequest,
     getCategoryPolicy,
+    hasAdminRole,
     isProductionEnv,
     parseBooleanEnv,
     parsePositiveIntEnv,

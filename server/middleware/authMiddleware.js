@@ -1270,6 +1270,14 @@ const protectPhoneFactorProof = asyncHandler(async (req, res, next) => {
         req.authUid = verifiedAccess.authUid || decodedToken?.uid || '';
         req.authProvider = verifiedAccess.provider || 'legacy';
         req.authToken = decodedToken;
+        req.authzPosture = {
+            ...(req.authzPosture || {}),
+            sensitivity: 'sensitive',
+            fresh: true,
+            authAgeSeconds: 0,
+            stepUpFresh: true,
+            elevatedAssurance: true,
+        };
 
         if (!verifiedPhone || !PHONE_REGEX.test(verifiedPhone)) {
             recordStepUpRequired(req, 'phone_factor_required');
