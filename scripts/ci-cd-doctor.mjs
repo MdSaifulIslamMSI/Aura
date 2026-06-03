@@ -40,6 +40,8 @@ const desktop = read('.github/workflows/desktop-release.yml');
 const mobile = read('.github/workflows/mobile-release.yml');
 const gateway = read('.github/workflows/deploy-gateway-vercel.yml');
 const deployBackend = read('.github/workflows/deploy-backend-aws.yml');
+const deployFrontendNetlify = read('.github/workflows/deploy-netlify.yml');
+const deployFrontendAws = read('.github/workflows/deploy-frontend-aws.yml');
 const backendOidcBootstrap = read('infra/aws/bootstrap-github-oidc.ps1');
 const packageJson = JSON.parse(read('package.json') || '{}');
 const securityRunner = read('scripts/security-runner.mjs');
@@ -216,6 +218,16 @@ addCheck(
     backendOidcBootstrap.includes('$ParameterStorePathPrefix') &&
     backendOidcBootstrap.includes('RuntimeParameterUpdates'),
   'manual production admin access can write /aura/prod allowlist values after IAM bootstrap refresh'
+);
+
+addCheck(
+  'CloudFront deploy verification waits for invalidation propagation',
+  [deployFrontendNetlify, deployFrontendAws].every((workflow) =>
+    workflow.includes('--query "Invalidation.Id"') &&
+    workflow.includes('aws cloudfront wait invalidation-completed') &&
+    workflow.includes('CloudFront app shell was not ready after invalidation wait')
+  ),
+  'prevents false failed main releases while CloudFront edges still serve stale 403 responses'
 );
 
 addCheck(
