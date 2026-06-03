@@ -1,7 +1,26 @@
 const fs = require('fs');
 const path = require('path');
 
-const TRAFFIC_RESILIENCE_POLICY_PATH = path.resolve(__dirname, '..', '..', 'config', 'security', 'traffic-resilience-policy.json');
+const POLICY_FILE_NAME = 'traffic-resilience-policy.json';
+
+const uniquePaths = (candidates) => [...new Set(candidates.filter(Boolean))];
+
+const getTrafficResiliencePolicyPathCandidates = () => uniquePaths([
+    process.env.TRAFFIC_RESILIENCE_POLICY_PATH ? path.resolve(process.env.TRAFFIC_RESILIENCE_POLICY_PATH) : null,
+    path.resolve(__dirname, '..', '..', 'config', 'security', POLICY_FILE_NAME),
+    path.resolve(__dirname, 'security', POLICY_FILE_NAME),
+    path.resolve(process.cwd(), 'config', 'security', POLICY_FILE_NAME),
+    path.resolve(process.cwd(), '..', 'config', 'security', POLICY_FILE_NAME),
+]);
+
+const resolveTrafficResiliencePolicyPath = (
+    candidates = getTrafficResiliencePolicyPathCandidates(),
+    exists = fs.existsSync,
+) => {
+    return candidates.find((candidate) => exists(candidate)) || candidates[0];
+};
+
+const TRAFFIC_RESILIENCE_POLICY_PATH = resolveTrafficResiliencePolicyPath();
 
 const PRODUCTION_FAIL_MODES = new Set(['fail-closed', 'fail-open-safe', 'log-only']);
 const COST_RISKS = new Set(['low', 'medium', 'high', 'critical']);
@@ -17,7 +36,16 @@ const REQUIRED_FIELDS = [
 ];
 
 const readTrafficResiliencePolicy = (policyPath = TRAFFIC_RESILIENCE_POLICY_PATH) => {
-    const raw = fs.readFileSync(policyPath, 'utf8');
+    let raw;
+    try {
+        raw = fs.readFileSync(policyPath, 'utf8');
+    } catch (error) {
+        if (error && error.code === 'ENOENT') {
+            const checkedPaths = getTrafficResiliencePolicyPathCandidates().join(', ');
+            throw new Error(`Traffic resilience policy file not found at ${policyPath}. Checked: ${checkedPaths}`);
+        }
+        throw error;
+    }
     return JSON.parse(raw);
 };
 
@@ -80,7 +108,9 @@ module.exports = {
     PRODUCTION_FAIL_MODES,
     REQUIRED_FIELDS,
     TRAFFIC_RESILIENCE_POLICY_PATH,
+    getTrafficResiliencePolicyPathCandidates,
     readTrafficResiliencePolicy,
+    resolveTrafficResiliencePolicyPath,
     trafficResiliencePolicy,
     validateTrafficResiliencePolicy,
 };
