@@ -61,11 +61,14 @@ const normalizeProviderName = (value = 'noop') => {
 
 const getRuntimeTranslationConfig = () => {
     const requestedProvider = normalizeProviderName(process.env.I18N_TRANSLATION_PROVIDER || 'noop');
-    const runtimeEnabledDefault = process.env.NODE_ENV !== 'production' && requestedProvider !== 'noop';
-    const runtimeTranslationEnabled = parseBooleanEnv(
-        process.env.I18N_RUNTIME_TRANSLATION_ENABLED,
-        runtimeEnabledDefault
-    );
+    const productionRuntime = String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
+    const runtimeEnabledDefault = !productionRuntime && requestedProvider !== 'noop';
+    const runtimeTranslationEnabled = productionRuntime
+        ? false
+        : parseBooleanEnv(
+            process.env.I18N_RUNTIME_TRANSLATION_ENABLED,
+            runtimeEnabledDefault
+        );
     const providerName = runtimeTranslationEnabled ? requestedProvider : 'noop';
 
     return {
