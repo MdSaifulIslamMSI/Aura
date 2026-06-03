@@ -2,7 +2,7 @@
 
 ## 1. Honest Security Statement
 
-No app can be 100% secure. This project targets 100% free/open-source post-quantum readiness: standards-aligned hybrid migration, crypto-agility, rollback safety, CI enforcement, and production runbooks.
+No app can be 100% secure. This project targets maximum practical free/open-source post-quantum readiness: standards-aligned hybrid migration, crypto-agility, rollback safety, CI enforcement, and production runbooks.
 
 The project does not implement custom cryptography. Experimental post-quantum work stays in staging or lab mode until there is deliberate approval and evidence.
 
@@ -80,8 +80,39 @@ The project does not implement custom cryptography. Experimental post-quantum wo
 
 - Inventory report generated.
 - Policy check passes.
+- Deployment proof report generated.
+- Controlled-surface matrix reviewed.
 - No new forbidden crypto.
 - Documentation and runbooks are complete.
 - Tests pass.
 - CI is green.
 
+## 11. Controlled-Surface Deployment Proof
+
+Aura is PQC-ready and crypto-agile, but it is not 100% quantum-proof. Practical deployment proof is limited to surfaces Aura can control directly:
+
+- OpenSSH hybrid KEX readiness where OpenSSH 10+ is available.
+- TLS 1.3 hardening at Aura-controlled edge templates.
+- OpenSSL 3.5+ / OQS lab evidence without production replacement.
+- Internal MongoDB/Redis/service-to-service encryption readiness.
+- Backup encryption key-agility and non-destructive restore proof.
+- Release artifact signing readiness for future PQ signatures.
+- Provider limitation tracking for browser/WebPKI, Firebase, Stripe, Razorpay, Resend, hosted databases, AI providers, app stores, and SDK crypto.
+
+Primary evidence:
+
+- `docs/security/pqc-controlled-surface-matrix.md`
+- `docs/security/pqc-ssh-hardening.md`
+- `docs/security/pqc-tls-edge-readiness.md`
+- `docs/security/pqc-openssl-oqs-lab-results.md`
+- `docs/security/internal-service-encryption-readiness.md`
+- `docs/security/pqc-backup-key-agility.md`
+- `docs/security/pqc-release-signing-readiness.md`
+- `docs/security/pqc-provider-dependency-register.md`
+- `reports/security/pqc-deployment-proof.json`
+
+Run:
+
+```sh
+npm run security:pqc:proof
+```

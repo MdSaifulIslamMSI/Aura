@@ -91,6 +91,8 @@
     "security:pqc:inventory": "node scripts/security/crypto-inventory.mjs --markdown --json",
     "security:pqc:policy": "node scripts/security/pqc-policy-check.mjs",
     "security:pqc": "npm run security:pqc:inventory && npm run security:pqc:policy",
+    "security:pqc:proof": "node scripts/security/pqc-deployment-proof.mjs --json --markdown",
+    "security:pqc:proof:strict": "node scripts/security/pqc-deployment-proof.mjs --json --markdown --strict --ci",
     "security:pqc:inventory:strict": "node scripts/security/crypto-inventory.mjs --markdown --json --fail-on-blocker",
     "security:routes:coverage": "node scripts/security/route-enforcement-coverage.mjs",
     "security:routes:coverage:strict": "node scripts/security/route-enforcement-coverage.mjs --strict",

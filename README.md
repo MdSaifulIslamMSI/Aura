@@ -146,14 +146,23 @@ The assistant can use the recommendation APIs as a backend tool, so product sugg
 ## Post-Quantum Readiness
 - Readiness guide: [`docs/security/post-quantum-readiness.md`](docs/security/post-quantum-readiness.md)
 - Production checklist: [`docs/security/pqc-production-runbook.md`](docs/security/pqc-production-runbook.md)
+- Controlled-surface matrix: [`docs/security/pqc-controlled-surface-matrix.md`](docs/security/pqc-controlled-surface-matrix.md)
+- SSH hardening: [`docs/security/pqc-ssh-hardening.md`](docs/security/pqc-ssh-hardening.md)
+- TLS edge readiness: [`docs/security/pqc-tls-edge-readiness.md`](docs/security/pqc-tls-edge-readiness.md)
+- OpenSSL/OQS lab evidence: [`docs/security/pqc-openssl-oqs-lab-results.md`](docs/security/pqc-openssl-oqs-lab-results.md)
+- Internal service encryption: [`docs/security/internal-service-encryption-readiness.md`](docs/security/internal-service-encryption-readiness.md)
+- Backup key-agility: [`docs/security/pqc-backup-key-agility.md`](docs/security/pqc-backup-key-agility.md)
+- Release signing readiness: [`docs/security/pqc-release-signing-readiness.md`](docs/security/pqc-release-signing-readiness.md)
+- Provider dependency register: [`docs/security/pqc-provider-dependency-register.md`](docs/security/pqc-provider-dependency-register.md)
 - Staging-only OpenSSL/OQS lab: [`docs/security/openssl-oqs-staging-lab.md`](docs/security/openssl-oqs-staging-lab.md)
 - Free scanner stack: [`docs/security/free-security-scanners.md`](docs/security/free-security-scanners.md)
 - Local commands:
   - `npm run security:pqc`
+  - `npm run security:pqc:proof`
   - `npm run security:pqc:inventory:strict`
   - `npm run security:free-stack`
 
-The project does not implement custom cryptography. Post-quantum work is config-driven through [`config/security/post-quantum-policy.json`](config/security/post-quantum-policy.json), starts with hybrid migration, and keeps experimental OQS/liboqs TLS in staging or lab mode until deliberately approved.
+The project does not implement custom cryptography. Post-quantum work is config-driven through [`config/security/post-quantum-policy.json`](config/security/post-quantum-policy.json), starts with hybrid migration, and keeps experimental OQS/liboqs TLS in staging or lab mode until deliberately approved. Aura is PQC-ready and crypto-agile, not 100% quantum-proof; browser/WebPKI and provider-controlled cryptography remain ecosystem-dependent.
 
 ### Aura Fortress Sensitive Actions
 - Campaign guide: [`docs/security/aura-fortress-campaign.md`](docs/security/aura-fortress-campaign.md)

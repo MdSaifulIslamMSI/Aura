@@ -1,0 +1,11 @@
+services:
+  openssl-pqc-lab:
+    build:
+      context: .
+      dockerfile: openssl-35.Dockerfile
+    image: aura-openssl-pqc-lab:local
+    command: ["openssl", "version", "-a"]
+    read_only: true
+    network_mode: "none"
+    cap_drop:
+      - ALL
