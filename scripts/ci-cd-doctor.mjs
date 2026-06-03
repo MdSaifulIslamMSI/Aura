@@ -43,6 +43,7 @@ const deployBackend = read('.github/workflows/deploy-backend-aws.yml');
 const deployFrontendNetlify = read('.github/workflows/deploy-netlify.yml');
 const deployFrontendAws = read('.github/workflows/deploy-frontend-aws.yml');
 const backendOidcBootstrap = read('infra/aws/bootstrap-github-oidc.ps1');
+const frontendOidcBootstrap = read('infra/aws/bootstrap-frontend-github-oidc.ps1');
 const packageJson = JSON.parse(read('package.json') || '{}');
 const securityRunner = read('scripts/security-runner.mjs');
 const qualityWorkflow = read('.github/workflows/quality.yml');
@@ -221,13 +222,21 @@ addCheck(
 );
 
 addCheck(
-  'CloudFront deploy verification waits for invalidation propagation',
+  'CloudFront deploy verification tolerates unavailable invalidation read permission',
   [deployFrontendNetlify, deployFrontendAws].every((workflow) =>
     workflow.includes('--query "Invalidation.Id"') &&
-    workflow.includes('aws cloudfront wait invalidation-completed') &&
-    workflow.includes('CloudFront app shell was not ready after invalidation wait')
+    workflow.includes('if ! aws cloudfront wait invalidation-completed') &&
+    workflow.includes('CloudFront invalidation wait was unavailable; continuing with HTTP readiness polling.') &&
+    workflow.includes('READINESS_ATTEMPTS=30') &&
+    workflow.includes('CloudFront did not serve the app shell after invalidation and readiness polling.')
   ),
-  'prevents false failed main releases while CloudFront edges still serve stale 403 responses'
+  'prevents false failed main releases when the current deploy role can create invalidations but cannot read them yet'
+);
+
+addCheck(
+  'frontend OIDC bootstrap grants CloudFront invalidation read',
+  frontendOidcBootstrap.includes('"cloudfront:GetInvalidation"'),
+  'future frontend deploy roles can use aws cloudfront wait invalidation-completed'
 );
 
 addCheck(

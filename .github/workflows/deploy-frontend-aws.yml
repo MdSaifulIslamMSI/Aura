@@ -208,19 +208,24 @@ jobs:
       - name: Verify CloudFront serves the app shell
         run: |
           set -euo pipefail
-          aws cloudfront wait invalidation-completed \
+          if ! aws cloudfront wait invalidation-completed \
             --distribution-id "${AWS_FRONTEND_DISTRIBUTION_ID}" \
-            --id "${{ steps.publish.outputs.invalidation_id }}"
+            --id "${{ steps.publish.outputs.invalidation_id }}"; then
+            echo "CloudFront invalidation wait was unavailable; continuing with HTTP readiness polling." >&2
+          fi
 
-          for attempt in 1 2 3 4 5 6; do
-            if curl --fail --show-error --silent --location --max-time 30 "${{ steps.publish.outputs.site_url }}" > /dev/null; then
+          READINESS_ATTEMPTS=30
+          for attempt in $(seq 1 "${READINESS_ATTEMPTS}"); do
+            if curl --fail --show-error --silent --location --max-time 10 "${{ steps.publish.outputs.site_url }}" > /dev/null; then
               exit 0
             fi
-            echo "CloudFront app shell was not ready after invalidation wait (attempt ${attempt}/6)." >&2
-            sleep "$((attempt * 10))"
+            echo "CloudFront app shell was not ready (attempt ${attempt}/${READINESS_ATTEMPTS})." >&2
+            if [ "${attempt}" -lt "${READINESS_ATTEMPTS}" ]; then
+              sleep 15
+            fi
           done
 
-          echo "CloudFront did not serve the app shell after invalidation propagation." >&2
+          echo "CloudFront did not serve the app shell after invalidation and readiness polling." >&2
           exit 1
 
       - name: Add AWS frontend deploy to job summary

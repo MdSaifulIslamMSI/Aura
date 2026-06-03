@@ -142,7 +142,8 @@ if (-not [string]::IsNullOrWhiteSpace($DistributionId)) {
         Effect = "Allow"
         Action = @(
             "cloudfront:CreateInvalidation",
-            "cloudfront:GetDistribution"
+            "cloudfront:GetDistribution",
+            "cloudfront:GetInvalidation"
         )
         Resource = "arn:aws:cloudfront::${accountId}:distribution/$($DistributionId.Trim())"
     }
