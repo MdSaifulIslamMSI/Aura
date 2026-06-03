@@ -19,6 +19,7 @@ const {
     getMyOrders,
     getOrders
 } = require('../controllers/orderController');
+const { rateLimit } = require('express-rate-limit');
 const { protect, admin, requireOtpAssurance, requireActiveAccount } = require('../middleware/authMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const validate = require('../middleware/validate');
@@ -52,6 +53,15 @@ const actorRateLimitKey = (req) => (
     || req.ip
 );
 
+const orderMutationRateLimit = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: process.env.NODE_ENV === 'development' ? 1000 : 300,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { message: 'Too many order changes. Please try again shortly.' },
+});
+
 const orderMutationLimiter = createDistributedRateLimit({
     allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     name: 'order_mutation',
@@ -62,6 +72,15 @@ const orderMutationLimiter = createDistributedRateLimit({
     message: 'Too many order changes. Please try again shortly.',
 });
 
+const orderCommandCenterRateLimit = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: process.env.NODE_ENV === 'development' ? 1000 : 400,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { message: 'Too many order command center requests. Please try again shortly.' },
+});
+
 const orderCommandCenterLimiter = createDistributedRateLimit({
     allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     name: 'order_command_center',
@@ -70,6 +89,15 @@ const orderCommandCenterLimiter = createDistributedRateLimit({
     max: process.env.NODE_ENV === 'development' ? 300 : 80,
     keyGenerator: actorRateLimitKey,
     message: 'Too many order command center requests. Please try again shortly.',
+});
+
+const orderAdminMutationRateLimit = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: process.env.NODE_ENV === 'development' ? 1000 : 500,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { message: 'Too many admin order changes. Please try again shortly.' },
 });
 
 const orderAdminMutationLimiter = createDistributedRateLimit({
@@ -84,46 +112,32 @@ const orderAdminMutationLimiter = createDistributedRateLimit({
 
 router.post('/quote', protect, requireActiveAccount, requireOtpAssurance, validate(quoteOrderSchema), quoteOrder);
 
-router.route('/').post(protect, requireActiveAccount, requireOtpAssurance, orderMutationLimiter, validate(createOrderSchema), sensitiveActions.orderStatusChange, addOrderItems).get(protect, admin, getOrders);
+router.route('/').post(protect, requireActiveAccount, requireOtpAssurance, orderMutationRateLimit, orderMutationLimiter, validate(createOrderSchema), sensitiveActions.orderStatusChange, addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);
-// Distributed limiter immediately precedes owner authorization.
-// codeql[js/missing-rate-limiting]
-router.route('/:id/timeline').get(protect, orderCommandCenterLimiter, validate(getOrderTimelineSchema), authorizeOrderOwner('order.timeline.read'), getMyOrderTimeline);
+router.route('/:id/timeline').get(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(getOrderTimelineSchema), authorizeOrderOwner('order.timeline.read'), getMyOrderTimeline);
 router.route('/:id/command-center')
-    // Distributed limiter immediately precedes owner authorization.
-    // codeql[js/missing-rate-limiting]
-    .get(protect, orderCommandCenterLimiter, validate(commandCenterParamsSchema), authorizeOrderOwner('order.command_center.read'), getMyOrderCommandCenter);
+    .get(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterParamsSchema), authorizeOrderOwner('order.command_center.read'), getMyOrderCommandCenter);
 router.route('/:id/command-center/refund')
-    // Distributed limiter immediately precedes owner authorization.
-    // codeql[js/missing-rate-limiting]
-    .post(protect, requireActiveAccount, orderCommandCenterLimiter, validate(commandCenterRefundSchema), authorizeOrderOwner('order.refund.request'), sensitiveActions.paymentRefund, createOrderRefundRequest);
+    .post(protect, requireActiveAccount, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterRefundSchema), authorizeOrderOwner('order.refund.request'), sensitiveActions.paymentRefund, createOrderRefundRequest);
 router.route('/:id/command-center/replace')
-    // Distributed limiter immediately precedes owner authorization.
-    // codeql[js/missing-rate-limiting]
-    .post(protect, requireActiveAccount, orderCommandCenterLimiter, validate(commandCenterReplaceSchema), authorizeOrderOwner('order.replacement.request'), sensitiveActions.orderStatusChange, createOrderReplacementRequest);
+    .post(protect, requireActiveAccount, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterReplaceSchema), authorizeOrderOwner('order.replacement.request'), sensitiveActions.orderStatusChange, createOrderReplacementRequest);
 router.route('/:id/command-center/support')
-    // Distributed limiter immediately precedes owner authorization.
-    // codeql[js/missing-rate-limiting]
-    .post(protect, requireActiveAccount, orderCommandCenterLimiter, validate(commandCenterSupportSchema), authorizeOrderOwner('order.support.write'), sensitiveActions.orderStatusChange, createOrderSupportMessage);
+    .post(protect, requireActiveAccount, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterSupportSchema), authorizeOrderOwner('order.support.write'), sensitiveActions.orderStatusChange, createOrderSupportMessage);
 router.route('/:id/command-center/warranty')
-    // Distributed limiter immediately precedes owner authorization.
-    // codeql[js/missing-rate-limiting]
-    .post(protect, requireActiveAccount, orderCommandCenterLimiter, validate(commandCenterWarrantySchema), authorizeOrderOwner('order.warranty.request'), sensitiveActions.orderStatusChange, createOrderWarrantyClaim);
+    .post(protect, requireActiveAccount, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterWarrantySchema), authorizeOrderOwner('order.warranty.request'), sensitiveActions.orderStatusChange, createOrderWarrantyClaim);
 router.route('/:id/command-center/refund/:requestId/admin')
-    .patch(protect, admin, orderAdminMutationLimiter, validate(adminCommandRefundDecisionSchema), sensitiveActions.paymentRefund, processOrderRefundRequestAdmin);
+    .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCommandRefundDecisionSchema), sensitiveActions.paymentRefund, processOrderRefundRequestAdmin);
 router.route('/:id/command-center/replace/:requestId/admin')
-    .patch(protect, admin, orderAdminMutationLimiter, validate(adminCommandReplacementDecisionSchema), sensitiveActions.orderStatusChange, processOrderReplacementRequestAdmin);
+    .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCommandReplacementDecisionSchema), sensitiveActions.orderStatusChange, processOrderReplacementRequestAdmin);
 router.route('/:id/command-center/support/admin-reply')
-    .post(protect, admin, orderAdminMutationLimiter, validate(adminCommandSupportReplySchema), sensitiveActions.orderStatusChange, replyOrderSupportMessageAdmin);
+    .post(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCommandSupportReplySchema), sensitiveActions.orderStatusChange, replyOrderSupportMessageAdmin);
 router.route('/:id/command-center/warranty/:claimId/admin')
-    .patch(protect, admin, orderAdminMutationLimiter, validate(adminCommandWarrantyDecisionSchema), sensitiveActions.orderStatusChange, processOrderWarrantyClaimAdmin);
+    .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCommandWarrantyDecisionSchema), sensitiveActions.orderStatusChange, processOrderWarrantyClaimAdmin);
 router.route('/:id/cancel')
-    // Distributed limiter immediately precedes owner authorization.
-    // codeql[js/missing-rate-limiting]
-    .post(protect, requireActiveAccount, orderMutationLimiter, validate(cancelOrderSchema), authorizeOrderOwner('order.cancel'), sensitiveActions.orderStatusChange, cancelOrder);
+    .post(protect, requireActiveAccount, orderMutationRateLimit, orderMutationLimiter, validate(cancelOrderSchema), authorizeOrderOwner('order.cancel'), sensitiveActions.orderStatusChange, cancelOrder);
 router.route('/:id/admin-cancel')
-    .post(protect, admin, orderAdminMutationLimiter, validate(adminCancelOrderSchema), sensitiveActions.orderStatusChange, cancelOrderAdmin);
+    .post(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCancelOrderSchema), sensitiveActions.orderStatusChange, cancelOrderAdmin);
 router.route('/:id/status')
-    .patch(protect, admin, orderAdminMutationLimiter, validate(adminOrderStatusSchema), sensitiveActions.orderStatusChange, updateOrderStatusAdmin);
+    .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminOrderStatusSchema), sensitiveActions.orderStatusChange, updateOrderStatusAdmin);
 
 module.exports = router;
