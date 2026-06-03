@@ -86,16 +86,28 @@ router.post('/quote', protect, requireActiveAccount, requireOtpAssurance, valida
 
 router.route('/').post(protect, requireActiveAccount, requireOtpAssurance, orderMutationLimiter, validate(createOrderSchema), sensitiveActions.orderStatusChange, addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);
+// Distributed limiter immediately precedes owner authorization.
+// codeql[js/missing-rate-limiting]
 router.route('/:id/timeline').get(protect, orderCommandCenterLimiter, validate(getOrderTimelineSchema), authorizeOrderOwner('order.timeline.read'), getMyOrderTimeline);
 router.route('/:id/command-center')
+    // Distributed limiter immediately precedes owner authorization.
+    // codeql[js/missing-rate-limiting]
     .get(protect, orderCommandCenterLimiter, validate(commandCenterParamsSchema), authorizeOrderOwner('order.command_center.read'), getMyOrderCommandCenter);
 router.route('/:id/command-center/refund')
+    // Distributed limiter immediately precedes owner authorization.
+    // codeql[js/missing-rate-limiting]
     .post(protect, requireActiveAccount, orderCommandCenterLimiter, validate(commandCenterRefundSchema), authorizeOrderOwner('order.refund.request'), sensitiveActions.paymentRefund, createOrderRefundRequest);
 router.route('/:id/command-center/replace')
+    // Distributed limiter immediately precedes owner authorization.
+    // codeql[js/missing-rate-limiting]
     .post(protect, requireActiveAccount, orderCommandCenterLimiter, validate(commandCenterReplaceSchema), authorizeOrderOwner('order.replacement.request'), sensitiveActions.orderStatusChange, createOrderReplacementRequest);
 router.route('/:id/command-center/support')
+    // Distributed limiter immediately precedes owner authorization.
+    // codeql[js/missing-rate-limiting]
     .post(protect, requireActiveAccount, orderCommandCenterLimiter, validate(commandCenterSupportSchema), authorizeOrderOwner('order.support.write'), sensitiveActions.orderStatusChange, createOrderSupportMessage);
 router.route('/:id/command-center/warranty')
+    // Distributed limiter immediately precedes owner authorization.
+    // codeql[js/missing-rate-limiting]
     .post(protect, requireActiveAccount, orderCommandCenterLimiter, validate(commandCenterWarrantySchema), authorizeOrderOwner('order.warranty.request'), sensitiveActions.orderStatusChange, createOrderWarrantyClaim);
 router.route('/:id/command-center/refund/:requestId/admin')
     .patch(protect, admin, orderAdminMutationLimiter, validate(adminCommandRefundDecisionSchema), sensitiveActions.paymentRefund, processOrderRefundRequestAdmin);
@@ -106,6 +118,8 @@ router.route('/:id/command-center/support/admin-reply')
 router.route('/:id/command-center/warranty/:claimId/admin')
     .patch(protect, admin, orderAdminMutationLimiter, validate(adminCommandWarrantyDecisionSchema), sensitiveActions.orderStatusChange, processOrderWarrantyClaimAdmin);
 router.route('/:id/cancel')
+    // Distributed limiter immediately precedes owner authorization.
+    // codeql[js/missing-rate-limiting]
     .post(protect, requireActiveAccount, orderMutationLimiter, validate(cancelOrderSchema), authorizeOrderOwner('order.cancel'), sensitiveActions.orderStatusChange, cancelOrder);
 router.route('/:id/admin-cancel')
     .post(protect, admin, orderAdminMutationLimiter, validate(adminCancelOrderSchema), sensitiveActions.orderStatusChange, cancelOrderAdmin);

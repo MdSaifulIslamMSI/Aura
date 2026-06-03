@@ -76,7 +76,11 @@ router.get('/capabilities', protect, getPaymentCapabilitiesCatalog);
 router.get('/netbanking/banks', protect, getNetbankingBanks);
 router.post('/methods/setup-intent', protect, requireActiveAccount, requireOtpAssurance, paymentMethodMutationLimiter, validate(paymentMethodSetupIntentSchema), sensitiveActions.paymentPayoutChange, createMethodSetupIntent);
 router.post('/methods', protect, requireActiveAccount, requireOtpAssurance, paymentMethodMutationLimiter, validate(paymentMethodSchema), sensitiveActions.paymentPayoutChange, addPaymentMethod);
+// Distributed limiter immediately precedes owner authorization.
+// codeql[js/missing-rate-limiting]
 router.patch('/methods/:methodId/default', protect, requireActiveAccount, requireOtpAssurance, paymentMethodMutationLimiter, validate(methodIdParamSchema), authorizePaymentMethodOwner('payment_method.default'), sensitiveActions.paymentPayoutChange, makeDefaultPaymentMethod);
+// Distributed limiter immediately precedes owner authorization.
+// codeql[js/missing-rate-limiting]
 router.delete('/methods/:methodId', protect, requireActiveAccount, requireOtpAssurance, paymentMethodMutationLimiter, validate(methodIdParamSchema), authorizePaymentMethodOwner('payment_method.delete'), sensitiveActions.paymentPayoutChange, removePaymentMethod);
 
 module.exports = router;

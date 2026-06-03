@@ -76,13 +76,19 @@ router.post('/:id/video/end', protect, requireActiveAccount, endListingVideoSess
 
 // Parameterized routes
 router.get('/:id', protectOptional, getListingById);
+// Distributed limiter immediately precedes owner authorization.
+// codeql[js/missing-rate-limiting]
 router.put('/:id', protect, requireActiveAccount, seller, listingMutationLimiter, authorizeListingOwner('listing.update'), sensitiveActions.listingWrite, updateListing);
+// Distributed limiter immediately precedes owner authorization.
+// codeql[js/missing-rate-limiting]
 router.patch('/:id/sold', protect, requireActiveAccount, seller, listingMutationLimiter, authorizeListingOwner('listing.mark_sold'), sensitiveActions.listingWrite, markSold);
 router.post('/:id/escrow/intents', protect, requireActiveAccount, listingEscrowLimiter, sensitiveActions.listingEscrowChange, createEscrowIntent);
 router.post('/:id/escrow/intents/:intentId/confirm', protect, requireActiveAccount, listingEscrowLimiter, sensitiveActions.listingEscrowChange, confirmEscrowIntent);
 router.patch('/:id/escrow/start', protect, requireActiveAccount, listingEscrowLimiter, sensitiveActions.listingEscrowChange, startEscrow);
 router.patch('/:id/escrow/confirm', protect, requireActiveAccount, listingEscrowLimiter, sensitiveActions.listingEscrowChange, confirmEscrowDelivery);
 router.patch('/:id/escrow/cancel', protect, requireActiveAccount, listingEscrowLimiter, sensitiveActions.listingEscrowChange, cancelEscrow);
+// Distributed limiter immediately precedes owner authorization.
+// codeql[js/missing-rate-limiting]
 router.delete('/:id', protect, requireActiveAccount, seller, listingMutationLimiter, authorizeListingOwner('listing.delete'), sensitiveActions.listingWrite, deleteListing);
 
 module.exports = router;
