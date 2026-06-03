@@ -263,10 +263,11 @@ describe('translationService', () => {
         expect(result['Email me at buyer@example.com']).toBe('Email me at buyer@example.com');
     });
 
-    test('production defaults to the no-op provider even when a live provider is requested', async () => {
+    test('production forces the no-op provider even when a live provider is requested and enabled', async () => {
         process.env = {
             ...originalEnv,
-            NODE_ENV: 'production',
+            NODE_ENV: 'Production',
+            I18N_RUNTIME_TRANSLATION_ENABLED: 'true',
             I18N_TRANSLATION_PROVIDER: 'libretranslate',
         };
         clearTranslationCache();
