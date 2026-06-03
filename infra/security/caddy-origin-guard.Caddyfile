@@ -1,0 +1,9 @@
+api.example.invalid {
+    @missingOriginVerify not header x-aura-origin-verify *
+    respond @missingOriginVerify 403
+
+    reverse_proxy 127.0.0.1:5000 {
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

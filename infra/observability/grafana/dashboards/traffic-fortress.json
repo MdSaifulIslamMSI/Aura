@@ -1,0 +1,38 @@
+{
+  "title": "Aura Traffic Fortress",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Budget Denials",
+      "targets": [
+        {
+          "expr": "sum by (route_class, reason) (rate(aura_traffic_budget_denied_total[5m]))",
+          "legendFormat": "{{route_class}} {{reason}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Abuse Events",
+      "targets": [
+        {
+          "expr": "sum by (route_class, action) (rate(aura_traffic_abuse_events_total[5m]))",
+          "legendFormat": "{{route_class}} {{action}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Load Shedding",
+      "targets": [
+        {
+          "expr": "aura_traffic_load_shedding_state",
+          "legendFormat": "active"
+        }
+      ]
+    }
+  ]
+}

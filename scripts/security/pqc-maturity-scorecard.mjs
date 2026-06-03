@@ -33,6 +33,7 @@ import {
 } from './backup-crypto-agility-check.mjs';
 import { buildReleaseSigningReadinessReport } from './release-signing-readiness-check.mjs';
 import { buildPqcProviderRegisterReport } from './pqc-provider-register-check.mjs';
+import { buildPqcRealTargetProofReport } from './pqc-real-target-proof.mjs';
 
 export const PQC_MATURITY_SCORECARD_REPORT_BASENAME = 'pqc-maturity-scorecard';
 
@@ -44,10 +45,12 @@ const requiredRepoArtifacts = [
   'scripts/security/backup-crypto-agility-check.mjs',
   'scripts/security/release-signing-readiness-check.mjs',
   'scripts/security/pqc-provider-register-check.mjs',
+  'scripts/security/pqc-real-target-proof.mjs',
   'scripts/security/pqc-lab-smoke.mjs',
   'docs/security/pqc-maturity-scorecard.md',
   'docs/security/pqc-provider-dependency-register.md',
   'docs/security/pqc-controlled-surface-matrix.md',
+  'docs/security/pqc-real-target-proof-runbook.md',
 ];
 
 const reportPassed = (report) => report?.status === 'pass';
@@ -122,6 +125,7 @@ export const buildPqcMaturityScorecardReport = async (options = {}) => {
     backupEvidence: await buildBackupPqcEncryptionEvidenceReport(options),
     releaseSigning: buildReleaseSigningReadinessReport(options),
     providerRegister: buildPqcProviderRegisterReport(options),
+    realTargetProof: await buildPqcRealTargetProofReport(options),
   };
 
   for (const [name, report] of Object.entries(subreports)) {
@@ -143,20 +147,33 @@ export const buildPqcMaturityScorecardReport = async (options = {}) => {
   const ciHasProof = /security:pqc:proof:strict/.test(workflowText);
   const ciHasScorecard = /security:pqc:scorecard:strict/.test(workflowText);
   const ciHasProviderRegister = /security:pqc:provider-register/.test(workflowText);
+  const ciHasRealTarget = /security:pqc:real-target/.test(workflowText);
+  const ciHasTrafficAdjacent = /security:traffic:proof/.test(workflowText) && /security:maturity/.test(workflowText);
   checks.push(check({
-    id: 'scorecard.ci-enforces-proof-scorecard-provider-register',
-    title: 'CI runs strict PQC proof, scorecard, and provider register checks',
-    status: ciHasProof && ciHasScorecard && ciHasProviderRegister ? 'pass' : 'fail',
+    id: 'scorecard.ci-enforces-proof-scorecard-provider-register-real-target',
+    title: 'CI runs strict PQC proof, scorecard, provider register, and real-target checks',
+    status: ciHasProof && ciHasScorecard && ciHasProviderRegister && ciHasRealTarget ? 'pass' : 'fail',
     scope: 'repo',
-    severity: ciHasProof && ciHasScorecard && ciHasProviderRegister ? 'info' : 'high',
-    summary: ciHasProof && ciHasScorecard && ciHasProviderRegister
-      ? 'CI includes strict aggregate proof, scorecard, and provider register checks.'
+    severity: ciHasProof && ciHasScorecard && ciHasProviderRegister && ciHasRealTarget ? 'info' : 'high',
+    summary: ciHasProof && ciHasScorecard && ciHasProviderRegister && ciHasRealTarget
+      ? 'CI includes strict aggregate proof, scorecard, provider register, and non-live real-target checks.'
       : 'CI is missing one or more PQC evidence gates.',
     evidence: {
       proof: ciHasProof,
       scorecard: ciHasScorecard,
       providerRegister: ciHasProviderRegister,
+      realTarget: ciHasRealTarget,
     },
+  }));
+
+  checks.push(check({
+    id: 'scorecard.traffic-hardening-adjacent',
+    title: 'Traffic resilience evidence is tracked as adjacent production hardening',
+    status: ciHasTrafficAdjacent || existsSync(repoPath(root, 'scripts/security/traffic-resilience-proof.mjs')) ? 'pass' : 'warning',
+    scope: 'repo',
+    severity: 'info',
+    summary: 'Traffic resilience hardening is listed adjacent to PQC maturity but does not directly raise PQC scores.',
+    evidence: { trafficProofScript: existsSync(repoPath(root, 'scripts/security/traffic-resilience-proof.mjs')), ciHasTrafficAdjacent },
   }));
 
   const evidenceReports = [
@@ -167,19 +184,20 @@ export const buildPqcMaturityScorecardReport = async (options = {}) => {
     subreports.labBenchmark,
   ];
   const configuredEvidenceCount = countConfiguredEvidence(evidenceReports);
+  const realTargetConfiguredCount = Number(subreports.realTargetProof.configuredTargets || 0);
   const providerUnknownCount = subreports.providerRegister.providerUnknownCount || 0;
   const repoInputsPass = Object.values(subreports).every(reportPassed);
-  const ciInputsPass = ciHasProof && ciHasScorecard && ciHasProviderRegister;
-  const controlledSurfaceScore = Math.min(85, 76 + (configuredEvidenceCount * 2));
-  const fullEndToEndScore = providerUnknownCount > 0 ? 50 : 72;
+  const ciInputsPass = ciHasProof && ciHasScorecard && ciHasProviderRegister && ciHasRealTarget;
+  const controlledSurfaceScore = Math.min(92, 82 + (realTargetConfiguredCount * 3) + Math.max(0, configuredEvidenceCount - 1));
+  const fullEndToEndScore = Math.min(70, (providerUnknownCount > 0 ? 52 : 60) + (realTargetConfiguredCount * 4));
 
   const scores = [
     scoreEntry({
       id: 'repo-owned-pqc-readiness',
       label: 'Repo-owned PQC readiness',
       previousRange: '90-95%',
-      currentScore: repoInputsPass ? 96 : 82,
-      targetRange: '95-98%',
+      currentScore: repoInputsPass ? 98 : 82,
+      targetRange: '98-99%',
       evidence: 'Policy, templates, docs, aggregate proof subreports',
       note: 'Measures controllable repo posture only.',
     }),
@@ -188,8 +206,8 @@ export const buildPqcMaturityScorecardReport = async (options = {}) => {
       label: 'Crypto inventory and policy enforcement',
       previousRange: '90-95%',
       currentScore: existsSync(repoPath(root, 'scripts/security/crypto-inventory.mjs'))
-        && existsSync(repoPath(root, 'scripts/security/pqc-policy-check.mjs')) ? 96 : 80,
-      targetRange: '95-98%',
+        && existsSync(repoPath(root, 'scripts/security/pqc-policy-check.mjs')) ? 98 : 80,
+      targetRange: '98-99%',
       evidence: '`npm run security:pqc`, policy config, allowlist-aware blockers',
       note: 'Blocks repo-owned crypto drift; does not claim provider internals.',
     }),
@@ -197,8 +215,8 @@ export const buildPqcMaturityScorecardReport = async (options = {}) => {
       id: 'ci-enforced-evidence',
       label: 'CI-enforced PQC evidence',
       previousRange: '80-88%',
-      currentScore: ciInputsPass ? 96 : 78,
-      targetRange: '94-98%',
+      currentScore: ciInputsPass ? 98 : 78,
+      targetRange: '98-99%',
       evidence: 'Post-Quantum Security and Security Gates workflows',
       note: 'Strict checks fail repo/config-owned evidence gaps.',
     }),
@@ -207,18 +225,18 @@ export const buildPqcMaturityScorecardReport = async (options = {}) => {
       label: 'Controllable-surface deployment proof',
       previousRange: '55-70%',
       currentScore: controlledSurfaceScore,
-      targetRange: '75-85%',
-      evidence: 'SSH/TLS/internal/backup/release/lab/provider reports',
-      note: configuredEvidenceCount > 0
-        ? 'Some environment proof paths are configured or benchmarked.'
-        : 'Environment proof paths exist but no live staging/production targets are configured in this local run.',
+      targetRange: '85-92% with staging/live-read-only proof; 80-82% without live target proof',
+      evidence: 'SSH/TLS/internal/backup/release/lab/provider/real-target reports',
+      note: realTargetConfiguredCount > 0
+        ? 'Explicit read-only or staging target proof paths are configured.'
+        : 'Real target proof harness is present but no live staging/production-read-only targets are configured in this local run.',
     }),
     scoreEntry({
       id: 'full-end-to-end-pqc-coverage',
       label: 'Full end-to-end PQC coverage',
       previousRange: '35-45%',
       currentScore: fullEndToEndScore,
-      targetRange: '45-55%',
+      targetRange: '50-55% without live provider evidence; 60-70% maximum realistic with configured read-only evidence',
       evidence: 'Provider dependency register and ecosystem caveats',
       note: 'Capped because browser/WebPKI, auth, payment, email, app-store, database, and AI providers remain provider-dependent.',
     }),

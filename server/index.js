@@ -18,6 +18,15 @@ const { requestId } = require('./middleware/requestId');
 const { originProtectionMiddleware } = require('./middleware/originProtectionMiddleware');
 const { authRiskSignalProducerMiddleware } = require('./middleware/authRiskSignalProducerMiddleware');
 const { resolveMarketContextMiddleware } = require('./middleware/marketContext');
+const { routeCostClassifier } = require('./middleware/routeCostClassifier');
+const { bodySizeGuard } = require('./middleware/bodySizeGuards');
+const { budgetRequestTimeout } = require('./middleware/requestTimeouts');
+const { loadShedding } = require('./middleware/loadShedding');
+const { trafficBudgetPolicy } = require('./middleware/trafficBudgetPolicy');
+const { queryBudgetGuard } = require('./middleware/queryBudgetGuard');
+const { cachePolicy } = require('./middleware/cachePolicy');
+const { attackModeGuard } = require('./middleware/attackModeGuard');
+const { abuseShield } = require('./middleware/abuseShield');
 require('colors');
 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
@@ -55,6 +64,7 @@ const adminUserRoutes = require('./routes/adminUserRoutes');
 const adminProductRoutes = require('./routes/adminProductRoutes');
 const adminOpsRoutes = require('./routes/adminOpsRoutes');
 const adminFraudRoutes = require('./routes/adminFraudRoutes');
+const adminAbuseRoutes = require('./routes/adminAbuseRoutes');
 const statusRoutes = require('./routes/statusRoutes');
 const adminStatusRoutes = require('./routes/adminStatusRoutes');
 const healthRoutes = require('./routes/healthRoutes');
@@ -345,6 +355,8 @@ app.get('/health/live', (req, res) => {
 
 // Request ID for tracing
 app.use(requestId);
+app.use(routeCostClassifier);
+app.use(budgetRequestTimeout());
 app.use(performanceMiddleware());
 
 // Prometheus metrics â€” register before any other middleware so durations
@@ -382,6 +394,7 @@ app.use((req, res, next) => {
 
 app.use(originProtectionMiddleware);
 app.use(authRiskSignalProducerMiddleware);
+app.use(loadShedding());
 
 app.use(helmet({
     contentSecurityPolicy: {
@@ -403,6 +416,7 @@ app.use(cors({
     credentials: true,
     exposedHeaders: ['X-CSRF-Token', 'X-Request-Id', 'X-Cache', 'Server-Timing'],
 }));
+app.use(bodySizeGuard());
 const captureRawBody = (req, res, buf) => {
     req.rawBody = buf.toString('utf8');
 };
@@ -429,6 +443,10 @@ app.use(resolveMarketContextMiddleware);
 // Security: Data Sanitization
 app.use(mongoSanitize());
 app.use(xssSanitizer);
+app.use(cachePolicy());
+app.use(queryBudgetGuard());
+app.use(trafficBudgetPolicy());
+app.use(abuseShield());
 app.use(activityEmailMiddleware);
 app.use(adminNotificationMiddleware);
 app.get(/^\/uploads\/reviews\/(.+)$/, uploadAssetLimiter, serveReviewMediaAsset);
@@ -465,6 +483,7 @@ app.use(globalEmergencyMiddleware);
 app.use(readOnlyMiddleware);
 app.use(strictRateLimitMiddleware);
 app.use(emergencyRoutePolicyMiddleware);
+app.use(attackModeGuard());
 
 app.use('/api/products', productRoutes);
 app.use('/api/recommendations', recommendationRoutes);
@@ -494,6 +513,7 @@ app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/admin/products', adminProductRoutes);
 app.use('/api/admin/ops', adminOpsRoutes);
 app.use('/api/admin/fraud', adminFraudRoutes);
+app.use('/api/admin/abuse', adminAbuseRoutes);
 app.use('/api/admin/status', adminStatusRoutes);
 app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
