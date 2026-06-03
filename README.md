@@ -155,6 +155,13 @@ The assistant can use the recommendation APIs as a backend tool, so product sugg
 
 The project does not implement custom cryptography. Post-quantum work is config-driven through [`config/security/post-quantum-policy.json`](config/security/post-quantum-policy.json), starts with hybrid migration, and keeps experimental OQS/liboqs TLS in staging or lab mode until deliberately approved.
 
+### Aura Fortress Sensitive Actions
+- Campaign guide: [`docs/security/aura-fortress-campaign.md`](docs/security/aura-fortress-campaign.md)
+- Sensitive-action policy: [`docs/security/zero-trust-sensitive-actions.md`](docs/security/zero-trust-sensitive-actions.md)
+- Disaster recovery verifier: `npm run security:backup-restore-check`
+- Focused backend gate:
+  - `npm --prefix server test -- --runTestsByPath tests/sensitiveActionPolicy.test.js tests/sensitiveActionMiddleware.test.js tests/authorizationPolicy.test.js tests/securityAuditService.test.js tests/disasterRecoveryRunbook.test.js tests/authMiddleware.webauthnStepUp.test.js tests/authSecurityTelemetryService.test.js --forceExit`
+
 ### March 2026 Security Hardening
 All 10 identified login architecture vulnerabilities have been fixed and are production-ready:
 

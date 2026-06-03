@@ -59,6 +59,8 @@ describe('authSecurityTelemetryService', () => {
         expect(telemetry.__private.normalizeReason('Device challenge session binding mismatch')).toBe('mismatch');
         expect(telemetry.__private.normalizeReason('webauthn_step_up_required')).toBe('webauthn');
         expect(telemetry.__private.normalizeReason('passkey_required')).toBe('passkey');
+        expect(telemetry.__private.normalizeReason('fresh login required')).toBe('recent_auth');
+        expect(telemetry.__private.normalizeReason('break glass required')).toBe('break_glass');
         expect(telemetry.__private.normalizeReason('SMTP Down')).toBe('unavailable');
         expect(telemetry.__private.normalizeReason('something novel and verbose')).toBe('other');
     });

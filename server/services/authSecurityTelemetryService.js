@@ -5,7 +5,21 @@ const { enqueueAuthSecurityEvent } = require('./authSecurityEventOutboxService')
 
 const METRIC_NAME = 'aura_auth_security_events_total';
 const OUTCOMES = new Set(['success', 'failure', 'blocked', 'required', 'issued']);
-const SURFACES = new Set(['auth', 'otp', 'csrf', 'admin', 'trusted_device', 'recovery']);
+const SURFACES = new Set([
+    'auth',
+    'otp',
+    'csrf',
+    'admin',
+    'trusted_device',
+    'recovery',
+    'payment',
+    'webhook',
+    'upload',
+    'moderation',
+    'policy',
+    'data',
+    'ai',
+]);
 const REASON_ALIASES = [
     ['already_used', ['already used', 'replay']],
     ['allowlist', ['allowlist']],
@@ -19,6 +33,8 @@ const REASON_ALIASES = [
     ['second_factor', ['second factor', '2fa', 'otp']],
     ['webauthn', ['webauthn']],
     ['passkey', ['passkey']],
+    ['recent_auth', ['recent auth', 'fresh login', 'fresh re-auth', 'reauthentication']],
+    ['break_glass', ['break glass']],
     ['required', ['required']],
     ['unavailable', ['unavailable', 'down', 'failed dependency']],
     ['unverified', ['unverified']],
