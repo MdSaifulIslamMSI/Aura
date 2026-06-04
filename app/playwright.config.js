@@ -93,6 +93,7 @@ export default defineConfig({
                 ...process.env,
                 VITE_API_URL: process.env.VITE_API_URL || localApiBaseUrl,
                 VITE_ASSISTANT_V2_ENABLED: process.env.VITE_ASSISTANT_V2_ENABLED || 'true',
+                VITE_WELCOME_CURTAIN_ENABLED: 'false',
                 VITE_ENABLE_BACKEND_STATUS_BANNER: 'false',
                 VITE_FIREBASE_MEASUREMENT_ID: '',
             },
