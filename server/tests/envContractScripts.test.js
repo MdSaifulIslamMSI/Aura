@@ -277,6 +277,26 @@ describe('repo environment contract scripts', () => {
         expect(script).not.toContain('put_string MFA_REQUIRED_FOR_ADMINS true');
     });
 
+    test('staging deploy injects MFA SSM values into runtime env', () => {
+        const deployScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
+
+        for (const name of [
+            'MFA_ENABLED',
+            'MFA_TOTP_ENABLED',
+            'MFA_PASSKEY_ENABLED',
+            'MFA_RECOVERY_CODES_ENABLED',
+            'MFA_REQUIRED_FOR_ADMINS',
+            'MFA_REQUIRED_FOR_SELLERS',
+            'MFA_EMAIL_OTP_FALLBACK_ENABLED',
+            'MFA_CHALLENGE_TTL_SECONDS',
+            'MFA_FRESH_WINDOW_SECONDS',
+            'MFA_SECRET_ENCRYPTION_KEY',
+        ]) {
+            expect(deployScript).toContain(`ssm_get ${name}`);
+            expect(deployScript).toMatch(new RegExp(`${name}=\\$mfa_`));
+        }
+    });
+
     test('MFA secret generator emits a 32-byte base64 value', () => {
         const result = runScript('scripts/security/generate-mfa-secret.mjs', {}, ['--bytes', '32']);
         const secret = result.output.trim();
