@@ -1,0 +1,289 @@
+.aura-welcome-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: clamp(1rem, 4vw, 3rem);
+  overflow: hidden;
+  color: #fffaf0;
+  background:
+    linear-gradient(120deg, rgba(3, 7, 18, 0.98), rgba(33, 14, 22, 0.96) 34%, rgba(10, 38, 35, 0.96) 68%, rgba(80, 52, 18, 0.98)),
+    #030712;
+  background-size: 160% 160%;
+  isolation: isolate;
+  animation: auraWelcomeBackdrop 4.8s ease-in-out infinite alternate;
+}
+
+.aura-welcome-curtain.is-closing {
+  pointer-events: none;
+  animation: auraWelcomeExit 260ms ease forwards;
+}
+
+.aura-welcome-curtain__wash {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 232, 179, 0.12), transparent),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 30%, rgba(6, 95, 70, 0.18));
+  mix-blend-mode: screen;
+  opacity: 0.78;
+  animation: auraWelcomeWash 3.2s ease-in-out infinite alternate;
+}
+
+.aura-welcome-curtain__panel {
+  position: absolute;
+  inset-block: 0;
+  z-index: -1;
+  width: 50.5%;
+  background:
+    linear-gradient(90deg, rgba(255, 248, 220, 0.08), rgba(255, 248, 220, 0)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 22px),
+    linear-gradient(140deg, #150915, #4b1e2c 34%, #b7791f 64%, #064e3b);
+  box-shadow: inset 0 0 80px rgba(255, 236, 179, 0.13), 0 0 80px rgba(0, 0, 0, 0.28);
+}
+
+.aura-welcome-curtain__panel--left {
+  left: 0;
+  transform-origin: left center;
+  animation: auraCurtainOpenLeft 3.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.aura-welcome-curtain__panel--right {
+  right: 0;
+  transform-origin: right center;
+  animation: auraCurtainOpenRight 3.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.aura-welcome-curtain__controls {
+  position: absolute;
+  inset-block-start: clamp(1rem, 2vw, 1.5rem);
+  inset-inline-end: clamp(1rem, 2vw, 1.5rem);
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.aura-welcome-curtain__skip,
+.aura-welcome-curtain__sound {
+  border: 1px solid rgba(255, 250, 240, 0.34);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.1);
+  color: #fffaf0;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  backdrop-filter: blur(14px);
+}
+
+.aura-welcome-curtain__skip {
+  min-width: 4.6rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.9rem;
+  font: 700 0.92rem/1.1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.aura-welcome-curtain__sound {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.aura-welcome-curtain__sound:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.aura-welcome-curtain__skip:hover,
+.aura-welcome-curtain__sound:not(:disabled):hover {
+  border-color: rgba(255, 232, 179, 0.72);
+  background: rgba(255, 250, 240, 0.18);
+  transform: translateY(-1px);
+}
+
+.aura-welcome-curtain__skip:focus-visible,
+.aura-welcome-curtain__sound:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
+}
+
+.aura-welcome-curtain__content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  width: min(100%, 58rem);
+  text-align: center;
+  text-shadow: 0 12px 52px rgba(0, 0, 0, 0.42);
+  animation: auraWelcomeContent 780ms ease-out both;
+}
+
+.aura-welcome-curtain__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid rgba(255, 232, 179, 0.44);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.09);
+  color: #fde68a;
+  font: 800 1rem/1.1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: 0 0 40px rgba(251, 191, 36, 0.16);
+  backdrop-filter: blur(18px);
+}
+
+.aura-welcome-curtain__kicker {
+  margin: clamp(1.1rem, 2.5vw, 1.55rem) 0 0;
+  color: #d1fae5;
+  font: 700 clamp(0.86rem, 2vw, 1.05rem)/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.aura-welcome-curtain__message {
+  max-width: 13ch;
+  margin: clamp(0.6rem, 1.6vw, 0.9rem) 0 0;
+  color: #fffaf0;
+  font: 900 clamp(2.4rem, 10vw, 6.9rem)/0.95 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-wrap: balance;
+  filter: drop-shadow(0 0 30px rgba(251, 191, 36, 0.2));
+  animation: auraWelcomeMessage 880ms ease both;
+}
+
+.aura-welcome-curtain__subcopy {
+  max-width: 31rem;
+  margin: clamp(1rem, 2.2vw, 1.4rem) 0 0;
+  color: rgba(255, 250, 240, 0.84);
+  font: 600 clamp(0.96rem, 2.4vw, 1.16rem)/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.aura-welcome-curtain__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.aura-welcome-curtain.is-reduced-motion,
+.aura-welcome-curtain.is-reduced-motion * {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+  scroll-behavior: auto !important;
+}
+
+.aura-welcome-curtain.is-reduced-motion .aura-welcome-curtain__panel {
+  opacity: 0;
+  transform: none;
+}
+
+@keyframes auraWelcomeBackdrop {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes auraWelcomeWash {
+  from {
+    opacity: 0.42;
+    transform: translateX(-8%);
+  }
+  to {
+    opacity: 0.82;
+    transform: translateX(8%);
+  }
+}
+
+@keyframes auraCurtainOpenLeft {
+  0%,
+  44% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-103%);
+  }
+}
+
+@keyframes auraCurtainOpenRight {
+  0%,
+  44% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(103%);
+  }
+}
+
+@keyframes auraWelcomeContent {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes auraWelcomeMessage {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auraWelcomeExit {
+  to {
+    opacity: 0;
+    transform: scale(1.01);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-welcome-curtain,
+  .aura-welcome-curtain * {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .aura-welcome-curtain__panel {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .aura-welcome-curtain {
+    align-items: center;
+    padding: 1.25rem;
+  }
+
+  .aura-welcome-curtain__controls {
+    inset-block-start: 0.85rem;
+    inset-inline: 0.85rem;
+    justify-content: flex-end;
+  }
+
+  .aura-welcome-curtain__message {
+    max-width: 11ch;
+  }
+
+  .aura-welcome-curtain__subcopy {
+    max-width: 19rem;
+  }
+}
