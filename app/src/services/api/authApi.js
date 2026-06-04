@@ -165,6 +165,16 @@ const postAuthBootstrap = async (path, body, options = {}) => {
     return postWithFreshCsrf(path, body, options);
 };
 
+const getProtectedAuthJson = async (path, options = {}) => {
+    const headers = await getAuthHeader(options.firebaseUser, {
+        useFirebaseBearer: options.useFirebaseBearer === true && Boolean(options.firebaseUser?.getIdToken),
+        forceRefresh: options.forceRefreshAuth === true,
+    });
+    const response = await apiFetch(path, { headers });
+    cacheCsrfTokenFromResponse(response, options.csrfOwner || 'cookie_session');
+    return response.data;
+};
+
 const postPublicOtpRequest = async (path, body) => {
     const headers = await getAuthHeader();
     const { data } = await apiFetch(path, {
@@ -237,6 +247,22 @@ const requestBootstrapDeviceChallenge = async (payload, options = {}) => {
         credential: proofPayload?.credential || null,
     };
 };
+
+const buildTrustedDeviceProofBody = (challenge = {}, proofPayload = {}, extra = {}) => ({
+    ...extra,
+    token: challenge.token,
+    challengeToken: challenge.token,
+    method: proofPayload?.method || 'webauthn',
+    proof: proofPayload?.proofBase64 || '',
+    publicKeySpkiBase64: proofPayload?.publicKeySpkiBase64 || '',
+    credential: proofPayload?.credential || null,
+});
+
+const signMfaPasskeyChallenge = async (challenge = {}, options = {}) => (
+    signTrustedDeviceChallenge(challenge, {
+        preferredMethod: options.preferredMethod || 'webauthn',
+    })
+);
 
 export const authApi = {
     getDuoLoginUrl,
@@ -317,6 +343,89 @@ export const authApi = {
             useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
         });
     },
+    getMfaSecurityCenter: async (options = {}) => (
+        getProtectedAuthJson('/auth/mfa', options)
+    ),
+    requestMfaStepUp: async ({ action = 'manual_step_up', route = '', returnTo = '' } = {}, options = {}) => (
+        postAuthBootstrap('/auth/mfa/step-up', { action, route, returnTo }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    setupTotp: async (options = {}) => (
+        postAuthBootstrap('/auth/mfa/totp/setup', {}, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    getTotpQr: async (options = {}) => (
+        getProtectedAuthJson('/auth/mfa/totp/qr', options)
+    ),
+    verifyTotpSetup: async (code, options = {}) => (
+        postAuthBootstrap('/auth/mfa/totp/verify-setup', { code }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    verifyTotpLogin: async ({ challengeId = '', code = '', purpose = 'login', action = '' } = {}, options = {}) => (
+        postAuthBootstrap('/auth/mfa/totp/verify-login', { challengeId, code, purpose, action }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    disableTotp: async (options = {}) => (
+        postAuthBootstrap('/auth/mfa/totp/disable', {}, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    registerMfaPasskey: async (options = {}) => {
+        const start = await postAuthBootstrap('/auth/mfa/passkey/register/options', {}, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        });
+        const proofPayload = await signMfaPasskeyChallenge(start?.deviceChallenge, options);
+        return postAuthBootstrap('/auth/mfa/passkey/register/verify', buildTrustedDeviceProofBody(
+            start?.deviceChallenge,
+            proofPayload,
+        ), {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        });
+    },
+    verifyMfaPasskeyLogin: async ({ challengeId = '', purpose = 'login', action = '' } = {}, options = {}) => {
+        const start = await postAuthBootstrap('/auth/mfa/passkey/login/options', { challengeId, purpose, action }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        });
+        const proofPayload = await signMfaPasskeyChallenge(start?.deviceChallenge, options);
+        return postAuthBootstrap('/auth/mfa/passkey/login/verify', buildTrustedDeviceProofBody(
+            start?.deviceChallenge,
+            proofPayload,
+            { challengeId, purpose, action },
+        ), {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        });
+    },
+    removeMfaPasskey: async ({ deviceId = '', credentialId = '' } = {}, options = {}) => (
+        postAuthBootstrap('/auth/mfa/passkey/remove', { deviceId, credentialId }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    regenerateMfaRecoveryCodes: async (options = {}) => (
+        postAuthBootstrap('/auth/mfa/recovery/regenerate', {}, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    verifyMfaRecoveryCode: async ({ challengeId = '', code = '', purpose = 'login', action = '' } = {}, options = {}) => (
+        postAuthBootstrap('/auth/mfa/recovery/verify', { challengeId, code, purpose, action }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
     verifyRecoveryCode: async (email, code, options = {}) => {
         return postPublicOtpRequest('/auth/recovery-codes/verify', {
             email,

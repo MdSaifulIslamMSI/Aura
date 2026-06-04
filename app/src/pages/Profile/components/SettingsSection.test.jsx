@@ -50,8 +50,8 @@ describe('SettingsSection recovery codes', () => {
             handleGenerateRecoveryCodes,
         });
 
-        expect(screen.getByText('Passkey backup recovery codes')).toBeInTheDocument();
         expect(screen.getByText('Recovery action')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /generate codes/i })).toBeEnabled();
 
         fireEvent.click(screen.getByRole('button', { name: /generate codes/i }));
 
@@ -87,7 +87,7 @@ describe('SettingsSection recovery codes', () => {
         expect(handleClearVisibleRecoveryCodes).toHaveBeenCalledTimes(1);
     });
 
-    it('does not allow recovery-code generation before passkey enrollment', () => {
+    it('does not allow recovery-code generation before MFA enrollment', () => {
         const handleGenerateRecoveryCodes = vi.fn();
 
         renderSettings({
@@ -101,6 +101,67 @@ describe('SettingsSection recovery codes', () => {
         fireEvent.click(generateButton);
 
         expect(handleGenerateRecoveryCodes).not.toHaveBeenCalled();
+    });
+
+    it('renders MFA factor status and starts passkey registration', () => {
+        const handleRegisterMfaPasskey = vi.fn();
+
+        renderSettings({
+            mfaStatus: {
+                enabled: true,
+                methods: {
+                    passkey: { enabled: true, count: 1 },
+                    totp: { enabled: true },
+                    recoveryCodes: { activeCount: 3 },
+                },
+            },
+            mfaFlags: {
+                enabled: true,
+                passkeyEnabled: true,
+                totpEnabled: true,
+            },
+            handleRegisterMfaPasskey,
+        });
+
+        expect(screen.getByText('Multi-factor security center')).toBeInTheDocument();
+        expect(screen.getByText('MFA ready')).toBeInTheDocument();
+        expect(screen.getByText('1 passkeys | 1 authenticator apps')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: /register passkey/i }));
+
+        expect(handleRegisterMfaPasskey).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps TOTP setup explicit while the QR payload is visible', () => {
+        const setTotpSetupCode = vi.fn();
+        const handleVerifyTotpSetup = vi.fn();
+
+        renderSettings({
+            mfaFlags: {
+                enabled: true,
+                passkeyEnabled: true,
+                totpEnabled: true,
+            },
+            totpSetup: {
+                manualKey: 'JBSWY3DPEHPK3PXP',
+                qrCodeDataUrl: 'data:image/png;base64,qr',
+            },
+            totpSetupCode: '123456',
+            setTotpSetupCode,
+            handleVerifyTotpSetup,
+        });
+
+        expect(screen.getByAltText('Authenticator setup QR code')).toBeInTheDocument();
+        expect(screen.getByText('Authenticator pending')).toBeInTheDocument();
+        expect(screen.getByText('JBSWY3DPEHPK3PXP')).toBeInTheDocument();
+
+        fireEvent.change(screen.getByLabelText('Authenticator code'), {
+            target: { value: '654321' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: /verify app/i }));
+
+        expect(setTotpSetupCode).toHaveBeenCalledWith('654321');
+        expect(handleVerifyTotpSetup).toHaveBeenCalledTimes(1);
     });
 
     it('offers Microsoft linking when the provider is enabled and not linked', () => {

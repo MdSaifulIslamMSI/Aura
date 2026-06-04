@@ -5,6 +5,7 @@ const {
 const {
     recordSensitiveActionDecision,
 } = require('../services/securityAuditService');
+const { enforceFreshMfa } = require('./requireFreshMfa');
 
 const PUBLIC_ERROR_BY_REASON = Object.freeze({
     sensitive_action_authentication_required: ['Authentication required for this action.', 401],
@@ -24,7 +25,7 @@ const buildSensitiveActionError = (decision = {}) => {
     return error;
 };
 
-const requireSensitiveAction = (options = {}) => (req, _res, next) => {
+const requireSensitiveAction = (options = {}) => (req, res, next) => {
     const decision = evaluateSensitiveActionRequest(req, options);
     req.sensitiveActionDecision = decision;
     recordSensitiveActionDecision({ req, decision, meta: options.auditMeta || {} });
@@ -33,7 +34,7 @@ const requireSensitiveAction = (options = {}) => (req, _res, next) => {
         return next(buildSensitiveActionError(decision));
     }
 
-    return next();
+    return Promise.resolve(enforceFreshMfa(req, res, next, options)).catch(next);
 };
 
 module.exports = {

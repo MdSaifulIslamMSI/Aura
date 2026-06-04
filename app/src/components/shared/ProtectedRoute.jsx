@@ -188,6 +188,15 @@ const renderResolvedGate = ({
         );
     }
 
+    if (status === 'mfa_challenge_required' && currentUser) {
+        return (
+            <AuthPendingState
+                title={t('auth.mfaChallenge.title', {}, 'MFA checkpoint')}
+                message={t('auth.mfaChallenge.message', {}, 'Complete the second-factor challenge to finish this session.')}
+            />
+        );
+    }
+
     if (status === 'recoverable_error' && currentUser) {
         const supportPath = buildRecoverySupportPath(location, sessionError);
         return (

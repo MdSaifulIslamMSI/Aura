@@ -65,6 +65,11 @@ const { RISK_LEVELS, evaluateLoginRisk } = require('../services/authRiskEngineSe
 const { extractTrustedLoginRiskSignals } = require('../services/authRiskSignalService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const { isEnabled: isEmergencyFlagEnabled } = require('../services/emergencyControlService');
+const { createMfaChallenge } = require('../services/mfaChallengeService');
+const {
+    buildPublicMfaPolicy,
+    evaluateLogin: evaluateMfaLoginPolicy,
+} = require('../services/mfaPolicyService');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
@@ -1025,6 +1030,73 @@ const syncSession = asyncHandler(async (req, res) => {
 
     const loginRisk = evaluateRuntimeLoginRisk({ req, user });
 
+    const mfaPolicy = evaluateMfaLoginPolicy({
+        user,
+        context: {
+            forceStepUp: loginRisk.forceStepUp,
+            risk: loginRisk.risk,
+            riskState: loginRisk.riskState,
+            stepUpReason: loginRisk.stepUpReason,
+        },
+    });
+
+    if (mfaPolicy.mfaRequired) {
+        const publicMfaPolicy = buildPublicMfaPolicy(mfaPolicy);
+
+        if (mfaPolicy.block) {
+            recordAuthSecurityEvent({
+                event: 'mfa.policy.blocked',
+                outcome: 'failure',
+                reason: mfaPolicy.reason || 'blocked',
+                surface: 'mfa',
+                req,
+                meta: { statusCode: 403 },
+            });
+            const error = new AppError('MFA is required but no allowed verification method is available.', 403);
+            error.code = 'MFA_METHOD_REQUIRED';
+            error.requiresMfa = true;
+            error.mfaPolicy = publicMfaPolicy;
+            throw error;
+        }
+
+        const mfaChallenge = await createMfaChallenge({
+            user,
+            purpose: 'login',
+            policy: mfaPolicy,
+            req,
+        });
+
+        recordAuthSecurityEvent({
+            event: 'mfa.challenge.created',
+            outcome: 'required',
+            reason: mfaPolicy.reason || 'required',
+            surface: 'mfa',
+            req,
+            meta: { purpose: 'login', preferredMethod: mfaPolicy.preferredMethod || '' },
+        });
+
+        recordAuthSecurityEvent({
+            event: 'login_session',
+            outcome: 'required',
+            reason: 'mfa_challenge_required',
+            surface: 'auth',
+            req,
+            meta: { status: 'mfa_challenge_required' },
+        });
+
+        return res.json(buildSessionPayload({
+            authUser,
+            authToken: req.authToken || null,
+            authUid: req.authUid || '',
+            authSession: req.authSession || null,
+            user,
+            status: 'mfa_challenge_required',
+            deviceChallenge: null,
+            mfaChallenge,
+            mfaPolicy: publicMfaPolicy,
+        }));
+    }
+
     const { status, deviceChallenge } = await resolveDeviceChallengeState({
         req,
         authUser,
@@ -1036,15 +1108,17 @@ const syncSession = asyncHandler(async (req, res) => {
         riskDecision: loginRisk.risk,
     });
 
-    await persistBrowserSessionForUser({
-        req,
-        res,
-        user,
-        rotate: Boolean(req.authSession?.sessionId),
-        stepUpUntil: user?.loginOtpAssuranceExpiresAt || null,
-        additionalAmr: String(user?.authAssurance || '').trim() === 'password+otp' ? ['otp'] : [],
-        riskState: loginRisk.riskState,
-    });
+    if (status === 'authenticated') {
+        await persistBrowserSessionForUser({
+            req,
+            res,
+            user,
+            rotate: Boolean(req.authSession?.sessionId),
+            stepUpUntil: user?.loginOtpAssuranceExpiresAt || null,
+            additionalAmr: String(user?.authAssurance || '').trim() === 'password+otp' ? ['otp'] : [],
+            riskState: loginRisk.riskState,
+        });
+    }
 
     recordAuthSecurityEvent({
         event: 'login_session',

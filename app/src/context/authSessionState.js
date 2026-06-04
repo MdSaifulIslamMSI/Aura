@@ -3,6 +3,7 @@ export const SESSION_STATUS = {
     LOADING: 'loading',
     AUTHENTICATED: 'authenticated',
     DEVICE_CHALLENGE: 'device_challenge_required',
+    MFA_CHALLENGE: 'mfa_challenge_required',
     RECOVERABLE_ERROR: 'recoverable_error',
     SIGNED_OUT: 'signed_out',
 };
@@ -12,10 +13,11 @@ const LEGACY_SESSION_STATUS = {
 };
 
 export const VALID_TRANSITIONS = {
-    [SESSION_STATUS.BOOTSTRAP]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE],
-    [SESSION_STATUS.LOADING]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.DEVICE_CHALLENGE],
-    [SESSION_STATUS.AUTHENTICATED]: [SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING, SESSION_STATUS.DEVICE_CHALLENGE],
-    [SESSION_STATUS.DEVICE_CHALLENGE]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING],
+    [SESSION_STATUS.BOOTSTRAP]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE, SESSION_STATUS.MFA_CHALLENGE],
+    [SESSION_STATUS.LOADING]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.RECOVERABLE_ERROR, SESSION_STATUS.DEVICE_CHALLENGE, SESSION_STATUS.MFA_CHALLENGE],
+    [SESSION_STATUS.AUTHENTICATED]: [SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING, SESSION_STATUS.DEVICE_CHALLENGE, SESSION_STATUS.MFA_CHALLENGE],
+    [SESSION_STATUS.DEVICE_CHALLENGE]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING, SESSION_STATUS.MFA_CHALLENGE],
+    [SESSION_STATUS.MFA_CHALLENGE]: [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.LOADING, SESSION_STATUS.DEVICE_CHALLENGE],
     [SESSION_STATUS.RECOVERABLE_ERROR]: [SESSION_STATUS.LOADING, SESSION_STATUS.SIGNED_OUT, SESSION_STATUS.AUTHENTICATED],
     [SESSION_STATUS.SIGNED_OUT]: [SESSION_STATUS.LOADING, SESSION_STATUS.BOOTSTRAP],
 };
@@ -30,6 +32,8 @@ export const EMPTY_ROLES = {
 export const EMPTY_SESSION_STATE = {
     status: SESSION_STATUS.BOOTSTRAP,
     deviceChallenge: null,
+    mfaChallenge: null,
+    mfaPolicy: null,
     session: null,
     intelligence: null,
     profile: null,
@@ -106,6 +110,14 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
     );
     const recoveryCodesActiveCount = Number(profile?.recoveryCodeState?.activeCount || 0);
     const hasPasskey = Boolean(profile?.passkeyState?.hasCredentials);
+    const mfaMethods = profile?.mfa?.methods || {};
+    const hasTotp = Boolean(mfaMethods?.totp?.enabled || profile?.mfa?.totp?.enabled);
+    const hasMfaPasskey = Boolean(mfaMethods?.passkey?.enabled || hasPasskey);
+    const mfaRecoveryCodesActiveCount = Number(
+        mfaMethods?.recoveryCodes?.activeCount
+        ?? profile?.mfa?.methods?.recoveryCodes?.activeCount
+        ?? recoveryCodesActiveCount
+    );
 
     return {
         assurance: {
@@ -121,9 +133,12 @@ export const buildSessionIntelligenceFallback = (session = null, profile = null,
             accountState: profile?.accountState || 'active',
             isPrivileged: Boolean(roles?.isAdmin || roles?.isSeller),
             hasPasskey,
-            recoveryCodesActiveCount,
-            passkeyRecoveryReady: !hasPasskey || recoveryCodesActiveCount > 0,
-            shouldEnrollRecoveryCodes: hasPasskey && recoveryCodesActiveCount <= 0,
+            hasTotp,
+            hasMfaPasskey,
+            mfaEnabled: Boolean(profile?.mfa?.enabled || hasTotp || hasMfaPasskey),
+            recoveryCodesActiveCount: mfaRecoveryCodesActiveCount,
+            passkeyRecoveryReady: !hasPasskey || mfaRecoveryCodesActiveCount > 0,
+            shouldEnrollRecoveryCodes: hasPasskey && mfaRecoveryCodesActiveCount <= 0,
         },
         acceleration: {
             suggestedRoute: providerIds.some((providerId) => /google|facebook|github|twitter|x\.com/i.test(providerId))
@@ -172,6 +187,8 @@ export const buildSessionStateFromPayload = (payload = {}, firebaseUser = null) 
     return {
         status: normalizeSessionStatus(payload?.status || (session ? SESSION_STATUS.AUTHENTICATED : SESSION_STATUS.SIGNED_OUT)),
         deviceChallenge: payload?.deviceChallenge || payload?.latticeChallenge || null,
+        mfaChallenge: payload?.mfaChallenge || null,
+        mfaPolicy: payload?.mfaPolicy || payload?.policy || null,
         session,
         intelligence: payload?.intelligence || buildSessionIntelligenceFallback(session, profile, roles),
         profile,

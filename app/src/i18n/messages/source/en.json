@@ -5108,6 +5108,14 @@
     "defaultMessage": "Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "auth.mfaChallenge.message": {
+    "defaultMessage": "Complete the second-factor challenge to finish this session.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.mfaChallenge.title": {
+    "defaultMessage": "MFA checkpoint",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "auth.object.property.label.authenticity": {
     "defaultMessage": "Authenticity",
     "description": "Static UI/template coverage descriptor from stable text scanner."
@@ -12942,6 +12950,18 @@
     "defaultMessage": "Aura Intelligence optimization started. Fresh insights will appear shortly.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.message.passkeyRegisterFailed": {
+    "defaultMessage": "Could not register this passkey.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.passkeyRegistered": {
+    "defaultMessage": "Passkey MFA registered.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.passkeyUnavailable": {
+    "defaultMessage": "Passkey registration is not available in this session.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.message.paymentMethodDeleteFailed": {
     "defaultMessage": "Failed to delete payment method.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -12999,7 +13019,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.message.recoveryCodesNeedPasskey": {
-    "defaultMessage": "Add a passkey before generating backup recovery codes.",
+    "defaultMessage": "Add a passkey or authenticator app before generating backup recovery codes.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.message.recoveryCodesUnavailable": {
@@ -13012,6 +13032,30 @@
   },
   "profile.message.secureRecoveryRequirements": {
     "defaultMessage": "Secure recovery requires the verified account email and registered phone number.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.totpCodeRequired": {
+    "defaultMessage": "Enter the authenticator code to finish setup.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.totpEnabled": {
+    "defaultMessage": "Authenticator app MFA enabled.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.totpSetupFailed": {
+    "defaultMessage": "Could not start authenticator app setup.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.totpSetupStarted": {
+    "defaultMessage": "Authenticator app setup started.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.totpUnavailable": {
+    "defaultMessage": "Authenticator app setup is not available in this session.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.totpVerifyFailed": {
+    "defaultMessage": "Could not verify the authenticator code.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.notifications.body": {
@@ -13829,6 +13873,34 @@
     "defaultMessage": "Attach another provider after signing in with the method that already owns this email.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.settings.security.mfaAvailable": {
+    "defaultMessage": "MFA available",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.mfaBody": {
+    "defaultMessage": "Passkeys, authenticator app codes, and one-time recovery codes protect sign-in and sensitive account changes.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.mfaChecking": {
+    "defaultMessage": "Checking factors...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.mfaFactorSummary": {
+    "defaultMessage": "{passkeys} passkeys | {totp} authenticator apps",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.mfaPolicyReason": {
+    "defaultMessage": "Current policy: {reason}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.mfaReady": {
+    "defaultMessage": "MFA ready",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.mfaTitle": {
+    "defaultMessage": "Multi-factor security center",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.settings.security.openRecovery": {
     "defaultMessage": "Open Secure Recovery",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -13839,6 +13911,14 @@
   },
   "profile.settings.security.otpLabel": {
     "defaultMessage": "OTP posture",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.passkeyRegister": {
+    "defaultMessage": "Register passkey",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.passkeyRegistering": {
+    "defaultMessage": "Registering...",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.password": {
@@ -13886,7 +13966,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.recoveryCodesBody": {
-    "defaultMessage": "Generate one-time backup codes so a passkey account has a recovery path that still stays server-gated and single-use.",
+    "defaultMessage": "Generate one-time backup codes so this MFA account has a recovery path that still stays server-gated and single-use.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.recoveryCodesCopy": {
@@ -13902,7 +13982,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.recoveryCodesEnrollHint": {
-    "defaultMessage": "This account has passkey protection but no backup codes yet. Generate them after a fresh passkey checkpoint.",
+    "defaultMessage": "This account has MFA protection but no backup codes yet. Generate them after a fresh security checkpoint.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.recoveryCodesGenerate": {
@@ -13918,7 +13998,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.recoveryCodesPasskeyFirst": {
-    "defaultMessage": "Add a passkey first. Backup recovery codes are only available after the account has hardware-backed authentication.",
+    "defaultMessage": "Add a passkey or authenticator app first. Backup recovery codes are available after MFA is enrolled.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.recoveryCodesReady": {
@@ -13938,7 +14018,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.recoveryCodesTitle": {
-    "defaultMessage": "Passkey backup recovery codes",
+    "defaultMessage": "MFA backup recovery codes",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.recoveryHint": {
@@ -13955,6 +14035,42 @@
   },
   "profile.settings.security.tokenized": {
     "defaultMessage": "Tokenized",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpCodeLabel": {
+    "defaultMessage": "Authenticator code",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpCodePlaceholder": {
+    "defaultMessage": "6-digit code",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpPending": {
+    "defaultMessage": "Authenticator pending",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpQrAlt": {
+    "defaultMessage": "Authenticator setup QR code",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpRotate": {
+    "defaultMessage": "Rotate app key",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpStart": {
+    "defaultMessage": "Set up app",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpStarting": {
+    "defaultMessage": "Starting...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpVerify": {
+    "defaultMessage": "Verify app",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.totpVerifying": {
+    "defaultMessage": "Verifying...",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.trust.checking": {

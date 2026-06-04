@@ -556,6 +556,11 @@ describe('Auth sync lattice challenge policy', () => {
     const originalChallengeMode = process.env.AUTH_LATTICE_CHALLENGE_MODE;
     const originalRiskEngineMode = process.env.AUTH_RISK_ENGINE_MODE;
     const originalRiskSignalSecret = process.env.AUTH_RISK_SIGNAL_SECRET;
+    const originalMfaEnabled = process.env.MFA_ENABLED;
+    const originalMfaTotpEnabled = process.env.MFA_TOTP_ENABLED;
+    const originalMfaPasskeyEnabled = process.env.MFA_PASSKEY_ENABLED;
+    const originalMfaRecoveryCodesEnabled = process.env.MFA_RECOVERY_CODES_ENABLED;
+    const originalMfaSecretEncryptionKey = process.env.MFA_SECRET_ENCRYPTION_KEY;
 
     afterEach(() => {
         process.env.AUTH_DEVICE_CHALLENGE_MODE = originalDeviceChallengeMode;
@@ -565,6 +570,16 @@ describe('Auth sync lattice challenge policy', () => {
             delete process.env.AUTH_RISK_SIGNAL_SECRET;
         } else {
             process.env.AUTH_RISK_SIGNAL_SECRET = originalRiskSignalSecret;
+        }
+        for (const [key, value] of [
+            ['MFA_ENABLED', originalMfaEnabled],
+            ['MFA_TOTP_ENABLED', originalMfaTotpEnabled],
+            ['MFA_PASSKEY_ENABLED', originalMfaPasskeyEnabled],
+            ['MFA_RECOVERY_CODES_ENABLED', originalMfaRecoveryCodesEnabled],
+            ['MFA_SECRET_ENCRYPTION_KEY', originalMfaSecretEncryptionKey],
+        ]) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
         }
         jest.resetModules();
         jest.clearAllMocks();
@@ -579,6 +594,9 @@ describe('Auth sync lattice challenge policy', () => {
         authSession = null,
         riskEngineMode = '',
         riskSignalSecret = '',
+        mfaEnabled = false,
+        userMfa = null,
+        recoveryCodeState = { activeCount: 0 },
     } = {}) => {
         let isolatedApp;
         const challengeToken = buildRuntimeSecret('challenge-ref');
@@ -589,13 +607,45 @@ describe('Auth sync lattice challenge policy', () => {
             mode: 'assert',
             deviceId: 'device-test-1234',
         });
+        const refreshBrowserSession = jest.fn().mockImplementation(({
+            riskState = '',
+            deviceMethod = '',
+            stepUpUntil = null,
+            additionalAmr = [],
+        } = {}) => Promise.resolve({
+            sessionId: 'session-created-1',
+            firebaseUid: 'uid-verified',
+            email: 'verified@example.com',
+            emailVerified: true,
+            displayName: 'Verified User',
+            phoneNumber: '+919876543210',
+            providerIds: ['password'],
+            deviceId: 'device-test-1234',
+            deviceMethod,
+            amr: ['password', ...additionalAmr],
+            riskState: riskState || 'standard',
+            stepUpUntil,
+        }));
+        const revokeBrowserSession = jest.fn().mockResolvedValue(undefined);
 
-        jest.dontMock('../services/browserSessionService');
         jest.isolateModules(() => {
             process.env.AUTH_DEVICE_CHALLENGE_MODE = challengeMode;
             process.env.AUTH_LATTICE_CHALLENGE_MODE = '';
             process.env.AUTH_RISK_ENGINE_MODE = riskEngineMode;
             process.env.AUTH_RISK_SIGNAL_SECRET = riskSignalSecret;
+            process.env.MFA_ENABLED = mfaEnabled ? 'true' : 'false';
+            process.env.MFA_TOTP_ENABLED = mfaEnabled ? 'true' : 'false';
+            process.env.MFA_PASSKEY_ENABLED = mfaEnabled ? 'true' : 'false';
+            process.env.MFA_RECOVERY_CODES_ENABLED = 'true';
+            process.env.MFA_SECRET_ENCRYPTION_KEY = 'test-mfa-secret-encryption-key-32-characters-plus';
+
+            jest.doMock('../services/browserSessionService', () => ({
+                SESSION_STEP_UP_TTL_MS: 10 * 60 * 1000,
+                clearBrowserSessionCookie: jest.fn(),
+                getBrowserSessionFromRequest: jest.fn(),
+                refreshBrowserSession,
+                revokeBrowserSession,
+            }));
 
             jest.doMock('../services/authSessionService', () => {
                 const actual = jest.requireActual('../services/authSessionService');
@@ -611,6 +661,8 @@ describe('Auth sync lattice challenge policy', () => {
                         isVerified: true,
                         accountState: 'active',
                         moderation: {},
+                        mfa: userMfa || undefined,
+                        recoveryCodeState,
                         loyalty: {},
                         createdAt: new Date('2026-01-01T00:00:00.000Z'),
                     }),
@@ -646,6 +698,8 @@ describe('Auth sync lattice challenge policy', () => {
                     isVerified: true,
                     isAdmin,
                     isSeller: false,
+                    mfa: userMfa || undefined,
+                    recoveryCodeState,
                 };
                 req.authUid = 'uid-verified';
                 req.authToken = {
@@ -658,11 +712,11 @@ describe('Auth sync lattice challenge policy', () => {
             isolatedApp.use(errorHandler);
         });
 
-        return { isolatedApp, issueTrustedDeviceChallenge };
+        return { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession, revokeBrowserSession };
     };
 
     test('POST /api/auth/sync does not require trusted device challenge by default', async () => {
-        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp();
+        const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp();
 
         const res = await request(isolatedApp)
             .post('/api/auth/sync')
@@ -672,10 +726,49 @@ describe('Auth sync lattice challenge policy', () => {
         expect(res.body.status).toBe('authenticated');
         expect(res.body.deviceChallenge).toBeNull();
         expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+        expect(refreshBrowserSession).toHaveBeenCalledTimes(1);
+        expect(res.body.session.sessionId).toBe('session-created-1');
+    });
+
+    test('POST /api/auth/sync returns MFA challenge without final session when user MFA is enabled', async () => {
+        const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp({
+            mfaEnabled: true,
+            userMfa: {
+                enabled: true,
+                defaultMethod: 'totp',
+                totp: {
+                    enabled: true,
+                    confirmedAt: new Date('2026-01-01T00:00:00.000Z'),
+                },
+            },
+            recoveryCodeState: { activeCount: 2 },
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .send({ email: 'verified@example.com', name: 'Verified User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.status).toBe('mfa_challenge_required');
+        expect(res.body.requiresMfa).toBe(true);
+        expect(res.body.deviceChallenge).toBeNull();
+        expect(res.body.mfaChallenge).toMatchObject({
+            purpose: 'login',
+            allowedMethods: ['totp', 'recovery_code'],
+            preferredMethod: 'totp',
+        });
+        expect(res.body.mfaPolicy).toMatchObject({
+            mfaRequired: true,
+            reason: 'user_enabled',
+        });
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
+        expect(res.headers['set-cookie']).toBeUndefined();
+        expect(res.body.session.sessionId).toBeUndefined();
     });
 
     test('POST /api/auth/sync can require trusted device challenge when policy is always', async () => {
-        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({ challengeMode: 'always' });
+        const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp({ challengeMode: 'always' });
 
         const res = await request(isolatedApp)
             .post('/api/auth/sync')
@@ -691,6 +784,9 @@ describe('Auth sync lattice challenge policy', () => {
             deviceId: 'device-test-1234',
         });
         expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
+        expect(res.headers['set-cookie']).toBeUndefined();
+        expect(res.body.session.sessionId).toBeUndefined();
     });
 
     test('POST /api/auth/sync accepts an existing stepped-up browser session for the same device', async () => {
@@ -758,7 +854,7 @@ describe('Auth sync lattice challenge policy', () => {
             timestamp,
             secret: riskSignalSecret,
         });
-        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({
+        const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp({
             riskEngineMode: 'enforce',
             riskSignalSecret,
         });
@@ -773,7 +869,6 @@ describe('Auth sync lattice challenge policy', () => {
 
         expect(res.statusCode).toBe(200);
         expect(res.body.status).toBe('device_challenge_required');
-        expect(res.body.session.riskState).toBe('login_risk_high');
         expect(res.body.deviceChallenge).toEqual({
             token: expect.any(String),
             challenge: expect.any(String),
@@ -781,6 +876,9 @@ describe('Auth sync lattice challenge policy', () => {
             deviceId: 'device-test-1234',
         });
         expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
+        expect(res.headers['set-cookie']).toBeUndefined();
+        expect(res.body.session.sessionId).toBeUndefined();
     });
 });
 

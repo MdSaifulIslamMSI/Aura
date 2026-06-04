@@ -1,6 +1,6 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-06-02T12:06:09.432Z
+Generated: 2026-06-04T08:56:01.202Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
@@ -9,7 +9,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 - Tracked files: 93
 - Stable ICU hook files: 59
 - Delegated stable ICU translator files: 2
-- Migrated stable ICU message IDs observed across files: 2934
+- Migrated stable ICU message IDs observed across files: 2963
 - Residual production legacy literal message IDs: 0
 - Test-harness legacy literal message IDs: 4
 - Production files with direct residual stable literals: 0
@@ -49,12 +49,12 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Orders/index.jsx` | 102 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Admin/Payments.jsx` | 99 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Admin/Users.jsx` | 96 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Profile/index.jsx` | 96 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Admin/EmailOps.jsx` | 93 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/index.jsx` | 92 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Profile/index.jsx` | 87 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
+| low | `app/src/pages/Profile/components/SettingsSection.jsx` | 82 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Home/index.jsx` | 81 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Admin/OrderList.jsx` | 64 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Profile/components/SettingsSection.jsx` | 64 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Login/LoginView.jsx` | 63 | 0 | delegated-stable-icu |
 | low | `app/src/pages/Admin/ProductEdit.jsx` | 59 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Admin/ProductList.jsx` | 55 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
@@ -82,7 +82,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Checkout/components/StepReview.jsx` | 14 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/components/features/chat/MessageItem.jsx` | 13 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/components/shared/BackendStatusBanner.jsx` | 13 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
-| low | `app/src/components/shared/ProtectedRoute.jsx` | 10 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/components/shared/ProtectedRoute.jsx` | 12 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/StepDelivery.jsx` | 10 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Wishlist/index.jsx` | 10 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/DesktopLogin/index.jsx` | 8 | 0 | useMarket, stable-icu-hook |

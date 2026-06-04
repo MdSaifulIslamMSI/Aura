@@ -24,7 +24,7 @@ import { CartContext } from '@/context/CartContext';
 import { useMarket } from '@/context/MarketContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
-import { paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
+import { authApi, paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
 import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
@@ -84,6 +84,10 @@ export default function Profile() {
         linkAppleProvider,
         updateProfile: updateProfileInContext,
         generateRecoveryCodes,
+        startTotpSetup,
+        verifyTotpSetup,
+        registerMfaPasskey,
+        regenerateMfaRecoveryCodes,
         isAuthenticated,
     } = useContext(AuthContext);
     const { cartItems } = useContext(CartContext);
@@ -111,6 +115,13 @@ export default function Profile() {
     const [rewardsLoading, setRewardsLoading] = useState(false);
     const [trustStatus, setTrustStatus] = useState(DEFAULT_TRUST_STATUS);
     const [trustLoading, setTrustLoading] = useState(false);
+    const [mfaCenter, setMfaCenter] = useState(null);
+    const [mfaCenterLoading, setMfaCenterLoading] = useState(false);
+    const [totpSetup, setTotpSetup] = useState(null);
+    const [totpSetupCode, setTotpSetupCode] = useState('');
+    const [totpSetupLoading, setTotpSetupLoading] = useState(false);
+    const [totpVerifyLoading, setTotpVerifyLoading] = useState(false);
+    const [mfaPasskeyWorking, setMfaPasskeyWorking] = useState(false);
     const [intelligenceData, setIntelligenceData] = useState(null);
     const [intelligenceLoading, setIntelligenceLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
@@ -252,6 +263,34 @@ export default function Profile() {
         }
     }, [canUseProtectedProfileApis]);
 
+    const refreshMfaCenter = useCallback(async ({ silent = false } = {}) => {
+        if (!canUseProtectedProfileApis) {
+            setMfaCenter(null);
+            setMfaCenterLoading(false);
+            return null;
+        }
+
+        if (!silent) {
+            setMfaCenterLoading(true);
+        }
+
+        try {
+            const nextCenter = await authApi.getMfaSecurityCenter({ firebaseUser: currentUser });
+            setMfaCenter(nextCenter || null);
+            return nextCenter || null;
+        } catch (error) {
+            if (!isTrustedDeviceChallengeError(error) && Number(error?.status || 0) !== 403) {
+                console.error('MFA security center fetch failed:', error);
+            }
+            setMfaCenter(null);
+            return null;
+        } finally {
+            if (!silent) {
+                setMfaCenterLoading(false);
+            }
+        }
+    }, [canUseProtectedProfileApis, currentUser]);
+
     const refreshIntelligence = useCallback(async ({ silent = false } = {}) => {
         if (!canUseProtectedProfileApis) {
             setIntelligenceData(null);
@@ -380,6 +419,11 @@ export default function Profile() {
     }, [canUseProtectedProfileApis, refreshTrustStatus]);
 
     useEffect(() => {
+        if (activeTab !== 'settings') return;
+        void refreshMfaCenter();
+    }, [activeTab, canUseProtectedProfileApis, refreshMfaCenter]);
+
+    useEffect(() => {
         void refreshIntelligence();
     }, [canUseProtectedProfileApis, refreshIntelligence]);
 
@@ -390,6 +434,7 @@ export default function Profile() {
             activeTab === 'payments' ? refreshNetbankingCatalog({ silent: true }) : Promise.resolve(null),
             refreshRewards({ silent: true }),
             refreshTrustStatus({ silent: true }),
+            activeTab === 'settings' ? refreshMfaCenter({ silent: true }) : Promise.resolve(null),
             refreshIntelligence({ silent: true }),
         ]),
         {
@@ -552,12 +597,13 @@ export default function Profile() {
     };
 
     const handleGenerateBackupRecoveryCodes = async () => {
-        if (!hasPasskey) {
-            showMsg('error', t('profile.message.recoveryCodesNeedPasskey', {}, 'Add a passkey before generating backup recovery codes.'));
+        if (!hasMfaFactor) {
+            showMsg('error', t('profile.message.recoveryCodesNeedPasskey', {}, 'Add a passkey or authenticator app before generating backup recovery codes.'));
             return;
         }
 
-        if (!generateRecoveryCodes) {
+        const recoveryCodeGenerator = regenerateMfaRecoveryCodes || generateRecoveryCodes;
+        if (!recoveryCodeGenerator) {
             showMsg('error', t('profile.message.recoveryCodesUnavailable', {}, 'Recovery-code setup is not available in this session yet.'));
             return;
         }
@@ -565,9 +611,13 @@ export default function Profile() {
         setRecoveryCodesGenerating(true);
 
         try {
-            const result = await generateRecoveryCodes();
+            const result = await recoveryCodeGenerator();
             const nextCodes = Array.isArray(result?.recoveryCodes) ? result.recoveryCodes : [];
             setVisibleRecoveryCodes(nextCodes);
+            await Promise.all([
+                refreshMfaCenter({ silent: true }),
+                refreshProfileDeck({ silent: true }),
+            ]);
             showMsg(
                 'success',
                 t(
@@ -583,6 +633,78 @@ export default function Profile() {
             );
         } finally {
             setRecoveryCodesGenerating(false);
+        }
+    };
+
+    const handleStartTotpSetup = async () => {
+        if (!startTotpSetup) {
+            showMsg('error', t('profile.message.totpUnavailable', {}, 'Authenticator app setup is not available in this session.'));
+            return;
+        }
+
+        setTotpSetupLoading(true);
+        try {
+            const result = await startTotpSetup();
+            setTotpSetup(result || null);
+            setTotpSetupCode('');
+            showMsg('success', t('profile.message.totpSetupStarted', {}, 'Authenticator app setup started.'));
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.totpSetupFailed', {}, 'Could not start authenticator app setup.'));
+        } finally {
+            setTotpSetupLoading(false);
+        }
+    };
+
+    const handleVerifyTotpSetup = async () => {
+        const code = trimText(totpSetupCode);
+        if (!code) {
+            showMsg('error', t('profile.message.totpCodeRequired', {}, 'Enter the authenticator code to finish setup.'));
+            return;
+        }
+        if (!verifyTotpSetup) {
+            showMsg('error', t('profile.message.totpUnavailable', {}, 'Authenticator app setup is not available in this session.'));
+            return;
+        }
+
+        setTotpVerifyLoading(true);
+        try {
+            const result = await verifyTotpSetup(code);
+            const nextCodes = Array.isArray(result?.recoveryCodes) ? result.recoveryCodes : [];
+            if (nextCodes.length) {
+                setVisibleRecoveryCodes(nextCodes);
+            }
+            setTotpSetup(null);
+            setTotpSetupCode('');
+            await Promise.all([
+                refreshMfaCenter({ silent: true }),
+                refreshProfileDeck({ silent: true }),
+            ]);
+            showMsg('success', t('profile.message.totpEnabled', {}, 'Authenticator app MFA enabled.'));
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.totpVerifyFailed', {}, 'Could not verify the authenticator code.'));
+        } finally {
+            setTotpVerifyLoading(false);
+        }
+    };
+
+    const handleRegisterMfaPasskey = async () => {
+        if (!registerMfaPasskey) {
+            showMsg('error', t('profile.message.passkeyUnavailable', {}, 'Passkey registration is not available in this session.'));
+            return;
+        }
+
+        setMfaPasskeyWorking(true);
+        try {
+            await registerMfaPasskey();
+            await Promise.all([
+                refreshMfaCenter({ silent: true }),
+                refreshProfileDeck({ silent: true }),
+            ]);
+            showMsg('success', t('profile.message.passkeyRegistered', {}, 'Passkey MFA registered.'));
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.passkeyRegisterFailed', {}, 'Could not register this passkey.'));
+        } finally {
+            setMfaPasskeyWorking(false);
         }
     };
 
@@ -787,9 +909,21 @@ export default function Profile() {
     const isAdminAccount = Boolean(profile?.isAdmin || dbUser?.isAdmin);
     const accountState = profile?.accountState || 'active';
     const recoveryReadiness = sessionIntelligence?.readiness || {};
-    const recoveryCodesActiveCount = Number(recoveryReadiness.recoveryCodesActiveCount || 0);
+    const mfaStatus = mfaCenter?.mfa || profile?.mfa || dbUser?.mfa || null;
+    const mfaFlags = mfaCenter?.flags || {};
+    const mfaPolicy = mfaCenter?.policy || null;
+    const mfaMethods = mfaStatus?.methods || {};
+    const hasTotp = Boolean(mfaMethods?.totp?.enabled || profile?.mfa?.totp?.enabled || dbUser?.mfa?.totp?.enabled);
+    const mfaPasskeyCount = Number(mfaMethods?.passkey?.count || 0);
+    const mfaRecoveryCodesActiveCount = Number(
+        mfaMethods?.recoveryCodes?.activeCount
+        ?? recoveryReadiness.recoveryCodesActiveCount
+        ?? 0
+    );
+    const recoveryCodesActiveCount = mfaRecoveryCodesActiveCount;
     const hasPasskey = Boolean(recoveryReadiness.hasPasskey);
-    const shouldEnrollRecoveryCodes = Boolean(recoveryReadiness.shouldEnrollRecoveryCodes);
+    const hasMfaFactor = Boolean(hasPasskey || hasTotp || mfaStatus?.enabled || mfaPasskeyCount > 0);
+    const shouldEnrollRecoveryCodes = Boolean(hasMfaFactor && recoveryCodesActiveCount <= 0);
     const passkeyRecoveryReady = recoveryReadiness.passkeyRecoveryReady !== false;
     const profileCompletion = useMemo(() => {
         const checklist = [
@@ -1170,6 +1304,19 @@ export default function Profile() {
                             handleCopyRecoveryCodes={handleCopyRecoveryCodes}
                             handleDownloadRecoveryCodes={handleDownloadRecoveryCodes}
                             handleClearVisibleRecoveryCodes={() => setVisibleRecoveryCodes([])}
+                            mfaStatus={mfaStatus}
+                            mfaFlags={mfaFlags}
+                            mfaPolicy={mfaPolicy}
+                            mfaCenterLoading={mfaCenterLoading}
+                            totpSetup={totpSetup}
+                            totpSetupCode={totpSetupCode}
+                            setTotpSetupCode={setTotpSetupCode}
+                            totpSetupLoading={totpSetupLoading}
+                            totpVerifyLoading={totpVerifyLoading}
+                            handleStartTotpSetup={handleStartTotpSetup}
+                            handleVerifyTotpSetup={handleVerifyTotpSetup}
+                            mfaPasskeyWorking={mfaPasskeyWorking}
+                            handleRegisterMfaPasskey={handleRegisterMfaPasskey}
                             linkedProviderIds={linkedProviderIds}
                             socialAuthStatus={socialAuthStatus}
                             providerLinking={providerLinking}

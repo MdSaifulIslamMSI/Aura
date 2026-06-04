@@ -28,9 +28,9 @@ const {
 } = require('./authAssurancePolicyService');
 const { getRecoveryReadiness } = require('./authRecoveryCodeService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
-const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt';
-const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState +loginOtpAssuranceExpiresAt loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
+const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
+const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
@@ -342,6 +342,21 @@ const toProfilePayload = (user = null, options = {}) => {
         createdAt: user.createdAt || null,
     };
 
+    if (user.mfa) {
+        payload.mfa = {
+            enabled: Boolean(user.mfa.enabled),
+            defaultMethod: normalizeText(user.mfa.defaultMethod),
+            requiredByPolicy: Boolean(user.mfa.requiredByPolicy),
+            lastMfaAt: user.mfa.lastMfaAt || null,
+            lastMfaMethod: normalizeText(user.mfa.lastMfaMethod),
+            totp: {
+                enabled: Boolean(user.mfa.totp?.enabled),
+                confirmedAt: user.mfa.totp?.confirmedAt || null,
+                lastVerifiedAt: user.mfa.totp?.lastVerifiedAt || null,
+            },
+        };
+    }
+
     if (includeCollections) {
         payload.addresses = user.addresses || [];
         payload.cart = options.cart || user.cart || [];
@@ -523,12 +538,17 @@ const buildSessionPayload = ({
     user = null,
     status = 'authenticated',
     deviceChallenge = null,
+    mfaChallenge = null,
+    mfaPolicy = null,
     error = null,
 } = {}) => {
     const session = buildSessionIdentity({ authUser, authToken, authUid, authSession, user });
     return {
         status,
         deviceChallenge: deviceChallenge || null,
+        mfaChallenge: mfaChallenge || null,
+        requiresMfa: Boolean(mfaChallenge),
+        mfaPolicy: mfaPolicy || null,
         session,
         intelligence: toSessionIntelligence(user, session),
         profile: toProfilePayload(user),

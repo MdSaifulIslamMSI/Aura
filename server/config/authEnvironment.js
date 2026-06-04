@@ -2,6 +2,10 @@ const DEFAULT_ALLOWED_CLOCK_SKEW_SECONDS = 60;
 const MAX_ALLOWED_CLOCK_SKEW_SECONDS = 300;
 const DEFAULT_AUTH_COOKIE_NAME = 'aura_sid';
 const SUPPORTED_AUTH_PROVIDERS = new Set(['legacy', 'keycloak']);
+const {
+    resolveMfaConfig,
+    validateMfaEnvironment,
+} = require('./mfaConfig');
 const KEYCLOAK_REQUIRED_ENV = [
     'AUTH_ISSUER_URL',
     'AUTH_CLIENT_ID',
@@ -96,6 +100,7 @@ const resolveAuthEnvironment = (env = process.env) => {
             mfaChallenge: parsePositiveInteger(env.AUTH_RATE_LIMIT_MFA_CHALLENGE, 10, { min: 1, max: 10_000 }),
         },
         allowedAlgorithms: allowedAlgorithms.length ? allowedAlgorithms : ['RS256'],
+        mfa: resolveMfaConfig(env),
     };
 };
 
@@ -175,6 +180,14 @@ const validateAuthEnvironment = ({
     if (production && config.provider === 'legacy' && safeString(env.AUTH_PROVIDER) === '') {
         warnings.push('AUTH_PROVIDER is not set; production will remain on the legacy Firebase provider');
     }
+
+    const mfaValidation = validateMfaEnvironment({
+        env,
+        runtimeEnv,
+        allowPlaceholders,
+    });
+    failures.push(...mfaValidation.failures);
+    warnings.push(...mfaValidation.warnings);
 
     return {
         ok: failures.length === 0,
