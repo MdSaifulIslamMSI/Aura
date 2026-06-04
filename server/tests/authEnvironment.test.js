@@ -77,4 +77,31 @@ describe('authEnvironment', () => {
         expect(result.config.jwksUrl).toBe(buildKeycloakJwksUrl(env.AUTH_ISSUER_URL));
         expect(result.config.allowedClockSkewSeconds).toBe(60);
     });
+
+    test('fails TOTP MFA validation without a strong encryption key', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                MFA_ENABLED: 'true',
+                MFA_TOTP_ENABLED: 'true',
+                MFA_SECRET_ENCRYPTION_KEY: 'change-me',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures.join('\n')).toMatch(/MFA_SECRET_ENCRYPTION_KEY/);
+    });
+
+    test('exposes rollback-safe MFA defaults', () => {
+        const result = resolveAuthEnvironment({});
+
+        expect(result.mfa).toMatchObject({
+            enabled: false,
+            totpEnabled: false,
+            passkeyEnabled: false,
+            recoveryCodesEnabled: true,
+            requiredForAdmins: false,
+            requiredForSellers: false,
+        });
+    });
 });

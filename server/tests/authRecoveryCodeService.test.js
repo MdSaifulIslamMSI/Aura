@@ -2,6 +2,7 @@ require('../index');
 
 const User = require('../models/User');
 const {
+    consumeRecoveryCodeForMfa,
     consumeRecoveryCodeForPasswordReset,
     generateRecoveryCodesForUser,
     getRecoveryReadiness,
@@ -97,6 +98,44 @@ describe('authRecoveryCodeService', () => {
             hasPasskey: true,
             passkeyRecoveryReady: false,
             shouldEnrollRecoveryCodes: true,
+        });
+    });
+
+    test('supports TOTP-backed MFA recovery codes without storing plaintext', async () => {
+        const user = await User.create({
+            name: 'TOTP Recovery User',
+            email: `${buildRuntimeSecret('totp-recovery-user')}@test.com`,
+            isVerified: true,
+            mfa: {
+                enabled: true,
+                defaultMethod: 'totp',
+                totp: {
+                    enabled: true,
+                    confirmedAt: new Date(),
+                },
+            },
+        });
+
+        const { codes } = await generateRecoveryCodesForUser({
+            userId: user._id,
+            requirePasskey: false,
+        });
+        const result = await consumeRecoveryCodeForMfa({
+            userId: user._id,
+            code: codes[0],
+            purpose: 'mfa:login',
+        });
+
+        expect(result.user.mfa.lastMfaMethod).toBe('recovery_code');
+        expect(result.recoveryCodeState.activeCount).toBe(9);
+
+        await expect(consumeRecoveryCodeForMfa({
+            userId: user._id,
+            code: codes[0],
+            purpose: 'mfa:login',
+        })).rejects.toMatchObject({
+            message: 'Recovery code is invalid or already used.',
+            statusCode: 401,
         });
     });
 });

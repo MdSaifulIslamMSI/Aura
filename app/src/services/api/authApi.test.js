@@ -236,6 +236,95 @@ describe('authApi', () => {
     expect(JSON.parse(requestOptions.body)).toEqual({});
   });
 
+  it('starts TOTP MFA setup through a protected auth write', async () => {
+    const csrfToken = 'c'.repeat(64);
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    mocks.ensureCsrfTokenMock.mockResolvedValueOnce(csrfToken);
+    mocks.addCsrfTokenToHeadersMock.mockReturnValueOnce({
+      'X-Session-Mode': 'cookie',
+      'X-CSRF-Token': csrfToken,
+    });
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        success: true,
+        manualKey: 'JBSWY3DPEHPK3PXP',
+        qrCodeDataUrl: 'data:image/png;base64,qr',
+      }), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.setupTotp()).resolves.toMatchObject({
+      success: true,
+      manualKey: 'JBSWY3DPEHPK3PXP',
+    });
+
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/mfa/totp/setup');
+    expect(requestOptions.headers.get('X-CSRF-Token')).toBe(csrfToken);
+    expect(JSON.parse(requestOptions.body)).toEqual({});
+  });
+
+  it('registers an MFA passkey by signing the server challenge locally', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
+    };
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' })
+      .mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+    mocks.signTrustedDeviceChallengeMock.mockResolvedValueOnce({
+      method: 'webauthn',
+      proofBase64: '',
+      publicKeySpkiBase64: '',
+      credential: { id: 'credential-1' },
+    });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          success: true,
+          deviceChallenge: {
+            token: 'challenge-token',
+            challenge: 'challenge-bytes',
+            mode: 'enroll',
+            availableMethods: ['webauthn'],
+          },
+        }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          success: true,
+          status: 'authenticated',
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(authApi.registerMfaPasskey({ firebaseUser })).resolves.toMatchObject({
+      success: true,
+      status: 'authenticated',
+    });
+
+    expect(mocks.signTrustedDeviceChallengeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'challenge-token' }),
+      { preferredMethod: 'webauthn' }
+    );
+    const [verifyUrl, verifyOptions] = global.fetch.mock.calls[1];
+    expect(verifyUrl).toContain('/auth/mfa/passkey/register/verify');
+    expect(JSON.parse(verifyOptions.body)).toMatchObject({
+      token: 'challenge-token',
+      challengeToken: 'challenge-token',
+      method: 'webauthn',
+      credential: { id: 'credential-1' },
+    });
+  });
+
   it('builds a Duo login redirect URL with a safe return path', async () => {
     expect(authApi.getDuoLoginUrl('/profile?tab=security')).toContain('/api/auth/duo/start?returnTo=%2Fprofile%3Ftab%3Dsecurity');
     expect(authApi.getDuoLoginUrl('/desktop-login?desktopAuthRequest=req-1&desktopAuthSecret=secret-1#bridge')).toContain('/api/auth/duo/start?returnTo=%2Fdesktop-login%3FdesktopAuthRequest%3Dreq-1%26desktopAuthSecret%3Dsecret-1%23bridge');

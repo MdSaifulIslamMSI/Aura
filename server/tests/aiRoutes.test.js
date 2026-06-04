@@ -109,6 +109,7 @@ const originalEnv = { ...process.env };
 
 describe('AI Routes', () => {
     beforeEach(() => {
+        process.env.TRAFFIC_FORTRESS_ENABLED = 'false';
         jest.clearAllMocks();
     });
 

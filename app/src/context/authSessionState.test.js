@@ -16,6 +16,7 @@ describe('authSessionState', () => {
 
     test('normalizes session status values and upgrades the legacy lattice challenge label', () => {
         expect(normalizeSessionStatus('lattice_challenge_required')).toBe(SESSION_STATUS.DEVICE_CHALLENGE);
+        expect(normalizeSessionStatus('mfa_challenge_required')).toBe(SESSION_STATUS.MFA_CHALLENGE);
         expect(normalizeSessionStatus('authenticated')).toBe(SESSION_STATUS.AUTHENTICATED);
         expect(normalizeSessionStatus('unexpected')).toBe(SESSION_STATUS.SIGNED_OUT);
     });
@@ -24,6 +25,7 @@ describe('authSessionState', () => {
         expect(isAuthenticatedSessionStatus(SESSION_STATUS.AUTHENTICATED)).toBe(true);
         expect(isAuthenticatedSessionStatus(SESSION_STATUS.LOADING)).toBe(false);
         expect(isAuthenticatedSessionStatus(SESSION_STATUS.DEVICE_CHALLENGE)).toBe(false);
+        expect(isAuthenticatedSessionStatus(SESSION_STATUS.MFA_CHALLENGE)).toBe(false);
         expect(isAuthenticatedSessionStatus(SESSION_STATUS.RECOVERABLE_ERROR)).toBe(false);
         expect(isAuthenticatedSessionStatus('lattice_challenge_required')).toBe(false);
     });
@@ -102,5 +104,37 @@ describe('authSessionState', () => {
 
         expect(sessionState.intelligence.posture.session.stepUpActive).toBe(false);
         expect(sessionState.intelligence.posture.session.freshForSensitiveActions).toBe(false);
+    });
+
+    test('preserves MFA challenge state without marking it authenticated', () => {
+        const sessionState = buildSessionStateFromPayload({
+            status: 'mfa_challenge_required',
+            mfaChallenge: {
+                challengeId: 'mfa_123',
+                allowedMethods: ['totp', 'recovery_code'],
+            },
+            mfaPolicy: {
+                required: true,
+                reason: 'user_mfa_enabled',
+            },
+            profile: {
+                email: 'secure@example.com',
+                mfa: {
+                    enabled: true,
+                    methods: {
+                        totp: { enabled: true },
+                        recoveryCodes: { activeCount: 4 },
+                    },
+                },
+            },
+        });
+
+        expect(sessionState.status).toBe(SESSION_STATUS.MFA_CHALLENGE);
+        expect(sessionState.mfaChallenge).toMatchObject({ challengeId: 'mfa_123' });
+        expect(sessionState.mfaPolicy).toMatchObject({ required: true });
+        expect(sessionState.intelligence.readiness.mfaEnabled).toBe(true);
+        expect(sessionState.intelligence.readiness.hasTotp).toBe(true);
+        expect(sessionState.intelligence.readiness.recoveryCodesActiveCount).toBe(4);
+        expect(isAuthenticatedSessionStatus(sessionState.status)).toBe(false);
     });
 });

@@ -78,16 +78,16 @@ const getRecoveryReadiness = (user = null) => {
     };
 };
 
-const generateRecoveryCodesForUser = async ({ userId = '' } = {}) => {
+const generateRecoveryCodesForUser = async ({ userId = '', requirePasskey = true } = {}) => {
     if (!userId) {
         throw new AppError('User is required to generate recovery codes', 400);
     }
 
-    const user = await User.findById(userId, 'trustedDevices recoveryCodeState').lean();
+    const user = await User.findById(userId, 'trustedDevices recoveryCodeState mfa').lean();
     if (!user) {
         throw new AppError('User not found', 404);
     }
-    if (getPasskeyCount(user) <= 0) {
+    if (requirePasskey && getPasskeyCount(user) <= 0) {
         throw new AppError('Register a passkey before creating backup recovery codes.', 409);
     }
 
@@ -221,8 +221,99 @@ const consumeRecoveryCodeForPasswordReset = async ({ email = '', code = '' } = {
     };
 };
 
+const consumeRecoveryCodeForMfa = async ({ userId = '', code = '', purpose = 'mfa' } = {}) => {
+    const normalizedCode = normalizeRecoveryCode(code);
+    if (!userId || !normalizedCode) {
+        throw new AppError('Recovery code is invalid or already used.', 401);
+    }
+
+    const candidateHash = hashRecoveryCode(normalizedCode);
+    const user = await User.findById(
+        userId,
+        'name email phone avatar gender dob bio isAdmin adminRoles isVerified trustedDevices isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt recoveryCodeState mfa loyalty createdAt +recoveryCodes'
+    ).lean();
+
+    const matchingCode = Array.isArray(user?.recoveryCodes)
+        ? user.recoveryCodes.find((entry) => (
+            !entry?.usedAt && safeCompare(entry?.codeHash, candidateHash)
+        ))
+        : null;
+
+    if (!user || !matchingCode) {
+        throw new AppError('Recovery code is invalid or already used.', 401);
+    }
+
+    const now = new Date();
+    const result = await User.updateOne(
+        {
+            _id: user._id,
+            recoveryCodes: {
+                $elemMatch: {
+                    codeHash: matchingCode.codeHash,
+                    usedAt: null,
+                },
+            },
+        },
+        {
+            $set: {
+                'recoveryCodes.$.usedAt': now,
+                'recoveryCodes.$.usedFor': String(purpose || 'mfa').slice(0, 80),
+                'recoveryCodeState.lastUsedAt': now,
+                'mfa.enabled': true,
+                'mfa.lastMfaAt': now,
+                'mfa.lastMfaMethod': 'recovery_code',
+            },
+            $inc: {
+                'recoveryCodeState.activeCount': -1,
+            },
+        }
+    );
+
+    if (!result?.modifiedCount) {
+        throw new AppError('Recovery code is invalid or already used.', 401);
+    }
+
+    const refreshedUser = await User.findById(
+        user._id,
+        'name email phone avatar gender dob bio isAdmin adminRoles isVerified trustedDevices isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt recoveryCodeState mfa loyalty createdAt +recoveryCodes'
+    ).lean();
+    const activeCount = Array.isArray(refreshedUser?.recoveryCodes)
+        ? refreshedUser.recoveryCodes.filter((entry) => !entry?.usedAt).length
+        : Math.max(Number(refreshedUser?.recoveryCodeState?.activeCount || 0), 0);
+    if (activeCount !== Number(refreshedUser?.recoveryCodeState?.activeCount || 0)) {
+        await User.updateOne(
+            { _id: user._id },
+            { $set: { 'recoveryCodeState.activeCount': activeCount } }
+        );
+    }
+    const { recoveryCodes: _recoveryCodes, ...safeUser } = refreshedUser || user;
+
+    logger.warn('auth.recovery_code_consumed', {
+        userId: String(user._id),
+        purpose: String(purpose || 'mfa').slice(0, 80),
+        remaining: activeCount,
+    });
+
+    return {
+        user: {
+            ...safeUser,
+            recoveryCodeState: {
+                ...(safeUser.recoveryCodeState || {}),
+                lastUsedAt: now,
+                activeCount,
+            },
+        },
+        recoveryCodeState: {
+            ...(safeUser.recoveryCodeState || {}),
+            lastUsedAt: now,
+            activeCount,
+        },
+    };
+};
+
 module.exports = {
     RECOVERY_CODE_PURPOSE_FORGOT_PASSWORD,
+    consumeRecoveryCodeForMfa,
     consumeRecoveryCodeForPasswordReset,
     generateRecoveryCodesForUser,
     getPasskeyCount,

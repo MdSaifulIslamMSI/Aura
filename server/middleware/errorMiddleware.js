@@ -49,6 +49,10 @@ const errorHandler = (err, req, res, next) => {
         return res.status(statusCode).json({
             ...(err.code ? { success: false, code: err.code } : {}),
             ...(err.feature ? { feature: err.feature } : {}),
+            ...(err.requiresMfa ? { requiresMfa: true } : {}),
+            ...(err.requiresStepUpMfa ? { requiresStepUpMfa: true } : {}),
+            ...(err.mfaChallenge ? { mfaChallenge: err.mfaChallenge } : {}),
+            ...(err.mfaPolicy ? { mfaPolicy: err.mfaPolicy } : {}),
             status: err.status || 'error',
             message: err.message,
             requestId: req.requestId || '',

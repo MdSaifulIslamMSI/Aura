@@ -213,7 +213,7 @@ export const AuthProvider = ({ children }) => {
   }, [sessionState]);
 
   useEffect(() => {
-    if (![SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE].includes(sessionState.status)) return;
+    if (![SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE, SESSION_STATUS.MFA_CHALLENGE].includes(sessionState.status)) return;
 
     const visibleEmail = getUserVisibleEmail(sessionState.session?.email || sessionState.profile?.email || '');
     const visiblePhone = sessionState.profile?.phone || sessionState.session?.phone || '';
@@ -282,6 +282,8 @@ export const AuthProvider = ({ children }) => {
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
       deviceChallenge: null,
+      mfaChallenge: null,
+      mfaPolicy: null,
       session: null,
       intelligence: null,
       profile: null,
@@ -296,6 +298,8 @@ export const AuthProvider = ({ children }) => {
     setSessionState({
       status: SESSION_STATUS.LOADING,
       deviceChallenge: null,
+      mfaChallenge: null,
+      mfaPolicy: null,
       session: sessionFallback,
       intelligence: buildSessionIntelligenceFallback(sessionFallback, null, EMPTY_ROLES),
       profile: null,
@@ -318,7 +322,7 @@ export const AuthProvider = ({ children }) => {
     const previousState = sessionStateRef.current;
     const canPreserveResolvedSession = previousState.profile
       && syncStateRef.current.identity === identity
-      && [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE].includes(previousState.status);
+      && [SESSION_STATUS.AUTHENTICATED, SESSION_STATUS.DEVICE_CHALLENGE, SESSION_STATUS.MFA_CHALLENGE].includes(previousState.status);
 
     if (canPreserveResolvedSession) {
       setSessionState({
@@ -342,6 +346,8 @@ export const AuthProvider = ({ children }) => {
     setSessionState({
       status: SESSION_STATUS.RECOVERABLE_ERROR,
       deviceChallenge: null,
+      mfaChallenge: null,
+      mfaPolicy: null,
       session: buildFirebaseSessionFallback(firebaseUser),
       intelligence: buildSessionIntelligenceFallback(buildFirebaseSessionFallback(firebaseUser), null, EMPTY_ROLES),
       profile: null,
@@ -406,6 +412,8 @@ export const AuthProvider = ({ children }) => {
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
       deviceChallenge: null,
+      mfaChallenge: null,
+      mfaPolicy: null,
       session: null,
       intelligence: null,
       profile: null,
@@ -442,6 +450,8 @@ export const AuthProvider = ({ children }) => {
     setSessionState({
       status: SESSION_STATUS.SIGNED_OUT,
       deviceChallenge: null,
+      mfaChallenge: null,
+      mfaPolicy: null,
       session: null,
       intelligence: null,
       profile: null,
@@ -500,6 +510,8 @@ export const AuthProvider = ({ children }) => {
       setSessionState((prev) => ({
         status: prev.status === SESSION_STATUS.BOOTSTRAP ? SESSION_STATUS.BOOTSTRAP : SESSION_STATUS.LOADING,
         deviceChallenge: syncStateRef.current.identity === identity ? (prev.deviceChallenge || null) : null,
+        mfaChallenge: syncStateRef.current.identity === identity ? (prev.mfaChallenge || null) : null,
+        mfaPolicy: syncStateRef.current.identity === identity ? (prev.mfaPolicy || null) : null,
         session: syncStateRef.current.identity === identity
           ? (prev.session || sessionFallback)
           : sessionFallback,
@@ -1065,6 +1077,8 @@ export const AuthProvider = ({ children }) => {
       return {
         status: SESSION_STATUS.AUTHENTICATED,
         deviceChallenge: prev.deviceChallenge || null,
+        mfaChallenge: prev.mfaChallenge || null,
+        mfaPolicy: prev.mfaPolicy || null,
         session: prev.session,
         intelligence: buildSessionIntelligenceFallback(prev.session, nextProfile, nextRoles),
         profile: nextProfile,
@@ -1102,6 +1116,8 @@ export const AuthProvider = ({ children }) => {
       setSessionState({
         status: SESSION_STATUS.RECOVERABLE_ERROR,
         deviceChallenge: null,
+        mfaChallenge: null,
+        mfaPolicy: null,
         session: null,
         intelligence: null,
         profile: null,
@@ -1177,6 +1193,8 @@ export const AuthProvider = ({ children }) => {
           ...response,
           status: SESSION_STATUS.AUTHENTICATED,
           deviceChallenge: null,
+          mfaChallenge: null,
+          mfaPolicy: null,
           error: null,
         }, currentUser, identity);
       } else {
@@ -1184,6 +1202,8 @@ export const AuthProvider = ({ children }) => {
           ...prev,
           status: SESSION_STATUS.AUTHENTICATED,
           deviceChallenge: null,
+          mfaChallenge: null,
+          mfaPolicy: null,
           error: null,
         }));
       }
@@ -1203,6 +1223,113 @@ export const AuthProvider = ({ children }) => {
     return response;
   };
 
+  const applyMfaSessionResponse = (response) => {
+    if (!currentUser || !response?.session || !response?.profile || !response?.roles) {
+      return false;
+    }
+
+    const identity = getIdentityKey(
+      currentUser,
+      response?.session?.email || response?.profile?.email || currentUser?.email || ''
+    );
+    applyResolvedSession({
+      ...response,
+      status: SESSION_STATUS.AUTHENTICATED,
+      deviceChallenge: null,
+      mfaChallenge: null,
+      mfaPolicy: null,
+      error: null,
+    }, currentUser, identity);
+    return true;
+  };
+
+  const refreshMfaSecurityCenter = async () => {
+    if (!currentUser) {
+      throw new Error('Sign in before loading MFA settings.');
+    }
+
+    return authApi.getMfaSecurityCenter({ firebaseUser: currentUser });
+  };
+
+  const startTotpSetup = async () => {
+    if (!currentUser) {
+      throw new Error('Sign in before setting up authenticator MFA.');
+    }
+
+    return authApi.setupTotp({ firebaseUser: currentUser });
+  };
+
+  const verifyTotpSetup = async (code) => {
+    if (!currentUser) {
+      throw new Error('Sign in before verifying authenticator MFA.');
+    }
+
+    const response = await authApi.verifyTotpSetup(code, { firebaseUser: currentUser });
+    await refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
+    return response;
+  };
+
+  const registerMfaPasskey = async () => {
+    if (!currentUser) {
+      throw new Error('Sign in before registering a passkey.');
+    }
+
+    const response = await authApi.registerMfaPasskey({ firebaseUser: currentUser });
+    if (!applyMfaSessionResponse(response)) {
+      await refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
+    }
+    return response;
+  };
+
+  const regenerateMfaRecoveryCodes = async () => {
+    if (!currentUser) {
+      throw new Error('Sign in before regenerating MFA recovery codes.');
+    }
+
+    const response = await authApi.regenerateMfaRecoveryCodes({ firebaseUser: currentUser });
+    await refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
+    return response;
+  };
+
+  const verifyMfaTotpChallenge = async ({ challengeId = '', code = '', purpose = 'login', action = '' } = {}) => {
+    if (!currentUser) {
+      throw new Error('Sign in before completing MFA.');
+    }
+
+    const response = await authApi.verifyTotpLogin({ challengeId, code, purpose, action }, {
+      firebaseUser: currentUser,
+      useFirebaseBearer: true,
+    });
+    applyMfaSessionResponse(response);
+    return response;
+  };
+
+  const verifyMfaPasskeyChallenge = async ({ challengeId = '', purpose = 'login', action = '' } = {}) => {
+    if (!currentUser) {
+      throw new Error('Sign in before completing MFA.');
+    }
+
+    const response = await authApi.verifyMfaPasskeyLogin({ challengeId, purpose, action }, {
+      firebaseUser: currentUser,
+      useFirebaseBearer: true,
+    });
+    applyMfaSessionResponse(response);
+    return response;
+  };
+
+  const verifyMfaRecoveryCodeChallenge = async ({ challengeId = '', code = '', purpose = 'login', action = '' } = {}) => {
+    if (!currentUser) {
+      throw new Error('Sign in before completing MFA.');
+    }
+
+    const response = await authApi.verifyMfaRecoveryCode({ challengeId, code, purpose, action }, {
+      firebaseUser: currentUser,
+      useFirebaseBearer: true,
+    });
+    applyMfaSessionResponse(response);
+    return response;
+  };
+
   const isAuthenticated = isAuthenticatedSessionStatus(sessionState.status);
 
   const value = {
@@ -1214,6 +1341,8 @@ export const AuthProvider = ({ children }) => {
     roles: sessionState.roles,
     status: sessionState.status,
     deviceChallenge: sessionState.deviceChallenge,
+    mfaChallenge: sessionState.mfaChallenge,
+    mfaPolicy: sessionState.mfaPolicy,
     sessionError: sessionState.error,
     loading: sessionState.status === SESSION_STATUS.BOOTSTRAP || sessionState.status === SESSION_STATUS.LOADING,
     isAuthenticated,
@@ -1239,6 +1368,14 @@ export const AuthProvider = ({ children }) => {
     deactivateSeller,
     verifyDeviceChallenge,
     generateRecoveryCodes,
+    refreshMfaSecurityCenter,
+    startTotpSetup,
+    verifyTotpSetup,
+    registerMfaPasskey,
+    regenerateMfaRecoveryCodes,
+    verifyMfaTotpChallenge,
+    verifyMfaPasskeyChallenge,
+    verifyMfaRecoveryCodeChallenge,
   };
 
   return (

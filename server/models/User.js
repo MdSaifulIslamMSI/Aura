@@ -57,6 +57,8 @@ const loyaltySchema = mongoose.Schema({
 
 const trustedDeviceSchema = mongoose.Schema({
     deviceId: { type: String, required: true },
+    deviceIdHash: { type: String, default: '' },
+    userAgentHash: { type: String, default: '' },
     label: { type: String, default: '' },
     method: { type: String, enum: ['browser_key', 'webauthn'], default: 'browser_key' },
     algorithm: { type: String, default: 'RSA-PSS-SHA256' },
@@ -70,6 +72,8 @@ const trustedDeviceSchema = mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     lastSeenAt: { type: Date, default: Date.now },
     lastVerifiedAt: { type: Date, default: Date.now },
+    expiresAt: { type: Date, default: null },
+    revokedAt: { type: Date, default: null },
 }, { _id: false });
 
 const recoveryCodeSchema = mongoose.Schema({
@@ -77,6 +81,44 @@ const recoveryCodeSchema = mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     usedAt: { type: Date, default: null },
     usedFor: { type: String, default: '' },
+}, { _id: false });
+
+const mfaPasskeySchema = mongoose.Schema({
+    credentialId: { type: String, default: '' },
+    publicKey: { type: String, default: '', select: false },
+    counter: { type: Number, default: 0, min: 0 },
+    transports: { type: [String], default: [] },
+    deviceType: { type: String, default: '' },
+    backedUp: { type: Boolean, default: false },
+    name: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now },
+    lastUsedAt: { type: Date, default: null },
+    revokedAt: { type: Date, default: null },
+}, { _id: false });
+
+const mfaRecoveryCodeSchema = mongoose.Schema({
+    codeHash: { type: String, default: '', select: false },
+    usedAt: { type: Date, default: null },
+    createdAt: { type: Date, default: Date.now },
+}, { _id: false });
+
+const mfaSchema = mongoose.Schema({
+    enabled: { type: Boolean, default: false },
+    defaultMethod: { type: String, enum: ['passkey', 'totp', ''], default: '' },
+    requiredByPolicy: { type: Boolean, default: false },
+    totp: {
+        enabled: { type: Boolean, default: false },
+        secretEncrypted: { type: String, default: null, select: false },
+        pendingSecretEncrypted: { type: String, default: null, select: false },
+        pendingCreatedAt: { type: Date, default: null },
+        confirmedAt: { type: Date, default: null },
+        lastVerifiedAt: { type: Date, default: null },
+        disabledAt: { type: Date, default: null },
+    },
+    passkeys: { type: [mfaPasskeySchema], default: [] },
+    recoveryCodes: { type: [mfaRecoveryCodeSchema], default: [] },
+    lastMfaAt: { type: Date, default: null },
+    lastMfaMethod: { type: String, enum: ['passkey', 'totp', 'recovery_code', 'email_otp', ''], default: '' },
 }, { _id: false });
 
 const userSchema = mongoose.Schema({
@@ -147,6 +189,7 @@ const userSchema = mongoose.Schema({
         lastUsedAt: { type: Date, default: null },
         activeCount: { type: Number, default: 0, min: 0 },
     },
+    mfa: { type: mfaSchema, default: () => ({}) },
     addresses: [{
         type: { type: String, enum: ['home', 'work', 'other'], default: 'home' },
         name: { type: String, required: true },

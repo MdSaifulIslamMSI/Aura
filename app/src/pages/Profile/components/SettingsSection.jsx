@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Bell, CheckCircle2, Clock3, Copy, Download, KeyRound, Link2, Lock, LogOut, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, Bell, CheckCircle2, Clock3, Copy, Download, KeyRound, Link2, Lock, LogOut, QrCode, ShieldCheck, Smartphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { TogglePref } from './ProfileShared';
@@ -27,6 +27,19 @@ export default function SettingsSection({
     handleCopyRecoveryCodes,
     handleDownloadRecoveryCodes,
     handleClearVisibleRecoveryCodes,
+    mfaStatus = null,
+    mfaFlags = {},
+    mfaPolicy = null,
+    mfaCenterLoading = false,
+    totpSetup = null,
+    totpSetupCode = '',
+    setTotpSetupCode,
+    totpSetupLoading = false,
+    totpVerifyLoading = false,
+    handleStartTotpSetup,
+    handleVerifyTotpSetup,
+    mfaPasskeyWorking = false,
+    handleRegisterMfaPasskey,
     linkedProviderIds = [],
     socialAuthStatus = {},
     providerLinking = '',
@@ -39,7 +52,14 @@ export default function SettingsSection({
     const [marketplaceUpdates, setMarketplaceUpdates] = useState(true);
     const [supportUpdates, setSupportUpdates] = useState(true);
     const hasVisibleRecoveryCodes = recoveryCodes.length > 0;
-    const recoveryReady = hasPasskey && passkeyRecoveryReady && !shouldEnrollRecoveryCodes;
+    const mfaMethods = mfaStatus?.methods || {};
+    const passkeyCount = Number(mfaMethods?.passkey?.count || 0);
+    const totpEnabled = Boolean(mfaMethods?.totp?.enabled);
+    const mfaFactorReady = Boolean(mfaStatus?.enabled || hasPasskey || passkeyCount > 0 || totpEnabled);
+    const recoveryReady = mfaFactorReady && passkeyRecoveryReady && !shouldEnrollRecoveryCodes;
+    const mfaEnabledByDeployment = mfaFlags?.enabled !== false;
+    const passkeyEnabledByDeployment = mfaEnabledByDeployment && mfaFlags?.passkeyEnabled !== false;
+    const totpEnabledByDeployment = mfaEnabledByDeployment && mfaFlags?.totpEnabled !== false;
     const linkedProviderSet = useMemo(() => new Set(linkedProviderIds), [linkedProviderIds]);
     const linkableProviders = useMemo(() => ([
         {
@@ -149,6 +169,114 @@ export default function SettingsSection({
                         </div>
                     ) : null}
 
+                    <div className={`rounded-[1.6rem] border p-4 ${mfaFactorReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-cyan-300/20 bg-cyan-400/10'}`}>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${mfaFactorReady ? 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100' : 'border-cyan-300/25 bg-cyan-400/10 text-cyan-100'}`}>
+                                        {mfaFactorReady ? <CheckCircle2 className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                                        {mfaFactorReady
+                                            ? t('profile.settings.security.mfaReady', {}, 'MFA ready')
+                                            : t('profile.settings.security.mfaAvailable', {}, 'MFA available')}
+                                    </span>
+                                    <span className="text-xs font-semibold text-slate-300">
+                                        {mfaCenterLoading
+                                            ? t('profile.settings.security.mfaChecking', {}, 'Checking factors...')
+                                            : t(
+                                                'profile.settings.security.mfaFactorSummary',
+                                                { passkeys: passkeyCount, totp: totpEnabled ? 1 : 0 },
+                                                `${passkeyCount} passkeys | ${totpEnabled ? 1 : 0} authenticator apps`,
+                                            )}
+                                    </span>
+                                </div>
+                                <p className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                    <ShieldCheck className="h-4 w-4 text-neo-cyan" />
+                                    {t('profile.settings.security.mfaTitle', {}, 'Multi-factor security center')}
+                                </p>
+                                <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
+                                    {mfaPolicy?.reason
+                                        ? t('profile.settings.security.mfaPolicyReason', { reason: mfaPolicy.reason }, `Current policy: ${mfaPolicy.reason}`)
+                                        : t('profile.settings.security.mfaBody', {}, 'Passkeys, authenticator app codes, and one-time recovery codes protect sign-in and sensitive account changes.')}
+                                </p>
+                            </div>
+                            <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
+                                <button
+                                    type="button"
+                                    onClick={handleRegisterMfaPasskey}
+                                    disabled={mfaPasskeyWorking || !passkeyEnabledByDeployment || !handleRegisterMfaPasskey}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <KeyRound className="h-4 w-4" />
+                                    {mfaPasskeyWorking
+                                        ? t('profile.settings.security.passkeyRegistering', {}, 'Registering...')
+                                        : t('profile.settings.security.passkeyRegister', {}, 'Register passkey')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleStartTotpSetup}
+                                    disabled={totpSetupLoading || !totpEnabledByDeployment || !handleStartTotpSetup}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    <Smartphone className="h-4 w-4" />
+                                    {totpSetupLoading
+                                        ? t('profile.settings.security.totpStarting', {}, 'Starting...')
+                                        : totpEnabled
+                                            ? t('profile.settings.security.totpRotate', {}, 'Rotate app key')
+                                            : t('profile.settings.security.totpStart', {}, 'Set up app')}
+                                </button>
+                            </div>
+                        </div>
+
+                        {totpSetup ? (
+                            <div className="mt-4 grid gap-4 rounded-[1.4rem] border border-cyan-300/20 bg-slate-950/45 p-4 md:grid-cols-[auto,1fr]">
+                                {totpSetup.qrCodeDataUrl ? (
+                                    <img
+                                        src={totpSetup.qrCodeDataUrl}
+                                        alt={t('profile.settings.security.totpQrAlt', {}, 'Authenticator setup QR code')}
+                                        className="h-36 w-36 rounded-xl border border-white/10 bg-white p-2"
+                                    />
+                                ) : (
+                                    <div className="flex h-36 w-36 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-cyan-100">
+                                        <QrCode className="h-10 w-10" />
+                                    </div>
+                                )}
+                                <div className="min-w-0 space-y-3">
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
+                                            {t('profile.settings.security.totpPending', {}, 'Authenticator pending')}
+                                        </p>
+                                        <code className="mt-2 block break-all rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-xs font-black tracking-[0.14em] text-cyan-50">
+                                            {totpSetup.manualKey}
+                                        </code>
+                                    </div>
+                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                        <input
+                                            value={totpSetupCode}
+                                            onChange={(event) => setTotpSetupCode?.(event.target.value)}
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code"
+                                            maxLength={8}
+                                            aria-label={t('profile.settings.security.totpCodeLabel', {}, 'Authenticator code')}
+                                            className="min-h-11 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-white outline-none focus:border-cyan-300/40"
+                                            placeholder={t('profile.settings.security.totpCodePlaceholder', {}, '6-digit code')}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleVerifyTotpSetup}
+                                            disabled={totpVerifyLoading || !handleVerifyTotpSetup}
+                                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-400/12 px-4 text-sm font-black text-emerald-100 hover:bg-emerald-400/18 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            <CheckCircle2 className="h-4 w-4" />
+                                            {totpVerifyLoading
+                                                ? t('profile.settings.security.totpVerifying', {}, 'Verifying...')
+                                                : t('profile.settings.security.totpVerify', {}, 'Verify app')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+
                     <div className={`rounded-[1.6rem] border p-4 ${recoveryReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="min-w-0">
@@ -169,23 +297,23 @@ export default function SettingsSection({
                                 </div>
                                 <p className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                                     <ShieldCheck className="h-4 w-4 text-neo-cyan" />
-                                    {t('profile.settings.security.recoveryCodesTitle', {}, 'Passkey backup recovery codes')}
+                                    {t('profile.settings.security.recoveryCodesTitle', {}, 'MFA backup recovery codes')}
                                 </p>
                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
-                                    {hasPasskey
-                                        ? t('profile.settings.security.recoveryCodesBody', {}, 'Generate one-time backup codes so a passkey account has a recovery path that still stays server-gated and single-use.')
-                                        : t('profile.settings.security.recoveryCodesPasskeyFirst', {}, 'Add a passkey first. Backup recovery codes are only available after the account has hardware-backed authentication.')}
+                                    {mfaFactorReady
+                                        ? t('profile.settings.security.recoveryCodesBody', {}, 'Generate one-time backup codes so this MFA account has a recovery path that still stays server-gated and single-use.')
+                                        : t('profile.settings.security.recoveryCodesPasskeyFirst', {}, 'Add a passkey or authenticator app first. Backup recovery codes are available after MFA is enrolled.')}
                                 </p>
                                 {shouldEnrollRecoveryCodes ? (
                                     <p className="mt-2 text-[11px] font-semibold text-amber-100">
-                                        {t('profile.settings.security.recoveryCodesEnrollHint', {}, 'This account has passkey protection but no backup codes yet. Generate them after a fresh passkey checkpoint.')}
+                                        {t('profile.settings.security.recoveryCodesEnrollHint', {}, 'This account has MFA protection but no backup codes yet. Generate them after a fresh security checkpoint.')}
                                     </p>
                                 ) : null}
                             </div>
                             <button
                                 type="button"
                                 onClick={handleGenerateRecoveryCodes}
-                                disabled={recoveryCodesGenerating || !hasPasskey || !handleGenerateRecoveryCodes}
+                                disabled={recoveryCodesGenerating || !mfaFactorReady || !handleGenerateRecoveryCodes}
                                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 <KeyRound className="h-4 w-4" />
