@@ -28,6 +28,7 @@ import DesktopWelcomePanel from './components/shared/DesktopWelcomePanel';
 import MobileUpdateBanner from './components/shared/MobileUpdateBanner';
 import MobileNativeTabBar from './components/shared/MobileNativeTabBar';
 import SecurePathDock from './components/shared/SecurePathDock';
+import PremiumWelcomeCurtain from './components/welcome/PremiumWelcomeCurtain';
 import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDeviceChallenge';
 import { trustRoutes } from './config/trustContent';
 import { FRONTEND_LAUNCH_HUB_PATH } from './config/frontendTargets';
@@ -234,6 +235,7 @@ function AppContent() {
         isNativeMobile ? 'aura-native-mobile-shell' : '',
       ].filter(Boolean).join(' ')}
     >
+      <PremiumWelcomeCurtain />
       {/* Skip-to-main-content — first focusable element for keyboard/screen-reader users.
           Hidden by default, revealed on focus via sr-only + focus:not-sr-only pattern. */}
       <a

@@ -16468,6 +16468,51 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Waiting for your command...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "welcomeCurtain.action.skip": {
+        id: "welcomeCurtain.action.skip",
+        defaultMessage: "Skip",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "welcomeCurtain.ariaLabel": {
+        id: "welcomeCurtain.ariaLabel",
+        defaultMessage: "Welcome to Aura",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "welcomeCurtain.kicker": {
+        id: "welcomeCurtain.kicker",
+        defaultMessage: "Secured. Fast. Premium.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "welcomeCurtain.message.ready": {
+        id: "welcomeCurtain.message.ready",
+        defaultMessage: "Your premium experience is ready",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "welcomeCurtain.message.thanks": {
+        id: "welcomeCurtain.message.thanks",
+        defaultMessage: "Thanks for visiting",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "welcomeCurtain.message.welcome": {
+        id: "welcomeCurtain.message.welcome",
+        defaultMessage: "Welcome to Aura",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "welcomeCurtain.soundOff": {
+        id: "welcomeCurtain.soundOff",
+        defaultMessage: "Sound off",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "welcomeCurtain.soundOn": {
+        id: "welcomeCurtain.soundOn",
+        defaultMessage: "Sound on",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "welcomeCurtain.subcopy": {
+        id: "welcomeCurtain.subcopy",
+        defaultMessage: "A polished marketplace session is ready for you.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "wishlist.addToBag": {
         id: "wishlist.addToBag",
         defaultMessage: "Add to Bag",
