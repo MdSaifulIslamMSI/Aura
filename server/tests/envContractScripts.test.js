@@ -68,6 +68,17 @@ const writeTempEnvFile = (contents) => {
     return file;
 };
 
+const readEnvExample = (relativePath) => Object.fromEntries(
+    fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith('#') && line.includes('='))
+        .map((line) => {
+            const separatorIndex = line.indexOf('=');
+            return [line.slice(0, separatorIndex), line.slice(separatorIndex + 1)];
+        })
+);
+
 const blankAuthSmokeEnv = {
     AUTH_PROVIDER: '',
     AUTH_ISSUER_URL: '',
@@ -222,6 +233,59 @@ describe('repo environment contract scripts', () => {
 
         expect(result.status).toBe(0);
         expect(result.output).toMatch(/PASS: staging smoke contract is safe/);
+    });
+
+    test('MFA staging activation contract enables only staging defaults', () => {
+        const staging = readEnvExample('config/environments/staging.example.env');
+        const production = readEnvExample('config/environments/production.example.env');
+
+        expect(staging).toMatchObject({
+            MFA_ENABLED: 'true',
+            MFA_TOTP_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+            MFA_RECOVERY_CODES_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'false',
+            MFA_REQUIRED_FOR_SELLERS: 'false',
+            MFA_EMAIL_OTP_FALLBACK_ENABLED: 'false',
+        });
+        expect(staging.MFA_SECRET_ENCRYPTION_KEY).toMatch(/staging-ssm-securestring/i);
+
+        expect(production).toMatchObject({
+            MFA_ENABLED: 'false',
+            MFA_TOTP_ENABLED: 'false',
+            MFA_PASSKEY_ENABLED: 'false',
+            MFA_REQUIRED_FOR_ADMINS: 'false',
+            MFA_REQUIRED_FOR_SELLERS: 'false',
+            MFA_EMAIL_OTP_FALLBACK_ENABLED: 'false',
+        });
+    });
+
+    test('staging SSM bootstrap fails closed unless MFA secret is present', () => {
+        const script = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
+
+        expect(script).toContain('ensure_mfa_secret_exists');
+        expect(script).toContain('STAGING_MFA_SECRET_ENCRYPTION_KEY');
+        expect(script).toContain('$STAGING_SSM_PREFIX/MFA_SECRET_ENCRYPTION_KEY');
+        expect(script).toContain('ssm get-parameter');
+        expect(script).toContain('put_string MFA_ENABLED true');
+        expect(script).toContain('put_string MFA_TOTP_ENABLED true');
+        expect(script).toContain('put_string MFA_PASSKEY_ENABLED true');
+        expect(script).toContain('put_string MFA_RECOVERY_CODES_ENABLED true');
+        expect(script).toContain('put_string MFA_REQUIRED_FOR_ADMINS false');
+        expect(script).toContain('put_string MFA_REQUIRED_FOR_SELLERS false');
+        expect(script).toContain('put_string MFA_EMAIL_OTP_FALLBACK_ENABLED false');
+        expect(script).not.toContain('put_string MFA_REQUIRED_FOR_ADMINS true');
+    });
+
+    test('MFA secret generator emits a 32-byte base64 value', () => {
+        const result = runScript('scripts/security/generate-mfa-secret.mjs', {}, ['--bytes', '32']);
+        const secret = result.output.trim();
+        const decoded = Buffer.from(secret, 'base64');
+
+        expect(result.status).toBe(0);
+        expect(decoded).toHaveLength(32);
+        expect(decoded.toString('base64')).toBe(secret);
+        expect(secret).not.toMatch(/replace|change|placeholder/i);
     });
 
     test('staging Keycloak auth smoke skips with an explicit reason when env is absent', () => {

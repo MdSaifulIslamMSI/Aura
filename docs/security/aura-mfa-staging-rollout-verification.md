@@ -34,6 +34,10 @@ MFA_SECRET_ENCRYPTION_KEY=<strong-32-byte-or-longer-random-key>
 Generate one with either command:
 
 ```sh
+node scripts/security/generate-mfa-secret.mjs --bytes 32 --format base64
+```
+
+```sh
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
@@ -62,6 +66,8 @@ Production remains:
 ```sh
 MFA_ENABLED=false
 ```
+
+For the staging activation runbook, see `docs/security/aura-mfa-staging-activation.md`.
 
 ## Manual Test Matrix
 

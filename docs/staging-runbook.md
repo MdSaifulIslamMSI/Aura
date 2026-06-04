@@ -68,6 +68,18 @@ STAGING_FRONTEND_URL=$STAGING_API_BASE_URL npm run smoke:staging:frontend
 
 The Docker frontend serves `/` from `nginx:alpine` on localhost and keeps `/api`, `/health`, `/uploads`, and `/socket.io` routed to the isolated AWS staging backend. A generated Vercel Preview URL is staging only after the autopilot proves the required env wiring and `npm run smoke:staging:frontend` proves those backend paths route to AWS staging instead of production.
 
+## Aura MFA Staging Activation
+
+Aura MFA is staged behind staging-only SSM parameters. Before running `scripts/staging/03-put-ssm-params.sh` with MFA enabled, confirm `/aura/staging/MFA_SECRET_ENCRYPTION_KEY` exists as a SecureString without printing its value:
+
+```sh
+aws ssm get-parameter --region ap-south-1 --name /aura/staging/MFA_SECRET_ENCRYPTION_KEY --query "Parameter.{Name:Name,Type:Type,Version:Version,LastModifiedDate:LastModifiedDate}" --output json
+```
+
+Generate a key with `npm run security:mfa-secret` and store it only in staging SSM if the parameter is missing. The staging SSM bootstrap writes `MFA_ENABLED=true`, TOTP, passkeys, and recovery codes on for staging while keeping `MFA_REQUIRED_FOR_ADMINS=false` for the first test pass.
+
+See `docs/security/aura-mfa-staging-activation.md` for the Microsoft Authenticator checklist, admin step-up follow-up, and rollback command.
+
 ## Operations
 
 Run a staging backup:
