@@ -1,4 +1,5 @@
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const request = require('supertest');
 const { requireSensitiveAction } = require('../middleware/sensitiveActionMiddleware');
 const { SENSITIVE_ACTION_CATEGORIES } = require('../config/sensitiveActionPolicy');
@@ -11,6 +12,12 @@ jest.mock('../utils/logger', () => ({
 }));
 
 const ORIGINAL_ENV = { ...process.env };
+const testRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 1000,
+    standardHeaders: false,
+    legacyHeaders: false,
+});
 
 const buildApp = ({
     user,
@@ -33,7 +40,7 @@ const buildApp = ({
         };
         next();
     });
-    app.post(route, requireSensitiveAction({
+    app.post(route, testRateLimiter, requireSensitiveAction({
         action,
         category,
         riskLevel,

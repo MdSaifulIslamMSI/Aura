@@ -161,7 +161,7 @@ const beginTotpSetup = async ({ userId } = {}) => {
     const user = await User.findById(userId, 'email mfa').lean();
     if (!user?._id) throw new AppError('User not found.', 404);
 
-    const secret = generateTotpSecret(user);
+    const secret = generateTotpSecret();
     await User.updateOne(
         { _id: user._id },
         {
