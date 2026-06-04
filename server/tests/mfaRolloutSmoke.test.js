@@ -1,4 +1,5 @@
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const request = require('supertest');
 const User = require('../models/User');
 const { SENSITIVE_ACTION_CATEGORIES } = require('../config/sensitiveActionPolicy');
@@ -21,6 +22,12 @@ jest.mock('../utils/logger', () => ({
 const ORIGINAL_ENV = { ...process.env };
 const MFA_SECRET = 'R0lloutMfaKey32CharsPlusAlpha999';
 const RECOVERY_SECRET = 'rollout-recovery-secret-32-characters-plus';
+const testRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 1000,
+    standardHeaders: false,
+    legacyHeaders: false,
+});
 
 const applyMfaEnv = (overrides = {}) => {
     process.env = {
@@ -108,7 +115,7 @@ const buildAdminStepUpApp = () => {
         };
         next();
     });
-    app.post('/api/admin/payments/payouts/change', requireSensitiveAction({
+    app.post('/api/admin/payments/payouts/change', testRateLimiter, requireSensitiveAction({
         action: 'admin.payments.payout.change',
         category: SENSITIVE_ACTION_CATEGORIES.PAYMENT_PAYOUT_CHANGE,
         riskLevel: 'critical',
