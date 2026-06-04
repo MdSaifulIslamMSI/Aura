@@ -1,4 +1,5 @@
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const {
     establishSessionCookie,
     generateBackupRecoveryCodes,
@@ -54,6 +55,15 @@ const csrfTokenValidatorForCookieSession = (req, res, next) => {
     }
     return csrfTokenValidator(req, res, next);
 };
+
+const authGuardRateLimit = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: process.env.NODE_ENV === 'development' ? 1000 : 500,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { message: 'Too many authentication requests. Please try again shortly.' },
+});
 
 const authSyncLimiter = createDistributedRateLimit({
     securityCritical: true,
@@ -205,28 +215,28 @@ router.get('/enterprise/callback', enterpriseOidcLimiter, completeEnterpriseLogi
 router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, issueDesktopHandoffToken);
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
-router.post('/sync', authSyncLimiter, protect, csrfTokenValidatorUnlessBearerAuth, validate(loginSchema), syncSession);
+router.post('/sync', authGuardRateLimit, authSyncLimiter, protect, csrfTokenValidatorUnlessBearerAuth, validate(loginSchema), syncSession);
 router.post('/logout', protectOptional, authenticatedSessionMutationLimiter, csrfTokenValidatorForCookieSession, logoutSession);
 router.post('/bootstrap-device-challenge', requireTurnstile({ routeName: 'auth_bootstrap_device_challenge' }), bootstrapDeviceChallengeLimiter, requestBootstrapDeviceChallenge);
 router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authenticatedSessionMutationLimiter, sensitiveActions.accountRecoveryChange, generateBackupRecoveryCodes);
 router.post('/recovery-codes/verify', requireTurnstile({ routeName: 'auth_recovery_code_verify' }), recoveryCodeLimiter, verifyBackupRecoveryCode);
-router.get('/mfa', mfaChallengeLimiter, protect, establishSessionCookie, csrfTokenGenerator, getMfaSecurityCenter);
-router.post('/mfa/step-up', mfaChallengeLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, createStepUpChallenge);
-router.post('/mfa/totp/setup', authenticatedSessionMutationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, setupTotp);
-router.get('/mfa/totp/qr', mfaChallengeLimiter, protect, establishSessionCookie, getTotpQr);
-router.post('/mfa/totp/verify-setup', mfaVerifyLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, verifyTotpSetup);
-router.post('/mfa/totp/verify-login', mfaVerifyLimiter, protect, csrfTokenValidatorUnlessBearerAuth, verifyTotpLogin);
-router.post('/mfa/totp/disable', authenticatedSessionMutationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, disableTotp);
-router.post('/mfa/passkey/register/options', mfaChallengeLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, passkeyRegisterOptions);
-router.post('/mfa/passkey/register/verify', trustedDeviceVerificationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, passkeyRegisterVerify);
-router.post('/mfa/passkey/login/options', mfaChallengeLimiter, protect, csrfTokenValidatorUnlessBearerAuth, passkeyLoginOptions);
-router.post('/mfa/passkey/login/verify', trustedDeviceVerificationLimiter, protect, csrfTokenValidatorUnlessBearerAuth, passkeyLoginVerify);
-router.post('/mfa/passkey/remove', authenticatedSessionMutationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, passkeyRemove);
-router.post('/mfa/recovery/regenerate', authenticatedSessionMutationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.accountRecoveryChange, recoveryRegenerate);
-router.post('/mfa/recovery/verify', mfaVerifyLimiter, protect, csrfTokenValidatorUnlessBearerAuth, recoveryVerify);
+router.get('/mfa', authGuardRateLimit, mfaChallengeLimiter, protect, establishSessionCookie, csrfTokenGenerator, getMfaSecurityCenter);
+router.post('/mfa/step-up', authGuardRateLimit, mfaChallengeLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, createStepUpChallenge);
+router.post('/mfa/totp/setup', authGuardRateLimit, authenticatedSessionMutationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, setupTotp);
+router.get('/mfa/totp/qr', authGuardRateLimit, mfaChallengeLimiter, protect, establishSessionCookie, getTotpQr);
+router.post('/mfa/totp/verify-setup', authGuardRateLimit, mfaVerifyLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, verifyTotpSetup);
+router.post('/mfa/totp/verify-login', authGuardRateLimit, mfaVerifyLimiter, protect, csrfTokenValidatorUnlessBearerAuth, verifyTotpLogin);
+router.post('/mfa/totp/disable', authGuardRateLimit, authenticatedSessionMutationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, disableTotp);
+router.post('/mfa/passkey/register/options', authGuardRateLimit, mfaChallengeLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, passkeyRegisterOptions);
+router.post('/mfa/passkey/register/verify', authGuardRateLimit, trustedDeviceVerificationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, passkeyRegisterVerify);
+router.post('/mfa/passkey/login/options', authGuardRateLimit, mfaChallengeLimiter, protect, csrfTokenValidatorUnlessBearerAuth, passkeyLoginOptions);
+router.post('/mfa/passkey/login/verify', authGuardRateLimit, trustedDeviceVerificationLimiter, protect, csrfTokenValidatorUnlessBearerAuth, passkeyLoginVerify);
+router.post('/mfa/passkey/remove', authGuardRateLimit, authenticatedSessionMutationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, passkeyRemove);
+router.post('/mfa/recovery/regenerate', authGuardRateLimit, authenticatedSessionMutationLimiter, protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.accountRecoveryChange, recoveryRegenerate);
+router.post('/mfa/recovery/verify', authGuardRateLimit, mfaVerifyLimiter, protect, csrfTokenValidatorUnlessBearerAuth, recoveryVerify);
 router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorVerification);
-router.post('/verify-device', trustedDeviceVerificationLimiter, protect, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, verifyDeviceChallenge);
+router.post('/verify-device', authGuardRateLimit, trustedDeviceVerificationLimiter, protect, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;
