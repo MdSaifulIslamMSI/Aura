@@ -23,4 +23,4 @@ MFA challenge responses do not create final browser sessions. A final browser se
 
 ## Operations
 
-Use the implementation note for rollout and verification: `docs/security/aura-way-mfa-implementation.md`.
+Use `docs/security/aura-way-mfa-implementation.md` for architecture and `docs/security/aura-mfa-staging-rollout-verification.md` for staging rollout proof.

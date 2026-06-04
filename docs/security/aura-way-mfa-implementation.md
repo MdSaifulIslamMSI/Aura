@@ -83,6 +83,8 @@ MFA_SECRET_ENCRYPTION_KEY=
 5. Turn on `MFA_REQUIRED_FOR_ADMINS=true` for staging admins.
 6. Roll to production admin accounts first, then sellers, then optional buyer enrollment.
 
+Use `docs/security/aura-mfa-staging-rollout-verification.md` for the staging secret, manual device matrix, rollback command, and admin lockout recovery procedure.
+
 ## Rollback
 
 - Disable enforcement with `MFA_ENABLED=false`.
@@ -96,6 +98,12 @@ Focused server:
 
 ```sh
 npm --prefix server test -- --runTestsByPath tests/mfaPolicyService.test.js tests/mfaChallengeService.test.js tests/totpMfaService.test.js tests/authRecoveryCodeService.test.js tests/authEnvironment.test.js tests/sensitiveActionMiddleware.test.js tests/authRoutes.integration.test.js --forceExit
+```
+
+Staging rollout smoke:
+
+```sh
+npm --prefix server test -- --runTestsByPath tests/mfaRolloutSmoke.test.js --forceExit
 ```
 
 Focused app:
