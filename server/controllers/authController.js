@@ -1036,15 +1036,17 @@ const syncSession = asyncHandler(async (req, res) => {
         riskDecision: loginRisk.risk,
     });
 
-    await persistBrowserSessionForUser({
-        req,
-        res,
-        user,
-        rotate: Boolean(req.authSession?.sessionId),
-        stepUpUntil: user?.loginOtpAssuranceExpiresAt || null,
-        additionalAmr: String(user?.authAssurance || '').trim() === 'password+otp' ? ['otp'] : [],
-        riskState: loginRisk.riskState,
-    });
+    if (status === 'authenticated') {
+        await persistBrowserSessionForUser({
+            req,
+            res,
+            user,
+            rotate: Boolean(req.authSession?.sessionId),
+            stepUpUntil: user?.loginOtpAssuranceExpiresAt || null,
+            additionalAmr: String(user?.authAssurance || '').trim() === 'password+otp' ? ['otp'] : [],
+            riskState: loginRisk.riskState,
+        });
+    }
 
     recordAuthSecurityEvent({
         event: 'login_session',

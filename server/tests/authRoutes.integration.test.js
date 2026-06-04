@@ -589,13 +589,40 @@ describe('Auth sync lattice challenge policy', () => {
             mode: 'assert',
             deviceId: 'device-test-1234',
         });
+        const refreshBrowserSession = jest.fn().mockImplementation(({
+            riskState = '',
+            deviceMethod = '',
+            stepUpUntil = null,
+            additionalAmr = [],
+        } = {}) => Promise.resolve({
+            sessionId: 'session-created-1',
+            firebaseUid: 'uid-verified',
+            email: 'verified@example.com',
+            emailVerified: true,
+            displayName: 'Verified User',
+            phoneNumber: '+919876543210',
+            providerIds: ['password'],
+            deviceId: 'device-test-1234',
+            deviceMethod,
+            amr: ['password', ...additionalAmr],
+            riskState: riskState || 'standard',
+            stepUpUntil,
+        }));
+        const revokeBrowserSession = jest.fn().mockResolvedValue(undefined);
 
-        jest.dontMock('../services/browserSessionService');
         jest.isolateModules(() => {
             process.env.AUTH_DEVICE_CHALLENGE_MODE = challengeMode;
             process.env.AUTH_LATTICE_CHALLENGE_MODE = '';
             process.env.AUTH_RISK_ENGINE_MODE = riskEngineMode;
             process.env.AUTH_RISK_SIGNAL_SECRET = riskSignalSecret;
+
+            jest.doMock('../services/browserSessionService', () => ({
+                SESSION_STEP_UP_TTL_MS: 10 * 60 * 1000,
+                clearBrowserSessionCookie: jest.fn(),
+                getBrowserSessionFromRequest: jest.fn(),
+                refreshBrowserSession,
+                revokeBrowserSession,
+            }));
 
             jest.doMock('../services/authSessionService', () => {
                 const actual = jest.requireActual('../services/authSessionService');
@@ -658,11 +685,11 @@ describe('Auth sync lattice challenge policy', () => {
             isolatedApp.use(errorHandler);
         });
 
-        return { isolatedApp, issueTrustedDeviceChallenge };
+        return { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession, revokeBrowserSession };
     };
 
     test('POST /api/auth/sync does not require trusted device challenge by default', async () => {
-        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp();
+        const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp();
 
         const res = await request(isolatedApp)
             .post('/api/auth/sync')
@@ -672,10 +699,12 @@ describe('Auth sync lattice challenge policy', () => {
         expect(res.body.status).toBe('authenticated');
         expect(res.body.deviceChallenge).toBeNull();
         expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+        expect(refreshBrowserSession).toHaveBeenCalledTimes(1);
+        expect(res.body.session.sessionId).toBe('session-created-1');
     });
 
     test('POST /api/auth/sync can require trusted device challenge when policy is always', async () => {
-        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({ challengeMode: 'always' });
+        const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp({ challengeMode: 'always' });
 
         const res = await request(isolatedApp)
             .post('/api/auth/sync')
@@ -691,6 +720,9 @@ describe('Auth sync lattice challenge policy', () => {
             deviceId: 'device-test-1234',
         });
         expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
+        expect(res.headers['set-cookie']).toBeUndefined();
+        expect(res.body.session.sessionId).toBeUndefined();
     });
 
     test('POST /api/auth/sync accepts an existing stepped-up browser session for the same device', async () => {
@@ -758,7 +790,7 @@ describe('Auth sync lattice challenge policy', () => {
             timestamp,
             secret: riskSignalSecret,
         });
-        const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({
+        const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp({
             riskEngineMode: 'enforce',
             riskSignalSecret,
         });
@@ -773,7 +805,6 @@ describe('Auth sync lattice challenge policy', () => {
 
         expect(res.statusCode).toBe(200);
         expect(res.body.status).toBe('device_challenge_required');
-        expect(res.body.session.riskState).toBe('login_risk_high');
         expect(res.body.deviceChallenge).toEqual({
             token: expect.any(String),
             challenge: expect.any(String),
@@ -781,6 +812,9 @@ describe('Auth sync lattice challenge policy', () => {
             deviceId: 'device-test-1234',
         });
         expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
+        expect(res.headers['set-cookie']).toBeUndefined();
+        expect(res.body.session.sessionId).toBeUndefined();
     });
 });
 

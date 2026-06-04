@@ -162,14 +162,14 @@ router.get('/enterprise/callback', enterpriseOidcLimiter, completeEnterpriseLogi
 router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, issueDesktopHandoffToken);
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
-router.post('/sync', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);
+router.post('/sync', protect, csrfTokenValidatorUnlessBearerAuth, authSyncLimiter, validate(loginSchema), syncSession);
 router.post('/logout', protectOptional, authenticatedSessionMutationLimiter, csrfTokenValidatorForCookieSession, logoutSession);
 router.post('/bootstrap-device-challenge', requireTurnstile({ routeName: 'auth_bootstrap_device_challenge' }), bootstrapDeviceChallengeLimiter, requestBootstrapDeviceChallenge);
 router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authenticatedSessionMutationLimiter, sensitiveActions.accountRecoveryChange, generateBackupRecoveryCodes);
 router.post('/recovery-codes/verify', requireTurnstile({ routeName: 'auth_recovery_code_verify' }), recoveryCodeLimiter, verifyBackupRecoveryCode);
 router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorVerification);
-router.post('/verify-device', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, trustedDeviceVerificationLimiter, sensitiveActions.authFactorChange, verifyDeviceChallenge);
+router.post('/verify-device', protect, csrfTokenValidatorUnlessBearerAuth, trustedDeviceVerificationLimiter, sensitiveActions.authFactorChange, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;
