@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "ਬੈਕਅੱਪ ਰਿਕਵਰੀ ਕੋਡ ਡਾਊਨਲੋਡ ਕੀਤੇ ਗਏ।",
   "profile.message.recoveryCodesFailed": "ਬੈਕਅੱਪ ਰਿਕਵਰੀ ਕੋਡ ਤਿਆਰ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ। ਪਾਸਕੀ ਚੈੱਕਪੁਆਇੰਟ ਨੂੰ ਪੂਰਾ ਕਰੋ ਅਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "profile.message.recoveryCodesGenerated": "{count} ਬੈਕਅੱਪ ਰਿਕਵਰੀ ਕੋਡ ਤਿਆਰ ਕੀਤੇ ਗਏ। ਹੁਣ ਉਹਨਾਂ ਨੂੰ ਬਚਾਓ; ਉਹ ਸਿਰਫ਼ ਇੱਕ ਵਾਰ ਦਿਖਾਏ ਗਏ ਹਨ।",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "ਬੈਕਅੱਪ ਰਿਕਵਰੀ ਕੋਡ ਬਣਾਉਣ ਤੋਂ ਪਹਿਲਾਂ ਇੱਕ ਪਾਸਕੀ ਜੋੜੋ।",
   "profile.message.recoveryCodesUnavailable": "ਰਿਕਵਰੀ-ਕੋਡ ਸੈੱਟਅੱਪ ਅਜੇ ਇਸ ਸੈਸ਼ਨ ਵਿੱਚ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।",
   "profile.message.secureRecoveryFailed": "ਸੁਰੱਖਿਅਤ ਰਿਕਵਰੀ ਨੂੰ ਖੋਲ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ।",

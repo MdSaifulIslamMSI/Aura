@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "ಬ್ಯಾಕಪ್ ಮರುಪಡೆಯುವಿಕೆ ಕೋಡ್‌ಗಳನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾಗಿದೆ.",
   "profile.message.recoveryCodesFailed": "ಬ್ಯಾಕಪ್ ಮರುಪಡೆಯುವಿಕೆ ಕೋಡ್‌ಗಳನ್ನು ರಚಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಪಾಸ್‌ಕೀ ಚೆಕ್‌ಪಾಯಿಂಟ್ ಅನ್ನು ಪೂರ್ಣಗೊಳಿಸಿ ಮತ್ತು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
   "profile.message.recoveryCodesGenerated": "{count} ಬ್ಯಾಕಪ್ ಮರುಪ್ರಾಪ್ತಿ ಕೋಡ್‌ಗಳನ್ನು ರಚಿಸಲಾಗಿದೆ. ಈಗ ಅವುಗಳನ್ನು ಉಳಿಸಿ; ಅವುಗಳನ್ನು ಒಮ್ಮೆ ಮಾತ್ರ ತೋರಿಸಲಾಗುತ್ತದೆ.",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "ಬ್ಯಾಕಪ್ ಮರುಪಡೆಯುವಿಕೆ ಕೋಡ್‌ಗಳನ್ನು ರಚಿಸುವ ಮೊದಲು ಪಾಸ್‌ಕೀ ಸೇರಿಸಿ.",
   "profile.message.recoveryCodesUnavailable": "ಈ ಸೆಶನ್‌ನಲ್ಲಿ ರಿಕವರಿ-ಕೋಡ್ ಸೆಟಪ್ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ.",
   "profile.message.secureRecoveryFailed": "ಸುರಕ್ಷಿತ ಚೇತರಿಕೆ ತೆರೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",

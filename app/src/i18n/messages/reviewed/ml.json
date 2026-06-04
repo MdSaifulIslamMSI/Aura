@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "ബാക്കപ്പ് വീണ്ടെടുക്കൽ കോഡുകൾ ഡൗൺലോഡ് ചെയ്തു.",
   "profile.message.recoveryCodesFailed": "ബാക്കപ്പ് വീണ്ടെടുക്കൽ കോഡുകൾ സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല. പാസ്‌കീ ചെക്ക്‌പോയിൻ്റ് പൂർത്തിയാക്കി വീണ്ടും ശ്രമിക്കുക.",
   "profile.message.recoveryCodesGenerated": "{count} ബാക്കപ്പ് വീണ്ടെടുക്കൽ കോഡുകൾ സൃഷ്ടിച്ചു. ഇപ്പോൾ അവരെ രക്ഷിക്കൂ; അവ ഒരിക്കൽ മാത്രം കാണിക്കുന്നു.",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "ബാക്കപ്പ് വീണ്ടെടുക്കൽ കോഡുകൾ സൃഷ്ടിക്കുന്നതിന് മുമ്പ് ഒരു പാസ്‌കീ ചേർക്കുക.",
   "profile.message.recoveryCodesUnavailable": "വീണ്ടെടുക്കൽ കോഡ് സജ്ജീകരണം ഈ സെഷനിൽ ഇതുവരെ ലഭ്യമല്ല.",
   "profile.message.secureRecoveryFailed": "സുരക്ഷിത വീണ്ടെടുക്കൽ തുറക്കാൻ കഴിഞ്ഞില്ല.",

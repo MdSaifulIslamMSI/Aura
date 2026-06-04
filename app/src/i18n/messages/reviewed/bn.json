@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "ব্যাকআপ রিকভারি কোড ডাউনলোড করা হয়েছে।",
   "profile.message.recoveryCodesFailed": "ব্যাকআপ পুনরুদ্ধার কোড তৈরি করা যায়নি। পাসকি চেকপয়েন্ট সম্পূর্ণ করুন এবং আবার চেষ্টা করুন।",
   "profile.message.recoveryCodesGenerated": "{count} ব্যাকআপ পুনরুদ্ধার কোড তৈরি করা হয়েছে। এখন তাদের সংরক্ষণ করুন; তারা শুধুমাত্র একবার দেখানো হয়.",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "ব্যাকআপ পুনরুদ্ধার কোড তৈরি করার আগে একটি পাসকি যোগ করুন।",
   "profile.message.recoveryCodesUnavailable": "পুনরুদ্ধার-কোড সেটআপ এখনও এই সেশনে উপলব্ধ নেই৷",
   "profile.message.secureRecoveryFailed": "নিরাপদ পুনরুদ্ধার খুলতে পারেনি৷",

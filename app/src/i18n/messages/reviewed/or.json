@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "ବ୍ୟାକଅପ୍ ପୁନରୁଦ୍ଧାର କୋଡ୍ ଡାଉନଲୋଡ୍ ହୋଇଛି |",
   "profile.message.recoveryCodesFailed": "ବ୍ୟାକଅପ୍ ପୁନରୁଦ୍ଧାର କୋଡ୍ ସୃଷ୍ଟି କରିପାରିବ ନାହିଁ | ପାସ୍କି ଚେକ୍ ପଏଣ୍ଟ ସଂପୂର୍ଣ୍ଣ କରନ୍ତୁ ଏବଂ ପୁନର୍ବାର ଚେଷ୍ଟା କରନ୍ତୁ |",
   "profile.message.recoveryCodesGenerated": "{count} ବ୍ୟାକଅପ୍ ପୁନରୁଦ୍ଧାର କୋଡ୍ ସୃଷ୍ଟି | ସେମାନଙ୍କୁ ବର୍ତ୍ତମାନ ସଞ୍ଚୟ କର; ସେଗୁଡ଼ିକ କେବଳ ଥରେ ଦେଖାଯାଏ |",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "ବ୍ୟାକଅପ୍ ପୁନରୁଦ୍ଧାର କୋଡ୍ ସୃଷ୍ଟି କରିବା ପୂର୍ବରୁ ଏକ ପାସ୍କି ଯୋଡନ୍ତୁ |",
   "profile.message.recoveryCodesUnavailable": "ଏହି ଅଧିବେଶନରେ ପୁନରୁଦ୍ଧାର-କୋଡ୍ ସେଟଅପ୍ ଉପଲବ୍ଧ ନାହିଁ |",
   "profile.message.secureRecoveryFailed": "ସୁରକ୍ଷିତ ପୁନରୁଦ୍ଧାର ଖୋଲିପାରିଲା ନାହିଁ |",

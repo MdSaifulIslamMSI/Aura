@@ -844,7 +844,6 @@ const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
   'profile.payments.activity.order': 'Order #{{id}}',
   'profile.payments.activity.refundStatus': 'Refund status: {{status}}',
   'profile.message.netbankingCatalogFailed': 'Failed to load netbanking banks.',
-  'profile.message.recoveryCodesNeedMfa': 'Add a passkey or authenticator app before generating backup recovery codes.',
   'profile.message.totpUnavailable': 'Authenticator app setup is not available in this session.',
   'profile.message.totpSetupStarted': 'Authenticator app setup started.',
   'profile.message.totpSetupFailed': 'Could not start authenticator app setup.',

@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "બેકઅપ પુનઃપ્રાપ્તિ કોડ ડાઉનલોડ કર્યા.",
   "profile.message.recoveryCodesFailed": "બેકઅપ પુનઃપ્રાપ્તિ કોડ્સ જનરેટ કરી શકાયા નથી. પાસકી ચેકપોઇન્ટ પૂર્ણ કરો અને ફરી પ્રયાસ કરો.",
   "profile.message.recoveryCodesGenerated": "{count} બેકઅપ પુનઃપ્રાપ્તિ કોડ જનરેટ થયા. હવે તેમને સાચવો; તેઓ માત્ર એક જ વાર બતાવવામાં આવે છે.",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "બેકઅપ પુનઃપ્રાપ્તિ કોડ્સ જનરેટ કરતા પહેલા પાસકી ઉમેરો.",
   "profile.message.recoveryCodesUnavailable": "પુનઃપ્રાપ્તિ-કોડ સેટઅપ હજુ સુધી આ સત્રમાં ઉપલબ્ધ નથી.",
   "profile.message.secureRecoveryFailed": "સુરક્ષિત પુનઃપ્રાપ્તિ ખોલી શકાઈ નથી.",

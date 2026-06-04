@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "বেকআপ পুনৰুদ্ধাৰ ক'ডসমূহ ডাউনলোড কৰা হৈছে।",
   "profile.message.recoveryCodesFailed": "বেকআপ পুনৰুদ্ধাৰ ক'ড সৃষ্টি কৰিব পৰা নগ'ল। পাছকি চেকপইণ্ট সম্পূৰ্ণ কৰক আৰু পুনৰ চেষ্টা কৰক।",
   "profile.message.recoveryCodesGenerated": "{count} বেকআপ পুনৰুদ্ধাৰ ক'ডসমূহ সৃষ্টি কৰা হৈছে। এতিয়াই তেওঁলোকক ৰক্ষা কৰা; সেইবোৰ মাত্ৰ এবাৰহে দেখুওৱা হয়।",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "বেকআপ পুনৰুদ্ধাৰ ক'ডসমূহ সৃষ্টি কৰাৰ আগতে এটা পাছকি যোগ কৰক।",
   "profile.message.recoveryCodesUnavailable": "এই অধিবেশনত পুনৰুদ্ধাৰ-ক'ড প্ৰতিষ্ঠা এতিয়াও উপলব্ধ নহয়।",
   "profile.message.secureRecoveryFailed": "সুৰক্ষিত পুনৰুদ্ধাৰ খোলিব পৰা নগ'ল।",

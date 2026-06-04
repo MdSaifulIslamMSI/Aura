@@ -12603,8 +12603,8 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "{count} backup recovery codes generated. They are shown once.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.message.recoveryCodesNeedMfa": {
-        id: "profile.message.recoveryCodesNeedMfa",
+    "profile.message.recoveryCodesNeedPasskey": {
+        id: "profile.message.recoveryCodesNeedPasskey",
         defaultMessage: "Add a passkey or authenticator app before generating backup recovery codes.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },

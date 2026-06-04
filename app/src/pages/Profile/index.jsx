@@ -598,7 +598,7 @@ export default function Profile() {
 
     const handleGenerateBackupRecoveryCodes = async () => {
         if (!hasMfaFactor) {
-            showMsg('error', t('profile.message.recoveryCodesNeedMfa', {}, 'Add a passkey or authenticator app before generating backup recovery codes.'));
+            showMsg('error', t('profile.message.recoveryCodesNeedPasskey', {}, 'Add a passkey or authenticator app before generating backup recovery codes.'));
             return;
         }
 

@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "Backup recovery codes downloaded.",
   "profile.message.recoveryCodesFailed": "Could not generate backup recovery codes. Complete the passkey checkpoint and try again.",
   "profile.message.recoveryCodesGenerated": "{count} backup recovery codes generated. Save them now; they are shown only once.",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "Add a passkey before generating backup recovery codes.",
   "profile.message.recoveryCodesUnavailable": "Recovery-code setup is not available in this session yet.",
   "profile.message.secureRecoveryFailed": "No se pudo abrir la recuperacion segura.",

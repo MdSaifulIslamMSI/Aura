@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "بیک اپ ریکوری کوڈز ڈاؤن لوڈ ہو گئے۔",
   "profile.message.recoveryCodesFailed": "بیک اپ ریکوری کوڈز نہیں بن سکے۔ پاسکی چیک پوائنٹ کو مکمل کریں اور دوبارہ کوشش کریں۔",
   "profile.message.recoveryCodesGenerated": "{count} بیک اپ ریکوری کوڈز بنائے گئے۔ اب انہیں بچاؤ؛ وہ صرف ایک بار دکھائے جاتے ہیں.",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "بیک اپ ریکوری کوڈز بنانے سے پہلے ایک پاسکی شامل کریں۔",
   "profile.message.recoveryCodesUnavailable": "ریکوری کوڈ سیٹ اپ اس سیشن میں ابھی تک دستیاب نہیں ہے۔",
   "profile.message.secureRecoveryFailed": "محفوظ ریکوری نہیں کھول سکی۔",

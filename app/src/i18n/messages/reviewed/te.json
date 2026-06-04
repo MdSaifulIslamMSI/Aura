@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "బ్యాకప్ రికవరీ కోడ్‌లు డౌన్‌లోడ్ చేయబడ్డాయి.",
   "profile.message.recoveryCodesFailed": "బ్యాకప్ రికవరీ కోడ్‌లను రూపొందించడం సాధ్యపడలేదు. పాస్‌కీ చెక్‌పాయింట్‌ని పూర్తి చేసి, మళ్లీ ప్రయత్నించండి.",
   "profile.message.recoveryCodesGenerated": "{count} బ్యాకప్ పునరుద్ధరణ కోడ్‌లు రూపొందించబడ్డాయి. ఇప్పుడు వాటిని సేవ్ చేయండి; అవి ఒక్కసారి మాత్రమే చూపబడతాయి.",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "బ్యాకప్ రికవరీ కోడ్‌లను రూపొందించే ముందు పాస్‌కీని జోడించండి.",
   "profile.message.recoveryCodesUnavailable": "ఈ సెషన్‌లో రికవరీ-కోడ్ సెటప్ ఇంకా అందుబాటులో లేదు.",
   "profile.message.secureRecoveryFailed": "సురక్షిత రికవరీని తెరవడం సాధ్యపడలేదు.",

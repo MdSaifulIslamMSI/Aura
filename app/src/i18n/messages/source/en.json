@@ -12999,7 +12999,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.message.recoveryCodesNeedPasskey": {
-    "defaultMessage": "Add a passkey before generating backup recovery codes.",
+    "defaultMessage": "Add a passkey or authenticator app before generating backup recovery codes.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.message.recoveryCodesUnavailable": {

@@ -3361,7 +3361,6 @@
   "profile.message.recoveryCodesDownloaded": "बॅकअप पुनर्प्राप्ती कोड डाउनलोड केले.",
   "profile.message.recoveryCodesFailed": "बॅकअप पुनर्प्राप्ती कोड व्युत्पन्न करू शकलो नाही. पासकी चेकपॉईंट पूर्ण करा आणि पुन्हा प्रयत्न करा.",
   "profile.message.recoveryCodesGenerated": "{count} बॅकअप पुनर्प्राप्ती कोड व्युत्पन्न केले. त्यांना आता वाचवा; ते फक्त एकदाच दाखवले जातात.",
-  "profile.message.recoveryCodesNeedMfa": "Add a passkey or authenticator app before generating backup recovery codes.",
   "profile.message.recoveryCodesNeedPasskey": "बॅकअप रिकव्हरी कोड जनरेट करण्यापूर्वी पासकी जोडा.",
   "profile.message.recoveryCodesUnavailable": "पुनर्प्राप्ती-कोड सेटअप अद्याप या सत्रात उपलब्ध नाही.",
   "profile.message.secureRecoveryFailed": "सुरक्षित पुनर्प्राप्ती उघडू शकलो नाही.",
