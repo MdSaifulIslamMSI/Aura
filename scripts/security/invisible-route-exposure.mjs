@@ -20,20 +20,29 @@ const readIfExists = (relativePath) => {
 };
 
 const evidenceSource = [
-    'server/routes',
-    'server/controllers',
-    'server/middleware',
-    'server/security',
-    'server/services/payments',
-    'server/services/statusWebhookService.js',
-].map((relativePath) => {
+    { type: 'dir', relativePath: 'server/routes' },
+    { type: 'dir', relativePath: 'server/controllers' },
+    { type: 'dir', relativePath: 'server/middleware' },
+    { type: 'dir', relativePath: 'server/security' },
+    { type: 'dir', relativePath: 'server/services/payments' },
+    { type: 'file', relativePath: 'server/services/statusWebhookService.js' },
+].map(({ type, relativePath }) => {
     const absolutePath = path.join(root, relativePath);
-    if (!fs.existsSync(absolutePath)) return '';
-    if (fs.statSync(absolutePath).isFile()) return fs.readFileSync(absolutePath, 'utf8');
-    return fs.readdirSync(absolutePath)
-        .filter((file) => file.endsWith('.js'))
-        .map((file) => fs.readFileSync(path.join(absolutePath, file), 'utf8'))
-        .join('\n');
+    try {
+        if (type === 'file') return fs.readFileSync(absolutePath, 'utf8');
+        return fs.readdirSync(absolutePath, { withFileTypes: true })
+            .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+            .map((entry) => {
+                try {
+                    return fs.readFileSync(path.join(absolutePath, entry.name), 'utf8');
+                } catch (error) {
+                    return '';
+                }
+            })
+            .join('\n');
+    } catch (error) {
+        return '';
+    }
 }).join('\n');
 
 const hasWebhookVerificationEvidence = (route) => {

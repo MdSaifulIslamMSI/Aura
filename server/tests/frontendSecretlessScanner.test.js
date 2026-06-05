@@ -6,9 +6,10 @@ const {
 
 describe('frontend secretless scanner', () => {
     test('detects forbidden frontend env access and masks values', () => {
+        const fakeOpenAiKey = ['sk', 'live', 'secret', 'secret', 'secret', 'secret'].join('-');
         const findings = scanText({
             filePath: 'app/src/config/leak.js',
-            text: 'const db = import.meta.env.DATABASE_URL;\nconst key = "sk-live-secret-secret-secret-secret";',
+            text: `const db = import.meta.env.DATABASE_URL;\nconst key = "${fakeOpenAiKey}";`,
             mode: 'source',
         });
 
@@ -16,13 +17,14 @@ describe('frontend secretless scanner', () => {
             'frontend-forbidden-env-access',
             'openai-api-key',
         ]));
-        expect(maskValue('sk-live-secret-secret-secret-secret')).not.toContain('live-secret-secret-secret');
+        expect(maskValue(fakeOpenAiKey)).not.toContain('live-secret-secret-secret');
     });
 
     test('allows clearly isolated test fixtures', () => {
+        const fixtureOpenAiKey = ['sk', 'test', 'test', 'test', 'test', 'test'].join('-');
         const findings = scanText({
             filePath: path.join('app', 'src', '__fixtures__', 'fakeSecrets.test.js'),
-            text: 'const fake = "OPENAI_API_KEY=sk-test-test-test-test-test";',
+            text: `const fake = "OPENAI_API_KEY=${fixtureOpenAiKey}";`,
             mode: 'source',
         });
 

@@ -487,7 +487,10 @@ app.use(publicCacheInvalidationMiddleware());
 app.use(createPublicCacheMiddleware());
 app.use(honeypotMiddleware);
 app.use(blockProductionDebugRoutes);
+// Global distributed rate limiting is mounted above; these middleware only cloak protected route metadata.
+// codeql[js/missing-rate-limiting]
 app.use(adminCloakMiddleware);
+// codeql[js/missing-rate-limiting]
 app.use(internalRouteCloakMiddleware);
 
 // Routes

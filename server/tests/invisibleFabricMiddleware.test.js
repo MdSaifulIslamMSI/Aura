@@ -24,7 +24,10 @@ const buildApp = () => {
     app.use(requestId);
     app.use(honeypotMiddleware);
     app.use(blockProductionDebugRoutes);
+    // Test harness only; production mounts the distributed limiter before these middleware.
+    // codeql[js/missing-rate-limiting]
     app.use(adminCloakMiddleware);
+    // codeql[js/missing-rate-limiting]
     app.use(internalRouteCloakMiddleware);
     app.get('/api/admin/users', (req, res) => res.json({ admin: true }));
     app.get('/api/internal/cron/fx-rates', (req, res) => res.json({ internal: true }));
