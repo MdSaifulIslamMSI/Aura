@@ -8,6 +8,11 @@ const {
     authorizePaymentMethodOwner,
     sensitiveActions,
 } = require('../middleware/routeSecurityGuards');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
+const {
+    loadPaymentIntentResource,
+    loadPaymentWebhookResource,
+} = require('../trust/adapters/paymentAdapter');
 const {
     createIntent,
     completeChallenge,
@@ -81,14 +86,14 @@ const paymentMethodMutationLimiter = createDistributedRateLimit({
     message: 'Too many payment method changes. Please try again shortly.',
 });
 
-router.post('/webhooks/razorpay', handleRazorpayWebhook);
-router.post('/webhooks/stripe', handleStripeWebhook);
+router.post('/webhooks/razorpay', requireTrustDecision('payment.webhook.process', loadPaymentWebhookResource('razorpay'), { actor: { actorType: 'payment_webhook', role: 'payment_webhook' } }), handleRazorpayWebhook);
+router.post('/webhooks/stripe', requireTrustDecision('payment.webhook.process', loadPaymentWebhookResource('stripe'), { actor: { actorType: 'payment_webhook', role: 'payment_webhook' } }), handleStripeWebhook);
 
 router.post('/intents', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(createIntentSchema), sensitiveActions.paymentPayoutChange, createIntent);
 router.post('/intents/:intentId/challenge/complete', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(completeChallengeSchema), sensitiveActions.paymentPayoutChange, completeChallenge);
 router.post('/intents/:intentId/confirm', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(confirmIntentSchema), sensitiveActions.paymentPayoutChange, confirmIntent);
 router.get('/intents/:intentId', protect, validate(getIntentSchema), getIntent);
-router.post('/intents/:intentId/refunds', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(refundSchema), sensitiveActions.paymentRefund, createRefund);
+router.post('/intents/:intentId/refunds', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(refundSchema), requireTrustDecision('payment.refund.create', loadPaymentIntentResource), sensitiveActions.paymentRefund, createRefund);
 
 router.get('/methods', protect, getPaymentMethods);
 router.get('/capabilities', protect, getPaymentCapabilitiesCatalog);

@@ -6,6 +6,7 @@ const {
     requireAiToolActionPolicy,
     sensitiveActions,
 } = require('../middleware/routeSecurityGuards');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
 const {
     createAiVoiceSession,
     handleAiChat,
@@ -97,8 +98,8 @@ const aiSessionLimiter = createDistributedRateLimit({
     message: 'Too many assistant session requests. Please slow down.',
 });
 
-router.post('/chat', ...aiChatAccess, aiChatLimiter, validate(aiChatSchema), requireAiToolActionPolicy, handleAiChat);
-router.post('/chat/stream', ...aiChatAccess, aiChatLimiter, validate(aiChatSchema), requireAiToolActionPolicy, handleAiChatStream);
+router.post('/chat', ...aiChatAccess, aiChatLimiter, validate(aiChatSchema), requireTrustDecision('ai.chat.invoke'), requireAiToolActionPolicy, handleAiChat);
+router.post('/chat/stream', ...aiChatAccess, aiChatLimiter, validate(aiChatSchema), requireTrustDecision('ai.chat.invoke'), requireAiToolActionPolicy, handleAiChatStream);
 router.get('/sessions', protect, aiSessionLimiter, listAiSessions);
 router.post('/sessions', protect, aiSessionLimiter, validate(aiSessionCreateSchema), sensitiveActions.aiSessionMutation, createAiSession);
 router.get('/sessions/:sessionId', protect, aiSessionLimiter, validate(aiSessionParamsOnlySchema), getAiSession);

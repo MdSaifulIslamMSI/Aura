@@ -27,6 +27,8 @@ const {
     authorizeOrderOwner,
     sensitiveActions,
 } = require('../middleware/routeSecurityGuards');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
+const { loadOrderResource } = require('../trust/adapters/orderAdapter');
 const {
     quoteOrderSchema,
     createOrderSchema,
@@ -114,11 +116,11 @@ router.post('/quote', protect, requireActiveAccount, requireOtpAssurance, valida
 
 router.route('/').post(protect, requireActiveAccount, requireOtpAssurance, orderMutationRateLimit, orderMutationLimiter, validate(createOrderSchema), sensitiveActions.orderStatusChange, addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);
-router.route('/:id/timeline').get(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(getOrderTimelineSchema), authorizeOrderOwner('order.timeline.read'), getMyOrderTimeline);
+router.route('/:id/timeline').get(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(getOrderTimelineSchema), requireTrustDecision('order.read', loadOrderResource), authorizeOrderOwner('order.timeline.read'), getMyOrderTimeline);
 router.route('/:id/command-center')
-    .get(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterParamsSchema), authorizeOrderOwner('order.command_center.read'), getMyOrderCommandCenter);
+    .get(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterParamsSchema), requireTrustDecision('order.read', loadOrderResource), authorizeOrderOwner('order.command_center.read'), getMyOrderCommandCenter);
 router.route('/:id/command-center/refund')
-    .post(protect, requireActiveAccount, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterRefundSchema), authorizeOrderOwner('order.refund.request'), sensitiveActions.paymentRefund, createOrderRefundRequest);
+    .post(protect, requireActiveAccount, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterRefundSchema), requireTrustDecision('order.refund.request', loadOrderResource), authorizeOrderOwner('order.refund.request'), sensitiveActions.paymentRefund, createOrderRefundRequest);
 router.route('/:id/command-center/replace')
     .post(protect, requireActiveAccount, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterReplaceSchema), authorizeOrderOwner('order.replacement.request'), sensitiveActions.orderStatusChange, createOrderReplacementRequest);
 router.route('/:id/command-center/support')
@@ -126,7 +128,7 @@ router.route('/:id/command-center/support')
 router.route('/:id/command-center/warranty')
     .post(protect, requireActiveAccount, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterWarrantySchema), authorizeOrderOwner('order.warranty.request'), sensitiveActions.orderStatusChange, createOrderWarrantyClaim);
 router.route('/:id/command-center/refund/:requestId/admin')
-    .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCommandRefundDecisionSchema), sensitiveActions.paymentRefund, processOrderRefundRequestAdmin);
+    .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCommandRefundDecisionSchema), requireTrustDecision('admin.order.refund', loadOrderResource), sensitiveActions.paymentRefund, processOrderRefundRequestAdmin);
 router.route('/:id/command-center/replace/:requestId/admin')
     .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCommandReplacementDecisionSchema), sensitiveActions.orderStatusChange, processOrderReplacementRequestAdmin);
 router.route('/:id/command-center/support/admin-reply')
@@ -134,7 +136,7 @@ router.route('/:id/command-center/support/admin-reply')
 router.route('/:id/command-center/warranty/:claimId/admin')
     .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCommandWarrantyDecisionSchema), sensitiveActions.orderStatusChange, processOrderWarrantyClaimAdmin);
 router.route('/:id/cancel')
-    .post(protect, requireActiveAccount, orderMutationRateLimit, orderMutationLimiter, validate(cancelOrderSchema), authorizeOrderOwner('order.cancel'), sensitiveActions.orderStatusChange, cancelOrder);
+    .post(protect, requireActiveAccount, orderMutationRateLimit, orderMutationLimiter, validate(cancelOrderSchema), requireTrustDecision('order.cancel', loadOrderResource), authorizeOrderOwner('order.cancel'), sensitiveActions.orderStatusChange, cancelOrder);
 router.route('/:id/admin-cancel')
     .post(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCancelOrderSchema), sensitiveActions.orderStatusChange, cancelOrderAdmin);
 router.route('/:id/status')
