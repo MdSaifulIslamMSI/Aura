@@ -4,6 +4,7 @@ const PaymentMethod = require('../models/PaymentMethod');
 const Listing = require('../models/Listing');
 const { requireSensitiveAction } = require('./sensitiveActionMiddleware');
 const { authShieldMiddleware } = require('./authShieldMiddleware');
+const { alienOtpRequired } = require('./alienOtpRequired');
 const { authorizeResource } = require('./authorizeResource');
 const {
     SENSITIVE_ACTION_CATEGORIES,
@@ -67,6 +68,16 @@ const routeSensitiveAction = ({
         requireDeviceProof: action === 'payment.refund.create' || action === 'payment.payout.change',
         requireReplayNonce: riskLevel === RISK_LEVELS.CRITICAL,
     });
+    const alienOtp = alienOtpRequired({
+        action,
+        riskLevel: riskLevel === RISK_LEVELS.CRITICAL
+            ? 'critical'
+            : riskLevel === RISK_LEVELS.HIGH
+                ? 'high'
+                : 'medium',
+        resourceResolver: resolveAuthShieldResourceResolver({ action, resourceType }),
+        strict: false,
+    });
     const sensitiveAction = requireSensitiveAction({
         action,
         category,
@@ -74,7 +85,7 @@ const routeSensitiveAction = ({
         resourceType,
         auditMeta: { control },
     });
-    return composeMiddleware(authShield, sensitiveAction);
+    return composeMiddleware(authShield, alienOtp, sensitiveAction);
 };
 
 const sensitiveActions = Object.freeze({
