@@ -51,6 +51,7 @@ const shouldPreferInMemoryMongo = () => {
 const shouldFallbackToInMemoryMongo = () => parseBoolean(process.env.TEST_FALLBACK_TO_IN_MEMORY_MONGO, true);
 const shouldRequireTransactionMongo = () => parseBoolean(process.env.TEST_REQUIRE_TRANSACTION_MONGO, false);
 const NO_DB_TEST_FILES = new Set([
+    'auraSecurityFabric.test.js',
     'paymentArchitectureFoundation.test.js',
     'stagingFrontendCors.test.js',
 ]);

@@ -2,6 +2,7 @@ const express = require('express');
 const validate = require('../middleware/validate');
 const { protect, protectOptional, requireActiveAccount } = require('../middleware/authMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { requireSecurityDecision } = require('../middleware/requireSecurityDecision');
 const {
     requireAiToolActionPolicy,
     sensitiveActions,
@@ -97,8 +98,12 @@ const aiSessionLimiter = createDistributedRateLimit({
     message: 'Too many assistant session requests. Please slow down.',
 });
 
-router.post('/chat', ...aiChatAccess, aiChatLimiter, validate(aiChatSchema), requireAiToolActionPolicy, handleAiChat);
-router.post('/chat/stream', ...aiChatAccess, aiChatLimiter, validate(aiChatSchema), requireAiToolActionPolicy, handleAiChatStream);
+const auditAiChatCreate = requireSecurityDecision('ai.chat.create', {
+    resourceType: 'ai',
+});
+
+router.post('/chat', ...aiChatAccess, aiChatLimiter, validate(aiChatSchema), auditAiChatCreate, requireAiToolActionPolicy, handleAiChat);
+router.post('/chat/stream', ...aiChatAccess, aiChatLimiter, validate(aiChatSchema), auditAiChatCreate, requireAiToolActionPolicy, handleAiChatStream);
 router.get('/sessions', protect, aiSessionLimiter, listAiSessions);
 router.post('/sessions', protect, aiSessionLimiter, validate(aiSessionCreateSchema), sensitiveActions.aiSessionMutation, createAiSession);
 router.get('/sessions/:sessionId', protect, aiSessionLimiter, validate(aiSessionParamsOnlySchema), getAiSession);

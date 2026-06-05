@@ -3,6 +3,7 @@ const Order = require('../models/Order');
 const PaymentMethod = require('../models/PaymentMethod');
 const Listing = require('../models/Listing');
 const { requireSensitiveAction } = require('./sensitiveActionMiddleware');
+const { requireSensitiveAction: requireFabricSensitiveAction } = require('./requireSensitiveAction');
 const { authShieldMiddleware } = require('./authShieldMiddleware');
 const { alienOtpRequired } = require('./alienOtpRequired');
 const { authorizeResource } = require('./authorizeResource');
@@ -291,7 +292,10 @@ const requireAiToolActionPolicy = (req, res, next) => {
     if (!hasSensitiveAiToolAction(req)) {
         return next();
     }
-    return sensitiveActions.aiToolAction(req, res, next);
+    return composeMiddleware(
+        requireFabricSensitiveAction('ai.tool.execute', { resourceType: 'ai' }),
+        sensitiveActions.aiToolAction
+    )(req, res, next);
 };
 
 module.exports = {
