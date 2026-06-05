@@ -3,16 +3,50 @@ const Order = require('../models/Order');
 const PaymentMethod = require('../models/PaymentMethod');
 const Listing = require('../models/Listing');
 const { requireSensitiveAction } = require('./sensitiveActionMiddleware');
+const { authShieldMiddleware } = require('./authShieldMiddleware');
+const { alienOtpRequired } = require('./alienOtpRequired');
 const { authorizeResource } = require('./authorizeResource');
 const {
     SENSITIVE_ACTION_CATEGORIES,
     RISK_LEVELS,
 } = require('../config/sensitiveActionPolicy');
+const {
+    resourceResolvers,
+} = require('../security/authShield/resourceResolver');
 const { getToolDefinition } = require('../services/ai/assistantToolRegistry');
 
 const objectIdOrNull = (value = '') => (
     mongoose.isValidObjectId(String(value || '').trim()) ? String(value).trim() : null
 );
+
+const resolveAuthShieldResourceResolver = ({ action = '', resourceType = '' } = {}) => {
+    const normalizedAction = String(action || '').trim().toLowerCase();
+    const normalizedResource = String(resourceType || '').trim().toLowerCase();
+
+    if (normalizedAction.includes('refund')) return resourceResolvers.paymentRefund;
+    if (normalizedAction.startsWith('payment.method')) return resourceResolvers.paymentMethod;
+    if (normalizedResource === 'payment') return resourceResolvers.payment;
+    if (normalizedResource === 'order') return resourceResolvers.order;
+    if (normalizedResource === 'listing' || normalizedResource === 'listing_escrow') return resourceResolvers.listing;
+    if (normalizedResource === 'user') return resourceResolvers.user;
+    if (normalizedResource === 'upload') return resourceResolvers.uploadModeration;
+    if (normalizedResource === 'moderation' || normalizedResource === 'fraud_decision') return resourceResolvers.review;
+    if (normalizedResource === 'auth' || normalizedResource === 'auth_factor') return resourceResolvers.user;
+    if (normalizedAction.startsWith('admin.')) return resourceResolvers.adminConfig;
+    return null;
+};
+
+const composeMiddleware = (...middlewares) => (req, res, next) => {
+    let index = 0;
+    const run = (error) => {
+        if (error) return next(error);
+        const middleware = middlewares[index];
+        index += 1;
+        if (!middleware) return next();
+        return middleware(req, res, run);
+    };
+    return run();
+};
 
 const routeSensitiveAction = ({
     action,
@@ -20,13 +54,39 @@ const routeSensitiveAction = ({
     riskLevel = RISK_LEVELS.HIGH,
     resourceType = '',
     control = 'route_sensitive_action',
-} = {}) => requireSensitiveAction({
-    action,
-    category,
-    riskLevel,
-    resourceType,
-    auditMeta: { control },
-});
+} = {}) => {
+    const authShield = authShieldMiddleware({
+        action,
+        sensitivity: riskLevel === RISK_LEVELS.CRITICAL
+            ? 'critical'
+            : riskLevel === RISK_LEVELS.HIGH
+                ? 'high'
+                : 'medium',
+        resourceResolver: resolveAuthShieldResourceResolver({ action, resourceType }),
+        allowAuthenticatedWithoutResource: ['ai', 'ai_session', 'email_operation', 'analytics', 'payment'].includes(resourceType),
+        requireFreshAuth: riskLevel === RISK_LEVELS.CRITICAL || riskLevel === RISK_LEVELS.HIGH,
+        requireDeviceProof: action === 'payment.refund.create' || action === 'payment.payout.change',
+        requireReplayNonce: riskLevel === RISK_LEVELS.CRITICAL,
+    });
+    const alienOtp = alienOtpRequired({
+        action,
+        riskLevel: riskLevel === RISK_LEVELS.CRITICAL
+            ? 'critical'
+            : riskLevel === RISK_LEVELS.HIGH
+                ? 'high'
+                : 'medium',
+        resourceResolver: resolveAuthShieldResourceResolver({ action, resourceType }),
+        strict: false,
+    });
+    const sensitiveAction = requireSensitiveAction({
+        action,
+        category,
+        riskLevel,
+        resourceType,
+        auditMeta: { control },
+    });
+    return composeMiddleware(authShield, alienOtp, sensitiveAction);
+};
 
 const sensitiveActions = Object.freeze({
     adminUserMutation: routeSensitiveAction({
