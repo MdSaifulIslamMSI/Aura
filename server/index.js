@@ -3,6 +3,7 @@ dns.setDefaultResultOrder('ipv4first');
 
 const crypto = require('crypto');
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const http = require('http');
 const path = require('path');
 const compression = require('compression');
@@ -338,6 +339,15 @@ const healthReadyLimiter = createDistributedRateLimit({
     keyGenerator: (req) => getTrustedRequestIp(req),
 });
 
+const invisibleFabricProbeRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    limit: process.env.NODE_ENV === 'development' ? 600 : 180,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { status: 'error', message: 'Too many requests. Please try again later.' },
+});
+
 const buildLiveHealthPayload = () => ({
     alive: true,
     ...buildHealthMetadata(),
@@ -487,10 +497,10 @@ app.use(publicCacheInvalidationMiddleware());
 app.use(createPublicCacheMiddleware());
 app.use(honeypotMiddleware);
 app.use(blockProductionDebugRoutes);
-// Global distributed rate limiting is mounted above; these middleware only cloak protected route metadata.
-// codeql[js/missing-rate-limiting]
+app.use('/api/admin', invisibleFabricProbeRateLimit);
+app.use('/api/internal', invisibleFabricProbeRateLimit);
+app.use('/api/observability', invisibleFabricProbeRateLimit);
 app.use(adminCloakMiddleware);
-// codeql[js/missing-rate-limiting]
 app.use(internalRouteCloakMiddleware);
 
 // Routes

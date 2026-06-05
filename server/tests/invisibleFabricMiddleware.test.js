@@ -1,4 +1,5 @@
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const request = require('supertest');
 const { requestId } = require('../middleware/requestId');
 const {
@@ -21,13 +22,20 @@ const ORIGINAL_ENV = { ...process.env };
 
 const buildApp = () => {
     const app = express();
+    const cloakProbeRateLimit = rateLimit({
+        windowMs: 60 * 1000,
+        limit: 1000,
+        standardHeaders: 'draft-8',
+        legacyHeaders: false,
+        skip: () => process.env.NODE_ENV === 'test',
+    });
     app.use(requestId);
     app.use(honeypotMiddleware);
     app.use(blockProductionDebugRoutes);
-    // Test harness only; production mounts the distributed limiter before these middleware.
-    // codeql[js/missing-rate-limiting]
+    app.use('/api/admin', cloakProbeRateLimit);
+    app.use('/api/internal', cloakProbeRateLimit);
+    app.use('/api/observability', cloakProbeRateLimit);
     app.use(adminCloakMiddleware);
-    // codeql[js/missing-rate-limiting]
     app.use(internalRouteCloakMiddleware);
     app.get('/api/admin/users', (req, res) => res.json({ admin: true }));
     app.get('/api/internal/cron/fx-rates', (req, res) => res.json({ internal: true }));
