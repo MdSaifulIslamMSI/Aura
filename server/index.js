@@ -16,6 +16,13 @@ const activityEmailMiddleware = require('./middleware/activityEmailMiddleware');
 const adminNotificationMiddleware = require('./middleware/adminNotificationMiddleware');
 const { requestId } = require('./middleware/requestId');
 const { originProtectionMiddleware } = require('./middleware/originProtectionMiddleware');
+const { trustedEdgeMiddleware } = require('./middleware/trustedEdgeMiddleware');
+const {
+    adminCloakMiddleware,
+    blockProductionDebugRoutes,
+    honeypotMiddleware,
+    internalRouteCloakMiddleware,
+} = require('./middleware/invisibleFabricMiddleware');
 const { authRiskSignalProducerMiddleware } = require('./middleware/authRiskSignalProducerMiddleware');
 const { resolveMarketContextMiddleware } = require('./middleware/marketContext');
 const { routeCostClassifier } = require('./middleware/routeCostClassifier');
@@ -159,6 +166,7 @@ const {
 } = require('./middleware/emergencyControlMiddleware');
 const metricsRoute = require('./routes/metricsRoute');
 const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./services/socketService');
+const { assertInvisibleFabricConfig } = require('./security/invisibleFabric/config');
 
 const app = express();
 initOtel();
@@ -394,6 +402,7 @@ app.use((req, res, next) => {
 });
 
 app.use(originProtectionMiddleware);
+app.use(trustedEdgeMiddleware);
 app.use(authRiskSignalProducerMiddleware);
 app.use(loadShedding());
 
@@ -476,6 +485,10 @@ if (process.env.NODE_ENV !== 'test') {
 
 app.use(publicCacheInvalidationMiddleware());
 app.use(createPublicCacheMiddleware());
+app.use(honeypotMiddleware);
+app.use(blockProductionDebugRoutes);
+app.use(adminCloakMiddleware);
+app.use(internalRouteCloakMiddleware);
 
 // Routes
 app.use('/api/health', healthRoutes);
@@ -821,6 +834,7 @@ const NODE_ENV = process.env.NODE_ENV || 'production';
 
 if (require.main === module) {
 // Production security: Ensure all signing secrets are present before startup
+    assertInvisibleFabricConfig();
     assertSigningSecretsConfig();
     assertAuthRiskSignalConfig();
     assertProductionCorsConfig();
