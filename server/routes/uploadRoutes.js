@@ -3,6 +3,8 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
+const { loadUploadResource } = require('../trust/adapters/uploadAdapter');
 const {
     signReviewUpload,
     uploadReviewMedia,
@@ -12,7 +14,7 @@ const {
     uploadReviewMediaSchema,
 } = require('../validators/uploadValidators');
 
-router.post('/reviews/sign', protect, validate(signReviewUploadSchema), sensitiveActions.uploadWrite, signReviewUpload);
-router.post('/reviews/upload', protect, validate(uploadReviewMediaSchema), sensitiveActions.uploadWrite, uploadReviewMedia);
+router.post('/reviews/sign', protect, validate(signReviewUploadSchema), requireTrustDecision('upload.create', loadUploadResource), sensitiveActions.uploadWrite, signReviewUpload);
+router.post('/reviews/upload', protect, validate(uploadReviewMediaSchema), requireTrustDecision('upload.create', loadUploadResource), sensitiveActions.uploadWrite, uploadReviewMedia);
 
 module.exports = router;
