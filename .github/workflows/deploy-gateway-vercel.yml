@@ -121,7 +121,7 @@ jobs:
 
       - name: Comment preview URL on pull request
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
           INSPECT_URL: ${{ steps.deploy.outputs.inspect_url }}
