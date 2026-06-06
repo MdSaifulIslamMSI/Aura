@@ -1,0 +1,66 @@
+name: Security Attacker Friction
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "server/security/**"
+      - "server/middleware/**"
+      - "server/routes/**"
+      - "server/tests/security/**"
+      - "scripts/security/**"
+      - "config/security/**"
+      - "docs/security/**"
+      - ".github/workflows/security-attacker-friction.yml"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  attacker-friction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
+
+      - name: Install app dependencies
+        run: npm --prefix app ci
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Secret scan
+        run: npm run security:secrets
+
+      - name: Dependency scan
+        run: npm run security:deps
+
+      - name: Sensitive route coverage
+        run: npm run security:routes
+
+      - name: Auth security
+        run: npm run security:auth
+
+      - name: Attacker-friction fabric
+        run: npm run security:friction

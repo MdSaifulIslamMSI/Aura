@@ -41,6 +41,7 @@ const recommendationRoutes = require('./routes/recommendationRoutes');
 const recommendationEventRoutes = require('./routes/recommendationEventRoutes');
 const authRoutes = require('./routes/authRoutes');
 const securityRoutes = require('./routes/securityRoutes');
+const securityCanaryRoutes = require('./routes/securityCanaryRoutes');
 const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
@@ -478,6 +479,7 @@ app.use(publicCacheInvalidationMiddleware());
 app.use(createPublicCacheMiddleware());
 
 // Routes
+app.use(securityCanaryRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use(globalEmergencyMiddleware);
