@@ -97,12 +97,24 @@ async function findDispatchedRun() {
   });
   const body = await github(`/actions/workflows/${encodeURIComponent(workflow)}/runs?${query}`);
   const runs = body?.workflow_runs || [];
-  return runs.find((run) => {
-    if (expectedSha && run.head_sha !== expectedSha) {
-      return false;
-    }
-    return new Date(run.created_at) >= new Date(dispatchStartedAt);
-  });
+  const recentRuns = runs.filter((run) => new Date(run.created_at) >= new Date(dispatchStartedAt));
+  const matchingRun = recentRuns.find((run) => !expectedSha || run.head_sha === expectedSha);
+  if (matchingRun) {
+    return matchingRun;
+  }
+
+  const mismatchedRun = expectedSha
+    ? recentRuns.find((run) => run.head_sha && run.head_sha !== expectedSha)
+    : null;
+  if (mismatchedRun) {
+    throw new Error([
+      `${label} run appeared at ${mismatchedRun.head_sha}, expected ${expectedSha}.`,
+      `The dispatch ref "${ref}" likely moved before GitHub created the child run.`,
+      `Failing fast so a stale production parent does not block newer main pushes: ${mismatchedRun.html_url}`,
+    ].join(' '));
+  }
+
+  return null;
 }
 
 async function summarizeJobs(runId) {
