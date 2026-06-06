@@ -3,6 +3,7 @@ dns.setDefaultResultOrder('ipv4first');
 
 const crypto = require('crypto');
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const http = require('http');
 const path = require('path');
 const compression = require('compression');
@@ -16,6 +17,13 @@ const activityEmailMiddleware = require('./middleware/activityEmailMiddleware');
 const adminNotificationMiddleware = require('./middleware/adminNotificationMiddleware');
 const { requestId } = require('./middleware/requestId');
 const { originProtectionMiddleware } = require('./middleware/originProtectionMiddleware');
+const { trustedEdgeMiddleware } = require('./middleware/trustedEdgeMiddleware');
+const {
+    adminCloakMiddleware,
+    blockProductionDebugRoutes,
+    honeypotMiddleware,
+    internalRouteCloakMiddleware,
+} = require('./middleware/invisibleFabricMiddleware');
 const { authRiskSignalProducerMiddleware } = require('./middleware/authRiskSignalProducerMiddleware');
 const { resolveMarketContextMiddleware } = require('./middleware/marketContext');
 const { routeCostClassifier } = require('./middleware/routeCostClassifier');
@@ -160,6 +168,7 @@ const {
 } = require('./middleware/emergencyControlMiddleware');
 const metricsRoute = require('./routes/metricsRoute');
 const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./services/socketService');
+const { assertInvisibleFabricConfig } = require('./security/invisibleFabric/config');
 
 const app = express();
 initOtel();
@@ -331,6 +340,15 @@ const healthReadyLimiter = createDistributedRateLimit({
     keyGenerator: (req) => getTrustedRequestIp(req),
 });
 
+const invisibleFabricProbeRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    limit: process.env.NODE_ENV === 'development' ? 600 : 180,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { status: 'error', message: 'Too many requests. Please try again later.' },
+});
+
 const buildLiveHealthPayload = () => ({
     alive: true,
     ...buildHealthMetadata(),
@@ -395,6 +413,7 @@ app.use((req, res, next) => {
 });
 
 app.use(originProtectionMiddleware);
+app.use(trustedEdgeMiddleware);
 app.use(authRiskSignalProducerMiddleware);
 app.use(loadShedding());
 
@@ -477,6 +496,13 @@ if (process.env.NODE_ENV !== 'test') {
 
 app.use(publicCacheInvalidationMiddleware());
 app.use(createPublicCacheMiddleware());
+app.use(honeypotMiddleware);
+app.use(blockProductionDebugRoutes);
+app.use('/api/admin', invisibleFabricProbeRateLimit);
+app.use('/api/internal', invisibleFabricProbeRateLimit);
+app.use('/api/observability', invisibleFabricProbeRateLimit);
+app.use(adminCloakMiddleware);
+app.use(internalRouteCloakMiddleware);
 
 // Routes
 app.use(securityCanaryRoutes);
@@ -823,6 +849,7 @@ const NODE_ENV = process.env.NODE_ENV || 'production';
 
 if (require.main === module) {
 // Production security: Ensure all signing secrets are present before startup
+    assertInvisibleFabricConfig();
     assertSigningSecretsConfig();
     assertAuthRiskSignalConfig();
     assertProductionCorsConfig();

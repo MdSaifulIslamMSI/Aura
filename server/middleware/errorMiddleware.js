@@ -1,5 +1,6 @@
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { buildMinimizedErrorResponse } = require('../security/invisibleFabric/responseMinimizer');
 
 const notFound = (req, res, next) => {
     const error = new AppError(`Not Found - ${req.originalUrl}`, 404);
@@ -41,6 +42,11 @@ const errorHandler = (err, req, res, next) => {
         clientSessionId: String(req.headers['x-client-session-id'] || ''),
         clientRoute: String(req.headers['x-client-route'] || ''),
     });
+
+    const minimizedResponse = buildMinimizedErrorResponse({ err, req, statusCode });
+    if (minimizedResponse) {
+        return res.status(minimizedResponse.statusCode).json(minimizedResponse.body);
+    }
 
     // Send actual error message for:
     // 1) Operational errors (from AppError)

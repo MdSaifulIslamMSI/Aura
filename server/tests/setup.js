@@ -53,6 +53,13 @@ const shouldRequireTransactionMongo = () => parseBoolean(process.env.TEST_REQUIR
 const NO_DB_TEST_FILES = new Set([
     'paymentArchitectureFoundation.test.js',
     'stagingFrontendCors.test.js',
+    'frontendSecretlessScanner.test.js',
+    'invisibleFabricAuthz.test.js',
+    'invisibleFabricConfig.test.js',
+    'invisibleFabricMiddleware.test.js',
+    'responseMinimizer.test.js',
+    'routeExposureRegistry.test.js',
+    'trustedEdgeMiddleware.test.js',
 ]);
 
 const shouldSkipDbSetup = () => {

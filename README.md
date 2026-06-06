@@ -165,6 +165,9 @@ The assistant can use the recommendation APIs as a backend tool, so product sugg
 The project does not implement custom cryptography. Post-quantum work is config-driven through [`config/security/post-quantum-policy.json`](config/security/post-quantum-policy.json), starts with hybrid migration, and keeps experimental OQS/liboqs TLS in staging or lab mode until deliberately approved. Aura is PQC-ready and crypto-agile, not 100% quantum-proof; browser/WebPKI and provider-controlled cryptography remain ecosystem-dependent.
 
 ### Aura Fortress Sensitive Actions
+- Invisible App Fabric: [`docs/security/invisible-app-fabric.md`](docs/security/invisible-app-fabric.md)
+- Route exposure registry: [`docs/security/route-exposure-registry.md`](docs/security/route-exposure-registry.md)
+- Secretless frontend: [`docs/security/secretless-frontend.md`](docs/security/secretless-frontend.md)
 - Campaign guide: [`docs/security/aura-fortress-campaign.md`](docs/security/aura-fortress-campaign.md)
 - Sensitive-action policy: [`docs/security/zero-trust-sensitive-actions.md`](docs/security/zero-trust-sensitive-actions.md)
 - Disaster recovery verifier: `npm run security:backup-restore-check`
