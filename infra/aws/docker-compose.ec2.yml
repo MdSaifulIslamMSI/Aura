@@ -69,6 +69,7 @@ services:
     environment:
       NODE_ENV: production
       SPLIT_RUNTIME_ENABLED: "true"
+      PORT: 8080
       WORKER_HEALTH_PORT: 8080
       ORDER_EMAIL_PROVIDER: gmail
       AI_MODEL_PROVIDER: ${AI_MODEL_PROVIDER:-disabled}
