@@ -22,8 +22,9 @@ ENV NODE_ENV=production \
     HEALTHCHECK_PATH=/health/live \
     LOG_LEVEL=info
 
-# hadolint ignore=DL3018
-RUN apk add --no-cache tini yara \
+# hadolint ignore=DL3017,DL3018
+RUN apk upgrade --no-cache libcrypto3 libssl3 \
+    && apk add --no-cache tini yara \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=deps --chown=node:node /app/server/node_modules ./node_modules

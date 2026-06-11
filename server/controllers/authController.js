@@ -72,6 +72,7 @@ const {
 } = require('../services/mfaPolicyService');
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const PHONE_FACTOR_ASSURANCE_TTL_MS = 10 * 60 * 1000;
+const LOGIN_ASSURANCE_FRESH_AUTH_SECONDS = Math.floor(LOGIN_ASSURANCE_TTL_MS / 1000);
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 const RECOVERY_CODE_VERIFICATION_MIN_MS = process.env.NODE_ENV === 'test' ? 0 : 350;
 const LOGIN_RISK_STATE_HIGH = 'login_risk_high';
@@ -81,6 +82,16 @@ const DESKTOP_HANDOFF_REQUEST_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
+
+const resolveFreshLoginAuthTimeSeconds = (authToken = null) => {
+    const authTime = Number(authToken?.auth_time || 0);
+    if (!Number.isFinite(authTime) || authTime <= 0) return 0;
+
+    const ageSeconds = Math.floor(Date.now() / 1000) - authTime;
+    return ageSeconds >= 0 && ageSeconds <= LOGIN_ASSURANCE_FRESH_AUTH_SECONDS
+        ? authTime
+        : 0;
+};
 
 const normalizeDuoStepUpAction = (value) => {
     const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -1205,6 +1216,11 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
         throw new AppError('Verified phone number does not match the requested login phone.', 403);
     }
 
+    const freshAuthTimeSeconds = resolveFreshLoginAuthTimeSeconds(req.authToken);
+    if (!freshAuthTimeSeconds) {
+        throw new AppError('Fresh login is required before secure access can be granted.', 401);
+    }
+
     const existingUser = await User.findOne(
         { email: tokenEmail },
         'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty createdAt'
@@ -1251,7 +1267,7 @@ const completePhoneFactorLogin = asyncHandler(async (req, res) => {
                 isVerified: Boolean(existingUser.isVerified || req.authToken?.email_verified),
                 authAssurance: 'password+otp',
                 authAssuranceAt: new Date(),
-                authAssuranceAuthTime: Number(req.authToken?.auth_time || 0) || null,
+                authAssuranceAuthTime: freshAuthTimeSeconds,
                 loginEmailOtpVerifiedAt: null,
                 loginOtpVerifiedAt: new Date(),
                 loginOtpAssuranceExpiresAt: new Date(Date.now() + LOGIN_ASSURANCE_TTL_MS),

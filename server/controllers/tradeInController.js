@@ -1,4 +1,5 @@
 const asyncHandler = require('express-async-handler');
+const { isValidObjectId } = require('mongoose');
 const TradeIn = require('../models/TradeIn');
 const Product = require('../models/Product');
 const Listing = require('../models/Listing');
@@ -13,6 +14,38 @@ const CONDITION_MULTIPLIERS = {
     'poor': 0.10
 };
 
+const resolveOwnedListing = async ({ listingId, userId }) => {
+    const normalizedListingId = String(listingId || '').trim();
+    if (!normalizedListingId || !isValidObjectId(normalizedListingId)) return null;
+    return Listing.findOne({ _id: normalizedListingId, seller: userId }).lean();
+};
+
+const buildTradeInValuation = ({ listing = null, manualItem = null, product }) => {
+    let estimatedValue = 0;
+    let itemDetails = {};
+
+    if (listing) {
+        const multiplier = CONDITION_MULTIPLIERS[listing.condition] || 0.30;
+        estimatedValue = Math.round(Number(listing.price || 0) * multiplier);
+        itemDetails = { title: listing.title, condition: listing.condition, price: listing.price };
+    } else if (manualItem) {
+        const multiplier = CONDITION_MULTIPLIERS[manualItem.condition] || 0.25;
+        const basePrice = Number(manualItem.estimatedPrice || 0) || Number(product.price || 0) * 0.5;
+        estimatedValue = Math.round(basePrice * multiplier);
+        itemDetails = manualItem;
+    }
+
+    const cappedValue = Math.min(
+        Math.max(estimatedValue, 0),
+        Math.round(Number(product.price || 0) * 0.50)
+    );
+
+    return {
+        itemDetails,
+        estimatedValue: cappedValue,
+    };
+};
+
 // @desc    Estimate trade-in value
 // @route   POST /api/trade-in/estimate
 // @access  Private
@@ -23,27 +56,18 @@ const estimateTradeIn = asyncHandler(async (req, res, next) => {
     const product = await Product.findOne({ id: targetProductId }).lean();
     if (!product) return next(new AppError('Target product not found', 404));
 
-    let estimatedValue = 0;
-    let itemDetails = {};
+    let listing = null;
 
     if (listingId) {
-        const listing = await Listing.findById(listingId).lean();
+        listing = await resolveOwnedListing({ listingId, userId: req.user._id });
         if (!listing) return next(new AppError('Listing not found', 404));
-        const multiplier = CONDITION_MULTIPLIERS[listing.condition] || 0.30;
-        estimatedValue = Math.round(listing.price * multiplier);
-        itemDetails = { title: listing.title, condition: listing.condition, price: listing.price };
     } else if (manualItem) {
-        const multiplier = CONDITION_MULTIPLIERS[manualItem.condition] || 0.25;
-        // Use a base estimate of category average or manual input
-        const basePrice = manualItem.estimatedPrice || product.price * 0.5;
-        estimatedValue = Math.round(basePrice * multiplier);
-        itemDetails = manualItem;
+        // Manual items are valued below via server-side policy.
     } else {
         return next(new AppError('Provide either a listing ID or manual item details', 400));
     }
 
-    // Cap at 50% of target product price
-    estimatedValue = Math.min(estimatedValue, Math.round(product.price * 0.50));
+    const { estimatedValue, itemDetails } = buildTradeInValuation({ listing, manualItem, product });
 
     res.json({
         success: true,
@@ -61,10 +85,18 @@ const estimateTradeIn = asyncHandler(async (req, res, next) => {
 // @route   POST /api/trade-in
 // @access  Private
 const createTradeIn = asyncHandler(async (req, res, next) => {
-    const { listingId, manualItem, targetProductId, estimatedValue } = req.body;
+    const { listingId, manualItem, targetProductId } = req.body;
 
     const product = await Product.findOne({ id: targetProductId }).lean();
     if (!product) return next(new AppError('Target product not found', 404));
+
+    let listing = null;
+    if (listingId) {
+        listing = await resolveOwnedListing({ listingId, userId: req.user._id });
+        if (!listing) return next(new AppError('Listing not found', 404));
+    } else if (!manualItem) {
+        return next(new AppError('Provide either a listing ID or manual item details', 400));
+    }
 
     // Check for existing pending trade-in for same product
     const existing = await TradeIn.findOne({
@@ -84,7 +116,7 @@ const createTradeIn = asyncHandler(async (req, res, next) => {
             price: product.price,
             image: product.image
         },
-        estimatedValue: estimatedValue || 0,
+        estimatedValue: buildTradeInValuation({ listing, manualItem, product }).estimatedValue,
         status: 'pending'
     });
 
