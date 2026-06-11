@@ -1338,6 +1338,11 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
         throw new AppError('Verified phone number does not match the requested phone.', 403);
     }
 
+    const freshAuthTimeSeconds = resolveFreshLoginAuthTimeSeconds(req.authToken);
+    if (!freshAuthTimeSeconds) {
+        throw new AppError('Fresh login is required before secure access can be granted.', 401);
+    }
+
     if (purpose === 'signup') {
         const pendingUser = await User.findOne(
             { email: requestEmail },

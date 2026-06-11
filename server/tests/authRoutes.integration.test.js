@@ -1054,6 +1054,7 @@ describe('Firebase phone factor completion for signup and recovery', () => {
         purpose = 'signup',
         storedPhone = '+919876543210',
         tokenPhone = '+919876543210',
+        tokenAuthTime = Math.floor(Date.now() / 1000) - 60,
         signupEmailOtpVerifiedAt = new Date().toISOString(),
         resetEmailOtpVerifiedAt = new Date().toISOString(),
         isVerified = false,
@@ -1140,6 +1141,7 @@ describe('Firebase phone factor completion for signup and recovery', () => {
                 req.authUid = 'uid-phone';
                 req.authToken = {
                     phone_number: tokenPhone,
+                    auth_time: tokenAuthTime,
                 };
                 next();
             }, completePhoneFactorVerification);
@@ -1214,6 +1216,25 @@ describe('Firebase phone factor completion for signup and recovery', () => {
         expect(res.body.message).toBe(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE);
     });
 
+    test('POST /api/auth/complete-phone-factor-verification rejects stale signup Firebase auth time', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorVerificationApp({
+            purpose: 'signup',
+            isVerified: false,
+            tokenAuthTime: Math.floor(Date.now() / 1000) - (16 * 60),
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({
+                purpose: 'signup',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toContain('Fresh login is required');
+    });
+
     test('POST /api/auth/complete-phone-factor-verification masks recovery phone mismatch', async () => {
         const isolatedApp = buildIsolatedPhoneFactorVerificationApp({
             purpose: 'forgot-password',
@@ -1231,6 +1252,26 @@ describe('Firebase phone factor completion for signup and recovery', () => {
 
         expect(res.statusCode).toBe(403);
         expect(res.body.message).toBe(GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE);
+    });
+
+    test('POST /api/auth/complete-phone-factor-verification rejects stale recovery Firebase auth time', async () => {
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
+        const isolatedApp = buildIsolatedPhoneFactorVerificationApp({
+            purpose: 'forgot-password',
+            isVerified: true,
+            tokenAuthTime: Math.floor(Date.now() / 1000) - (16 * 60),
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({
+                purpose: 'forgot-password',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toContain('Fresh login is required');
     });
 });
 
