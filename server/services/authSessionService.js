@@ -34,6 +34,7 @@ const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdm
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
+const LOGIN_ASSURANCE_FRESH_AUTH_SECONDS = Math.floor(LOGIN_ASSURANCE_TTL_MS / 1000);
 const SENSITIVE_ACTION_FRESH_LOGIN_SECONDS = Math.max(
     Number(process.env.AUTH_SENSITIVE_FRESH_LOGIN_MINUTES || 15) * 60,
     60
@@ -562,6 +563,12 @@ const resolveAuthTimeSeconds = (authToken = null) => {
     return Number.isFinite(authTime) && authTime > 0 ? authTime : 0;
 };
 
+const isFreshLoginAuthTime = (authTimeSeconds) => {
+    if (!authTimeSeconds) return false;
+    const ageSeconds = Math.floor(Date.now() / 1000) - authTimeSeconds;
+    return ageSeconds >= 0 && ageSeconds <= LOGIN_ASSURANCE_FRESH_AUTH_SECONDS;
+};
+
 const applyLoginAssuranceToSession = async ({
     user = null,
     flowToken = '',
@@ -589,7 +596,8 @@ const applyLoginAssuranceToSession = async ({
     });
 
     const authTimeSeconds = resolveAuthTimeSeconds(authToken);
-    if (!authTimeSeconds) {
+    const firebaseAuthFresh = isFreshLoginAuthTime(authTimeSeconds);
+    if (!firebaseAuthFresh) {
         throw new AppError('Fresh login is required before secure access can be granted.', 401);
     }
 
@@ -612,7 +620,7 @@ const applyLoginAssuranceToSession = async ({
         flow: verifiedFlow,
         authToken,
         deviceSessionHash,
-        firebaseAuthFresh: Boolean(authTimeSeconds),
+        firebaseAuthFresh,
     });
 
     const now = new Date();

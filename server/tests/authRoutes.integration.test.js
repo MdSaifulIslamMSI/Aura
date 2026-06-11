@@ -891,6 +891,7 @@ describe('Firebase phone factor completion', () => {
     const buildIsolatedPhoneFactorApp = ({
         storedPhone = '+919876543210',
         tokenPhone = '+919876543210',
+        tokenAuthTime = Math.floor(Date.now() / 1000) - 60,
         loginEmailOtpVerifiedAt = new Date().toISOString(),
     } = {}) => {
         let isolatedApp;
@@ -969,6 +970,7 @@ describe('Firebase phone factor completion', () => {
                     email: 'verified@example.com',
                     email_verified: true,
                     phone_number: tokenPhone,
+                    auth_time: tokenAuthTime,
                 };
                 next();
             }, completePhoneFactorLogin);
@@ -1006,6 +1008,22 @@ describe('Firebase phone factor completion', () => {
 
         expect(res.statusCode).toBe(403);
         expect(res.body.message).toContain('Verified phone number does not match');
+    });
+
+    test('POST /api/auth/complete-phone-factor-login rejects stale Firebase auth time', async () => {
+        const isolatedApp = buildIsolatedPhoneFactorApp({
+            tokenAuthTime: Math.floor(Date.now() / 1000) - (16 * 60),
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-login')
+            .send({
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.message).toContain('Fresh login is required');
     });
 
     test('POST /api/auth/complete-phone-factor-login requires a recent email OTP verification first', async () => {

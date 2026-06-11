@@ -41,11 +41,14 @@ jest.mock('../middleware/authMiddleware', () => ({
 
 const User = require('../models/User');
 const Order = require('../models/Order');
+const Listing = require('../models/Listing');
 const PaymentIntent = require('../models/PaymentIntent');
 const PaymentMethod = require('../models/PaymentMethod');
+const TradeIn = require('../models/TradeIn');
 const orderRoutes = require('../routes/orderRoutes');
 const userRoutes = require('../routes/userRoutes');
 const paymentRoutes = require('../routes/paymentRoutes');
+const tradeInRoutes = require('../routes/tradeInRoutes');
 const {
     assertSafeStatus,
     buildBearer,
@@ -84,6 +87,7 @@ const buildApp = () => {
     app.use('/api/orders', orderRoutes);
     app.use('/api/users', userRoutes);
     app.use('/api/payments', paymentRoutes);
+    app.use('/api/trade-in', tradeInRoutes);
     app.use((err, _req, res, _next) => {
         res.status(err.statusCode || err.status || 500).json({
             message: err.message || 'Internal Server Error',
@@ -254,5 +258,71 @@ describe('IDOR/BOLA security coverage', () => {
 
         assertSafeStatus(response, [404]);
         await expect(Order.countDocuments()).resolves.toBe(beforeCount);
+    });
+
+    test('user cannot attach another seller listing to a trade-in request', async () => {
+        const targetProduct = await createFakeProduct({ id: 721901, price: 50000 });
+        const victimListing = await Listing.create({
+            seller: userB._id,
+            title: 'Victim phone listing',
+            description: 'A private marketplace listing owned by another user',
+            price: 20000,
+            condition: 'good',
+            category: 'electronics',
+            images: ['https://example.test/victim-listing.jpg'],
+            location: {
+                city: 'Delhi',
+                state: 'Delhi',
+            },
+            source: 'user',
+            status: 'active',
+        });
+        const beforeListing = await Listing.findById(victimListing._id).lean();
+        const beforeCount = await TradeIn.countDocuments();
+
+        const response = await request(app)
+            .post('/api/trade-in')
+            .set('Authorization', buildBearer('token-user-a'))
+            .send({
+                listingId: String(victimListing._id),
+                targetProductId: targetProduct.id,
+                estimatedValue: 25000,
+            });
+
+        assertSafeStatus(response, [403, 404]);
+        await expectDocumentUnchanged(Listing, victimListing._id, beforeListing);
+        await expect(TradeIn.countDocuments()).resolves.toBe(beforeCount);
+        expect(JSON.stringify(response.body)).not.toContain(userB.email);
+    });
+
+    test('trade-in creation ignores attacker-controlled estimated values', async () => {
+        const targetProduct = await createFakeProduct({ id: 721902, price: 50000 });
+        const ownListing = await Listing.create({
+            seller: userA._id,
+            title: 'Owned phone listing',
+            description: 'A marketplace listing owned by the requester',
+            price: 20000,
+            condition: 'good',
+            category: 'electronics',
+            images: ['https://example.test/owned-listing.jpg'],
+            location: {
+                city: 'Mumbai',
+                state: 'Maharashtra',
+            },
+            source: 'user',
+            status: 'active',
+        });
+
+        const response = await request(app)
+            .post('/api/trade-in')
+            .set('Authorization', buildBearer('token-user-a'))
+            .send({
+                listingId: String(ownListing._id),
+                targetProductId: targetProduct.id,
+                estimatedValue: 25000,
+            });
+
+        expect(response.statusCode).toBe(201);
+        expect(response.body.tradeIn.estimatedValue).toBe(8000);
     });
 });

@@ -24,6 +24,7 @@ const uniqueEmail = (label) => {
 };
 
 const buildRuntimeSecret = (label = 'secret') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const freshAuthTime = () => Math.floor(Date.now() / 1000) - 60;
 
 describe('authSessionService phone conflict guard', () => {
     test('blocks sync when the same real phone already exists under another account format', async () => {
@@ -87,10 +88,12 @@ describe('authSessionService login assurance binding', () => {
             expiresAt: flowTokenExpiresAt,
         });
 
+        const authTime = freshAuthTime();
+
         await applyLoginAssuranceToSession({
             user,
             flowToken,
-            authToken: { auth_time: 1712345678 },
+            authToken: { auth_time: authTime },
             phone: '+919876543210',
         });
 
@@ -98,9 +101,43 @@ describe('authSessionService login assurance binding', () => {
             .select('+authAssuranceAuthTime +loginOtpVerifiedAt +loginOtpAssuranceExpiresAt');
 
         expect(updated.authAssurance).toBe('password+otp');
-        expect(updated.authAssuranceAuthTime).toBe(1712345678);
+        expect(updated.authAssuranceAuthTime).toBe(authTime);
         expect(updated.loginOtpVerifiedAt).not.toBeNull();
         expect(updated.loginOtpAssuranceExpiresAt).not.toBeNull();
+    });
+
+    test('rejects login assurance when the Firebase auth_time is stale', async () => {
+        const user = await User.create({
+            name: 'Stale Auth User',
+            email: uniqueEmail('stale_auth'),
+            phone: '+919855512345',
+            isVerified: true,
+        });
+
+        const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+            userId: user._id,
+            purpose: 'login',
+            factor: 'otp',
+        });
+        await registerOtpFlowGrant({
+            tokenId: tokenState.tokenId,
+            userId: user._id,
+            purpose: 'login',
+            factor: 'otp',
+            currentStep: 'otp-verified',
+            nextStep: tokenState.nextStep,
+            expiresAt: flowTokenExpiresAt,
+        });
+
+        await expect(applyLoginAssuranceToSession({
+            user,
+            flowToken,
+            authToken: { auth_time: Math.floor(Date.now() / 1000) - (16 * 60) },
+            phone: '+919855512345',
+        })).rejects.toMatchObject({
+            message: 'Fresh login is required before secure access can be granted.',
+            statusCode: 401,
+        });
     });
 
     test('requires Firebase phone proof when the login flow token represents the email factor only', async () => {
@@ -129,7 +166,7 @@ describe('authSessionService login assurance binding', () => {
         await expect(applyLoginAssuranceToSession({
             user,
             flowToken,
-            authToken: { auth_time: 1712345678 },
+            authToken: { auth_time: freshAuthTime() },
             phone: '+919876543210',
         })).rejects.toMatchObject({
             message: 'Firebase phone verification is required before completing secure sign-in.',
@@ -163,14 +200,14 @@ describe('authSessionService login assurance binding', () => {
         await applyLoginAssuranceToSession({
             user,
             flowToken,
-            authToken: { auth_time: 1712345678 },
+            authToken: { auth_time: freshAuthTime() },
             phone: '+919812341234',
         });
 
         await expect(applyLoginAssuranceToSession({
             user,
             flowToken,
-            authToken: { auth_time: 1712345678 },
+            authToken: { auth_time: freshAuthTime() },
             phone: '+919812341234',
         })).rejects.toMatchObject({
             message: 'Login assurance token already used. Please verify OTP again.',
@@ -208,7 +245,7 @@ describe('authSessionService login assurance binding', () => {
         await expect(applyLoginAssuranceToSession({
             user,
             flowToken,
-            authToken: { auth_time: 1712345678 },
+            authToken: { auth_time: freshAuthTime() },
             deviceId: 'device-123',
             deviceSessionHash: 'session-hash-other',
             phone: '+919834561234',
