@@ -76,6 +76,11 @@ const coverage = [
     ['POST', '/api/admin/users/:userId/reactivate', 'ADMIN_USER_MANAGEMENT', ['sensitiveActions.adminUserMutation']],
     ['POST', '/api/admin/users/:userId/delete', 'ADMIN_USER_MANAGEMENT', ['sensitiveActions.adminUserMutation']],
     ['POST', '/api/auth/recovery-codes', 'ACCOUNT_RECOVERY_CHANGE', ['sensitiveActions.accountRecoveryChange']],
+    ['POST', '/api/auth/mfa/totp/setup', 'PASSWORD_OR_AUTH_FACTOR_CHANGE', ['sensitiveActions.authFactorChange']],
+    ['GET', '/api/auth/mfa/totp/qr', 'PASSWORD_OR_AUTH_FACTOR_CHANGE', ['sensitiveActions.authFactorChange']],
+    ['POST', '/api/auth/mfa/totp/verify-setup', 'PASSWORD_OR_AUTH_FACTOR_CHANGE', ['sensitiveActions.authFactorChange']],
+    ['POST', '/api/auth/mfa/passkey/register/options', 'PASSWORD_OR_AUTH_FACTOR_CHANGE', ['sensitiveActions.authFactorChange']],
+    ['POST', '/api/auth/mfa/passkey/register/verify', 'PASSWORD_OR_AUTH_FACTOR_CHANGE', ['sensitiveActions.authFactorChange']],
     ['POST', '/api/auth/complete-phone-factor-login', 'PASSWORD_OR_AUTH_FACTOR_CHANGE', ['sensitiveActions.authFactorChange']],
     ['POST', '/api/auth/complete-phone-factor-verification', 'PASSWORD_OR_AUTH_FACTOR_CHANGE', ['sensitiveActions.authFactorChange']],
     ['POST', '/api/auth/verify-device', 'PASSWORD_OR_AUTH_FACTOR_CHANGE', ['sensitiveActions.authFactorChange']],
@@ -211,6 +216,13 @@ const isDangerousDiscoveredRoute = ({ method, path: routePath }) => {
     if (routePath === '/api/orders' && mutating) return true;
     if (routePath.startsWith('/api/uploads/') && mutating) return true;
     if (routePath.startsWith('/api/auth/recovery') && mutating) return true;
+    if (routePath === '/api/auth/mfa/totp/qr') return true;
+    if ([
+        '/api/auth/mfa/totp/setup',
+        '/api/auth/mfa/totp/verify-setup',
+        '/api/auth/mfa/passkey/register/options',
+        '/api/auth/mfa/passkey/register/verify',
+    ].includes(routePath) && mutating) return true;
     if (routePath.startsWith('/api/auth/complete-phone-factor') && mutating) return true;
     if (routePath === '/api/auth/verify-device' && mutating) return true;
     if (routePath === '/api/auth/otp/reset-password' && mutating) return true;
