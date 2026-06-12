@@ -253,6 +253,7 @@ const SENSITIVE_ACTION_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.AUT
 const DEGRADED_ACTION_FRESH_LOGIN_MINUTES = parsePositiveIntEnv(process.env.AUTH_DEGRADED_FRESH_LOGIN_MINUTES, 5);
 const REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS = parseBooleanEnv(process.env.AUTH_REQUIRE_CRYPTO_DEVICE_FOR_SENSITIVE_ACTIONS, true);
 const AUTH_ADAPTIVE_SECURITY_ENABLED = parseBooleanEnv(process.env.AUTH_ADAPTIVE_SECURITY_ENABLED, true);
+const PHONE_FACTOR_PROOF_FRESH_SECONDS = 10 * 60;
 const ADMIN_ALLOWLIST_EMAILS = new Set(
     String(process.env.ADMIN_ALLOWLIST_EMAILS || '')
         .split(',')
@@ -1297,21 +1298,32 @@ const protectPhoneFactorProof = asyncHandler(async (req, res, next) => {
         await enforceGlobalSessionRevocationForToken(req, decodedToken);
         const verifiedPhone = normalizePhone(decodedToken?.phone_number || '');
 
+        req.authToken = decodedToken;
         req.authUid = verifiedAccess.authUid || decodedToken?.uid || '';
         req.authProvider = verifiedAccess.provider || 'legacy';
-        req.authToken = decodedToken;
+        const tokenAuthTime = resolveAuthTimeSeconds(decodedToken);
+        const authAgeSeconds = tokenAuthTime > 0
+            ? Math.max(Math.floor(Date.now() / 1000) - tokenAuthTime, 0)
+            : Number.POSITIVE_INFINITY;
+        const phoneFactorProofFresh = Number.isFinite(authAgeSeconds)
+            && authAgeSeconds <= PHONE_FACTOR_PROOF_FRESH_SECONDS;
         req.authzPosture = {
             ...(req.authzPosture || {}),
             sensitivity: 'sensitive',
-            fresh: true,
-            authAgeSeconds: 0,
-            stepUpFresh: true,
-            elevatedAssurance: true,
+            fresh: phoneFactorProofFresh,
+            authAgeSeconds,
+            authFreshnessWindowSeconds: PHONE_FACTOR_PROOF_FRESH_SECONDS,
+            stepUpFresh: phoneFactorProofFresh,
+            elevatedAssurance: phoneFactorProofFresh,
         };
 
         if (!verifiedPhone || !PHONE_REGEX.test(verifiedPhone)) {
             recordStepUpRequired(req, 'phone_factor_required');
             throw new AppError('Firebase phone verification is required before continuing.', 403);
+        }
+        if (!phoneFactorProofFresh) {
+            recordStepUpRequired(req, 'fresh_phone_factor_required', 401);
+            throw new AppError('Fresh login is required before secure access can be granted.', 401);
         }
 
         return next();

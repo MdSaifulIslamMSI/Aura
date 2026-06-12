@@ -4,6 +4,103 @@ describe('authMiddleware cookie session authentication', () => {
     afterEach(() => {
         jest.resetModules();
         jest.clearAllMocks();
+        jest.dontMock('../services/auth/authProviderAdapter');
+        jest.dontMock('../config/redis');
+        jest.dontMock('../services/browserSessionService');
+        jest.dontMock('../services/trustedDeviceChallengeService');
+    });
+
+    const buildPhoneFactorProofMiddleware = ({ tokenAuthTime }) => {
+        let protectPhoneFactorProof;
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const verifyAccessToken = jest.fn().mockResolvedValue({
+            authUid: 'uid-phone-factor',
+            provider: 'firebase',
+            authToken: {
+                uid: 'uid-phone-factor',
+                phone_number: '+919876543210',
+                auth_time: tokenAuthTime,
+                iat: tokenAuthTime,
+                exp: nowSeconds + 3600,
+            },
+        });
+
+        jest.isolateModules(() => {
+            jest.doMock('../services/auth/authProviderAdapter', () => ({
+                getAuthAdapter: () => ({
+                    verifyAccessToken,
+                }),
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                getBrowserSessionFromRequest: jest.fn(),
+                resolveSessionIdFromRequest: jest.fn(),
+                revokeBrowserSession: jest.fn(),
+                touchBrowserSession: jest.fn(),
+                getGlobalSessionRevokedAfter: jest.fn().mockResolvedValue(0),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+            }));
+
+            protectPhoneFactorProof = require('../middleware/authMiddleware').protectPhoneFactorProof;
+        });
+
+        return { protectPhoneFactorProof, verifyAccessToken };
+    };
+
+    test('protectPhoneFactorProof exposes fresh posture for recent Firebase phone proof', async () => {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const { protectPhoneFactorProof, verifyAccessToken } = buildPhoneFactorProofMiddleware({
+            tokenAuthTime: nowSeconds - 60,
+        });
+        const req = {
+            headers: { authorization: 'Bearer fresh-phone-token' },
+            get: (header) => req.headers[String(header || '').toLowerCase()] || '',
+        };
+        const next = jest.fn();
+
+        await protectPhoneFactorProof(req, {}, next);
+
+        expect(verifyAccessToken).toHaveBeenCalledWith('fresh-phone-token');
+        expect(req.authzPosture).toMatchObject({
+            fresh: true,
+            stepUpFresh: true,
+            elevatedAssurance: true,
+            authFreshnessWindowSeconds: 600,
+        });
+        expect(req.authzPosture.authAgeSeconds).toBeLessThanOrEqual(120);
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    test('protectPhoneFactorProof rejects stale Firebase phone proof', async () => {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const { protectPhoneFactorProof, verifyAccessToken } = buildPhoneFactorProofMiddleware({
+            tokenAuthTime: nowSeconds - (16 * 60),
+        });
+        const req = {
+            headers: { authorization: 'Bearer stale-phone-token' },
+            get: (header) => req.headers[String(header || '').toLowerCase()] || '',
+        };
+        const next = jest.fn();
+
+        await protectPhoneFactorProof(req, {}, next);
+
+        expect(verifyAccessToken).toHaveBeenCalledWith('stale-phone-token');
+        expect(req.authzPosture).toMatchObject({
+            fresh: false,
+            stepUpFresh: false,
+            elevatedAssurance: false,
+            authFreshnessWindowSeconds: 600,
+        });
+        const error = next.mock.calls[0]?.[0];
+        expect(error?.statusCode).toBe(401);
+        expect(error?.message).toContain('Fresh login is required');
     });
 
     test('protect authenticates requests from a valid opaque browser session cookie', async () => {
