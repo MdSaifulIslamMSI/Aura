@@ -437,6 +437,17 @@ const resolveTrustedDeviceBootstrapSignal = async ({
     const existingDevice = getTrustedDeviceRegistration(user, deviceId);
 
     if (!user?._id || !deviceId || !deviceSessionToken || !existingDevice) {
+        if (requireFreshProof && hasPasskeyTrustedDevice(user)) {
+            return {
+                required: true,
+                verified: false,
+                deviceId: '',
+                deviceSessionHash: '',
+                method: '',
+                reason: 'Fresh trusted device verification is required.',
+            };
+        }
+
         return {
             required: false,
             verified: false,
@@ -590,6 +601,11 @@ const getTrustedDeviceRegistration = (user = null, deviceId = '') => {
 
     return user.trustedDevices.find((entry) => normalizeDeviceId(entry?.deviceId) === normalizedDeviceId) || null;
 };
+
+const hasPasskeyTrustedDevice = (user = null) => (
+    Array.isArray(user?.trustedDevices)
+    && user.trustedDevices.some((entry) => getTrustedDeviceMethod(entry) === PASSKEY_METHOD)
+);
 
 const isTrustedDeviceRegisteredForUser = (user = null, deviceId = '') => Boolean(
     getTrustedDeviceRegistration(user, deviceId)

@@ -208,6 +208,47 @@ describe('trustedDeviceChallengeService', () => {
         return service;
     };
 
+    test('requires fresh bootstrap proof when a passkey user omits trusted-device context', async () => {
+        const userId = '507f1f77bcf86cd799439011';
+        const service = loadServiceWithDbState({
+            dbState: {
+                trustedDevices: [{
+                    deviceId: 'device_bootstrap_123456',
+                    label: 'Bootstrap laptop',
+                    method: 'webauthn',
+                    publicKeySpkiBase64: Buffer.from('spki-bootstrap').toString('base64'),
+                    webauthnCredentialIdBase64Url: 'credential-bootstrap',
+                    createdAt: new Date(),
+                    lastSeenAt: new Date(),
+                    lastVerifiedAt: new Date(),
+                }],
+            },
+            userId,
+        });
+
+        const result = await service.resolveTrustedDeviceBootstrapSignal({
+            req: { headers: {} },
+            user: {
+                _id: userId,
+                trustedDevices: [{
+                    deviceId: 'device_bootstrap_123456',
+                    label: 'Bootstrap laptop',
+                    method: 'webauthn',
+                    publicKeySpkiBase64: Buffer.from('spki-bootstrap').toString('base64'),
+                    webauthnCredentialIdBase64Url: 'credential-bootstrap',
+                }],
+            },
+            expectedScope: 'reset-password',
+            requireFreshProof: true,
+        });
+
+        expect(result).toMatchObject({
+            required: true,
+            verified: false,
+            reason: 'Fresh trusted device verification is required.',
+        });
+    });
+
     test('enrolls a new trusted device and then verifies future assertions for the same Firebase session', async () => {
         let service;
         const dbState = { trustedDevices: [] };
