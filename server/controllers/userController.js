@@ -20,15 +20,27 @@ const {
     AVATAR_UPLOAD_ALLOWED_MIME,
 } = require('../utils/avatarValidation');
 const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
+const { normalizePhoneE164 } = require('../services/sms');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
+const PHONE_FACTOR_PROOF_FRESH_SECONDS = 10 * 60;
 
 const normalizePhone = (value) => (
     typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
 );
+
+const canonicalizePhone = (value) => {
+    const normalized = normalizePhone(value);
+    if (!normalized || !PHONE_REGEX.test(normalized)) return '';
+    try {
+        return normalizePhoneE164(normalized);
+    } catch {
+        return '';
+    }
+};
 
 const normalizeText = (value) => (
     typeof value === 'string' ? value.trim() : ''
@@ -37,6 +49,40 @@ const normalizeText = (value) => (
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
 );
+
+const resolveFreshAuthTimeSeconds = (authToken = null) => {
+    const authTimeSeconds = Number(authToken?.auth_time || 0);
+    if (!Number.isFinite(authTimeSeconds) || authTimeSeconds <= 0) {
+        return 0;
+    }
+
+    const ageSeconds = Math.floor(Date.now() / 1000) - authTimeSeconds;
+    return ageSeconds >= 0 && ageSeconds <= PHONE_FACTOR_PROOF_FRESH_SECONDS
+        ? authTimeSeconds
+        : 0;
+};
+
+const requireFreshPhoneProofForProfileChange = async ({ req = {}, nextPhone = '' } = {}) => {
+    const safeEmail = normalizeEmail(req.user?.email);
+    const normalizedNextPhone = normalizePhone(nextPhone);
+    const canonicalNextPhone = canonicalizePhone(normalizedNextPhone);
+    if (!safeEmail || !normalizedNextPhone) return;
+
+    const currentUser = await User.findOne({ email: safeEmail }, 'phone').lean();
+    const currentPhone = canonicalizePhone(currentUser?.phone || '');
+    if (currentPhone && currentPhone === canonicalNextPhone) {
+        return;
+    }
+
+    const verifiedPhone = canonicalizePhone(req.authToken?.phone_number || '');
+    if (!verifiedPhone || verifiedPhone !== canonicalNextPhone) {
+        throw new AppError('Firebase phone verification is required before changing your phone number.', 403);
+    }
+
+    if (!resolveFreshAuthTimeSeconds(req.authToken)) {
+        throw new AppError('Fresh phone verification is required before changing your phone number.', 401);
+    }
+};
 
 const toPlainObject = (value = {}) => {
     if (!value || typeof value !== 'object') return {};
@@ -600,6 +646,12 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         updates.phone = normalizedPhone || undefined;
         if (!updates.phone) {
             delete updates.phone;
+        }
+        if (updates.phone) {
+            await requireFreshPhoneProofForProfileChange({
+                req,
+                nextPhone: updates.phone,
+            });
         }
     }
 
