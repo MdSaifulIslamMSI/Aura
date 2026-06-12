@@ -106,6 +106,7 @@ describe('Auth backup recovery codes', () => {
 
         const res = await request(app)
             .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', 'device-recovery-route')
             .send({
                 email: user.email,
                 code: codes[0],
@@ -123,6 +124,7 @@ describe('Auth backup recovery codes', () => {
 
         const replay = await request(app)
             .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', 'device-recovery-route')
             .send({
                 email: user.email,
                 code: codes[0],
@@ -130,6 +132,47 @@ describe('Auth backup recovery codes', () => {
 
         expect(replay.statusCode).toBe(401);
         expect(replay.body.message).toContain('invalid or already used');
+    });
+
+    test('POST /api/auth/recovery-codes/verify rejects missing device identity without consuming the code', async () => {
+        const user = await User.create({
+            name: 'Recovery Missing Device User',
+            email: `${buildRuntimeSecret('recovery-missing-device')}@test.com`,
+            phone: '+919876543213',
+            isVerified: true,
+            trustedDevices: [{
+                deviceId: buildRuntimeSecret('passkey-device'),
+                label: 'Passkey',
+                method: 'webauthn',
+                publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
+                webauthnCredentialIdBase64Url: buildRuntimeSecret('credential'),
+            }],
+        });
+        const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
+
+        const missingDevice = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .send({
+                email: user.email,
+                code: codes[0],
+            });
+
+        expect(missingDevice.statusCode).toBe(400);
+        expect(missingDevice.body.message).toContain('Trusted device identity');
+
+        const retryWithDevice = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', 'device-recovery-retry')
+            .send({
+                email: user.email,
+                code: codes[0],
+            });
+
+        expect(retryWithDevice.statusCode).toBe(200);
+        expect(retryWithDevice.body).toMatchObject({
+            success: true,
+            flowToken: expect.any(String),
+        });
     });
 
     test('POST /api/auth/recovery-codes/verify masks unknown and wrong recovery code failures', async () => {
@@ -150,12 +193,14 @@ describe('Auth backup recovery codes', () => {
 
         const wrongCode = await request(app)
             .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', 'device-recovery-invalid-code')
             .send({
                 email: user.email,
                 code: 'WRONG-CODE-0000',
             });
         const unknownAccount = await request(app)
             .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', 'device-recovery-invalid-code')
             .send({
                 email: `${buildRuntimeSecret('recovery-unknown')}@test.com`,
                 code: 'WRONG-CODE-0000',
