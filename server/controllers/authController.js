@@ -1441,6 +1441,15 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
         throw phoneFactorFlowError();
     }
 
+    const verifiedBootstrapDeviceSignal = await buildTrustedDeviceBootstrapSignal({
+        req,
+        user: existingUser,
+        scope: BOOTSTRAP_CHALLENGE_SCOPE_PHONE_FACTOR_FORGOT_PASSWORD,
+    });
+    if (verifiedBootstrapDeviceSignal.required && !verifiedBootstrapDeviceSignal.verified) {
+        throw new AppError(verifiedBootstrapDeviceSignal.reason || 'Fresh trusted device verification is required.', 403);
+    }
+
     const updatedUser = await User.findOneAndUpdate(
         { email: requestEmail, isVerified: true },
         {
@@ -1466,14 +1475,6 @@ const completePhoneFactorVerification = asyncHandler(async (req, res) => {
 
     await persistAuthSnapshot(updatedUser);
     await invalidateUserCacheByEmail(requestEmail);
-    const verifiedBootstrapDeviceSignal = await buildTrustedDeviceBootstrapSignal({
-        req,
-        user: updatedUser,
-        scope: BOOTSTRAP_CHALLENGE_SCOPE_PHONE_FACTOR_FORGOT_PASSWORD,
-    });
-    if (verifiedBootstrapDeviceSignal.required && !verifiedBootstrapDeviceSignal.verified) {
-        throw new AppError(verifiedBootstrapDeviceSignal.reason || 'Fresh trusted device verification is required.', 403);
-    }
     const { tokenState, ...publicFlowPayload } = issueOtpFlowToken({
         userId: updatedUser._id,
         purpose,

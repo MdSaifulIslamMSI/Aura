@@ -1060,6 +1060,8 @@ describe('Firebase phone factor completion for signup and recovery', () => {
         isVerified = false,
         userRecord,
         findOneAndUpdateResult,
+        bootstrapSignal = { verified: false, deviceId: '', deviceSessionHash: '' },
+        captureMocks = null,
     } = {}) => {
         let isolatedApp;
 
@@ -1106,7 +1108,7 @@ describe('Firebase phone factor completion for signup and recovery', () => {
                     loyalty: {},
                     createdAt: new Date('2026-01-01T00:00:00.000Z'),
                 };
-            jest.doMock('../models/User', () => ({
+            const mockUserModel = {
                 findOne: jest.fn().mockReturnValue({
                     select: jest.fn().mockReturnValue({
                         lean: jest.fn().mockResolvedValue(resolvedUserRecord),
@@ -1114,7 +1116,12 @@ describe('Firebase phone factor completion for signup and recovery', () => {
                 }),
                 updateOne: jest.fn().mockResolvedValue({ acknowledged: true, modifiedCount: 1 }),
                 findOneAndUpdate: jest.fn().mockResolvedValue(resolvedUpdatedUser),
-            }));
+            };
+            const mockOtpFlowGrantService = {
+                registerOtpFlowGrant: jest.fn().mockResolvedValue(null),
+                consumeOtpFlowGrant: jest.fn().mockResolvedValue(null),
+            };
+            jest.doMock('../models/User', () => mockUserModel);
             jest.doMock('../services/authSessionService', () => {
                 const actual = jest.requireActual('../services/authSessionService');
                 return {
@@ -1126,10 +1133,25 @@ describe('Firebase phone factor completion for signup and recovery', () => {
                 invalidateUserCache: jest.fn().mockResolvedValue(undefined),
                 invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
             }));
-            jest.doMock('../services/otpFlowGrantService', () => ({
-                registerOtpFlowGrant: jest.fn().mockResolvedValue(null),
-                consumeOtpFlowGrant: jest.fn().mockResolvedValue(null),
+            jest.doMock('../services/otpFlowGrantService', () => mockOtpFlowGrantService);
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceChallengePayload: jest.fn().mockReturnValue({}),
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: '', deviceLabel: '' }),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                issueTrustedDeviceBootstrapChallenge: jest.fn().mockResolvedValue(null),
+                issueTrustedDeviceChallenge: jest.fn().mockResolvedValue(null),
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockResolvedValue(bootstrapSignal),
+                verifyTrustedDeviceChallenge: jest.fn(),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
             }));
+            if (captureMocks) {
+                captureMocks({
+                    User: mockUserModel,
+                    otpFlowGrantService: mockOtpFlowGrantService,
+                });
+            }
 
             const express = require('express');
             const { completePhoneFactorVerification } = require('../controllers/authController');
@@ -1184,6 +1206,39 @@ describe('Firebase phone factor completion for signup and recovery', () => {
         expect(res.body.purpose).toBe('forgot-password');
         expect(res.body.flowToken).toEqual(expect.any(String));
         expect(res.body.flowTokenExpiresAt).toEqual(expect.any(String));
+    });
+
+    test('POST /api/auth/complete-phone-factor-verification does not mark recovery verified before trusted-device proof', async () => {
+        process.env.OTP_FLOW_SECRET = buildRuntimeSecret('otp-flow');
+        let mocks;
+        const isolatedApp = buildIsolatedPhoneFactorVerificationApp({
+            purpose: 'forgot-password',
+            isVerified: true,
+            bootstrapSignal: {
+                required: true,
+                verified: false,
+                deviceId: '',
+                deviceSessionHash: '',
+                method: '',
+                reason: 'Fresh trusted device verification is required.',
+            },
+            captureMocks: (captured) => {
+                mocks = captured;
+            },
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/complete-phone-factor-verification')
+            .send({
+                purpose: 'forgot-password',
+                email: 'verified@example.com',
+                phone: '+919876543210',
+            });
+
+        expect(res.statusCode).toBe(403);
+        expect(res.body.message).toContain('Fresh trusted device verification is required');
+        expect(mocks.User.findOneAndUpdate).not.toHaveBeenCalled();
+        expect(mocks.otpFlowGrantService.registerOtpFlowGrant).not.toHaveBeenCalled();
     });
 
     test('POST /api/auth/complete-phone-factor-verification masks stale signup email OTP state', async () => {
