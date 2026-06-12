@@ -1550,6 +1550,9 @@ const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
     if (!email || !code) {
         throw new AppError('Email and recovery code are required.', 400);
     }
+    if (!deviceId) {
+        throw new AppError('Trusted device identity is required before verifying a recovery code.', 400);
+    }
 
     let recoveryResult = null;
     try {
