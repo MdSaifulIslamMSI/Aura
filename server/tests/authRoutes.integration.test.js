@@ -3,6 +3,10 @@ const app = require('../index');
 const User = require('../models/User');
 const { generateRecoveryCodesForUser } = require('../services/authRecoveryCodeService');
 const { signLoginRiskSignals } = require('../services/authRiskSignalService');
+const {
+    issueTrustedDeviceSession,
+    TRUSTED_DEVICE_SESSION_HEADER,
+} = require('../services/trustedDeviceChallengeService');
 const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
 const buildStrongPassword = () => String.fromCharCode(79, 114, 99, 104, 105, 100, 33, 56, 118, 82, 50, 80);
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
@@ -89,13 +93,14 @@ describe('Auth backup recovery codes', () => {
     });
 
     test('POST /api/auth/recovery-codes/verify consumes one code and returns a reset flow token', async () => {
+        const deviceId = 'device-recovery-route';
         const user = await User.create({
             name: 'Recovery Route User',
             email: `${buildRuntimeSecret('recovery-route')}@test.com`,
             phone: '+919876543210',
             isVerified: true,
             trustedDevices: [{
-                deviceId: buildRuntimeSecret('passkey-device'),
+                deviceId,
                 label: 'Passkey',
                 method: 'webauthn',
                 publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
@@ -103,10 +108,12 @@ describe('Auth backup recovery codes', () => {
             }],
         });
         const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
+        const { deviceSessionToken } = issueTrustedDeviceSession({ user, deviceId });
 
         const res = await request(app)
             .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', 'device-recovery-route')
+            .set('X-Aura-Device-Id', deviceId)
+            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
             .send({
                 email: user.email,
                 code: codes[0],
@@ -124,7 +131,8 @@ describe('Auth backup recovery codes', () => {
 
         const replay = await request(app)
             .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', 'device-recovery-route')
+            .set('X-Aura-Device-Id', deviceId)
+            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
             .send({
                 email: user.email,
                 code: codes[0],
@@ -134,14 +142,60 @@ describe('Auth backup recovery codes', () => {
         expect(replay.body.message).toContain('invalid or already used');
     });
 
+    test('POST /api/auth/recovery-codes/verify rejects spoofable device id without consuming the code', async () => {
+        const deviceId = 'device-recovery-session-required';
+        const user = await User.create({
+            name: 'Recovery Session Required User',
+            email: `${buildRuntimeSecret('recovery-session-required')}@test.com`,
+            phone: '+919876543214',
+            isVerified: true,
+            trustedDevices: [{
+                deviceId,
+                label: 'Passkey',
+                method: 'webauthn',
+                publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
+                webauthnCredentialIdBase64Url: buildRuntimeSecret('credential'),
+            }],
+        });
+        const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
+
+        const missingSession = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', deviceId)
+            .send({
+                email: user.email,
+                code: codes[0],
+            });
+
+        expect(missingSession.statusCode).toBe(400);
+        expect(missingSession.body.message).toContain('Trusted device session');
+
+        const { deviceSessionToken } = issueTrustedDeviceSession({ user, deviceId });
+        const retryWithSession = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', deviceId)
+            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
+            .send({
+                email: user.email,
+                code: codes[0],
+            });
+
+        expect(retryWithSession.statusCode).toBe(200);
+        expect(retryWithSession.body).toMatchObject({
+            success: true,
+            flowToken: expect.any(String),
+        });
+    });
+
     test('POST /api/auth/recovery-codes/verify rejects missing device identity without consuming the code', async () => {
+        const deviceId = 'device-recovery-retry';
         const user = await User.create({
             name: 'Recovery Missing Device User',
             email: `${buildRuntimeSecret('recovery-missing-device')}@test.com`,
             phone: '+919876543213',
             isVerified: true,
             trustedDevices: [{
-                deviceId: buildRuntimeSecret('passkey-device'),
+                deviceId,
                 label: 'Passkey',
                 method: 'webauthn',
                 publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
@@ -160,9 +214,11 @@ describe('Auth backup recovery codes', () => {
         expect(missingDevice.statusCode).toBe(400);
         expect(missingDevice.body.message).toContain('Trusted device identity');
 
+        const { deviceSessionToken } = issueTrustedDeviceSession({ user, deviceId });
         const retryWithDevice = await request(app)
             .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', 'device-recovery-retry')
+            .set('X-Aura-Device-Id', deviceId)
+            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
             .send({
                 email: user.email,
                 code: codes[0],
@@ -176,13 +232,14 @@ describe('Auth backup recovery codes', () => {
     });
 
     test('POST /api/auth/recovery-codes/verify masks unknown and wrong recovery code failures', async () => {
+        const deviceId = 'device-recovery-invalid-code';
         const user = await User.create({
             name: 'Recovery Wrong Code User',
             email: `${buildRuntimeSecret('recovery-wrong')}@test.com`,
             phone: '+919876543212',
             isVerified: true,
             trustedDevices: [{
-                deviceId: buildRuntimeSecret('passkey-device'),
+                deviceId,
                 label: 'Passkey',
                 method: 'webauthn',
                 publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
@@ -190,17 +247,20 @@ describe('Auth backup recovery codes', () => {
             }],
         });
         await generateRecoveryCodesForUser({ userId: user._id });
+        const { deviceSessionToken } = issueTrustedDeviceSession({ user, deviceId });
 
         const wrongCode = await request(app)
             .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', 'device-recovery-invalid-code')
+            .set('X-Aura-Device-Id', deviceId)
+            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
             .send({
                 email: user.email,
                 code: 'WRONG-CODE-0000',
             });
         const unknownAccount = await request(app)
             .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', 'device-recovery-invalid-code')
+            .set('X-Aura-Device-Id', deviceId)
+            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
             .send({
                 email: `${buildRuntimeSecret('recovery-unknown')}@test.com`,
                 code: 'WRONG-CODE-0000',
@@ -213,13 +273,14 @@ describe('Auth backup recovery codes', () => {
     });
 
     test('POST /api/auth/recovery-codes/verify binds reset flow token to the requesting device', async () => {
+        const deviceId = 'device-recovery-a';
         const user = await User.create({
             name: 'Recovery Device Bound User',
             email: `${buildRuntimeSecret('recovery-device-bound')}@test.com`,
             phone: '+919876543211',
             isVerified: true,
             trustedDevices: [{
-                deviceId: buildRuntimeSecret('passkey-device'),
+                deviceId,
                 label: 'Passkey',
                 method: 'webauthn',
                 publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
@@ -227,10 +288,12 @@ describe('Auth backup recovery codes', () => {
             }],
         });
         const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
+        const { deviceSessionToken } = issueTrustedDeviceSession({ user, deviceId });
 
         const verifyRes = await request(app)
             .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', 'device-recovery-a')
+            .set('X-Aura-Device-Id', deviceId)
+            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
             .send({
                 email: user.email,
                 code: codes[0],
@@ -249,7 +312,7 @@ describe('Auth backup recovery codes', () => {
             });
 
         expect(resetFromOtherDevice.statusCode).toBe(403);
-        expect(resetFromOtherDevice.body.message).toMatch(/device.*mismatch/i);
+        expect(resetFromOtherDevice.body.message).toMatch(/fresh trusted device verification/i);
     });
 });
 
