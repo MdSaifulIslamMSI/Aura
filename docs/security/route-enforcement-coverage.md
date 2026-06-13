@@ -116,7 +116,7 @@ Some high-risk auth routes are unauthenticated by design because they are proof-
 | Route | Reason |
 | --- | --- |
 | POST /api/auth/bootstrap-device-challenge | Turnstile and security-critical bootstrap-device limiter. |
-| POST /api/auth/recovery-codes/verify | Turnstile, recovery limiter, and recovery-code verifier. |
+| POST /api/auth/recovery-codes/verify | Turnstile, recovery limiter, trusted-device session binding, and recovery-code verifier. |
 | POST /api/auth/logout | Session mutation limiter and CSRF for cookie sessions. |
 | POST /api/auth/exchange | Token verification and CSRF token generation. |
 | POST /api/auth/sync | Token verification, CSRF, and auth sync limiter. |

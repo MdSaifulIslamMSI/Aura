@@ -1553,6 +1553,46 @@ const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
     if (!deviceId) {
         throw new AppError('Trusted device identity is required before verifying a recovery code.', 400);
     }
+    if (!deviceSessionToken) {
+        throw new AppError('Trusted device session is required before verifying a recovery code.', 400);
+    }
+
+    const recoveryCandidate = await User.findOne(
+        { email, isVerified: true },
+        'email trustedDevices'
+    ).lean();
+    if (!recoveryCandidate?._id) {
+        await waitForRecoveryCodeVerificationWindow(responseStartedAt);
+        recordAuthSecurityEvent({
+            event: 'recovery_code',
+            outcome: 'failure',
+            reason: 'invalid',
+            surface: 'recovery',
+            req,
+            meta: { statusCode: 401 },
+        });
+        throw new AppError('Recovery code is invalid or already used.', 401);
+    }
+
+    const verifiedBootstrapDeviceSignal = await resolveTrustedDeviceBootstrapSignal({
+        req,
+        user: recoveryCandidate,
+        challengePayload: {},
+        expectedScope: '',
+        requireFreshProof: false,
+    });
+    if (!verifiedBootstrapDeviceSignal.verified || !verifiedBootstrapDeviceSignal.deviceSessionHash) {
+        await waitForRecoveryCodeVerificationWindow(responseStartedAt);
+        recordAuthSecurityEvent({
+            event: 'recovery_code',
+            outcome: 'failure',
+            reason: 'trusted_device_session_required',
+            surface: 'recovery',
+            req,
+            meta: { statusCode: 401 },
+        });
+        throw new AppError('Recovery code is invalid or already used.', 401);
+    }
 
     let recoveryResult = null;
     try {
@@ -1580,10 +1620,8 @@ const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
         factor: 'recovery-code',
         nextStep: 'reset-password',
         signalBond: {
-            ...(deviceId ? { deviceId } : {}),
-            ...(deviceId && deviceSessionToken
-                ? { deviceSessionHash: hashTrustedDeviceSessionToken(deviceSessionToken) }
-                : {}),
+            deviceId: verifiedBootstrapDeviceSignal.deviceId,
+            deviceSessionHash: verifiedBootstrapDeviceSignal.deviceSessionHash,
         },
     });
     await registerOtpFlowGrant({

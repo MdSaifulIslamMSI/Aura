@@ -143,7 +143,7 @@ const coverageByKey = new Map(coverage.map((entry) => [entry.key, entry]));
 
 const exclusions = new Map([
     ['POST /api/auth/bootstrap-device-challenge', 'Unauthenticated bootstrap proof request; covered by Turnstile and security-critical rate limiter.'],
-    ['POST /api/auth/recovery-codes/verify', 'Unauthenticated recovery proof verification; covered by Turnstile, recovery limiter, and recovery-code verifier.'],
+    ['POST /api/auth/recovery-codes/verify', 'Unauthenticated recovery proof verification; covered by Turnstile, recovery limiter, trusted-device session binding, and recovery-code verifier.'],
     ['POST /api/auth/logout', 'Session cleanup route; protected by session mutation limiter and CSRF for cookie sessions.'],
     ['POST /api/auth/exchange', 'Session establishment endpoint; protected by token verification and CSRF token generation.'],
     ['POST /api/auth/sync', 'Session sync endpoint; protected by token verification, CSRF, and auth sync limiter.'],
