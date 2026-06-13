@@ -3,6 +3,12 @@ const request = require('supertest');
 
 const buildRuntimeValue = (label = 'value') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
+const mockSetupTotp = jest.fn((_req, res) => res.status(201).json({ manualKey: 'mock-manual-key' }));
+const mockGetTotpQr = jest.fn((_req, res) => res.json({ qrCodeDataUrl: 'data:image/png;base64,mock' }));
+const mockVerifyTotpSetup = jest.fn((_req, res) => res.json({ enabled: true }));
+const mockPasskeyRegisterOptions = jest.fn((_req, res) => res.json({ challenge: 'mock-passkey-register-challenge' }));
+const mockPasskeyRegisterVerify = jest.fn((_req, res) => res.status(201).json({ registered: true }));
+
 jest.mock('../middleware/authMiddleware', () => ({
     protect: (req, _res, next) => {
         const authHeader = req.headers.authorization || '';
@@ -11,7 +17,7 @@ jest.mock('../middleware/authMiddleware', () => ({
         if (token === 'token-user-a') {
             req.authUid = 'uid-user-a';
             req.authToken = { email: 'user-a@example.com', auth_time: Math.floor(Date.now() / 1000) };
-            req.user = { id: 'uid-user-a', email: 'user-a@example.com' };
+            req.user = { _id: 'uid-user-a', id: 'uid-user-a', email: 'user-a@example.com' };
             req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
             return next();
         }
@@ -19,8 +25,16 @@ jest.mock('../middleware/authMiddleware', () => ({
         if (token === 'token-user-b') {
             req.authUid = 'uid-user-b';
             req.authToken = { email: 'user-b@example.com', auth_time: Math.floor(Date.now() / 1000) };
-            req.user = { id: 'uid-user-b', email: 'user-b@example.com' };
+            req.user = { _id: 'uid-user-b', id: 'uid-user-b', email: 'user-b@example.com' };
             req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
+            return next();
+        }
+
+        if (token === 'token-user-stale') {
+            req.authUid = 'uid-user-stale';
+            req.authToken = { email: 'user-stale@example.com', auth_time: Math.floor(Date.now() / 1000) - 3600 };
+            req.user = { _id: 'uid-user-stale', id: 'uid-user-stale', email: 'user-stale@example.com' };
+            req.authzPosture = { fresh: false, authAgeSeconds: 3600, stepUpFresh: false };
             return next();
         }
 
@@ -43,6 +57,23 @@ jest.mock('../middleware/authMiddleware', () => ({
         }
         next();
     },
+}));
+
+jest.mock('../controllers/mfaController', () => ({
+    createStepUpChallenge: (_req, res) => res.status(201).json({ challenge: 'mock-step-up-challenge' }),
+    disableTotp: (_req, res) => res.json({ disabled: true }),
+    getMfaSecurityCenter: (_req, res) => res.json({ mfa: { enabled: false } }),
+    getTotpQr: mockGetTotpQr,
+    passkeyLoginOptions: (_req, res) => res.json({ challenge: 'mock-passkey-login-challenge' }),
+    passkeyLoginVerify: (_req, res) => res.json({ authenticated: true }),
+    passkeyRegisterOptions: mockPasskeyRegisterOptions,
+    passkeyRegisterVerify: mockPasskeyRegisterVerify,
+    passkeyRemove: (_req, res) => res.json({ removed: true }),
+    recoveryRegenerate: (_req, res) => res.status(201).json({ recoveryCodes: [] }),
+    recoveryVerify: (_req, res) => res.json({ authenticated: true }),
+    setupTotp: mockSetupTotp,
+    verifyTotpLogin: (_req, res) => res.json({ authenticated: true }),
+    verifyTotpSetup: mockVerifyTotpSetup,
 }));
 
 const mockCsrfRedisStore = new Map();
@@ -132,6 +163,7 @@ describe('CSRF auth route integration', () => {
 
     beforeEach(() => {
         mockCsrfRedisStore.clear();
+        jest.clearAllMocks();
     });
 
     test('issues a csrf token on /session for session-auth flows', async () => {
@@ -293,6 +325,46 @@ describe('CSRF auth route integration', () => {
         expect(res.statusCode).toBe(200);
         expect(res.headers['x-test-rate-limiter']).toBe('auth_verify_device');
         expect(res.body.ok).toBe(true);
+    });
+
+    test.each([
+        ['post', '/api/auth/mfa/totp/setup', mockSetupTotp],
+        ['get', '/api/auth/mfa/totp/qr', mockGetTotpQr],
+        ['post', '/api/auth/mfa/totp/verify-setup', mockVerifyTotpSetup],
+        ['post', '/api/auth/mfa/passkey/register/options', mockPasskeyRegisterOptions],
+        ['post', '/api/auth/mfa/passkey/register/verify', mockPasskeyRegisterVerify],
+    ])('requires recent auth before auth-factor enrollment via %s %s', async (method, path, handler) => {
+        const requestBuilder = request(app)[method](path)
+            .set('Authorization', 'Bearer token-user-stale')
+            .set('User-Agent', 'test-agent-stale')
+            .set('Host', 'localhost:3000');
+        const res = method === 'get' ? await requestBuilder : await requestBuilder.send({});
+
+        expect([401, 403]).toContain(res.statusCode);
+        expect(res.body.message).toMatch(/recent|fresh|step-up|sensitive/i);
+        expect(handler).not.toHaveBeenCalled();
+    });
+
+    test('allows fresh auth to start auth-factor enrollment', async () => {
+        const totpRes = await request(app)
+            .post('/api/auth/mfa/totp/setup')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({});
+
+        expect(totpRes.statusCode).toBe(201);
+        expect(totpRes.body.manualKey).toBe('mock-manual-key');
+
+        const passkeyRes = await request(app)
+            .post('/api/auth/mfa/passkey/register/options')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({});
+
+        expect(passkeyRes.statusCode).toBe(200);
+        expect(passkeyRes.body.challenge).toBe('mock-passkey-register-challenge');
     });
 
     test('rejects cookie-session /logout without csrf', async () => {

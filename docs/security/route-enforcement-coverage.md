@@ -53,6 +53,11 @@ npm run security:routes:coverage:strict
 | POST /api/admin/users/:userId/reactivate | ADMIN_USER_MANAGEMENT | `protect`, `admin`, `sensitiveActions.adminUserMutation` |
 | POST /api/admin/users/:userId/delete | ADMIN_USER_MANAGEMENT | `protect`, `admin`, `sensitiveActions.adminUserMutation` |
 | POST /api/auth/recovery-codes | ACCOUNT_RECOVERY_CHANGE | `protect`, CSRF unless bearer, limiter, `sensitiveActions.accountRecoveryChange` |
+| POST /api/auth/mfa/totp/setup | PASSWORD_OR_AUTH_FACTOR_CHANGE | `protect`, CSRF unless bearer, limiter, `sensitiveActions.authFactorChange` |
+| GET /api/auth/mfa/totp/qr | PASSWORD_OR_AUTH_FACTOR_CHANGE | `protect`, limiter, `sensitiveActions.authFactorChange` |
+| POST /api/auth/mfa/totp/verify-setup | PASSWORD_OR_AUTH_FACTOR_CHANGE | `protect`, CSRF unless bearer, limiter, `sensitiveActions.authFactorChange` |
+| POST /api/auth/mfa/passkey/register/options | PASSWORD_OR_AUTH_FACTOR_CHANGE | `protect`, CSRF unless bearer, limiter, `sensitiveActions.authFactorChange` |
+| POST /api/auth/mfa/passkey/register/verify | PASSWORD_OR_AUTH_FACTOR_CHANGE | `protect`, CSRF unless bearer, limiter, `sensitiveActions.authFactorChange` |
 | POST /api/auth/complete-phone-factor-login | PASSWORD_OR_AUTH_FACTOR_CHANGE | `protect`, limiter, `sensitiveActions.authFactorChange` |
 | POST /api/auth/complete-phone-factor-verification | PASSWORD_OR_AUTH_FACTOR_CHANGE | phone-factor proof, limiter, `sensitiveActions.authFactorChange` |
 | POST /api/auth/verify-device | PASSWORD_OR_AUTH_FACTOR_CHANGE | `protect`, CSRF unless bearer, limiter, `sensitiveActions.authFactorChange` |
