@@ -147,6 +147,7 @@ const ensureSupportTicketViewer = (ticket, user) => {
 const normalizeLiveCallMediaMode = (value) => (
     String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video'
 );
+const ACTIVE_LIVE_CALL_STATUSES = new Set(['ringing', 'connected']);
 const getSupportCallModeLabel = (mediaMode = 'video') => (
     normalizeLiveCallMediaMode(mediaMode) === 'voice' ? 'voice call' : 'video call'
 );
@@ -166,6 +167,25 @@ const buildSupportLiveCallMeta = ({ session, ticket }) => ({
         mediaMode: normalizeLiveCallMediaMode(session?.mediaMode),
     },
 });
+const resolveSupportLiveCallSessionKey = ({
+    requestedSessionKey = '',
+    sessionState = null,
+    ticket = null,
+    inactiveMessage = 'There is no active live support call',
+}) => {
+    const canonicalSessionKey = String(ticket?.liveCallLastSessionKey || sessionState?.sessionKey || '').trim();
+    const requestSessionKey = String(requestedSessionKey || '').trim();
+    const lastStatus = String(ticket?.liveCallLastStatus || sessionState?.status || '').trim().toLowerCase();
+
+    if (!canonicalSessionKey || !ACTIVE_LIVE_CALL_STATUSES.has(lastStatus)) {
+        throw new AppError(inactiveMessage, 409);
+    }
+    if (requestSessionKey && requestSessionKey !== canonicalSessionKey) {
+        throw new AppError('Live support call session mismatch', 403);
+    }
+
+    return canonicalSessionKey;
+};
 
 // @desc    Create a new support ticket
 // @route   POST /api/support
@@ -430,17 +450,13 @@ const joinSupportLiveCallSession = asyncHandler(async (req, res, next) => {
     const ticket = await loadSupportTicketForSession(req.params.id);
     const { isAdmin, ticketOwnerId } = ensureSupportTicketViewer(ticket, req.user);
     const sessionState = getSupportVideoSession(ticket._id);
-    const sessionKey = String(
-        req.body?.sessionKey
-        || sessionState?.sessionKey
-        || ticket.liveCallLastSessionKey
-        || ''
-    ).trim();
-    const lastStatus = String(ticket.liveCallLastStatus || '');
-
-    if (!sessionKey || !['ringing', 'connected'].includes(lastStatus)) {
-        return next(new AppError('There is no active live support call to join', 409));
-    }
+    const sessionKey = resolveSupportLiveCallSessionKey({
+        requestedSessionKey: req.body?.sessionKey,
+        sessionState,
+        ticket,
+        inactiveMessage: 'There is no active live support call to join',
+    });
+    const lastStatus = String(ticket.liveCallLastStatus || sessionState?.status || '');
 
     if (
         isAdmin
@@ -505,18 +521,19 @@ const joinSupportLiveCallSession = asyncHandler(async (req, res, next) => {
 const connectSupportLiveCallSession = asyncHandler(async (req, res, next) => {
     const ticket = await loadSupportTicketForSession(req.params.id);
     const { isAdmin } = ensureSupportTicketViewer(ticket, req.user);
-    const sessionKey = String(req.body?.sessionKey || ticket.liveCallLastSessionKey || '').trim();
     const sessionState = getSupportVideoSession(ticket._id);
+    const sessionKey = resolveSupportLiveCallSessionKey({
+        requestedSessionKey: req.body?.sessionKey,
+        sessionState,
+        ticket,
+        inactiveMessage: 'There is no active live support call to connect',
+    });
     const mediaMode = normalizeLiveCallMediaMode(
         req.body?.mediaMode
         || sessionState?.mediaMode
         || ticket.liveCallLastMediaMode
         || ticket.liveCallRequestedMode
     );
-
-    if (!sessionKey) {
-        return next(new AppError('There is no active live support call to connect', 409));
-    }
 
     if (
         isAdmin
@@ -565,16 +582,12 @@ const endSupportLiveCallSession = asyncHandler(async (req, res, next) => {
         || ticket.liveCallLastMediaMode
         || ticket.liveCallRequestedMode
     );
-    const sessionKey = String(
-        req.body?.sessionKey
-        || sessionState?.sessionKey
-        || ticket.liveCallLastSessionKey
-        || ''
-    ).trim();
-
-    if (!sessionKey) {
-        return next(new AppError('There is no active live support call to end', 409));
-    }
+    const sessionKey = resolveSupportLiveCallSessionKey({
+        requestedSessionKey: req.body?.sessionKey,
+        sessionState,
+        ticket,
+        inactiveMessage: 'There is no active live support call to end',
+    });
 
     if (
         isAdmin

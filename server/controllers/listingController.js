@@ -174,6 +174,7 @@ const authorizeListingLiveInspection = ({ listing, userId, allowJoinOnly = false
 const normalizeLiveCallMediaMode = (value) => (
     String(value || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video'
 );
+const ACTIVE_LIVE_CALL_STATUSES = new Set(['ringing', 'connected']);
 const buildListingLiveInspectionLabel = (listing, mediaMode = 'video') => (
     normalizeLiveCallMediaMode(mediaMode) === 'voice'
         ? `Voice call about "${String(listing?.title || 'listing')}"`
@@ -192,6 +193,24 @@ const buildListingLiveCallMeta = ({ session, listing }) => ({
         mediaMode: normalizeLiveCallMediaMode(session?.mediaMode),
     },
 });
+const resolveListingLiveInspectionSessionKey = ({
+    requestedSessionKey = '',
+    currentSession = null,
+    inactiveMessage = 'There is no active live inspection',
+}) => {
+    const canonicalSessionKey = String(currentSession?.sessionKey || '').trim();
+    const requestSessionKey = String(requestedSessionKey || '').trim();
+    const currentStatus = String(currentSession?.status || '').trim().toLowerCase();
+
+    if (!canonicalSessionKey || !ACTIVE_LIVE_CALL_STATUSES.has(currentStatus)) {
+        throw new AppError(inactiveMessage, 409);
+    }
+    if (requestSessionKey && requestSessionKey !== canonicalSessionKey) {
+        throw new AppError('Live inspection session mismatch', 403);
+    }
+
+    return canonicalSessionKey;
+};
 
 const createEscrowIntent = asyncHandler(async (req, res, next) => {
     if (!paymentFlags.paymentsEnabled) {
@@ -1343,15 +1362,11 @@ const joinListingVideoSession = asyncHandler(async (req, res, next) => {
         allowJoinOnly: true,
     });
     const currentSession = getListingVideoSession(listing._id);
-    const sessionKey = String(
-        req.body?.sessionKey
-        || currentSession?.sessionKey
-        || ''
-    ).trim();
-
-    if (!sessionKey) {
-        return next(new AppError('There is no active live inspection to join', 409));
-    }
+    const sessionKey = resolveListingLiveInspectionSessionKey({
+        requestedSessionKey: req.body?.sessionKey,
+        currentSession,
+        inactiveMessage: 'There is no active live inspection to join',
+    });
 
     const mediaMode = normalizeLiveCallMediaMode(req.body?.mediaMode || currentSession?.mediaMode);
     const contextLabel = currentSession?.contextLabel || buildListingLiveInspectionLabel(listing, mediaMode);
@@ -1410,10 +1425,12 @@ const connectListingVideoSession = asyncHandler(async (req, res, next) => {
         allowJoinOnly: true,
     });
 
-    const sessionKey = String(req.body?.sessionKey || getListingVideoSession(listing._id)?.sessionKey || '').trim();
-    if (!sessionKey) {
-        return next(new AppError('There is no active live inspection to connect', 409));
-    }
+    const currentSession = getListingVideoSession(listing._id);
+    const sessionKey = resolveListingLiveInspectionSessionKey({
+        requestedSessionKey: req.body?.sessionKey,
+        currentSession,
+        inactiveMessage: 'There is no active live inspection to connect',
+    });
 
     markListingVideoSessionConnected({
         listingId: listing._id,
@@ -1438,15 +1455,11 @@ const endListingVideoSession = asyncHandler(async (req, res, next) => {
         allowJoinOnly: true,
     });
     const currentSession = getListingVideoSession(listing._id);
-    const sessionKey = String(
-        req.body?.sessionKey
-        || currentSession?.sessionKey
-        || ''
-    ).trim();
-
-    if (!sessionKey) {
-        return next(new AppError('There is no active live inspection to end', 409));
-    }
+    const sessionKey = resolveListingLiveInspectionSessionKey({
+        requestedSessionKey: req.body?.sessionKey,
+        currentSession,
+        inactiveMessage: 'There is no active live inspection to end',
+    });
 
     clearListingVideoSession({
         listingId: listing._id,
