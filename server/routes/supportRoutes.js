@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect, admin } = require('../middleware/authMiddleware');
+const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const {
@@ -27,6 +28,24 @@ const {
     supportLiveCallActionSchema,
 } = require('../validators/supportValidators');
 
+const actorRateLimitKey = (req) => (
+    req.authUid
+    || req.user?._id?.toString()
+    || req.user?.id
+    || req.user?.email
+    || req.ip
+);
+
+const supportLiveCallTokenLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
+    securityCritical: true,
+    name: 'support_live_call_token',
+    windowMs: 60 * 1000,
+    max: 20,
+    keyGenerator: actorRateLimitKey,
+    message: 'Too many live call token requests. Please try again shortly.',
+});
+
 // --- User Routes ---
 // Users (including suspended users allowed via 'protect') can access these endpoints
 router.route('/')
@@ -41,10 +60,10 @@ router.route('/:id/video/request')
     .post(protect, validate(requestSupportLiveCallSchema), requestSupportLiveCall);
 
 router.route('/:id/video/start')
-    .post(protect, admin, validate(supportLiveCallStartSchema), sensitiveActions.supportModeration, startSupportLiveCallSession);
+    .post(protect, admin, supportLiveCallTokenLimiter, validate(supportLiveCallStartSchema), sensitiveActions.supportModeration, startSupportLiveCallSession);
 
 router.route('/:id/video/join')
-    .post(protect, validate(supportLiveCallActionSchema), joinSupportLiveCallSession);
+    .post(protect, supportLiveCallTokenLimiter, validate(supportLiveCallActionSchema), joinSupportLiveCallSession);
 
 router.route('/:id/video/connected')
     .post(protect, validate(supportLiveCallActionSchema), connectSupportLiveCallSession);

@@ -77,6 +77,16 @@ const listingEscrowLimiter = createDistributedRateLimit({
     message: 'Too many escrow requests. Please try again shortly.',
 });
 
+const listingLiveCallTokenLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
+    name: 'listing_live_call_token',
+    securityCritical: true,
+    windowMs: 60 * 1000,
+    max: 20,
+    keyGenerator: actorRateLimitKey,
+    message: 'Too many live call token requests. Please try again shortly.',
+});
+
 // Public routes
 router.get('/', getListings);
 router.get('/hotspots', getCityHotspots);
@@ -88,8 +98,8 @@ router.get('/messages/inbox', protect, getMyMessageInbox);
 router.post('/', protect, requireActiveAccount, seller, listingMutationRateLimit, listingMutationLimiter, sensitiveActions.listingWrite, createListing);
 router.get('/:id/messages', protect, getListingMessages);
 router.post('/:id/messages', protect, requireActiveAccount, sendListingMessage);
-router.post('/:id/video/start', protect, requireActiveAccount, startListingVideoSession);
-router.post('/:id/video/join', protect, requireActiveAccount, joinListingVideoSession);
+router.post('/:id/video/start', protect, requireActiveAccount, listingLiveCallTokenLimiter, startListingVideoSession);
+router.post('/:id/video/join', protect, requireActiveAccount, listingLiveCallTokenLimiter, joinListingVideoSession);
 router.post('/:id/video/connected', protect, requireActiveAccount, connectListingVideoSession);
 router.post('/:id/video/end', protect, requireActiveAccount, endListingVideoSession);
 

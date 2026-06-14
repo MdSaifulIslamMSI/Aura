@@ -16,6 +16,7 @@ const {
 const {
     adminPaymentListSchema,
     adminPaymentDetailSchema,
+    adminPaymentActionSchema,
     adminPaymentOpsOverviewSchema,
     adminExpireStaleIntentsSchema,
     adminRefundLedgerListSchema,
@@ -36,7 +37,7 @@ router.patch(
     updateAdminRefundLedgerReference
 );
 router.get('/:intentId', protect, admin, validate(adminPaymentDetailSchema), getAdminPaymentById);
-router.post('/:intentId/capture', protect, admin, validate(adminPaymentDetailSchema), sensitiveActions.paymentPayoutChange, captureAdminPayment);
-router.post('/:intentId/retry-capture', protect, admin, validate(adminPaymentDetailSchema), sensitiveActions.paymentPayoutChange, retryAdminCapture);
+router.post('/:intentId/capture', protect, admin, validate(adminPaymentActionSchema), sensitiveActions.paymentPayoutChange, captureAdminPayment);
+router.post('/:intentId/retry-capture', protect, admin, validate(adminPaymentActionSchema), sensitiveActions.paymentPayoutChange, retryAdminCapture);
 
 module.exports = router;

@@ -124,4 +124,30 @@ describe('uploadController review media quarantine flow', () => {
             message: 'Upload malware scan unavailable. Please try again later.',
         }));
     });
+
+    test('rejected infected upload creates no promoted public media URL', async () => {
+        scanUploadBuffer.mockResolvedValueOnce({
+            status: 'infected',
+            engines: [{ engine: 'clamav', status: 'infected', signature: 'Eicar-Test-Signature' }],
+        });
+        const res = buildRes();
+        const next = jest.fn();
+
+        await uploadReviewMedia(buildReq(), res, next);
+
+        expect(quarantineReviewMedia).toHaveBeenCalledTimes(1);
+        expect(markReviewMediaScanState).toHaveBeenCalledWith(expect.objectContaining({
+            storageKey: 'pending.png',
+            quarantineKey: 'pending.png',
+            scanStatus: REVIEW_MEDIA_SCAN_STATES.INFECTED,
+            mimeType: 'image/png',
+        }));
+        expect(promoteReviewMediaFromQuarantine).not.toHaveBeenCalled();
+        expect(res.status).not.toHaveBeenCalledWith(201);
+        expect(res.json).not.toHaveBeenCalled();
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 400,
+            message: 'Uploaded file failed malware scan',
+        }));
+    });
 });

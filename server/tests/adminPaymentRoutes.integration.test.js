@@ -360,24 +360,55 @@ describe('Admin payment routes integration', () => {
     });
 
     test('POST /api/admin/payments/:intentId/capture requires Idempotency-Key', async () => {
-        const res = await request(app).post('/api/admin/payments/pi_admin_1/capture').send({});
+        const res = await request(app)
+            .post('/api/admin/payments/pi_admin_1/capture')
+            .send({ reason: 'Manual capture after provider authorization review' });
 
         expect(res.statusCode).toBe(400);
         expect(res.body.message).toBe('Idempotency-Key header is required');
     });
 
+    test('POST /api/admin/payments/:intentId/capture requires an audit reason before provider capture', async () => {
+        const res = await request(app)
+            .post('/api/admin/payments/pi_admin_1/capture')
+            .set('Idempotency-Key', 'admin-capture-missing-reason')
+            .send({});
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toBe('Validation Error');
+        expect(captureIntentNow).not.toHaveBeenCalled();
+        expect(notifyAdminActionToUser).not.toHaveBeenCalled();
+    });
+
     test('POST /api/admin/payments/ops/expire-stale requires Idempotency-Key', async () => {
-        const res = await request(app).post('/api/admin/payments/ops/expire-stale').send({});
+        const res = await request(app)
+            .post('/api/admin/payments/ops/expire-stale')
+            .send({ reason: 'Expire stale authorized intents after ops review' });
 
         expect(res.statusCode).toBe(400);
         expect(res.body.message).toBe('Idempotency-Key header is required');
+    });
+
+    test('POST /api/admin/payments/ops/expire-stale requires an audit reason before mutation', async () => {
+        const res = await request(app)
+            .post('/api/admin/payments/ops/expire-stale')
+            .set('Idempotency-Key', 'admin-expire-missing-reason')
+            .send({ limit: 50, dryRun: false });
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toBe('Validation Error');
+        expect(expireStalePaymentIntents).not.toHaveBeenCalled();
     });
 
     test('POST /api/admin/payments/ops/expire-stale runs stale intent sweep', async () => {
         const res = await request(app)
             .post('/api/admin/payments/ops/expire-stale')
             .set('Idempotency-Key', 'admin-expire-stale-12345')
-            .send({ limit: 50, dryRun: false });
+            .send({
+                limit: 50,
+                dryRun: false,
+                reason: 'Expire stale authorized intents after ops review',
+            });
 
         expect(res.statusCode).toBe(200);
         expect(res.body).toMatchObject({
@@ -394,7 +425,7 @@ describe('Admin payment routes integration', () => {
         const res = await request(app)
             .post('/api/admin/payments/pi_admin_1/capture')
             .set('Idempotency-Key', 'admin-capture-12345')
-            .send({});
+            .send({ reason: 'Manual capture after provider authorization review' });
 
         expect(res.statusCode).toBe(200);
         expect(res.body).toMatchObject({
@@ -402,14 +433,18 @@ describe('Admin payment routes integration', () => {
             status: 'captured',
         });
         expect(captureIntentNow).toHaveBeenCalledWith({ intentId: 'pi_admin_1' });
-        expect(notifyAdminActionToUser).toHaveBeenCalled();
+        expect(notifyAdminActionToUser).toHaveBeenCalledWith(expect.objectContaining({
+            highlights: expect.arrayContaining([
+                'Reason: Manual capture after provider authorization review',
+            ]),
+        }));
     });
 
     test('POST /api/admin/payments/:intentId/retry-capture requeues capture and notifies', async () => {
         const res = await request(app)
             .post('/api/admin/payments/pi_admin_1/retry-capture')
             .set('Idempotency-Key', 'admin-retry-12345')
-            .send({});
+            .send({ reason: 'Retry capture after transient provider outage' });
 
         expect(res.statusCode).toBe(200);
         expect(res.body).toMatchObject({
@@ -418,6 +453,22 @@ describe('Admin payment routes integration', () => {
             intentId: 'pi_admin_1',
         });
         expect(scheduleCaptureTask).toHaveBeenCalledWith({ intentId: 'pi_admin_1' });
-        expect(notifyAdminActionToUser).toHaveBeenCalled();
+        expect(notifyAdminActionToUser).toHaveBeenCalledWith(expect.objectContaining({
+            highlights: expect.arrayContaining([
+                'Reason: Retry capture after transient provider outage',
+            ]),
+        }));
+    });
+
+    test('POST /api/admin/payments/:intentId/retry-capture requires an audit reason before enqueueing capture', async () => {
+        const res = await request(app)
+            .post('/api/admin/payments/pi_admin_1/retry-capture')
+            .set('Idempotency-Key', 'admin-retry-missing-reason')
+            .send({});
+
+        expect(res.statusCode).toBe(400);
+        expect(res.body.message).toBe('Validation Error');
+        expect(scheduleCaptureTask).not.toHaveBeenCalled();
+        expect(notifyAdminActionToUser).not.toHaveBeenCalled();
     });
 });

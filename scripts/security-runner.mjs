@@ -26,6 +26,7 @@ const categories = [
   { name: 'duo', args: ['run', 'security:duo'] },
   { name: 'logging', args: ['run', 'security:logging'] },
   { name: 'edge-assets', args: ['run', 'security:edge-assets'] },
+  { name: 'uploads', args: ['run', 'security:uploads'] },
   { name: 'malware-runtime', args: ['run', 'security:malware-runtime'] },
   { name: 'free-scanners', args: ['run', 'security:free-scanners'] },
   { name: 'secrets', args: ['run', 'security:secrets'] },

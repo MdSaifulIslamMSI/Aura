@@ -16,6 +16,7 @@ jest.mock('../services/payments/providerFactory', () => ({
 
 const Order = require('../models/Order');
 const PaymentEvent = require('../models/PaymentEvent');
+const PaymentOutboxTask = require('../models/PaymentOutboxTask');
 const PaymentIntent = require('../models/PaymentIntent');
 const paymentRoutes = require('../routes/paymentRoutes');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
@@ -205,6 +206,134 @@ describe('payment webhook security', () => {
         await expectDocumentUnchanged(Order, order._id, beforeOrder);
         await expectDocumentUnchanged(PaymentIntent, intent._id, beforeIntent);
         await expect(PaymentEvent.countDocuments({ eventId: 'evt_order_binding_mismatch' })).resolves.toBe(0);
+    });
+
+    test('valid-signed webhook for unknown provider order is rejected without storing an event', async () => {
+        const { order, intent } = await seedAuthorizedIntentWithOrder({
+            providerOrderId: 'order_known_before_unknown_webhook',
+            amount: 1999,
+        });
+        const beforeOrder = await Order.findById(order._id).lean();
+        const beforeIntent = await PaymentIntent.findById(intent._id).lean();
+        const beforeEvents = await PaymentEvent.countDocuments();
+        const event = createFakeWebhookEvent({
+            eventId: 'evt_unknown_provider_order',
+            providerOrderId: 'order_unknown_provider_order',
+            paymentId: 'pay_unknown_provider_order',
+            amount: intent.amount,
+        });
+
+        const response = await postRazorpayWebhook(app, event);
+
+        assertSafeStatus(response, [404, 409]);
+        await expectDocumentUnchanged(Order, order._id, beforeOrder);
+        await expectDocumentUnchanged(PaymentIntent, intent._id, beforeIntent);
+        await expect(PaymentEvent.countDocuments()).resolves.toBe(beforeEvents);
+        await expect(PaymentEvent.countDocuments({ eventId: 'evt_unknown_provider_order' })).resolves.toBe(0);
+    });
+
+    test('refund processed for unknown refund id is rejected without mutating payment state', async () => {
+        const { order, intent } = await seedAuthorizedIntentWithOrder({
+            providerOrderId: 'order_unknown_refund_id',
+            providerPaymentId: 'pay_unknown_refund_id',
+            amount: 1999,
+        });
+        await Order.updateOne(
+            { _id: order._id },
+            {
+                $set: {
+                    isPaid: true,
+                    paidAt: new Date('2026-06-14T01:00:00.000Z'),
+                    paymentState: PAYMENT_STATUSES.CAPTURED,
+                    orderStatus: 'processing',
+                },
+            }
+        );
+        await PaymentIntent.updateOne(
+            { _id: intent._id },
+            {
+                $set: {
+                    status: PAYMENT_STATUSES.CAPTURED,
+                    capturedAt: new Date('2026-06-14T01:00:00.000Z'),
+                },
+            }
+        );
+
+        const beforeOrder = await Order.findById(order._id).lean();
+        const beforeIntent = await PaymentIntent.findById(intent._id).lean();
+        const beforeOutboxCount = await PaymentOutboxTask.countDocuments();
+        const beforeEvents = await PaymentEvent.countDocuments();
+        const event = {
+            id: 'evt_unknown_refund_id',
+            event: 'refund.processed',
+            payload: {
+                refund: {
+                    entity: {
+                        id: 'rfnd_never_requested',
+                        payment_id: intent.providerPaymentId,
+                        amount: Math.round(intent.amount * 100),
+                    },
+                },
+            },
+        };
+
+        const response = await postRazorpayWebhook(app, event);
+
+        assertSafeStatus(response, [409]);
+        expect(response.body.message).toMatch(/refund/i);
+        await expectDocumentUnchanged(Order, order._id, beforeOrder);
+        await expectDocumentUnchanged(PaymentIntent, intent._id, beforeIntent);
+        await expect(PaymentOutboxTask.countDocuments()).resolves.toBe(beforeOutboxCount);
+        await expect(PaymentEvent.countDocuments()).resolves.toBe(beforeEvents);
+        await expect(PaymentEvent.countDocuments({ eventId: 'evt_unknown_refund_id' })).resolves.toBe(0);
+    });
+
+    test('payment success after local cancellation is discarded without reviving the order', async () => {
+        const { order, intent } = await seedAuthorizedIntentWithOrder({
+            providerOrderId: 'order_late_success_after_cancel',
+            amount: 1999,
+        });
+        await Order.updateOne(
+            { _id: order._id },
+            {
+                $set: {
+                    orderStatus: 'cancelled',
+                    cancelledAt: new Date('2026-06-14T00:00:00.000Z'),
+                    cancelReason: 'Customer cancelled before provider success',
+                },
+            }
+        );
+        const beforeOrder = await Order.findById(order._id).lean();
+        const beforeIntent = await PaymentIntent.findById(intent._id).lean();
+        const beforeOutboxCount = await PaymentOutboxTask.countDocuments();
+        const event = createFakeWebhookEvent({
+            eventId: 'evt_late_success_after_cancel',
+            providerOrderId: intent.providerOrderId,
+            amount: intent.amount,
+        });
+
+        const response = await postRazorpayWebhook(app, event);
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body).toMatchObject({
+            received: true,
+            deduped: false,
+            intentId: intent.intentId,
+            discarded: true,
+            reason: 'order_cancelled',
+        });
+        await expectDocumentUnchanged(Order, order._id, beforeOrder);
+        await expectDocumentUnchanged(PaymentIntent, intent._id, beforeIntent);
+        await expect(PaymentOutboxTask.countDocuments()).resolves.toBe(beforeOutboxCount);
+
+        const savedEvent = await PaymentEvent.findOne({ eventId: 'evt_late_success_after_cancel' }).lean();
+        expect(savedEvent).toBeTruthy();
+        expect(savedEvent.payload.processingMeta).toMatchObject({
+            discarded: true,
+            reason: 'order_cancelled',
+            currentOrderStatus: 'cancelled',
+            targetStatus: PAYMENT_STATUSES.CAPTURED,
+        });
     });
 
     test('replayed webhook event id is deduped without a second mutation', async () => {

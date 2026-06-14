@@ -1,6 +1,19 @@
 import { apiFetch } from '../apiBase';
 import { getAuthHeader, createIdempotencyKey } from './apiUtils';
 
+const ORDER_LIST_PAGE_SIZE = 100;
+
+const buildQueryString = (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            search.set(key, String(value));
+        }
+    });
+    const query = search.toString();
+    return query ? `?${query}` : '';
+};
+
 export const orderApi = {
     getCheckoutConfig: async () => {
         const headers = await getAuthHeader();
@@ -29,9 +42,12 @@ export const orderApi = {
         });
         return data;
     },
-    getMyOrders: async () => {
+    getMyOrders: async (params = {}) => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch('/orders/myorders', { headers });
+        const { data } = await apiFetch(`/orders/myorders${buildQueryString({
+            limit: ORDER_LIST_PAGE_SIZE,
+            ...params,
+        })}`, { headers });
         return data;
     },
     getOrderTimeline: async (orderId) => {
@@ -134,9 +150,12 @@ export const orderApi = {
         });
         return data;
     },
-    getAllOrders: async () => {
+    getAllOrders: async (params = {}) => {
         const headers = await getAuthHeader();
-        const { data } = await apiFetch('/orders', { headers });
+        const { data } = await apiFetch(`/orders${buildQueryString({
+            limit: ORDER_LIST_PAGE_SIZE,
+            ...params,
+        })}`, { headers });
         return data;
     },
     updateOrderStatusAdmin: async (orderId, payload = {}) => {

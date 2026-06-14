@@ -5,6 +5,7 @@ const { createDistributedRateLimit } = require('../middleware/distributedRateLim
 const { requireTurnstile } = require('../middleware/turnstileMiddleware');
 
 const otpLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     securityCritical: true,
     name: 'otp_send',
     windowMs: 1 * 60 * 1000, // 1 minute
@@ -13,6 +14,7 @@ const otpLimiter = createDistributedRateLimit({
 });
 
 const verifyLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     securityCritical: true,
     name: 'otp_verify',
     windowMs: 5 * 60 * 1000, // 5 minutes
@@ -21,6 +23,7 @@ const verifyLimiter = createDistributedRateLimit({
 });
 
 const resetPasswordLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     securityCritical: true,
     name: 'otp_reset_password',
     windowMs: 15 * 60 * 1000,
@@ -29,6 +32,7 @@ const resetPasswordLimiter = createDistributedRateLimit({
 });
 
 const checkUserLimiter = createDistributedRateLimit({
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     securityCritical: true,
     name: 'otp_check_user',
     windowMs: 5 * 60 * 1000, // 5 minutes

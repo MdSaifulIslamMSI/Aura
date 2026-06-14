@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Order = require('../models/Order');
@@ -9,6 +10,7 @@ const {
     scheduleCaptureTask,
     linkIntentToOrder,
     releaseIntentOrderClaim,
+    confirmPaymentIntent,
     createRefundForIntent,
 } = require('../services/payments/paymentService');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
@@ -58,6 +60,11 @@ const makeIntent = async ({
     },
     metadata: {},
 });
+
+const signRazorpayPayment = ({ orderId, paymentId, secret }) => crypto
+    .createHmac('sha256', secret)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
 
 const makeOrder = async ({
     userId,
@@ -505,5 +512,280 @@ describe('Payment Order Integrity', () => {
         expect(refundEvents).toHaveLength(2);
 
         global.fetch = originalFetch;
+    });
+
+    test('createRefundForIntent rejects a double refund replay after the balance is exhausted', async () => {
+        const owner = await makeUser();
+        const order = await makeOrder({
+            userId: owner._id,
+            totalPrice: 3000,
+        });
+        const intent = await makeIntent({
+            userId: owner._id,
+            amount: 3000,
+            method: 'CARD',
+            status: PAYMENT_STATUSES.CAPTURED,
+            order: order._id,
+        });
+        intent.providerPaymentId = 'pay_replay_refund_123';
+        await intent.save();
+
+        await Order.updateOne(
+            { _id: order._id },
+            { $set: { paymentIntentId: intent.intentId } }
+        );
+
+        const originalFetch = global.fetch;
+        process.env.RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_key';
+        process.env.RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret';
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id: 'rfnd_replay_first',
+                amount: 300000,
+                currency: 'INR',
+                status: 'processed',
+            }),
+        });
+
+        try {
+            await expect(createRefundForIntent({
+                actorUserId: owner._id,
+                isAdmin: false,
+                intentId: intent.intentId,
+                amount: 3000,
+                reason: 'customer_full_refund',
+            })).resolves.toMatchObject({
+                amount: 3000,
+                intentId: intent.intentId,
+            });
+
+            await expect(createRefundForIntent({
+                actorUserId: owner._id,
+                isAdmin: false,
+                intentId: intent.intentId,
+                amount: 1,
+                reason: 'duplicate_refund_replay',
+            })).rejects.toMatchObject({
+                statusCode: 400,
+                message: expect.stringMatching(/no refundable amount/i),
+            });
+
+            const refreshedOrder = await Order.findById(order._id).lean();
+            const refundEvents = await PaymentEvent.find({
+                intentId: intent.intentId,
+                type: 'refund.created',
+            }).lean();
+            expect(refreshedOrder.refundSummary.totalRefunded).toBe(3000);
+            expect(refreshedOrder.refundSummary.refunds).toHaveLength(1);
+            expect(refundEvents).toHaveLength(1);
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+        } finally {
+            global.fetch = originalFetch;
+        }
+    });
+
+    test('two concurrent full refunds only allow one provider mutation', async () => {
+        const owner = await makeUser();
+        const order = await makeOrder({
+            userId: owner._id,
+            totalPrice: 3000,
+        });
+        const intent = await makeIntent({
+            userId: owner._id,
+            amount: 3000,
+            method: 'CARD',
+            status: PAYMENT_STATUSES.CAPTURED,
+            order: order._id,
+        });
+        intent.providerPaymentId = 'pay_concurrent_refund_123';
+        await intent.save();
+
+        await Order.updateOne(
+            { _id: order._id },
+            { $set: { paymentIntentId: intent.intentId } }
+        );
+
+        const originalFetch = global.fetch;
+        let releaseProvider;
+        const providerGate = new Promise((resolve) => {
+            releaseProvider = resolve;
+        });
+        process.env.RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_key';
+        process.env.RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret';
+        global.fetch = jest.fn().mockImplementation(async () => {
+            await providerGate;
+            return {
+                ok: true,
+                json: async () => ({
+                    id: 'rfnd_concurrent_only_once',
+                    amount: 300000,
+                    currency: 'INR',
+                    status: 'processed',
+                }),
+            };
+        });
+        const waitForProviderAttempt = async (firstRefundPromise) => {
+            for (let attempt = 0; attempt < 250; attempt += 1) {
+                if (global.fetch.mock.calls.length > 0) return;
+                const settled = await Promise.race([
+                    firstRefundPromise.then(
+                        () => ({ status: 'fulfilled' }),
+                        (error) => ({ status: 'rejected', error })
+                    ),
+                    new Promise((resolve) => setTimeout(() => resolve(null), 10)),
+                ]);
+                if (settled?.status === 'rejected') throw settled.error;
+                if (settled?.status === 'fulfilled') {
+                    throw new Error('First refund completed before provider attempt');
+                }
+            }
+            throw new Error('Timed out waiting for first refund provider attempt');
+        };
+        const waitForRefundSettlement = (refundPromise) => Promise.race([
+            refundPromise.then(
+                (value) => ({ status: 'fulfilled', value }),
+                (error) => ({ status: 'rejected', reason: error })
+            ),
+            new Promise((resolve) => setTimeout(() => resolve({ status: 'pending' }), 1000)),
+        ]);
+
+        try {
+            const firstRefund = createRefundForIntent({
+                actorUserId: owner._id,
+                isAdmin: false,
+                intentId: intent.intentId,
+                amount: 3000,
+                reason: 'customer_full_refund',
+            });
+            await waitForProviderAttempt(firstRefund);
+            const secondRefund = createRefundForIntent({
+                actorUserId: owner._id,
+                isAdmin: false,
+                intentId: intent.intentId,
+                amount: 3000,
+                reason: 'concurrent_duplicate_refund',
+            });
+
+            const secondResult = await waitForRefundSettlement(secondRefund);
+            if (secondResult.status === 'pending') {
+                releaseProvider();
+                await Promise.allSettled([firstRefund, secondRefund]);
+                throw new Error('Second concurrent refund reached provider instead of failing on the in-progress lock');
+            }
+            expect(secondResult).toMatchObject({
+                status: 'rejected',
+                reason: expect.objectContaining({
+                    statusCode: 409,
+                    message: expect.stringMatching(/refund.*already in progress/i),
+                }),
+            });
+
+            releaseProvider();
+            const results = [
+                { status: 'fulfilled', value: await firstRefund },
+                secondResult,
+            ];
+            const fulfilled = results.filter((result) => result.status === 'fulfilled');
+            const rejected = results.filter((result) => result.status === 'rejected');
+
+            expect(fulfilled).toHaveLength(1);
+            expect(rejected).toHaveLength(1);
+            expect(rejected[0].reason).toMatchObject({
+                statusCode: 409,
+                message: expect.stringMatching(/refund.*already in progress/i),
+            });
+
+            const refreshedOrder = await Order.findById(order._id).lean();
+            const refundEvents = await PaymentEvent.find({
+                intentId: intent.intentId,
+                type: 'refund.created',
+            }).lean();
+            expect(refreshedOrder.refundSummary.totalRefunded).toBe(3000);
+            expect(refreshedOrder.refundSummary.refunds).toHaveLength(1);
+            expect(refundEvents).toHaveLength(1);
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+        } finally {
+            releaseProvider();
+            global.fetch = originalFetch;
+        }
+    });
+
+    test('confirmPaymentIntent rejects a cancelled linked order before provider verification', async () => {
+        const owner = await makeUser();
+        const order = await makeOrder({
+            userId: owner._id,
+            totalPrice: 1999,
+            paymentState: PAYMENT_STATUSES.AUTHORIZED,
+        });
+        await Order.updateOne(
+            { _id: order._id },
+            {
+                $set: {
+                    orderStatus: 'cancelled',
+                    cancelledAt: new Date('2026-06-14T00:00:00.000Z'),
+                    cancelReason: 'Customer cancelled before confirmation',
+                    isPaid: false,
+                },
+            }
+        );
+        const intent = await makeIntent({
+            userId: owner._id,
+            amount: 1999,
+            method: 'CARD',
+            status: PAYMENT_STATUSES.CREATED,
+            order: order._id,
+        });
+        await Order.updateOne(
+            { _id: order._id },
+            { $set: { paymentIntentId: intent.intentId } }
+        );
+
+        const beforeOrder = await Order.findById(order._id).lean();
+        const beforeIntent = await PaymentIntent.findOne({ intentId: intent.intentId }).lean();
+        const beforeEvents = await PaymentEvent.countDocuments({ intentId: intent.intentId });
+        const originalFetch = global.fetch;
+        process.env.RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_key';
+        process.env.RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret';
+        const providerPaymentId = 'pay_cancelled_order_confirm';
+        const providerSignature = signRazorpayPayment({
+            orderId: intent.providerOrderId,
+            paymentId: providerPaymentId,
+            secret: process.env.RAZORPAY_KEY_SECRET,
+        });
+        global.fetch = jest.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                id: providerPaymentId,
+                amount: 199900,
+                currency: 'INR',
+                status: 'captured',
+                method: 'card',
+                card: { network: 'Visa', last4: '4242' },
+                card_id: 'card_cancelled_order_confirm',
+            }),
+        });
+
+        try {
+            await expect(confirmPaymentIntent({
+                userId: owner._id,
+                intentId: intent.intentId,
+                providerPaymentId,
+                providerOrderId: intent.providerOrderId,
+                providerSignature,
+            })).rejects.toMatchObject({
+                statusCode: 409,
+                message: expect.stringMatching(/cancelled order/i),
+            });
+
+            const afterOrder = await Order.findById(order._id).lean();
+            const afterIntent = await PaymentIntent.findOne({ intentId: intent.intentId }).lean();
+            expect(JSON.parse(JSON.stringify(afterOrder))).toEqual(JSON.parse(JSON.stringify(beforeOrder)));
+            expect(JSON.parse(JSON.stringify(afterIntent))).toEqual(JSON.parse(JSON.stringify(beforeIntent)));
+            await expect(PaymentEvent.countDocuments({ intentId: intent.intentId })).resolves.toBe(beforeEvents);
+            expect(global.fetch).not.toHaveBeenCalled();
+        } finally {
+            global.fetch = originalFetch;
+        }
     });
 });

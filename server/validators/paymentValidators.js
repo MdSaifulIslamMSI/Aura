@@ -180,15 +180,27 @@ const adminPaymentDetailSchema = z.object({
     }),
 });
 
+const adminActionReasonSchema = z.string().trim().min(8).max(300);
+
+const adminPaymentActionSchema = z.object({
+    params: z.object({
+        intentId: z.string().min(6),
+    }),
+    body: z.object({
+        reason: adminActionReasonSchema,
+    }).strict(),
+});
+
 const adminPaymentOpsOverviewSchema = z.object({
     query: z.object({}).passthrough().optional(),
 });
 
 const adminExpireStaleIntentsSchema = z.object({
     body: z.object({
+        reason: adminActionReasonSchema,
         limit: z.coerce.number().int().min(1).max(500).optional(),
         dryRun: z.boolean().optional(),
-    }).partial(),
+    }).strict(),
 });
 
 const adminRefundLedgerListSchema = z.object({
@@ -235,6 +247,7 @@ module.exports = {
     methodIdParamSchema,
     adminPaymentListSchema,
     adminPaymentDetailSchema,
+    adminPaymentActionSchema,
     adminPaymentOpsOverviewSchema,
     adminExpireStaleIntentsSchema,
     adminRefundLedgerListSchema,

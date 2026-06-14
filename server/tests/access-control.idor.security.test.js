@@ -19,6 +19,9 @@ jest.mock('../middleware/authMiddleware', () => ({
             auth_time: Math.floor(Date.now() / 1000),
             exp: Math.floor(Date.now() / 1000) + 3600,
         };
+        if (user.authzPosture) {
+            req.authzPosture = user.authzPosture;
+        }
         return next();
     },
     protectOptional: (_req, _res, next) => next(),
@@ -42,8 +45,10 @@ jest.mock('../middleware/authMiddleware', () => ({
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Listing = require('../models/Listing');
+const PaymentEvent = require('../models/PaymentEvent');
 const PaymentIntent = require('../models/PaymentIntent');
 const PaymentMethod = require('../models/PaymentMethod');
+const PaymentOutboxTask = require('../models/PaymentOutboxTask');
 const TradeIn = require('../models/TradeIn');
 const orderRoutes = require('../routes/orderRoutes');
 const userRoutes = require('../routes/userRoutes');
@@ -78,6 +83,7 @@ const register = (token, user) => {
         authAssurance: 'password+otp',
         authAssuranceAuthTime: Math.floor(Date.now() / 1000),
         loginOtpAssuranceExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        authzPosture: user.authzPosture,
     });
 };
 
@@ -180,6 +186,76 @@ describe('IDOR/BOLA security coverage', () => {
         await expectDocumentUnchanged(PaymentIntent, victimIntent._id, before);
         expect(JSON.stringify(response.body)).not.toContain(userB.email);
         expect(JSON.stringify(response.body)).not.toContain(userB.phone);
+    });
+
+    test('user cannot refund another user payment intent or enqueue refund side effects', async () => {
+        const victimOrder = await createFakeOrder({
+            userId: userB._id,
+            totalPrice: 2500,
+            paymentIntentId: 'pi_victim_refund_idor',
+            paymentState: 'captured',
+            isPaid: true,
+            paymentMethod: 'CARD',
+        });
+        const victimIntent = await createFakePaymentIntent({
+            userId: userB._id,
+            order: victimOrder._id,
+            intentId: 'pi_victim_refund_idor',
+            providerOrderId: 'order_victim_refund_idor',
+            providerPaymentId: 'pay_victim_refund_idor',
+            amount: 2500,
+            method: 'CARD',
+            status: 'captured',
+        });
+        const beforeOrder = await Order.findById(victimOrder._id).lean();
+        const beforeIntent = await PaymentIntent.findById(victimIntent._id).lean();
+        const beforeEvents = await PaymentEvent.countDocuments({ intentId: victimIntent.intentId });
+        const beforeOutbox = await PaymentOutboxTask.countDocuments({ intentId: victimIntent.intentId });
+        register('token-user-a-fresh', {
+            ...userA.toObject(),
+            authzPosture: { fresh: true, authAgeSeconds: 0 },
+        });
+
+        const response = await request(app)
+            .post(`/api/payments/intents/${victimIntent.intentId}/refunds`)
+            .set('Authorization', buildBearer('token-user-a-fresh'))
+            .set('Idempotency-Key', 'wrong-owner-refund-denied')
+            .send({ amount: 500, reason: 'attacker refund attempt' });
+
+        assertSafeStatus(response, [403]);
+        await expectDocumentUnchanged(Order, victimOrder._id, beforeOrder);
+        await expectDocumentUnchanged(PaymentIntent, victimIntent._id, beforeIntent);
+        await expect(PaymentEvent.countDocuments({ intentId: victimIntent.intentId })).resolves.toBe(beforeEvents);
+        await expect(PaymentOutboxTask.countDocuments({ intentId: victimIntent.intentId })).resolves.toBe(beforeOutbox);
+        expect(JSON.stringify(response.body)).not.toContain(userB.email);
+        expect(JSON.stringify(response.body)).not.toContain(userB.phone);
+    });
+
+    test('payment method list is scoped to the current user and does not leak victim methods', async () => {
+        const ownMethod = await createFakePaymentMethod({
+            userId: userA._id,
+            providerMethodId: 'pm_own_visible_method',
+            isDefault: true,
+        });
+        const victimMethod = await createFakePaymentMethod({
+            userId: userB._id,
+            providerMethodId: 'pm_victim_hidden_method',
+            isDefault: true,
+        });
+        const beforeVictimMethod = await PaymentMethod.findById(victimMethod._id).lean();
+
+        const response = await request(app)
+            .get('/api/payments/methods')
+            .set('Authorization', buildBearer('token-user-a'));
+
+        expect(response.statusCode).toBe(200);
+        const responseText = JSON.stringify(response.body);
+        expect(responseText).toContain(String(ownMethod._id));
+        expect(responseText).toContain('pm_own_visible_method');
+        expect(responseText).not.toContain(String(victimMethod._id));
+        expect(responseText).not.toContain('pm_victim_hidden_method');
+        expect(responseText).not.toContain(userB.email);
+        await expectDocumentUnchanged(PaymentMethod, victimMethod._id, beforeVictimMethod);
     });
 
     test('user cannot delete another user saved payment method', async () => {

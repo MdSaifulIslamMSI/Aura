@@ -24,10 +24,162 @@ const {
     buildRefundMutation,
 } = require('../services/payments/refundState');
 const asyncHandler = require('express-async-handler');
+const mongoose = require('mongoose');
 const AppError = require('../utils/AppError');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { assessFraudDecision } = require('../services/fraudDecisioningService');
+
+const ORDER_LIST_DEFAULT_LIMIT = 20;
+const ORDER_LIST_MAX_LIMIT = 100;
+const ORDER_SORT = Object.freeze({ createdAt: -1, _id: -1 });
+const ORDER_STATUS_FILTERS = new Set(['placed', 'processing', 'shipped', 'delivered', 'cancelled']);
+
+const parseBooleanQuery = (value) => ['1', 'true', 'yes'].includes(String(value || '').trim().toLowerCase());
+
+const parseOrderListLimit = (value) => {
+    if (value === undefined || value === null || value === '') {
+        return ORDER_LIST_DEFAULT_LIMIT;
+    }
+    const parsed = Number.parseInt(String(value), 10);
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        throw new AppError('Order list limit must be a positive integer', 400);
+    }
+    return Math.min(parsed, ORDER_LIST_MAX_LIMIT);
+};
+
+const encodeOrderCursor = (order) => {
+    if (!order?.createdAt || !order?._id) return null;
+    return Buffer.from(JSON.stringify({
+        createdAt: new Date(order.createdAt).toISOString(),
+        id: String(order._id),
+    })).toString('base64url');
+};
+
+const decodeOrderCursor = (cursor) => {
+    if (!cursor) return null;
+    try {
+        const parsed = JSON.parse(Buffer.from(String(cursor), 'base64url').toString('utf8'));
+        const createdAt = new Date(parsed?.createdAt);
+        const id = String(parsed?.id || '');
+        if (!Number.isFinite(createdAt.getTime()) || !mongoose.Types.ObjectId.isValid(id)) {
+            throw new Error('invalid cursor');
+        }
+        return {
+            createdAt,
+            id: new mongoose.Types.ObjectId(id),
+        };
+    } catch {
+        throw new AppError('Invalid order pagination cursor', 400);
+    }
+};
+
+const buildCursorFilter = (cursor) => {
+    const decoded = decodeOrderCursor(cursor);
+    if (!decoded) return null;
+    return {
+        $or: [
+            { createdAt: { $lt: decoded.createdAt } },
+            { createdAt: decoded.createdAt, _id: { $lt: decoded.id } },
+        ],
+    };
+};
+
+const mergeFilters = (baseFilter, cursorFilter) => {
+    if (!cursorFilter) return baseFilter;
+    if (!Object.keys(baseFilter).length) return cursorFilter;
+    return { $and: [baseFilter, cursorFilter] };
+};
+
+const parseOrderListDate = (value, label) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) {
+        throw new AppError(`Invalid ${label} date filter`, 400);
+    }
+    return date;
+};
+
+const buildAdminOrderFilter = (query = {}) => {
+    const filter = {};
+    const status = String(query.status || query.orderStatus || '').trim().toLowerCase();
+    if (status) {
+        if (!ORDER_STATUS_FILTERS.has(status)) {
+            throw new AppError('Invalid order status filter', 400);
+        }
+        filter.orderStatus = status;
+    }
+
+    const paymentState = String(query.paymentState || query.paymentStatus || '').trim().toLowerCase();
+    if (paymentState) {
+        filter.paymentState = paymentState;
+    }
+
+    const userId = String(query.user || query.userId || '').trim();
+    if (userId) {
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            throw new AppError('Invalid user filter', 400);
+        }
+        filter.user = new mongoose.Types.ObjectId(userId);
+    }
+
+    const createdAfter = parseOrderListDate(query.createdAfter || query.from || query.dateFrom, 'createdAfter');
+    const createdBefore = parseOrderListDate(query.createdBefore || query.to || query.dateTo, 'createdBefore');
+    if (createdAfter || createdBefore) {
+        filter.createdAt = {};
+        if (createdAfter) filter.createdAt.$gte = createdAfter;
+        if (createdBefore) filter.createdAt.$lte = createdBefore;
+    }
+
+    const search = String(query.search || '').trim();
+    if (search) {
+        if (mongoose.Types.ObjectId.isValid(search)) {
+            filter._id = new mongoose.Types.ObjectId(search);
+        } else {
+            filter.paymentIntentId = search;
+        }
+    }
+
+    return filter;
+};
+
+const runOrderListQuery = async ({
+    req,
+    baseFilter = {},
+    populateUser = false,
+}) => {
+    const limit = parseOrderListLimit(req.query?.limit);
+    const cursorFilter = buildCursorFilter(req.query?.cursor);
+    const findFilter = mergeFilters(baseFilter, cursorFilter);
+    let query = Order.find(findFilter);
+    if (populateUser) {
+        query = query.populate('user', 'id name email');
+    }
+    const orders = await query
+        .sort(ORDER_SORT)
+        .limit(limit + 1)
+        .lean();
+    const hasMore = orders.length > limit;
+    const pageOrders = hasMore ? orders.slice(0, limit) : orders;
+    const pagination = {
+        limit,
+        hasMore,
+        nextCursor: hasMore ? encodeOrderCursor(pageOrders[pageOrders.length - 1]) : null,
+    };
+
+    if (parseBooleanQuery(req.query?.includeTotal)) {
+        const total = await Order.countDocuments(baseFilter);
+        pagination.total = total;
+        pagination.pages = Math.ceil(total / limit);
+    }
+
+    return {
+        success: true,
+        orders: pageOrders,
+        count: pageOrders.length,
+        pagination,
+    };
+};
 
 const buildFraudRequestMeta = (req) => ({
     ip: req.ip || req.connection?.remoteAddress || '',
@@ -60,6 +212,11 @@ const getCommandCenterArray = (order, key) => {
     order.commandCenter[key] = Array.isArray(order.commandCenter[key]) ? order.commandCenter[key] : [];
     return order.commandCenter[key];
 };
+
+const isOrderFullyRefunded = (order) => (
+    Boolean(order?.refundSummary?.fullyRefunded)
+    || String(order?.paymentState || '').trim().toLowerCase() === 'refunded'
+);
 
 const touchCommandCenter = (order) => {
     order.commandCenter = order.commandCenter || {};
@@ -438,7 +595,7 @@ const getMyOrderCommandCenter = asyncHandler(async (req, res, next) => {
         },
         actionAvailability: {
             canRequestRefund: !order.refundSummary?.fullyRefunded,
-            canRequestReplacement: order.orderStatus !== 'cancelled',
+            canRequestReplacement: order.orderStatus !== 'cancelled' && !isOrderFullyRefunded(order),
             canOpenWarrantyClaim: true,
             canOpenSupportChat: true,
             canCancelOrder: !order.isDelivered && order.orderStatus !== 'cancelled',
@@ -585,6 +742,9 @@ const createOrderReplacementRequest = asyncHandler(async (req, res, next) => {
     }
     if (order.orderStatus === 'cancelled' || order.cancelledAt) {
         return next(new AppError('Cancelled orders cannot be replaced', 409));
+    }
+    if (isOrderFullyRefunded(order)) {
+        return next(new AppError('Fully refunded orders cannot be replaced', 409));
     }
 
     const targetOrderItem = resolveOrderItemForCommand(order, req.body);
@@ -1163,6 +1323,17 @@ const ALLOWED_ORDER_STATUS_TRANSITIONS = {
     delivered: new Set([]),
     cancelled: new Set([]),
 };
+const DIGITAL_FULFILLMENT_STATUSES = new Set(['shipped', 'delivered']);
+const SETTLED_PAYMENT_STATES = new Set(['captured', 'paid', 'partially_refunded', 'refunded']);
+
+const isDigitalPaymentOrder = (order) => (
+    DIGITAL_PAYMENT_METHODS.has(String(order?.paymentMethod || '').toUpperCase())
+);
+
+const hasSettledPaymentForFulfillment = (order) => (
+    Boolean(order?.isPaid)
+    || SETTLED_PAYMENT_STATES.has(String(order?.paymentState || '').trim().toLowerCase())
+);
 
 // @desc    Update order shipping state (admin)
 // @route   PATCH /api/orders/:id/status
@@ -1186,6 +1357,14 @@ const updateOrderStatusAdmin = asyncHandler(async (req, res, next) => {
     const allowed = ALLOWED_ORDER_STATUS_TRANSITIONS[currentStatus] || new Set();
     if (!allowed.has(nextStatus)) {
         return next(new AppError(`Invalid transition from ${currentStatus} to ${nextStatus}`, 409));
+    }
+
+    if (
+        DIGITAL_FULFILLMENT_STATUSES.has(nextStatus)
+        && isDigitalPaymentOrder(order)
+        && !hasSettledPaymentForFulfillment(order)
+    ) {
+        return next(new AppError('Digital payment must be captured before shipping this order.', 409));
     }
 
     order.orderStatus = nextStatus;
@@ -1232,18 +1411,23 @@ const updateOrderStatusAdmin = asyncHandler(async (req, res, next) => {
 // @route   GET /api/orders/myorders
 // @access  Private
 const getMyOrders = asyncHandler(async (req, res) => {
-    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
-    res.json(orders);
+    const response = await runOrderListQuery({
+        req,
+        baseFilter: { user: req.user._id },
+    });
+    res.json(response);
 });
 
 // @desc    Get all orders
 // @route   GET /api/orders
 // @access  Private/Admin
 const getOrders = asyncHandler(async (req, res) => {
-    const orders = await Order.find({})
-        .populate('user', 'id name email')
-        .sort({ createdAt: -1 });
-    res.json(orders);
+    const response = await runOrderListQuery({
+        req,
+        baseFilter: buildAdminOrderFilter(req.query),
+        populateUser: true,
+    });
+    res.json(response);
 });
 
 module.exports = {

@@ -883,6 +883,22 @@ const markChallengeVerified = async ({ userId, userPhone, intentId, challengeTok
     };
 };
 
+const assertIntentNotLinkedToCancelledOrder = async (intent) => {
+    if (!intent?.order) return;
+
+    const cancelledOrder = await Order.findOne({
+        _id: intent.order,
+        $or: [
+            { orderStatus: 'cancelled' },
+            { cancelledAt: { $exists: true, $ne: null } },
+        ],
+    }).select('_id').lean();
+
+    if (cancelledOrder) {
+        throw new AppError('Cannot confirm payment for a cancelled order', 409);
+    }
+};
+
 const confirmPaymentIntent = async ({
     userId,
     intentId,
@@ -894,6 +910,7 @@ const confirmPaymentIntent = async ({
 
     const intent = await PaymentIntent.findOne({ intentId, user: userId });
     if (!intent) throw new AppError('Payment intent not found', 404);
+    await assertIntentNotLinkedToCancelledOrder(intent);
 
     const cleanPaymentId = String(providerPaymentId || '').trim();
     const cleanOrderId = String(providerOrderId || '').trim();
@@ -1475,31 +1492,54 @@ const captureIntentNow = async ({ intentId }) => {
     return intent;
 };
 
-const createRefundForIntent = async ({
-    actorUserId,
-    isAdmin,
-    intentId,
-    amount,
-    amountMode = 'settlement',
-    reason,
-}) => {
-    if (!flags.paymentRefundsEnabled) {
-        throw new AppError('Refund operations are disabled', 403);
+const acquireRefundLock = async (intent) => {
+    const lockId = makeEventId('refund_lock');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 2 * 60 * 1000);
+    const lockedIntent = await PaymentIntent.findOneAndUpdate(
+        {
+            _id: intent._id,
+            $or: [
+                { 'metadata.refundLock.locked': { $ne: true } },
+                { 'metadata.refundLock.expiresAt': { $lte: now } },
+            ],
+        },
+        {
+            $set: {
+                'metadata.refundLock': {
+                    locked: true,
+                    lockId,
+                    startedAt: now,
+                    expiresAt,
+                },
+            },
+        },
+        { returnDocument: 'after' }
+    ).lean();
+
+    if (!lockedIntent) {
+        throw new AppError('A refund is already in progress for this payment', 409);
     }
 
-    const intent = await PaymentIntent.findOne({ intentId }).populate('order');
-    if (!intent) throw new AppError('Payment intent not found', 404);
-    if (!intent.order) throw new AppError('Refund can only be created after order placement', 400);
+    return lockId;
+};
 
-    const order = intent.order;
-    if (!isAdmin && String(order.user) !== String(actorUserId)) {
-        throw new AppError('Not authorized to refund this payment', 403);
-    }
+const releaseRefundLock = async ({ intentId, lockId }) => {
+    if (!intentId || !lockId) return;
+    await PaymentIntent.updateOne(
+        {
+            intentId,
+            'metadata.refundLock.lockId': lockId,
+        },
+        {
+            $unset: {
+                'metadata.refundLock': '',
+            },
+        }
+    );
+};
 
-    if (!intent.providerPaymentId) {
-        throw new AppError('Provider payment reference is missing for refund', 400);
-    }
-
+const resolveRefundAmountsForOrder = ({ order, amount, amountMode }) => {
     const refundable = calculateRefundable(order);
     const presentmentRefundable = calculatePresentmentRefundable(order);
     if (refundable <= 0 || presentmentRefundable <= 0) {
@@ -1527,63 +1567,125 @@ const createRefundForIntent = async ({
         throw new AppError('Refund amount exceeds refundable charge balance', 400);
     }
 
-    const provider = await getPaymentProvider({
-        gatewayId: intent.provider,
-        amount: refundAmounts.presentmentAmount,
-        currency: intent.currency,
-        paymentMethod: intent.method,
-        userId: intent.user,
-    });
-    const providerRefund = await provider.refund({
-        paymentId: intent.providerPaymentId,
-        amount: refundAmounts.presentmentAmount,
-        currency: intent.currency,
-        notes: {
-            reason: reason || 'requested_by_user',
-            intentId,
-        },
-    });
+    return refundAmounts;
+};
 
-    const refundEntry = buildRefundEntry({
-        providerRefund,
-        refundAmounts,
-        reason,
-        fallbackRefundId: makeEventId('refund'),
-    });
-    const refundMutation = buildRefundMutation({
-        order,
-        refundEntry,
-    });
+const createRefundForIntent = async ({
+    actorUserId,
+    isAdmin,
+    intentId,
+    amount,
+    amountMode = 'settlement',
+    reason,
+}) => {
+    if (!flags.paymentRefundsEnabled) {
+        throw new AppError('Refund operations are disabled', 403);
+    }
 
-    await Order.updateOne(
-        { _id: order._id },
-        {
-            $set: {
-                refundSummary: refundMutation.refundSummary,
-                paymentState: refundMutation.paymentState,
-            },
+    const intent = await PaymentIntent.findOne({ intentId }).populate('order');
+    if (!intent) throw new AppError('Payment intent not found', 404);
+    if (!intent.order) throw new AppError('Refund can only be created after order placement', 400);
+
+    const order = intent.order;
+    if (!isAdmin && String(order.user) !== String(actorUserId)) {
+        throw new AppError('Not authorized to refund this payment', 403);
+    }
+
+    if (!intent.providerPaymentId) {
+        throw new AppError('Provider payment reference is missing for refund', 400);
+    }
+
+    resolveRefundAmountsForOrder({ order, amount, amountMode });
+
+    const refundLockId = await acquireRefundLock(intent);
+
+    try {
+        const lockedIntent = await PaymentIntent.findOne({ intentId }).populate('order');
+        if (!lockedIntent || lockedIntent.metadata?.refundLock?.lockId !== refundLockId) {
+            throw new AppError('Refund lock was lost before provider mutation', 409);
         }
-    );
+        if (!lockedIntent.order) {
+            throw new AppError('Refund can only be created after order placement', 400);
+        }
 
-    intent.status = refundMutation.paymentState;
-    await intent.save();
+        const lockedOrder = lockedIntent.order;
+        if (!isAdmin && String(lockedOrder.user) !== String(actorUserId)) {
+            throw new AppError('Not authorized to refund this payment', 403);
+        }
+        if (!lockedIntent.providerPaymentId) {
+            throw new AppError('Provider payment reference is missing for refund', 400);
+        }
 
-    await appendPaymentEvent({
-        intentId,
-        source: 'api',
-        type: 'refund.created',
-        payload: refundEntry,
-    });
+        const refundAmounts = resolveRefundAmountsForOrder({
+            order: lockedOrder,
+            amount,
+            amountMode,
+        });
+        const provider = await getPaymentProvider({
+            gatewayId: lockedIntent.provider,
+            amount: refundAmounts.presentmentAmount,
+            currency: lockedIntent.currency,
+            paymentMethod: lockedIntent.method,
+            userId: lockedIntent.user,
+        });
+        const providerRefund = await provider.refund({
+            paymentId: lockedIntent.providerPaymentId,
+            amount: refundAmounts.presentmentAmount,
+            currency: lockedIntent.currency,
+            notes: {
+                reason: reason || 'requested_by_user',
+                intentId,
+            },
+        });
 
-    return {
-        refundId: refundEntry.refundId,
-        status: refundEntry.status,
-        amount: refundEntry.amount,
-        currency: intent.currency,
-        settlementAmount: refundEntry.settlementAmount,
-        settlementCurrency: refundEntry.settlementCurrency,
-        intentId,
-    };
+        const refundEntry = buildRefundEntry({
+            providerRefund,
+            refundAmounts,
+            reason,
+            fallbackRefundId: makeEventId('refund'),
+        });
+        const refundMutation = buildRefundMutation({
+            order: lockedOrder,
+            refundEntry,
+        });
+
+        await Order.updateOne(
+            { _id: lockedOrder._id },
+            {
+                $set: {
+                    refundSummary: refundMutation.refundSummary,
+                    paymentState: refundMutation.paymentState,
+                },
+            }
+        );
+
+        lockedIntent.status = refundMutation.paymentState;
+        await lockedIntent.save();
+
+        await appendPaymentEvent({
+            intentId,
+            source: 'api',
+            type: 'refund.created',
+            payload: refundEntry,
+        });
+
+        return {
+            refundId: refundEntry.refundId,
+            status: refundEntry.status,
+            amount: refundEntry.amount,
+            currency: lockedIntent.currency,
+            settlementAmount: refundEntry.settlementAmount,
+            settlementCurrency: refundEntry.settlementCurrency,
+            intentId,
+        };
+    } finally {
+        await releaseRefundLock({ intentId, lockId: refundLockId }).catch((error) => {
+            logger.warn('payment.refund_lock_release_failed', {
+                intentId,
+                reason: error?.message || 'unknown',
+            });
+        });
+    }
 };
 
 const extractWebhookIdentifiers = (event = {}) => {
@@ -1644,6 +1746,36 @@ const assertWebhookPaymentMatchesIntent = ({
         && diff(eventAmount, expectedAmount) > 0.01
     ) {
         throw new AppError('Webhook payment amount mismatch', 409);
+    }
+};
+
+const assertWebhookRefundMatchesKnownRefund = async ({
+    intent,
+    parsedEvent,
+}) => {
+    if (String(parsedEvent?.eventType || '') !== 'refund.processed') {
+        return;
+    }
+
+    const refundId = String(parsedEvent?.refundId || '').trim();
+    if (!refundId) {
+        throw new AppError('Webhook refund payload is missing refund id', 422);
+    }
+    if (!intent?.order) {
+        throw new AppError('Webhook refund is not linked to an order', 409);
+    }
+
+    const order = await Order.findById(
+        intent.order,
+        'refundSummary.refunds'
+    ).lean();
+    const refundExists = Array.isArray(order?.refundSummary?.refunds)
+        && order.refundSummary.refunds.some((refund) => (
+            String(refund?.refundId || '').trim() === refundId
+        ));
+
+    if (!refundExists) {
+        throw new AppError('Webhook refund ID is not recognized', 409);
     }
 };
 
@@ -1720,6 +1852,18 @@ const shouldSuppressUnsafeWebhookMutations = async () => {
     }
 };
 
+const findCancelledOrderForIntent = async (intent) => {
+    if (!intent?.order) return null;
+
+    return Order.findOne({
+        _id: intent.order,
+        $or: [
+            { orderStatus: 'cancelled' },
+            { cancelledAt: { $exists: true, $ne: null } },
+        ],
+    }).select('_id orderStatus cancelledAt').lean();
+};
+
 const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     const provider = await getPaymentProvider({ gatewayId });
     const valid = provider.verifyWebhookSignature({ rawBody, signature });
@@ -1743,16 +1887,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     });
 
     if (!intent) {
-        await PaymentEvent.create({
-            eventId: parsedEvent.eventId,
-            intentId: 'unknown',
-            source: 'webhook',
-            type: parsedEvent.eventType,
-            payloadHash: hashPayload(parsed),
-            payload: parsed,
-            receivedAt: new Date(),
-        });
-        return { received: true, deduped: false, intentId: null };
+        throw new AppError('Payment intent not found for webhook', 404);
     }
 
     assertWebhookPaymentMatchesIntent({
@@ -1760,6 +1895,10 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
         intent,
         parsedEvent,
         parsed,
+    });
+    await assertWebhookRefundMatchesKnownRefund({
+        intent,
+        parsedEvent,
     });
 
     const currentStatus = intent.status;
@@ -1844,6 +1983,50 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
         };
     }
 
+    const statusTransitionedToCaptured = currentStatus !== PAYMENT_STATUSES.CAPTURED
+        && mapped === PAYMENT_STATUSES.CAPTURED;
+    if (statusTransitionedToCaptured) {
+        const cancelledOrder = await findCancelledOrderForIntent(intent);
+        if (cancelledOrder) {
+            logger.warn('payment.webhook_cancelled_order_discarded', {
+                eventId: parsedEvent.eventId,
+                eventType: parsedEvent.eventType,
+                intentId: intent.intentId,
+                orderId: String(cancelledOrder._id),
+                currentStatus,
+                targetStatus: mapped,
+                currentOrderStatus: cancelledOrder.orderStatus || '',
+            });
+
+            await PaymentEvent.create({
+                eventId: parsedEvent.eventId,
+                intentId: intent.intentId,
+                source: 'webhook',
+                type: parsedEvent.eventType,
+                payloadHash: hashPayload(parsed),
+                payload: {
+                    ...parsed,
+                    processingMeta: {
+                        discarded: true,
+                        reason: 'order_cancelled',
+                        currentStatus,
+                        targetStatus: mapped,
+                        currentOrderStatus: cancelledOrder.orderStatus || '',
+                    },
+                },
+                receivedAt: new Date(),
+            });
+
+            return {
+                received: true,
+                deduped: false,
+                intentId: intent.intentId,
+                discarded: true,
+                reason: 'order_cancelled',
+            };
+        }
+    }
+
     if (mapped) {
         intent.status = mapped;
     }
@@ -1885,8 +2068,6 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
         receivedAt: new Date(),
     });
 
-    const statusTransitionedToCaptured = currentStatus !== PAYMENT_STATUSES.CAPTURED
-        && intent.status === PAYMENT_STATUSES.CAPTURED;
     if (statusTransitionedToCaptured) {
         await applyOrderPaymentCapture(intent);
     }

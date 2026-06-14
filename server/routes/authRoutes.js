@@ -56,6 +56,21 @@ const csrfTokenValidatorForCookieSession = (req, res, next) => {
     return csrfTokenValidator(req, res, next);
 };
 
+const normalizeRateLimitEmail = (value) => (
+    typeof value === 'string' ? value.trim().toLowerCase() : ''
+);
+
+const normalizeRateLimitPhone = (value) => (
+    typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
+);
+
+const bootstrapChallengeRateLimitKey = (req) => {
+    const email = normalizeRateLimitEmail(req.body?.email);
+    const phone = normalizeRateLimitPhone(req.body?.phone);
+    const accountKey = email || phone || 'anonymous';
+    return `${accountKey}:${req.ip || 'unknown'}`;
+};
+
 const authGuardRateLimit = rateLimit({
     windowMs: 5 * 60 * 1000,
     limit: process.env.NODE_ENV === 'development' ? 1000 : 500,
@@ -97,13 +112,7 @@ const bootstrapDeviceChallengeLimiter = createDistributedRateLimit({
     windowMs: 5 * 60 * 1000,
     max: process.env.NODE_ENV === 'development' ? 300 : 30,
     message: 'Too many trusted device challenge requests, please try again after 5 minutes',
-    keyGenerator: (req) => {
-        const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-        const deviceId = typeof req.headers?.['x-aura-device-id'] === 'string'
-            ? req.headers['x-aura-device-id'].trim()
-            : '';
-        return [email, deviceId, req.ip].filter(Boolean).join(':');
-    },
+    keyGenerator: bootstrapChallengeRateLimitKey,
 });
 
 const phoneFactorCompletionLimiter = createDistributedRateLimit({

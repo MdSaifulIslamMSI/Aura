@@ -32,13 +32,15 @@ const ticketIdParamSchema = z.object({
     }),
 });
 
+const supportStatusAuditReasonSchema = z.string().trim().min(8).max(800);
+
 const adminUpdateTicketSchema = z.object({
     params: z.object({
         id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ID format'),
     }),
     body: z.object({
         status: z.enum(['open', 'resolved', 'closed']),
-        resolutionSummary: z.string().trim().max(800).optional(),
+        resolutionSummary: supportStatusAuditReasonSchema,
         userActionRequired: z.boolean().optional(),
     }),
 });
