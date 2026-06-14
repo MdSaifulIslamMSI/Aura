@@ -143,6 +143,9 @@ const cancelOrderByActor = async ({
     if (order.orderStatus === 'cancelled' || order.cancelledAt) {
         throw new AppError('Order is already cancelled', 409);
     }
+    if (order.orderStatus === 'shipped') {
+        throw new AppError('Shipped orders cannot be cancelled', 409);
+    }
     if (order.isDelivered || order.orderStatus === 'delivered') {
         throw new AppError('Delivered orders cannot be cancelled', 409);
     }
@@ -153,6 +156,7 @@ const cancelOrderByActor = async ({
         const txOrder = await Order.findOne(baseFilter).session(session);
         if (!txOrder) throw new AppError('Order not found', 404);
         if (txOrder.orderStatus === 'cancelled' || txOrder.cancelledAt) throw new AppError('Order is already cancelled', 409);
+        if (txOrder.orderStatus === 'shipped') throw new AppError('Shipped orders cannot be cancelled', 409);
         if (txOrder.isDelivered || txOrder.orderStatus === 'delivered') throw new AppError('Delivered orders cannot be cancelled', 409);
 
         // Restore stock

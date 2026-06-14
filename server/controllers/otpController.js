@@ -1844,8 +1844,8 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
     }
 
     try {
-        await revokeBrowserSessionsForUser(user._id);
         await firebaseAdmin.auth().updateUser(authUser.uid, { password });
+        await revokeBrowserSessionsForUser(user._id);
         await firebaseAdmin.auth().revokeRefreshTokens(authUser.uid);
     } catch (error) {
         logger.error('otp.reset_password_failed', {

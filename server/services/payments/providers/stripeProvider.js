@@ -6,6 +6,10 @@ const {
     fromMinorUnits,
     normalizeCurrencyCode,
 } = require('../helpers');
+const {
+    resolveProviderResilienceConfig,
+    withProviderTimeout,
+} = require('../foundation/providerContract');
 
 const STRIPE_API_VERSION = process.env.STRIPE_API_VERSION || '2026-02-25.clover';
 
@@ -29,6 +33,16 @@ const stringifyMetadata = (metadata = {}) => Object.fromEntries(
     Object.entries(metadata || {}).map(([key, value]) => [key, String(value || '')])
 );
 
+const firstNonEmpty = (...values) => (
+    values
+        .map((value) => String(value || '').trim())
+        .find(Boolean) || ''
+);
+
+const buildStripeRequestOptions = (idempotencyKey) => (
+    idempotencyKey ? { idempotencyKey } : undefined
+);
+
 const summarizeSavedMethod = (savedMethod = null) => {
     if (!savedMethod) return null;
     return {
@@ -47,6 +61,10 @@ class StripeProvider {
         publishableKey,
         webhookSecret,
         stripeClient = null,
+        timeoutMs,
+        refundTimeoutMs,
+        retries,
+        retryDelayMs,
     }) {
         this.name = 'stripe';
         this.secretKey = secretKey;
@@ -55,6 +73,21 @@ class StripeProvider {
         this.baseUrl = 'https://api.stripe.com/v1';
         this.client = stripeClient || new Stripe(secretKey, {
             apiVersion: STRIPE_API_VERSION,
+        });
+        this.resilience = resolveProviderResilienceConfig({
+            timeoutMs,
+            refundTimeoutMs,
+            retries,
+            retryDelayMs,
+        });
+    }
+
+    runProviderOperation(operationName, operation, options = {}) {
+        return withProviderTimeout(this.name, operationName, operation, {
+            timeoutMs: this.resilience.timeoutMs,
+            retries: this.resilience.retries,
+            retryDelayMs: this.resilience.retryDelayMs,
+            ...options,
         });
     }
 
@@ -159,14 +192,22 @@ class StripeProvider {
             payload.metadata.savedPaymentMethodId = String(savedMethod?._id || '');
         }
 
-        return this.client.paymentIntents.create(payload);
+        const idempotencyKey = firstNonEmpty(notes.idempotencyKey, notes.requestId, receipt);
+        const requestOptions = buildStripeRequestOptions(idempotencyKey);
+        return this.runProviderOperation(
+            'payment_intents.create',
+            () => (requestOptions
+                ? this.client.paymentIntents.create(payload, requestOptions)
+                : this.client.paymentIntents.create(payload)),
+            { idempotencyKey }
+        );
     }
 
     async createSetupIntent({
         user = {},
         metadata = {},
     } = {}) {
-        return this.client.setupIntents.create({
+        const payload = {
             usage: 'off_session',
             payment_method_types: ['card'],
             metadata: {
@@ -175,13 +216,26 @@ class StripeProvider {
                 userEmail: String(user?.email || metadata?.userEmail || ''),
                 setupSource: String(metadata?.setupSource || 'profile'),
             },
-        });
+        };
+        const idempotencyKey = firstNonEmpty(metadata.idempotencyKey, metadata.requestId);
+        const requestOptions = buildStripeRequestOptions(idempotencyKey);
+        return this.runProviderOperation(
+            'setup_intents.create',
+            () => (requestOptions
+                ? this.client.setupIntents.create(payload, requestOptions)
+                : this.client.setupIntents.create(payload)),
+            { idempotencyKey }
+        );
     }
 
     async fetchSetupIntent(setupIntentId) {
-        return this.client.setupIntents.retrieve(setupIntentId, {
-            expand: ['payment_method'],
-        });
+        return this.runProviderOperation(
+            'setup_intents.retrieve',
+            () => this.client.setupIntents.retrieve(setupIntentId, {
+                expand: ['payment_method'],
+            }),
+            { mutation: false }
+        );
     }
 
     async fetchSupportedMethods() {
@@ -234,27 +288,58 @@ class StripeProvider {
     }
 
     async fetchPayment(paymentId) {
-        const paymentIntent = await this.client.paymentIntents.retrieve(paymentId, {
-            expand: ['payment_method', 'latest_charge'],
-        });
+        const paymentIntent = await this.runProviderOperation(
+            'payment_intents.retrieve',
+            () => this.client.paymentIntents.retrieve(paymentId, {
+                expand: ['payment_method', 'latest_charge'],
+            }),
+            { mutation: false }
+        );
         return {
             ...paymentIntent,
             status: normalizeStripeStatus(paymentIntent.status),
         };
     }
 
-    async capture({ paymentId, amount, currency = 'INR' }) {
-        return this.client.paymentIntents.capture(paymentId, {
-            amount_to_capture: toMinorUnits(amount, currency),
-        });
+    async capture({ paymentId, amount, currency = 'INR', idempotencyKey: providedIdempotencyKey }) {
+        const amountMinor = toMinorUnits(amount, currency);
+        const idempotencyKey = firstNonEmpty(
+            providedIdempotencyKey,
+            paymentId ? `capture:${paymentId}:${amountMinor}` : ''
+        );
+        const requestOptions = buildStripeRequestOptions(idempotencyKey);
+        return this.runProviderOperation(
+            'payment_intents.capture',
+            () => (requestOptions
+                ? this.client.paymentIntents.capture(paymentId, { amount_to_capture: amountMinor }, requestOptions)
+                : this.client.paymentIntents.capture(paymentId, { amount_to_capture: amountMinor })),
+            { idempotencyKey }
+        );
     }
 
     async refund({ paymentId, amount, currency = 'INR', notes = {} }) {
-        return this.client.refunds.create({
+        const amountMinor = toMinorUnits(amount, currency);
+        const payload = {
             payment_intent: paymentId,
-            amount: toMinorUnits(amount, currency),
+            amount: amountMinor,
             metadata: stringifyMetadata(notes),
-        });
+        };
+        const idempotencyKey = firstNonEmpty(
+            notes.idempotencyKey,
+            notes.requestId,
+            paymentId ? `refund:${paymentId}:${amountMinor}:${normalizeCurrencyCode(currency)}` : ''
+        );
+        const requestOptions = buildStripeRequestOptions(idempotencyKey);
+        return this.runProviderOperation(
+            'refunds.create',
+            () => (requestOptions
+                ? this.client.refunds.create(payload, requestOptions)
+                : this.client.refunds.create(payload)),
+            {
+                timeoutMs: this.resilience.refundTimeoutMs,
+                idempotencyKey,
+            }
+        );
     }
 
     parsePaymentMethod(payment = {}) {

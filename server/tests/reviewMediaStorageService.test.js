@@ -229,4 +229,29 @@ describe('reviewMediaStorageService', () => {
         });
         expect(mockSend.mock.calls[3][0]).toBeInstanceOf(DeleteObjectCommand);
     });
+
+    test('fails closed when S3 review media is missing clean scan metadata', async () => {
+        process.env.UPLOAD_STORAGE_DRIVER = 's3';
+        process.env.AWS_REGION = 'ap-south-1';
+        process.env.AWS_S3_REVIEW_BUCKET = 'aura-review-media';
+
+        const { GetObjectCommand } = require('@aws-sdk/client-s3');
+        mockSend.mockImplementation((command) => {
+            if (command instanceof GetObjectCommand) {
+                return Promise.resolve({
+                    Body: Buffer.from('untrusted'),
+                    ContentType: 'image/png',
+                    ContentLength: 9,
+                    Metadata: {},
+                });
+            }
+            return Promise.reject(new Error(`Unexpected command: ${command?.constructor?.name || 'unknown'}`));
+        });
+
+        const service = require('../services/reviewMediaStorageService');
+
+        await expect(service.getReviewMediaObject({ storageKey: 'review-media/no-scan-metadata.png' }))
+            .rejects.toMatchObject({ code: 404 });
+        expect(mockSend).toHaveBeenCalledTimes(1);
+    });
 });

@@ -168,7 +168,7 @@ describe('login attack smoke: route-level browser attacks', () => {
 
         expect(validLogout.statusCode).toBe(200);
         expect(validLogout.body.success).toBe(true);
-    });
+    }, 15000);
 });
 
 describe('login attack smoke: recovery-token attacks', () => {

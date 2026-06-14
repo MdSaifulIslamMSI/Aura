@@ -34,16 +34,21 @@ const OrderList = () => {
         setLoading(true);
         try {
             const data = await orderApi.getAllOrders();
-            setOrders(data);
+            const nextOrders = Array.isArray(data)
+                ? data
+                : Array.isArray(data?.orders)
+                    ? data.orders
+                    : [];
+            setOrders(nextOrders);
             const drafts = {};
-            data.forEach((order) => {
+            nextOrders.forEach((order) => {
                 drafts[order._id] = order.orderStatus || (order.isDelivered ? 'delivered' : 'placed');
             });
             setStatusDrafts(drafts);
             const cancelDrafts = {};
             const supportDrafts = {};
             const trkDrafts = {};
-            data.forEach((order) => {
+            nextOrders.forEach((order) => {
                 cancelDrafts[order._id] = '';
                 supportDrafts[order._id] = '';
                 trkDrafts[order._id] = '';

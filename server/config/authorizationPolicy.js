@@ -22,6 +22,8 @@ const ADMIN_ROUTE_POLICIES = [
     ['PATCH', '/api/admin/products/:id/pricing', 'admin.products.write'],
     ['DELETE', '/api/admin/products/:id', 'admin.products.delete'],
     ['GET', '/api/admin/payments', 'admin.payments.read'],
+    ['POST', '/api/admin/payments/ops/expire-stale', 'admin.payments.expire_stale'],
+    ['PATCH', '/api/admin/payments/refunds/ledger/:orderId/:requestId/reference', 'admin.payments.refunds.write'],
     ['POST', '/api/admin/payments/:id/capture', 'admin.payments.capture'],
     ['POST', '/api/admin/payments/:id/retry-capture', 'admin.payments.capture'],
     ['GET', '/api/admin/ops/readiness', 'admin.ops.read'],

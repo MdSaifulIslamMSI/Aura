@@ -102,7 +102,11 @@ const Orders = () => {
 
         try {
             const data = await orderApi.getMyOrders();
-            const nextOrders = Array.isArray(data) ? [...data] : [];
+            const nextOrders = Array.isArray(data)
+                ? [...data]
+                : Array.isArray(data?.orders)
+                    ? [...data.orders]
+                    : [];
             const sortedOrders = nextOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setOrders(sortedOrders);
             return sortedOrders;
@@ -1038,4 +1042,3 @@ export const OrderCard = ({ order, autoExpand = false }) => {
 };
 
 export default Orders;
-

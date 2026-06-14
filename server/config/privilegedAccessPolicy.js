@@ -8,6 +8,8 @@ const PRIVILEGED_ACCESS_POLICY = {
         'admin.products.delete',
         'admin.ops.maintenance',
         'admin.payments.capture',
+        'admin.payments.expire_stale',
+        'admin.payments.refunds.write',
     ],
     baselineAssurance: [
         'admin_allowlist',

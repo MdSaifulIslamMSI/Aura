@@ -4,8 +4,11 @@ const User = require('../models/User');
 const {
     beginTotpSetup,
     decryptTotpSecret,
+    disableTotpAfterFreshMfa,
     enableTotpAfterVerification,
+    encryptTotpSecret,
     generateTotpCode,
+    generateTotpSecret,
     verifyEnabledTotpForUser,
 } = require('../services/totpMfaService');
 
@@ -81,5 +84,84 @@ describe('totpMfaService', () => {
 
         expect(verified.mfa.lastMfaMethod).toBe('totp');
         expect(verified.mfa.lastMfaAt).toBeInstanceOf(Date);
+    });
+
+    test('refuses to disable TOTP with only low-assurance MFA evidence and leaves factor intact', async () => {
+        const encryptedSecret = encryptTotpSecret(generateTotpSecret());
+        const recentLowAssuranceMfa = new Date();
+        const user = await User.create({
+            name: 'TOTP Disable User',
+            email: 'totp-disable-low-assurance@example.test',
+            isVerified: true,
+            recoveryCodeState: { activeCount: 1 },
+            mfa: {
+                enabled: true,
+                defaultMethod: 'totp',
+                totp: {
+                    enabled: true,
+                    secretEncrypted: encryptedSecret,
+                    confirmedAt: new Date('2026-06-04T00:00:00.000Z'),
+                    disabledAt: null,
+                },
+                lastMfaAt: recentLowAssuranceMfa,
+                lastMfaMethod: 'email_otp',
+            },
+        });
+
+        await expect(disableTotpAfterFreshMfa({ userId: user._id }))
+            .rejects
+            .toMatchObject({
+                statusCode: 403,
+                code: 'FRESH_MFA_REQUIRED',
+            });
+
+        const persisted = await User.findById(user._id)
+            .select('+mfa.totp.secretEncrypted')
+            .lean();
+
+        expect(persisted.mfa.totp.enabled).toBe(true);
+        expect(persisted.mfa.totp.disabledAt).toBeNull();
+        expect(persisted.mfa.totp.secretEncrypted).toBe(encryptedSecret);
+        expect(persisted.mfa.lastMfaMethod).toBe('email_otp');
+        expect(persisted.mfa.lastMfaAt).toEqual(recentLowAssuranceMfa);
+    });
+
+    test('disables TOTP after fresh TOTP verification without changing recovery state', async () => {
+        const encryptedSecret = encryptTotpSecret(generateTotpSecret());
+        const freshTotpAt = new Date();
+        const user = await User.create({
+            name: 'TOTP Disable Fresh User',
+            email: 'totp-disable-fresh@example.test',
+            isVerified: true,
+            recoveryCodeState: { activeCount: 3 },
+            mfa: {
+                enabled: true,
+                defaultMethod: 'totp',
+                totp: {
+                    enabled: true,
+                    secretEncrypted: encryptedSecret,
+                    confirmedAt: new Date('2026-06-04T00:00:00.000Z'),
+                    disabledAt: null,
+                },
+                lastMfaAt: freshTotpAt,
+                lastMfaMethod: 'totp',
+            },
+        });
+
+        const result = await disableTotpAfterFreshMfa({ userId: user._id });
+
+        expect(result.mfa.totp.enabled).toBe(false);
+        expect(result.mfa.totp.disabledAt).toBeInstanceOf(Date);
+        expect(result.recoveryCodeState.activeCount).toBe(3);
+
+        const persisted = await User.findById(user._id)
+            .select('+mfa.totp.secretEncrypted')
+            .lean();
+
+        expect(persisted.mfa.totp.enabled).toBe(false);
+        expect(persisted.mfa.totp.secretEncrypted).toBeUndefined();
+        expect(persisted.recoveryCodeState.activeCount).toBe(3);
+        expect(persisted.mfa.lastMfaMethod).toBe('totp');
+        expect(persisted.mfa.lastMfaAt).toEqual(freshTotpAt);
     });
 });

@@ -22,6 +22,10 @@ const {
 } = require('../services/commerceIntelligenceService');
 const { runMultimodalVisualSearch } = require('../services/ai/multimodalVisualSearchService');
 const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
+const {
+    buildReviewMediaStorageKey,
+    getReviewMediaObject,
+} = require('../services/reviewMediaStorageService');
 const { buildProductRecommendations } = require('../services/productRecommendationService');
 const { renderCatalogArtworkSvg } = require('../services/catalogArtworkService');
 const { assessFraudDecision } = require('../services/fraudDecisioningService');
@@ -84,6 +88,55 @@ const toClientProduct = async (product, market = null) => {
 const isAllowedMediaUrl = (url) => (
     /^https?:\/\/[^\s]+$/i.test(url) || /^\/uploads\/[^\s]+$/i.test(url)
 );
+
+const REVIEW_UPLOAD_PUBLIC_PREFIX = '/uploads/reviews/';
+
+const getReviewUploadAssetPath = (url = '') => {
+    const cleanUrl = String(url || '').trim();
+    if (!cleanUrl.startsWith('/uploads/')) return '';
+    if (!cleanUrl.startsWith(REVIEW_UPLOAD_PUBLIC_PREFIX)) {
+        throw new AppError('Review media must use a promoted review upload URL', 400);
+    }
+
+    const assetPath = cleanUrl.slice(REVIEW_UPLOAD_PUBLIC_PREFIX.length);
+    if (
+        !assetPath
+        || assetPath.includes('/')
+        || assetPath.includes('\\')
+        || assetPath.includes('..')
+        || /[?#]/.test(assetPath)
+        || !/^[A-Za-z0-9._\-()%]+$/.test(assetPath)
+    ) {
+        throw new AppError('Review media must use a promoted review upload URL', 400);
+    }
+
+    return assetPath;
+};
+
+const closeReviewMediaProbe = (object) => {
+    const body = object?.body;
+    if (body && typeof body.destroy === 'function') {
+        body.destroy();
+    }
+};
+
+const assertReviewMediaPromoted = async (media = []) => {
+    for (const item of media) {
+        const assetPath = getReviewUploadAssetPath(item?.url);
+        if (!assetPath) continue;
+
+        let object;
+        try {
+            object = await getReviewMediaObject({
+                storageKey: buildReviewMediaStorageKey(assetPath),
+            });
+        } catch {
+            throw new AppError('Review media must reference a promoted clean upload', 400);
+        } finally {
+            closeReviewMediaProbe(object);
+        }
+    }
+};
 
 const normalizeReviewMedia = (media = []) => {
     if (!Array.isArray(media)) return [];
@@ -409,6 +462,7 @@ const createProductReview = asyncHandler(async (req, res, next) => {
     }
 
     const media = normalizeReviewMedia(req.body.media || []);
+    await assertReviewMediaPromoted(media);
     const nextReviewData = {
         rating: Number(req.body.rating),
         comment: String(req.body.comment || '').trim(),

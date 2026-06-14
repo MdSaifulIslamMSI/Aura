@@ -52,6 +52,8 @@ const getRequestMeta = (req) => ({
     market: req.market || null,
 });
 
+const getAdminAuditReason = (req) => String(req.body?.reason || '').trim();
+
 const recordPaymentWebhookSecurityAudit = ({
     req,
     provider,
@@ -958,6 +960,7 @@ const captureAdminPayment = asyncHandler(async (req, res, next) => {
             actionTitle: 'Payment Captured by Admin',
             actionSummary: 'An administrator captured your authorized payment.',
             highlights: [
+                `Reason: ${getAdminAuditReason(req)}`,
                 `Captured at: ${result.response?.capturedAt || new Date().toISOString()}`,
                 `Final status: ${result.response?.status || 'captured'}`,
             ],
@@ -1003,6 +1006,7 @@ const retryAdminCapture = asyncHandler(async (req, res, next) => {
             actionTitle: 'Payment Capture Retry Queued',
             actionSummary: 'An administrator queued a payment capture retry for your order.',
             highlights: [
+                `Reason: ${getAdminAuditReason(req)}`,
                 `Queued: ${result.response?.queued ? 'yes' : 'no'}`,
                 `Task ID: ${result.response?.taskId || 'n/a'}`,
             ],

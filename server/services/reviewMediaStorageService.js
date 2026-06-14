@@ -537,7 +537,7 @@ const getReviewMediaObject = async ({ storageKey }) => {
                 Key: buildS3ObjectKey(path.basename(safeStorageKey)),
             }));
             const scanStatus = normalizeScanState(downloadResponse.Metadata?.['scan-status'] || '');
-            if (downloadResponse.Metadata?.['scan-status'] && scanStatus !== REVIEW_MEDIA_SCAN_STATES.CLEAN) {
+            if (scanStatus !== REVIEW_MEDIA_SCAN_STATES.CLEAN) {
                 throw buildBlockedReviewMediaError();
             }
             return {

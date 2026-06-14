@@ -3,7 +3,9 @@ const qrcode = require('qrcode');
 const User = require('../models/User');
 const AppError = require('../utils/AppError');
 const { getMfaEncryptionKey, resolveMfaConfig } = require('../config/mfaConfig');
+const { SENSITIVE_ACTION_CATEGORIES } = require('../config/sensitiveActionPolicy');
 const { generateRecoveryCodesForUser } = require('./authRecoveryCodeService');
+const { evaluateAction } = require('./mfaPolicyService');
 
 const TOTP_ISSUER = 'Aura';
 const TOTP_ENCRYPTION_VERSION = 'v1';
@@ -289,10 +291,34 @@ const verifyEnabledTotpForUser = async ({ userId, code } = {}) => {
     );
 };
 
+const buildFreshMfaRequiredError = () => {
+    const error = new AppError('Fresh MFA verification is required for this action.', 403);
+    error.code = 'FRESH_MFA_REQUIRED';
+    error.requiresStepUpMfa = true;
+    return error;
+};
+
+const assertFreshMfaForTotpDisable = (user) => {
+    const policy = evaluateAction({
+        user,
+        action: 'auth.mfa.disable',
+        route: '/api/auth/mfa/totp/disable',
+        category: SENSITIVE_ACTION_CATEGORIES.PASSWORD_OR_AUTH_FACTOR_CHANGE,
+    });
+
+    if (policy.freshMfaRequired && (!policy.satisfied || policy.block)) {
+        throw buildFreshMfaRequiredError();
+    }
+};
+
 const disableTotpAfterFreshMfa = async ({ userId } = {}) => {
+    const user = await User.findById(userId, 'mfa recoveryCodeState trustedDevices').lean();
+    if (!user?._id) throw new AppError('User not found.', 404);
+    assertFreshMfaForTotpDisable(user);
+
     const now = new Date();
     return User.findByIdAndUpdate(
-        userId,
+        user._id,
         {
             $set: {
                 'mfa.totp.enabled': false,

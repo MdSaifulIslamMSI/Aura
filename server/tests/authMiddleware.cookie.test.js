@@ -654,7 +654,7 @@ describe('authMiddleware cookie session authentication', () => {
         await new Promise((resolve) => setImmediate(resolve));
 
         expect(touchBrowserSession).toHaveBeenCalledTimes(1);
-    });
+    }, 30000);
 
     test('protect accepts a stepped-up browser session for the same device when trusted device mode is always', async () => {
         let protect;

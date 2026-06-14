@@ -613,6 +613,70 @@ describe('authMiddleware admin second-factor enforcement', () => {
         }));
     });
 
+    test.each([
+        ['POST', '/api/admin/payments/ops/expire-stale', 'admin.payments.expire_stale'],
+        ['PATCH', '/api/admin/payments/refunds/ledger/507f1f77bcf86cd799439011/refund_req_1/reference', 'admin.payments.refunds.write'],
+    ])('blocks admin payment mutation %s %s without an active privileged grant', async (method, originalUrl, permission) => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'false';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'false';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = '';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'off';
+        process.env.PRIVILEGED_JIT_ACCESS_ENABLED = 'true';
+        process.env.DUO_ENABLED = 'false';
+        process.env.AUTH_REQUIRE_WEBAUTHN_FOR_ADMIN_STATE_CHANGES = 'false';
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const admin = loadAdminMiddleware();
+        const downstreamHandler = jest.fn();
+        const req = {
+            method,
+            user: {
+                _id: 'user-1',
+                isAdmin: true,
+                isVerified: true,
+                email: 'admin@example.com',
+            },
+            authUid: 'firebase-admin-uid',
+            authToken: {
+                email: 'admin@example.com',
+                email_verified: true,
+                auth_time: nowSeconds - 60,
+                iat: nowSeconds - 60,
+            },
+            authSession: {
+                sessionId: 'session-admin-1',
+                userId: 'user-1',
+                email: 'admin@example.com',
+                privilegedGrants: [],
+            },
+            headers: {},
+            originalUrl,
+            get: () => '',
+        };
+        const next = jest.fn((error) => {
+            if (!error) downstreamHandler();
+        });
+
+        await admin(req, {}, next);
+
+        expect(req.authzDecision).toMatchObject({
+            allowed: false,
+            code: 'PRIVILEGED_JIT_REQUIRED',
+            permission,
+        });
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            code: 'PRIVILEGED_JIT_REQUIRED',
+        }));
+        expect(downstreamHandler).not.toHaveBeenCalled();
+    });
+
     test('accepts manifest-protected admin actions with an active privileged JIT grant', async () => {
         process.env.NODE_ENV = 'test';
         process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
