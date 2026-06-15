@@ -12,6 +12,7 @@ describe('auth route rate-limit security', () => {
         jest.dontMock('../middleware/csrfMiddleware');
         jest.dontMock('../middleware/validate');
         jest.dontMock('../routes/otpRoutes');
+        jest.dontMock('../controllers/otpController');
         jest.dontMock('../controllers/authController');
         jest.dontMock('../controllers/mfaController');
     });
@@ -132,6 +133,58 @@ describe('auth route rate-limit security', () => {
             requestBootstrapDeviceChallenge,
         };
     };
+
+    test('password reset limiter separates verified reset flows while retaining network flood protection', () => {
+        const limiterConfigs = [];
+
+        jest.isolateModules(() => {
+            jest.doMock('../middleware/distributedRateLimit', () => ({
+                createDistributedRateLimit: (config = {}) => {
+                    limiterConfigs.push(config);
+                    return (_req, _res, next) => next();
+                },
+            }));
+            jest.doMock('../middleware/turnstileMiddleware', () => ({
+                requireTurnstile: () => (_req, _res, next) => next(),
+            }));
+            jest.doMock('../controllers/otpController', () => ({
+                checkUserExists: (_req, res) => res.json({ success: true }),
+                getOtpChallenge: (_req, res) => res.json({ success: true }),
+                resetPasswordWithOtp: (_req, res) => res.json({ success: true }),
+                sendOtp: (_req, res) => res.json({ success: true }),
+                verifyOtp: (_req, res) => res.json({ success: true }),
+            }));
+
+            require('../routes/otpRoutes');
+        });
+
+        const resetFlowLimiter = limiterConfigs.find((config) => config.name === 'otp_reset_password');
+        const resetNetworkLimiter = limiterConfigs.find((config) => config.name === 'otp_reset_password_ip_abuse');
+
+        expect(resetFlowLimiter).toBeTruthy();
+        expect(resetNetworkLimiter).toBeTruthy();
+        expect(resetFlowLimiter.keyGenerator).toEqual(expect.any(Function));
+        expect(resetNetworkLimiter.keyGenerator).toEqual(expect.any(Function));
+        expect(resetNetworkLimiter.max).toBeGreaterThan(resetFlowLimiter.max);
+
+        const firstResetFlow = {
+            body: { flowToken: 'verified-reset-flow-token-user-a' },
+            ip: '203.0.113.25',
+        };
+        const secondResetFlow = {
+            body: { flowToken: 'verified-reset-flow-token-user-b' },
+            ip: '203.0.113.25',
+        };
+
+        const firstFlowKey = resetFlowLimiter.keyGenerator(firstResetFlow);
+        const secondFlowKey = resetFlowLimiter.keyGenerator(secondResetFlow);
+
+        expect(firstFlowKey).not.toBe(secondFlowKey);
+        expect(firstFlowKey).not.toContain(firstResetFlow.body.flowToken);
+        expect(secondFlowKey).not.toContain(secondResetFlow.body.flowToken);
+        expect(resetNetworkLimiter.keyGenerator(firstResetFlow))
+            .toBe(resetNetworkLimiter.keyGenerator(secondResetFlow));
+    });
 
     test('rotating device IDs does not bypass trusted-device bootstrap challenge limits', async () => {
         const { app, requestBootstrapDeviceChallenge } = buildApp();

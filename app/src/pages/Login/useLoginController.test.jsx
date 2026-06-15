@@ -714,6 +714,85 @@ describe('useLoginController', () => {
     }
   });
 
+  it('returns rate-limited reset attempts to the recovery form instead of replaying the throttled token', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: false,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+      runtimeElectronDesktop: false,
+    });
+    const sendOtp = vi.spyOn(otpApi, 'sendOtp').mockResolvedValue({ success: true });
+    const verifyOtp = vi.spyOn(otpApi, 'verifyOtp').mockResolvedValue({
+      success: true,
+      flowToken: 'flow-reset-rate-limited',
+    });
+    const resetPassword = vi.spyOn(otpApi, 'resetPassword').mockRejectedValue(Object.assign(
+      new Error('Too many password reset attempts. Please wait before trying again.'),
+      {
+        status: 429,
+        data: { message: 'Too many password reset attempts. Please wait before trying again.' },
+      },
+    ));
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue()}>
+            <MemoryRouter initialEntries={['/login']}>
+              <Routes>
+                <Route path="/login" element={<ResetPasswordFailureProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'forgot' }));
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } });
+      fireEvent.change(screen.getByLabelText('Phone Number'), { target: { value: '+91 99999 99999' } });
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+
+      await waitFor(() => {
+        expect(sendOtp).toHaveBeenCalledWith('user@example.com', '+919999999999', 'forgot-password', {});
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('otp');
+      });
+
+      '123456'.split('').forEach((digit, index) => {
+        fireEvent.change(screen.getByLabelText(`OTP digit ${index + 1}`), { target: { value: digit } });
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+
+      await waitFor(() => {
+        expect(verifyOtp).toHaveBeenCalledWith('+919999999999', '123456', 'forgot-password', {});
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('reset-password');
+      });
+
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'OrbitPass!123' } });
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'OrbitPass!123' } });
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+
+      await waitFor(() => {
+        expect(resetPassword).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('form');
+        expect(screen.getByTestId('reset-error-title')).toHaveTextContent('Too Many Reset Attempts');
+        expect(screen.getByTestId('reset-error-hint')).toHaveTextContent('Wait a few minutes');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+      expect(resetPassword).toHaveBeenCalledTimes(1);
+    } finally {
+      sendOtp.mockRestore();
+      verifyOtp.mockRestore();
+      resetPassword.mockRestore();
+    }
+  });
+
   it('finishes a Duo desktop handoff from the backend session callback', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174000';
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
