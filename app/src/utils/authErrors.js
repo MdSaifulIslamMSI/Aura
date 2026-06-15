@@ -187,6 +187,13 @@ export const AUTH_ERRORS = {
         action: 'forgot-password',
         actionLabel: 'Reset & unlock my account'
     },
+    'too many password reset attempts': {
+        title: 'Too Many Reset Attempts',
+        detail: 'This password reset was tried too many times.',
+        hint: 'Wait a few minutes, then request a fresh OTP before resetting your password again.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
     'auth/network-request-failed': {
         title: 'Connection Problem',
         detail: 'We couldn\'t reach our authentication servers.',

@@ -372,7 +372,7 @@ describe('OTP API Routes Integration', () => {
     });
 
     describe('POST /api/otp/reset-password', () => {
-        test('should throttle password reset spam without updating password or revoking sessions', async () => {
+        test('should not let one reset flow exhaust reset-password attempts for another flow on the same network', async () => {
             const originalNodeEnv = process.env.NODE_ENV;
             process.env.NODE_ENV = 'rate-limit-test';
 
@@ -380,8 +380,43 @@ describe('OTP API Routes Integration', () => {
                 const responses = [];
                 for (let index = 0; index < 6; index += 1) {
                     responses.push(await request(app).post('/api/otp/reset-password')
+                        .set('User-Agent', 'otp-reset-rate-limit-test')
+                        .set('X-Forwarded-For', '198.51.100.101')
+                        .set('X-Client-Session-Id', 'otp-reset-cross-flow-test')
                         .send({
                             flowToken: `not-a-valid-reset-flow-token-${index}`,
+                            password: buildStrongPassword(),
+                        }));
+                }
+
+                expect(responses.map((res) => res.statusCode))
+                    .toEqual(Array.from({ length: responses.length }, () => 401));
+                expect(mockGetUserByEmail).not.toHaveBeenCalled();
+                expect(mockUpdateUser).not.toHaveBeenCalled();
+                expect(mockRevokeRefreshTokens).not.toHaveBeenCalled();
+            } finally {
+                if (originalNodeEnv === undefined) {
+                    delete process.env.NODE_ENV;
+                } else {
+                    process.env.NODE_ENV = originalNodeEnv;
+                }
+            }
+        });
+
+        test('should throttle password reset spam without updating password or revoking sessions', async () => {
+            const originalNodeEnv = process.env.NODE_ENV;
+            process.env.NODE_ENV = 'rate-limit-test';
+            const replayedFlowToken = 'not-a-valid-reset-flow-token-replay';
+
+            try {
+                const responses = [];
+                for (let index = 0; index < 6; index += 1) {
+                    responses.push(await request(app).post('/api/otp/reset-password')
+                        .set('User-Agent', 'otp-reset-rate-limit-test')
+                        .set('X-Forwarded-For', '198.51.100.102')
+                        .set('X-Client-Session-Id', 'otp-reset-same-flow-test')
+                        .send({
+                            flowToken: replayedFlowToken,
                             password: buildStrongPassword(),
                         }));
                 }

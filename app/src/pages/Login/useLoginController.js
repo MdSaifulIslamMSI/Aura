@@ -129,6 +129,10 @@ const isTerminalResetGrantError = (error) => {
     || status === 409;
 };
 
+const isResetPasswordRateLimitError = (error) => (
+  Number(error?.status || error?.data?.statusCode || error?.data?.status || 0) === 429
+);
+
 const DESKTOP_AUTH_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]{1,200}$/;
 const PROTOTYPE_SENSITIVE_REQUEST_IDS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -1449,6 +1453,17 @@ export const useLoginController = () => {
       if (turnstileEnabled) {
         refreshTurnstile();
       }
+      if (isResetPasswordRateLimitError(error)) {
+        resetOtpFlowState();
+        setStep('form');
+        setFormData((prev) => ({
+          ...prev,
+          password: '',
+          confirmPassword: '',
+        }));
+        setErr(error);
+        return;
+      }
       if (isTerminalResetGrantError(error)) {
         resetOtpFlowState();
         setStep('form');
@@ -1458,11 +1473,7 @@ export const useLoginController = () => {
           confirmPassword: '',
         }));
         setErr({
-          message: t(
-            'login.reset.recoveryExpired',
-            {},
-            'Password reset verification expired. Please request a new OTP.'
-          ),
+          message: 'password reset verification expired',
         });
       } else {
         setErr(error);
