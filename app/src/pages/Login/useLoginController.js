@@ -100,6 +100,35 @@ const buildLoopbackDesktopAuthCallbackUrl = (hostname = '', port = '') => {
     ? `http://${trustedHost}:${trustedPort}${DESKTOP_AUTH_COMPLETE_PATH}`
     : '';
 };
+const TERMINAL_RESET_GRANT_MESSAGES = [
+  'login assurance token expired',
+  'login assurance token already used',
+  'login assurance token was superseded',
+  'login assurance token purpose mismatch',
+  'login assurance token factor mismatch',
+  'login assurance token next step mismatch',
+  'login assurance token is invalid',
+  'password reset verification is required before setting a new password',
+  'password reset verification expired',
+  'secure recovery token expired',
+];
+
+const isTerminalResetGrantError = (error) => {
+  const status = Number(error?.status || error?.data?.statusCode || error?.data?.status || 0);
+  const message = [
+    error?.message,
+    error?.data?.message,
+    error?.detail,
+  ].map((value) => String(value || '').toLowerCase()).join(' ');
+
+  if (message.includes('login assurance token is already being used')) {
+    return false;
+  }
+
+  return TERMINAL_RESET_GRANT_MESSAGES.some((pattern) => message.includes(pattern))
+    || status === 409;
+};
+
 const DESKTOP_AUTH_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]{1,200}$/;
 const PROTOTYPE_SENSITIVE_REQUEST_IDS = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -1420,7 +1449,24 @@ export const useLoginController = () => {
       if (turnstileEnabled) {
         refreshTurnstile();
       }
-      setErr(error);
+      if (isTerminalResetGrantError(error)) {
+        resetOtpFlowState();
+        setStep('form');
+        setFormData((prev) => ({
+          ...prev,
+          password: '',
+          confirmPassword: '',
+        }));
+        setErr({
+          message: t(
+            'login.reset.recoveryExpired',
+            {},
+            'Password reset verification expired. Please request a new OTP.'
+          ),
+        });
+      } else {
+        setErr(error);
+      }
     } finally {
       setIsLoading(false);
     }

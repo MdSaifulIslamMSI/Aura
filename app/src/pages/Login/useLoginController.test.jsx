@@ -4,7 +4,7 @@ import * as React from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
-import { authApi } from '@/services/api';
+import { authApi, otpApi } from '@/services/api';
 import {
   buildDesktopDuoReturnTo,
   normalizeDesktopAuthCallbackUrl,
@@ -121,6 +121,44 @@ const DuoLoginStartProbe = () => {
   }, [handleDuoSignIn]);
 
   return <div data-testid="duo-start-result">{result}</div>;
+};
+
+const ResetPasswordFailureProbe = () => {
+  const {
+    authError,
+    formData,
+    handleChange,
+    handleOtpChange,
+    handlePhoneChange,
+    handleSubmit,
+    mode,
+    otpValues,
+    step,
+    switchMode,
+  } = useLoginController();
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div data-testid="reset-mode">{mode}</div>
+      <div data-testid="reset-step">{step}</div>
+      <div data-testid="reset-error-title">{authError?.title || 'none'}</div>
+      <div data-testid="reset-error-hint">{authError?.hint || 'none'}</div>
+      <button type="button" onClick={() => switchMode('forgot-password')}>forgot</button>
+      <input aria-label="Email" name="email" value={formData.email} onChange={handleChange} />
+      <input aria-label="Phone Number" value={formData.phone} onChange={handlePhoneChange} />
+      <input aria-label="Password" name="password" value={formData.password} onChange={handleChange} />
+      <input aria-label="Confirm Password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} />
+      {otpValues.map((value, index) => (
+        <input
+          aria-label={`OTP digit ${index + 1}`}
+          key={index}
+          value={value}
+          onChange={(event) => handleOtpChange(index, event.target.value)}
+        />
+      ))}
+      <button type="submit">submit</button>
+    </form>
+  );
 };
 
 const PhoneCountryProbe = () => {
@@ -595,6 +633,85 @@ describe('useLoginController', () => {
     expect(restored.returnTo).toBe('/checkout');
 
     startDuoLogin.mockRestore();
+  });
+
+  it('returns consumed reset grants to the recovery form instead of replaying the dead token', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: false,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+      runtimeElectronDesktop: false,
+    });
+    const sendOtp = vi.spyOn(otpApi, 'sendOtp').mockResolvedValue({ success: true });
+    const verifyOtp = vi.spyOn(otpApi, 'verifyOtp').mockResolvedValue({
+      success: true,
+      flowToken: 'flow-reset-1',
+    });
+    const resetPassword = vi.spyOn(otpApi, 'resetPassword').mockRejectedValue(Object.assign(
+      new Error('Login assurance token already used. Please verify OTP again.'),
+      {
+        status: 409,
+        data: { message: 'Login assurance token already used. Please verify OTP again.' },
+      },
+    ));
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue()}>
+            <MemoryRouter initialEntries={['/login']}>
+              <Routes>
+                <Route path="/login" element={<ResetPasswordFailureProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'forgot' }));
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } });
+      fireEvent.change(screen.getByLabelText('Phone Number'), { target: { value: '+91 99999 99999' } });
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+
+      await waitFor(() => {
+        expect(sendOtp).toHaveBeenCalledWith('user@example.com', '+919999999999', 'forgot-password', {});
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('otp');
+      });
+
+      '123456'.split('').forEach((digit, index) => {
+        fireEvent.change(screen.getByLabelText(`OTP digit ${index + 1}`), { target: { value: digit } });
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+
+      await waitFor(() => {
+        expect(verifyOtp).toHaveBeenCalledWith('+919999999999', '123456', 'forgot-password', {});
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('reset-password');
+      });
+
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'OrbitPass!123' } });
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'OrbitPass!123' } });
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+
+      await waitFor(() => {
+        expect(resetPassword).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('form');
+        expect(screen.getByTestId('reset-error-title')).toHaveTextContent('Recovery Session Expired');
+        expect(screen.getByTestId('reset-error-hint')).toHaveTextContent('Request a fresh OTP');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+      expect(resetPassword).toHaveBeenCalledTimes(1);
+    } finally {
+      sendOtp.mockRestore();
+      verifyOtp.mockRestore();
+      resetPassword.mockRestore();
+    }
   });
 
   it('finishes a Duo desktop handoff from the backend session callback', async () => {
