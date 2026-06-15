@@ -59,44 +59,41 @@ const registerOtpFlowGrant = async ({
     });
 };
 
-const consumeOtpFlowGrant = async ({
+const normalizeGrantIdentity = ({
     tokenId = '',
     userId = '',
     purpose = '',
     factor = '',
     nextStep = '',
-} = {}) => {
-    const safeTokenId = normalizeText(tokenId, 128);
-    const safePurpose = normalizeText(purpose, 64);
-    const safeFactor = normalizeText(factor, 32);
-    const safeNextStep = normalizeText(nextStep, 64);
-    const now = new Date();
+} = {}) => ({
+    safeTokenId: normalizeText(tokenId, 128),
+    userId,
+    safePurpose: normalizeText(purpose, 64),
+    safeFactor: normalizeText(factor, 32),
+    safeNextStep: normalizeText(nextStep, 64),
+});
 
-    const grant = await OtpFlowGrant.findOneAndUpdate(
-        {
-            tokenId: safeTokenId,
-            user: userId,
-            purpose: safePurpose,
-            ...(safeFactor ? { factor: safeFactor } : {}),
-            nextStep: safeNextStep,
-            state: 'active',
-            expiresAt: { $gt: now },
-        },
-        {
-            $set: {
-                state: 'consumed',
-                consumedAt: now,
-            },
-        },
-        {
-            returnDocument: 'after',
-        }
-    );
+const buildGrantIdentityFilter = ({
+    safeTokenId,
+    userId,
+    safePurpose,
+    safeFactor,
+    safeNextStep,
+}) => ({
+    tokenId: safeTokenId,
+    user: userId,
+    purpose: safePurpose,
+    ...(safeFactor ? { factor: safeFactor } : {}),
+    nextStep: safeNextStep,
+});
 
-    if (grant) {
-        return grant;
-    }
-
+const rejectUnavailableGrant = async ({
+    safeTokenId,
+    userId,
+    safePurpose,
+    safeFactor,
+    safeNextStep,
+}) => {
     const existing = await OtpFlowGrant.findOne({
         tokenId: safeTokenId,
         user: userId,
@@ -122,6 +119,9 @@ const consumeOtpFlowGrant = async ({
     if (existing.state === 'superseded') {
         throw new AppError('Login assurance token was superseded. Please verify OTP again.', 409);
     }
+    if (existing.state === 'reserved') {
+        throw new AppError('Login assurance token is already being used. Please try again shortly.', 409);
+    }
     if (existing.state === 'consumed') {
         throw new AppError('Login assurance token already used. Please verify OTP again.', 409);
     }
@@ -129,7 +129,159 @@ const consumeOtpFlowGrant = async ({
     throw new AppError('Login assurance token is invalid', 401);
 };
 
+const consumeOtpFlowGrant = async ({
+    tokenId = '',
+    userId = '',
+    purpose = '',
+    factor = '',
+    nextStep = '',
+} = {}) => {
+    const identity = normalizeGrantIdentity({ tokenId, userId, purpose, factor, nextStep });
+    const { safeTokenId, safePurpose, safeFactor, safeNextStep } = identity;
+    const now = new Date();
+
+    const grant = await OtpFlowGrant.findOneAndUpdate(
+        {
+            ...buildGrantIdentityFilter(identity),
+            state: 'active',
+            expiresAt: { $gt: now },
+        },
+        {
+            $set: {
+                state: 'consumed',
+                consumedAt: now,
+            },
+        },
+        {
+            returnDocument: 'after',
+        }
+    );
+
+    if (grant) {
+        return grant;
+    }
+
+    return rejectUnavailableGrant({
+        safeTokenId,
+        userId,
+        safePurpose,
+        safeFactor,
+        safeNextStep,
+    });
+};
+
+const reserveOtpFlowGrant = async ({
+    tokenId = '',
+    userId = '',
+    purpose = '',
+    factor = '',
+    nextStep = '',
+} = {}) => {
+    const identity = normalizeGrantIdentity({ tokenId, userId, purpose, factor, nextStep });
+    const { safeTokenId, safePurpose, safeFactor, safeNextStep } = identity;
+    const now = new Date();
+
+    const grant = await OtpFlowGrant.findOneAndUpdate(
+        {
+            ...buildGrantIdentityFilter(identity),
+            state: 'active',
+            expiresAt: { $gt: now },
+        },
+        {
+            $set: {
+                state: 'reserved',
+                reservedAt: now,
+            },
+            $unset: {
+                consumedAt: '',
+            },
+        },
+        {
+            returnDocument: 'after',
+        }
+    );
+
+    if (grant) {
+        return grant;
+    }
+
+    return rejectUnavailableGrant({
+        safeTokenId,
+        userId,
+        safePurpose,
+        safeFactor,
+        safeNextStep,
+    });
+};
+
+const consumeReservedOtpFlowGrant = async ({
+    tokenId = '',
+    userId = '',
+    purpose = '',
+    factor = '',
+    nextStep = '',
+} = {}) => {
+    const identity = normalizeGrantIdentity({ tokenId, userId, purpose, factor, nextStep });
+    const now = new Date();
+
+    const grant = await OtpFlowGrant.findOneAndUpdate(
+        {
+            ...buildGrantIdentityFilter(identity),
+            state: 'reserved',
+            expiresAt: { $gt: now },
+        },
+        {
+            $set: {
+                state: 'consumed',
+                consumedAt: now,
+            },
+            $unset: {
+                reservedAt: '',
+            },
+        },
+        {
+            returnDocument: 'after',
+        }
+    );
+
+    if (grant) {
+        return grant;
+    }
+
+    return rejectUnavailableGrant(identity);
+};
+
+const releaseReservedOtpFlowGrant = async ({
+    tokenId = '',
+    userId = '',
+    purpose = '',
+    factor = '',
+    nextStep = '',
+} = {}) => {
+    const identity = normalizeGrantIdentity({ tokenId, userId, purpose, factor, nextStep });
+    const now = new Date();
+
+    return OtpFlowGrant.updateOne(
+        {
+            ...buildGrantIdentityFilter(identity),
+            state: 'reserved',
+            expiresAt: { $gt: now },
+        },
+        {
+            $set: {
+                state: 'active',
+            },
+            $unset: {
+                reservedAt: '',
+            },
+        }
+    );
+};
+
 module.exports = {
     registerOtpFlowGrant,
     consumeOtpFlowGrant,
+    reserveOtpFlowGrant,
+    consumeReservedOtpFlowGrant,
+    releaseReservedOtpFlowGrant,
 };

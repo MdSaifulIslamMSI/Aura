@@ -877,6 +877,92 @@ describe('OTP API Routes Integration', () => {
                 .resolves.not.toBeNull();
         });
 
+        test('should allow retry after a transient password update failure without unsafe side effects', async () => {
+            const u = uniqueUser();
+            const user = await User.create({
+                ...u,
+                isVerified: true,
+                resetOtpVerifiedAt: new Date(),
+            });
+            const existingBrowserSession = await browserSessionService.createBrowserSession({
+                req: {
+                    headers: {
+                        host: 'localhost:5173',
+                    },
+                    secure: false,
+                },
+                user,
+                authUid: 'firebase-user-1',
+                authToken: {
+                    email: u.email,
+                    email_verified: true,
+                    name: u.name,
+                    phone_number: u.phone,
+                    auth_time: Math.floor(Date.now() / 1000) - 60,
+                    iat: Math.floor(Date.now() / 1000) - 60,
+                    exp: Math.floor(Date.now() / 1000) + 3600,
+                    firebase: {
+                        sign_in_provider: 'password',
+                    },
+                },
+            });
+            const { flowToken, flowTokenExpiresAt, tokenState } = issueOtpFlowToken({
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+            });
+            await registerOtpFlowGrant({
+                tokenId: tokenState.tokenId,
+                userId: user._id,
+                purpose: 'forgot-password',
+                factor: 'otp',
+                currentStep: 'otp-verified',
+                nextStep: tokenState.nextStep,
+                expiresAt: flowTokenExpiresAt,
+            });
+
+            mockUpdateUser.mockRejectedValueOnce(new Error('firebase password update failed'));
+            const nextPassword = buildStrongPassword();
+
+            const failedRes = await request(app).post('/api/otp/reset-password')
+                .send({
+                    flowToken,
+                    password: nextPassword,
+                });
+
+            expect(failedRes.statusCode).toBe(503);
+            expect(mockUpdateUser).toHaveBeenCalledTimes(1);
+            expect(mockRevokeRefreshTokens).not.toHaveBeenCalled();
+            await expect(browserSessionService.getBrowserSession(existingBrowserSession.sessionId))
+                .resolves.not.toBeNull();
+
+            const retryRes = await request(app).post('/api/otp/reset-password')
+                .send({
+                    flowToken,
+                    password: nextPassword,
+                });
+
+            expect(retryRes.statusCode).toBe(200);
+            expect(mockUpdateUser).toHaveBeenCalledTimes(2);
+            expect(mockRevokeRefreshTokens).toHaveBeenCalledTimes(1);
+            await expect(browserSessionService.getBrowserSession(existingBrowserSession.sessionId))
+                .resolves.toBeNull();
+
+            await User.updateOne(
+                { _id: user._id },
+                { $set: { resetOtpVerifiedAt: new Date() } }
+            );
+
+            const replayRes = await request(app).post('/api/otp/reset-password')
+                .send({
+                    flowToken,
+                    password: nextPassword,
+                });
+
+            expect(replayRes.statusCode).toBe(409);
+            expect(mockUpdateUser).toHaveBeenCalledTimes(2);
+        });
+
         test('should keep recovery blocked when the trusted device is only browser-key registered', async () => {
             const u = uniqueUser();
             const { publicKey } = crypto.generateKeyPairSync('rsa', {

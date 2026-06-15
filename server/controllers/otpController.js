@@ -22,7 +22,12 @@ const {
     hashTrustedDeviceSessionToken,
     resolveTrustedDeviceBootstrapSignal,
 } = require('../services/trustedDeviceChallengeService');
-const { registerOtpFlowGrant, consumeOtpFlowGrant } = require('../services/otpFlowGrantService');
+const {
+    registerOtpFlowGrant,
+    reserveOtpFlowGrant,
+    consumeReservedOtpFlowGrant,
+    releaseReservedOtpFlowGrant,
+} = require('../services/otpFlowGrantService');
 const {
     AUTH_ASSURANCE_ACTIONS,
     requireAuthAssurance,
@@ -1807,19 +1812,22 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         resetSessionFresh: resetSessionStillFresh,
     });
 
-    await consumeOtpFlowGrant({
+    const grantIdentity = {
         tokenId: verifiedFlow.tokenId,
         userId: verifiedFlow.sub,
         purpose: verifiedFlow.purpose,
         factor: verifiedFlow.factor,
         nextStep: verifiedFlow.nextStep,
-    });
+    };
+
+    await reserveOtpFlowGrant(grantIdentity);
 
     let authUser = null;
     try {
         authUser = await firebaseAdmin.auth().getUserByEmail(email);
     } catch (error) {
         if (error?.code === 'auth/user-not-found') {
+            await consumeReservedOtpFlowGrant(grantIdentity);
             audit('RESET_PASSWORD_REJECTED', {
                 phone,
                 email,
@@ -1840,13 +1848,12 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
             code: error?.code || '',
         });
 
+        await releaseReservedOtpFlowGrant(grantIdentity);
         return next(new AppError('Unable to update password right now. Please try again shortly.', 503));
     }
 
     try {
         await firebaseAdmin.auth().updateUser(authUser.uid, { password });
-        await revokeBrowserSessionsForUser(user._id);
-        await firebaseAdmin.auth().revokeRefreshTokens(authUser.uid);
     } catch (error) {
         logger.error('otp.reset_password_failed', {
             email: maskEmail(email),
@@ -1856,7 +1863,25 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
             code: error?.code || '',
         });
 
+        await releaseReservedOtpFlowGrant(grantIdentity);
         return next(new AppError('Unable to update password right now. Please try again shortly.', 503));
+    }
+
+    await consumeReservedOtpFlowGrant(grantIdentity);
+
+    try {
+        await revokeBrowserSessionsForUser(user._id);
+        await firebaseAdmin.auth().revokeRefreshTokens(authUser.uid);
+    } catch (error) {
+        logger.error('otp.reset_password_session_revocation_failed', {
+            email: maskEmail(email),
+            phone: maskPhoneSuffix(phone),
+            requestId,
+            error: error?.message || 'unknown',
+            code: error?.code || '',
+        });
+
+        return next(new AppError('Password was updated, but session cleanup is still processing. Please sign in again.', 503));
     }
 
     await User.updateOne(
