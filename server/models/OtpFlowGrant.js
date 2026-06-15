@@ -37,9 +37,13 @@ const otpFlowGrantSchema = new mongoose.Schema({
     },
     state: {
         type: String,
-        enum: ['active', 'consumed', 'superseded'],
+        enum: ['active', 'reserved', 'consumed', 'superseded'],
         default: 'active',
         index: true,
+    },
+    reservedAt: {
+        type: Date,
+        default: null,
     },
     issuedAt: {
         type: Date,
