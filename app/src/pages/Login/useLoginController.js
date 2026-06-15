@@ -1476,6 +1476,16 @@ export const useLoginController = () => {
           message: 'password reset verification expired',
         });
       } else {
+        const status = Number(error?.status || error?.data?.statusCode || error?.data?.status || 0);
+        if (status >= 401) {
+          resetOtpFlowState();
+          setStep('form');
+          setFormData((prev) => ({
+            ...prev,
+            password: '',
+            confirmPassword: '',
+          }));
+        }
         setErr(error);
       }
     } finally {
