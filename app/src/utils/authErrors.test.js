@@ -21,6 +21,23 @@ describe('resolveAuthError', () => {
         expect(resolved.action).toBe('back');
     });
 
+    it('localizes traffic budget throttles through the shared auth catalog', () => {
+        const messages = {
+            'auth.error.securityFlowRateLimited.title': 'Localized throttle title',
+            'auth.error.securityFlowRateLimited.hint': 'Localized throttle hint',
+        };
+        const t = (id, _values, defaultMessage) => messages[id] || defaultMessage;
+
+        const resolved = resolveAuthError({
+            status: 429,
+            code: 'TRAFFIC_BUDGET_DENIED',
+        }, t);
+
+        expect(resolved.title).toBe('Localized throttle title');
+        expect(resolved.hint).toBe('Localized throttle hint');
+        expect(resolved.detail).toBe('This security flow was temporarily rate limited.');
+    });
+
     it('maps social invalid-credential errors away from password guidance', () => {
         const resolved = resolveAuthError({
             code: 'auth/invalid-credential',

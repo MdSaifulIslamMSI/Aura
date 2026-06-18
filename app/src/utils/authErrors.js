@@ -1843,6 +1843,46 @@ const authFeedbackMessages = defineMessages({
         defaultMessage: "Too Many Attempts",
         description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
     },
+    "auth.error.tooManyPasswordResetAttempts.actionLabel": {
+        id: "auth.error.tooManyPasswordResetAttempts.actionLabel",
+        defaultMessage: "Start over",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.tooManyPasswordResetAttempts.detail": {
+        id: "auth.error.tooManyPasswordResetAttempts.detail",
+        defaultMessage: "This password reset was tried too many times.",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.tooManyPasswordResetAttempts.hint": {
+        id: "auth.error.tooManyPasswordResetAttempts.hint",
+        defaultMessage: "Wait a few minutes, then request a fresh OTP before resetting your password again.",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.tooManyPasswordResetAttempts.title": {
+        id: "auth.error.tooManyPasswordResetAttempts.title",
+        defaultMessage: "Too Many Reset Attempts",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.securityFlowRateLimited.actionLabel": {
+        id: "auth.error.securityFlowRateLimited.actionLabel",
+        defaultMessage: "Start over",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.securityFlowRateLimited.detail": {
+        id: "auth.error.securityFlowRateLimited.detail",
+        defaultMessage: "This security flow was temporarily rate limited.",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.securityFlowRateLimited.hint": {
+        id: "auth.error.securityFlowRateLimited.hint",
+        defaultMessage: "Wait a few minutes, then start the recovery flow again.",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
+    "auth.error.securityFlowRateLimited.title": {
+        id: "auth.error.securityFlowRateLimited.title",
+        defaultMessage: "Too Many Requests",
+        description: 'Stable auth feedback message surfaced in login and desktop auth flows.',
+    },
     "auth.error.unableToUpdatePasswordRightNow.detail": {
         id: "auth.error.unableToUpdatePasswordRightNow.detail",
         defaultMessage: "We could not finish updating your password right now.",
@@ -2133,6 +2173,23 @@ const localizeStaticAuthError = (key, fallback, t) => {
                 detail: formatAuthMessage(t, "auth.error.tooManyRequests.detail", {}, "Your account has been temporarily locked due to too many failed sign-in attempts."),
                 hint: formatAuthMessage(t, "auth.error.tooManyRequests.hint", {}, "Wait a few minutes and try again, or reset your password to regain access immediately."),
                 actionLabel: formatAuthMessage(t, "auth.error.tooManyRequests.actionLabel", {}, "Reset & unlock my account"),
+            };
+        case "too many password reset attempts":
+            return {
+                ...fallback,
+                title: formatAuthMessage(t, "auth.error.tooManyPasswordResetAttempts.title", {}, "Too Many Reset Attempts"),
+                detail: formatAuthMessage(t, "auth.error.tooManyPasswordResetAttempts.detail", {}, "This password reset was tried too many times."),
+                hint: formatAuthMessage(t, "auth.error.tooManyPasswordResetAttempts.hint", {}, "Wait a few minutes, then request a fresh OTP before resetting your password again."),
+                actionLabel: formatAuthMessage(t, "auth.error.tooManyPasswordResetAttempts.actionLabel", {}, "Start over"),
+            };
+        case "too many requests for this route":
+        case "TRAFFIC_BUDGET_DENIED":
+            return {
+                ...fallback,
+                title: formatAuthMessage(t, "auth.error.securityFlowRateLimited.title", {}, "Too Many Requests"),
+                detail: formatAuthMessage(t, "auth.error.securityFlowRateLimited.detail", {}, "This security flow was temporarily rate limited."),
+                hint: formatAuthMessage(t, "auth.error.securityFlowRateLimited.hint", {}, "Wait a few minutes, then start the recovery flow again."),
+                actionLabel: formatAuthMessage(t, "auth.error.securityFlowRateLimited.actionLabel", {}, "Start over"),
             };
         case "auth/network-request-failed":
             return {
