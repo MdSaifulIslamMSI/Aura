@@ -94,6 +94,9 @@ server/test_output.txt
 **/test_output*.txt
 **/test-output*.log
 **/runtime-*.log
+server/test-db-users.js
+server/test-prod-*.js
+server/test-redis.js
 server/.assistant/
 server/public/
 

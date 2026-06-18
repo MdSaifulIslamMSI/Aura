@@ -4571,6 +4571,22 @@
     "defaultMessage": "Too Many OTP Requests",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."
   },
+  "auth.error.securityFlowRateLimited.actionLabel": {
+    "defaultMessage": "Start over",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.securityFlowRateLimited.detail": {
+    "defaultMessage": "This security flow was temporarily rate limited.",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.securityFlowRateLimited.hint": {
+    "defaultMessage": "Wait a few minutes, then start the recovery flow again.",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.securityFlowRateLimited.title": {
+    "defaultMessage": "Too Many Requests",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
   "auth.error.signupEmailVerificationExpired.actionLabel": {
     "defaultMessage": "Start over",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."
@@ -4717,6 +4733,22 @@
   },
   "auth.error.tooManyFailedAttempts.title": {
     "defaultMessage": "Account Temporarily Locked",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.tooManyPasswordResetAttempts.actionLabel": {
+    "defaultMessage": "Start over",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.tooManyPasswordResetAttempts.detail": {
+    "defaultMessage": "This password reset was tried too many times.",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.tooManyPasswordResetAttempts.hint": {
+    "defaultMessage": "Wait a few minutes, then request a fresh OTP before resetting your password again.",
+    "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.error.tooManyPasswordResetAttempts.title": {
+    "defaultMessage": "Too Many Reset Attempts",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."
   },
   "auth.error.tooManyRequests.actionLabel": {
@@ -16896,6 +16928,42 @@
   },
   "voice.waiting": {
     "defaultMessage": "Waiting for your command...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.action.skip": {
+    "defaultMessage": "Skip",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.ariaLabel": {
+    "defaultMessage": "Welcome to Aura",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.kicker": {
+    "defaultMessage": "Secured. Fast. Premium.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.message.ready": {
+    "defaultMessage": "Your premium experience is ready",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.message.thanks": {
+    "defaultMessage": "Thanks for visiting",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.message.welcome": {
+    "defaultMessage": "Welcome to Aura",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.soundOff": {
+    "defaultMessage": "Sound off",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.soundOn": {
+    "defaultMessage": "Sound on",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "welcomeCurtain.subcopy": {
+    "defaultMessage": "A polished marketplace session is ready for you.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "wishlist.addToBag": {

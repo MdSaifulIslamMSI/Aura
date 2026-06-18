@@ -827,6 +827,51 @@ describe('authApi', () => {
     });
   });
 
+  it('aborts and throws immediately if the proof-of-work challenge endpoint returns 429', async () => {
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({});
+
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ message: 'Too many requests' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(otpApi.sendOtp('user@example.com', '+919999999999', 'forgot-password', {
+      enablePowChallenge: true,
+    })).rejects.toThrow();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url] = global.fetch.mock.calls[0];
+    expect(url).toContain('/otp/challenge');
+  });
+
+  it('aborts and throws immediately if the proof-of-work challenge endpoint returns 503', async () => {
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({});
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: 'Challenge service unavailable' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(otpApi.sendOtp('user@example.com', '+919999999999', 'forgot-password', {
+      enablePowChallenge: true,
+    })).rejects.toThrow();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url] = global.fetch.mock.calls[0];
+    expect(url).toContain('/otp/challenge');
+  });
+
   it('passes a Turnstile token to OTP verification when provided', async () => {
     mocks.getAuthHeaderMock.mockResolvedValueOnce({});
 

@@ -36,7 +36,8 @@ const REASON_ALIASES = [
     ['recent_auth', ['recent auth', 'fresh login', 'fresh re-auth', 'reauthentication']],
     ['break_glass', ['break glass']],
     ['required', ['required']],
-    ['unavailable', ['unavailable', 'down', 'failed dependency']],
+    ['revoked', ['revoked', 'revocation']],
+    ['unavailable', ['unavailable', 'down', 'failed dependency', 'cleanup pending']],
     ['unverified', ['unverified']],
 ];
 

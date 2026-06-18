@@ -1472,9 +1472,7 @@ export const useLoginController = () => {
           password: '',
           confirmPassword: '',
         }));
-        setErr({
-          message: 'password reset verification expired',
-        });
+        setErr('password reset verification expired');
       } else {
         const status = Number(error?.status || error?.data?.statusCode || error?.data?.status || 0);
         if (status >= 401) {

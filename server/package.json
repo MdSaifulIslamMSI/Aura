@@ -101,6 +101,7 @@
     "glob": "^13.0.6",
     "google-gax": "^5.0.6",
     "http-proxy-agent": "^7.0.2",
+    "js-yaml": "^4.2.0",
     "node-domexception": "file:vendor/node-domexception",
     "protobufjs": "^7.5.5",
     "rimraf": "^6.1.3",

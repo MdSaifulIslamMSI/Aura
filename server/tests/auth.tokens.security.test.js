@@ -3,6 +3,7 @@ const request = require('supertest');
 
 const mockVerifyIdToken = jest.fn();
 const mockGetUser = jest.fn();
+let mockRedisClient;
 let mockGlobalSessionRevokedAfter = 0;
 
 jest.mock('../config/firebase', () => ({
@@ -18,6 +19,11 @@ jest.mock('../services/browserSessionService', () => ({
     revokeBrowserSession: jest.fn().mockResolvedValue(undefined),
     touchBrowserSession: jest.fn().mockResolvedValue(null),
     getGlobalSessionRevokedAfter: jest.fn(async () => mockGlobalSessionRevokedAfter),
+}));
+
+jest.mock('../config/redis', () => ({
+    getRedisClient: () => mockRedisClient,
+    flags: { redisPrefix: 'test' },
 }));
 
 const User = require('../models/User');
@@ -68,6 +74,12 @@ describe('auth token/session security', () => {
         app = buildApp();
         mockVerifyIdToken.mockReset();
         mockGetUser.mockReset();
+        mockRedisClient = {
+            get: jest.fn().mockResolvedValue(null),
+            setEx: jest.fn().mockResolvedValue('OK'),
+            del: jest.fn().mockResolvedValue(1),
+            scan: jest.fn().mockResolvedValue({ cursor: 0, keys: [] }),
+        };
         mockGlobalSessionRevokedAfter = 0;
     });
 
@@ -149,6 +161,75 @@ describe('auth token/session security', () => {
             .set('Authorization', buildBearer('old-token-after-logout'));
 
         assertSafeStatus(response, [401]);
+    });
+
+    test('user-scoped password reset revocation rejects older bearer tokens even when Firebase accepts them', async () => {
+        const issuedSeconds = Math.floor(Date.now() / 1000) - 3600;
+        const user = await createTestUser({
+            authUid: 'uid-user-reset-revoked-token',
+            authTokensRevokedAfter: new Date(Date.now() - 1000),
+        });
+        mockVerifyIdToken.mockResolvedValue(decodedTokenFor(user, {
+            auth_time: issuedSeconds,
+            iat: issuedSeconds,
+        }));
+
+        const response = await request(app)
+            .get('/protected')
+            .set('Authorization', buildBearer('old-user-token-after-password-reset'));
+
+        assertSafeStatus(response, [401]);
+    });
+
+    test('user-scoped password reset revocation rejects older bearer tokens even when Redis has a stale user cache', async () => {
+        const issuedSeconds = Math.floor(Date.now() / 1000) - 3600;
+        const user = await createTestUser({
+            authUid: 'uid-user-reset-stale-cache-token',
+            authTokensRevokedAfter: new Date(Date.now() - 1000),
+        });
+        const staleCachedUser = {
+            ...JSON.parse(JSON.stringify(user)),
+            authTokensRevokedAfter: null,
+        };
+        const revokedAfterMs = Date.now() - 1000;
+        mockRedisClient.get.mockImplementation(async (key) => {
+            if (key === 'test:auth:cache:uid-user-reset-stale-cache-token') {
+                return JSON.stringify(staleCachedUser);
+            }
+            if (key === 'test:auth:revoked_after:uid-user-reset-stale-cache-token') {
+                return String(revokedAfterMs);
+            }
+            return null;
+        });
+        mockVerifyIdToken.mockResolvedValue(decodedTokenFor(user, {
+            auth_time: issuedSeconds,
+            iat: issuedSeconds,
+        }));
+
+        const response = await request(app)
+            .get('/protected')
+            .set('Authorization', buildBearer('old-user-token-with-stale-cache'));
+
+        assertSafeStatus(response, [401]);
+    });
+
+    test('user-scoped password reset revocation accepts newer bearer tokens', async () => {
+        const issuedSeconds = Math.floor(Date.now() / 1000);
+        const user = await createTestUser({
+            authUid: 'uid-user-reset-new-token',
+            authTokensRevokedAfter: new Date(Date.now() - 60 * 60 * 1000),
+        });
+        mockVerifyIdToken.mockResolvedValue(decodedTokenFor(user, {
+            auth_time: issuedSeconds,
+            iat: issuedSeconds,
+        }));
+
+        const response = await request(app)
+            .get('/protected')
+            .set('Authorization', buildBearer('new-user-token-after-password-reset'));
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.email).toBe(user.email);
     });
 
     test('old admin token loses admin power after the database role is downgraded', async () => {

@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { createDistributedRateLimit } = require('./distributedRateLimit');
 const { ROUTE_CLASSES, getTrafficBudget } = require('../config/trafficBudgets');
 const { recordTrafficBudgetDenied } = require('../metrics/trafficResilienceMetrics');
@@ -10,6 +11,28 @@ const SKIP_CLASSES = new Set([ROUTE_CLASSES.HEALTH, ROUTE_CLASSES.STATIC_PUBLIC]
 const isEnabled = () => String(process.env.TRAFFIC_BUDGET_LIMITS_ENABLED || 'true').trim().toLowerCase() !== 'false';
 const isProduction = () => String(process.env.NODE_ENV || '').trim().toLowerCase() === 'production';
 const isSensitiveBudget = (budget) => budget.productionFailMode === 'fail-closed' || budget.costRisk === 'critical';
+const RESET_PASSWORD_PATHS = new Set(['/api/otp/reset-password', '/api/auth/otp/reset-password']);
+
+const normalizeRequestPath = (req = {}) => {
+    const routePath = String(req.path || req.originalUrl || '').split('?')[0].replace(/\/+$/, '') || '/';
+    return routePath.startsWith('/') ? routePath : `/${routePath}`;
+};
+
+const hashBudgetKeyPart = (value) => crypto
+    .createHash('sha256')
+    .update(String(value || ''))
+    .digest('hex')
+    .slice(0, 32);
+
+const getResetPasswordFlowBudgetIdentity = (req = {}) => {
+    if (String(req.method || '').trim().toUpperCase() !== 'POST') return '';
+    if (!RESET_PASSWORD_PATHS.has(normalizeRequestPath(req))) return '';
+
+    const flowToken = String(req.body?.flowToken || '').trim();
+    if (!flowToken) return '';
+
+    return `reset-flow:${hashBudgetKeyPart(flowToken)}`;
+};
 
 const limiterMessage = (budget) => ({
     success: false,
@@ -32,6 +55,13 @@ const getLimiter = (budget, dimension) => {
         max,
         message: limiterMessage(budget),
         keyGenerator: (req) => {
+            const resetPasswordFlowIdentity = budget.routeClass === ROUTE_CLASSES.OTP
+                ? getResetPasswordFlowBudgetIdentity(req)
+                : '';
+            if (resetPasswordFlowIdentity && (dimension === 'perIp' || dimension === 'perSession')) {
+                return `${dimension}:${resetPasswordFlowIdentity}`;
+            }
+
             if (dimension === 'perAccount') return getAuthenticatedRateLimitIdentity(req);
             if (dimension === 'perSession') return `session:${String(req.headers?.['x-client-session-id'] || req.authSession?.sessionId || getTrustedRequestIp(req)).slice(0, 120)}`;
             return `ip:${getTrustedRequestIp(req)}`;

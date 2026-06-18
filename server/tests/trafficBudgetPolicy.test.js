@@ -107,4 +107,52 @@ describe('trafficBudgetPolicy middleware', () => {
             reason: 'rate_limit',
         });
     });
+
+    test('scopes reset-password OTP traffic budget keys by flow token before shared IP/session buckets', async () => {
+        const created = [];
+        jest.doMock('../middleware/distributedRateLimit', () => ({
+            createDistributedRateLimit: jest.fn((options) => {
+                created.push(options);
+                return (_req, _res, next) => next();
+            }),
+        }));
+        jest.doMock('../metrics/trafficResilienceMetrics', () => ({
+            recordTrafficBudgetDenied: jest.fn(),
+        }));
+
+        const { trafficBudgetPolicy } = require('../middleware/trafficBudgetPolicy');
+        const next = jest.fn();
+        const sharedRequest = {
+            method: 'POST',
+            path: '/api/auth/otp/reset-password',
+            originalUrl: '/api/auth/otp/reset-password',
+            headers: { 'x-client-session-id': 'shared-browser-session' },
+            ip: '198.51.100.24',
+            body: { flowToken: 'flow-token-a' },
+            trafficBudget: {
+                routeClass: 'OTP',
+                perIp: 12,
+                perAccount: 0,
+                perSession: 8,
+                windowSeconds: 60,
+                productionFailMode: 'fail-closed',
+                costRisk: 'critical',
+                userMessageCode: 'OTP_RATE_LIMITED',
+            },
+        };
+
+        await trafficBudgetPolicy()(sharedRequest, buildResponse(), next);
+
+        const perIpLimiter = created.find((entry) => entry.name === 'traffic_perIp_otp');
+        const perSessionLimiter = created.find((entry) => entry.name === 'traffic_perSession_otp');
+        const otherFlowRequest = {
+            ...sharedRequest,
+            body: { flowToken: 'flow-token-b' },
+        };
+
+        expect(perIpLimiter.keyGenerator(sharedRequest)).not.toBe(perIpLimiter.keyGenerator(otherFlowRequest));
+        expect(perSessionLimiter.keyGenerator(sharedRequest)).not.toBe(perSessionLimiter.keyGenerator(otherFlowRequest));
+        expect(perIpLimiter.keyGenerator(sharedRequest)).not.toContain('flow-token-a');
+        expect(perSessionLimiter.keyGenerator(sharedRequest)).not.toContain('flow-token-a');
+    });
 });
