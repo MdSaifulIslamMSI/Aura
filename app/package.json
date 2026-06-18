@@ -95,6 +95,9 @@
     "vitest": "^4.1.8"
   },
   "overrides": {
+    "jsdom": {
+      "undici": "7.28.0"
+    },
     "rollup": "4.59.1",
     "ws": "^8.20.1"
   }
