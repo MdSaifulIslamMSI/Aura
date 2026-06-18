@@ -48,6 +48,7 @@ const {
 } = require('../services/auth/authorizationService');
 const { evaluateSensitiveActionRequest } = require('../security/sensitiveActionPolicy');
 const { recordSensitiveActionDecision } = require('../services/securityAuditService');
+const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -1484,7 +1485,10 @@ const invalidateUserCacheByEmail = async (email) => {
             } while (cursor !== 0);
         }
     } catch (err) {
-        logger.warn('auth.cache_invalidate_by_email_failed', { email: normalizedEmail, error: err?.message });
+        logger.warn('auth.cache_invalidate_by_email_failed', {
+            emailHash: hashSecurityValue(normalizedEmail),
+            error: err?.message,
+        });
     }
 };
 

@@ -24,6 +24,10 @@ const sanitizeStringForKey = (key, value) => {
     if (value === undefined || value === null || value === '') return REDACTED_PLACEHOLDER;
 
     const normalizedKey = String(key || '').toLowerCase();
+    const normalizedValue = String(value || '').trim();
+    if (normalizedKey.endsWith('hash') && /^[a-f0-9]{16,128}$/i.test(normalizedValue)) {
+        return normalizedValue;
+    }
     if (normalizedKey.includes('email')) return maskEmail(value);
     if (normalizedKey.includes('phone')) return maskPhone(value);
 

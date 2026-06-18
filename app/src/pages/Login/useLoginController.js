@@ -427,6 +427,7 @@ export const useLoginController = () => {
   const authAccelerationHydratedRef = useRef(false);
   const initialResolvedAuthRedirectCheckedRef = useRef(false);
   const desktopBrowserHandoffCompletedRef = useRef('');
+  const resetPasswordRequestInFlightRef = useRef(false);
 
   const from = useMemo(
     () => resolveNavigationTarget(location.state?.from, '/'),
@@ -1426,7 +1427,11 @@ export const useLoginController = () => {
     })) {
       return;
     }
+    if (resetPasswordRequestInFlightRef.current) {
+      return;
+    }
 
+    resetPasswordRequestInFlightRef.current = true;
     setIsLoading(true);
     setAuthError(null);
     setAuthSuccess(null);
@@ -1487,6 +1492,7 @@ export const useLoginController = () => {
         setErr(error);
       }
     } finally {
+      resetPasswordRequestInFlightRef.current = false;
       setIsLoading(false);
     }
   };

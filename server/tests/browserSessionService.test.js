@@ -281,6 +281,43 @@ describe('browserSessionService', () => {
         });
     });
 
+    test('uses variadic Redis DEL arguments when revoking all sessions for a user', async () => {
+        process.env.NODE_ENV = 'production';
+        delete process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK;
+
+        let browserSessionService;
+        const redisClient = {
+            sMembers: jest.fn().mockResolvedValue(['sid-one', 'sid-two']),
+            del: jest.fn(async (...keys) => {
+                if (keys.some((key) => typeof key !== 'string')) {
+                    throw new TypeError('"arguments[1]" must be of type "string | Buffer", got object instead.');
+                }
+                return keys.length;
+            }),
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => redisClient,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({}),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const result = await browserSessionService.revokeBrowserSessionsForUser('507f1f77bcf86cd799439024');
+
+        expect(result).toEqual({ revoked: 2 });
+        expect(redisClient.del).toHaveBeenCalledWith(
+            '{test:auth}:session:sid-one',
+            '{test:auth}:session:sid-two',
+            '{test:auth}:user_sessions:507f1f77bcf86cd799439024'
+        );
+    });
+
     test('uses SameSite=None for secure loopback frontends talking to a remote API origin', async () => {
         process.env.AUTH_SESSION_COOKIE_SECURE = 'true';
 

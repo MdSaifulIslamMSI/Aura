@@ -240,7 +240,7 @@
   "dependencies": {
     "electron-updater": "^6.8.3",
     "express": "^5.1.0",
-    "http-proxy-middleware": "^3.0.5"
+    "http-proxy-middleware": "^3.0.7"
   },
   "devDependencies": {
     "electron": "^42.3.0",
@@ -249,7 +249,10 @@
   },
   "overrides": {
     "@electron/asar": "^4.2.0",
-    "@electron/get": "^5.0.0",
+    "@electron/get": {
+      ".": "^5.0.0",
+      "undici": "7.28.0"
+    },
     "@electron/rebuild": "^4.0.4",
     "cacache": "^20.0.4",
     "glob": "^13.0.6",

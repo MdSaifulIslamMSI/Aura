@@ -40,6 +40,10 @@ const {
 } = require('../middleware/authMiddleware');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const { generatePowChallenge, verifyPowChallenge } = require('../utils/powChallenge');
+const {
+    hashSecurityValue,
+    redactSecurityMetadata,
+} = require('../security/redactSecurityMetadata');
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = otpEmailFlags.otpEmailTtlMinutes * 60 * 1000;
@@ -159,7 +163,9 @@ const otpVerificationError = (purpose, message, statusCode) => (
 const RESET_PASSWORD_ERROR_CODES = Object.freeze({
     FIREBASE_LOOKUP_FAILED: 'OTP_RESET_FIREBASE_LOOKUP_FAILED',
     FIREBASE_UPDATE_FAILED: 'OTP_RESET_FIREBASE_UPDATE_FAILED',
-    SESSION_REVOKE_FAILED: 'OTP_RESET_SESSION_REVOKE_FAILED',
+    LOCAL_SESSION_REVOKE_FAILED: 'OTP_RESET_LOCAL_SESSION_REVOKE_FAILED',
+    REDIS_REVOCATION_MARKER_FAILED: 'OTP_RESET_REDIS_REVOCATION_MARKER_FAILED',
+    FIREBASE_REFRESH_REVOKE_FAILED: 'OTP_RESET_FIREBASE_REFRESH_REVOKE_FAILED',
 });
 
 const resetPasswordError = (message, code, statusCode = 503) => {
@@ -241,18 +247,49 @@ const extractClientIp = (req) => {
     return (forwarded || fallback || '-').replace(/^::ffff:/i, '');
 };
 
+const hashResetSignal = (value = '') => (
+    value ? hashSecurityValue(value) : ''
+);
+
+const buildResetPasswordTraceContext = ({ req, flowToken = '', email = '', phone = '' } = {}) => ({
+    requestId: req?.requestId || '-',
+    route: 'otp.reset-password',
+    flowHash: hashResetSignal(flowToken),
+    emailHash: hashResetSignal(normalizeEmail(email)),
+    phoneHash: hashResetSignal(normalizePhone(phone)),
+    ipHash: hashResetSignal(extractClientIp(req || { headers: {} })),
+});
+
+const sanitizeResetProviderMessage = (value = '') => String(
+    redactSecurityMetadata(String(value || 'unknown'))
+)
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL_REDACTED]')
+    .replace(/\+?\d[\d\s().-]{7,}\d/g, '[PHONE_REDACTED]')
+    .slice(0, 500);
+
 const audit = (event, data) => {
-    const maskedPhone = data.phone ? maskPhoneSuffix(data.phone) : '-';
+    const isResetPasswordEvent = event.startsWith('RESET_PASSWORD_');
+    const contactMetadata = isResetPasswordEvent
+        ? {
+            phoneHash: hashResetSignal(normalizePhone(data.phone || '')),
+            emailHash: hashResetSignal(normalizeEmail(data.email || '')),
+        }
+        : {
+            phone: data.phone ? maskPhoneSuffix(data.phone) : '-',
+            email: data.email ? maskEmail(data.email) : '-',
+        };
 
     logger.info(`otp.${event.toLowerCase()}`, {
         event,
-        phone: maskedPhone,
-        email: data.email ? maskEmail(data.email) : '-',
+        ...contactMetadata,
         purpose: data.purpose || '-',
         requestId: data.requestId || '-',
         success: data.success !== undefined ? data.success : null,
         reason: data.reason || null,
-        ...(data.includeIp ? { ip: data.ip || '-' } : {}),
+        ...(isResetPasswordEvent && data.ip ? { ipHash: hashResetSignal(data.ip) } : {}),
+        ...(!isResetPasswordEvent && data.includeIp ? { ip: data.ip || '-' } : {}),
+        ...(isResetPasswordEvent ? { route: 'otp.reset-password' } : {}),
+        ...(event === 'RESET_PASSWORD_OK' ? { stage: 'success' } : {}),
     });
 
     if (event === 'SEND_OK') {
@@ -1742,6 +1779,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
 
     const email = normalizeEmail(user?.email || '');
     const phone = normalizePhone(user?.phone || '');
+    const resetTrace = buildResetPasswordTraceContext({ req, flowToken, email, phone });
 
     if (!user || !user.isVerified || !EMAIL_REGEX.test(email)) {
         audit('RESET_PASSWORD_REJECTED', {
@@ -1858,13 +1896,11 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         }
 
         logger.error('otp.reset_password_lookup_failed', {
+            ...resetTrace,
             stage: 'firebase_user_lookup',
             publicCode: RESET_PASSWORD_ERROR_CODES.FIREBASE_LOOKUP_FAILED,
-            email: maskEmail(email),
-            phone: maskPhoneSuffix(phone),
-            requestId,
-            error: error?.message || 'unknown',
-            dependencyCode: error?.code || '',
+            providerCode: error?.code || '',
+            providerMessage: sanitizeResetProviderMessage(error?.message),
         });
 
         await releaseReservedOtpFlowGrant(grantIdentity);
@@ -1878,13 +1914,11 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         await firebaseAdmin.auth().updateUser(authUser.uid, { password });
     } catch (error) {
         logger.error('otp.reset_password_failed', {
+            ...resetTrace,
             stage: 'firebase_password_update',
             publicCode: RESET_PASSWORD_ERROR_CODES.FIREBASE_UPDATE_FAILED,
-            email: maskEmail(email),
-            phone: maskPhoneSuffix(phone),
-            requestId,
-            error: error?.message || 'unknown',
-            dependencyCode: error?.code || '',
+            providerCode: error?.code || '',
+            providerMessage: sanitizeResetProviderMessage(error?.message),
         });
 
         await releaseReservedOtpFlowGrant(grantIdentity);
@@ -1901,18 +1935,16 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         await revokeBrowserSessionsForUser(user._id);
     } catch (error) {
         logger.error('otp.reset_password_browser_session_revocation_failed', {
+            ...resetTrace,
             stage: 'browser_session_revoke',
-            publicCode: RESET_PASSWORD_ERROR_CODES.SESSION_REVOKE_FAILED,
-            email: maskEmail(email),
-            phone: maskPhoneSuffix(phone),
-            requestId,
-            error: error?.message || 'unknown',
-            dependencyCode: error?.code || '',
+            publicCode: RESET_PASSWORD_ERROR_CODES.LOCAL_SESSION_REVOKE_FAILED,
+            providerCode: error?.code || '',
+            providerMessage: sanitizeResetProviderMessage(error?.message),
         });
 
         return next(resetPasswordError(
             'Password was updated, but session cleanup is still processing. Please sign in again.',
-            RESET_PASSWORD_ERROR_CODES.SESSION_REVOKE_FAILED
+            RESET_PASSWORD_ERROR_CODES.LOCAL_SESSION_REVOKE_FAILED
         ));
     }
 
@@ -1930,6 +1962,13 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         }
     );
     const revocationMarkerCached = await cacheUserAuthTokensRevokedAfter(authUser.uid || '', authTokensRevokedAfter);
+    if (!revocationMarkerCached) {
+        logger.error('otp.reset_password_revocation_marker_failed', {
+            ...resetTrace,
+            stage: 'redis_revocation_marker',
+            publicCode: RESET_PASSWORD_ERROR_CODES.REDIS_REVOCATION_MARKER_FAILED,
+        });
+    }
     await invalidateUserCache(authUser.uid || '');
     await invalidateUserCacheByEmail(email);
 
@@ -1938,20 +1977,18 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
     } catch (error) {
         sessionCleanupPending = true;
         logger.error('otp.reset_password_session_revocation_failed', {
+            ...resetTrace,
             stage: 'firebase_refresh_token_revoke',
-            publicCode: 'OTP_RESET_FIREBASE_REVOKE_PENDING',
-            email: maskEmail(email),
-            phone: maskPhoneSuffix(phone),
-            requestId,
-            error: error?.message || 'unknown',
-            dependencyCode: error?.code || '',
+            publicCode: RESET_PASSWORD_ERROR_CODES.FIREBASE_REFRESH_REVOKE_FAILED,
+            providerCode: error?.code || '',
+            providerMessage: sanitizeResetProviderMessage(error?.message),
         });
     }
 
     if (sessionCleanupPending && !revocationMarkerCached) {
         return next(resetPasswordError(
             'Password was updated, but session cleanup is still processing. Please sign in again.',
-            RESET_PASSWORD_ERROR_CODES.SESSION_REVOKE_FAILED
+            RESET_PASSWORD_ERROR_CODES.REDIS_REVOCATION_MARKER_FAILED
         ));
     }
 
