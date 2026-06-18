@@ -37,7 +37,7 @@ const shouldBlockForAttackMode = ({
     if (config.statusCacheOnly && routeClass === ROUTE_CLASSES.STATUS_PUBLIC && isStateChangingMethod(method)) return true;
     if (config.blockAi && routeClass === ROUTE_CLASSES.AI_EXPENSIVE) return true;
     if (config.blockUploads && routeClass === ROUTE_CLASSES.UPLOAD && isStateChangingMethod(method)) return true;
-    if (config.strictAuth && [ROUTE_CLASSES.AUTH_LOGIN, ROUTE_CLASSES.OTP].includes(routeClass)) return true;
+    if (config.strictAuth && [ROUTE_CLASSES.AUTH_LOGIN, ROUTE_CLASSES.OTP, ROUTE_CLASSES.OTP_RESET].includes(routeClass)) return true;
     if (config.publicReadOnly && isStateChangingMethod(method)) {
         return [
             ROUTE_CLASSES.PUBLIC_READ,

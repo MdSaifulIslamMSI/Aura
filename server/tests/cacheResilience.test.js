@@ -24,6 +24,14 @@ describe('traffic cache policy', () => {
         expect(response.headers['cache-control']).toBe('no-store');
     });
 
+    test('keeps password reset finalization private', async () => {
+        const response = await request(buildApp(ROUTE_CLASSES.OTP_RESET))
+            .get('/test')
+            .expect(200);
+
+        expect(response.headers['cache-control']).toBe('no-store');
+    });
+
     test('adds stale-while-revalidate to public search routes', async () => {
         const response = await request(buildApp(ROUTE_CLASSES.PUBLIC_SEARCH))
             .get('/test')
