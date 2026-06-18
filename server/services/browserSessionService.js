@@ -213,14 +213,32 @@ const resolveRiskState = ({ user = null, previousSession = null, riskState = '' 
 
 const getRedisKey = (sessionId = '') => `${SESSION_PREFIX}${String(sessionId || '').trim()}`;
 
+const normalizeRedisKey = (key) => {
+    if (typeof key === 'string') return key.trim();
+    if (Buffer.isBuffer(key)) return key.toString().trim();
+    return '';
+};
+
 const deleteRedisKeys = async (redisClient, keys = []) => {
-    const normalizedKeys = (Array.isArray(keys) ? keys : [keys])
-        .map((key) => String(key || '').trim())
+    const normalizedKeys = (Array.isArray(keys) ? keys.flat(Infinity) : [keys])
+        .map(normalizeRedisKey)
         .filter(Boolean);
     if (normalizedKeys.length === 0) return 0;
 
     return redisClient.del(...normalizedKeys);
 };
+
+async function* scanRedisKeys(redisClient, pattern) {
+    if (typeof redisClient?.scanIterator !== 'function') return;
+
+    for await (const entry of redisClient.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+        const keys = Array.isArray(entry) ? entry : [entry];
+        for (const key of keys) {
+            const normalizedKey = normalizeRedisKey(key);
+            if (normalizedKey) yield normalizedKey;
+        }
+    }
+}
 
 const getCookieHeader = (req = {}) => String(
     req.headers?.cookie
@@ -738,7 +756,7 @@ async function revokeBrowserSessionsForUser(userId = '') {
         } else {
             // Fallback scan if the tracking set is empty/missing
             if (typeof redisClient.scanIterator === 'function') {
-                for await (const key of redisClient.scanIterator({ MATCH: `${SESSION_PREFIX}*`, COUNT: 100 })) {
+                for await (const key of scanRedisKeys(redisClient, `${SESSION_PREFIX}*`)) {
                     const raw = await redisClient.get(key);
                     if (!raw) continue;
                     let record = null;
@@ -843,7 +861,7 @@ async function revokeAllBrowserSessions({ revokedAfter = new Date() } = {}) {
             throw new Error('Redis scanIterator is unavailable');
         }
 
-        for await (const key of redisClient.scanIterator({ MATCH: `${SESSION_PREFIX}*`, COUNT: 100 })) {
+        for await (const key of scanRedisKeys(redisClient, `${SESSION_PREFIX}*`)) {
             if (key === GLOBAL_SESSION_REVOKED_AFTER_KEY) continue;
             keysToDelete.push(key);
         }

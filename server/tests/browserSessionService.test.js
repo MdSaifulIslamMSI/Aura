@@ -318,6 +318,55 @@ describe('browserSessionService', () => {
         );
     });
 
+    test('flattens Redis scanIterator key batches when revoking sessions for a user', async () => {
+        process.env.NODE_ENV = 'production';
+        delete process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK;
+
+        let browserSessionService;
+        const targetUserId = '507f1f77bcf86cd799439025';
+        const targetKey = '{test:auth}:session:sid-scan-target';
+        const otherKey = '{test:auth}:session:sid-scan-other';
+        const redisClient = {
+            sMembers: jest.fn().mockResolvedValue([]),
+            scanIterator: jest.fn(async function* scanIterator() {
+                yield [targetKey, otherKey];
+            }),
+            get: jest.fn(async (key) => {
+                if (typeof key !== 'string') {
+                    throw new TypeError('"arguments[1]" must be of type "string | Buffer", got object instead.');
+                }
+                if (key === targetKey) return JSON.stringify({ userId: targetUserId });
+                if (key === otherKey) return JSON.stringify({ userId: '507f1f77bcf86cd799439026' });
+                return null;
+            }),
+            del: jest.fn(async (...keys) => {
+                if (keys.some((key) => typeof key !== 'string')) {
+                    throw new TypeError('"arguments[1]" must be of type "string | Buffer", got object instead.');
+                }
+                return keys.length;
+            }),
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => redisClient,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({}),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const result = await browserSessionService.revokeBrowserSessionsForUser(targetUserId);
+
+        expect(result).toEqual({ revoked: 1 });
+        expect(redisClient.get).toHaveBeenCalledWith(targetKey);
+        expect(redisClient.get).toHaveBeenCalledWith(otherKey);
+        expect(redisClient.del).toHaveBeenCalledWith(targetKey);
+    });
+
     test('uses SameSite=None for secure loopback frontends talking to a remote API origin', async () => {
         process.env.AUTH_SESSION_COOKIE_SECURE = 'true';
 
