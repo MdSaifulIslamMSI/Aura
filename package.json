@@ -257,7 +257,7 @@
     "make-fetch-happen": "^15.0.5",
     "node-gyp": "^12.3.0",
     "rimraf": "^6.1.3",
-    "tmp": "0.2.6"
+    "tmp": "0.2.7"
   },
   "build": {
     "appId": "com.aura.marketplace.desktop",
