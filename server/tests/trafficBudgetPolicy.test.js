@@ -130,7 +130,7 @@ describe('trafficBudgetPolicy middleware', () => {
             ip: '198.51.100.24',
             body: { flowToken: 'flow-token-a' },
             trafficBudget: {
-                routeClass: 'OTP',
+                routeClass: 'OTP_RESET',
                 perIp: 12,
                 perAccount: 0,
                 perSession: 8,
@@ -143,8 +143,8 @@ describe('trafficBudgetPolicy middleware', () => {
 
         await trafficBudgetPolicy()(sharedRequest, buildResponse(), next);
 
-        const perIpLimiter = created.find((entry) => entry.name === 'traffic_perIp_otp');
-        const perSessionLimiter = created.find((entry) => entry.name === 'traffic_perSession_otp');
+        const perIpLimiter = created.find((entry) => entry.name === 'traffic_perIp_otp_reset');
+        const perSessionLimiter = created.find((entry) => entry.name === 'traffic_perSession_otp_reset');
         const otherFlowRequest = {
             ...sharedRequest,
             body: { flowToken: 'flow-token-b' },

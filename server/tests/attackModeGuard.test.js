@@ -44,6 +44,15 @@ describe('attack mode guard', () => {
         })).toBe(true);
     });
 
+    test('blocks password reset finalization with strict auth during attack mode', () => {
+        expect(shouldBlockForAttackMode({
+            routeClass: ROUTE_CLASSES.OTP_RESET,
+            method: 'POST',
+            path: '/api/auth/otp/reset-password',
+            config: { trafficFortressEnabled: true, attackMode: true, strictAuth: true },
+        })).toBe(true);
+    });
+
     test('keeps webhook and health classes reachable during attack mode', () => {
         const config = { trafficFortressEnabled: true, attackMode: true, blockAi: true, blockUploads: true, strictAuth: true, publicReadOnly: true };
 

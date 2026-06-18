@@ -55,7 +55,7 @@ const getLimiter = (budget, dimension) => {
         max,
         message: limiterMessage(budget),
         keyGenerator: (req) => {
-            const resetPasswordFlowIdentity = budget.routeClass === ROUTE_CLASSES.OTP
+            const resetPasswordFlowIdentity = [ROUTE_CLASSES.OTP, ROUTE_CLASSES.OTP_RESET].includes(budget.routeClass)
                 ? getResetPasswordFlowBudgetIdentity(req)
                 : '';
             if (resetPasswordFlowIdentity && (dimension === 'perIp' || dimension === 'perSession')) {

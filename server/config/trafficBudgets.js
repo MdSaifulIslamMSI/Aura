@@ -6,6 +6,7 @@ const ROUTE_CLASSES = Object.freeze({
     PUBLIC_SEARCH: 'PUBLIC_SEARCH',
     AUTH_LOGIN: 'AUTH_LOGIN',
     OTP: 'OTP',
+    OTP_RESET: 'OTP_RESET',
     AUTHENTICATED_READ: 'AUTHENTICATED_READ',
     AUTHENTICATED_WRITE: 'AUTHENTICATED_WRITE',
     UPLOAD: 'UPLOAD',
@@ -138,6 +139,20 @@ const TRAFFIC_BUDGETS = Object.freeze({
         canDegrade: false,
         emergencyFlag: 'DISABLE_OTP_SEND',
         description: 'OTP send, verify, account check, and reset routes.',
+    }),
+    [ROUTE_CLASSES.OTP_RESET]: defineBudget({
+        routeClass: ROUTE_CLASSES.OTP_RESET,
+        categoryName: 'otpRequests',
+        maxBodyBytes: 64 * KB,
+        timeoutMs: 15000,
+        perIp: 12,
+        perAccount: 8,
+        perSession: 8,
+        dbQueryCostBudget: 2,
+        challengeAllowed: true,
+        canDegrade: false,
+        emergencyFlag: 'DISABLE_OTP_SEND',
+        description: 'Password reset finalization with Firebase and local session revocation cleanup.',
     }),
     [ROUTE_CLASSES.AUTHENTICATED_READ]: defineBudget({
         routeClass: ROUTE_CLASSES.AUTHENTICATED_READ,
@@ -304,6 +319,7 @@ const classifyRoute = ({ method = 'GET', path = '/', originalUrl = '' } = {}) =>
     if (!routePath.startsWith('/api/') && (hasStaticExtension(routePath) || routePath.startsWith('/assets/'))) return ROUTE_CLASSES.STATIC_PUBLIC;
     if (routePath.startsWith('/api/payments/webhooks') || routePath.startsWith('/api/email-webhooks')) return ROUTE_CLASSES.WEBHOOK;
     if (routePath.startsWith('/api/admin/')) return mutating ? ROUTE_CLASSES.ADMIN_WRITE : ROUTE_CLASSES.ADMIN_READ;
+    if (routePath === '/api/otp/reset-password' || routePath === '/api/auth/otp/reset-password') return ROUTE_CLASSES.OTP_RESET;
     if (routePath.startsWith('/api/otp') || routePath.startsWith('/api/auth/otp')) return ROUTE_CLASSES.OTP;
     if (routePath.startsWith('/api/auth')) return ROUTE_CLASSES.AUTH_LOGIN;
     if (routePath.startsWith('/api/ai') || routePath.startsWith('/api/intelligence') || routePath.includes('/visual-search')) return ROUTE_CLASSES.AI_EXPENSIVE;

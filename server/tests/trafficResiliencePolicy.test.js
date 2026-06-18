@@ -66,6 +66,7 @@ describe('traffic resilience policy', () => {
     test('dangerous route families classify into bounded budgets', () => {
         expect(classifyRoute({ method: 'POST', path: '/api/auth/login' })).toBe(ROUTE_CLASSES.AUTH_LOGIN);
         expect(classifyRoute({ method: 'POST', path: '/api/otp/send' })).toBe(ROUTE_CLASSES.OTP);
+        expect(classifyRoute({ method: 'POST', path: '/api/auth/otp/reset-password' })).toBe(ROUTE_CLASSES.OTP_RESET);
         expect(classifyRoute({ method: 'POST', path: '/api/payments/create-order' })).toBe(ROUTE_CLASSES.PAYMENT);
         expect(classifyRoute({ method: 'POST', path: '/api/ai/chat' })).toBe(ROUTE_CLASSES.AI_EXPENSIVE);
         expect(classifyRoute({ method: 'POST', path: '/api/uploads/review' })).toBe(ROUTE_CLASSES.UPLOAD);
@@ -74,12 +75,17 @@ describe('traffic resilience policy', () => {
 
     test('sensitive budgets fail closed or stay non-degradable where expected', () => {
         const payment = getTrafficBudget(ROUTE_CLASSES.PAYMENT);
+        const otpReset = getTrafficBudget(ROUTE_CLASSES.OTP_RESET);
         const ai = getTrafficBudget(ROUTE_CLASSES.AI_EXPENSIVE);
         const webhook = getTrafficBudget(ROUTE_CLASSES.WEBHOOK);
 
         expect(payment.costRisk).toBe('critical');
         expect(payment.productionFailMode).toBe('fail-closed');
         expect(payment.canDegrade).toBe(false);
+        expect(otpReset.costRisk).toBe('critical');
+        expect(otpReset.productionFailMode).toBe('fail-closed');
+        expect(otpReset.canDegrade).toBe(false);
+        expect(otpReset.timeoutMs).toBeGreaterThan(getTrafficBudget(ROUTE_CLASSES.OTP).timeoutMs);
         expect(ai.emergencyFlag).toBe('ATTACK_MODE_BLOCK_AI');
         expect(webhook.canDegrade).toBe(false);
     });
