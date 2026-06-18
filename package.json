@@ -239,7 +239,7 @@
     "mobile:sync:ios": "npm --prefix app run mobile:sync:ios"
   },
   "dependencies": {
-    "electron-updater": "^6.8.3",
+    "electron-updater": "^6.8.9",
     "express": "^5.1.0",
     "http-proxy-middleware": "^3.0.7"
   },
