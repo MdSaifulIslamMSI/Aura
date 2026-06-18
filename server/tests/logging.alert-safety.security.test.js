@@ -40,6 +40,21 @@ const rawSecrets = [
 ];
 
 describe('logging and alert safety', () => {
+    test('preserves hexadecimal correlation hashes without trusting raw values in hash fields', () => {
+        const digest = 'a'.repeat(16);
+        const redacted = logger.redactSensitiveData({
+            emailHash: digest,
+            phoneHash: digest,
+            flowTokenHash: digest,
+            unsafeEmailHash: 'alice.sensitive@example.test',
+        });
+
+        expect(redacted.emailHash).toBe(digest);
+        expect(redacted.phoneHash).toBe(digest);
+        expect(redacted.flowTokenHash).toBe(digest);
+        expect(redacted.unsafeEmailHash).not.toContain('alice.sensitive@example.test');
+    });
+
     test('auth security outbox envelopes redact sensitive meta before persistence', async () => {
         const product = await createFakeProduct({ title: 'Logging Redaction Guard Product' });
         const beforeProduct = await Product.findById(product._id).lean();

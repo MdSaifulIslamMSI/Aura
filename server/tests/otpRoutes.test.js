@@ -29,6 +29,7 @@ const User = require('../models/User');
 const OtpSession = require('../models/OtpSession');
 const OtpFlowGrant = require('../models/OtpFlowGrant');
 const browserSessionService = require('../services/browserSessionService');
+const logger = require('../utils/logger');
 const { issueOtpFlowToken } = require('../utils/otpFlowToken');
 const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 const trustedDeviceChallengeService = require('../services/trustedDeviceChallengeService');
@@ -1224,21 +1225,47 @@ describe('OTP API Routes Integration', () => {
             });
 
             mockGetUserByEmail.mockResolvedValue({ uid: 'firebase-user-1' });
-            mockUpdateUser.mockRejectedValue(new Error('Firebase auth update failed'));
+            mockUpdateUser.mockRejectedValue(new Error(
+                `Firebase auth update failed for ${u.email} and ${u.phone}`
+            ));
+            const errorLogSpy = jest.spyOn(logger, 'error');
 
-            const res = await request(app).post('/api/otp/reset-password')
-                .send({
-                    flowToken,
-                    password: buildStrongPassword(),
-                });
+            try {
+                const res = await request(app).post('/api/otp/reset-password')
+                    .send({
+                        flowToken,
+                        password: buildStrongPassword(),
+                    });
 
-            expect(res.statusCode).toBe(503);
-            expect(res.body.code).toBe('OTP_RESET_FIREBASE_UPDATE_FAILED');
-            expect(res.body.message).toContain('Unable to update password right now');
+                expect(res.statusCode).toBe(503);
+                expect(res.body.code).toBe('OTP_RESET_FIREBASE_UPDATE_FAILED');
+                expect(res.body.message).toContain('Unable to update password right now');
 
-            // Assert token was released back to 'active'
-            const grant = await OtpFlowGrant.findOne({ tokenId: tokenState.tokenId });
-            expect(grant.state).toBe('active');
+                const [, resetLog] = errorLogSpy.mock.calls.find(
+                    ([event]) => event === 'otp.reset_password_failed'
+                );
+                expect(resetLog).toEqual(expect.objectContaining({
+                    route: 'otp.reset-password',
+                    stage: 'firebase_password_update',
+                    publicCode: 'OTP_RESET_FIREBASE_UPDATE_FAILED',
+                    flowHash: expect.stringMatching(/^[a-f0-9]{16}$/),
+                    emailHash: crypto.createHash('sha256').update(u.email).digest('hex').slice(0, 16),
+                    phoneHash: crypto.createHash('sha256').update(u.phone).digest('hex').slice(0, 16),
+                    ipHash: expect.stringMatching(/^[a-f0-9]{16}$/),
+                    providerMessage: 'Firebase auth update failed for [EMAIL_REDACTED] and [PHONE_REDACTED]',
+                }));
+                expect(JSON.stringify(resetLog)).not.toContain(flowToken);
+                expect(JSON.stringify(resetLog)).not.toContain(u.email);
+                expect(JSON.stringify(resetLog)).not.toContain(u.phone);
+                expect(resetLog).not.toHaveProperty('email');
+                expect(resetLog).not.toHaveProperty('phone');
+
+                // Assert token was released back to 'active'
+                const grant = await OtpFlowGrant.findOne({ tokenId: tokenState.tokenId });
+                expect(grant.state).toBe('active');
+            } finally {
+                errorLogSpy.mockRestore();
+            }
         });
 
         test('should prevent concurrent reset password requests using the same flowToken', async () => {

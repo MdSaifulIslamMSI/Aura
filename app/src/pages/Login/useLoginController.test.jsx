@@ -157,6 +157,16 @@ const ResetPasswordFailureProbe = () => {
         />
       ))}
       <button type="submit">submit</button>
+      <button
+        type="button"
+        onClick={() => {
+          const event = { preventDefault: vi.fn() };
+          handleSubmit(event);
+          handleSubmit(event);
+        }}
+      >
+        double-submit
+      </button>
     </form>
   );
 };
@@ -863,6 +873,87 @@ describe('useLoginController', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'submit' }));
       expect(resetPassword).toHaveBeenCalledTimes(1);
+    } finally {
+      sendOtp.mockRestore();
+      verifyOtp.mockRestore();
+      resetPassword.mockRestore();
+    }
+  });
+
+  it('ignores a second reset submit while the first request is still pending', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: false,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+      runtimeElectronDesktop: false,
+    });
+    const sendOtp = vi.spyOn(otpApi, 'sendOtp').mockResolvedValue({ success: true });
+    const verifyOtp = vi.spyOn(otpApi, 'verifyOtp').mockResolvedValue({
+      success: true,
+      flowToken: 'flow-reset-pending',
+    });
+    let rejectResetPassword;
+    const resetPassword = vi.spyOn(otpApi, 'resetPassword').mockImplementation(() => (
+      new Promise((resolve, reject) => {
+        rejectResetPassword = reject;
+      })
+    ));
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue()}>
+            <MemoryRouter initialEntries={['/login']}>
+              <Routes>
+                <Route path="/login" element={<ResetPasswordFailureProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'forgot' }));
+      fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'user@example.com' } });
+      fireEvent.change(screen.getByLabelText('Phone Number'), { target: { value: '+91 99999 99999' } });
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+
+      await waitFor(() => {
+        expect(sendOtp).toHaveBeenCalledWith('user@example.com', '+919999999999', 'forgot-password', {});
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('otp');
+      });
+
+      '123456'.split('').forEach((digit, index) => {
+        fireEvent.change(screen.getByLabelText(`OTP digit ${index + 1}`), { target: { value: digit } });
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+
+      await waitFor(() => {
+        expect(verifyOtp).toHaveBeenCalledWith('+919999999999', '123456', 'forgot-password', {});
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('reset-password');
+      });
+
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'OrbitPass!123' } });
+      fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'OrbitPass!123' } });
+      fireEvent.click(screen.getByRole('button', { name: 'double-submit' }));
+
+      await waitFor(() => {
+        expect(resetPassword).toHaveBeenCalledTimes(1);
+      });
+
+      rejectResetPassword(Object.assign(
+        new Error('Unable to update password right now. Please try again shortly.'),
+        { status: 503 }
+      ));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('reset-step')).toHaveTextContent('form');
+      });
     } finally {
       sendOtp.mockRestore();
       verifyOtp.mockRestore();
