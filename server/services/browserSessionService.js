@@ -213,6 +213,15 @@ const resolveRiskState = ({ user = null, previousSession = null, riskState = '' 
 
 const getRedisKey = (sessionId = '') => `${SESSION_PREFIX}${String(sessionId || '').trim()}`;
 
+const deleteRedisKeys = async (redisClient, keys = []) => {
+    const normalizedKeys = (Array.isArray(keys) ? keys : [keys])
+        .map((key) => String(key || '').trim())
+        .filter(Boolean);
+    if (normalizedKeys.length === 0) return 0;
+
+    return redisClient.del(...normalizedKeys);
+};
+
 const getCookieHeader = (req = {}) => String(
     req.headers?.cookie
     || req.headers?.Cookie
@@ -724,7 +733,7 @@ async function revokeBrowserSessionsForUser(userId = '') {
                 keysToDelete.push(getRedisKey(id));
             }
             keysToDelete.push(userSessionsKey);
-            await redisClient.del(keysToDelete);
+            await deleteRedisKeys(redisClient, keysToDelete);
             revoked += sessionIds.length;
         } else {
             // Fallback scan if the tracking set is empty/missing
@@ -743,7 +752,7 @@ async function revokeBrowserSessionsForUser(userId = '') {
                     }
                 }
                 if (keysToDelete.length > 0) {
-                    await redisClient.del(keysToDelete);
+                    await deleteRedisKeys(redisClient, keysToDelete);
                     revoked += keysToDelete.length;
                 }
             }
@@ -840,7 +849,7 @@ async function revokeAllBrowserSessions({ revokedAfter = new Date() } = {}) {
         }
 
         if (keysToDelete.length > 0) {
-            await redisClient.del(keysToDelete);
+            await deleteRedisKeys(redisClient, keysToDelete);
             revoked += keysToDelete.length;
         }
         return { revoked, revokedAfter: new Date(revokedAfterMs).toISOString() };

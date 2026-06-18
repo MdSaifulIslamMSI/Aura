@@ -240,7 +240,7 @@
   "dependencies": {
     "electron-updater": "^6.8.3",
     "express": "^5.1.0",
-    "http-proxy-middleware": "^3.0.5"
+    "http-proxy-middleware": "^3.0.7"
   },
   "devDependencies": {
     "electron": "^42.3.0",
