@@ -9,6 +9,18 @@ describe('resolveAuthError', () => {
         expect(resolved.detail).toBe('Email or password is incorrect.');
     });
 
+    it('maps traffic budget auth throttles to recoverable rate-limit guidance', () => {
+        const resolved = resolveAuthError({
+            status: 429,
+            code: 'TRAFFIC_BUDGET_DENIED',
+            message: 'Too many requests for this route. Please slow down and try again.',
+        });
+
+        expect(resolved.title).toBe('Too Many Requests');
+        expect(resolved.hint).toContain('Wait a few minutes');
+        expect(resolved.action).toBe('back');
+    });
+
     it('maps social invalid-credential errors away from password guidance', () => {
         const resolved = resolveAuthError({
             code: 'auth/invalid-credential',

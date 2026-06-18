@@ -33,6 +33,11 @@ const {
     requireAuthAssurance,
 } = require('../services/authAssurancePolicyService');
 const { revokeBrowserSessionsForUser } = require('../services/browserSessionService');
+const {
+    cacheUserAuthTokensRevokedAfter,
+    invalidateUserCache,
+    invalidateUserCacheByEmail,
+} = require('../middleware/authMiddleware');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const { generatePowChallenge, verifyPowChallenge } = require('../utils/powChallenge');
 
@@ -150,6 +155,18 @@ const otpVerificationError = (purpose, message, statusCode) => (
         ? new AppError(GENERIC_OTP_VERIFICATION_MESSAGE, 401)
         : new AppError(message, statusCode)
 );
+
+const RESET_PASSWORD_ERROR_CODES = Object.freeze({
+    FIREBASE_LOOKUP_FAILED: 'OTP_RESET_FIREBASE_LOOKUP_FAILED',
+    FIREBASE_UPDATE_FAILED: 'OTP_RESET_FIREBASE_UPDATE_FAILED',
+    SESSION_REVOKE_FAILED: 'OTP_RESET_SESSION_REVOKE_FAILED',
+});
+
+const resetPasswordError = (message, code, statusCode = 503) => {
+    const error = new AppError(message, statusCode);
+    error.code = code;
+    return error;
+};
 
 const buildOtpFlowSignalBond = ({ req = {}, session = null, purpose = '' } = {}) => {
     const signalBond = {};
@@ -275,7 +292,7 @@ const audit = (event, data) => {
         recordAuthSecurityEvent({
             event: 'password_reset',
             outcome: 'success',
-            reason: 'none',
+            reason: data.reason || 'none',
             surface: 'otp',
             meta: { requestId: data.requestId || '-', purpose: data.purpose || '-' },
         });
@@ -1841,60 +1858,102 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         }
 
         logger.error('otp.reset_password_lookup_failed', {
+            stage: 'firebase_user_lookup',
+            publicCode: RESET_PASSWORD_ERROR_CODES.FIREBASE_LOOKUP_FAILED,
             email: maskEmail(email),
             phone: maskPhoneSuffix(phone),
             requestId,
             error: error?.message || 'unknown',
-            code: error?.code || '',
+            dependencyCode: error?.code || '',
         });
 
         await releaseReservedOtpFlowGrant(grantIdentity);
-        return next(new AppError('Unable to update password right now. Please try again shortly.', 503));
+        return next(resetPasswordError(
+            'Unable to update password right now. Please try again shortly.',
+            RESET_PASSWORD_ERROR_CODES.FIREBASE_LOOKUP_FAILED
+        ));
     }
 
     try {
         await firebaseAdmin.auth().updateUser(authUser.uid, { password });
     } catch (error) {
         logger.error('otp.reset_password_failed', {
+            stage: 'firebase_password_update',
+            publicCode: RESET_PASSWORD_ERROR_CODES.FIREBASE_UPDATE_FAILED,
             email: maskEmail(email),
             phone: maskPhoneSuffix(phone),
             requestId,
             error: error?.message || 'unknown',
-            code: error?.code || '',
+            dependencyCode: error?.code || '',
         });
 
         await releaseReservedOtpFlowGrant(grantIdentity);
-        return next(new AppError('Unable to update password right now. Please try again shortly.', 503));
+        return next(resetPasswordError(
+            'Unable to update password right now. Please try again shortly.',
+            RESET_PASSWORD_ERROR_CODES.FIREBASE_UPDATE_FAILED
+        ));
     }
 
     await consumeReservedOtpFlowGrant(grantIdentity);
 
+    let sessionCleanupPending = false;
     try {
         await revokeBrowserSessionsForUser(user._id);
-        await firebaseAdmin.auth().revokeRefreshTokens(authUser.uid);
     } catch (error) {
-        logger.error('otp.reset_password_session_revocation_failed', {
+        logger.error('otp.reset_password_browser_session_revocation_failed', {
+            stage: 'browser_session_revoke',
+            publicCode: RESET_PASSWORD_ERROR_CODES.SESSION_REVOKE_FAILED,
             email: maskEmail(email),
             phone: maskPhoneSuffix(phone),
             requestId,
             error: error?.message || 'unknown',
-            code: error?.code || '',
+            dependencyCode: error?.code || '',
         });
 
-        return next(new AppError('Password was updated, but session cleanup is still processing. Please sign in again.', 503));
+        return next(resetPasswordError(
+            'Password was updated, but session cleanup is still processing. Please sign in again.',
+            RESET_PASSWORD_ERROR_CODES.SESSION_REVOKE_FAILED
+        ));
     }
 
+    const authTokensRevokedAfter = new Date();
     await User.updateOne(
         { _id: user._id },
         {
             $set: {
                 resetOtpVerifiedAt: null,
                 authAssurance: 'password',
-                authAssuranceAt: new Date(),
+                authAssuranceAt: authTokensRevokedAfter,
                 authAssuranceAuthTime: null,
+                authTokensRevokedAfter,
             },
         }
     );
+    const revocationMarkerCached = await cacheUserAuthTokensRevokedAfter(authUser.uid || '', authTokensRevokedAfter);
+    await invalidateUserCache(authUser.uid || '');
+    await invalidateUserCacheByEmail(email);
+
+    try {
+        await firebaseAdmin.auth().revokeRefreshTokens(authUser.uid);
+    } catch (error) {
+        sessionCleanupPending = true;
+        logger.error('otp.reset_password_session_revocation_failed', {
+            stage: 'firebase_refresh_token_revoke',
+            publicCode: 'OTP_RESET_FIREBASE_REVOKE_PENDING',
+            email: maskEmail(email),
+            phone: maskPhoneSuffix(phone),
+            requestId,
+            error: error?.message || 'unknown',
+            dependencyCode: error?.code || '',
+        });
+    }
+
+    if (sessionCleanupPending && !revocationMarkerCached) {
+        return next(resetPasswordError(
+            'Password was updated, but session cleanup is still processing. Please sign in again.',
+            RESET_PASSWORD_ERROR_CODES.SESSION_REVOKE_FAILED
+        ));
+    }
 
     await saveAuthProfileSnapshot({
         name: user.name,
@@ -1915,11 +1974,13 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         ip: clientIp,
         requestId,
         success: true,
+        reason: sessionCleanupPending ? 'firebase_session_cleanup_pending' : null,
     });
 
     res.json({
         success: true,
         message: 'Password reset successful. Please sign in with your new password.',
+        ...(sessionCleanupPending ? { sessionCleanupPending: true } : {}),
     });
 });
 

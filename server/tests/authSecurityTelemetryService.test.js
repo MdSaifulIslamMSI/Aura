@@ -62,6 +62,8 @@ describe('authSecurityTelemetryService', () => {
         expect(telemetry.__private.normalizeReason('fresh login required')).toBe('recent_auth');
         expect(telemetry.__private.normalizeReason('break glass required')).toBe('break_glass');
         expect(telemetry.__private.normalizeReason('SMTP Down')).toBe('unavailable');
+        expect(telemetry.__private.normalizeReason('firebase_session_cleanup_pending')).toBe('unavailable');
+        expect(telemetry.__private.normalizeReason('user_session_revoked')).toBe('revoked');
         expect(telemetry.__private.normalizeReason('something novel and verbose')).toBe('other');
     });
 });

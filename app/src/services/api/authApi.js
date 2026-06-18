@@ -588,7 +588,8 @@ export const otpApi = {
         if (shouldFetchChallenge) {
             try {
                 const challengeRes = await apiFetch(`/otp/challenge?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`, {
-                    method: 'GET'
+                    method: 'GET',
+                    retries: 0,
                 });
                 if (challengeRes?.data?.powToken) {
                     powToken = challengeRes.data.powToken;
@@ -596,6 +597,10 @@ export const otpApi = {
                     powNonce = await solvePow(powToken, difficulty);
                 }
             } catch (err) {
+                const status = Number(err?.status || 0);
+                if ([401, 403, 429].includes(status) || status >= 500) {
+                    throw err;
+                }
                 console.warn('PoW challenge fetch or solve failed:', err.message);
             }
         }

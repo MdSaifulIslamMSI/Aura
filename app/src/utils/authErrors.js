@@ -194,6 +194,20 @@ export const AUTH_ERRORS = {
         action: 'back',
         actionLabel: 'Start over'
     },
+    'too many requests for this route': {
+        title: 'Too Many Requests',
+        detail: 'This security flow was temporarily rate limited.',
+        hint: 'Wait a few minutes, then start the recovery flow again.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
+    TRAFFIC_BUDGET_DENIED: {
+        title: 'Too Many Requests',
+        detail: 'This security flow was temporarily rate limited.',
+        hint: 'Wait a few minutes, then start the recovery flow again.',
+        action: 'back',
+        actionLabel: 'Start over'
+    },
     'auth/network-request-failed': {
         title: 'Connection Problem',
         detail: 'We couldn\'t reach our authentication servers.',

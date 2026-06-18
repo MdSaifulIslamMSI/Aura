@@ -60,7 +60,12 @@ const { recordSensitiveActionDecision } = require('../services/securityAuditServ
 
 const CACHE_BUFFER_SECONDS = 60;
 const AUTH_CACHE_PREFIX = `${redisFlags.redisPrefix}:auth:cache:`;
+const AUTH_REVOCATION_PREFIX = `${redisFlags.redisPrefix}:auth:revoked_after:`;
 const SESSION_USER_CACHE_TTL_SECONDS = Math.max(Number(process.env.AUTH_SESSION_USER_CACHE_TTL_SECONDS || 60), 5);
+const parsedRevocationCacheTtl = Number(process.env.AUTH_REVOCATION_CACHE_TTL_SECONDS || 7 * 24 * 60 * 60);
+const AUTH_REVOCATION_CACHE_TTL_SECONDS = Number.isFinite(parsedRevocationCacheTtl) && parsedRevocationCacheTtl > 0
+    ? Math.max(Math.trunc(parsedRevocationCacheTtl), 60)
+    : 7 * 24 * 60 * 60;
 
 const getCachedUser = async (uid) => {
     try {
@@ -83,6 +88,51 @@ const setCachedUser = async (uid, user, tokenExp) => {
         await client.setEx(`${AUTH_CACHE_PREFIX}${uid}`, ttlSeconds, JSON.stringify(user));
     } catch (err) {
         logger.warn('auth.cache_write_failed', { uid, error: err?.message });
+    }
+};
+
+const parseRevokedAfterMs = (value) => {
+    if (value === undefined || value === null || value === '') return 0;
+    const raw = typeof value === 'number' ? value : Number(value);
+    const parsed = Number.isFinite(raw) && raw > 0
+        ? raw
+        : new Date(value).getTime();
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+};
+
+const getCachedAuthTokensRevokedAfterMs = async (uid = '') => {
+    const normalizedUid = normalizeUid(uid);
+    if (!normalizedUid) return 0;
+
+    try {
+        const client = getRedisClient();
+        if (!client) return 0;
+        const raw = await client.get(`${AUTH_REVOCATION_PREFIX}${normalizedUid}`);
+        return parseRevokedAfterMs(raw);
+    } catch (err) {
+        logger.warn('auth.revocation_cache_read_failed', { uid: normalizedUid, error: err?.message });
+        return 0;
+    }
+};
+
+const cacheUserAuthTokensRevokedAfter = async (uid = '', revokedAfter = null) => {
+    const normalizedUid = normalizeUid(uid);
+    if (!normalizedUid) return true;
+    const revokedAfterMs = parseRevokedAfterMs(revokedAfter);
+    if (!revokedAfterMs) return true;
+
+    try {
+        const client = getRedisClient();
+        if (!client) return true;
+        await client.setEx(
+            `${AUTH_REVOCATION_PREFIX}${normalizedUid}`,
+            AUTH_REVOCATION_CACHE_TTL_SECONDS,
+            String(revokedAfterMs)
+        );
+        return true;
+    } catch (err) {
+        logger.warn('auth.revocation_cache_write_failed', { uid: normalizedUid, error: err?.message });
+        return false;
     }
 };
 
@@ -126,6 +176,7 @@ const AUTH_PROJECTION = {
     authAssurance: 1,
     authAssuranceAt: 1,
     authAssuranceAuthTime: 1,
+    authTokensRevokedAfter: 1,
     loginOtpAssuranceExpiresAt: 1,
     isSeller: 1,
     accountState: 1,
@@ -970,6 +1021,29 @@ const getTokenIssuedMs = (token = {}) => {
     return candidates.find((value) => Number.isFinite(value) && value > 0) || 0;
 };
 
+const getUserAuthTokensRevokedAfterMs = (user = {}) => {
+    const revokedAfterMs = new Date(user?.authTokensRevokedAfter || 0).getTime();
+    return Number.isFinite(revokedAfterMs) && revokedAfterMs > 0 ? revokedAfterMs : 0;
+};
+
+const enforceUserScopedTokenRevocation = async (req = {}, token = {}, user = {}) => {
+    const cacheRevokedAfterMs = await getCachedAuthTokensRevokedAfterMs(token?.uid || user?.authUid || '');
+    const revokedAfterMs = Math.max(getUserAuthTokensRevokedAfterMs(user), cacheRevokedAfterMs);
+    if (!revokedAfterMs) return;
+
+    const issuedMs = getTokenIssuedMs(token);
+    if (issuedMs && issuedMs > revokedAfterMs) return;
+
+    logger.warn('auth.user_session_revocation_rejected_token', {
+        requestId: req.requestId || '',
+        uid: String(token?.uid || user?.authUid || ''),
+        userId: String(user?._id || ''),
+        revokedAfter: new Date(revokedAfterMs).toISOString(),
+    });
+    recordLoginFailure(req, 'user_session_revoked');
+    throw new AppError('Not authorized, session revoked', 401);
+};
+
 const enforceGlobalSessionRevocationForToken = async (req = {}, token = {}) => {
     const revokedAfterMs = await getGlobalSessionRevokedAfter();
     if (!revokedAfterMs) return;
@@ -1054,9 +1128,12 @@ const authenticateWithBrowserSession = async (req, res) => {
 
     enforceUserAccountAccess(user);
 
+    const syntheticAuthToken = buildSyntheticAuthTokenFromSession(session);
+    await enforceUserScopedTokenRevocation(req, syntheticAuthToken, user);
+
     req.authSession = session;
     req.authUid = String(req.authSession?.firebaseUid || '').trim();
-    req.authToken = buildSyntheticAuthTokenFromSession(req.authSession);
+    req.authToken = syntheticAuthToken;
     req.authIdentity = buildSyntheticAuthIdentityFromSession(req.authSession);
     req.user = user;
     scheduleBrowserSessionTouch(req, res, session);
@@ -1230,6 +1307,7 @@ const protect = asyncHandler(async (req, res, next) => {
                 const cacheMatchesResolvedIdentity = !normalizedEmail || cachedEmail === normalizedEmail;
 
                 if (cacheMatchesResolvedIdentity) {
+                    await enforceUserScopedTokenRevocation(req, decodedToken, cachedUser);
                     enforceUserAccountAccess(cachedUser);
                     req.user = cachedUser;
                     await attachMatchingBrowserSessionContext(req, res, cachedUser);
@@ -1262,7 +1340,8 @@ const protect = asyncHandler(async (req, res, next) => {
             }
 
             // ── Step 4: Write to Redis cache for subsequent requests ──────
-             enforceUserAccountAccess(user);
+            await enforceUserScopedTokenRevocation(req, decodedToken, user);
+            enforceUserAccountAccess(user);
             await setCachedUser(uid, user, exp);
 
             req.user = user;
@@ -1576,6 +1655,7 @@ module.exports = {
     requireActiveAccount,
     admin,
     seller,
+    cacheUserAuthTokensRevokedAfter,
     invalidateUserCache,
     invalidateUserCacheByEmail,
     resolveAdminAccessPolicy,
