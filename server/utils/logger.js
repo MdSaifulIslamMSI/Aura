@@ -3,7 +3,8 @@ const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const REDACTED_PLACEHOLDER = '[REDACTED]';
 const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(number)?|cvv|pan)/i;
-const IDENTIFIER_KEY_PATTERN = /^(userId|uid|firebaseUid|authUid|accountId)$/i;
+const IDENTIFIER_KEY_PATTERN = /^(userId|uid|firebaseUid|authUid|accountId|actorId|resourceId|ownerId|tenantId|sellerId|buyerId)$/i;
+const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
 const URL_LIKE_KEY_PATTERN = /(url|uri|path|route)$/i;
 const URL_WITH_QUERY_PATTERN = /((?:https?:\/\/|\/)[^\s"'`?]+)\?[^\s"'`]*/gi;
 
@@ -76,6 +77,8 @@ const redactSensitiveData = (value, key = '') => {
 
     const normalizedKey = String(key || '');
     if (IDENTIFIER_KEY_PATTERN.test(normalizedKey)) {
+        const normalizedValue = String(value || '').trim();
+        if (HASHED_IDENTIFIER_PATTERN.test(normalizedValue)) return normalizedValue;
         return hashSecurityValue(value);
     }
     if (SENSITIVE_KEY_PATTERN.test(normalizedKey)) {

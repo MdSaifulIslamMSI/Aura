@@ -56,6 +56,7 @@ describe('security audit service', () => {
             },
             action: 'admin.users.mutate',
             resourceType: 'user',
+            resourceId: 'target-user-1',
             result: 'denied',
             reasonCode: 'webauthn_step_up_required',
             riskLevel: 'critical',
@@ -68,7 +69,6 @@ describe('security audit service', () => {
         expect(payload).toMatchObject({
             event: 'security.policy.denied',
             requestId: 'req-1',
-            actorId: 'admin-1',
             action: 'admin.users.mutate',
             path: '/api/admin/users/:id/suspend',
             ip: '203.0.113.0/24',
@@ -77,6 +77,10 @@ describe('security audit service', () => {
                 webhookSecret: '[REDACTED]',
             },
         });
+        expect(payload.actorId).toMatch(/^[a-f0-9]{16}$/);
+        expect(payload.actorId).not.toBe('admin-1');
+        expect(payload.resourceId).toMatch(/^[a-f0-9]{16}$/);
+        expect(payload.resourceId).not.toBe('target-user-1');
         expect(payload.userAgent).not.toContain('Mozilla');
         expect(logger.warn).toHaveBeenCalledWith('security.audit_event', expect.objectContaining({
             reasonCode: 'webauthn_step_up_required',

@@ -225,7 +225,9 @@ const contentSecurityPolicyDirectives = {
         'https://www.recaptcha.net',
         'https://challenges.cloudflare.com',
     ],
-    styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+    styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+    styleSrcAttr: ["'unsafe-inline'"],
     fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
     imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
     connectSrc: cspConnectSources,
@@ -349,6 +351,15 @@ const invisibleFabricProbeRateLimit = rateLimit({
     message: { status: 'error', message: 'Too many requests. Please try again later.' },
 });
 
+const authRiskSignalProducerRateLimit = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: process.env.NODE_ENV === 'development' ? 5000 : 3000,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { status: 'error', message: 'Too many requests. Please try again later.' },
+});
+
 const buildLiveHealthPayload = () => ({
     alive: true,
     ...buildHealthMetadata(),
@@ -414,7 +425,7 @@ app.use((req, res, next) => {
 
 app.use(originProtectionMiddleware);
 app.use(trustedEdgeMiddleware);
-app.use(authRiskSignalProducerMiddleware);
+app.use(authRiskSignalProducerRateLimit, authRiskSignalProducerMiddleware);
 app.use(loadShedding());
 
 app.use(helmet({

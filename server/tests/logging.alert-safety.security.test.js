@@ -62,12 +62,16 @@ describe('logging and alert safety', () => {
             uid: rawUserId,
             firebaseUid: rawUserId,
             authUid: rawUserId,
+            actorId: rawUserId,
+            resourceId: rawUserId,
         });
 
         expect(redacted.userId).toMatch(/^[a-f0-9]{16}$/);
         expect(redacted.uid).toBe(redacted.userId);
         expect(redacted.firebaseUid).toBe(redacted.userId);
         expect(redacted.authUid).toBe(redacted.userId);
+        expect(redacted.actorId).toBe(redacted.userId);
+        expect(redacted.resourceId).toBe(redacted.userId);
         expect(JSON.stringify(redacted)).not.toContain(rawUserId);
     });
 

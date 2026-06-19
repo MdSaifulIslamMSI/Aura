@@ -21,8 +21,6 @@ const resolveTrustFabricConfig = (env = process.env, overrides = {}) => {
         : ENFORCEMENT_MODES.OFF;
 
     return {
-        enabled,
-        mode,
         enforceOwnership: typeof overrides.enforceOwnership === 'boolean'
             ? overrides.enforceOwnership
             : parseBoolean(env.AURA_TRUST_FABRIC_ENFORCE_OWNERSHIP, false),

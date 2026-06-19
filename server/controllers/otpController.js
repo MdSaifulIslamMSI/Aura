@@ -32,7 +32,7 @@ const {
     AUTH_ASSURANCE_ACTIONS,
     requireAuthAssurance,
 } = require('../services/authAssurancePolicyService');
-const { revokeBrowserSessionsForUser } = require('../services/browserSessionService');
+const browserSessionService = require('../services/browserSessionService');
 const {
     cacheUserAuthTokensRevokedAfter,
     invalidateUserCache,
@@ -164,6 +164,7 @@ const RESET_PASSWORD_ERROR_CODES = Object.freeze({
     FIREBASE_LOOKUP_FAILED: 'OTP_RESET_FIREBASE_LOOKUP_FAILED',
     FIREBASE_UPDATE_FAILED: 'OTP_RESET_FIREBASE_UPDATE_FAILED',
     LOCAL_SESSION_REVOKE_FAILED: 'OTP_RESET_LOCAL_SESSION_REVOKE_FAILED',
+    USER_REVOCATION_MARKER_FAILED: 'OTP_RESET_USER_REVOCATION_MARKER_FAILED',
     REDIS_REVOCATION_MARKER_FAILED: 'OTP_RESET_REDIS_REVOCATION_MARKER_FAILED',
     FIREBASE_REFRESH_REVOKE_FAILED: 'OTP_RESET_FIREBASE_REFRESH_REVOKE_FAILED',
 });
@@ -1930,10 +1931,14 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
 
     await consumeReservedOtpFlowGrant(grantIdentity);
 
+    const authTokensRevokedAfter = new Date();
     let sessionCleanupPending = false;
+    let browserSessionRevocationSatisfied = false;
     try {
-        await revokeBrowserSessionsForUser(user._id);
+        await browserSessionService.revokeBrowserSessionsForUser(user._id);
+        browserSessionRevocationSatisfied = true;
     } catch (error) {
+        sessionCleanupPending = true;
         logger.error('otp.reset_password_browser_session_revocation_failed', {
             ...resetTrace,
             stage: 'browser_session_revoke',
@@ -1942,27 +1947,54 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
             providerMessage: sanitizeResetProviderMessage(error?.message),
         });
 
-        return next(resetPasswordError(
-            'Password was updated, but session cleanup is still processing. Please sign in again.',
-            RESET_PASSWORD_ERROR_CODES.LOCAL_SESSION_REVOKE_FAILED
-        ));
+        try {
+            await browserSessionService.revokeAllBrowserSessions({ revokedAfter: authTokensRevokedAfter });
+            browserSessionRevocationSatisfied = true;
+            logger.warn('otp.reset_password_browser_session_global_revocation_fallback', {
+                ...resetTrace,
+                stage: 'browser_session_global_revoke',
+                publicCode: RESET_PASSWORD_ERROR_CODES.LOCAL_SESSION_REVOKE_FAILED,
+            });
+        } catch (fallbackError) {
+            logger.error('otp.reset_password_browser_session_global_revocation_failed', {
+                ...resetTrace,
+                stage: 'browser_session_global_revoke',
+                publicCode: RESET_PASSWORD_ERROR_CODES.LOCAL_SESSION_REVOKE_FAILED,
+                providerCode: fallbackError?.code || '',
+                providerMessage: sanitizeResetProviderMessage(fallbackError?.message),
+            });
+        }
     }
 
-    const authTokensRevokedAfter = new Date();
-    await User.updateOne(
-        { _id: user._id },
-        {
-            $set: {
-                resetOtpVerifiedAt: null,
-                authAssurance: 'password',
-                authAssuranceAt: authTokensRevokedAfter,
-                authAssuranceAuthTime: null,
-                authTokensRevokedAfter,
-            },
-        }
-    );
+    let userRevocationMarkerPersisted = false;
+    try {
+        await User.updateOne(
+            { _id: user._id },
+            {
+                $set: {
+                    resetOtpVerifiedAt: null,
+                    authAssurance: 'password',
+                    authAssuranceAt: authTokensRevokedAfter,
+                    authAssuranceAuthTime: null,
+                    authTokensRevokedAfter,
+                },
+            }
+        );
+        userRevocationMarkerPersisted = true;
+    } catch (error) {
+        sessionCleanupPending = true;
+        logger.error('otp.reset_password_user_revocation_marker_failed', {
+            ...resetTrace,
+            stage: 'user_revocation_marker',
+            publicCode: RESET_PASSWORD_ERROR_CODES.USER_REVOCATION_MARKER_FAILED,
+            providerCode: error?.code || '',
+            providerMessage: sanitizeResetProviderMessage(error?.message),
+        });
+    }
+
     const revocationMarkerCached = await cacheUserAuthTokensRevokedAfter(authUser.uid || '', authTokensRevokedAfter);
     if (!revocationMarkerCached) {
+        sessionCleanupPending = true;
         logger.error('otp.reset_password_revocation_marker_failed', {
             ...resetTrace,
             stage: 'redis_revocation_marker',
@@ -1985,10 +2017,17 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         });
     }
 
-    if (sessionCleanupPending && !revocationMarkerCached) {
+    if (!browserSessionRevocationSatisfied && !userRevocationMarkerPersisted && !revocationMarkerCached) {
         return next(resetPasswordError(
             'Password was updated, but session cleanup is still processing. Please sign in again.',
-            RESET_PASSWORD_ERROR_CODES.REDIS_REVOCATION_MARKER_FAILED
+            RESET_PASSWORD_ERROR_CODES.LOCAL_SESSION_REVOKE_FAILED
+        ));
+    }
+
+    if (!userRevocationMarkerPersisted && !revocationMarkerCached) {
+        return next(resetPasswordError(
+            'Password was updated, but session cleanup is still processing. Please sign in again.',
+            RESET_PASSWORD_ERROR_CODES.USER_REVOCATION_MARKER_FAILED
         ));
     }
 
@@ -2011,7 +2050,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
         ip: clientIp,
         requestId,
         success: true,
-        reason: sessionCleanupPending ? 'firebase_session_cleanup_pending' : null,
+        reason: sessionCleanupPending ? 'session_cleanup_pending' : null,
     });
 
     res.json({

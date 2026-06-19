@@ -1,5 +1,5 @@
-const crypto = require('crypto');
 const logger = require('../utils/logger');
+const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const SECURITY_AUDIT_EVENTS = Object.freeze({
     AUTH_LOGIN_SUCCESS: 'auth.login.success',
@@ -27,12 +27,10 @@ const SECURITY_AUDIT_EVENTS = Object.freeze({
 });
 
 const SENSITIVE_AUDIT_KEY_PATTERN = /(authorization|cookie|token|otp|password|secret|api[_-]?key|card|cvv|pan|rawbody|payload|private)/i;
+const AUDIT_IDENTIFIER_KEY_PATTERN = /^(actorId|resourceId|userId|uid|firebaseUid|authUid|accountId|ownerId|tenantId|sellerId|buyerId)$/i;
+const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
 
-const hashValue = (value = '') => crypto
-    .createHash('sha256')
-    .update(String(value || ''))
-    .digest('hex')
-    .slice(0, 16);
+const hashValue = (value = '') => hashSecurityValue(value);
 
 const truncateIp = (value = '') => {
     const ip = String(value || '').trim();
@@ -61,6 +59,13 @@ const redactAuditMeta = (value, key = '') => {
 
     if (SENSITIVE_AUDIT_KEY_PATTERN.test(String(key || ''))) {
         return '[REDACTED]';
+    }
+
+    if (AUDIT_IDENTIFIER_KEY_PATTERN.test(String(key || ''))) {
+        const normalizedValue = String(value || '').trim();
+        if (!normalizedValue) return '';
+        if (HASHED_IDENTIFIER_PATTERN.test(normalizedValue)) return normalizedValue;
+        return hashSecurityValue(normalizedValue);
     }
 
     if (String(key || '').toLowerCase().includes('ip')) {
