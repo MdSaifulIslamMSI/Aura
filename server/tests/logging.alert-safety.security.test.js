@@ -75,6 +75,33 @@ describe('logging and alert safety', () => {
         expect(JSON.stringify(redacted)).not.toContain(rawUserId);
     });
 
+    test('redacts sensitive object-valued metadata before nested traversal', () => {
+        const sensitiveObject = {
+            uid: 'oidc-subject-sensitive',
+            email: 'oidc.user@example.test',
+            password: fixture('nested-', 'password-', 'secret'),
+            nested: {
+                accessToken: 'raw-jwt-secret-fixture',
+            },
+        };
+        const redacted = logger.redactSensitiveData({
+            authToken: sensitiveObject,
+            credentials: sensitiveObject,
+            safe: {
+                email: 'safe.user@example.test',
+            },
+        });
+        const serialized = JSON.stringify(redacted);
+
+        expect(redacted.authToken).toBe(logger.REDACTED_PLACEHOLDER);
+        expect(redacted.credentials).toBe(logger.REDACTED_PLACEHOLDER);
+        expect(redacted.safe.email).toMatch(/sa\*\*\*@example\.test$/);
+        expect(serialized).not.toContain('oidc-subject-sensitive');
+        expect(serialized).not.toContain('oidc.user@example.test');
+        expect(serialized).not.toContain('raw-jwt-secret-fixture');
+        expect(serialized).not.toContain(fixture('nested-', 'password-', 'secret'));
+    });
+
     test('auth security outbox envelopes redact sensitive meta before persistence', async () => {
         const product = await createFakeProduct({ title: 'Logging Redaction Guard Product' });
         const beforeProduct = await Product.findById(product._id).lean();

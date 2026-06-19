@@ -40,6 +40,33 @@ describe('security audit service', () => {
         });
     });
 
+    test('redacts sensitive object-valued audit metadata before nested traversal', () => {
+        const redacted = redactAuditMeta({
+            authToken: {
+                uid: 'oidc-subject-sensitive',
+                email: 'oidc.user@example.test',
+                nested: {
+                    accessToken: 'raw-jwt-secret-fixture',
+                },
+            },
+            credentialProof: {
+                challenge: 'raw-credential-proof-fixture',
+            },
+            safe: {
+                email: 'visible-only-in-safe-fixture',
+            },
+        });
+        const serialized = JSON.stringify(redacted);
+
+        expect(redacted.authToken).toBe('[REDACTED]');
+        expect(redacted.credentialProof).toBe('[REDACTED]');
+        expect(redacted.safe.email).toBe('visible-only-in-safe-fixture');
+        expect(serialized).not.toContain('oidc-subject-sensitive');
+        expect(serialized).not.toContain('oidc.user@example.test');
+        expect(serialized).not.toContain('raw-jwt-secret-fixture');
+        expect(serialized).not.toContain('raw-credential-proof-fixture');
+    });
+
     test('records bounded audit event with IP truncation and user-agent hash', () => {
         const payload = recordSecurityAuditEvent({
             event: 'security.policy.denied',

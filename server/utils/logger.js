@@ -2,7 +2,7 @@ const os = require('os');
 const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const REDACTED_PLACEHOLDER = '[REDACTED]';
-const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(number)?|cvv|pan)/i;
+const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(number)?|cvv|pan|credential|signature|private|rawbody|payload)/i;
 const IDENTIFIER_KEY_PATTERN = /^(userId|uid|firebaseUid|authUid|accountId|actorId|resourceId|ownerId|tenantId|sellerId|buyerId)$/i;
 const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
 const URL_LIKE_KEY_PATTERN = /(url|uri|path|route)$/i;
@@ -52,6 +52,11 @@ const sanitizeStringForKey = (key, value) => {
 const redactSensitiveData = (value, key = '') => {
     if (value === null || value === undefined) return value;
 
+    const normalizedKey = String(key || '');
+    if (SENSITIVE_KEY_PATTERN.test(normalizedKey)) {
+        return sanitizeStringForKey(key, value);
+    }
+
     if (Array.isArray(value)) {
         return value.map((item) => redactSensitiveData(item, key));
     }
@@ -75,14 +80,10 @@ const redactSensitiveData = (value, key = '') => {
         }, {});
     }
 
-    const normalizedKey = String(key || '');
     if (IDENTIFIER_KEY_PATTERN.test(normalizedKey)) {
         const normalizedValue = String(value || '').trim();
         if (HASHED_IDENTIFIER_PATTERN.test(normalizedValue)) return normalizedValue;
         return hashSecurityValue(value);
-    }
-    if (SENSITIVE_KEY_PATTERN.test(normalizedKey)) {
-        return sanitizeStringForKey(key, value);
     }
     if (URL_LIKE_KEY_PATTERN.test(normalizedKey)) {
         return sanitizeUrlLikeValue(value);

@@ -26,7 +26,7 @@ const SECURITY_AUDIT_EVENTS = Object.freeze({
     AI_TOOL_ACTION_DENIED: 'ai.tool_action.denied',
 });
 
-const SENSITIVE_AUDIT_KEY_PATTERN = /(authorization|cookie|token|otp|password|secret|api[_-]?key|card|cvv|pan|rawbody|payload|private)/i;
+const SENSITIVE_AUDIT_KEY_PATTERN = /(authorization|cookie|token|otp|password|secret|api[_-]?key|card|cvv|pan|rawbody|payload|private|credential|signature|proof)/i;
 const AUDIT_IDENTIFIER_KEY_PATTERN = /^(actorId|resourceId|userId|uid|firebaseUid|authUid|accountId|ownerId|tenantId|sellerId|buyerId)$/i;
 const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
 
@@ -42,6 +42,10 @@ const truncateIp = (value = '') => {
 const redactAuditMeta = (value, key = '') => {
     if (value === null || value === undefined) return value;
 
+    if (SENSITIVE_AUDIT_KEY_PATTERN.test(String(key || ''))) {
+        return '[REDACTED]';
+    }
+
     if (Array.isArray(value)) {
         return value.map((entry) => redactAuditMeta(entry, key));
     }
@@ -55,10 +59,6 @@ const redactAuditMeta = (value, key = '') => {
             acc[entryKey] = redactAuditMeta(entryValue, entryKey);
             return acc;
         }, {});
-    }
-
-    if (SENSITIVE_AUDIT_KEY_PATTERN.test(String(key || ''))) {
-        return '[REDACTED]';
     }
 
     if (AUDIT_IDENTIFIER_KEY_PATTERN.test(String(key || ''))) {
