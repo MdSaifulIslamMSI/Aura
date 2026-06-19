@@ -12,9 +12,11 @@ const getSecurityHashKey = () => String(
     || 'aura-local-security-log-key'
 ).trim();
 
+const buildSecurityHmacKey = (value = '') => `${getSecurityHashKey()}:${String(value || '')}`;
+
 const hashSecurityValue = (value = '', length = 16) => crypto
-    .createHmac('sha256', getSecurityHashKey())
-    .update(`${SECURITY_HASH_CONTEXT}:${String(value || '')}`)
+    .createHmac('sha256', buildSecurityHmacKey(value))
+    .update(SECURITY_HASH_CONTEXT)
     .digest('hex')
     .slice(0, length);
 
