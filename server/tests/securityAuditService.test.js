@@ -67,6 +67,21 @@ describe('security audit service', () => {
         expect(serialized).not.toContain('raw-credential-proof-fixture');
     });
 
+    test('redacts secret-shaped strings from non-sensitive audit text fields', () => {
+        const bearer = ['Bearer ', 'eyJhbGci.audit.fixture'].join('');
+        const webhookSecret = ['whsec_', 'auditfixture'].join('');
+        const redacted = redactAuditMeta({
+            reason: `provider rejected ${bearer}`,
+            note: `webhook verifier received ${webhookSecret}`,
+        });
+        const serialized = JSON.stringify(redacted);
+
+        expect(redacted.reason).toBe('provider rejected [REDACTED]');
+        expect(redacted.note).toBe('webhook verifier received [REDACTED]');
+        expect(serialized).not.toContain(bearer);
+        expect(serialized).not.toContain(webhookSecret);
+    });
+
     test('records bounded audit event with IP truncation and user-agent hash', () => {
         const payload = recordSecurityAuditEvent({
             event: 'security.policy.denied',

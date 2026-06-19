@@ -146,28 +146,33 @@ describe('logging and alert safety', () => {
     test('structured logger strips sensitive query values from request locations and errors', () => {
         const rawEmail = 'recovery.user@example.test';
         const rawPhone = '+919876543210';
+        const rawBearer = fixture('Bearer ', 'eyJhbGci.raw.fixture');
+        const rawWebhookSecret = fixture('whsec_', 'rawwebhookfixture');
         const requestUrl = `/api/otp/challenge?email=${encodeURIComponent(rawEmail)}&phone=${encodeURIComponent(rawPhone)}`;
         const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
         const redacted = logger.redactSensitiveData({
             url: requestUrl,
             path: requestUrl,
             clientRoute: `/login?email=${encodeURIComponent(rawEmail)}`,
-            error: new Error(`Not Found - ${requestUrl}`),
+            error: new Error(`Not Found - ${requestUrl} ${rawBearer} ${rawWebhookSecret}`),
+            note: `provider replied with ${rawBearer}`,
         });
         const serialized = JSON.stringify(redacted);
-        logger.error(`Not Found - ${requestUrl}`, redacted);
+        logger.error(`Not Found - ${requestUrl} ${rawBearer}`, redacted);
         const output = errorSpy.mock.calls.map((call) => call.join(' ')).join('\n');
         errorSpy.mockRestore();
 
         expect(redacted.url).toBe(`/api/otp/challenge?${logger.REDACTED_PLACEHOLDER}`);
         expect(redacted.path).toBe(`/api/otp/challenge?${logger.REDACTED_PLACEHOLDER}`);
         expect(redacted.clientRoute).toBe(`/login?${logger.REDACTED_PLACEHOLDER}`);
-        expect(redacted.error.message).toBe(`Not Found - /api/otp/challenge?${logger.REDACTED_PLACEHOLDER}`);
+        expect(redacted.error.message).toBe(`Not Found - /api/otp/challenge?${logger.REDACTED_PLACEHOLDER} ${logger.REDACTED_PLACEHOLDER} ${logger.REDACTED_PLACEHOLDER}`);
         for (const loggedValue of [serialized, output]) {
             expect(loggedValue).not.toContain(rawEmail);
             expect(loggedValue).not.toContain(encodeURIComponent(rawEmail));
             expect(loggedValue).not.toContain(rawPhone);
             expect(loggedValue).not.toContain(encodeURIComponent(rawPhone));
+            expect(loggedValue).not.toContain(rawBearer);
+            expect(loggedValue).not.toContain(rawWebhookSecret);
         }
     });
 });

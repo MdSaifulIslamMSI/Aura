@@ -7,6 +7,7 @@ const IDENTIFIER_KEY_PATTERN = /^(userId|uid|firebaseUid|authUid|accountId|actor
 const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
 const URL_LIKE_KEY_PATTERN = /(url|uri|path|route)$/i;
 const URL_WITH_QUERY_PATTERN = /((?:https?:\/\/|\/)[^\s"'`?]+)\?[^\s"'`]*/gi;
+const SENSITIVE_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
 
 const maskEmail = (email) => {
     const value = String(email || '').trim();
@@ -27,6 +28,9 @@ const maskPhone = (phone) => {
 
 const redactUrlQueriesInText = (value) => String(value || '')
     .replace(URL_WITH_QUERY_PATTERN, `$1?${REDACTED_PLACEHOLDER}`);
+
+const redactSensitiveText = (value) => redactUrlQueriesInText(value)
+    .replace(SENSITIVE_TEXT_PATTERN, REDACTED_PLACEHOLDER);
 
 const sanitizeUrlLikeValue = (value) => {
     const normalizedValue = String(value || '');
@@ -67,8 +71,8 @@ const redactSensitiveData = (value, key = '') => {
 
     if (value instanceof Error) {
         return {
-            message: redactUrlQueriesInText(value.message),
-            stack: redactUrlQueriesInText(value.stack),
+            message: redactSensitiveText(value.message),
+            stack: redactSensitiveText(value.stack),
             name: value.name,
         };
     }
@@ -89,6 +93,8 @@ const redactSensitiveData = (value, key = '') => {
         return sanitizeUrlLikeValue(value);
     }
 
+    if (typeof value === 'string') return redactSensitiveText(value);
+
     return value;
 };
 
@@ -98,7 +104,7 @@ const formatMessage = (level, message, meta = {}) => {
     return JSON.stringify({
         timestamp: new Date().toISOString(),
         level,
-        message: redactUrlQueriesInText(message),
+        message: redactSensitiveText(message),
         hostname: os.hostname(),
         pid: process.pid,
         ...sanitizedMeta,

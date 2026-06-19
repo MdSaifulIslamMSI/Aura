@@ -29,8 +29,11 @@ const SECURITY_AUDIT_EVENTS = Object.freeze({
 const SENSITIVE_AUDIT_KEY_PATTERN = /(authorization|cookie|token|otp|password|secret|api[_-]?key|card|cvv|pan|rawbody|payload|private|credential|signature|proof)/i;
 const AUDIT_IDENTIFIER_KEY_PATTERN = /^(actorId|resourceId|userId|uid|firebaseUid|authUid|accountId|ownerId|tenantId|sellerId|buyerId)$/i;
 const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
+const SENSITIVE_AUDIT_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
 
 const hashValue = (value = '') => hashSecurityValue(value);
+
+const redactAuditText = (value = '') => String(value || '').replace(SENSITIVE_AUDIT_TEXT_PATTERN, '[REDACTED]');
 
 const truncateIp = (value = '') => {
     const ip = String(value || '').trim();
@@ -74,6 +77,10 @@ const redactAuditMeta = (value, key = '') => {
 
     if (String(key || '').toLowerCase().includes('useragent')) {
         return hashValue(value);
+    }
+
+    if (typeof value === 'string') {
+        return redactAuditText(value);
     }
 
     return value;
