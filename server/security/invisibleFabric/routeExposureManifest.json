@@ -2,7 +2,7 @@
   "generatedBy": "scripts/security/invisible-route-exposure.mjs",
   "schemaVersion": 1,
   "routeCount": 295,
-  "hash": "a2ca23f9cf27952d1a9cc4de082e732cc1427eee8dc16908f32c692c13318cd3",
+  "hash": "adf84f8d912b304f881c16e4510c841b7fbdd7e2cdf9a59c68626aedba8eb113",
   "routes": [
     {
       "method": "DELETE",
@@ -1475,22 +1475,6 @@
       "publiclyDiscoverable": false,
       "signatureVerificationRequired": false,
       "notes": "Authenticated product workflow route; sensitive mutations are covered by routeSecurityGuards."
-    },
-    {
-      "method": "GET",
-      "route": "/api/otp/challenge",
-      "file": "server/routes/otpRoutes.js",
-      "classification": "public",
-      "authRequired": false,
-      "adminRequired": false,
-      "mfaRequired": false,
-      "csrfRequired": false,
-      "replayGuardRequired": false,
-      "rateLimitRequired": true,
-      "resourceAuthorizationRequired": false,
-      "publiclyDiscoverable": true,
-      "signatureVerificationRequired": false,
-      "notes": "Authentication bootstrap route; individual sensitive auth endpoints carry additional middleware."
     },
     {
       "method": "GET",
@@ -3875,6 +3859,22 @@
       "publiclyDiscoverable": false,
       "signatureVerificationRequired": false,
       "notes": "Authenticated product workflow route; sensitive mutations are covered by routeSecurityGuards."
+    },
+    {
+      "method": "POST",
+      "route": "/api/otp/challenge",
+      "file": "server/routes/otpRoutes.js",
+      "classification": "public",
+      "authRequired": false,
+      "adminRequired": false,
+      "mfaRequired": false,
+      "csrfRequired": false,
+      "replayGuardRequired": false,
+      "rateLimitRequired": true,
+      "resourceAuthorizationRequired": false,
+      "publiclyDiscoverable": true,
+      "signatureVerificationRequired": false,
+      "notes": "Authentication bootstrap route; individual sensitive auth endpoints carry additional middleware."
     },
     {
       "method": "POST",

@@ -51,7 +51,10 @@ exports.sendPersistentNotification = async (userId, title, message, options = {}
 
         return notification;
     } catch (error) {
-        logger.error(`Failed to send persistent notification to ${userId}: ${error.message}`);
+        logger.error('notification.persistent_send_failed', {
+            userId: String(userId || ''),
+            error: error?.message || 'unknown',
+        });
         throw error;
     }
 };

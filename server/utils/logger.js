@@ -1,7 +1,11 @@
 const os = require('os');
+const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const REDACTED_PLACEHOLDER = '[REDACTED]';
 const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(number)?|cvv|pan)/i;
+const IDENTIFIER_KEY_PATTERN = /^(userId|uid|firebaseUid|authUid|accountId)$/i;
+const URL_LIKE_KEY_PATTERN = /(url|uri|path|route)$/i;
+const URL_WITH_QUERY_PATTERN = /((?:https?:\/\/|\/)[^\s"'`?]+)\?[^\s"'`]*/gi;
 
 const maskEmail = (email) => {
     const value = String(email || '').trim();
@@ -18,6 +22,16 @@ const maskPhone = (phone) => {
     const digits = String(phone || '').replace(/\D/g, '');
     if (!digits) return REDACTED_PLACEHOLDER;
     return `***${digits.slice(-4)}`;
+};
+
+const redactUrlQueriesInText = (value) => String(value || '')
+    .replace(URL_WITH_QUERY_PATTERN, `$1?${REDACTED_PLACEHOLDER}`);
+
+const sanitizeUrlLikeValue = (value) => {
+    const normalizedValue = String(value || '');
+    const queryIndex = normalizedValue.indexOf('?');
+    if (queryIndex < 0) return normalizedValue;
+    return `${normalizedValue.slice(0, queryIndex)}?${REDACTED_PLACEHOLDER}`;
 };
 
 const sanitizeStringForKey = (key, value) => {
@@ -47,8 +61,8 @@ const redactSensitiveData = (value, key = '') => {
 
     if (value instanceof Error) {
         return {
-            message: value.message,
-            stack: value.stack,
+            message: redactUrlQueriesInText(value.message),
+            stack: redactUrlQueriesInText(value.stack),
             name: value.name,
         };
     }
@@ -60,8 +74,15 @@ const redactSensitiveData = (value, key = '') => {
         }, {});
     }
 
-    if (SENSITIVE_KEY_PATTERN.test(String(key || ''))) {
+    const normalizedKey = String(key || '');
+    if (IDENTIFIER_KEY_PATTERN.test(normalizedKey)) {
+        return hashSecurityValue(value);
+    }
+    if (SENSITIVE_KEY_PATTERN.test(normalizedKey)) {
         return sanitizeStringForKey(key, value);
+    }
+    if (URL_LIKE_KEY_PATTERN.test(normalizedKey)) {
+        return sanitizeUrlLikeValue(value);
     }
 
     return value;
@@ -73,7 +94,7 @@ const formatMessage = (level, message, meta = {}) => {
     return JSON.stringify({
         timestamp: new Date().toISOString(),
         level,
-        message,
+        message: redactUrlQueriesInText(message),
         hostname: os.hostname(),
         pid: process.pid,
         ...sanitizedMeta,
@@ -110,6 +131,7 @@ const logger = {
     },
     redactSensitiveData,
     REDACTED_PLACEHOLDER,
+    sanitizeUrlLikeValue,
 };
 
 module.exports = logger;

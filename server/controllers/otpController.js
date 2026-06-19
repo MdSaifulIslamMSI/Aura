@@ -715,13 +715,13 @@ const rollbackOtpStateAfterDeliveryFailure = async ({
 };
 
 /**
- * @desc    Send OTP to user's email and mobile number
- * @route   POST /api/otp/send
+ * @desc    Generate an identity-bound Proof-of-Work challenge
+ * @route   POST /api/otp/challenge
  * @access  Public
  */
 const getOtpChallenge = asyncHandler(async (req, res, next) => {
-    const rawEmail = req.query?.email || req.body?.email || '';
-    const rawPhone = req.query?.phone || req.body?.phone || '';
+    const rawEmail = req.body?.email || '';
+    const rawPhone = req.body?.phone || '';
 
     if (typeof rawEmail !== 'string' || typeof rawPhone !== 'string') {
         return next(new AppError('Email and phone parameters must be strings', 400));

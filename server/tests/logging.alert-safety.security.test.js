@@ -55,6 +55,22 @@ describe('logging and alert safety', () => {
         expect(redacted.unsafeEmailHash).not.toContain('alice.sensitive@example.test');
     });
 
+    test('pseudonymizes raw user identifiers while preserving stable correlation', () => {
+        const rawUserId = 'firebase-user-sensitive-123';
+        const redacted = logger.redactSensitiveData({
+            userId: rawUserId,
+            uid: rawUserId,
+            firebaseUid: rawUserId,
+            authUid: rawUserId,
+        });
+
+        expect(redacted.userId).toMatch(/^[a-f0-9]{16}$/);
+        expect(redacted.uid).toBe(redacted.userId);
+        expect(redacted.firebaseUid).toBe(redacted.userId);
+        expect(redacted.authUid).toBe(redacted.userId);
+        expect(JSON.stringify(redacted)).not.toContain(rawUserId);
+    });
+
     test('auth security outbox envelopes redact sensitive meta before persistence', async () => {
         const product = await createFakeProduct({ title: 'Logging Redaction Guard Product' });
         const beforeProduct = await Product.findById(product._id).lean();
@@ -94,5 +110,33 @@ describe('logging and alert safety', () => {
 
         warnSpy.mockRestore();
         await expectDocumentUnchanged(Product, product._id, beforeProduct);
+    });
+
+    test('structured logger strips sensitive query values from request locations and errors', () => {
+        const rawEmail = 'recovery.user@example.test';
+        const rawPhone = '+919876543210';
+        const requestUrl = `/api/otp/challenge?email=${encodeURIComponent(rawEmail)}&phone=${encodeURIComponent(rawPhone)}`;
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const redacted = logger.redactSensitiveData({
+            url: requestUrl,
+            path: requestUrl,
+            clientRoute: `/login?email=${encodeURIComponent(rawEmail)}`,
+            error: new Error(`Not Found - ${requestUrl}`),
+        });
+        const serialized = JSON.stringify(redacted);
+        logger.error(`Not Found - ${requestUrl}`, redacted);
+        const output = errorSpy.mock.calls.map((call) => call.join(' ')).join('\n');
+        errorSpy.mockRestore();
+
+        expect(redacted.url).toBe(`/api/otp/challenge?${logger.REDACTED_PLACEHOLDER}`);
+        expect(redacted.path).toBe(`/api/otp/challenge?${logger.REDACTED_PLACEHOLDER}`);
+        expect(redacted.clientRoute).toBe(`/login?${logger.REDACTED_PLACEHOLDER}`);
+        expect(redacted.error.message).toBe(`Not Found - /api/otp/challenge?${logger.REDACTED_PLACEHOLDER}`);
+        for (const loggedValue of [serialized, output]) {
+            expect(loggedValue).not.toContain(rawEmail);
+            expect(loggedValue).not.toContain(encodeURIComponent(rawEmail));
+            expect(loggedValue).not.toContain(rawPhone);
+            expect(loggedValue).not.toContain(encodeURIComponent(rawPhone));
+        }
     });
 });

@@ -842,8 +842,14 @@ describe('authApi', () => {
     })).rejects.toThrow();
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    const [url] = global.fetch.mock.calls[0];
+    const [url, requestOptions] = global.fetch.mock.calls[0];
     expect(url).toContain('/otp/challenge');
+    expect(url).not.toContain('?');
+    expect(requestOptions.method).toBe('POST');
+    expect(JSON.parse(requestOptions.body)).toEqual({
+      email: 'user@example.com',
+      phone: '+919999999999',
+    });
   });
 
   it('aborts and throws immediately if the proof-of-work challenge endpoint returns 503', async () => {
@@ -868,8 +874,14 @@ describe('authApi', () => {
     })).rejects.toThrow();
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    const [url] = global.fetch.mock.calls[0];
+    const [url, requestOptions] = global.fetch.mock.calls[0];
     expect(url).toContain('/otp/challenge');
+    expect(url).not.toContain('?');
+    expect(requestOptions.method).toBe('POST');
+    expect(JSON.parse(requestOptions.body)).toEqual({
+      email: 'user@example.com',
+      phone: '+919999999999',
+    });
   });
 
   it('passes a Turnstile token to OTP verification when provided', async () => {

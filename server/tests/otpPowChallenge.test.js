@@ -44,10 +44,11 @@ describe('OTP Proof-of-Work Challenge Security', () => {
         process.env.OTP_POW_DIFFICULTY = '3';
     });
 
-    test('1. GET /api/otp/challenge generates a valid bound challenge token', async () => {
+    test('1. POST /api/otp/challenge generates a valid bound challenge token without URL identity data', async () => {
         const identity = uniqueIdentity();
         const res = await request(app)
-            .get(`/api/otp/challenge?email=${identity.email}&phone=${identity.phone}`)
+            .post('/api/otp/challenge')
+            .send(identity)
             .expect(200);
 
         expect(res.body.success).toBe(true);
@@ -58,7 +59,21 @@ describe('OTP Proof-of-Work Challenge Security', () => {
         expect(parts.length).toBe(2);
     });
 
-    test('2. POST /api/otp/send rejects request when powToken and powNonce are missing', async () => {
+    test('2. /api/otp/challenge rejects legacy GET and query-only identity submissions', async () => {
+        const identity = uniqueIdentity();
+
+        await request(app)
+            .get(`/api/otp/challenge?email=${identity.email}&phone=${identity.phone}`)
+            .expect(404);
+
+        const res = await request(app)
+            .post(`/api/otp/challenge?email=${identity.email}&phone=${identity.phone}`)
+            .expect(400);
+
+        expect(res.body.message).toContain('Email and phone parameters are required');
+    });
+
+    test('3. POST /api/otp/send rejects request when powToken and powNonce are missing', async () => {
         const identity = uniqueIdentity();
         const res = await request(app)
             .post('/api/otp/send')
@@ -72,10 +87,11 @@ describe('OTP Proof-of-Work Challenge Security', () => {
         expect(res.body.message).toContain('Proof-of-Work challenge token and nonce are required');
     });
 
-    test('3. POST /api/otp/send rejects invalid solutions or expired tokens', async () => {
+    test('4. POST /api/otp/send rejects invalid solutions or expired tokens', async () => {
         const identity = uniqueIdentity();
         const challengeRes = await request(app)
-            .get(`/api/otp/challenge?email=${identity.email}&phone=${identity.phone}`)
+            .post('/api/otp/challenge')
+            .send(identity)
             .expect(200);
 
         const res = await request(app)
@@ -92,10 +108,11 @@ describe('OTP Proof-of-Work Challenge Security', () => {
         expect(res.body.message).toContain('Proof-of-Work verification failed or challenge expired');
     });
 
-    test('4. POST /api/otp/send accepts valid Proof-of-Work solutions', async () => {
+    test('5. POST /api/otp/send accepts valid Proof-of-Work solutions', async () => {
         const identity = uniqueIdentity();
         const challengeRes = await request(app)
-            .get(`/api/otp/challenge?email=${identity.email}&phone=${identity.phone}`)
+            .post('/api/otp/challenge')
+            .send(identity)
             .expect(200);
 
         const nonce = solveChallengeSync(challengeRes.body.powToken, challengeRes.body.difficulty);
@@ -114,12 +131,13 @@ describe('OTP Proof-of-Work Challenge Security', () => {
         expect(res.body.success).toBe(true);
     });
 
-    test('5. verifyPowChallenge rejects solutions solved for a different IP, email, or phone', async () => {
+    test('6. verifyPowChallenge rejects solutions solved for a different IP, email, or phone', async () => {
         const identity1 = uniqueIdentity();
         const identity2 = uniqueIdentity();
 
         const challengeRes = await request(app)
-            .get(`/api/otp/challenge?email=${identity1.email}&phone=${identity1.phone}`)
+            .post('/api/otp/challenge')
+            .send(identity1)
             .expect(200);
 
         const nonce = solveChallengeSync(challengeRes.body.powToken, challengeRes.body.difficulty);
@@ -138,7 +156,7 @@ describe('OTP Proof-of-Work Challenge Security', () => {
         expect(res.body.message).toContain('Proof-of-Work verification failed or challenge expired');
     });
 
-    test('6. OTP send proceeds without PoW challenge validation when OTP_POW_REQUIRED is false', async () => {
+    test('7. OTP send proceeds without PoW challenge validation when OTP_POW_REQUIRED is false', async () => {
         process.env.OTP_POW_REQUIRED = 'false';
         const identity = uniqueIdentity();
 

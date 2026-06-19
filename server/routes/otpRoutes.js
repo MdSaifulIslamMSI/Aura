@@ -77,7 +77,7 @@ const checkUserLimiter = createDistributedRateLimit({
     message: 'Too many account checks. Please wait before trying again.',
 });
 
-router.get('/challenge', checkUserLimiter, getOtpChallenge);
+router.post('/challenge', checkUserLimiter, getOtpChallenge);
 router.post('/send', requireTurnstile({ routeName: 'otp_send' }), otpLimiter, sendOtp);
 router.post('/verify', requireTurnstile({ routeName: 'otp_verify' }), verifyLimiter, verifyOtp);
 router.post('/reset-password', requireTurnstile({ routeName: 'otp_reset_password' }), resetPasswordNetworkLimiter, resetPasswordLimiter, resetPasswordWithOtp);

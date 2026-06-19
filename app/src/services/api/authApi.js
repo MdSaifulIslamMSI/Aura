@@ -587,8 +587,9 @@ export const otpApi = {
 
         if (shouldFetchChallenge) {
             try {
-                const challengeRes = await apiFetch(`/otp/challenge?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`, {
-                    method: 'GET',
+                const challengeRes = await apiFetch('/otp/challenge', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, phone }),
                     retries: 0,
                 });
                 if (challengeRes?.data?.powToken) {
