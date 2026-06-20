@@ -265,13 +265,30 @@ describe('payment architecture foundation', () => {
     });
 
     test('observability helpers redact secrets and tokens', () => {
+        const bearer = ['Bearer ', 'payment-observability-token'].join('');
+        const webhookSecret = ['whsec_', 'paymentobservability'].join('');
+        const apiKey = ['sk_test_', 'paymentobservability'].join('');
+        const paymentClientSecret = ['pi_paymentobservable_', 'secret_123'].join('');
         const redacted = redactSensitivePaymentLog({
             provider: 'hyperswitch',
             HYPERSWITCH_API_KEY: 'should-not-leak',
-            nested: { token: 'also-hidden', paymentIntentId: 'pi_1' },
+            webhookSignature: 'signature-should-not-leak',
+            signatureVerified: true,
+            nested: {
+                token: 'also-hidden',
+                paymentIntentId: 'pi_1',
+                message: `provider failed with ${bearer} ${webhookSecret} ${apiKey} ${paymentClientSecret}`,
+            },
         });
+        const serialized = JSON.stringify(redacted);
         expect(redacted.HYPERSWITCH_API_KEY).toBe('[redacted]');
+        expect(redacted.webhookSignature).toBe('[redacted]');
+        expect(redacted.signatureVerified).toBe(true);
         expect(redacted.nested.token).toBe('[redacted]');
         expect(redacted.nested.paymentIntentId).toBe('pi_1');
+        expect(serialized).not.toContain(bearer);
+        expect(serialized).not.toContain(webhookSecret);
+        expect(serialized).not.toContain(apiKey);
+        expect(serialized).not.toContain(paymentClientSecret);
     });
 });

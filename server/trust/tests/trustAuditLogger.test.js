@@ -23,17 +23,27 @@ describe('trustAuditLogger', () => {
                 },
             },
             metadata: {
-                authorization: 'Bearer secret-token',
+                authorization: {
+                    raw: 'Bearer secret-token',
+                },
                 cookie: 'session=secret',
+                proof: 'raw-device-proof',
+                providerError: 'upstream returned Bearer provider-token',
                 harmless: 'ok',
             },
         });
+        const serialized = JSON.stringify(event);
 
         expect(event.actorId).not.toBe('user-raw-1');
         expect(event.resourceId).not.toBe('order-raw-1');
         expect(event.metadata.authorization).toBe('[REDACTED]');
         expect(event.metadata.cookie).toBe('[REDACTED]');
+        expect(event.metadata.proof).toBe('[REDACTED]');
+        expect(event.metadata.providerError).toBe('upstream returned [REDACTED]');
         expect(event.metadata.harmless).toBe('ok');
+        expect(serialized).not.toContain('secret-token');
+        expect(serialized).not.toContain('raw-device-proof');
+        expect(serialized).not.toContain('provider-token');
     });
 
     test('returns an audit event without throwing', () => {

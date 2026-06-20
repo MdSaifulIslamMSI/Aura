@@ -27,7 +27,10 @@ const SENSITIVE_LOG_KEYS = new Set([
     'authorization',
     'cookie',
     'apikey',
-    'apikey',
+    'clientsecret',
+    'credential',
+    'proof',
+    'signature',
     'token',
     'secret',
     'paymentwebhooksecret',
@@ -35,16 +38,37 @@ const SENSITIVE_LOG_KEYS = new Set([
     'lagoapikey',
 ]);
 
+const SENSITIVE_LOG_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+|(?:pi|seti|cs)_[A-Za-z0-9]+_secret_[A-Za-z0-9]+)\b/g;
+
+const shouldRedactPaymentKey = (key = '') => {
+    const normalizedKey = key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    return SENSITIVE_LOG_KEYS.has(normalizedKey)
+        || normalizedKey.includes('secret')
+        || normalizedKey.includes('token')
+        || normalizedKey.includes('credential')
+        || normalizedKey === 'signature'
+        || normalizedKey.endsWith('signature')
+        || normalizedKey.endsWith('signatures')
+        || normalizedKey.includes('signaturebase')
+        || normalizedKey.includes('authorization')
+        || normalizedKey.includes('cookie')
+        || normalizedKey.includes('apikey');
+};
+
+const redactPaymentText = (value = '') => String(value || '').replace(SENSITIVE_LOG_TEXT_PATTERN, '[redacted]');
+
 const redactSensitivePaymentLog = (value) => {
     if (value === null || typeof value !== 'object') {
+        if (typeof value === 'string') {
+            return redactPaymentText(value);
+        }
         return value;
     }
     if (Array.isArray(value)) {
         return value.map(redactSensitivePaymentLog);
     }
     return Object.fromEntries(Object.entries(value).map(([key, nested]) => {
-        const normalizedKey = key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-        if (SENSITIVE_LOG_KEYS.has(normalizedKey) || normalizedKey.includes('secret') || normalizedKey.includes('token')) {
+        if (shouldRedactPaymentKey(key)) {
             return [key, '[redacted]'];
         }
         return [key, redactSensitivePaymentLog(nested)];

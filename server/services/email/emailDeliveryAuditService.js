@@ -3,6 +3,16 @@ const logger = require('../../utils/logger');
 const EmailDeliveryLog = require('../../models/EmailDeliveryLog');
 
 const EMAIL_TAG_REGEX = /[^A-Za-z0-9_-]+/g;
+const REDACTED = '[REDACTED]';
+const SENSITIVE_META_KEY_PATTERN = /(authorization|cookie|set-cookie|token|otp|password|secret|api[_-]?key|apikey|signature|credential|proof|session)/i;
+const SENSITIVE_EMAIL_AUDIT_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
+const SENSITIVE_EMAIL_AUDIT_QUERY_PARAM_PATTERN = /([?&](?:access_token|auth|authorization|code|cookie|id_token|password|refresh_token|secret|session|token|api_key|apikey)=)[^&#\s]+/gi;
+
+const redactEmailAuditText = (value = '') => String(value || '')
+    .replace(SENSITIVE_EMAIL_AUDIT_TEXT_PATTERN, REDACTED)
+    .replace(SENSITIVE_EMAIL_AUDIT_QUERY_PARAM_PATTERN, `$1${REDACTED}`);
+
+const sanitizeEmailAuditText = (value = '', maxLength = 240) => redactEmailAuditText(value).slice(0, maxLength);
 
 const sanitizeEmailTag = (tag) => String(tag || '')
     .trim()
@@ -31,7 +41,7 @@ const buildResponseSummary = (response = {}) => {
         acceptedCount: Array.isArray(response.accepted) ? response.accepted.length : 0,
         rejectedCount: Array.isArray(response.rejected) ? response.rejected.length : 0,
         envelope: response.envelope || {},
-        response: String(response.response || '').slice(0, 240),
+        response: sanitizeEmailAuditText(response.response || '', 240),
     };
 };
 
@@ -41,15 +51,19 @@ const buildMetaSummary = (meta = {}) => {
     Object.entries(meta).slice(0, 20).forEach(([key, value]) => {
         if (key === 'securityTags') return;
         if (value === null || value === undefined) return;
+        if (SENSITIVE_META_KEY_PATTERN.test(String(key || ''))) {
+            summary[key] = REDACTED;
+            return;
+        }
         if (typeof value === 'string') {
-            summary[key] = value.slice(0, 240);
+            summary[key] = sanitizeEmailAuditText(value, 240);
             return;
         }
         if (typeof value === 'number' || typeof value === 'boolean') {
             summary[key] = value;
             return;
         }
-        summary[key] = String(value).slice(0, 240);
+        summary[key] = sanitizeEmailAuditText(value, 240);
     });
     return summary;
 };
@@ -140,12 +154,12 @@ const persistEmailDeliveryLog = async ({
             provider: String(provider || 'unknown').trim() || 'unknown',
             recipientEmail: String(recipientEmail || '').trim().toLowerCase(),
             recipientMask: String(recipientMask || '').trim(),
-            subject: String(subject || '').trim().slice(0, 240),
+            subject: sanitizeEmailAuditText(String(subject || '').trim(), 240),
             requestId: String(requestId || '').trim().slice(0, 120),
             securityTags: sanitizeEmailTags(securityTags),
             providerMessageId: String(providerMessageId || '').trim().slice(0, 160),
             errorCode: String(errorCode || '').trim().slice(0, 80),
-            errorMessage: String(errorMessage || '').trim().slice(0, 500),
+            errorMessage: sanitizeEmailAuditText(String(errorMessage || '').trim(), 500),
             responseSummary: buildResponseSummary(responseSummary),
             metaSummary: buildMetaSummary(metaSummary),
         });
@@ -170,7 +184,7 @@ const buildWebhookEventSummary = (payload = {}) => {
         data?.bounce?.subType,
         data?.click?.link,
     ].filter(Boolean);
-    return primary.join(' | ').slice(0, 500);
+    return sanitizeEmailAuditText(primary.join(' | '), 500);
 };
 
 const extractWebhookMetaSummary = (payload = {}) => {
@@ -238,7 +252,7 @@ const recordEmailWebhookEvent = async ({
             ? [...new Set([...(existing.providerWebhookEventIds || []), cleanEventId])].slice(-50)
             : existing.providerWebhookEventIds || [];
         if (!existing.recipientEmail && cleanRecipient) existing.recipientEmail = cleanRecipient;
-        if (!existing.subject && subject) existing.subject = String(subject).slice(0, 240);
+        if (!existing.subject && subject) existing.subject = sanitizeEmailAuditText(subject, 240);
         existing.metaSummary = { ...(existing.metaSummary || {}), ...metaSummary };
         await existing.save();
         return { skipped: false, item: existing.toObject() };
@@ -251,7 +265,7 @@ const recordEmailWebhookEvent = async ({
         provider: cleanProvider,
         recipientEmail: cleanRecipient,
         recipientMask: cleanRecipient ? cleanRecipient.replace(/(.{2}).*(@.*)/, '$1***$2') : '',
-        subject: String(subject || '').slice(0, 240),
+        subject: sanitizeEmailAuditText(subject || '', 240),
         requestId: String(requestId || cleanEventId || '').slice(0, 120),
         providerMessageId: cleanMessageId,
         responseSummary: {},
