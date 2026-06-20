@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const { rateLimit } = require('express-rate-limit');
 const router = express.Router();
 const { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists } = require('../controllers/otpController');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
@@ -58,6 +59,15 @@ const resetPasswordNetworkLimiter = createDistributedRateLimit({
     message: 'Too many password reset attempts from this network. Please wait before trying again.',
 });
 
+const resetPasswordScannerRateLimit = rateLimit({
+    windowMs: RESET_PASSWORD_WINDOW_MS,
+    limit: process.env.NODE_ENV === 'development' ? 1000 : RESET_PASSWORD_NETWORK_MAX * 2,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === 'test',
+    message: { message: 'Too many password reset attempts. Please wait before trying again.' },
+});
+
 const resetPasswordLimiter = createDistributedRateLimit({
     allowInMemoryFallback: process.env.NODE_ENV !== 'production',
     securityCritical: true,
@@ -77,10 +87,10 @@ const checkUserLimiter = createDistributedRateLimit({
     message: 'Too many account checks. Please wait before trying again.',
 });
 
-router.get('/challenge', checkUserLimiter, getOtpChallenge);
+router.post('/challenge', checkUserLimiter, getOtpChallenge);
 router.post('/send', requireTurnstile({ routeName: 'otp_send' }), otpLimiter, sendOtp);
 router.post('/verify', requireTurnstile({ routeName: 'otp_verify' }), verifyLimiter, verifyOtp);
-router.post('/reset-password', requireTurnstile({ routeName: 'otp_reset_password' }), resetPasswordNetworkLimiter, resetPasswordLimiter, resetPasswordWithOtp);
+router.post('/reset-password', resetPasswordScannerRateLimit, requireTurnstile({ routeName: 'otp_reset_password' }), resetPasswordNetworkLimiter, resetPasswordLimiter, resetPasswordWithOtp);
 router.post('/check-user', requireTurnstile({ routeName: 'otp_check_user' }), checkUserLimiter, checkUserExists);
 
 module.exports = router;

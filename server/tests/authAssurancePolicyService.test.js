@@ -4,6 +4,7 @@ const {
     evaluateAuthAssurance,
     requireAuthAssurance,
 } = require('../services/authAssurancePolicyService');
+const logger = require('../utils/logger');
 
 const buildFlow = (overrides = {}) => ({
     sub: 'user-123',
@@ -146,5 +147,27 @@ describe('authAssurancePolicyService', () => {
             deviceSessionHash: 'session-hash-other',
             firebaseAuthFresh: true,
         })).toThrow('Fresh passkey verification is required for this auth step.');
+    });
+
+    test('logs assurance decisions with a correlation hash instead of a raw user id', () => {
+        const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => {});
+        const rawUserId = 'user-sensitive-123';
+
+        requireAuthAssurance({
+            action: AUTH_ASSURANCE_ACTIONS.PASSWORD_RESET_FINALIZE,
+            user: { _id: rawUserId },
+            flow: buildFlow({ sub: rawUserId }),
+            resetSessionFresh: true,
+        });
+
+        expect(infoSpy).toHaveBeenCalledWith(
+            'auth.assurance_policy_allowed',
+            expect.objectContaining({
+                userIdHash: expect.stringMatching(/^[a-f0-9]{16}$/),
+            }),
+        );
+        expect(infoSpy.mock.calls[0][1]).not.toHaveProperty('userId');
+        expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(rawUserId);
+        infoSpy.mockRestore();
     });
 });

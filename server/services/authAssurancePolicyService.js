@@ -1,5 +1,6 @@
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
+const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const AUTH_ASSURANCE_ACTIONS = Object.freeze({
     AUTH_SYNC_ELEVATED_LOGIN: 'auth-sync:elevated-login',
@@ -180,7 +181,7 @@ const evaluateAuthAssurance = ({
 const logAssuranceDecision = (decision) => {
     const payload = {
         action: decision.action,
-        userId: decision.userId,
+        userIdHash: hashSecurityValue(decision.userId),
         requiredLevel: decision.requiredLevel,
         grantedLevel: decision.grantedLevel,
         allowed: decision.allowed,

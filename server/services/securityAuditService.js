@@ -1,5 +1,5 @@
-const crypto = require('crypto');
 const logger = require('../utils/logger');
+const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const SECURITY_AUDIT_EVENTS = Object.freeze({
     AUTH_LOGIN_SUCCESS: 'auth.login.success',
@@ -26,13 +26,14 @@ const SECURITY_AUDIT_EVENTS = Object.freeze({
     AI_TOOL_ACTION_DENIED: 'ai.tool_action.denied',
 });
 
-const SENSITIVE_AUDIT_KEY_PATTERN = /(authorization|cookie|token|otp|password|secret|api[_-]?key|card|cvv|pan|rawbody|payload|private)/i;
+const SENSITIVE_AUDIT_KEY_PATTERN = /(authorization|cookie|token|otp|password|secret|api[_-]?key|card|cvv|pan|rawbody|payload|private|credential|signature|proof)/i;
+const AUDIT_IDENTIFIER_KEY_PATTERN = /^(actorId|resourceId|userId|uid|firebaseUid|authUid|accountId|ownerId|tenantId|sellerId|buyerId)$/i;
+const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
+const SENSITIVE_AUDIT_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
 
-const hashValue = (value = '') => crypto
-    .createHash('sha256')
-    .update(String(value || ''))
-    .digest('hex')
-    .slice(0, 16);
+const hashValue = (value = '') => hashSecurityValue(value);
+
+const redactAuditText = (value = '') => String(value || '').replace(SENSITIVE_AUDIT_TEXT_PATTERN, '[REDACTED]');
 
 const truncateIp = (value = '') => {
     const ip = String(value || '').trim();
@@ -43,6 +44,10 @@ const truncateIp = (value = '') => {
 
 const redactAuditMeta = (value, key = '') => {
     if (value === null || value === undefined) return value;
+
+    if (SENSITIVE_AUDIT_KEY_PATTERN.test(String(key || ''))) {
+        return '[REDACTED]';
+    }
 
     if (Array.isArray(value)) {
         return value.map((entry) => redactAuditMeta(entry, key));
@@ -59,8 +64,11 @@ const redactAuditMeta = (value, key = '') => {
         }, {});
     }
 
-    if (SENSITIVE_AUDIT_KEY_PATTERN.test(String(key || ''))) {
-        return '[REDACTED]';
+    if (AUDIT_IDENTIFIER_KEY_PATTERN.test(String(key || ''))) {
+        const normalizedValue = String(value || '').trim();
+        if (!normalizedValue) return '';
+        if (HASHED_IDENTIFIER_PATTERN.test(normalizedValue)) return normalizedValue;
+        return hashSecurityValue(normalizedValue);
     }
 
     if (String(key || '').toLowerCase().includes('ip')) {
@@ -69,6 +77,10 @@ const redactAuditMeta = (value, key = '') => {
 
     if (String(key || '').toLowerCase().includes('useragent')) {
         return hashValue(value);
+    }
+
+    if (typeof value === 'string') {
+        return redactAuditText(value);
     }
 
     return value;

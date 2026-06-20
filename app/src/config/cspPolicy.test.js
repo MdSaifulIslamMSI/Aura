@@ -57,6 +57,11 @@ const expectProductionStylePolicy = (policy = '') => {
     "'self'",
     'https://fonts.googleapis.com',
   ]);
+  expect(getDirectiveSources(policy, 'style-src-elem')).toEqual([
+    "'self'",
+    "'unsafe-inline'",
+    'https://fonts.googleapis.com',
+  ]);
   expect(getDirectiveSources(policy, 'style-src-attr')).toEqual(["'unsafe-inline'"]);
 };
 
@@ -128,6 +133,8 @@ describe('auth CSP allowlists', () => {
       allowLocalDevelopmentSources: true,
     });
     expect(getDirectiveSources(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, 'style-src'))
+      .toContain("'unsafe-inline'");
+    expect(getDirectiveSources(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, 'style-src-elem'))
       .toContain("'unsafe-inline'");
   });
 });

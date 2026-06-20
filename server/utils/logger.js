@@ -1,7 +1,13 @@
 const os = require('os');
+const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const REDACTED_PLACEHOLDER = '[REDACTED]';
-const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(number)?|cvv|pan)/i;
+const SENSITIVE_KEY_PATTERN = /(phone|email|authorization|token|password|pass|otp|secret|jwt|api[_-]?key|card(number)?|cvv|pan|credential|signature|private|rawbody|payload)/i;
+const IDENTIFIER_KEY_PATTERN = /^(userId|uid|firebaseUid|authUid|accountId|actorId|resourceId|ownerId|tenantId|sellerId|buyerId)$/i;
+const HASHED_IDENTIFIER_PATTERN = /^[a-f0-9]{16}$/i;
+const URL_LIKE_KEY_PATTERN = /(url|uri|path|route)$/i;
+const URL_WITH_QUERY_PATTERN = /((?:https?:\/\/|\/)[^\s"'`?]+)\?[^\s"'`]*/gi;
+const SENSITIVE_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
 
 const maskEmail = (email) => {
     const value = String(email || '').trim();
@@ -18,6 +24,19 @@ const maskPhone = (phone) => {
     const digits = String(phone || '').replace(/\D/g, '');
     if (!digits) return REDACTED_PLACEHOLDER;
     return `***${digits.slice(-4)}`;
+};
+
+const redactUrlQueriesInText = (value) => String(value || '')
+    .replace(URL_WITH_QUERY_PATTERN, `$1?${REDACTED_PLACEHOLDER}`);
+
+const redactSensitiveText = (value) => redactUrlQueriesInText(value)
+    .replace(SENSITIVE_TEXT_PATTERN, REDACTED_PLACEHOLDER);
+
+const sanitizeUrlLikeValue = (value) => {
+    const normalizedValue = String(value || '');
+    const queryIndex = normalizedValue.indexOf('?');
+    if (queryIndex < 0) return normalizedValue;
+    return `${normalizedValue.slice(0, queryIndex)}?${REDACTED_PLACEHOLDER}`;
 };
 
 const sanitizeStringForKey = (key, value) => {
@@ -37,6 +56,11 @@ const sanitizeStringForKey = (key, value) => {
 const redactSensitiveData = (value, key = '') => {
     if (value === null || value === undefined) return value;
 
+    const normalizedKey = String(key || '');
+    if (SENSITIVE_KEY_PATTERN.test(normalizedKey)) {
+        return sanitizeStringForKey(key, value);
+    }
+
     if (Array.isArray(value)) {
         return value.map((item) => redactSensitiveData(item, key));
     }
@@ -47,8 +71,8 @@ const redactSensitiveData = (value, key = '') => {
 
     if (value instanceof Error) {
         return {
-            message: value.message,
-            stack: value.stack,
+            message: redactSensitiveText(value.message),
+            stack: redactSensitiveText(value.stack),
             name: value.name,
         };
     }
@@ -60,9 +84,16 @@ const redactSensitiveData = (value, key = '') => {
         }, {});
     }
 
-    if (SENSITIVE_KEY_PATTERN.test(String(key || ''))) {
-        return sanitizeStringForKey(key, value);
+    if (IDENTIFIER_KEY_PATTERN.test(normalizedKey)) {
+        const normalizedValue = String(value || '').trim();
+        if (HASHED_IDENTIFIER_PATTERN.test(normalizedValue)) return normalizedValue;
+        return hashSecurityValue(value);
     }
+    if (URL_LIKE_KEY_PATTERN.test(normalizedKey)) {
+        return sanitizeUrlLikeValue(value);
+    }
+
+    if (typeof value === 'string') return redactSensitiveText(value);
 
     return value;
 };
@@ -73,7 +104,7 @@ const formatMessage = (level, message, meta = {}) => {
     return JSON.stringify({
         timestamp: new Date().toISOString(),
         level,
-        message,
+        message: redactSensitiveText(message),
         hostname: os.hostname(),
         pid: process.pid,
         ...sanitizedMeta,
@@ -110,6 +141,7 @@ const logger = {
     },
     redactSensitiveData,
     REDACTED_PLACEHOLDER,
+    sanitizeUrlLikeValue,
 };
 
 module.exports = logger;

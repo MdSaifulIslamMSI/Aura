@@ -60,6 +60,12 @@ const buildFrontendStyleSrc = ({ allowInlineStyleElement = false } = {}) => [
     'https://fonts.googleapis.com',
 ].join(' ');
 
+const buildFrontendStyleElementSrc = () => [
+    "'self'",
+    "'unsafe-inline'",
+    'https://fonts.googleapis.com',
+].join(' ');
+
 export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN, options = {}) => [
     "'self'",
     trimTrailingSlash(origin),
@@ -97,6 +103,7 @@ export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGI
     "form-action 'self'",
     "script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com",
     `style-src ${buildFrontendStyleSrc(options)}`,
+    `style-src-elem ${buildFrontendStyleElementSrc()}`,
     "style-src-attr 'unsafe-inline'",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https:",
