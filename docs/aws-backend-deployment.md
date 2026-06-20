@@ -28,10 +28,13 @@
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-free-tier.ps1 -InstanceType t4g.xlarge -RootVolumeSizeGiB 32 -FrontendOrigin https://aurapilot.vercel.app -SecondaryFrontendOrigin https://aurapilot.netlify.app`
 2. Install monthly budget and free-plan expiration guardrails:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-cost-guardrails.ps1 -AwsProfile aura-bootstrap -MonthlyBudgetUsd 90`
-3. Create or refresh the GitHub deploy role:
+3. Install security visibility guardrails:
+   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-security-posture.ps1 -AwsProfile aura-bootstrap`
+   - This enables or refreshes AWS Config and VPC Flow Logs for the backend VPC, and enables GuardDuty after the account has accepted the GuardDuty service terms. A GuardDuty subscription gate is reported as blocked instead of being treated as success.
+4. Create or refresh the GitHub deploy role:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-github-oidc.ps1 -Repository MdSaifulIslamMSI/Aura -AwsProfile aura-bootstrap`
    - Re-run this after CI/CD policy updates; the role needs narrow `ssm:PutParameter` access to `/aura/prod/*` so production admin allowlist changes can be written to Parameter Store.
-4. Publish secrets into Parameter Store:
+5. Publish secrets into Parameter Store:
    - `powershell -ExecutionPolicy Bypass -File infra\aws\sync-parameter-store-env.ps1 -SourceEnvFile .\server\.env.aws-secrets -PathPrefix /aura/prod -AwsRegion ap-south-1 -AwsProfile aura-bootstrap`
 
 ## GitHub Variables
@@ -99,6 +102,7 @@ The deploy workflow intentionally has no checked-in account, bucket, instance, o
 - EC2 compose file: [docker-compose.ec2.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/docker-compose.ec2.yml)
 - EC2 rollout script: [deploy-release.sh](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/deploy-release.sh)
 - Parameter Store sync: [sync-parameter-store-env.ps1](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/sync-parameter-store-env.ps1)
+- Security posture bootstrap: [bootstrap-security-posture.ps1](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/bootstrap-security-posture.ps1)
 
 ## CI/CD Shape
 - GitHub Actions now keeps only two first-party workflows: `CI` for validation and `Deploy Backend To AWS` for production rollout.

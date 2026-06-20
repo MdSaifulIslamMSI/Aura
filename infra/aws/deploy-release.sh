@@ -186,11 +186,40 @@ prepare_docker_disk_space() {
   df -h "${deploy_root}" / || true
 }
 
+verify_sha256() {
+  local file="$1"
+  local expected="$2"
+  local label="$3"
+  local actual=""
+
+  if [[ -z "${expected}" ]]; then
+    echo "Refusing deploy: expected SHA-256 for ${label} is required." >&2
+    exit 1
+  fi
+
+  if ! [[ "${expected}" =~ ^[A-Fa-f0-9]{64}$ ]]; then
+    echo "Refusing deploy: expected SHA-256 for ${label} is malformed." >&2
+    exit 1
+  fi
+
+  actual="$(sha256sum "${file}" | awk '{print $1}')"
+  if [[ "${actual,,}" != "${expected,,}" ]]; then
+    echo "Refusing deploy: ${label} SHA-256 mismatch." >&2
+    echo "Expected: ${expected}" >&2
+    echo "Actual:   ${actual}" >&2
+    exit 1
+  fi
+
+  echo "Verified ${label} SHA-256."
+}
+
 deploy_root="${AURA_DEPLOY_ROOT:-/opt/aura}"
 release_sha="${AURA_RELEASE_SHA:?AURA_RELEASE_SHA is required}"
 deploy_bucket="${AURA_DEPLOY_BUCKET:?AURA_DEPLOY_BUCKET is required}"
 infra_bundle_key="${AURA_INFRA_BUNDLE_KEY:?AURA_INFRA_BUNDLE_KEY is required}"
 image_bundle_key="${AURA_IMAGE_BUNDLE_KEY:?AURA_IMAGE_BUNDLE_KEY is required}"
+infra_bundle_sha256="${AURA_INFRA_BUNDLE_SHA256:?AURA_INFRA_BUNDLE_SHA256 is required}"
+image_bundle_sha256="${AURA_IMAGE_BUNDLE_SHA256:?AURA_IMAGE_BUNDLE_SHA256 is required}"
 aws_region="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
 
 if [[ -z "${aws_region}" ]]; then
@@ -209,6 +238,8 @@ prepare_docker_disk_space
 
 aws s3 cp --region "${aws_region}" "s3://${deploy_bucket}/${infra_bundle_key}" "${release_dir}/infra.tar.gz"
 aws s3 cp --region "${aws_region}" "s3://${deploy_bucket}/${image_bundle_key}" "${release_dir}/image.tar.gz"
+verify_sha256 "${release_dir}/infra.tar.gz" "${infra_bundle_sha256}" "infra bundle"
+verify_sha256 "${release_dir}/image.tar.gz" "${image_bundle_sha256}" "image bundle"
 
 rm -rf "${current_dir}"
 mkdir -p "${current_dir}"

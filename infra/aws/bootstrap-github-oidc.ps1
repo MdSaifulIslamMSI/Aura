@@ -21,6 +21,14 @@ function Require-Command {
     }
 }
 
+function Invoke-AwsChecked {
+    & $script:AwsCliPath @args
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "AWS CLI command failed with exit code $exitCode."
+    }
+}
+
 function Resolve-RepositorySlug {
     param([string]$ExplicitRepository)
 
@@ -75,9 +83,20 @@ function Get-OrCreateOidcProviderArn {
 
 Require-Command -Name "aws"
 Require-Command -Name "git"
+$script:AwsCliPath = (Get-Command aws -CommandType Application -ErrorAction Stop).Source
+Set-Alias -Name aws -Value Invoke-AwsChecked -Scope Script
 
 if (-not [string]::IsNullOrWhiteSpace($AwsProfile)) {
     $env:AWS_PROFILE = $AwsProfile.Trim()
+}
+
+$awsAccountId = aws sts get-caller-identity `
+    --region $AwsRegion `
+    --query Account `
+    --output text
+
+if ($awsAccountId -notmatch '^\d{12}$') {
+    throw "Could not resolve the current AWS account ID."
 }
 
 $repoSlug = Resolve-RepositorySlug -ExplicitRepository $Repository
@@ -135,7 +154,11 @@ if (-not $roleExists) {
 
 $deployBucketArn = "arn:aws:s3:::$resolvedDeployBucketName"
 $deployBucketObjectsArn = "$deployBucketArn/*"
-$parameterStoreResourceArn = "arn:aws:ssm:${AwsRegion}:*:parameter$($ParameterStorePathPrefix.TrimEnd('/'))*"
+$normalizedParameterStorePathPrefix = $ParameterStorePathPrefix.TrimEnd('/')
+$parameterStoreResourceArns = @(
+    "arn:aws:ssm:${AwsRegion}:${awsAccountId}:parameter$normalizedParameterStorePathPrefix",
+    "arn:aws:ssm:${AwsRegion}:${awsAccountId}:parameter$normalizedParameterStorePathPrefix/*"
+)
 $inlinePolicy = @{
     Version = "2012-10-17"
     Statement = @(
@@ -173,7 +196,7 @@ $inlinePolicy = @{
                 "ssm:GetParametersByPath",
                 "ssm:PutParameter"
             )
-            Resource = $parameterStoreResourceArn
+            Resource = $parameterStoreResourceArns
         }
     )
 } | ConvertTo-Json -Depth 8

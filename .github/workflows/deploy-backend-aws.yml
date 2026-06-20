@@ -172,10 +172,15 @@ jobs:
             ./server
 
       - name: Package deployment artifacts
+        id: package
         run: |
           set -euo pipefail
           git archive --format=tar.gz --output "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz" HEAD infra/aws
           docker save aura-backend:${GITHUB_SHA} | gzip > "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz"
+          INFRA_SHA256="$(sha256sum "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz" | awk '{print $1}')"
+          IMAGE_SHA256="$(sha256sum "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz" | awk '{print $1}')"
+          echo "infra_sha256=${INFRA_SHA256}" >> "$GITHUB_OUTPUT"
+          echo "image_sha256=${IMAGE_SHA256}" >> "$GITHUB_OUTPUT"
 
       - name: Upload deployment artifacts to S3
         id: upload
@@ -204,9 +209,13 @@ jobs:
         env:
           INFRA_BUNDLE_KEY: ${{ steps.upload.outputs.infra_key }}
           IMAGE_BUNDLE_KEY: ${{ steps.upload.outputs.image_key }}
+          INFRA_BUNDLE_SHA256: ${{ steps.package.outputs.infra_sha256 }}
+          IMAGE_BUNDLE_SHA256: ${{ steps.package.outputs.image_sha256 }}
           INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
         run: |
           set -euo pipefail
+          test -n "${INFRA_BUNDLE_SHA256}" || { echo "Missing infra bundle SHA-256"; exit 1; }
+          test -n "${IMAGE_BUNDLE_SHA256}" || { echo "Missing image bundle SHA-256"; exit 1; }
           cat > "${RUNNER_TEMP}/ssm-commands.json" <<EOF
           {
             "commands": [
@@ -214,6 +223,7 @@ jobs:
               "rm -rf /opt/aura/bootstrap/current",
               "mkdir -p /opt/aura/bootstrap/current",
               "aws s3 cp s3://${AWS_DEPLOY_BUCKET}/${INFRA_BUNDLE_KEY} /opt/aura/bootstrap/infra.tar.gz",
+              "echo '${INFRA_BUNDLE_SHA256}  /opt/aura/bootstrap/infra.tar.gz' | sha256sum --check --status",
               "tar -xzf /opt/aura/bootstrap/infra.tar.gz -C /opt/aura/bootstrap/current",
               "export AWS_REGION='${AWS_REGION}'",
               "export AWS_PARAMETER_STORE_PATH_PREFIX='${AWS_PARAMETER_STORE_PATH_PREFIX}'",
@@ -221,6 +231,8 @@ jobs:
               "export AURA_RELEASE_SHA='${GITHUB_SHA}'",
               "export AURA_INFRA_BUNDLE_KEY='${INFRA_BUNDLE_KEY}'",
               "export AURA_IMAGE_BUNDLE_KEY='${IMAGE_BUNDLE_KEY}'",
+              "export AURA_INFRA_BUNDLE_SHA256='${INFRA_BUNDLE_SHA256}'",
+              "export AURA_IMAGE_BUNDLE_SHA256='${IMAGE_BUNDLE_SHA256}'",
               "bash /opt/aura/bootstrap/current/infra/aws/deploy-release.sh"
             ]
           }
