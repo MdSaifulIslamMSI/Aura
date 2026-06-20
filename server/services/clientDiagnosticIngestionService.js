@@ -6,6 +6,10 @@ const MAX_DIAGNOSTICS_PER_REQUEST = 20;
 const MAX_RECENT_DIAGNOSTICS = 200;
 const DEFAULT_LIST_LIMIT = 25;
 const MAX_LIST_LIMIT = 100;
+const REDACTED = '[REDACTED]';
+const SENSITIVE_DIAGNOSTIC_KEY_PATTERN = /(authorization|cookie|set-cookie|token|otp|password|secret|api[_-]?key|apikey|card|cvv|pan|private|rawbody|payload|signature|credential|proof|session)/i;
+const SENSITIVE_DIAGNOSTIC_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+|(?:pi|seti|cs)_[A-Za-z0-9]+_secret_[A-Za-z0-9]+)\b/g;
+const SENSITIVE_QUERY_PARAM_PATTERN = /([?&](?:access_token|auth|authorization|code|cookie|id_token|password|refresh_token|secret|session|token|api_key|apikey)=)[^&#\s]+/gi;
 
 const recentDiagnostics = [];
 
@@ -15,6 +19,12 @@ const truncateString = (value = '', maxLength = 400) => {
         ? `${normalized.slice(0, maxLength - 3)}...`
         : normalized;
 };
+
+const redactDiagnosticText = (value = '') => String(value || '')
+    .replace(SENSITIVE_DIAGNOSTIC_TEXT_PATTERN, REDACTED)
+    .replace(SENSITIVE_QUERY_PARAM_PATTERN, `$1${REDACTED}`);
+
+const sanitizeDiagnosticString = (value = '', maxLength = 400) => truncateString(redactDiagnosticText(value), maxLength);
 
 const sanitizeValue = (value, depth = 0) => {
     if (depth > 2) {
@@ -29,38 +39,43 @@ const sanitizeValue = (value, depth = 0) => {
         return Object.fromEntries(
             Object.entries(value)
                 .slice(0, 12)
-                .map(([key, entryValue]) => [key, sanitizeValue(entryValue, depth + 1)])
+                .map(([key, entryValue]) => {
+                    if (SENSITIVE_DIAGNOSTIC_KEY_PATTERN.test(String(key || ''))) {
+                        return [key, REDACTED];
+                    }
+                    return [key, sanitizeValue(entryValue, depth + 1)];
+                })
                 .filter(([, entryValue]) => entryValue !== undefined)
         );
     }
 
     if (typeof value === 'string') {
-        return truncateString(value, depth === 0 ? 400 : 240);
+        return truncateString(redactDiagnosticText(value), depth === 0 ? 400 : 240);
     }
 
     return value;
 };
 
 const normalizeDiagnostic = (event = {}, context = {}) => ({
-    eventId: truncateString(event.id || '', 120),
-    type: truncateString(event.type || 'unknown', 120),
-    severity: truncateString(event.severity || 'info', 32),
+    eventId: sanitizeDiagnosticString(event.id || '', 120),
+    type: sanitizeDiagnosticString(event.type || 'unknown', 120),
+    severity: sanitizeDiagnosticString(event.severity || 'info', 32),
     timestamp: (() => {
         const parsed = new Date(event.timestamp || new Date().toISOString());
         return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
     })(),
-    route: truncateString(event.route || context.clientRoute || '', 200),
+    route: sanitizeDiagnosticString(event.route || context.clientRoute || '', 200),
     sessionId: truncateString(event.sessionId || context.clientSessionId || '', 120),
-    requestId: truncateString(event.requestId || '', 120),
-    serverRequestId: truncateString(event.serverRequestId || '', 120),
+    requestId: sanitizeDiagnosticString(event.requestId || '', 120),
+    serverRequestId: sanitizeDiagnosticString(event.serverRequestId || '', 120),
     method: truncateString(event.method || '', 16),
-    url: truncateString(event.url || '', 500),
-    detail: truncateString(event.detail || '', 240),
+    url: sanitizeDiagnosticString(event.url || '', 500),
+    detail: sanitizeDiagnosticString(event.detail || '', 240),
     status: Number.isFinite(Number(event.status)) ? Number(event.status) : undefined,
     durationMs: Number.isFinite(Number(event.durationMs)) ? Number(event.durationMs) : undefined,
     error: sanitizeValue(event.error),
     context: sanitizeValue(event.context),
-    ingestionRequestId: truncateString(context.ingestionRequestId || '', 120),
+    ingestionRequestId: sanitizeDiagnosticString(context.ingestionRequestId || '', 120),
     clientIp: truncateString(context.clientIp || '', 120),
     userAgent: truncateString(context.userAgent || '', 240),
     ingestedAt: new Date(),

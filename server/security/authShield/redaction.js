@@ -1,7 +1,7 @@
 const { hashSecurityValue } = require('../redactSecurityMetadata');
 
 const REDACTED = '[REDACTED]';
-const SENSITIVE_KEY_PATTERN = /(authorization|cookie|token|otp|password|secret|api[_-]?key|card|cvv|pan|rawbody|payload|private|credential|proof)/i;
+const SENSITIVE_KEY_PATTERN = /(authorization|cookie|token|otp|password|secret|api[_-]?key|card|cvv|pan|rawbody|payload|private|credential|proof|signature)/i;
 const PII_KEY_PATTERN = /(email|phone|address|name|avatar|dob)/i;
 const SENSITIVE_TEXT_PATTERN = /\b(sk_(?:live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
 

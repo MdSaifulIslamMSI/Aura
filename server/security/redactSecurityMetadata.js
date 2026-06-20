@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-const SENSITIVE_KEY_PATTERN = /(authorization|cookie|set-cookie|token|otp|password|secret|api[_-]?key|apikey|card|cvv|pan|private|rawbody|payload|signature|credential)/i;
+const SENSITIVE_KEY_PATTERN = /(authorization|cookie|set-cookie|token|otp|password|secret|api[_-]?key|apikey|card|cvv|pan|private|rawbody|payload|signature|credential|proof)/i;
 const LONG_SECRET_PATTERN = /\b(sk_(live|test)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+|Bearer\s+[A-Za-z0-9._~+/=-]+)\b/g;
 const SECURITY_HASH_CONTEXT = 'aura-security-log-pseudonym-v1';
 

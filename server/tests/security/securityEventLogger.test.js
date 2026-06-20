@@ -14,11 +14,13 @@ describe('securityEventLogger', () => {
         const redacted = redactSecurityMetadata({
             password: 'plaintext',
             nested: { apiKey: 'sk_test_abcdefghijklmnopqrstuvwxyz' },
+            proof: 'raw-dpop-proof-fixture',
             safe: 'kept',
         });
 
         expect(redacted.password).toBe('[REDACTED]');
         expect(redacted.nested.apiKey).toBe('[REDACTED]');
+        expect(redacted.proof).toBe('[REDACTED]');
         expect(redacted.safe).toBe('kept');
     });
 

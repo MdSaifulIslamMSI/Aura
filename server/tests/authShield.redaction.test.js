@@ -6,12 +6,14 @@ describe('authShield redaction', () => {
         const result = redactValue({
             authorization: 'Bearer example-token',
             [credentialField]: 'example-value',
+            signatureBase64Url: 'signature-material',
             email: 'person@example.test',
             nested: { otp: '123456' },
         });
 
         expect(result.authorization).toBe(REDACTED);
         expect(result[credentialField]).toBe(REDACTED);
+        expect(result.signatureBase64Url).toBe(REDACTED);
         expect(result.email).toBe(hashValue('person@example.test'));
         expect(result.nested.otp).toBe(REDACTED);
     });
