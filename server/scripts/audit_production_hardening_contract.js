@@ -59,6 +59,7 @@ const orderPlacementService = readText('server/services/orderPlacementService.js
 const marketplaceIntegrityService = readText('server/services/marketplaceIntegrityService.js');
 const deployFrontendS3 = readText('infra/aws/deploy-frontend-s3.ps1');
 const deployReleaseScript = readText('infra/aws/deploy-release.sh');
+const bootstrapSecurityPosture = readText('infra/aws/bootstrap-security-posture.ps1');
 const backendDeployWorkflow = readText('.github/workflows/deploy-backend-aws.yml');
 const deployNetlifyWorkflow = readText('.github/workflows/deploy-netlify.yml');
 const deployFrontendAwsWorkflow = readText('.github/workflows/deploy-frontend-aws.yml');
@@ -146,7 +147,19 @@ requireIncludes(healthDisclosureService, 'hasDetailedHealthTokenAccess', 'Health
 requireIncludes(healthDisclosureService, 'shouldFailClosedMissingHealthReadyToken', 'Health disclosure service must model production readiness token fail-closed behavior.');
 requireIncludes(deployReleaseScript, 'HEALTH_READY_TOKEN is required for production readiness checks.', 'EC2 rollout must require HEALTH_READY_TOKEN before readiness probes.');
 requireIncludes(deployReleaseScript, '--header "x-health-token: ${health_ready_token}"', 'EC2 rollout readiness probe must send x-health-token.');
+requireIncludes(deployReleaseScript, 'AURA_INFRA_BUNDLE_SHA256', 'EC2 rollout must require an expected infra artifact SHA-256.');
+requireIncludes(deployReleaseScript, 'AURA_IMAGE_BUNDLE_SHA256', 'EC2 rollout must require an expected image artifact SHA-256.');
+requireIncludes(deployReleaseScript, 'verify_sha256 "${release_dir}/infra.tar.gz"', 'EC2 rollout must verify the infra bundle digest before extraction.');
+requireIncludes(deployReleaseScript, 'verify_sha256 "${release_dir}/image.tar.gz"', 'EC2 rollout must verify the image bundle digest before docker load.');
+requireIncludes(bootstrapSecurityPosture, 'guardduty create-detector', 'AWS security posture bootstrap must enable GuardDuty.');
+requireIncludes(bootstrapSecurityPosture, 'configservice put-configuration-recorder', 'AWS security posture bootstrap must configure AWS Config recording.');
+requireIncludes(bootstrapSecurityPosture, 'ec2 create-flow-logs', 'AWS security posture bootstrap must enable backend VPC Flow Logs.');
+requireIncludes(awsBackendDocs, 'bootstrap-security-posture.ps1', 'AWS backend docs must include the security posture bootstrap step.');
 requireIncludes(backendDeployWorkflow, '${AWS_BACKEND_BASE_URL%/}/health"', 'External deploy smoke must use public health summary, not private readiness.');
+requireIncludes(backendDeployWorkflow, 'sha256sum "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz"', 'Backend deploy workflow must compute the infra artifact SHA-256.');
+requireIncludes(backendDeployWorkflow, 'sha256sum "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz"', 'Backend deploy workflow must compute the image artifact SHA-256.');
+requireIncludes(backendDeployWorkflow, 'sha256sum --check --status', 'Backend deploy workflow must verify the bootstrap infra bundle before extracting it on EC2.');
+requireIncludes(backendDeployWorkflow, 'AURA_IMAGE_BUNDLE_SHA256', 'Backend deploy workflow must pass expected image artifact SHA-256 to EC2.');
 requireIncludes(backendConnectivityDoctor, "name: 'summary health', path: '/health', critical: true", 'Backend doctor must treat public health summary as the critical unauthenticated probe.');
 requireIncludes(backendConnectivityDoctor, "name: 'readiness', path: '/health/ready', critical: false", 'Backend doctor must keep private readiness non-critical unless token support is added.');
 requireIncludes(productionLoginSmoke, 'proxied health summary is ok', 'Production login smoke must use the public health summary.');

@@ -25,6 +25,14 @@ function Require-Command {
     }
 }
 
+function Invoke-AwsChecked {
+    & $script:AwsCliPath @args
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "AWS CLI command failed with exit code $exitCode."
+    }
+}
+
 function Ensure-Bucket {
     param([string]$BucketName, [string]$Region)
 
@@ -92,6 +100,10 @@ function Configure-BucketDefaults {
         --bucket $BucketName `
         --server-side-encryption-configuration "file://$encryptionFile" | Out-Null
 
+    aws s3api put-bucket-versioning `
+        --bucket $BucketName `
+        --versioning-configuration Status=Enabled | Out-Null
+
     aws s3api put-bucket-tagging `
         --bucket $BucketName `
         --tagging "file://$taggingFile" | Out-Null
@@ -142,6 +154,7 @@ function Ensure-InstanceRole {
         [string]$RoleName,
         [string]$ProfileName,
         [string]$Region,
+        [string]$AccountId,
         [string]$ParameterPrefix,
         [string]$DeployBucket,
         [string]$MediaBucket
@@ -175,6 +188,12 @@ function Ensure-InstanceRole {
         --role-name $RoleName `
         --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore | Out-Null
 
+    $normalizedParameterPrefix = $ParameterPrefix.TrimEnd('/')
+    $parameterStoreResourceArns = @(
+        "arn:aws:ssm:${Region}:${AccountId}:parameter$normalizedParameterPrefix",
+        "arn:aws:ssm:${Region}:${AccountId}:parameter$normalizedParameterPrefix/*"
+    )
+
     $policyDocument = @{
         Version = "2012-10-17"
         Statement = @(
@@ -186,7 +205,7 @@ function Ensure-InstanceRole {
                     "ssm:GetParameters",
                     "ssm:GetParametersByPath"
                 )
-                Resource = "arn:aws:ssm:${Region}:*:parameter$($ParameterPrefix.TrimEnd('/'))*"
+                Resource = $parameterStoreResourceArns
             },
             @{
                 Sid = "DeployArtifacts"
@@ -245,6 +264,17 @@ function Ensure-InstanceRole {
 }
 
 Require-Command -Name "aws"
+$script:AwsCliPath = (Get-Command aws -CommandType Application -ErrorAction Stop).Source
+Set-Alias -Name aws -Value Invoke-AwsChecked -Scope Script
+
+$awsAccountId = aws sts get-caller-identity `
+    --region $AwsRegion `
+    --query Account `
+    --output text
+
+if ($awsAccountId -notmatch '^\d{12}$') {
+    throw "Could not resolve the current AWS account ID."
+}
 
 $resolvedVpcId = if ([string]::IsNullOrWhiteSpace($VpcId)) {
     aws ec2 describe-vpcs `
@@ -329,6 +359,9 @@ $deployLifecycle = @{
             Expiration = @{
                 Days = 14
             }
+            NoncurrentVersionExpiration = @{
+                NoncurrentDays = 14
+            }
             AbortIncompleteMultipartUpload = @{
                 DaysAfterInitiation = 1
             }
@@ -342,6 +375,9 @@ $mediaLifecycle = @{
             Status = "Enabled"
             Filter = @{
                 Prefix = ""
+            }
+            NoncurrentVersionExpiration = @{
+                NoncurrentDays = 30
             }
             AbortIncompleteMultipartUpload = @{
                 DaysAfterInitiation = 1
@@ -358,6 +394,7 @@ Ensure-InstanceRole `
     -RoleName $roleName `
     -ProfileName $profileName `
     -Region $AwsRegion `
+    -AccountId $awsAccountId `
     -ParameterPrefix $ParameterStorePathPrefix `
     -DeployBucket $DeployBucketName `
     -MediaBucket $MediaBucketName
@@ -406,7 +443,7 @@ if (-not [string]::IsNullOrWhiteSpace($existingInstanceId) -and $existingInstanc
 
 $instanceArchitecture = Resolve-InstanceArchitecture -Region $AwsRegion -ResolvedInstanceType $InstanceType
 $amiId = Resolve-AmiId -Architecture $instanceArchitecture
-$rootBlockDeviceMappings = "[{""DeviceName"":""/dev/xvda"",""Ebs"":{""VolumeSize"":$RootVolumeSizeGiB,""VolumeType"":""gp3"",""DeleteOnTermination"":true}}]"
+$rootBlockDeviceMappings = "[{""DeviceName"":""/dev/xvda"",""Ebs"":{""VolumeSize"":$RootVolumeSizeGiB,""VolumeType"":""gp3"",""Encrypted"":true,""DeleteOnTermination"":true}}]"
 $rootBlockDeviceFile = Join-Path $env:TEMP "$StackPrefix-root-volume.json"
 $rootBlockDeviceMappings | Set-Content -LiteralPath $rootBlockDeviceFile -Encoding ascii
 

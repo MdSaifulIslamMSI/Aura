@@ -11,6 +11,8 @@ const paths = {
     awsCompose: path.join(repoRoot, 'infra', 'aws', 'docker-compose.ec2.yml'),
     caddyfile: path.join(repoRoot, 'infra', 'aws', 'Caddyfile'),
     bootstrapFreeTier: path.join(repoRoot, 'infra', 'aws', 'bootstrap-free-tier.ps1'),
+    bootstrapGithubOidc: path.join(repoRoot, 'infra', 'aws', 'bootstrap-github-oidc.ps1'),
+    bootstrapSecurityPosture: path.join(repoRoot, 'infra', 'aws', 'bootstrap-security-posture.ps1'),
     bootstrapUserData: path.join(repoRoot, 'infra', 'aws', 'bootstrap-instance-user-data.sh'),
     deployRelease: path.join(repoRoot, 'infra', 'aws', 'deploy-release.sh'),
     renderRuntimeSecrets: path.join(repoRoot, 'infra', 'aws', 'render-runtime-secrets.sh'),
@@ -111,6 +113,12 @@ const requireIncludes = (content, needle, message) => {
     }
 };
 
+const requireNotIncludes = (content, needle, message) => {
+    if (String(content || '').includes(needle)) {
+        addFailure(message);
+    }
+};
+
 const requireRegex = (content, pattern, message) => {
     if (!pattern.test(String(content || ''))) {
         addFailure(message);
@@ -165,6 +173,8 @@ if (missingFiles.length > 0) {
 const awsCompose = fs.existsSync(paths.awsCompose) ? readText(paths.awsCompose) : '';
 const caddyfile = fs.existsSync(paths.caddyfile) ? readText(paths.caddyfile) : '';
 const bootstrapFreeTier = fs.existsSync(paths.bootstrapFreeTier) ? readText(paths.bootstrapFreeTier) : '';
+const bootstrapGithubOidc = fs.existsSync(paths.bootstrapGithubOidc) ? readText(paths.bootstrapGithubOidc) : '';
+const bootstrapSecurityPosture = fs.existsSync(paths.bootstrapSecurityPosture) ? readText(paths.bootstrapSecurityPosture) : '';
 const bootstrapUserData = fs.existsSync(paths.bootstrapUserData) ? readText(paths.bootstrapUserData) : '';
 const deployRelease = fs.existsSync(paths.deployRelease) ? readText(paths.deployRelease) : '';
 const renderRuntimeSecrets = fs.existsSync(paths.renderRuntimeSecrets) ? readText(paths.renderRuntimeSecrets) : '';
@@ -260,6 +270,23 @@ requireIncludes(bootstrapUserData, 'AURA_BACKEND_PUBLIC_HOST=', 'AWS bootstrap b
 requireIncludes(bootstrapFreeTier, 'FromPort"":80', 'AWS bootstrap security group must allow inbound port 80 for ACME.');
 requireIncludes(bootstrapFreeTier, 'FromPort"":443', 'AWS bootstrap security group must allow inbound port 443 for HTTPS.');
 requireIncludes(bootstrapFreeTier, 'revoke-security-group-ingress', 'AWS bootstrap must revoke legacy public port 5000 ingress.');
+requireIncludes(bootstrapFreeTier, 'aws sts get-caller-identity', 'AWS bootstrap must resolve the current account before writing IAM policies.');
+requireIncludes(bootstrapFreeTier, 'put-bucket-versioning', 'AWS bootstrap must enable S3 bucket versioning.');
+requireIncludes(bootstrapFreeTier, 'NoncurrentVersionExpiration', 'AWS bootstrap lifecycle must expire noncurrent S3 versions.');
+requireIncludes(bootstrapFreeTier, '""Encrypted"":true', 'AWS bootstrap must encrypt new EC2 root volumes.');
+requireNotIncludes(bootstrapFreeTier, 'arn:aws:ssm:${Region}:*:parameter', 'AWS EC2 runtime role must not allow cross-account Parameter Store reads.');
+requireIncludes(bootstrapFreeTier, 'parameter$normalizedParameterPrefix', 'AWS EC2 runtime role must scope Parameter Store reads to the exact runtime prefix.');
+requireIncludes(bootstrapFreeTier, 'parameter$normalizedParameterPrefix/*', 'AWS EC2 runtime role must scope Parameter Store reads to children under the exact runtime prefix.');
+requireIncludes(bootstrapGithubOidc, 'aws sts get-caller-identity', 'AWS GitHub OIDC bootstrap must resolve the current account before writing IAM policies.');
+requireNotIncludes(bootstrapGithubOidc, 'arn:aws:ssm:${AwsRegion}:*:parameter', 'AWS GitHub OIDC role must not allow cross-account Parameter Store access.');
+requireIncludes(bootstrapGithubOidc, 'parameter$normalizedParameterStorePathPrefix', 'AWS GitHub OIDC role must scope Parameter Store access to the exact runtime prefix.');
+requireIncludes(bootstrapGithubOidc, 'parameter$normalizedParameterStorePathPrefix/*', 'AWS GitHub OIDC role must scope Parameter Store access to children under the exact runtime prefix.');
+requireIncludes(bootstrapSecurityPosture, 'guardduty create-detector', 'AWS security posture bootstrap must enable GuardDuty.');
+requireIncludes(bootstrapSecurityPosture, 'configservice put-configuration-recorder', 'AWS security posture bootstrap must configure AWS Config recording.');
+requireIncludes(bootstrapSecurityPosture, 'configservice start-configuration-recorder', 'AWS security posture bootstrap must start AWS Config recording.');
+requireIncludes(bootstrapSecurityPosture, 'ec2 create-flow-logs', 'AWS security posture bootstrap must enable backend VPC Flow Logs.');
+requireIncludes(bootstrapSecurityPosture, 'logs put-retention-policy', 'AWS security posture bootstrap must set Flow Logs retention.');
+requireIncludes(bootstrapSecurityPosture, 'BucketOwnerEnforced', 'AWS security posture bootstrap must enforce S3 bucket ownership controls.');
 
 for (const [label, content] of [
     ['infra/aws/docker-compose.ec2.yml', awsCompose],
@@ -275,10 +302,15 @@ for (const [label, content] of [
 
 requireIncludes(renderRuntimeSecrets, '--with-decryption', 'Runtime secret rendering must decrypt AWS SSM SecureString values.');
 requireIncludes(renderRuntimeSecrets, 'chmod 600 "${output_file}"', 'Runtime secret rendering must chmod runtime-secrets.env to 600.');
+requireIncludes(renderRuntimeSecrets, 'invalid_parameter_names', 'Runtime secret rendering must reject invalid Parameter Store env names before writing runtime-secrets.env.');
+requireIncludes(renderRuntimeSecrets, '^[A-Za-z_][A-Za-z0-9_]*$', 'Runtime secret rendering must require env-safe Parameter Store leaf names.');
 requireIncludes(deployRelease, 'assert_trusted_device_runtime_contract', 'AWS deploy must enforce trusted-device runtime contract before compose up.');
 requireIncludes(deployRelease, 'render-runtime-secrets.sh', 'AWS deploy must render runtime secrets before compose up.');
 requireIncludes(deployRelease, 'AURA_BACKEND_PUBLIC_HOST', 'AWS deploy must validate the TLS edge host.');
 requireIncludes(deployRelease, '--resolve "${backend_public_host}:443:127.0.0.1"', 'AWS deploy must validate HTTPS through the local TLS edge.');
+requireIncludes(deployRelease, 'AURA_INFRA_BUNDLE_SHA256', 'AWS deploy must require an expected infra bundle SHA-256.');
+requireIncludes(deployRelease, 'AURA_IMAGE_BUNDLE_SHA256', 'AWS deploy must require an expected image bundle SHA-256.');
+requireIncludes(deployRelease, 'verify_sha256 "${release_dir}/image.tar.gz"', 'AWS deploy must verify the image bundle before docker load.');
 
 const requiredSecretKeys = [
     'MONGO_URI',

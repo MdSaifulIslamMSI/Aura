@@ -416,7 +416,9 @@ describe('repo environment contract scripts', () => {
         expect(bootstrap).toMatch(/\[string\]\$ParameterStorePathPrefix = "\/aura\/prod"/);
         expect(bootstrap).toContain('RuntimeParameterUpdates');
         expect(bootstrap).toContain('"ssm:PutParameter"');
-        expect(bootstrap).toContain('parameter$($ParameterStorePathPrefix.TrimEnd(\'/\'))*');
+        expect(bootstrap).toContain('parameter$normalizedParameterStorePathPrefix');
+        expect(bootstrap).toContain('parameter$normalizedParameterStorePathPrefix/*');
+        expect(bootstrap).not.toContain('arn:aws:ssm:${AwsRegion}:*:parameter');
     });
 
     test('production admin recovery falls back through SSM runtime update when PutParameter is denied', () => {
@@ -438,6 +440,52 @@ describe('repo environment contract scripts', () => {
         expect(doctor).toContain('backend deploy OIDC policy can update runtime parameters');
         expect(doctor).toContain('RuntimeParameterUpdates');
         expect(doctor).toContain('"ssm:PutParameter"');
+    });
+
+    test('AWS backend bootstrap and deploy scripts keep hardening guardrails', () => {
+        const bootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-free-tier.ps1'), 'utf8');
+        const oidcBootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-github-oidc.ps1'), 'utf8');
+        const securityPostureBootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-security-posture.ps1'), 'utf8');
+        const renderRuntimeSecrets = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'render-runtime-secrets.sh'), 'utf8');
+        const deployRelease = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'deploy-release.sh'), 'utf8');
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-backend-aws.yml'), 'utf8');
+
+        expect(bootstrap).toContain('aws sts get-caller-identity');
+        expect(bootstrap).toContain('put-bucket-versioning');
+        expect(bootstrap).toContain('NoncurrentVersionExpiration');
+        expect(bootstrap).toContain('""Encrypted"":true');
+        expect(bootstrap).toContain('Set-Alias -Name aws -Value Invoke-AwsChecked -Scope Script');
+        expect(bootstrap).not.toContain('arn:aws:ssm:${Region}:*:parameter');
+        expect(bootstrap).toContain('parameter$normalizedParameterPrefix');
+        expect(bootstrap).toContain('parameter$normalizedParameterPrefix/*');
+
+        expect(oidcBootstrap).not.toContain('arn:aws:ssm:${AwsRegion}:*:parameter');
+        expect(oidcBootstrap).toContain('Set-Alias -Name aws -Value Invoke-AwsChecked -Scope Script');
+        expect(oidcBootstrap).toContain('parameter$normalizedParameterStorePathPrefix');
+        expect(oidcBootstrap).toContain('parameter$normalizedParameterStorePathPrefix/*');
+
+        expect(securityPostureBootstrap).toContain('guardduty create-detector');
+        expect(securityPostureBootstrap).toContain('Set-Alias -Name aws -Value Invoke-AwsChecked -Scope Script');
+        expect(securityPostureBootstrap).toContain('GuardDuty: blocked - account subscription required');
+        expect(securityPostureBootstrap).toContain('configservice put-configuration-recorder');
+        expect(securityPostureBootstrap).toContain('configservice start-configuration-recorder');
+        expect(securityPostureBootstrap).toContain('ec2 create-flow-logs');
+        expect(securityPostureBootstrap).toContain('logs put-retention-policy');
+        expect(securityPostureBootstrap).toContain('BucketOwnerEnforced');
+
+        expect(renderRuntimeSecrets).toContain('invalid_parameter_names');
+        expect(renderRuntimeSecrets).toContain('^[A-Za-z_][A-Za-z0-9_]*$');
+
+        expect(deployRelease).toContain('AURA_INFRA_BUNDLE_SHA256');
+        expect(deployRelease).toContain('AURA_IMAGE_BUNDLE_SHA256');
+        expect(deployRelease).toContain('verify_sha256 "${release_dir}/infra.tar.gz"');
+        expect(deployRelease).toContain('verify_sha256 "${release_dir}/image.tar.gz"');
+
+        expect(workflow).toContain('sha256sum "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz"');
+        expect(workflow).toContain('sha256sum "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz"');
+        expect(workflow).toContain('sha256sum --check --status');
+        expect(workflow).toContain('AURA_INFRA_BUNDLE_SHA256');
+        expect(workflow).toContain('AURA_IMAGE_BUNDLE_SHA256');
     });
 
     test('performance smoke fails when no real target is reachable', () => {

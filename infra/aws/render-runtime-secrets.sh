@@ -17,18 +17,40 @@ fi
 
 mkdir -p "$(dirname "${output_file}")"
 
+parameters_file="$(mktemp)"
+trap 'rm -f "${parameters_file}"' EXIT
+chmod 600 "${parameters_file}"
+
 aws ssm get-parameters-by-path \
   --region "${aws_region}" \
   --path "${path_prefix}" \
   --with-decryption \
   --recursive \
-  --output json \
-  | jq -r '
+  --output json > "${parameters_file}"
+
+invalid_parameter_names="$(
+  jq -r '
+    (.Parameters // [])
+    | .[]
+    | .Name as $name
+    | ($name | split("/")[-1]) as $key
+    | select(($key | test("^[A-Za-z_][A-Za-z0-9_]*$")) | not)
+    | $name
+  ' "${parameters_file}"
+)"
+
+if [[ -n "${invalid_parameter_names}" ]]; then
+  echo "Refusing to write runtime secrets: Parameter Store names must end in valid env var keys." >&2
+  echo "${invalid_parameter_names}" >&2
+  exit 1
+fi
+
+jq -r '
       (.Parameters // [])
       | sort_by(.Name)
       | .[]
       | "\(.Name | split("/")[-1])=\(.Value | gsub("\r"; "") | gsub("\n"; "\\n"))"
-    ' > "${output_file}"
+    ' "${parameters_file}" > "${output_file}"
 
 chmod 600 "${output_file}"
 echo "Wrote runtime secrets to ${output_file}"
