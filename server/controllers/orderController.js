@@ -23,6 +23,9 @@ const {
     buildRefundEntry,
     buildRefundMutation,
 } = require('../services/payments/refundState');
+const {
+    toStoredMinorUnits,
+} = require('../services/payments/moneyStorage');
 const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
 const AppError = require('../utils/AppError');
@@ -650,6 +653,10 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
                 'commandCenter.refunds': {
                     requestId,
                     amount,
+                    amountMinor: toStoredMinorUnits(
+                        amount,
+                        order.settlementCurrency || order.refundSummary?.settlementCurrency || 'INR'
+                    ),
                     reason,
                     status: 'pending',
                     message: requiresFraudReview

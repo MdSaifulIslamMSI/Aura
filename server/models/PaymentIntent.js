@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 const { PAYMENT_METHODS } = require('../services/payments/constants');
+const {
+    hydratePaymentIntentMinorUnits,
+    minorUnitsField,
+} = require('../services/payments/moneyStorage');
 
 const riskSnapshotSchema = new mongoose.Schema({
     score: { type: Number, default: 0 },
@@ -29,18 +33,23 @@ const paymentIntentSchema = new mongoose.Schema({
     providerPaymentId: { type: String, default: '', index: true },
     providerMethodId: { type: String, default: '' },
     amount: { type: Number, required: true },
+    amountMinor: minorUnitsField(),
     currency: { type: String, required: true, default: 'INR' },
     baseAmount: { type: Number, default: 0 },
+    baseAmountMinor: minorUnitsField(),
     baseCurrency: { type: String, default: 'INR' },
     displayAmount: { type: Number, default: 0 },
+    displayAmountMinor: minorUnitsField(),
     displayCurrency: { type: String, default: 'INR' },
     fxRateLocked: { type: Number, default: 1 },
     fxTimestamp: { type: String, default: '' },
     settlementAmount: { type: Number, default: 0 },
+    settlementAmountMinor: minorUnitsField(),
     marketCountryCode: { type: String, default: 'IN', index: true },
     marketCurrency: { type: String, default: 'INR', index: true },
     settlementCurrency: { type: String, default: 'INR' },
     providerBaseAmount: { type: Number, default: null },
+    providerBaseAmountMinor: minorUnitsField(null),
     providerBaseCurrency: { type: String, default: '' },
     method: { type: String, enum: PAYMENT_METHODS, required: true },
     status: {
@@ -66,5 +75,9 @@ paymentIntentSchema.index({ provider: 1, providerPaymentId: 1 });
 paymentIntentSchema.index({ user: 1, status: 1, expiresAt: 1 });
 paymentIntentSchema.index({ user: 1, order: 1, 'orderClaim.state': 1 });
 paymentIntentSchema.index({ marketCountryCode: 1, marketCurrency: 1, status: 1 });
+
+paymentIntentSchema.pre('validate', function hydrateMinorUnitMoneyFields() {
+    hydratePaymentIntentMinorUnits(this);
+});
 
 module.exports = mongoose.model('PaymentIntent', paymentIntentSchema);

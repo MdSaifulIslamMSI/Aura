@@ -334,6 +334,26 @@ describe('orderPlacementService hardening', () => {
         });
 
         expect(result.statusCode).toBe(201);
+        expect(result.response.orderItems[0]).toMatchObject({
+            price: 1200,
+            priceMinor: 120000,
+        });
+        expect(result.response).toMatchObject({
+            itemsPriceMinor: 120000,
+            taxPriceMinor: 0,
+            shippingPriceMinor: 0,
+            totalPriceMinor: 120000,
+            baseAmountMinor: 120000,
+            displayAmountMinor: 120000,
+            settlementAmountMinor: 120000,
+            presentmentTotalPriceMinor: 120000,
+            couponDiscountMinor: 0,
+            paymentAdjustmentMinor: 0,
+            refundSummary: expect.objectContaining({
+                totalRefundedMinor: 0,
+                presentmentTotalRefundedMinor: 0,
+            }),
+        });
         expect(scanForMarketplaceAnomalies).not.toHaveBeenCalled();
         expect(result.response.priceBreakdown).not.toHaveProperty('integrityInsights');
         expect(commitTransaction).toHaveBeenCalledTimes(1);

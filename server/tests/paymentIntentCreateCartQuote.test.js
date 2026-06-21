@@ -148,6 +148,11 @@ describe('payment intent cart quote context', () => {
         expect(providerCreateOrder).toHaveBeenCalled();
         expect(paymentIntentCreate).toHaveBeenCalledWith(expect.objectContaining({
             user: 'user_cart_1',
+            amountMinor: 199900,
+            baseAmountMinor: 199900,
+            displayAmountMinor: 199900,
+            settlementAmountMinor: 199900,
+            providerBaseAmountMinor: null,
             metadata: expect.objectContaining({
                 quoteSnapshot: expect.objectContaining({
                     totalPrice: 1999,

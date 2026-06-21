@@ -107,7 +107,7 @@ Current ledger state:
 
 - Admin refund/payment views exist, including `app/src/pages/Admin/RefundLedger.jsx`.
 - No Formance-compatible double-entry ledger service was found.
-- Current money fields in payment/order models are JavaScript numbers; the new foundation should use integer minor units in new ledger code.
+- Runtime payment/order models preserve legacy JavaScript number fields for backward compatibility and add integer minor-unit mirror fields for new Order and PaymentIntent writes. New ledger code should continue to treat integer minor units as canonical.
 
 Current auth/security state:
 
@@ -176,7 +176,7 @@ The local blocker was later removed with a surgical no-DB allowlist in `server/t
 - Existing live payment behavior depends on Razorpay/Stripe provider contracts; replacing provider defaults would be risky.
 - Webhook security depends on raw request body behavior in `server/index.js`; this must not be regressed.
 - Payment and order models currently use Mongoose/MongoDB, while the target architecture mentions PostgreSQL. This foundation should add PostgreSQL-ready contracts/docs first, not replace storage in one step.
-- Existing money fields use JavaScript numbers in legacy models. New ledger/billing code must use integer minor units, but existing runtime models should not be migrated without a separate data plan.
+- Existing legacy decimal money fields remain in runtime models for API/data compatibility. New writes add integer minor-unit mirrors, but historical records still require a separate audited backfill before decimals can be deprecated.
 - Auth, CSRF, CORS, refund, and order pricing behavior are security-sensitive and should only be integrated behind tests and flags.
 - Existing CI/deployment workflows are broad. Payment CI must not require real Hyperswitch, Lago, Kill Bill, Formance, OpenBao, Kafka, Temporal, or production secrets.
 - Docker profiles should be optional and config-valid without forcing local developers to run heavyweight infrastructure.

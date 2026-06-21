@@ -13,6 +13,7 @@ const {
     scheduleRefundTask,
 } = require('./payments/paymentService');
 const { DIGITAL_METHODS } = require('./payments/constants');
+const { toStoredMinorUnits } = require('./payments/moneyStorage');
 
 const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
 
@@ -203,6 +204,10 @@ const cancelOrderByActor = async ({
                     'commandCenter.refunds': {
                         requestId,
                         amount: Number(order.totalPrice || 0),
+                        amountMinor: toStoredMinorUnits(
+                            Number(order.totalPrice || 0),
+                            order.settlementCurrency || order.refundSummary?.settlementCurrency || 'INR'
+                        ),
                         reason: `Order cancellation: ${cancelReason}`,
                         status: 'pending',
                         message: 'Cancellation refund request created',

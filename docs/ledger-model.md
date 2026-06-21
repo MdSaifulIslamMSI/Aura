@@ -5,6 +5,7 @@ The internal ledger foundation is Formance-compatible in shape but local and dep
 Rules:
 
 - Money is stored as integer minor units.
+- Legacy Order and PaymentIntent decimal fields are compatibility fields only. New writes also persist integer minor-unit mirrors; historical records need an audited backfill before the decimal fields can be deprecated.
 - Every movement has debit and credit entries.
 - A transaction must balance to zero per currency.
 - Entries are immutable after creation.

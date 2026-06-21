@@ -34,6 +34,9 @@ const {
     mapProviderTypeToPaymentMethod,
 } = require('./helpers');
 const {
+    buildPaymentIntentMinorUnits,
+} = require('./moneyStorage');
+const {
     diff,
     buildSecurityState,
     setSecurityState,
@@ -719,6 +722,16 @@ const createPaymentIntent = async ({
     const challengeRequired = flags.paymentChallengeEnabled && risk.challengeRequired;
     const intentStatus = challengeRequired ? PAYMENT_STATUSES.CHALLENGE_PENDING : PAYMENT_STATUSES.CREATED;
     const expiresAt = new Date(Date.now() + (INTENT_EXPIRY_MINUTES * 60 * 1000));
+    const intentMinorUnits = buildPaymentIntentMinorUnits({
+        amount: chargeAmount,
+        currency: chargeCurrency,
+        baseAmount,
+        baseCurrency,
+        displayAmount: chargeAmount,
+        displayCurrency: chargeCurrency,
+        settlementAmount,
+        settlementCurrency,
+    });
 
     const intent = await PaymentIntent.create({
         intentId,
@@ -728,16 +741,21 @@ const createPaymentIntent = async ({
         providerOrderId: providerOrder.id,
         amount: chargeAmount,
         currency: chargeCurrency,
+        amountMinor: intentMinorUnits.amountMinor,
         baseAmount,
         baseCurrency,
+        baseAmountMinor: intentMinorUnits.baseAmountMinor,
         displayAmount: chargeAmount,
         displayCurrency: chargeCurrency,
+        displayAmountMinor: intentMinorUnits.displayAmountMinor,
         fxRateLocked: Number(quote.pricing.fxRateLocked || 1),
         fxTimestamp: quote.pricing.fxTimestamp || new Date().toISOString(),
         settlementAmount,
+        settlementAmountMinor: intentMinorUnits.settlementAmountMinor,
         marketCountryCode: resolvedMarketContext.market.countryCode,
         marketCurrency: resolvedMarketContext.market.currency,
         settlementCurrency,
+        providerBaseAmountMinor: intentMinorUnits.providerBaseAmountMinor,
         method: normalizedMethod,
         status: intentStatus,
         riskSnapshot: {
