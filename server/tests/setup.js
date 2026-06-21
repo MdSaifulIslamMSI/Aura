@@ -57,6 +57,7 @@ const NO_DB_TEST_FILES = new Set([
     'invisibleFabricAuthz.test.js',
     'invisibleFabricConfig.test.js',
     'invisibleFabricMiddleware.test.js',
+    'moneyMinorBackfillAudit.test.js',
     'moneyMinorStorage.test.js',
     'responseMinimizer.test.js',
     'routeExposureRegistry.test.js',
