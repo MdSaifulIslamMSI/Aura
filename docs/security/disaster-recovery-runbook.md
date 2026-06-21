@@ -10,7 +10,7 @@ Run:
 npm run security:backup-restore-check
 ```
 
-The verifier checks that backup command, restore command, and backup storage configuration are present. It does not print secrets, database URIs, backup bucket names, tokens, or command contents.
+The verifier checks that backup command, restore command, and backup storage configuration are present. A successful dry run is configuration-only evidence: it does not execute a backup or restore and does not prove a restore drill. The JSON output records those limits explicitly. It does not print secrets, database URIs, backup bucket names, tokens, or command contents.
 
 Production restore is blocked unless all are true:
 

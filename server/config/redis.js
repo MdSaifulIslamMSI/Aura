@@ -64,12 +64,7 @@ const assertProductionRedisConfig = () => {
         throw new Error('Redis must be enabled for production split-runtime, distributed security controls, or REDIS_REQUIRED deployments');
     }
     if ((flags.redisEnabled || isRedisRequired()) && !flags.redisUrl) {
-        logger.warn('redis.missing_url_in_production', {
-            redisEnabled: flags.redisEnabled,
-            redisRequired: flags.redisRequired,
-            tip: 'Add REDIS_URL to Render Environment Variables. Redis features will be disabled until configured.',
-        });
-        flags.redisEnabled = false;
+        throw new Error('REDIS_URL is required when Redis is enabled or required in production');
     }
 };
 
