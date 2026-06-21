@@ -223,7 +223,7 @@ const runGitleaks = () => {
 
 const runSemgrep = () => {
   const scanRoot = prepareSemgrepScanRoot();
-  const scanMount = `${hostPath(scanRoot)}:/src:ro`;
+  const scanMount = `${hostPath(scanRoot)}:/src`;
   const semgrepReportMount = `${hostPath(reportDir)}:/src/security-reports`;
 
   runDocker([
