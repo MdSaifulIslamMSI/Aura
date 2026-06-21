@@ -29,7 +29,7 @@ describe('backup restore check script', () => {
         expect(result.stdout).not.toContain('private-sensitive-backup-location');
     });
 
-    test('allows dry-run restore check for non-production target', () => {
+    test('reports non-production dry run as configuration-only evidence', () => {
         const result = runCheck({
             RESTORE_TARGET_ENV: 'staging',
             DRY_RUN: 'true',
@@ -39,7 +39,9 @@ describe('backup restore check script', () => {
         });
 
         expect(result.status).toBe(0);
-        expect(result.stdout).toContain('dry_run_restore_check_allowed');
+        expect(result.stdout).toContain('backup_restore_configuration_ready');
+        expect(result.stdout).toContain('configuration_only');
+        expect(result.stdout).toContain('"restoreDrillProven": false');
     });
 
     test('fails closed with safe message when required configuration is missing', () => {

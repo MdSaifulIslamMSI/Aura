@@ -36,6 +36,12 @@ export const planBackupRestoreCheck = (env = process.env) => {
     targetEnvironment,
     approveProductionRestore,
   };
+  const evidence = {
+    scope: 'configuration_only',
+    backupExecuted: false,
+    restoreExecuted: false,
+    restoreDrillProven: false,
+  };
 
   const missing = Object.entries({
     backup_command: checks.backupCommandConfigured,
@@ -57,6 +63,7 @@ export const planBackupRestoreCheck = (env = process.env) => {
       reason: 'missing_backup_restore_configuration',
       missing,
       checks,
+      evidence,
     };
   }
 
@@ -66,6 +73,7 @@ export const planBackupRestoreCheck = (env = process.env) => {
       blocked: true,
       reason: 'production_restore_blocked',
       checks,
+      evidence,
       requiredApproval: {
         DRY_RUN: 'false',
         APPROVE_PRODUCTION_RESTORE: 'yes',
@@ -76,8 +84,9 @@ export const planBackupRestoreCheck = (env = process.env) => {
   return {
     ok: true,
     blocked: false,
-    reason: dryRun ? 'dry_run_restore_check_allowed' : 'restore_check_allowed',
+    reason: dryRun ? 'backup_restore_configuration_ready' : 'restore_configuration_and_approval_ready',
     checks,
+    evidence,
   };
 };
 
