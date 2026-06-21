@@ -9,7 +9,7 @@ This inventory records what is visible in the repository at the time of the zero
 | Auth | Yes | Firebase token verification, browser session service, CSRF middleware, trusted-device/WebAuthn signals, Duo step-up tests, admin access policy, auth telemetry | Prove production MFA/passkey enforcement and refresh-token rotation from live config | High |
 | Uploads | Yes | Upload token checks, size/MIME/extension checks, magic-byte verification, unsafe filename block, malware scan integration, upload telemetry, runtime malware validation script | Prove production ClamAV/YARA availability and quarantine storage policy | Critical |
 | API | Yes | Helmet/CSP, CORS allowlist, request IDs, body limits, Redis-backed rate limiting, origin protection, timeout middleware, validation helpers | Per-route proof matrix for every public/admin/AI/search endpoint | High |
-| Database | Partial | Mongoose models, owner checks in security tests, Redis health checks, production DB contract audits | DB-level RLS is not applicable to Mongo; document app-layer tenant guarantees, backup encryption, restore evidence, DB audit export | High |
+| Database | Partial | Mongoose models, owner checks in security tests, Redis health checks, production DB contract audits, local isolated restore drill | DB-level RLS is not applicable to Mongo; document app-layer tenant guarantees, managed-backup restore evidence, DB audit export | High |
 | CI/CD | Yes | Existing security workflow, free scanner workflow, dependency audit scripts, secret scan script, Semgrep, Trivy, ZAP, Hadolint, Checkov/tfsec/Terrascan reports, SBOM, supply-chain pin check, security test suites | Cosign signature verification before deploy, external staging DAST URL, explicit high-risk manual review proof | Critical |
 | Logs | Yes | Request IDs, HTTP request logs, auth security events, upload security telemetry, admin notifications, Prometheus metrics | SIEM export proof, tamper-resistant storage, alert delivery evidence | High |
 | Runtime | Partial | Dockerfile, compose files, observability compose, edge assets, Trivy image scan script | Non-root/read-only/container capability proof and Falco runtime detection deployment | High |
@@ -57,8 +57,8 @@ This inventory records what is visible in the repository at the time of the zero
 - TLS in transit: Partial; production DB/TLS evidence needed.
 - Row-level security: Not applicable to Mongo; app-layer owner/tenant checks required.
 - Audit logs: Partial; auth/upload/admin/support/status audit-style events exist.
-- Backups: Documented as a requirement, not proven.
-- Restore drill: Missing evidence.
+- Backups: Documented with configuration checks; managed-provider backup restore still needs retained evidence.
+- Restore drill: Local isolated fixture drill exists; real managed-backup restore evidence is still required.
 - Retention/deletion: Partial; soft-delete and account governance paths exist.
 
 ## Supply Chain

@@ -15,6 +15,7 @@ Backups should use strong symmetric encryption such as AES-256-GCM or ChaCha20-P
 
 ```sh
 DRY_RUN=true npm run security:backup-restore-check
+npm run security:backup-restore-drill
 node scripts/security/backup-crypto-agility-check.mjs --json --markdown
 ```
 
@@ -24,7 +25,7 @@ Optional staging evidence:
 PQC_BACKUP_EVIDENCE_MODE=staging DRY_RUN=true node scripts/security/backup-crypto-agility-check.mjs --json --markdown
 ```
 
-The optional evidence path plans a dry-run restore check and records only missing/configured setting groups. It does not decrypt backups, write restore targets, or store backup commands, storage URIs, or key values in reports.
+The local restore drill writes, backs up, restores, and verifies a disposable fixture without network calls or MongoDB access. The optional environment evidence path plans a dry-run restore check and records only missing/configured setting groups. Neither path decrypts production backups, writes production restore targets, or stores backup commands, storage URIs, or key values in reports.
 
 ## Emergency Restore Checklist
 
