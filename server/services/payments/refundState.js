@@ -4,6 +4,10 @@ const {
     toMinorUnits,
     fromMinorUnits,
 } = require('./helpers');
+const {
+    buildRefundEntryMinorUnits,
+    buildRefundSummaryMinorUnits,
+} = require('./moneyStorage');
 
 const getSettlementCurrency = (order = {}) => String(order?.settlementCurrency || 'INR').trim().toUpperCase() || 'INR';
 const getPresentmentCurrency = (order = {}) => (
@@ -171,18 +175,25 @@ const buildRefundEntry = ({
     reason,
     fallbackRefundId,
     createdAt = new Date(),
-}) => ({
-    refundId: providerRefund?.id || fallbackRefundId,
-    amount: refundAmounts?.presentmentAmount ?? refundAmounts?.settlementAmount ?? 0,
-    currency: refundAmounts?.presentmentCurrency || refundAmounts?.settlementCurrency || 'INR',
-    settlementAmount: refundAmounts?.settlementAmount ?? 0,
-    settlementCurrency: refundAmounts?.settlementCurrency || 'INR',
-    presentmentAmount: refundAmounts?.presentmentAmount ?? refundAmounts?.settlementAmount ?? 0,
-    presentmentCurrency: refundAmounts?.presentmentCurrency || refundAmounts?.settlementCurrency || 'INR',
-    reason: reason || 'requested_by_user',
-    status: String(providerRefund?.status || 'processed'),
-    createdAt,
-});
+}) => {
+    const entry = {
+        refundId: providerRefund?.id || fallbackRefundId,
+        amount: refundAmounts?.presentmentAmount ?? refundAmounts?.settlementAmount ?? 0,
+        currency: refundAmounts?.presentmentCurrency || refundAmounts?.settlementCurrency || 'INR',
+        settlementAmount: refundAmounts?.settlementAmount ?? 0,
+        settlementCurrency: refundAmounts?.settlementCurrency || 'INR',
+        presentmentAmount: refundAmounts?.presentmentAmount ?? refundAmounts?.settlementAmount ?? 0,
+        presentmentCurrency: refundAmounts?.presentmentCurrency || refundAmounts?.settlementCurrency || 'INR',
+        reason: reason || 'requested_by_user',
+        status: String(providerRefund?.status || 'processed'),
+        createdAt,
+    };
+
+    return {
+        ...entry,
+        ...buildRefundEntryMinorUnits(entry),
+    };
+};
 
 const buildRefundMutation = ({
     order,
@@ -209,6 +220,22 @@ const buildRefundMutation = ({
     const paymentState = fullyRefunded
         ? PAYMENT_STATUSES.REFUNDED
         : PAYMENT_STATUSES.PARTIALLY_REFUNDED;
+    const normalizedRefundEntry = {
+        ...refundEntry,
+        ...buildRefundEntryMinorUnits(refundEntry),
+    };
+    const normalizedPreviousRefunds = (order?.refundSummary?.refunds || []).map((refund) => ({
+        ...refund,
+        ...buildRefundEntryMinorUnits(refund),
+    }));
+    const refundSummary = {
+        totalRefunded: nextTotalRefunded,
+        settlementCurrency,
+        presentmentCurrency,
+        presentmentTotalRefunded: nextPresentmentTotalRefunded,
+        fullyRefunded,
+        refunds: [...normalizedPreviousRefunds, normalizedRefundEntry],
+    };
 
     return {
         nextTotalRefunded,
@@ -216,12 +243,8 @@ const buildRefundMutation = ({
         fullyRefunded,
         paymentState,
         refundSummary: {
-            totalRefunded: nextTotalRefunded,
-            settlementCurrency,
-            presentmentCurrency,
-            presentmentTotalRefunded: nextPresentmentTotalRefunded,
-            fullyRefunded,
-            refunds: [...(order?.refundSummary?.refunds || []), refundEntry],
+            ...refundSummary,
+            ...buildRefundSummaryMinorUnits(refundSummary),
         },
     };
 };

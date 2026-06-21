@@ -25,6 +25,10 @@ const {
 } = require('./payments/idempotencyService');
 const { clearCartAfterCheckout } = require('./cartService');
 const { emitCartRealtimeUpdate } = require('./cartRealtimeService');
+const {
+    buildOrderItemMinorUnits,
+    buildOrderPricingMinorUnits,
+} = require('./payments/moneyStorage');
 
 const transactionFallbackEnabled = paymentFlags.nodeEnv !== 'production';
 const DIGITAL_PAYMENT_METHODS = new Set(DIGITAL_METHODS);
@@ -103,13 +107,17 @@ const assertQuoteSnapshot = (quoteSnapshot, pricing, cart = null) => {
     }
 };
 
-const mapToDbOrderItems = (resolvedItems) => resolvedItems.map((item) => ({
-    title: item.title,
-    quantity: item.quantity,
-    image: item.image,
-    price: item.price,
-    product: item.mongoProductId,
-}));
+const mapToDbOrderItems = (resolvedItems, pricing = {}) => {
+    const itemCurrency = pricing.baseCurrency || pricing.settlementCurrency || 'INR';
+    return resolvedItems.map((item) => ({
+        title: item.title,
+        quantity: item.quantity,
+        image: item.image,
+        price: item.price,
+        ...buildOrderItemMinorUnits(item, itemCurrency),
+        product: item.mongoProductId,
+    }));
+};
 
 const decrementStockAtomically = async (resolvedItems, session) => {
     for (const item of resolvedItems) {
@@ -161,9 +169,10 @@ const executeOrderCreation = async ({
     await decrementStockAtomically(quote.resolvedItems, session);
     
     const paymentIntent = paymentValidation.paymentIntent;
+    const orderPricingMinorUnits = buildOrderPricingMinorUnits(quote.pricing);
     const order = new Order({
         user: userId,
-        orderItems: mapToDbOrderItems(quote.resolvedItems),
+        orderItems: mapToDbOrderItems(quote.resolvedItems, quote.pricing),
         shippingAddress: quote.normalized.shippingAddress,
         paymentMethod: quote.normalized.paymentMethod,
         itemsPrice: quote.pricing.itemsPrice,
@@ -184,6 +193,7 @@ const executeOrderCreation = async ({
         couponCode: quote.normalized.couponCode || '',
         couponDiscount: quote.pricing.couponDiscount,
         paymentAdjustment: quote.pricing.paymentAdjustment,
+        ...orderPricingMinorUnits,
         deliveryOption: quote.normalized.deliveryOption,
         deliverySlot: quote.normalized.deliverySlot || undefined,
         checkoutSource: quote.normalized.checkoutSource,
@@ -218,9 +228,11 @@ const executeOrderCreation = async ({
         orderStatus: 'placed',
         refundSummary: {
             totalRefunded: 0,
+            totalRefundedMinor: 0,
             settlementCurrency: quote.pricing.settlementCurrency || 'INR',
             presentmentCurrency: quote.pricing.presentmentCurrency || quote.pricing.settlementCurrency || 'INR',
             presentmentTotalRefunded: 0,
+            presentmentTotalRefundedMinor: 0,
             fullyRefunded: false,
             refunds: [],
         },

@@ -1,4 +1,8 @@
 const mongoose = require('mongoose');
+const {
+    hydrateOrderMinorUnits,
+    minorUnitsField,
+} = require('../services/payments/moneyStorage');
 
 const orderSchema = mongoose.Schema({
     user: {
@@ -12,6 +16,7 @@ const orderSchema = mongoose.Schema({
             quantity: { type: Number, required: true },
             image: { type: String, required: true },
             price: { type: Number, required: true },
+            priceMinor: minorUnitsField(),
             product: {
                 type: mongoose.Schema.Types.ObjectId,
                 required: true,
@@ -98,17 +103,22 @@ const orderSchema = mongoose.Schema({
     },
     refundSummary: {
         totalRefunded: { type: Number, default: 0 },
+        totalRefundedMinor: minorUnitsField(),
         settlementCurrency: { type: String, default: 'INR' },
         presentmentCurrency: { type: String, default: 'INR' },
         presentmentTotalRefunded: { type: Number, default: 0 },
+        presentmentTotalRefundedMinor: minorUnitsField(),
         fullyRefunded: { type: Boolean, default: false },
         refunds: [{
             refundId: { type: String },
             amount: { type: Number, default: 0 },
+            amountMinor: minorUnitsField(),
             currency: { type: String, default: 'INR' },
             settlementAmount: { type: Number, default: 0 },
+            settlementAmountMinor: minorUnitsField(),
             settlementCurrency: { type: String, default: 'INR' },
             presentmentAmount: { type: Number, default: 0 },
+            presentmentAmountMinor: minorUnitsField(),
             presentmentCurrency: { type: String, default: 'INR' },
             reason: { type: String, default: '' },
             status: { type: String, default: '' },
@@ -119,6 +129,7 @@ const orderSchema = mongoose.Schema({
         refunds: [{
             requestId: { type: String, default: '' },
             amount: { type: Number, default: 0 },
+            amountMinor: minorUnitsField(),
             reason: { type: String, default: '' },
             message: { type: String, default: '' },
             refundId: { type: String, default: '' },
@@ -185,25 +196,30 @@ const orderSchema = mongoose.Schema({
         required: true,
         default: 0.0
     },
+    itemsPriceMinor: minorUnitsField(),
     taxPrice: {
         type: Number,
         required: true,
         default: 0.0
     },
+    taxPriceMinor: minorUnitsField(),
     shippingPrice: {
         type: Number,
         required: true,
         default: 0.0
     },
+    shippingPriceMinor: minorUnitsField(),
     totalPrice: {
         type: Number,
         required: true,
         default: 0.0
     },
+    totalPriceMinor: minorUnitsField(),
     baseAmount: {
         type: Number,
         default: 0.0
     },
+    baseAmountMinor: minorUnitsField(),
     baseCurrency: {
         type: String,
         default: 'INR'
@@ -212,6 +228,7 @@ const orderSchema = mongoose.Schema({
         type: Number,
         default: 0.0
     },
+    displayAmountMinor: minorUnitsField(),
     displayCurrency: {
         type: String,
         default: 'INR'
@@ -232,6 +249,7 @@ const orderSchema = mongoose.Schema({
         type: Number,
         default: 0.0
     },
+    settlementAmountMinor: minorUnitsField(),
     presentmentCurrency: {
         type: String,
         default: 'INR'
@@ -240,6 +258,7 @@ const orderSchema = mongoose.Schema({
         type: Number,
         default: 0.0
     },
+    presentmentTotalPriceMinor: minorUnitsField(),
     marketCountryCode: {
         type: String,
         default: 'IN'
@@ -252,10 +271,12 @@ const orderSchema = mongoose.Schema({
         type: Number,
         default: 0.0
     },
+    couponDiscountMinor: minorUnitsField(),
     paymentAdjustment: {
         type: Number,
         default: 0.0
     },
+    paymentAdjustmentMinor: minorUnitsField(),
     deliveryOption: {
         type: String,
         enum: ['standard', 'express'],
@@ -302,5 +323,9 @@ orderSchema.index({ user: 1, createdAt: -1, _id: -1 });
 orderSchema.index({ createdAt: -1, _id: -1 });
 orderSchema.index({ orderStatus: 1, createdAt: -1, _id: -1 });
 orderSchema.index({ paymentState: 1, createdAt: -1, _id: -1 });
+
+orderSchema.pre('validate', function hydrateMinorUnitMoneyFields() {
+    hydrateOrderMinorUnits(this);
+});
 
 module.exports = mongoose.model('Order', orderSchema);

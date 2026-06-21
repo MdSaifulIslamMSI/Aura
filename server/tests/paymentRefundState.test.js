@@ -84,10 +84,13 @@ describe('Payment refund state helpers', () => {
         expect(entry).toEqual({
             refundId: 'rfnd_123',
             amount: 25,
+            amountMinor: 2500,
             currency: 'USD',
             settlementAmount: 2100,
+            settlementAmountMinor: 210000,
             settlementCurrency: 'INR',
             presentmentAmount: 25,
+            presentmentAmountMinor: 2500,
             presentmentCurrency: 'USD',
             reason: 'customer_request',
             status: 'processed',
@@ -99,10 +102,13 @@ describe('Payment refund state helpers', () => {
         const partialEntry = {
             refundId: 'rfnd_partial',
             amount: 25,
+            amountMinor: 2500,
             currency: 'USD',
             settlementAmount: 2100,
+            settlementAmountMinor: 210000,
             settlementCurrency: 'INR',
             presentmentAmount: 25,
+            presentmentAmountMinor: 2500,
             presentmentCurrency: 'USD',
             reason: 'partial',
             status: 'processed',
@@ -129,15 +135,20 @@ describe('Payment refund state helpers', () => {
         expect(partial.nextPresentmentTotalRefunded).toBe(25);
         expect(partial.fullyRefunded).toBe(false);
         expect(partial.paymentState).toBe(PAYMENT_STATUSES.PARTIALLY_REFUNDED);
+        expect(partial.refundSummary.totalRefundedMinor).toBe(210000);
+        expect(partial.refundSummary.presentmentTotalRefundedMinor).toBe(2500);
         expect(partial.refundSummary.refunds).toHaveLength(2);
 
         const finalEntry = {
             refundId: 'rfnd_full',
             amount: 75,
+            amountMinor: 7500,
             currency: 'USD',
             settlementAmount: 6300,
+            settlementAmountMinor: 630000,
             settlementCurrency: 'INR',
             presentmentAmount: 75,
+            presentmentAmountMinor: 7500,
             presentmentCurrency: 'USD',
             reason: 'full',
             status: 'processed',
@@ -163,6 +174,8 @@ describe('Payment refund state helpers', () => {
         expect(full.nextPresentmentTotalRefunded).toBe(100);
         expect(full.fullyRefunded).toBe(true);
         expect(full.paymentState).toBe(PAYMENT_STATUSES.REFUNDED);
+        expect(full.refundSummary.totalRefundedMinor).toBe(840000);
+        expect(full.refundSummary.presentmentTotalRefundedMinor).toBe(10000);
         expect(full.refundSummary.refunds[1]).toEqual(finalEntry);
     });
 });
