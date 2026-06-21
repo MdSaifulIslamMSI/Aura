@@ -221,20 +221,32 @@ const runGitleaks = () => {
   }));
 };
 
-const runSemgrep = () => runDocker([
-  'run', '--rm',
-  '-v', repoAsSrcMount,
-  '-w', '/src',
-  images.semgrep,
-  'semgrep', 'scan',
-  '--config', 'auto',
-  '--config', '/src/semgrep-rules/aura-security.yml',
-  '--severity', 'ERROR',
-  '--error',
-  '--json-output', '/src/security-reports/semgrep-report.json',
-  '--sarif-output', '/src/security-reports/semgrep-report.sarif',
-  '/src',
-]);
+const runSemgrep = () => {
+  const scanRoot = prepareSemgrepScanRoot();
+  const scanMount = `${hostPath(scanRoot)}:/src:ro`;
+  const semgrepReportMount = `${hostPath(reportDir)}:/src/security-reports`;
+
+  runDocker([
+    'run', '--rm',
+    '-v', scanMount,
+    '-v', semgrepReportMount,
+    '-w', '/src',
+    images.semgrep,
+    'semgrep', 'scan',
+    '--config', 'auto',
+    '--config', '/src/semgrep-rules/aura-security.yml',
+    '--severity', 'ERROR',
+    '--error',
+    '--metrics', 'off',
+    '--disable-version-check',
+    '--timeout', '30',
+    '--timeout-threshold', '3',
+    '--max-target-bytes', '1000000',
+    '--json-output', '/src/security-reports/semgrep-report.json',
+    '--sarif-output', '/src/security-reports/semgrep-report.sarif',
+    '/src',
+  ]);
+};
 
 const shouldCopyToTrivyScanRoot = (relativePath) => {
   const normalized = String(relativePath || '').replace(/\\/g, '/');
@@ -255,6 +267,42 @@ const shouldCopyToTrivyScanRoot = (relativePath) => {
     'server/uploads/',
   ].some((prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix));
 };
+
+const shouldCopyToSemgrepScanRoot = (relativePath) => {
+  const normalized = String(relativePath || '').replace(/\\/g, '/');
+  if (!shouldCopyToTrivyScanRoot(normalized)) return false;
+  if (normalized.startsWith('semgrep-rules/')) return true;
+  if (normalized.startsWith('.github/workflows/')) return /\.ya?ml$/i.test(normalized);
+
+  if (![
+    'app/src/',
+    'desktop/',
+    'gateway/',
+    'infra/',
+    'scripts/',
+    'server/',
+    'tests/',
+  ].some((prefix) => normalized.startsWith(prefix))) {
+    return [
+      'package.json',
+      'server/package.json',
+      'app/package.json',
+      'Dockerfile',
+      'docker-compose.yml',
+      'docker-compose.split-runtime.yml',
+      'netlify.toml',
+      'vercel.json',
+    ].includes(normalized);
+  }
+
+  if (/(^|\/)(package-lock|npm-shrinkwrap|yarn\.lock|pnpm-lock)\.(json|ya?ml)$/.test(normalized)) return false;
+  if (/\.(png|jpe?g|gif|webp|ico|svg|mp4|mov|pdf|zip|gz|tgz|tar|db|sqlite|map)$/i.test(normalized)) return false;
+
+  return /(^|\/)(Dockerfile|docker-compose[^/]*)$/i.test(normalized)
+    || /\.(cjs|mjs|js|jsx|ts|tsx|json|ya?ml|toml|sh|bash|ps1|py|sql)$/i.test(normalized);
+};
+
+const prepareSemgrepScanRoot = () => prepareScanRoot('semgrep-source', shouldCopyToSemgrepScanRoot);
 
 const shouldCopyToIacScanRoot = (relativePath) => {
   const normalized = String(relativePath || '').replace(/\\/g, '/');
