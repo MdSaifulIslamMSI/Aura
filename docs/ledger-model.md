@@ -6,6 +6,7 @@ Rules:
 
 - Money is stored as integer minor units.
 - Legacy Order and PaymentIntent decimal fields are compatibility fields only. New writes also persist integer minor-unit mirrors; historical records need an audited backfill before the decimal fields can be deprecated.
+- Historical coverage audit: `npm --prefix server run mongo:money:audit` checks stored Orders and PaymentIntents read-only, reports hashed document IDs only, and must be clean before any decimal-field deprecation plan. The guarded backfill mode requires `MONEY_MINOR_BACKFILL_APPROVED=true npm --prefix server run mongo:money:audit -- --apply` and refuses limited runs.
 - Every movement has debit and credit entries.
 - A transaction must balance to zero per currency.
 - Entries are immutable after creation.

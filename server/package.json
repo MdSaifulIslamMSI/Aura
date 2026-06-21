@@ -20,6 +20,7 @@
     "catalog:seed-demo-100k": "node scripts/seed_demo_catalog_100k.js",
     "catalog:purge-demo": "node scripts/purge_demo_catalog.js --execute",
     "mongo:storage:audit": "node scripts/audit_mongo_storage.js",
+    "mongo:money:audit": "node scripts/audit_money_minor_units.js",
     "status:checks:purge": "node scripts/purge_status_checks.js --execute",
     "catalog:purge-jest-dbs": "node scripts/purge_jest_databases.js --execute",
     "catalog:kaggle:prepare": "node scripts/prepare_kaggle_catalog_snapshot.js",
