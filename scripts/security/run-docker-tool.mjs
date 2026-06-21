@@ -237,7 +237,6 @@ const runSemgrep = () => {
     '--config', '/src/semgrep-rules/aura-security.yml',
     '--severity', 'ERROR',
     '--error',
-    '--metrics', 'off',
     '--disable-version-check',
     '--timeout', '30',
     '--timeout-threshold', '3',
