@@ -27,6 +27,10 @@ describe('backup crypto-agility checker', () => {
                 id: 'repo.backup.no-private-material',
                 status: 'pass',
             }),
+            expect.objectContaining({
+                id: 'repo.backup-restore-drill.local-fixture-proven',
+                status: 'pass',
+            }),
         ]));
     });
 });

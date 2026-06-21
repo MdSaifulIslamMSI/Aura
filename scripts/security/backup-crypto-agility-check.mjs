@@ -18,6 +18,7 @@ export const BACKUP_REPORT_BASENAME = 'backup-crypto-agility-check';
 export const BACKUP_EVIDENCE_REPORT_BASENAME = 'backup-pqc-encryption-evidence';
 
 const backupVerifier = 'scripts/smoke/backup-restore-check.mjs';
+const isolatedRestoreDrill = 'scripts/smoke/isolated-restore-drill.mjs';
 const backupDoc = 'docs/security/pqc-backup-key-agility.md';
 const disabledModes = new Set(['', '0', 'false', 'off', 'disabled', 'skip', 'skipped']);
 
@@ -38,11 +39,17 @@ const loadBackupPlanner = async (root) => {
   return import(moduleUrl);
 };
 
+const loadIsolatedRestoreDrill = async (root) => {
+  const moduleUrl = pathToFileURL(repoPath(root, isolatedRestoreDrill)).href;
+  return import(moduleUrl);
+};
+
 export const buildBackupCryptoAgilityReport = async (options = {}) => {
   const root = options.root || defaultRepoRoot;
   const checks = [];
   const doc = readTextIfExists(repoPath(root, backupDoc));
   const verifierSource = readTextIfExists(repoPath(root, backupVerifier));
+  const restoreDrillSource = readTextIfExists(repoPath(root, isolatedRestoreDrill));
 
   checks.push(check({
     id: 'repo.backup-verifier.exists',
@@ -62,6 +69,16 @@ export const buildBackupCryptoAgilityReport = async (options = {}) => {
     severity: doc ? 'info' : 'high',
     summary: doc ? `${backupDoc} exists.` : `${backupDoc} is missing.`,
     evidence: { file: backupDoc },
+  }));
+
+  checks.push(check({
+    id: 'repo.backup-restore-drill.exists',
+    title: 'Isolated backup restore drill exists',
+    status: restoreDrillSource ? 'pass' : 'fail',
+    scope: 'repo',
+    severity: restoreDrillSource ? 'info' : 'high',
+    summary: restoreDrillSource ? `${isolatedRestoreDrill} exists.` : `${isolatedRestoreDrill} is missing.`,
+    evidence: { file: isolatedRestoreDrill },
   }));
 
   for (const required of ['AES-256-GCM', 'ChaCha20-Poly1305', 'envelope encryption', 'restore dry run', 'rollback', 'rotatable']) {
@@ -124,7 +141,41 @@ export const buildBackupCryptoAgilityReport = async (options = {}) => {
     evidence: { file: backupVerifier },
   }));
 
-  const privateMaterialFiles = hasForbiddenPrivateMaterial(root, [backupDoc, backupVerifier]);
+  let isolatedDrillLoaded = false;
+  let isolatedDrillProven = false;
+  if (restoreDrillSource) {
+    try {
+      const drill = await loadIsolatedRestoreDrill(root);
+      isolatedDrillLoaded = typeof drill.runIsolatedRestoreDrill === 'function';
+      if (isolatedDrillLoaded) {
+        const result = drill.runIsolatedRestoreDrill({
+          env: {
+            RESTORE_TARGET_ENV: 'test',
+          },
+        });
+        isolatedDrillProven = result.ok === true
+          && result.evidence?.scope === 'local_disposable_fixture'
+          && result.evidence?.restoreDrillProven === true
+          && result.evidence?.productionDataTouched === false;
+      }
+    } catch {
+      isolatedDrillLoaded = false;
+    }
+  }
+
+  checks.push(check({
+    id: 'repo.backup-restore-drill.local-fixture-proven',
+    title: 'Local isolated restore drill proves fixture recovery',
+    status: isolatedDrillProven ? 'pass' : 'fail',
+    scope: 'repo',
+    severity: isolatedDrillProven ? 'info' : 'high',
+    summary: isolatedDrillProven
+      ? 'Disposable local backup and restore fixture completed with checksum evidence.'
+      : 'Disposable local backup and restore fixture could not be proven.',
+    evidence: { file: isolatedRestoreDrill, importable: isolatedDrillLoaded },
+  }));
+
+  const privateMaterialFiles = hasForbiddenPrivateMaterial(root, [backupDoc, backupVerifier, isolatedRestoreDrill]);
   checks.push(check({
     id: 'repo.backup.no-private-material',
     title: 'Backup docs/scripts do not contain committed private key material',
@@ -134,11 +185,11 @@ export const buildBackupCryptoAgilityReport = async (options = {}) => {
     summary: privateMaterialFiles.length === 0
       ? 'No committed private key material was found in backup evidence files.'
       : `Private key material appears in ${privateMaterialFiles.join(', ')}.`,
-    evidence: { files: [backupDoc, backupVerifier] },
+    evidence: { files: [backupDoc, backupVerifier, isolatedRestoreDrill] },
   }));
 
   const hardcodedKeyPattern = /(BACKUP|RESTORE|ENCRYPTION|DECRYPTION)_[A-Z_]*KEY\s*=\s*(?!\$\{|<|example|changeme|redacted|\[REDACTED\])/i;
-  const hardcodedKey = hardcodedKeyPattern.test(`${doc}\n${verifierSource}`);
+  const hardcodedKey = hardcodedKeyPattern.test(`${doc}\n${verifierSource}\n${restoreDrillSource}`);
   checks.push(check({
     id: 'repo.backup.no-hardcoded-key',
     title: 'Backup evidence avoids hardcoded encryption keys',
@@ -148,7 +199,7 @@ export const buildBackupCryptoAgilityReport = async (options = {}) => {
     summary: hardcodedKey
       ? 'Backup evidence appears to contain a hardcoded encryption key assignment.'
       : 'Backup evidence avoids hardcoded encryption key assignments.',
-    evidence: { files: [backupDoc, backupVerifier] },
+    evidence: { files: [backupDoc, backupVerifier, isolatedRestoreDrill] },
   }));
 
   const summary = summarizeChecks(checks);
@@ -161,6 +212,7 @@ export const buildBackupCryptoAgilityReport = async (options = {}) => {
     checks,
     limitations: [
       'This checker proves repo safety posture and does not decrypt or restore production backups.',
+      'The isolated restore drill proves only a disposable local fixture, not managed backup provider retention.',
       'Future PQ KEM wrapping for backup keys should wait for mature tooling and staging evidence.',
       'Backup key material must stay in approved secret storage, never in repo logs or reports.',
     ],
