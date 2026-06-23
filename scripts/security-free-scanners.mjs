@@ -160,6 +160,20 @@ const writeScannerOutput = (scanner, result) => {
   writeFileSync(path.join(reportsDir, `${scanner.name}.stderr.txt`), result.stderr || '');
 };
 
+const zapOutput = (result) => `${result.stdout || ''}\n${result.stderr || ''}`;
+const hasZapFailFinding = (result) => /\bFAIL(?:-[A-Z]+)?:/i.test(zapOutput(result));
+const hasZapWarningFinding = (result) => /\bWARN(?:-[A-Z]+)?:/i.test(zapOutput(result));
+const isZapBaselineWarningOnly = (result) => zapBaselineWarnOnly
+  && !hasZapFailFinding(result)
+  && (
+    result.status === 2
+    || (result.status === 3 && hasZapWarningFinding(result))
+  );
+const zapBaselineStatus = (result) => {
+  if (result.status === 0) return 'passed';
+  return isZapBaselineWarningOnly(result) ? 'warning' : 'failed';
+};
+
 const results = scanners.filter((scanner) => shouldRunScanner(scanner.name)).map((scanner) => {
   const hasBinary = hasCommand(scanner.binary);
   if (hasBinary) {
@@ -255,7 +269,7 @@ const runZapBaseline = () => {
     return {
       name: scanner.name,
       command: `${scanner.binary} ${scanner.binaryArgs.join(' ')}`,
-      status: result.status === 0 ? 'passed' : (zapBaselineWarnOnly && result.status === 2 ? 'warning' : 'failed'),
+      status: zapBaselineStatus(result),
       exitCode: result.status,
       runner: 'binary',
     };
@@ -267,7 +281,7 @@ const runZapBaseline = () => {
     return {
       name: scanner.name,
       command: `docker ${scanner.dockerArgs.join(' ')}`,
-      status: result.status === 0 ? 'passed' : (zapBaselineWarnOnly && result.status === 2 ? 'warning' : 'failed'),
+      status: zapBaselineStatus(result),
       exitCode: result.status,
       runner: 'docker',
     };

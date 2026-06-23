@@ -279,7 +279,10 @@ addCheck(
     'staging-dast-security-reports',
   ]) && includesAll(freeScannerScript, [
     'FREE_SECURITY_ZAP_BASELINE_WARN_ONLY',
-    "status: result.status === 0 ? 'passed' : (zapBaselineWarnOnly && result.status === 2 ? 'warning' : 'failed')",
+    'hasZapFailFinding',
+    'hasZapWarningFinding',
+    'isZapBaselineWarningOnly',
+    'zapBaselineStatus(result)',
     'warning-only scanner findings are recorded',
   ]),
   '.github/workflows/staging-ops-watch.yml'
