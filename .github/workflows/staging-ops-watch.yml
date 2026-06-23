@@ -76,7 +76,9 @@ jobs:
           retention-days: 30
 
       - name: Configure AWS credentials for optional cost watch
+        id: aws_credentials
         if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' }}
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -85,6 +87,10 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
 
+      - name: Report optional cost watch AWS credential failure
+        if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' && steps.aws_credentials.outcome != 'success' }}
+        run: echo "::warning::Configured staging AWS role could not be assumed; skipping optional cost watch."
+
       - name: Run cost watch when AWS role is configured
-        if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' }}
+        if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' && steps.aws_credentials.outcome == 'success' }}
         run: npm run staging:cost-watch
