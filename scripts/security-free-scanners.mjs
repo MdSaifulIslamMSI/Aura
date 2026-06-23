@@ -161,8 +161,27 @@ const writeScannerOutput = (scanner, result) => {
 };
 
 const zapOutput = (result) => `${result.stdout || ''}\n${result.stderr || ''}`;
-const hasZapFailFinding = (result) => /\bFAIL(?:-[A-Z]+)?:/i.test(zapOutput(result));
-const hasZapWarningFinding = (result) => /\bWARN(?:-[A-Z]+)?:/i.test(zapOutput(result));
+const zapFindingStats = (result, severity) => {
+  const matcher = new RegExp(`\\b${severity}(?:-[A-Z]+)?:\\s*(\\d+)?`, 'gi');
+  let count = 0;
+  let hasUncountedFinding = false;
+  for (const match of zapOutput(result).matchAll(matcher)) {
+    if (match[1]) {
+      count += Number(match[1]);
+    } else {
+      hasUncountedFinding = true;
+    }
+  }
+  return { count, hasUncountedFinding };
+};
+const hasZapFailFinding = (result) => {
+  const stats = zapFindingStats(result, 'FAIL');
+  return stats.count > 0 || stats.hasUncountedFinding;
+};
+const hasZapWarningFinding = (result) => {
+  const stats = zapFindingStats(result, 'WARN');
+  return stats.count > 0 || stats.hasUncountedFinding;
+};
 const isZapBaselineWarningOnly = (result) => zapBaselineWarnOnly
   && !hasZapFailFinding(result)
   && (
