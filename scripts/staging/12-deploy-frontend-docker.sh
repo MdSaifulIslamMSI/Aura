@@ -38,6 +38,18 @@ else
   )
 fi
 
+node - "$(node_path "$REPO_ROOT/app/dist/index.html")" <<'NODE'
+const fs = require('fs');
+const indexPath = process.argv[2];
+let html = fs.readFileSync(indexPath, 'utf8');
+const sanitized = html
+  .replace(/\s+https:\/\/dbtrhsolhec1s\.cloudfront\.net\b/g, '')
+  .replace(/\s+wss:\/\/dbtrhsolhec1s\.cloudfront\.net\b/g, '');
+if (sanitized !== html) {
+  fs.writeFileSync(indexPath, sanitized);
+}
+NODE
+
 node - "$(node_path "$REPO_ROOT/app/dist")" <<'NODE'
 const fs = require('fs');
 const path = require('path');

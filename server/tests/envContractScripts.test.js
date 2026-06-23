@@ -496,6 +496,10 @@ describe('repo environment contract scripts', () => {
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
         expect(frontendDockerScript).toMatch(/curl -fsS .*2>\/dev\/null/);
+        const sanitizerIndex = frontendDockerScript.indexOf('wss:\\/\\/dbtrhsolhec1s\\.cloudfront\\.net');
+        const guardIndex = frontendDockerScript.indexOf('Refusing to deploy staging frontend with production signals');
+        expect(sanitizerIndex).toBeGreaterThan(-1);
+        expect(sanitizerIndex).toBeLessThan(guardIndex);
     });
 
     test('staging IAM operator grants only the Cost Explorer read used by cost watch', () => {
