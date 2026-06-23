@@ -134,6 +134,14 @@ describe('repo environment contract scripts', () => {
         expect(result.safe).toBe(true);
     });
 
+    test('staging frontend smoke workflow points SMOKE_BASE_URL at the frontend base URL', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-frontend-smoke.yml'), 'utf8');
+
+        expect(workflow).toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_BASE_URL\s*\}\}/);
+        expect(workflow).not.toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_API_BASE_URL\s*\}\}/);
+        expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY/);
+    });
+
     test('staging env validation rejects mismatched smoke and staging base URLs', () => {
         const result = validate({
             SMOKE_TARGET_ENV: 'staging',
@@ -311,6 +319,124 @@ describe('repo environment contract scripts', () => {
         expect(result.output).toMatch(/must not equal PROD_BASE_URL/);
     });
 
+    test('backend staging route smoke only requires scanner readiness when explicitly configured', async () => {
+        const server = http.createServer((request, response) => {
+            const url = request.url || '';
+            if (url === '/health') {
+                response.writeHead(200, { 'content-type': 'application/json' });
+                response.end(JSON.stringify({
+                    env: 'staging',
+                    ssmPrefix: '/aura/staging',
+                    database: 'staging',
+                    cache: 'staging',
+                    storage: 'staging',
+                    scanner: 'not_ready',
+                }));
+                return;
+            }
+            if (url.startsWith('/api/health') || url.startsWith('/uploads/')) {
+                response.writeHead(404, { 'content-type': 'application/json' });
+                response.end(JSON.stringify({ ok: false }));
+                return;
+            }
+            if (url.startsWith('/socket.io/')) {
+                response.writeHead(400, { 'content-type': 'application/json' });
+                response.end(JSON.stringify({ ok: false }));
+                return;
+            }
+            response.writeHead(404);
+            response.end('');
+        });
+
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address();
+        const target = `http://127.0.0.1:${port}`;
+
+        try {
+            const optionalResult = await runScriptAsync('scripts/smoke/staging-route-smoke.mjs', {
+                STAGING_API_BASE_URL: target,
+                STAGING_HEALTH_URL: `${target}/health`,
+                PROD_BASE_URL: 'https://prod.example.test',
+                PROD_API_BASE_URL: 'https://api.prod.example.test',
+            });
+            expect(optionalResult.status).toBe(0);
+            expect(optionalResult.output).toMatch(/health scanner: not_ready \(not required\)/);
+
+            const requiredResult = await runScriptAsync('scripts/smoke/staging-route-smoke.mjs', {
+                STAGING_API_BASE_URL: target,
+                STAGING_HEALTH_URL: `${target}/health`,
+                PROD_BASE_URL: 'https://prod.example.test',
+                PROD_API_BASE_URL: 'https://api.prod.example.test',
+                SMOKE_REQUIRE_SCANNER_READY: 'true',
+            });
+            expect(requiredResult.status).not.toBe(0);
+            expect(requiredResult.output).toMatch(/Health scanner must be ready; got not_ready/);
+        } finally {
+            await new Promise((resolve) => server.close(resolve));
+        }
+    });
+
+    test('frontend staging target script only requires scanner readiness when explicitly configured', async () => {
+        const server = http.createServer((request, response) => {
+            const url = request.url || '';
+            if (url === '/' || url === '/health') {
+                response.writeHead(200, { 'content-type': url === '/' ? 'text/html' : 'application/json' });
+                response.end(url === '/'
+                    ? '<!doctype html><html><head></head><body>staging</body></html>'
+                    : JSON.stringify({
+                        env: 'staging',
+                        ssmPrefix: '/aura/staging',
+                        database: 'staging',
+                        cache: 'staging',
+                        storage: 'staging',
+                        scanner: 'not_ready',
+                    }));
+                return;
+            }
+            if (url.startsWith('/api/health') || url.startsWith('/uploads/')) {
+                response.writeHead(404, { 'content-type': 'application/json' });
+                response.end(JSON.stringify({ ok: false }));
+                return;
+            }
+            if (url.startsWith('/socket.io/')) {
+                response.writeHead(400, { 'content-type': 'application/json' });
+                response.end(JSON.stringify({ ok: false }));
+                return;
+            }
+            response.writeHead(404);
+            response.end('');
+        });
+
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address();
+        const target = `http://127.0.0.1:${port}`;
+
+        try {
+            const optionalResult = await runScriptAsync('scripts/smoke/assert-frontend-staging-target.mjs', {
+                STAGING_FRONTEND_URL: target,
+                STAGING_API_BASE_URL: target,
+                STAGING_HEALTH_URL: `${target}/health`,
+                PROD_BASE_URL: 'https://prod.example.test',
+                PROD_API_BASE_URL: 'https://api.prod.example.test',
+            });
+            expect(optionalResult.status).toBe(0);
+            expect(optionalResult.output).toMatch(/scanner: not_ready \(not required\)/);
+
+            const requiredResult = await runScriptAsync('scripts/smoke/assert-frontend-staging-target.mjs', {
+                STAGING_FRONTEND_URL: target,
+                STAGING_API_BASE_URL: target,
+                STAGING_HEALTH_URL: `${target}/health`,
+                PROD_BASE_URL: 'https://prod.example.test',
+                PROD_API_BASE_URL: 'https://api.prod.example.test',
+                SMOKE_REQUIRE_SCANNER_READY: 'true',
+            });
+            expect(requiredResult.status).not.toBe(0);
+            expect(requiredResult.output).toMatch(/scanner must be ready; got not_ready/);
+        } finally {
+            await new Promise((resolve) => server.close(resolve));
+        }
+    });
+
     test('staging production fallback scanner flags production CloudFront in staging context', () => {
         const findings = runModuleJson(`
             import { scanNoStagingProdFallbacks } from './scripts/smoke/assert-no-staging-prod-fallbacks.mjs';
@@ -398,6 +524,8 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/STAGING_DEPLOY_ENABLED/);
         expect(workflow).toMatch(/STAGING_SSM_PREFIX.*\/aura\/staging/);
         expect(workflow).toMatch(/PROD_SSM_PREFIX.*\/aura\/prod/);
+        expect(workflow).toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_BASE_URL\s*\}\}/);
+        expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY/);
     });
 
     test('production admin recovery keeps direct /aura/prod Parameter Store writes available', () => {

@@ -31,6 +31,7 @@ export const TRACKED_CONTRACT_FILES = [
   'config/environments/staging.example.json',
   'config/environments/staging.example.env',
   'scripts/smoke/assert-staging-contract.mjs',
+  'scripts/smoke/assert-frontend-staging-target.mjs',
   'scripts/smoke/staging-route-smoke.mjs',
   'scripts/smoke-preflight.mjs',
   'scripts/validate-env-contract.mjs',
@@ -162,6 +163,7 @@ export const buildContractSnapshot = ({ env = process.env, root = REPO_ROOT } = 
   const prodBaseUrl = normalize(env.PROD_BASE_URL || env.AWS_FRONTEND_PUBLIC_URL || env.NETLIFY_PRODUCTION_URL || '');
   const prodApiBaseUrl = normalize(env.PROD_API_BASE_URL || env.AURA_BACKEND_ORIGIN || env.AWS_BACKEND_BASE_URL || '');
   const prodSsmPrefix = normalize(env.PROD_SSM_PREFIX || '');
+  const scannerReadyRequired = isTruthy(env.SMOKE_REQUIRE_SCANNER_READY);
   const vercelRoutes = inspectVercelBackendRoutes({ root });
   const netlifyRoutes = inspectNetlifyBackendRoutes({ root });
 
@@ -176,6 +178,7 @@ export const buildContractSnapshot = ({ env = process.env, root = REPO_ROOT } = 
     prodBaseUrl,
     prodApiBaseUrl,
     prodSsmPrefix,
+    scannerReadyRequired,
     allowProductionSmoke: isTruthy(env.ALLOW_PRODUCTION_SMOKE),
     vercelRoutes,
     netlifyRoutes,
@@ -310,6 +313,7 @@ export const printContractReport = (result, { stream = process.stdout } = {}) =>
   stream.write(`backend URL: ${toDisplayUrl(snapshot.stagingApiBaseUrl || snapshot.prodApiBaseUrl)}\n`);
   stream.write(`health URL: ${toDisplayUrl(snapshot.stagingHealthUrl)}\n`);
   stream.write(`SSM prefix: ${snapshot.stagingSsmPrefix || snapshot.prodSsmPrefix || '<unset>'}\n`);
+  stream.write(`scanner readiness required: ${snapshot.scannerReadyRequired ? 'true' : 'false'}\n`);
   stream.write(`status: ${result.currentStatus}\n`);
   for (const failure of result.failures) stream.write(`FAIL: ${failure}\n`);
   for (const warning of result.warnings) stream.write(`WARN: ${warning}\n`);

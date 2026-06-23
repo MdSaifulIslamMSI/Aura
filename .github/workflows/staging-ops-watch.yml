@@ -30,6 +30,7 @@ jobs:
       SMOKE_BASE_URL: ${{ vars.STAGING_BASE_URL }}
       SMOKE_REQUIRE_BACKEND_STAGING: "true"
       SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
+      SMOKE_REQUIRE_SCANNER_READY: ${{ vars.SMOKE_REQUIRE_SCANNER_READY || 'false' }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
