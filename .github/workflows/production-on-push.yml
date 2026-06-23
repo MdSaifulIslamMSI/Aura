@@ -41,9 +41,36 @@ jobs:
           npm run auth:env:validate
           npm run auth:smoke
 
+  staging-promotion-gate:
+    name: Staging promotion gate
+    needs: production-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Dispatch and watch staging validation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REF_NAME: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+        run: >-
+          node scripts/github/dispatch-workflow-and-watch.mjs
+          --workflow staging-ops-watch.yml
+          --label "Staging promotion gate"
+          --ref "$DEPLOY_REF_NAME"
+          --sha "$DEPLOY_SHA"
+          --timeout-minutes 30
+
   deploy-backend:
     name: Dispatch backend production deploy
-    needs: production-preflight
+    needs: staging-promotion-gate
     runs-on: ubuntu-latest
     timeout-minutes: 75
 
@@ -72,7 +99,7 @@ jobs:
 
   deploy-storefront:
     name: Dispatch storefront production deploy
-    needs: production-preflight
+    needs: staging-promotion-gate
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -101,7 +128,7 @@ jobs:
 
   deploy-gateway:
     name: Dispatch gateway production deploy
-    needs: production-preflight
+    needs: staging-promotion-gate
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -197,6 +224,7 @@ jobs:
     if: always()
     needs:
       - production-preflight
+      - staging-promotion-gate
       - deploy-backend
       - deploy-storefront
       - deploy-gateway
@@ -211,6 +239,7 @@ jobs:
           COMMIT_SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
           PREFLIGHT_RESULT: ${{ needs.production-preflight.result }}
+          STAGING_RESULT: ${{ needs.staging-promotion-gate.result }}
           BACKEND_RESULT: ${{ needs.deploy-backend.result }}
           STOREFRONT_RESULT: ${{ needs.deploy-storefront.result }}
           GATEWAY_RESULT: ${{ needs.deploy-gateway.result }}
@@ -223,6 +252,7 @@ jobs:
             echo "| Lane | Result |"
             echo "|---|---|"
             echo "| Preflight: CI/auth contracts | ${PREFLIGHT_RESULT} |"
+            echo "| Staging: same-commit promotion gate | ${STAGING_RESULT} |"
             echo "| Backend: AWS production deploy | ${BACKEND_RESULT} |"
             echo "| Storefront: Netlify/Vercel/AWS production deploy | ${STOREFRONT_RESULT} |"
             echo "| Gateway: Vercel production deploy | ${GATEWAY_RESULT} |"
