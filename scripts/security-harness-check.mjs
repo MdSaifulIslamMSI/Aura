@@ -274,8 +274,13 @@ addCheck(
     'STAGING_URL:',
     'FREE_SECURITY_SCANNERS_REQUIRED: "true"',
     'FREE_SECURITY_ZAP_BASELINE_REQUIRED: "true"',
+    'FREE_SECURITY_ZAP_BASELINE_WARN_ONLY:',
     'npm run security:free-scanners -- --only=zap-baseline',
     'staging-dast-security-reports',
+  ]) && includesAll(freeScannerScript, [
+    'FREE_SECURITY_ZAP_BASELINE_WARN_ONLY',
+    "status: result.status === 0 ? 'passed' : (zapBaselineWarnOnly && result.status === 2 ? 'warning' : 'failed')",
+    'warning-only scanner findings are recorded',
   ]),
   '.github/workflows/staging-ops-watch.yml'
 );

@@ -25,6 +25,7 @@ const isCi = isTruthy(process.env.CI) || isTruthy(process.env.GITHUB_ACTIONS);
 const scannersRequired = isTruthy(process.env.FREE_SECURITY_SCANNERS_REQUIRED) || isCi;
 const zapBaselineRequired = isTruthy(process.env.FREE_SECURITY_ZAP_BASELINE_REQUIRED)
   || (scannersRequired && onlyScanners.has('zap-baseline'));
+const zapBaselineWarnOnly = isTruthy(process.env.FREE_SECURITY_ZAP_BASELINE_WARN_ONLY);
 const dockerImagePrefix = String(process.env.FREE_SECURITY_SCANNER_IMAGE_PREFIX || '').trim();
 const stagingUrl = String(process.env.STAGING_URL || '').trim();
 const scannerImages = {
@@ -254,7 +255,7 @@ const runZapBaseline = () => {
     return {
       name: scanner.name,
       command: `${scanner.binary} ${scanner.binaryArgs.join(' ')}`,
-      status: result.status === 0 ? 'passed' : 'failed',
+      status: result.status === 0 ? 'passed' : (zapBaselineWarnOnly && result.status === 2 ? 'warning' : 'failed'),
       exitCode: result.status,
       runner: 'binary',
     };
@@ -266,7 +267,7 @@ const runZapBaseline = () => {
     return {
       name: scanner.name,
       command: `docker ${scanner.dockerArgs.join(' ')}`,
-      status: result.status === 0 ? 'passed' : 'failed',
+      status: result.status === 0 ? 'passed' : (zapBaselineWarnOnly && result.status === 2 ? 'warning' : 'failed'),
       exitCode: result.status,
       runner: 'docker',
     };
@@ -299,6 +300,7 @@ writeFileSync(path.join(reportsDir, 'free-security-scanners.json'), `${JSON.stri
 
 const failed = results.filter((result) => result.status === 'failed');
 const skipped = results.filter((result) => result.status === 'skipped');
+const warnings = results.filter((result) => result.status === 'warning');
 
 for (const result of results) {
   console.log(`[free-scanners] ${result.name}: ${result.status} via ${result.runner}`);
@@ -307,6 +309,10 @@ for (const result of results) {
 
 if (skipped.length > 0 && !scannersRequired) {
   console.log('[free-scanners] skipped scanners are recorded in security-reports/free-security-scanners.json');
+}
+
+if (warnings.length > 0) {
+  console.log('[free-scanners] warning-only scanner findings are recorded in security-reports/free-security-scanners.json');
 }
 
 if (failed.length > 0) {

@@ -59,6 +59,7 @@ jobs:
           STAGING_URL: ${{ vars.STAGING_FRONTEND_URL || vars.STAGING_BASE_URL }}
           FREE_SECURITY_SCANNERS_REQUIRED: "true"
           FREE_SECURITY_ZAP_BASELINE_REQUIRED: "true"
+          FREE_SECURITY_ZAP_BASELINE_WARN_ONLY: ${{ vars.STAGING_DAST_WARN_ONLY || 'true' }}
         run: npm run security:free-scanners -- --only=zap-baseline
 
       - name: Upload live staging DAST reports
