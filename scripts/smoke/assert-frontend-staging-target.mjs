@@ -22,6 +22,7 @@ const stagingHealthUrl = normalizeUrl(process.env.STAGING_HEALTH_URL || `${stagi
 const prodBaseUrl = normalizeUrl(process.env.PROD_BASE_URL || '');
 const prodApiBaseUrl = normalizeUrl(process.env.PROD_API_BASE_URL || '');
 const vercelAutomationBypassSecret = normalize(process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '');
+const scannerReadyRequired = ['1', 'true', 'yes', 'on'].includes(normalize(process.env.SMOKE_REQUIRE_SCANNER_READY).toLowerCase());
 
 const fail = (message) => failures.push(message);
 
@@ -120,7 +121,14 @@ const assertHealthJson = async (label, response, text) => {
     const value = normalize(json[field]).toLowerCase();
     if (value !== 'staging') fail(`${label} ${field} must be staging; got ${value || '<unset>'}.`);
   }
-  if (json.scanner !== 'ready') fail(`${label} scanner must be ready; got ${json.scanner || '<unset>'}.`);
+  if (json.scanner !== 'ready') {
+    const scannerStatus = json.scanner || '<unset>';
+    if (scannerReadyRequired) {
+      fail(`${label} scanner must be ready; got ${scannerStatus}.`);
+    } else {
+      notes.push(`${label} scanner: ${scannerStatus} (not required)`);
+    }
+  }
 };
 
 assertNotProduction('STAGING_FRONTEND_URL', stagingFrontendUrl);

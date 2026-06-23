@@ -312,6 +312,8 @@ jobs:
           tests/profileSecurity.test.js
           tests/otpSystem.test.js
           tests/otpEmailFailClosed.test.js
+          tests/moneyMinorBackfillAudit.test.js
+          tests/moneyMinorStorage.test.js
           tests/paymentOrderIntegrity.test.js
           tests/userPhoneIndex.test.js
           tests/orderControllerCreate.test.js
@@ -346,6 +348,18 @@ jobs:
           NODE_ENV: test
           REDIS_ENABLED: "true"
           REDIS_URL: redis://127.0.0.1:6379
+
+      - name: Run money minor-unit audit command
+        run: |
+          npm run mongo:money:audit -- --limit=1
+          if npm run mongo:money:audit -- --apply; then
+            echo "Expected mongo:money:audit --apply to require MONEY_MINOR_BACKFILL_APPROVED=true."
+            exit 1
+          fi
+        env:
+          MONGO_URI: mongodb://127.0.0.1:27017/aura_money_minor_ci
+          NODE_ENV: test
+          MONEY_MINOR_BACKFILL_APPROVED: ""
 
   aws-runtime-contract:
     needs: changes

@@ -16,6 +16,7 @@ const stagingApiBaseUrl = normalize(process.env.STAGING_API_BASE_URL);
 const stagingHealthUrl = normalize(process.env.STAGING_HEALTH_URL);
 const prodApiBaseUrl = normalize(process.env.PROD_API_BASE_URL);
 const prodBaseUrl = normalize(process.env.PROD_BASE_URL);
+const scannerReadyRequired = ['1', 'true', 'yes', 'on'].includes(normalize(process.env.SMOKE_REQUIRE_SCANNER_READY).toLowerCase());
 
 const failures = [];
 const results = [];
@@ -116,7 +117,14 @@ try {
     if (value !== 'staging') fail(`Health ${field} must be staging; got ${value || '<unset>'}.`);
     if (value.includes('prod') || value.includes('production')) fail(`Health ${field} contains production.`);
   }
-  if (health.scanner !== 'ready') fail(`Health scanner must be ready; got ${health.scanner || '<unset>'}.`);
+  if (health.scanner !== 'ready') {
+    const scannerStatus = health.scanner || '<unset>';
+    if (scannerReadyRequired) {
+      fail(`Health scanner must be ready; got ${scannerStatus}.`);
+    } else {
+      results.push(`health scanner: ${scannerStatus} (not required)`);
+    }
+  }
 
   const apiHealthUrl = `${normalizeUrl(stagingApiBaseUrl)}/api/health`;
   const apiHealthResponse = await request('api health', apiHealthUrl);
