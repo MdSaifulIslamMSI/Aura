@@ -154,6 +154,7 @@ addCheck(
 addCheck(
   'main push pipeline deploys all production surfaces',
   [
+    'staging-promotion-gate:',
     'deploy-backend:',
     'deploy-storefront:',
     'deploy-gateway:',
@@ -167,6 +168,19 @@ addCheck(
     '--workflow mobile-release.yml',
   ].every((needle) => productionOnPush.includes(needle)),
   'backend, storefront, gateway, desktop, mobile lanes on every main push'
+);
+
+addCheck(
+  'main push pipeline requires staging promotion before production deploys',
+  [
+    'staging-promotion-gate:',
+    '--workflow staging-ops-watch.yml',
+    '--label "Staging promotion gate"',
+    'needs: staging-promotion-gate',
+    'STAGING_RESULT: ${{ needs.staging-promotion-gate.result }}',
+    '| Staging: same-commit promotion gate | ${STAGING_RESULT} |',
+  ].every((needle) => productionOnPush.includes(needle)),
+  'production-on-push dispatches and watches staging-ops-watch before production lanes'
 );
 
 addCheck(
