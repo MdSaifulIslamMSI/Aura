@@ -72,6 +72,7 @@ S3_BUCKET=$bucket
 AWS_S3_BUCKET=$bucket
 DATABASE_URL=$database_url
 MONGO_URI=$mongo_uri
+MONGO_REQUIRE_TLS=false
 REDIS_URL=redis://redis:6379
 POSTGRES_PASSWORD=$postgres_password
 JWT_SECRET=$jwt_secret
