@@ -492,6 +492,7 @@ describe('repo environment contract scripts', () => {
 
         const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
         expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);
+        expect(composeScript).toMatch(/MONGO_REQUIRE_TLS=false/);
 
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
