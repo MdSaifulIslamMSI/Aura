@@ -42,7 +42,7 @@ env:
 
 jobs:
   deploy-preview:
-    if: github.event_name == 'pull_request' || inputs.target == 'preview'
+    if: (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || inputs.target == 'preview'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:

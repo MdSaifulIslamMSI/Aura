@@ -95,10 +95,16 @@ jobs:
         working-directory: .
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' }}
         run: |
+          if [ "${DEPENDABOT_PR}" = "true" ]; then
+            echo "Dependabot pull requests do not receive deployment secrets; running build-only validation."
+            exit 0
+          fi
           test -n "${NETLIFY_AUTH_TOKEN}" || { echo "Missing GitHub secret NETLIFY_AUTH_TOKEN"; exit 1; }
           test -n "${NETLIFY_SITE_ID}" || { echo "Missing GitHub variable or secret NETLIFY_SITE_ID"; exit 1; }
-          test -n "${{ secrets.VERCEL_TOKEN }}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
+          test -n "${VERCEL_TOKEN}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
           test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
           test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
 
@@ -197,7 +203,7 @@ jobs:
 
   deploy-preview:
     needs: build-frontend
-    if: github.event_name == 'pull_request' || inputs.target == 'preview'
+    if: (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || inputs.target == 'preview'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -418,7 +424,7 @@ jobs:
     needs:
       - build-frontend
       - package-vercel-prebuilt
-    if: needs.build-frontend.outputs.backend_origin != '' && (github.event_name == 'pull_request' || inputs.target == 'preview')
+    if: needs.build-frontend.outputs.backend_origin != '' && ((github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -744,7 +750,7 @@ jobs:
       - build-frontend
       - deploy-preview
       - deploy-vercel-preview
-    if: needs.build-frontend.outputs.backend_origin != '' && (github.event_name == 'pull_request' || inputs.target == 'preview')
+    if: needs.build-frontend.outputs.backend_origin != '' && ((github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || inputs.target == 'preview')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
