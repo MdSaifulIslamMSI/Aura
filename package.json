@@ -245,7 +245,7 @@
   },
   "devDependencies": {
     "electron": "^42.4.1",
-    "electron-builder": "^26.0.12",
+    "electron-builder": "^26.15.3",
     "knip": "^6.16.1"
   },
   "overrides": {
