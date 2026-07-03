@@ -187,6 +187,7 @@ addCheck(
   'main push pipeline runs business-critical release preflight',
   [
     'Validate business-critical release contracts',
+    'npm --prefix server ci',
     'npm run security:routes:coverage:strict',
     'npm run payment:smoke',
     'npm run security:business-logic',
