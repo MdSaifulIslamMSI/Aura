@@ -329,6 +329,16 @@ addCheck(
 );
 
 addCheck(
+  'Semgrep Docker wrapper does not scan generated reports',
+  includesAll(securityDockerTool, [
+    "'--exclude', 'security-reports'",
+    "'--json-output', '/src/security-reports/semgrep-report.json'",
+    "'--sarif-output', '/src/security-reports/semgrep-report.sarif'",
+  ]),
+  'Semgrep output mount is excluded from the scan target to avoid self-scanning generated report mirrors'
+);
+
+addCheck(
   'upload malware runtime validation is wired',
   includesAll(rootPackage.scripts?.['security:malware-runtime'] || '', ['validate-upload-malware-runtime.mjs'])
     && includesAll(splitRuntimeCompose, ['clamav/clamav:1.4', 'UPLOAD_MALWARE_SCAN_FAIL_CLOSED', 'YARA_RULES_PATH'])

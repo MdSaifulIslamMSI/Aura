@@ -241,6 +241,7 @@ const runSemgrep = () => {
     '--timeout', '30',
     '--timeout-threshold', '3',
     '--max-target-bytes', '1000000',
+    '--exclude', 'security-reports',
     '--json-output', '/src/security-reports/semgrep-report.json',
     '--sarif-output', '/src/security-reports/semgrep-report.sarif',
     '/src',
