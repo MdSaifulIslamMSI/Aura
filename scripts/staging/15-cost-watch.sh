@@ -13,6 +13,22 @@ ensure_state
 start_date="$(date -u +"%Y-%m-01")"
 end_date="$(date -u -d tomorrow +"%Y-%m-%d" 2>/dev/null || node -e 'const d = new Date(Date.now() + 86400000); process.stdout.write(d.toISOString().slice(0, 10));')"
 
+tag_status="$(aws_cli ce list-cost-allocation-tags \
+  --region us-east-1 \
+  --status Active \
+  --tag-keys Environment \
+  --query "CostAllocationTags[?TagKey=='Environment'].Status | [0]" \
+  --output text 2>"$STATE_DIR/cost-allocation-tags.err" || true)"
+if [ "$tag_status" != "Active" ]; then
+  if [ "${ALLOW_NO_COST_WATCH:-false}" = "true" ]; then
+    warn "Environment cost allocation tag is not active; leaving tag-filtered cost watch as a warning."
+    cat "$STATE_DIR/cost-allocation-tags.err" >&2
+    exit 0
+  fi
+  cat "$STATE_DIR/cost-allocation-tags.err" >&2
+  die "Cost watch requires the Environment cost allocation tag to be active."
+fi
+
 cost_output="$STATE_DIR/cost-watch.json"
 if ! aws_cli ce get-cost-and-usage \
   --region us-east-1 \
