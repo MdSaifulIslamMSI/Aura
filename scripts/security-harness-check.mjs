@@ -329,6 +329,35 @@ addCheck(
 );
 
 addCheck(
+  'Semgrep Docker wrapper does not scan generated reports',
+  includesAll(securityDockerTool, [
+    "'--exclude', 'security-reports'",
+    "'--json-output', '/src/security-reports/semgrep-report.json'",
+    "'--sarif-output', '/src/security-reports/semgrep-report.sarif'",
+  ]),
+  'Semgrep output mount is excluded from the scan target to avoid self-scanning generated report mirrors'
+);
+
+addCheck(
+  'Semgrep accepted findings stay exact and reviewed',
+  includesAll(securityDockerTool, [
+    'acceptedSemgrepFindings',
+    "ruleId: 'javascript.lang.security.detect-child-process.detect-child-process'",
+    "path: 'scripts/auth-runner.js'",
+    'line: 111',
+    "path: 'scripts/student-pack-cli-doctor.mjs'",
+    'line: 162',
+    "path: 'server/services/externalCatalogService.js'",
+    'line: 106',
+    "path: 'server/services/malwareScanService.js'",
+    'line: 209',
+    'filterAcceptedSemgrepFindings({ jsonReport: semgrepJsonReport, sarifReport: semgrepSarifReport })',
+    'Found ${findingCount} unaccepted Semgrep ERROR finding(s)',
+  ]) && !securityDockerTool.includes("'--error'"),
+  'Semgrep runs to a report, filters only reviewed rule/path/line findings, then fails on any remaining ERROR finding'
+);
+
+addCheck(
   'upload malware runtime validation is wired',
   includesAll(rootPackage.scripts?.['security:malware-runtime'] || '', ['validate-upload-malware-runtime.mjs'])
     && includesAll(splitRuntimeCompose, ['clamav/clamav:1.4', 'UPLOAD_MALWARE_SCAN_FAIL_CLOSED', 'YARA_RULES_PATH'])
@@ -383,6 +412,17 @@ addCheck(
   'production security gates scan secrets, dependencies, and SBOM',
   includesAll(productionWorkflow, ['Basic secret pattern scan', 'NPM production dependency audit', 'Generate npm SBOMs', 'Upload SBOMs']),
   'production secret/audit/SBOM controls'
+);
+
+addCheck(
+  'production reusable workflow calls use explicit secret maps',
+  !productionWorkflow.includes('secrets: inherit') && [
+    'AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}',
+    'AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}',
+    'NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}',
+    'VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}',
+  ].every((needle) => productionWorkflow.includes(needle)),
+  'production-cicd.yml avoids broad reusable-workflow secret inheritance'
 );
 
 const firebaseConfigNeedles = [

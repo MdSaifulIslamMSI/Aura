@@ -91,6 +91,33 @@ const acceptedCheckovFindings = [
   },
 ];
 
+const acceptedSemgrepFindings = [
+  {
+    ruleId: 'javascript.lang.security.detect-child-process.detect-child-process',
+    path: 'scripts/auth-runner.js',
+    line: 111,
+    reason: 'Auth runner only dispatches allowlisted npm/node commands with shell disabled.',
+  },
+  {
+    ruleId: 'typescript.react.security.react-insecure-request.react-insecure-request',
+    path: 'scripts/student-pack-cli-doctor.mjs',
+    line: 162,
+    reason: 'LocalStack health check is loopback-only developer diagnostics.',
+  },
+  {
+    ruleId: 'javascript.lang.security.detect-child-process.detect-child-process',
+    path: 'server/services/externalCatalogService.js',
+    line: 106,
+    reason: 'External catalog import command is allowlisted and rejects shell metacharacters with shell disabled.',
+  },
+  {
+    ruleId: 'javascript.lang.security.detect-child-process.detect-child-process',
+    path: 'server/services/malwareScanService.js',
+    line: 209,
+    reason: 'YARA execution uses an allowlisted binary, generated temp file, and shell disabled.',
+  },
+];
+
 const normalizeCheckovPath = (value = '') => String(value || '')
   .replace(/\\/g, '/')
   .replace(/^\/?(repo|src)\//, '')
@@ -109,6 +136,16 @@ const isAcceptedCheckovFinding = (ruleId = '', filePath = '') => {
   ));
 };
 
+const isAcceptedSemgrepFinding = (ruleId = '', filePath = '', lineNumber = 0) => {
+  const normalizedPath = normalizeCheckovPath(filePath);
+  const normalizedLine = Number(lineNumber);
+  return acceptedSemgrepFindings.some((finding) => (
+    finding.ruleId === ruleId
+    && finding.path === normalizedPath
+    && finding.line === normalizedLine
+  ));
+};
+
 const filterCheckovJsonReport = (reportPath) => {
   if (!fs.existsSync(reportPath)) return 0;
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -124,6 +161,57 @@ const filterCheckovJsonReport = (reportPath) => {
     replaceReportFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
   }
   return removed;
+};
+
+const filterSemgrepJsonReport = (reportPath) => {
+  if (!fs.existsSync(reportPath)) return 0;
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  if (!Array.isArray(report.results)) return 0;
+  const keptResults = report.results.filter((result) => !isAcceptedSemgrepFinding(
+    result.check_id,
+    result.path,
+    result.start?.line,
+  ));
+  const removed = report.results.length - keptResults.length;
+  if (removed > 0) {
+    report.results = keptResults;
+    replaceReportFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  }
+  return removed;
+};
+
+const filterSemgrepSarifReport = (reportPath) => {
+  if (!fs.existsSync(reportPath)) return 0;
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  let removed = 0;
+  for (const runReport of report.runs || []) {
+    if (!Array.isArray(runReport.results)) continue;
+    const keptResults = runReport.results.filter((result) => {
+      const ruleId = result.ruleId || result.rule?.id || '';
+      const resultAccepted = (result.locations || []).some((location) => (
+        isAcceptedSemgrepFinding(
+          ruleId,
+          location.physicalLocation?.artifactLocation?.uri,
+          location.physicalLocation?.region?.startLine,
+        )
+      ));
+      if (resultAccepted) removed += 1;
+      return !resultAccepted;
+    });
+    runReport.results = keptResults;
+  }
+  if (removed > 0) {
+    replaceReportFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+  }
+  return removed;
+};
+
+const countSemgrepJsonFindings = (reportPath) => {
+  if (!fs.existsSync(reportPath)) {
+    throw new Error(`Semgrep report was not produced: ${reportPath}`);
+  }
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  return Array.isArray(report.results) ? report.results.length : 0;
 };
 
 const filterCheckovSarifReport = (reportPath) => {
@@ -153,6 +241,14 @@ const filterAcceptedCheckovFindings = ({ jsonReport, sarifReport }) => {
   const removedSarif = filterCheckovSarifReport(sarifReport);
   if (removedJson > 0 || removedSarif > 0) {
     console.log(`[security:iac] Filtered accepted Checkov baseline findings: json=${removedJson}, sarif=${removedSarif}`);
+  }
+};
+
+const filterAcceptedSemgrepFindings = ({ jsonReport, sarifReport }) => {
+  const removedJson = filterSemgrepJsonReport(jsonReport);
+  const removedSarif = filterSemgrepSarifReport(sarifReport);
+  if (removedJson > 0 || removedSarif > 0) {
+    console.log(`[security:semgrep] Filtered accepted Semgrep baseline findings: json=${removedJson}, sarif=${removedSarif}`);
   }
 };
 
@@ -225,6 +321,12 @@ const runSemgrep = () => {
   const scanRoot = prepareSemgrepScanRoot();
   const scanMount = `${hostPath(scanRoot)}:/src`;
   const semgrepReportMount = `${hostPath(reportDir)}:/src/security-reports`;
+  const semgrepJsonReport = path.join(reportDir, 'semgrep-report.json');
+  const semgrepSarifReport = path.join(reportDir, 'semgrep-report.sarif');
+
+  for (const reportPath of [semgrepJsonReport, semgrepSarifReport]) {
+    fs.rmSync(reportPath, { recursive: true, force: true });
+  }
 
   runDocker([
     'run', '--rm',
@@ -236,15 +338,21 @@ const runSemgrep = () => {
     '--config', 'auto',
     '--config', '/src/semgrep-rules/aura-security.yml',
     '--severity', 'ERROR',
-    '--error',
     '--disable-version-check',
     '--timeout', '30',
     '--timeout-threshold', '3',
     '--max-target-bytes', '1000000',
+    '--exclude', 'security-reports',
     '--json-output', '/src/security-reports/semgrep-report.json',
     '--sarif-output', '/src/security-reports/semgrep-report.sarif',
     '/src',
   ]);
+  filterAcceptedSemgrepFindings({ jsonReport: semgrepJsonReport, sarifReport: semgrepSarifReport });
+  const findingCount = countSemgrepJsonFindings(semgrepJsonReport);
+  if (findingCount > 0) {
+    console.error(`[security:semgrep] Found ${findingCount} unaccepted Semgrep ERROR finding(s). See security-reports/semgrep-report.json.`);
+    process.exit(1);
+  }
 };
 
 const shouldCopyToTrivyScanRoot = (relativePath) => {

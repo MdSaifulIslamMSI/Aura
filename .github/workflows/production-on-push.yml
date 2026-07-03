@@ -21,7 +21,7 @@ jobs:
   production-preflight:
     name: Production push preflight
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v6
@@ -40,6 +40,14 @@ jobs:
           npm run ci:doctor
           npm run auth:env:validate
           npm run auth:smoke
+
+      - name: Validate business-critical release contracts
+        run: |
+          npm run security:routes:coverage:strict
+          npm run payment:smoke
+          npm run security:business-logic
+          npm run security:webhooks
+          npm --prefix server test -- --runTestsByPath tests/moneyMinorStorage.test.js tests/moneyMinorBackfillAudit.test.js --forceExit
 
   staging-promotion-gate:
     name: Staging promotion gate

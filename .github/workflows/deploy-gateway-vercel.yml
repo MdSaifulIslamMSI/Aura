@@ -23,6 +23,9 @@ on:
         required: false
         default: production
         type: string
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 
 permissions:
   contents: read

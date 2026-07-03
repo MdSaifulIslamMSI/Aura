@@ -184,6 +184,20 @@ addCheck(
 );
 
 addCheck(
+  'main push pipeline runs business-critical release preflight',
+  [
+    'Validate business-critical release contracts',
+    'npm run security:routes:coverage:strict',
+    'npm run payment:smoke',
+    'npm run security:business-logic',
+    'npm run security:webhooks',
+    'tests/moneyMinorStorage.test.js',
+    'tests/moneyMinorBackfillAudit.test.js',
+  ].every((needle) => productionOnPush.includes(needle)),
+  'production-on-push blocks production deploys on route, payment, business logic, webhook, and money-minor regressions'
+);
+
+addCheck(
   'main push desktop release is unsigned by default',
   [
     '"require_windows_signing":false',

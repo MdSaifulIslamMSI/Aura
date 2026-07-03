@@ -44,6 +44,57 @@ on:
         required: false
         default: false
         type: boolean
+    secrets:
+      APPLE_APP_SPECIFIC_PASSWORD:
+        required: false
+      APPLE_CERTIFICATE_BASE64:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      AZURE_TRUSTED_SIGNING_ACCOUNT_NAME:
+        required: false
+      AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME:
+        required: false
+      AZURE_TRUSTED_SIGNING_ENDPOINT:
+        required: false
+      VITE_FIREBASE_API_KEY:
+        required: false
+      VITE_FIREBASE_APP_ID:
+        required: false
+      VITE_FIREBASE_AUTH_DOMAIN:
+        required: false
+      VITE_FIREBASE_CONFIG:
+        required: false
+      VITE_FIREBASE_MEASUREMENT_ID:
+        required: false
+      VITE_FIREBASE_MESSAGING_SENDER_ID:
+        required: false
+      VITE_FIREBASE_PROJECT_ID:
+        required: false
+      VITE_FIREBASE_STORAGE_BUCKET:
+        required: false
+      VITE_FIREBASE_WEB_CONFIG:
+        required: false
+      WINDOWS_CERTIFICATE_BASE64:
+        required: false
+      WINDOWS_CERTIFICATE_PASSWORD:
+        required: false
+      WINDOWS_CODE_SIGNING_CERTIFICATE_BASE64:
+        required: false
+      WINDOWS_CODE_SIGNING_CERTIFICATE_PASSWORD:
+        required: false
+      WINDOWS_CODE_SIGNING_PUBLISHER_NAME:
+        required: false
 
 permissions:
   contents: write
@@ -325,7 +376,7 @@ jobs:
             ${{ matrix.command }}
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Verify Windows signatures
         if: matrix.platform == 'windows' && env.AURA_WINDOWS_SIGNING_MODE != 'unsigned'
@@ -435,7 +486,7 @@ jobs:
       - name: Publish GitHub desktop release
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
           RELEASE_NAME: Aura Marketplace Desktop ${{ needs.prepare.outputs.version }}
         run: |
