@@ -8,6 +8,11 @@ on:
         required: false
         default: ""
         type: string
+    secrets:
+      NETLIFY_AUTH_TOKEN:
+        required: false
+      NETLIFY_SITE_ID:
+        required: false
 
 permissions:
   contents: read

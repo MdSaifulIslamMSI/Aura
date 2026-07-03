@@ -15,6 +15,27 @@ on:
         required: false
         default: true
         type: boolean
+    secrets:
+      AWS_FRONTEND_DEPLOY_ROLE_ARN:
+        required: false
+      VITE_FIREBASE_API_KEY:
+        required: false
+      VITE_FIREBASE_APP_ID:
+        required: false
+      VITE_FIREBASE_AUTH_DOMAIN:
+        required: false
+      VITE_FIREBASE_CONFIG:
+        required: false
+      VITE_FIREBASE_MEASUREMENT_ID:
+        required: false
+      VITE_FIREBASE_MESSAGING_SENDER_ID:
+        required: false
+      VITE_FIREBASE_PROJECT_ID:
+        required: false
+      VITE_FIREBASE_STORAGE_BUCKET:
+        required: false
+      VITE_FIREBASE_WEB_CONFIG:
+        required: false
 
 permissions:
   contents: read

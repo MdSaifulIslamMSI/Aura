@@ -8,6 +8,13 @@ on:
         required: false
         default: ""
         type: string
+    secrets:
+      VERCEL_ORG_ID:
+        required: false
+      VERCEL_PROJECT_ID:
+        required: false
+      VERCEL_TOKEN:
+        required: false
 
 permissions:
   contents: read

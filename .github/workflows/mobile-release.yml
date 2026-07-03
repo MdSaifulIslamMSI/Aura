@@ -44,6 +44,55 @@ on:
         required: false
         default: false
         type: boolean
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+      ANDROID_RELEASE_KEYSTORE_BASE64:
+        required: false
+      ANDROID_RELEASE_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_RELEASE_KEY_ALIAS:
+        required: false
+      ANDROID_RELEASE_KEY_PASSWORD:
+        required: false
+      APPLE_CERTIFICATE_BASE64:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_PROVISIONING_PROFILE_BASE64:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      APP_STORE_CONNECT_API_KEY_P8_BASE64:
+        required: false
+      APP_STORE_CONNECT_ISSUER_ID:
+        required: false
+      APP_STORE_CONNECT_KEY_ID:
+        required: false
+      AURA_ANDROID_DEFAULT_WEB_CLIENT_ID:
+        required: false
+      FIREBASE_ANDROID_GOOGLE_SERVICES_JSON_BASE64:
+        required: false
+      FIREBASE_IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64:
+        required: false
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64:
+        required: false
+      IOS_PROVISIONING_PROFILE_BASE64:
+        required: false
+      IOS_PROVISIONING_PROFILE_SPECIFIER:
+        required: false
+      IOS_SIGNING_CERTIFICATE_P12_BASE64:
+        required: false
+      IOS_SIGNING_CERTIFICATE_PASSWORD:
+        required: false
+      IOS_TEAM_ID:
+        required: false
 
 permissions:
   contents: write

@@ -8,6 +8,9 @@ on:
         required: false
         default: ""
         type: string
+    secrets:
+      AWS_DEPLOY_ROLE_ARN:
+        required: false
 
 permissions:
   contents: read

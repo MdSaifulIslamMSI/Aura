@@ -32,6 +32,37 @@ on:
         required: false
         default: production
         type: string
+    secrets:
+      AWS_FRONTEND_DEPLOY_ROLE_ARN:
+        required: false
+      NETLIFY_AUTH_TOKEN:
+        required: false
+      NETLIFY_SITE_ID:
+        required: false
+      VERCEL_ORG_ID:
+        required: false
+      VERCEL_PROJECT_ID:
+        required: false
+      VERCEL_TOKEN:
+        required: false
+      VITE_FIREBASE_API_KEY:
+        required: false
+      VITE_FIREBASE_APP_ID:
+        required: false
+      VITE_FIREBASE_AUTH_DOMAIN:
+        required: false
+      VITE_FIREBASE_CONFIG:
+        required: false
+      VITE_FIREBASE_MEASUREMENT_ID:
+        required: false
+      VITE_FIREBASE_MESSAGING_SENDER_ID:
+        required: false
+      VITE_FIREBASE_PROJECT_ID:
+        required: false
+      VITE_FIREBASE_STORAGE_BUCKET:
+        required: false
+      VITE_FIREBASE_WEB_CONFIG:
+        required: false
 
 permissions:
   contents: read
