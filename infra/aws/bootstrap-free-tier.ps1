@@ -456,7 +456,9 @@ $instanceId = aws ec2 run-instances `
     --subnet-id $resolvedSubnetId `
     --block-device-mappings "file://$rootBlockDeviceFile" `
     --metadata-options "HttpTokens=required,HttpEndpoint=enabled" `
-    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$InstanceTagName},{Key=App,Value=Aura},{Key=Role,Value=backend},{Key=Architecture,Value=$instanceArchitecture},{Key=CostProfile,Value=free-plan}]" `
+    --tag-specifications `
+        "ResourceType=instance,Tags=[{Key=Name,Value=$InstanceTagName},{Key=App,Value=Aura},{Key=Role,Value=backend},{Key=Architecture,Value=$instanceArchitecture},{Key=Environment,Value=production},{Key=ManagedBy,Value=codex-aws-bootstrap},{Key=CostProfile,Value=free-plan}]" `
+        "ResourceType=volume,Tags=[{Key=Name,Value=$InstanceTagName-root},{Key=App,Value=Aura},{Key=Role,Value=backend},{Key=Environment,Value=production},{Key=ManagedBy,Value=codex-aws-bootstrap},{Key=CostProfile,Value=free-plan}]" `
     --user-data "file://$userDataFile" `
     --query "Instances[0].InstanceId" `
     --output text

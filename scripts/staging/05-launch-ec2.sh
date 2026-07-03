@@ -73,7 +73,9 @@ else
     --metadata-options "HttpTokens=required,HttpPutResponseHopLimit=2" \
     --user-data "$(aws_file_uri "$user_data")" \
     --block-device-mappings "DeviceName=/dev/xvda,Ebs={VolumeSize=$STAGING_ROOT_VOLUME_GB,VolumeType=gp3,DeleteOnTermination=true}" \
-    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$PROJECT_NAME-$STAGING_NAME},{Key=Project,Value=$PROJECT_NAME},{Key=Environment,Value=staging},{Key=ManagedBy,Value=codex-staging-bootstrap}]" \
+    --tag-specifications \
+      "ResourceType=instance,Tags=[{Key=Name,Value=$PROJECT_NAME-$STAGING_NAME},{Key=Project,Value=$PROJECT_NAME},{Key=Environment,Value=staging},{Key=ManagedBy,Value=codex-staging-bootstrap},{Key=CostProfile,Value=free-plan}]" \
+      "ResourceType=volume,Tags=[{Key=Name,Value=$PROJECT_NAME-$STAGING_NAME-root},{Key=Project,Value=$PROJECT_NAME},{Key=Environment,Value=staging},{Key=ManagedBy,Value=codex-staging-bootstrap},{Key=CostProfile,Value=free-plan}]" \
     --query 'Instances[0].InstanceId' \
     --output text)"
   log "Launched EC2 instance $instance_id"

@@ -24,6 +24,14 @@ function Require-Command {
     }
 }
 
+function Invoke-AwsChecked {
+    & $script:AwsCliPath @args
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "AWS CLI command failed with exit code $exitCode."
+    }
+}
+
 function Ensure-Role {
     param(
         [string]$RoleName,
@@ -277,6 +285,8 @@ function Ensure-ExpirationSchedule {
 }
 
 Require-Command -Name "aws"
+$script:AwsCliPath = (Get-Command aws -CommandType Application -ErrorAction Stop).Source
+Set-Alias -Name aws -Value Invoke-AwsChecked -Scope Script
 
 if (-not [string]::IsNullOrWhiteSpace($AwsProfile)) {
     $env:AWS_PROFILE = $AwsProfile
