@@ -50,6 +50,7 @@
   "admin.awsControl.intelligence.ec2StatusChecks": "EC2 status checks",
   "admin.awsControl.intelligence.noActiveAlarms": "No active CloudWatch alarms reported.",
   "admin.awsControl.intelligence.noRecentCommands": "No recent SSM commands reported.",
+  "admin.awsControl.intelligence.ssmAgentVersion": "agent {version}",
   "admin.awsControl.intelligence.ssmCommandHistory": "SSM command history",
   "admin.awsControl.intelligence.ssmManagedInstances": "SSM managed instances",
   "admin.awsControl.intelligence.title": "Live read-only intelligence",

@@ -155,6 +155,9 @@
   "admin.awsControl.intelligence.noRecentCommands": {
     "defaultMessage": "No recent SSM commands reported."
   },
+  "admin.awsControl.intelligence.ssmAgentVersion": {
+    "defaultMessage": "agent {version}"
+  },
   "admin.awsControl.intelligence.ssmCommandHistory": {
     "defaultMessage": "SSM command history"
   },

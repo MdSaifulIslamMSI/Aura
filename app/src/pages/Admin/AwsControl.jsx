@@ -109,6 +109,7 @@ const awsControlMessages = defineMessages({
   serverOnly: { id: 'admin.awsControl.identity.serverOnly', defaultMessage: 'Server only' },
   ssmCommandHistory: { id: 'admin.awsControl.intelligence.ssmCommandHistory', defaultMessage: 'SSM command history' },
   ssmManagedInstances: { id: 'admin.awsControl.intelligence.ssmManagedInstances', defaultMessage: 'SSM managed instances' },
+  ssmAgentVersion: { id: 'admin.awsControl.intelligence.ssmAgentVersion', defaultMessage: 'agent {version}' },
   staging: { id: 'admin.awsControl.target.staging', defaultMessage: 'Staging' },
   stagingControls: { id: 'admin.awsControl.controls.eyebrow', defaultMessage: 'AWS controls' },
   startOrStopStaging: { id: 'admin.awsControl.controls.title', defaultMessage: 'Start or stop AWS target' },
@@ -713,7 +714,7 @@ const AwsControl = () => {
                       </span>
                     </div>
                     <p className="mt-2 text-xs font-semibold text-slate-400">
-                      {instance.platformName || instance.platformType || intl.formatMessage(awsControlMessages.notAvailable)} - agent {instance.agentVersion || intl.formatMessage(awsControlMessages.notAvailableShort)}
+                      {instance.platformName || instance.platformType || intl.formatMessage(awsControlMessages.notAvailable)} - {intl.formatMessage(awsControlMessages.ssmAgentVersion, { version: instance.agentVersion || intl.formatMessage(awsControlMessages.notAvailableShort) })}
                     </p>
                   </div>
                 )) : (
