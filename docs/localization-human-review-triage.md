@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 422
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (94185/94185 required locale/message pairs)
+- Locale key coverage: 100% (94773/94773 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4485
+- Source message keys: 4513
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,12 +16,12 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 84429
-- Unique review locale/id pairs: 84429
-- Actionable grouped queue entries: 3025
-- Actionable affected locale/message pairs: 39139
-- Native-review audit grouped entries: 2495
-- Native-review audit affected locale/message pairs: 45290
+- Total tracked review pairs preserved: 84975
+- Unique review locale/id pairs: 84975
+- Actionable grouped queue entries: 3052
+- Actionable affected locale/message pairs: 39670
+- Native-review audit grouped entries: 2496
+- Native-review audit affected locale/message pairs: 45305
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -29,7 +29,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 1078 | 17995 | bn 828, hi 992, te 893, mr 899, ur 879, gu 914, pa 908, ml 894, kn 893, or 907, as 892, sa 896, es 1024, fr 1056, de 1043, ar 963, ja 1042, pt 1035, zh 1037 |
+| critical | 1105 | 18526 | bn 861, hi 1025, te 920, mr 926, ur 906, gu 941, pa 935, ml 921, kn 920, or 934, as 919, sa 923, es 1051, fr 1083, de 1070, ar 996, ja 1069, pt 1062, zh 1064 |
 | high | 230 | 947 | bn 10, hi 212, te 15, mr 15, ur 17, gu 14, pa 14, ml 18, kn 15, or 23, as 5, sa 8, es 79, fr 86, de 85, ar 82, ja 86, pt 80, zh 83 |
 | medium | 1170 | 16759 | bn 745, hi 1062, te 752, mr 751, ur 750, gu 769, pa 763, ml 750, kn 750, or 760, as 749, sa 759, es 1059, fr 1068, de 1056, ar 1026, ja 1070, pt 1052, zh 1068 |
 | low | 547 | 3438 | bn 2, hi 537, te 1, mr 2, ur 3, gu 3, pa 2, ml 1, kn 2, or 3, as 1, sa 3, es 408, fr 415, de 411, ar 412, ja 412, pt 409, zh 411 |
@@ -77,23 +77,23 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | --- | ---: |
 | bn | 2691 |
 | hi | 1473 |
-| te | 2824 |
-| mr | 2818 |
+| te | 2825 |
+| mr | 2819 |
 | ur | 2677 |
-| gu | 2785 |
-| pa | 2798 |
-| ml | 2822 |
-| kn | 2825 |
-| or | 2792 |
-| as | 2838 |
-| sa | 2819 |
-| es | 1915 |
-| fr | 1860 |
-| de | 1890 |
+| gu | 2786 |
+| pa | 2799 |
+| ml | 2823 |
+| kn | 2826 |
+| or | 2793 |
+| as | 2839 |
+| sa | 2820 |
+| es | 1916 |
+| fr | 1861 |
+| de | 1891 |
 | ar | 1793 |
-| ja | 1875 |
-| pt | 1909 |
-| zh | 1886 |
+| ja | 1876 |
+| pt | 1910 |
+| zh | 1887 |
 
 ## Files
 
