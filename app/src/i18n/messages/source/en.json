@@ -32,6 +32,177 @@
   "admin.accessibility.public.status.control.room": {
     "defaultMessage": "Public status control room"
   },
+  "admin.awsControl.controls.eyebrow": {
+    "defaultMessage": "Staging controls"
+  },
+  "admin.awsControl.controls.operatorReason": {
+    "defaultMessage": "Operator reason"
+  },
+  "admin.awsControl.controls.operatorReasonPlaceholder": {
+    "defaultMessage": "Why are you changing staging state?"
+  },
+  "admin.awsControl.controls.start": {
+    "defaultMessage": "Start staging"
+  },
+  "admin.awsControl.controls.stop": {
+    "defaultMessage": "Stop staging"
+  },
+  "admin.awsControl.controls.stopConfirmation": {
+    "defaultMessage": "Stop confirmation"
+  },
+  "admin.awsControl.controls.stopPhraseLeadIn": {
+    "defaultMessage": "These buttons only target staging. Stopping staging requires the phrase"
+  },
+  "admin.awsControl.controls.title": {
+    "defaultMessage": "Start or stop staging"
+  },
+  "admin.awsControl.cost.currentMonthSpend": {
+    "defaultMessage": "Current month AWS spend"
+  },
+  "admin.awsControl.cost.lines": {
+    "defaultMessage": "{count, plural, one {# cost line} other {# cost lines}}"
+  },
+  "admin.awsControl.cost.noRows": {
+    "defaultMessage": "No non-zero service costs reported for the current Cost Explorer window."
+  },
+  "admin.awsControl.cost.title": {
+    "defaultMessage": "Cost watch"
+  },
+  "admin.awsControl.cost.unavailable": {
+    "defaultMessage": "Cost Explorer unavailable"
+  },
+  "admin.awsControl.description": {
+    "defaultMessage": "Admin-only visibility and guarded staging controls for Aura AWS infrastructure. Production is visible here, but destructive production controls stay locked until a stronger approval flow exists."
+  },
+  "admin.awsControl.disabled.description": {
+    "defaultMessage": "Set server-side AWS control environment variables to enable live status and staging controls. Browser clients never receive AWS credentials."
+  },
+  "admin.awsControl.disabled.title": {
+    "defaultMessage": "AWS control plane is not enabled on this backend"
+  },
+  "admin.awsControl.error.loadState": {
+    "defaultMessage": "Failed to load AWS control state"
+  },
+  "admin.awsControl.error.operatorReasonRequired": {
+    "defaultMessage": "Add an operator reason before changing AWS state"
+  },
+  "admin.awsControl.error.startStaging": {
+    "defaultMessage": "Failed to start staging"
+  },
+  "admin.awsControl.error.stopStaging": {
+    "defaultMessage": "Failed to stop staging"
+  },
+  "admin.awsControl.eyebrow": {
+    "defaultMessage": "AWS operations"
+  },
+  "admin.awsControl.guardrails.budget": {
+    "defaultMessage": "Budget: {name}"
+  },
+  "admin.awsControl.guardrails.eyebrow": {
+    "defaultMessage": "Guardrails"
+  },
+  "admin.awsControl.guardrails.limit": {
+    "defaultMessage": "Limit: {limit}"
+  },
+  "admin.awsControl.guardrails.schedule": {
+    "defaultMessage": "Schedule: {schedule}"
+  },
+  "admin.awsControl.guardrails.scheduleState": {
+    "defaultMessage": "Schedule state: {state}"
+  },
+  "admin.awsControl.guardrails.title": {
+    "defaultMessage": "Budget and expiration"
+  },
+  "admin.awsControl.loading": {
+    "defaultMessage": "Loading AWS control plane..."
+  },
+  "admin.awsControl.refresh": {
+    "defaultMessage": "Refresh AWS state"
+  },
+  "admin.awsControl.stat.controlPlane": {
+    "defaultMessage": "Control plane"
+  },
+  "admin.awsControl.stat.monthCost": {
+    "defaultMessage": "Month cost"
+  },
+  "admin.awsControl.stat.noTargetConfigured": {
+    "defaultMessage": "No target configured"
+  },
+  "admin.awsControl.stat.productionMutationsDisabled": {
+    "defaultMessage": "Production mutations disabled"
+  },
+  "admin.awsControl.stat.region": {
+    "defaultMessage": "Region {region}"
+  },
+  "admin.awsControl.stat.serverEnvMustOptIn": {
+    "defaultMessage": "Server env must opt in"
+  },
+  "admin.awsControl.state.disabled": {
+    "defaultMessage": "Disabled"
+  },
+  "admin.awsControl.state.enabled": {
+    "defaultMessage": "Enabled"
+  },
+  "admin.awsControl.success.startRequested": {
+    "defaultMessage": "Start staging requested"
+  },
+  "admin.awsControl.success.stopRequested": {
+    "defaultMessage": "Stop staging requested"
+  },
+  "admin.awsControl.target.instanceLine": {
+    "defaultMessage": "Instance {instanceId} · Name {name}"
+  },
+  "admin.awsControl.target.mutationsEnabled": {
+    "defaultMessage": "Mutations enabled"
+  },
+  "admin.awsControl.target.noCostProfile": {
+    "defaultMessage": "no cost profile"
+  },
+  "admin.awsControl.target.production": {
+    "defaultMessage": "Production"
+  },
+  "admin.awsControl.target.productionLocked": {
+    "defaultMessage": "Production start/stop is intentionally locked in Phase 1."
+  },
+  "admin.awsControl.target.profileLine": {
+    "defaultMessage": "{instanceType} · {environment} · {costProfile}"
+  },
+  "admin.awsControl.target.readOnly": {
+    "defaultMessage": "Read only"
+  },
+  "admin.awsControl.target.staging": {
+    "defaultMessage": "Staging"
+  },
+  "admin.awsControl.target.unknownType": {
+    "defaultMessage": "unknown type"
+  },
+  "admin.awsControl.targets.eyebrow": {
+    "defaultMessage": "Targets"
+  },
+  "admin.awsControl.targets.generatedAt": {
+    "defaultMessage": "Generated {timestamp}"
+  },
+  "admin.awsControl.targets.title": {
+    "defaultMessage": "Production and staging posture"
+  },
+  "admin.awsControl.title": {
+    "defaultMessage": "AWS control center"
+  },
+  "admin.awsControl.value.notAvailable": {
+    "defaultMessage": "not available"
+  },
+  "admin.awsControl.value.notAvailableShort": {
+    "defaultMessage": "n/a"
+  },
+  "admin.awsControl.value.notConfigured": {
+    "defaultMessage": "not configured"
+  },
+  "admin.awsControl.value.notResolved": {
+    "defaultMessage": "not resolved"
+  },
+  "admin.awsControl.value.unknown": {
+    "defaultMessage": "unknown"
+  },
   "admin.dashboard.actions.markMatchingRead": {
     "defaultMessage": "Mark Matching Read",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -2589,6 +2760,9 @@
   "admin.shared.yes": {
     "defaultMessage": "Yes",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.shell.nav.awsControl": {
+    "defaultMessage": "AWS Control"
   },
   "admin.shell.nav.dashboard": {
     "defaultMessage": "Dashboard"

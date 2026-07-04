@@ -28,6 +28,12 @@
       "text": "Payment Security Challenge",
       "classification": "server-email-template-follow-up",
       "reason": "OTP email templates are rendered in the Node server path, which does not yet have recipient-locale catalog binding; tracked in docs/i18n-static-template-coverage.md."
+    },
+    {
+      "file": "app/src/pages/Admin/AwsControl.jsx",
+      "text": "STOP STAGING",
+      "classification": "operator-confirmation-token",
+      "reason": "Exact backend confirmation phrase for the guarded staging stop action; translating or pseudo-localizing this safety token would break the control."
     }
   ]
 }
