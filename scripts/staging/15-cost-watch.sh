@@ -21,7 +21,11 @@ tag_status="$(aws_cli ce list-cost-allocation-tags \
   --output text 2>"$STATE_DIR/cost-allocation-tags.err" || true)"
 if [ "$tag_status" != "Active" ]; then
   if [ "${ALLOW_NO_COST_WATCH:-false}" = "true" ]; then
-    warn "Environment cost allocation tag is not active; leaving tag-filtered cost watch as a warning."
+    if [ -s "$STATE_DIR/cost-allocation-tags.err" ]; then
+      warn "Could not verify the Environment cost allocation tag; skipping optional tag-filtered cost watch."
+    else
+      warn "Environment cost allocation tag is not active; leaving tag-filtered cost watch as a warning."
+    fi
     cat "$STATE_DIR/cost-allocation-tags.err" >&2
     exit 0
   fi

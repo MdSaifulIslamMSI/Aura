@@ -93,4 +93,6 @@ jobs:
 
       - name: Run cost watch when AWS role is configured
         if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' && steps.aws_credentials.outcome == 'success' }}
+        env:
+          ALLOW_NO_COST_WATCH: ${{ vars.ALLOW_NO_COST_WATCH || 'true' }}
         run: npm run staging:cost-watch

@@ -505,11 +505,13 @@ describe('repo environment contract scripts', () => {
 
     test('staging IAM operator grants only the Cost Explorer read used by cost watch', () => {
         const iamScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-create-iam-auth.sh'), 'utf8');
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
 
         expect(iamScript).toMatch(/ReadStagingCostExplorerUsage/);
         expect(iamScript).toMatch(/"Action": "ce:GetCostAndUsage"/);
         expect(iamScript).not.toMatch(/ce:\*/);
         expect(iamScript).not.toMatch(/ce:GetCostForecast/);
+        expect(workflow).toMatch(/ALLOW_NO_COST_WATCH:\s*\$\{\{\s*vars\.ALLOW_NO_COST_WATCH \|\| 'true'\s*\}\}/);
     });
 
     test('Vercel staging autopilot stops before Preview deploy when env writes fail', () => {
