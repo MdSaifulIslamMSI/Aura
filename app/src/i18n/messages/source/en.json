@@ -41,20 +41,11 @@
   "admin.awsControl.controls.operatorReasonPlaceholder": {
     "defaultMessage": "Why are you changing AWS state?"
   },
-  "admin.awsControl.controls.start": {
-    "defaultMessage": "Start staging"
-  },
   "admin.awsControl.controls.startTarget": {
     "defaultMessage": "Start {target}"
   },
-  "admin.awsControl.controls.stop": {
-    "defaultMessage": "Stop staging"
-  },
   "admin.awsControl.controls.stopConfirmation": {
     "defaultMessage": "Stop confirmation"
-  },
-  "admin.awsControl.controls.stopPhraseLeadIn": {
-    "defaultMessage": "Stopping the selected target requires the phrase"
   },
   "admin.awsControl.controls.stopTarget": {
     "defaultMessage": "Stop {target}"
@@ -81,13 +72,16 @@
     "defaultMessage": "Cost Explorer unavailable"
   },
   "admin.awsControl.description": {
-    "defaultMessage": "Admin-only visibility and guarded controls for Aura AWS infrastructure. Production actions require explicit server-side break-glass opt-in and exact stop confirmation."
+    "defaultMessage": "Admin-only visibility and guarded controls for Aura AWS infrastructure. Production actions require explicit server-side break-glass opt-in and exact confirmation when armed."
   },
   "admin.awsControl.disabled.description": {
     "defaultMessage": "Set server-side AWS control environment variables to enable live status and guarded controls. Browser clients never receive AWS credentials."
   },
   "admin.awsControl.disabled.title": {
     "defaultMessage": "AWS control plane is not enabled on this backend"
+  },
+  "admin.awsControl.error.confirmationPhraseRequired": {
+    "defaultMessage": "Type {phrase} before running this AWS action"
   },
   "admin.awsControl.error.loadState": {
     "defaultMessage": "Failed to load AWS control state"
@@ -96,16 +90,19 @@
     "defaultMessage": "Add an operator reason before changing AWS state"
   },
   "admin.awsControl.error.startStaging": {
-    "defaultMessage": "Failed to start staging"
+    "defaultMessage": "Failed to start AWS target"
   },
   "admin.awsControl.error.stopStaging": {
-    "defaultMessage": "Failed to stop staging"
+    "defaultMessage": "Failed to stop AWS target"
   },
   "admin.awsControl.eyebrow": {
     "defaultMessage": "AWS operations"
   },
   "admin.awsControl.guardrails.budget": {
     "defaultMessage": "Budget: {name}"
+  },
+  "admin.awsControl.guardrails.budgetActions": {
+    "defaultMessage": "Budget actions"
   },
   "admin.awsControl.guardrails.eyebrow": {
     "defaultMessage": "Guardrails"
@@ -122,11 +119,98 @@
   "admin.awsControl.guardrails.title": {
     "defaultMessage": "Budget and expiration"
   },
+  "admin.awsControl.identity.allowedApis": {
+    "defaultMessage": "Allowed AWS APIs"
+  },
+  "admin.awsControl.identity.browserCredentialsBlocked": {
+    "defaultMessage": "Browser credentials blocked"
+  },
+  "admin.awsControl.identity.credentialBoundary": {
+    "defaultMessage": "Credential boundary"
+  },
+  "admin.awsControl.identity.guardStatus": {
+    "defaultMessage": "Guard status"
+  },
+  "admin.awsControl.identity.requiresRecentAuth": {
+    "defaultMessage": "Recent sensitive-action step-up required"
+  },
+  "admin.awsControl.identity.routeGuard": {
+    "defaultMessage": "Route guard"
+  },
+  "admin.awsControl.identity.serverOnly": {
+    "defaultMessage": "Server only"
+  },
+  "admin.awsControl.identity.title": {
+    "defaultMessage": "AWS identity and boundary"
+  },
+  "admin.awsControl.intelligence.cloudWatchAlarms": {
+    "defaultMessage": "CloudWatch alarms"
+  },
+  "admin.awsControl.intelligence.ec2StatusChecks": {
+    "defaultMessage": "EC2 status checks"
+  },
+  "admin.awsControl.intelligence.noActiveAlarms": {
+    "defaultMessage": "No active CloudWatch alarms reported."
+  },
+  "admin.awsControl.intelligence.noRecentCommands": {
+    "defaultMessage": "No recent SSM commands reported."
+  },
+  "admin.awsControl.intelligence.ssmAgentVersion": {
+    "defaultMessage": "agent {version}"
+  },
+  "admin.awsControl.intelligence.ssmCommandHistory": {
+    "defaultMessage": "SSM command history"
+  },
+  "admin.awsControl.intelligence.ssmManagedInstances": {
+    "defaultMessage": "SSM managed instances"
+  },
+  "admin.awsControl.intelligence.title": {
+    "defaultMessage": "Live read-only intelligence"
+  },
   "admin.awsControl.loading": {
     "defaultMessage": "Loading AWS control plane..."
   },
+  "admin.awsControl.operations.blastRadius": {
+    "defaultMessage": "Blast radius"
+  },
+  "admin.awsControl.operations.commandPlan": {
+    "defaultMessage": "Command plan"
+  },
+  "admin.awsControl.operations.exactPhrase": {
+    "defaultMessage": "Exact phrase"
+  },
+  "admin.awsControl.operations.liveAllowlisted": {
+    "defaultMessage": "Live allowlisted"
+  },
+  "admin.awsControl.operations.mutationGate": {
+    "defaultMessage": "Mutation gate"
+  },
+  "admin.awsControl.operations.selector": {
+    "defaultMessage": "Selector"
+  },
   "admin.awsControl.refresh": {
     "defaultMessage": "Refresh AWS state"
+  },
+  "admin.awsControl.runtime.deployPath": {
+    "defaultMessage": "Deploy path"
+  },
+  "admin.awsControl.runtime.noRunbooks": {
+    "defaultMessage": "No runbooks reported"
+  },
+  "admin.awsControl.runtime.parameterStore": {
+    "defaultMessage": "Parameter Store"
+  },
+  "admin.awsControl.runtime.parameterStorePrefix": {
+    "defaultMessage": "Prefix {prefix}"
+  },
+  "admin.awsControl.runtime.runbooks": {
+    "defaultMessage": "Runbooks"
+  },
+  "admin.awsControl.runtime.title": {
+    "defaultMessage": "Runtime and deploy path"
+  },
+  "admin.awsControl.runtime.topology": {
+    "defaultMessage": "Topology"
   },
   "admin.awsControl.stat.controlPlane": {
     "defaultMessage": "Control plane"
@@ -152,11 +236,11 @@
   "admin.awsControl.state.enabled": {
     "defaultMessage": "Enabled"
   },
-  "admin.awsControl.success.startRequested": {
-    "defaultMessage": "Start staging requested"
+  "admin.awsControl.state.locked": {
+    "defaultMessage": "Locked"
   },
-  "admin.awsControl.success.stopRequested": {
-    "defaultMessage": "Stop staging requested"
+  "admin.awsControl.success.actionRequested": {
+    "defaultMessage": "{action} {target} requested"
   },
   "admin.awsControl.target.instanceLine": {
     "defaultMessage": "Instance {instanceId} · Name {name}"

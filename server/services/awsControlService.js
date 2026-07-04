@@ -27,6 +27,45 @@ const ACTIONS = Object.freeze({
     stop: 'stop-instances',
 });
 
+const REASON_MIN_LENGTH = 8;
+
+const TARGET_BLAST_RADIUS = Object.freeze({
+    staging: 'Isolated staging EC2 host, staging API/worker runtime, Redis sidecar, and staging SSM prefix.',
+    production: 'Production EC2 host, API container, worker container, Redis sidecar, Caddy edge, public backend traffic, and production SSM prefix.',
+});
+
+const REQUIRED_ACTION_GUARDS = Object.freeze([
+    'authenticated_session',
+    'admin_role',
+    'sensitive_action_step_up',
+    'server_env_mutation_gate',
+    'idempotency_key',
+    'operator_reason',
+    'exact_confirmation_when_required',
+    'security_audit_event',
+]);
+
+const RUNBOOKS = Object.freeze([
+    {
+        key: 'parameter_store_audit',
+        label: 'Parameter Store contract audit',
+        mode: 'read_only',
+        command: 'npm --prefix server run aws:ssm:audit',
+    },
+    {
+        key: 'parameter_store_sync_dry_run',
+        label: 'Parameter Store example sync dry run',
+        mode: 'dry_run',
+        command: 'npm --prefix server run aws:ssm:sync:example',
+    },
+    {
+        key: 'backend_deploy',
+        label: 'Backend deploy through GitHub OIDC and SSM Run Command',
+        mode: 'ci_controlled',
+        command: '.github/workflows/deploy-backend-aws.yml -> infra/aws/deploy-release.sh',
+    },
+]);
+
 const parseBoolean = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
     if (typeof value === 'boolean') return value;
@@ -74,6 +113,16 @@ const resolveAwsControlConfig = (env = process.env) => {
         budgetName: envString(env, 'AWS_CONTROL_BUDGET_NAME', 'aura-backend-monthly-guardrail'),
         expirationScheduleName: envString(env, 'AWS_CONTROL_EXPIRATION_SCHEDULE_NAME', 'aura-free-plan-expiration-stop'),
         costEnabled: parseBoolean(env.AWS_CONTROL_COST_ENABLED, true),
+        readOnlyIntelligenceEnabled: parseBoolean(env.AWS_CONTROL_READ_ONLY_INTELLIGENCE_ENABLED, true),
+        ssmCommandHistoryLimit: Math.min(
+            Math.max(parsePositiveNumber(env.AWS_CONTROL_SSM_HISTORY_LIMIT, 5), 1),
+            20,
+        ),
+        cloudWatchAlarmMaxRecords: Math.min(
+            Math.max(parsePositiveNumber(env.AWS_CONTROL_CLOUDWATCH_ALARM_MAX_RECORDS, 10), 1),
+            50,
+        ),
+        cloudWatchAlarmNamePrefix: envString(env, 'AWS_CONTROL_CLOUDWATCH_ALARM_NAME_PREFIX'),
         targets: {
             staging: {
                 key: 'staging',
@@ -99,9 +148,135 @@ const maskAccountId = (value = '') => {
     return `${raw.slice(0, 4)}****${raw.slice(-4)}`;
 };
 
+const getActionConfirmationPhrase = (targetKey, action) => {
+    const normalizedTarget = String(targetKey || '').trim().toLowerCase();
+    const normalizedAction = String(action || '').trim().toLowerCase();
+    if (!normalizedTarget) return '';
+    if (normalizedAction === 'stop') return `STOP ${normalizedTarget.toUpperCase()}`;
+    if (normalizedTarget === 'production' && normalizedAction === 'start') return 'START PRODUCTION';
+    return '';
+};
+
+const getStopConfirmationPhrase = (targetKey) => getActionConfirmationPhrase(targetKey, 'stop');
+
 const redactAwsError = (value = '') => String(value || '')
     .replace(/\b\d{12}\b/g, (match) => maskAccountId(match))
     .replace(/(AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN)=\S+/gi, '$1=[REDACTED]');
+
+const buildTargetOperationPlan = (target = {}, described = {}) => {
+    const targetKey = target.key || described.target || '';
+    const mutationArmed = Boolean(target.mutationsEnabled);
+    const selector = target.instanceId
+        ? { type: 'instance_id', value: target.instanceId }
+        : { type: 'tag_name', value: target.tagName || '' };
+    const targetUniquelyResolved = Boolean(described.instanceId || target.instanceId)
+        && !['not_found', 'ambiguous'].includes(String(described.state || '').toLowerCase());
+
+    return {
+        target: targetKey,
+        blastRadius: TARGET_BLAST_RADIUS[targetKey] || 'Configured AWS target.',
+        mutationGateEnv: TARGETS[targetKey]?.mutationAllowedEnv || '',
+        credentialBoundary: 'server_aws_cli_only',
+        browserReceivesAwsCredentials: false,
+        selector,
+        requiredGuards: REQUIRED_ACTION_GUARDS,
+        actions: Object.keys(ACTIONS).map((action) => {
+            const confirmationPhrase = getActionConfirmationPhrase(targetKey, action);
+            return {
+                action,
+                awsApi: `ec2:${ACTIONS[action]}`,
+                executionMode: mutationArmed ? 'live_allowlisted' : 'locked_read_only',
+                enabled: mutationArmed && targetUniquelyResolved,
+                destructive: action === 'stop',
+                requiresConfirmationPhrase: Boolean(confirmationPhrase),
+                confirmationPhrase,
+                reasonMinLength: REASON_MIN_LENGTH,
+                idempotencyRequired: true,
+            };
+        }),
+    };
+};
+
+const decorateTargetForStatus = (described = {}, target = {}) => ({
+    ...described,
+    operationPlan: buildTargetOperationPlan(target, described),
+});
+
+const buildRiskGates = (config = {}) => ([
+    {
+        key: 'browser_credentials',
+        label: 'Browser AWS credentials',
+        state: 'blocked',
+        enforced: true,
+        detail: 'AWS credentials stay on the backend process or AWS runner; the browser receives sanitized status only.',
+    },
+    {
+        key: 'control_plane_enabled',
+        label: 'AWS_CONTROL_ENABLED',
+        state: config.enabled ? 'armed' : 'locked',
+        enforced: true,
+        detail: config.enabled ? 'Live AWS reads are enabled.' : 'Live AWS reads and mutations are disabled.',
+    },
+    {
+        key: 'staging_mutations',
+        label: TARGETS.staging.mutationAllowedEnv,
+        state: config.targets?.staging?.mutationsEnabled ? 'armed' : 'locked',
+        enforced: true,
+        detail: 'Staging EC2 start/stop requires this explicit server env opt-in.',
+    },
+    {
+        key: 'production_mutations',
+        label: TARGETS.production.mutationAllowedEnv,
+        state: config.targets?.production?.mutationsEnabled ? 'armed' : 'locked',
+        enforced: true,
+        detail: 'Production EC2 start/stop requires a separate server-side break-glass opt-in.',
+    },
+    {
+        key: 'action_allowlist',
+        label: 'EC2 action allowlist',
+        state: 'enforced',
+        enforced: true,
+        detail: 'Only ec2:start-instances and ec2:stop-instances are executable through this endpoint.',
+    },
+]);
+
+const buildParameterStoreSnapshot = (env = process.env) => {
+    const pathPrefix = envString(env, 'AWS_PARAMETER_STORE_PATH_PREFIX', envString(env, 'PROD_SSM_PREFIX'));
+    return {
+        configured: Boolean(pathPrefix),
+        pathPrefix,
+        storage: 'AWS Systems Manager Parameter Store SecureString',
+        secretValuesReturned: false,
+        runtimeContractAudit: 'npm --prefix server run aws:ssm:audit',
+        dryRunSync: 'npm --prefix server run aws:ssm:sync:example',
+        liveSync: 'npm run aws:ssm:sync',
+    };
+};
+
+const buildDeploymentSnapshot = (config = {}) => ({
+    topology: [
+        'Vercel frontend',
+        'EC2 backend host',
+        'API container',
+        'worker container',
+        'Redis sidecar',
+        'Caddy HTTPS edge',
+        'optional Ollama sidecar',
+    ],
+    deployPath: 'GitHub Actions OIDC -> S3 release bundle -> SSM Run Command -> infra/aws/deploy-release.sh',
+    region: config.region,
+    budgetRegion: config.budgetRegion,
+    mutationApis: Object.values(ACTIONS).map((apiAction) => `ec2:${apiAction}`),
+    runbooks: RUNBOOKS,
+    guardrails: [
+        'No browser AWS credentials',
+        'No SSH dependency for deploys',
+        'Parameter Store prefix scoping',
+        'Trusted-device deployment gate',
+        'Auth-vault rollout guard',
+        'Budget and expiration guardrails',
+    ],
+});
 
 const buildAwsArgs = (args, config, { region = config.region, output = 'json' } = {}) => {
     const nextArgs = [...args];
@@ -368,6 +543,231 @@ const getGuardrailSnapshot = async ({ config, executor, identity }) => {
     };
 };
 
+const toAwsTimestamp = (value) => {
+    if (!value) return '';
+    if (value instanceof Date) return value.toISOString();
+    return String(value);
+};
+
+const getResolvedInstanceIds = (targets = []) => ([
+    ...new Set(
+        targets
+            .map((target) => target?.instanceId)
+            .filter(Boolean)
+    ),
+]);
+
+const mapStatusDetails = (details = []) => (
+    Array.isArray(details)
+        ? details.map((detail) => ({
+            name: detail.Name || '',
+            status: detail.Status || '',
+            impairedSince: toAwsTimestamp(detail.ImpairedSince),
+        }))
+        : []
+);
+
+const getEc2StatusChecks = async ({ config, executor, instanceIds }) => {
+    if (!instanceIds.length) {
+        return { available: false, reason: 'no_resolved_instances', checks: [] };
+    }
+
+    const result = await runAws([
+        'ec2',
+        'describe-instance-status',
+        '--instance-ids',
+        ...instanceIds,
+        '--include-all-instances',
+    ], { config, executor, allowFailure: true });
+
+    if (result?.ok === false) {
+        return { available: false, warning: result.reason, checks: [] };
+    }
+
+    return {
+        available: true,
+        checks: (result?.InstanceStatuses || []).map((status) => ({
+            instanceId: status.InstanceId || '',
+            state: status.InstanceState?.Name || '',
+            availabilityZone: status.AvailabilityZone || '',
+            instanceStatus: status.InstanceStatus?.Status || '',
+            systemStatus: status.SystemStatus?.Status || '',
+            instanceDetails: mapStatusDetails(status.InstanceStatus?.Details),
+            systemDetails: mapStatusDetails(status.SystemStatus?.Details),
+            events: (status.Events || []).map((event) => ({
+                code: event.Code || '',
+                description: event.Description || '',
+                notBefore: toAwsTimestamp(event.NotBefore),
+                notAfter: toAwsTimestamp(event.NotAfter),
+            })),
+        })),
+    };
+};
+
+const getSsmManagedInstances = async ({ config, executor, instanceIds }) => {
+    if (!instanceIds.length) {
+        return { available: false, reason: 'no_resolved_instances', instances: [] };
+    }
+
+    const result = await runAws([
+        'ssm',
+        'describe-instance-information',
+        '--filters',
+        `Key=InstanceIds,Values=${instanceIds.join(',')}`,
+    ], { config, executor, allowFailure: true });
+
+    if (result?.ok === false) {
+        return { available: false, warning: result.reason, instances: [] };
+    }
+
+    return {
+        available: true,
+        instances: (result?.InstanceInformationList || []).map((entry) => ({
+            instanceId: entry.InstanceId || '',
+            pingStatus: entry.PingStatus || '',
+            lastPingDateTime: toAwsTimestamp(entry.LastPingDateTime),
+            agentVersion: entry.AgentVersion || '',
+            platformType: entry.PlatformType || '',
+            platformName: entry.PlatformName || '',
+            platformVersion: entry.PlatformVersion || '',
+            resourceType: entry.ResourceType || '',
+        })),
+    };
+};
+
+const mapCommandPlugin = (plugin = {}) => ({
+    name: plugin.Name || '',
+    status: plugin.Status || '',
+    statusDetails: plugin.StatusDetails || '',
+    responseCode: Number.isFinite(Number(plugin.ResponseCode)) ? Number(plugin.ResponseCode) : null,
+    outputBytes: String(plugin.Output || '').length,
+});
+
+const mapCommandInvocation = (invocation = {}) => ({
+    commandId: invocation.CommandId || '',
+    instanceId: invocation.InstanceId || '',
+    documentName: invocation.DocumentName || '',
+    status: invocation.Status || '',
+    statusDetails: invocation.StatusDetails || '',
+    requestedDateTime: toAwsTimestamp(invocation.RequestedDateTime),
+    executionStartDateTime: toAwsTimestamp(invocation.ExecutionStartDateTime),
+    executionEndDateTime: toAwsTimestamp(invocation.ExecutionEndDateTime),
+    executionElapsedTime: invocation.ExecutionElapsedTime || '',
+    responseCode: Number.isFinite(Number(invocation.ResponseCode)) ? Number(invocation.ResponseCode) : null,
+    plugins: (invocation.CommandPlugins || []).map(mapCommandPlugin),
+});
+
+const getSsmCommandHistory = async ({ config, executor, instanceIds }) => {
+    if (!instanceIds.length) {
+        return { available: false, reason: 'no_resolved_instances', commands: [] };
+    }
+
+    const results = await Promise.all(instanceIds.map(async (instanceId) => {
+        const result = await runAws([
+            'ssm',
+            'list-command-invocations',
+            '--instance-id',
+            instanceId,
+            '--details',
+            '--max-results',
+            String(config.ssmCommandHistoryLimit),
+        ], { config, executor, allowFailure: true });
+
+        if (result?.ok === false) {
+            return { instanceId, warning: result.reason, commands: [] };
+        }
+
+        return {
+            instanceId,
+            commands: (result?.CommandInvocations || []).map(mapCommandInvocation),
+        };
+    }));
+
+    return {
+        available: results.some((entry) => !entry.warning),
+        commands: results.flatMap((entry) => entry.commands),
+        warnings: results
+            .filter((entry) => entry.warning)
+            .map((entry) => ({ instanceId: entry.instanceId, warning: entry.warning })),
+    };
+};
+
+const getCloudWatchAlarmSnapshot = async ({ config, executor }) => {
+    const args = [
+        'cloudwatch',
+        'describe-alarms',
+        '--state-value',
+        'ALARM',
+        '--max-records',
+        String(config.cloudWatchAlarmMaxRecords),
+    ];
+
+    if (config.cloudWatchAlarmNamePrefix) {
+        args.push('--alarm-name-prefix', config.cloudWatchAlarmNamePrefix);
+    }
+
+    const result = await runAws(args, { config, executor, allowFailure: true });
+    if (result?.ok === false) {
+        return { available: false, warning: result.reason, activeAlarms: [] };
+    }
+
+    const metricAlarms = (result?.MetricAlarms || []).map((alarm) => ({
+        type: 'metric',
+        name: alarm.AlarmName || '',
+        state: alarm.StateValue || '',
+        reason: alarm.StateReason || '',
+        updatedAt: toAwsTimestamp(alarm.StateUpdatedTimestamp),
+        namespace: alarm.Namespace || '',
+        metricName: alarm.MetricName || '',
+    }));
+    const compositeAlarms = (result?.CompositeAlarms || []).map((alarm) => ({
+        type: 'composite',
+        name: alarm.AlarmName || '',
+        state: alarm.StateValue || '',
+        reason: alarm.StateReason || '',
+        updatedAt: toAwsTimestamp(alarm.StateUpdatedTimestamp),
+    }));
+
+    return {
+        available: true,
+        activeAlarms: [...metricAlarms, ...compositeAlarms],
+    };
+};
+
+const getReadOnlyIntelligence = async ({ config, executor, targets, now }) => {
+    if (!config.readOnlyIntelligenceEnabled) {
+        return {
+            enabled: false,
+            reason: 'AWS_CONTROL_READ_ONLY_INTELLIGENCE_ENABLED is false',
+            generatedAt: now.toISOString(),
+        };
+    }
+
+    const instanceIds = getResolvedInstanceIds(targets);
+    const [
+        ec2Status,
+        ssmManagedInstances,
+        ssmCommandHistory,
+        cloudWatchAlarms,
+    ] = await Promise.all([
+        getEc2StatusChecks({ config, executor, instanceIds }),
+        getSsmManagedInstances({ config, executor, instanceIds }),
+        getSsmCommandHistory({ config, executor, instanceIds }),
+        getCloudWatchAlarmSnapshot({ config, executor }),
+    ]);
+
+    return {
+        enabled: true,
+        readOnly: true,
+        instanceIds,
+        ec2Status,
+        ssmManagedInstances,
+        ssmCommandHistory,
+        cloudWatchAlarms,
+        generatedAt: now.toISOString(),
+    };
+};
+
 const getAwsControlStatus = async ({
     env = process.env,
     executor = execFile,
@@ -375,6 +775,17 @@ const getAwsControlStatus = async ({
 } = {}) => {
     const config = resolveAwsControlConfig(env);
     const targetList = Object.values(config.targets);
+    const statusEnvelope = {
+        securityBoundary: {
+            credentialBoundary: 'server_aws_cli_only',
+            browserReceivesAwsCredentials: false,
+            actionRouteGuard: 'protect + admin + sensitiveActions.adminSecurityConfigChange',
+            allowedAwsApis: Object.values(ACTIONS).map((apiAction) => `ec2:${apiAction}`),
+        },
+        riskGates: buildRiskGates(config),
+        deployment: buildDeploymentSnapshot(config),
+        parameterStore: buildParameterStoreSnapshot(env),
+    };
 
     if (!config.enabled) {
         return {
@@ -394,7 +805,14 @@ const getAwsControlStatus = async ({
                 tagName: target.tagName,
                 mutationsEnabled: false,
                 allowedActions: [],
+                operationPlan: buildTargetOperationPlan({ ...target, mutationsEnabled: false }),
             })),
+            ...statusEnvelope,
+            readOnlyIntelligence: {
+                enabled: false,
+                reason: 'AWS_CONTROL_ENABLED is not true',
+                generatedAt: now.toISOString(),
+            },
             generatedAt: now.toISOString(),
         };
     }
@@ -403,9 +821,11 @@ const getAwsControlStatus = async ({
         getCallerIdentity({ config, executor }),
         ...targetList.map((target) => describeTargetInstance({ target, config, executor })),
     ]);
-    const [cost, guardrails] = await Promise.all([
+    const decoratedTargets = targets.map((target, index) => decorateTargetForStatus(target, targetList[index]));
+    const [cost, guardrails, readOnlyIntelligence] = await Promise.all([
         getCostSnapshot({ config, executor, now }),
         getGuardrailSnapshot({ config, executor, identity }),
+        getReadOnlyIntelligence({ config, executor, targets: decoratedTargets, now }),
     ]);
 
     return {
@@ -421,9 +841,11 @@ const getAwsControlStatus = async ({
             staging: Boolean(config.targets.staging.mutationsEnabled),
             production: Boolean(config.targets.production.mutationsEnabled),
         },
-        targets,
+        targets: decoratedTargets,
         cost,
         guardrails,
+        readOnlyIntelligence,
+        ...statusEnvelope,
         generatedAt: now.toISOString(),
     };
 };
@@ -453,8 +875,6 @@ const requireEnabledTargetForAction = async ({ targetKey, action, config, execut
     return described;
 };
 
-const getStopConfirmationPhrase = (targetKey) => `STOP ${String(targetKey || '').trim().toUpperCase()}`;
-
 const runAwsControlAction = async ({
     target,
     action,
@@ -467,6 +887,18 @@ const runAwsControlAction = async ({
     const config = resolveAwsControlConfig(env);
     const normalizedTarget = String(target || '').trim().toLowerCase();
     const normalizedAction = String(action || '').trim().toLowerCase();
+    const normalizedReason = String(reason || '').trim();
+    if (normalizedReason.length < REASON_MIN_LENGTH) {
+        const error = new AppError('Operator reason is required before changing AWS state', 400);
+        error.code = 'AWS_CONTROL_REASON_REQUIRED';
+        throw error;
+    }
+    if (normalizedReason.length > 1000) {
+        const error = new AppError('Operator reason is too long', 400);
+        error.code = 'AWS_CONTROL_REASON_TOO_LONG';
+        throw error;
+    }
+
     const targetInstance = await requireEnabledTargetForAction({
         targetKey: normalizedTarget,
         action: normalizedAction,
@@ -474,9 +906,9 @@ const runAwsControlAction = async ({
         executor,
     });
 
-    const requiredStopPhrase = getStopConfirmationPhrase(normalizedTarget);
-    if (normalizedAction === 'stop' && String(confirmationPhrase || '').trim() !== requiredStopPhrase) {
-        throw new AppError(`Type ${requiredStopPhrase} to stop the ${normalizedTarget} AWS instance`, 400);
+    const requiredConfirmationPhrase = getActionConfirmationPhrase(normalizedTarget, normalizedAction);
+    if (requiredConfirmationPhrase && String(confirmationPhrase || '').trim() !== requiredConfirmationPhrase) {
+        throw new AppError(`Type ${requiredConfirmationPhrase} to ${normalizedAction} the ${normalizedTarget} AWS instance`, 400);
     }
 
     const apiAction = ACTIONS[normalizedAction];
@@ -497,7 +929,7 @@ const runAwsControlAction = async ({
         riskLevel: 'critical',
         meta: {
             target: normalizedTarget,
-            reason,
+            reason: normalizedReason,
             previousState: targetInstance.state,
             region: config.region,
         },
@@ -535,6 +967,10 @@ module.exports = {
         redactAwsError,
         runAws,
         getStopConfirmationPhrase,
+        getActionConfirmationPhrase,
+        buildRiskGates,
+        buildTargetOperationPlan,
+        getReadOnlyIntelligence,
         parsePositiveNumber,
     },
 };
