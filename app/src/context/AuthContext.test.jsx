@@ -939,6 +939,18 @@ describe('AuthProvider', () => {
     });
 
     expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledTimes(1);
+    expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledWith(
+      'challenge-token',
+      expect.objectContaining({
+        method: 'browser_key',
+        proofBase64: 'proof',
+      }),
+      '',
+      expect.objectContaining({
+        firebaseUser: mocks.mockUser,
+        forceRefreshAuth: true,
+      })
+    );
     expect(mocks.cacheTrustedDeviceSessionTokenMock).toHaveBeenCalledWith(
       'trusted-device-session-token',
       '2026-04-12T14:00:00.000Z'
