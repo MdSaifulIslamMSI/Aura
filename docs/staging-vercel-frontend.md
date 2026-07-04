@@ -3,7 +3,7 @@
 Current source of truth:
 
 - Backend staging is the AWS EC2 Docker Compose stack under `/aura/staging`.
-- Frontend staging is currently the Docker-hosted static frontend on the same AWS staging origin as the backend: `http://ec2-13-201-55-118.ap-south-1.compute.amazonaws.com`.
+- Frontend staging is currently the Docker-hosted static frontend on the same AWS staging origin as the backend. GitHub staging smoke workflows resolve the current running EC2 public DNS before smoke checks, so stop/start cycles do not depend on a stale hostname.
 - Vercel custom staging and branch-scoped Preview env writes are blocked for this project today, so Vercel Preview remains frontend-only evidence unless it passes the same frontend staging smoke contract.
 - Production Vercel preview URLs remain frontend previews only unless a deployment passes the frontend staging smoke contract.
 - A staging frontend must never route backend paths to production CloudFront or any production API origin.
@@ -20,12 +20,12 @@ Current source of truth:
 
 ## Required Staging Variables
 
-The frontend staging deployment must use these non-secret values:
+The frontend staging deployment must use these non-secret values. When AWS staging is running on EC2 public DNS, CI refreshes them from the live `aura`/`staging`/`codex-staging-bootstrap` instance tags before smoke checks:
 
 ```sh
-STAGING_FRONTEND_URL=http://ec2-13-201-55-118.ap-south-1.compute.amazonaws.com
-STAGING_API_BASE_URL=http://ec2-13-201-55-118.ap-south-1.compute.amazonaws.com
-STAGING_HEALTH_URL=http://ec2-13-201-55-118.ap-south-1.compute.amazonaws.com/health
+STAGING_FRONTEND_URL=http://ec2-<current-staging-ip>.ap-south-1.compute.amazonaws.com
+STAGING_API_BASE_URL=http://ec2-<current-staging-ip>.ap-south-1.compute.amazonaws.com
+STAGING_HEALTH_URL=http://ec2-<current-staging-ip>.ap-south-1.compute.amazonaws.com/health
 STAGING_SSM_PREFIX=/aura/staging
 ```
 

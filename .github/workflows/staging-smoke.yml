@@ -7,12 +7,17 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   staging-smoke:
     runs-on: ubuntu-latest
     environment: staging
     env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      PROJECT_NAME: ${{ vars.PROJECT_NAME || 'aura' }}
+      STAGING_NAME: ${{ vars.STAGING_NAME || 'staging' }}
+      STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}
       STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
       STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
       STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
@@ -47,6 +52,22 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Configure AWS credentials for live staging URL resolution
+        id: aws_credentials
+        if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' }}
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-staging-smoke
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Resolve live staging EC2 URLs
+        if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' && steps.aws_credentials.outcome == 'success' }}
+        run: node scripts/staging/resolve-live-ec2-url.mjs
 
       - name: Check staging smoke target
         id: staging
