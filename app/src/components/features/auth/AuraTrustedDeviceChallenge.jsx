@@ -23,6 +23,7 @@ import { isAdminPath } from '../../../services/assistantUiConfig';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 const TRUSTED_DEVICE_METHOD_ORDER = ['webauthn', 'browser_key'];
+const PASSWORD_REAUTH_REQUIRED_CODE = 'auth/password-reauth-required';
 const TRUSTED_DEVICE_FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
@@ -215,6 +216,22 @@ const buildTrustedDeviceErrorMessage = ({
   return String(error?.message || 'Trusted device verification failed.');
 };
 
+const isPasswordReauthRequiredError = (error) => (
+  error?.requiresPasswordReauth === true
+  || String(error?.code || '') === PASSWORD_REAUTH_REQUIRED_CODE
+);
+
+const getPasswordReauthErrorMessage = (error) => {
+  const code = String(error?.code || '');
+  if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+    return 'That password did not verify this session. Re-enter your account password and try again.';
+  }
+  if (isPasswordReauthRequiredError(error)) {
+    return String(error?.message || 'Enter your password to refresh this protected session, then retry this action.');
+  }
+  return String(error?.message || 'Password re-authentication failed. Try again.');
+};
+
 const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
   const session = sessionIntelligence?.posture?.session || {};
   const assurance = sessionIntelligence?.assurance || {};
@@ -243,10 +260,13 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const [isWorking, setIsWorking] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [requiresPasswordReauth, setRequiresPasswordReauth] = useState(false);
+  const [reauthPassword, setReauthPassword] = useState('');
   const [selectedMethod, setSelectedMethod] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showMethodChooser, setShowMethodChooser] = useState(false);
   const dialogRef = useRef(null);
+  const passwordInputRef = useRef(null);
   const primaryActionRef = useRef(null);
   const methodOptionRefs = useRef({});
   const verifyInFlightRef = useRef(false);
@@ -323,12 +343,25 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
 
   useEffect(() => {
     setSelectedMethod(defaultSelectedMethod);
+    setRequiresPasswordReauth(false);
+    setReauthPassword('');
   }, [defaultSelectedMethod, deviceChallenge?.token]);
 
   useEffect(() => {
     setIsCollapsed(!isBlockingRoute);
     setShowMethodChooser(isBlockingRoute);
   }, [deviceChallenge?.token, isBlockingRoute]);
+
+  useEffect(() => {
+    if (!requiresPasswordReauth) return;
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => passwordInputRef.current?.focus({ preventScroll: true }));
+      return;
+    }
+
+    passwordInputRef.current?.focus({ preventScroll: true });
+  }, [requiresPasswordReauth]);
 
   const shouldRenderTrustedGate = !disabled
     && status === 'device_challenge_required'
@@ -566,13 +599,25 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
       return;
     }
 
+    if (requiresPasswordReauth && !reauthPassword) {
+      setErrorMessage('Enter your password to refresh this protected session, then retry this action.');
+      passwordInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
+
     verifyInFlightRef.current = true;
     setIsWorking(true);
     setErrorMessage('');
 
+    let passwordReauthCompleted = false;
     try {
-      if (shouldReauthenticateBeforeDeviceProof) {
-        await reauthenticateForSensitiveAction();
+      if (shouldReauthenticateBeforeDeviceProof || requiresPasswordReauth) {
+        await reauthenticateForSensitiveAction(
+          reauthPassword ? { password: reauthPassword } : undefined
+        );
+        passwordReauthCompleted = requiresPasswordReauth;
+        setRequiresPasswordReauth(false);
+        setReauthPassword('');
       }
 
       const signedChallenge = await signTrustedDeviceChallenge(deviceChallenge, {
@@ -598,6 +643,21 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
         await refreshSession(currentUser, { force: true, silent: true }).catch(() => null);
       }
     } catch (error) {
+      if (isPasswordReauthRequiredError(error)) {
+        const nextMessage = getPasswordReauthErrorMessage(error);
+        setRequiresPasswordReauth(true);
+        setErrorMessage(nextMessage);
+        toast.error(nextMessage);
+        return;
+      }
+
+      if (requiresPasswordReauth && !passwordReauthCompleted) {
+        const nextMessage = getPasswordReauthErrorMessage(error);
+        setErrorMessage(nextMessage);
+        toast.error(nextMessage);
+        return;
+      }
+
       const nextMessage = buildTrustedDeviceErrorMessage({
         attemptedMethod: activeMethod,
         browserKeyOffered,
@@ -843,6 +903,36 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                             ? <FormattedMessage id="auth.jsx.expression.this.host.stays.on.browser.fallback.verification" defaultMessage="This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains." />
                             : <FormattedMessage id="auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification" defaultMessage="This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled." />
                         )}
+                    </div>
+                  ) : null}
+
+                  {requiresPasswordReauth ? (
+                    <div className="rounded-[1.1rem] border border-cyan-300/20 bg-cyan-300/10 p-3">
+                      <label htmlFor="trusted-device-reauth-password" className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                        <FormattedMessage id="auth.trustedDevice.reauth.passwordLabel" defaultMessage="Account password" />
+                      </label>
+                      <input
+                        id="trusted-device-reauth-password"
+                        ref={passwordInputRef}
+                        type="password"
+                        value={reauthPassword}
+                        onChange={(event) => {
+                          setReauthPassword(event.target.value);
+                          if (errorMessage) setErrorMessage('');
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            handleVerify();
+                          }
+                        }}
+                        autoComplete="current-password"
+                        disabled={isWorking || isResetting}
+                        className="mt-2 w-full rounded-[0.9rem] border border-white/10 bg-slate-950/70 px-3 py-3 text-sm font-semibold text-white outline-none transition-colors placeholder:text-slate-500 focus:border-cyan-300/70"
+                      />
+                      <p className="mt-2 text-xs leading-5 text-cyan-50/80">
+                        <FormattedMessage id="auth.trustedDevice.reauth.passwordHint" defaultMessage="Fresh sign-in is required before this device can register a passkey." />
+                      </p>
                     </div>
                   ) : null}
 
