@@ -15,7 +15,10 @@ import { defineMessages, FormattedMessage, useIntl } from 'react-intl';
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
 import { adminApi } from '@/services/api';
 
-const STOP_STAGING_CONFIRMATION = 'STOP STAGING';
+const STOP_CONFIRMATION_BY_TARGET = Object.freeze({
+  staging: 'STOP STAGING',
+  production: 'STOP PRODUCTION',
+});
 
 const awsControlMessages = defineMessages({
   budgetAndExpiration: { id: 'admin.awsControl.guardrails.title', defaultMessage: 'Budget and expiration' },
@@ -24,7 +27,7 @@ const awsControlMessages = defineMessages({
   controlPlaneDisabled: { id: 'admin.awsControl.disabled.title', defaultMessage: 'AWS control plane is not enabled on this backend' },
   controlPlaneDisabledDescription: {
     id: 'admin.awsControl.disabled.description',
-    defaultMessage: 'Set server-side AWS control environment variables to enable live status and staging controls. Browser clients never receive AWS credentials.',
+    defaultMessage: 'Set server-side AWS control environment variables to enable live status and guarded controls. Browser clients never receive AWS credentials.',
   },
   costExplorerUnavailable: { id: 'admin.awsControl.cost.unavailable', defaultMessage: 'Cost Explorer unavailable' },
   costLines: { id: 'admin.awsControl.cost.lines', defaultMessage: '{count, plural, one {# cost line} other {# cost lines}}' },
@@ -32,7 +35,7 @@ const awsControlMessages = defineMessages({
   currentMonthSpend: { id: 'admin.awsControl.cost.currentMonthSpend', defaultMessage: 'Current month AWS spend' },
   description: {
     id: 'admin.awsControl.description',
-    defaultMessage: 'Admin-only visibility and guarded staging controls for Aura AWS infrastructure. Production is visible here, but destructive production controls stay locked until a stronger approval flow exists.',
+    defaultMessage: 'Admin-only visibility and guarded controls for Aura AWS infrastructure. Production actions require explicit server-side break-glass opt-in and exact stop confirmation.',
   },
   disabled: { id: 'admin.awsControl.state.disabled', defaultMessage: 'Disabled' },
   enabled: { id: 'admin.awsControl.state.enabled', defaultMessage: 'Enabled' },
@@ -54,10 +57,10 @@ const awsControlMessages = defineMessages({
   notConfigured: { id: 'admin.awsControl.value.notConfigured', defaultMessage: 'not configured' },
   notResolved: { id: 'admin.awsControl.value.notResolved', defaultMessage: 'not resolved' },
   operatorReason: { id: 'admin.awsControl.controls.operatorReason', defaultMessage: 'Operator reason' },
-  operatorReasonPlaceholder: { id: 'admin.awsControl.controls.operatorReasonPlaceholder', defaultMessage: 'Why are you changing staging state?' },
+  operatorReasonPlaceholder: { id: 'admin.awsControl.controls.operatorReasonPlaceholder', defaultMessage: 'Why are you changing AWS state?' },
   operatorReasonRequired: { id: 'admin.awsControl.error.operatorReasonRequired', defaultMessage: 'Add an operator reason before changing AWS state' },
   production: { id: 'admin.awsControl.target.production', defaultMessage: 'Production' },
-  productionLocked: { id: 'admin.awsControl.target.productionLocked', defaultMessage: 'Production start/stop is intentionally locked in Phase 1.' },
+  productionLocked: { id: 'admin.awsControl.target.productionLocked', defaultMessage: 'Production start/stop requires server-side break-glass opt-in.' },
   productionMutationsDisabled: { id: 'admin.awsControl.stat.productionMutationsDisabled', defaultMessage: 'Production mutations disabled' },
   productionPosture: { id: 'admin.awsControl.targets.title', defaultMessage: 'Production and staging posture' },
   readOnly: { id: 'admin.awsControl.target.readOnly', defaultMessage: 'Read only' },
@@ -67,13 +70,13 @@ const awsControlMessages = defineMessages({
   scheduleStateLine: { id: 'admin.awsControl.guardrails.scheduleState', defaultMessage: 'Schedule state: {state}' },
   serverEnvMustOptIn: { id: 'admin.awsControl.stat.serverEnvMustOptIn', defaultMessage: 'Server env must opt in' },
   staging: { id: 'admin.awsControl.target.staging', defaultMessage: 'Staging' },
-  stagingControls: { id: 'admin.awsControl.controls.eyebrow', defaultMessage: 'Staging controls' },
+  stagingControls: { id: 'admin.awsControl.controls.eyebrow', defaultMessage: 'AWS controls' },
   stagingStartRequested: { id: 'admin.awsControl.success.startRequested', defaultMessage: 'Start staging requested' },
   stagingStopRequested: { id: 'admin.awsControl.success.stopRequested', defaultMessage: 'Stop staging requested' },
-  startOrStopStaging: { id: 'admin.awsControl.controls.title', defaultMessage: 'Start or stop staging' },
+  startOrStopStaging: { id: 'admin.awsControl.controls.title', defaultMessage: 'Start or stop AWS target' },
   startStaging: { id: 'admin.awsControl.controls.start', defaultMessage: 'Start staging' },
   stopConfirmation: { id: 'admin.awsControl.controls.stopConfirmation', defaultMessage: 'Stop confirmation' },
-  stopPhraseLeadIn: { id: 'admin.awsControl.controls.stopPhraseLeadIn', defaultMessage: 'These buttons only target staging. Stopping staging requires the phrase' },
+  stopPhraseLeadIn: { id: 'admin.awsControl.controls.stopPhraseLeadIn', defaultMessage: 'Stopping the selected target requires the phrase' },
   stopStaging: { id: 'admin.awsControl.controls.stop', defaultMessage: 'Stop staging' },
   targetLine: { id: 'admin.awsControl.target.instanceLine', defaultMessage: 'Instance {instanceId} · Name {name}' },
   targetProfileLine: { id: 'admin.awsControl.target.profileLine', defaultMessage: '{instanceType} · {environment} · {costProfile}' },
@@ -106,6 +109,7 @@ const AwsControl = () => {
   const [control, setControl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+  const [selectedTargetKey, setSelectedTargetKey] = useState('staging');
   const [reason, setReason] = useState('');
   const [confirmationPhrase, setConfirmationPhrase] = useState('');
 
@@ -128,6 +132,8 @@ const AwsControl = () => {
   const targets = Array.isArray(control?.targets) ? control.targets : [];
   const staging = targets.find((target) => target.target === 'staging') || null;
   const production = targets.find((target) => target.target === 'production') || null;
+  const selectedTarget = targets.find((target) => target.target === selectedTargetKey) || staging || production || null;
+  const selectedStopConfirmation = STOP_CONFIRMATION_BY_TARGET[selectedTarget?.target] || '';
   const services = control?.cost?.services || [];
   const budget = control?.guardrails?.budget || null;
 
@@ -154,7 +160,9 @@ const AwsControl = () => {
         key="production"
         label={intl.formatMessage(awsControlMessages.production)}
         value={production?.state || unknown}
-        detail={intl.formatMessage(awsControlMessages.productionMutationsDisabled)}
+        detail={production?.mutationsEnabled
+          ? intl.formatMessage(awsControlMessages.mutationsEnabled)
+          : intl.formatMessage(awsControlMessages.productionMutationsDisabled)}
         icon={<ShieldCheck className="h-5 w-5" />}
       />,
       <AdminHeroStat
@@ -175,10 +183,12 @@ const AwsControl = () => {
       return;
     }
 
-    setBusy(action);
+    const targetKey = selectedTarget?.target || 'staging';
+    const targetLabel = selectedTarget?.label || targetKey;
+    setBusy(`${targetKey}:${action}`);
     try {
       await adminApi.runAwsControlAction({
-        target: 'staging',
+        target: targetKey,
         action,
         reason,
         confirmationPhrase,
@@ -242,7 +252,7 @@ const AwsControl = () => {
           </p>
           {target.warning ? <p className="mt-2 text-sm text-amber-200">{target.warning}</p> : null}
         </div>
-        {target.target === 'production' ? (
+        {target.target === 'production' && !target.mutationsEnabled ? (
           <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3 text-sm font-semibold text-amber-100">
             <FormattedMessage {...awsControlMessages.productionLocked} />
           </div>
@@ -316,8 +326,25 @@ const AwsControl = () => {
             <p className="premium-kicker"><FormattedMessage {...awsControlMessages.stagingControls} /></p>
             <h2 className="text-2xl font-black text-white"><FormattedMessage {...awsControlMessages.startOrStopStaging} /></h2>
             <p className="text-sm leading-6 text-slate-300">
-              <FormattedMessage {...awsControlMessages.stopPhraseLeadIn} /> <strong>{STOP_STAGING_CONFIRMATION}</strong>.
+              <FormattedMessage {...awsControlMessages.stopPhraseLeadIn} /> <strong>{selectedStopConfirmation || 'STOP TARGET'}</strong>.
             </p>
+            <label className="grid gap-2 text-sm font-semibold text-slate-200">
+              Target
+              <select
+                value={selectedTarget?.target || 'staging'}
+                onChange={(event) => {
+                  setSelectedTargetKey(event.target.value);
+                  setConfirmationPhrase('');
+                }}
+                className="admin-premium-control"
+              >
+                {targets.map((target) => (
+                  <option key={target.target} value={target.target}>
+                    {target.label || target.target}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="grid gap-2 text-sm font-semibold text-slate-200">
               <FormattedMessage {...awsControlMessages.operatorReason} />
               <textarea
@@ -333,27 +360,27 @@ const AwsControl = () => {
                 value={confirmationPhrase}
                 onChange={(event) => setConfirmationPhrase(event.target.value)}
                 className="admin-premium-control"
-                placeholder={STOP_STAGING_CONFIRMATION}
+                placeholder={selectedStopConfirmation}
               />
             </label>
             <div className="grid gap-2">
               <button
                 type="button"
                 onClick={() => runAction('start')}
-                disabled={busy === 'start' || !staging?.allowedActions?.includes('start')}
+                disabled={busy === `${selectedTarget?.target}:start` || !selectedTarget?.allowedActions?.includes('start')}
                 className="admin-premium-button admin-premium-button-success"
               >
-                {busy === 'start' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                <FormattedMessage {...awsControlMessages.startStaging} />
+                {busy === `${selectedTarget?.target}:start` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                {`Start ${selectedTarget?.label || selectedTarget?.target || 'target'}`}
               </button>
               <button
                 type="button"
                 onClick={() => runAction('stop')}
-                disabled={busy === 'stop' || !staging?.allowedActions?.includes('stop')}
+                disabled={busy === `${selectedTarget?.target}:stop` || !selectedTarget?.allowedActions?.includes('stop')}
                 className="admin-premium-button admin-premium-button-danger"
               >
-                {busy === 'stop' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
-                <FormattedMessage {...awsControlMessages.stopStaging} />
+                {busy === `${selectedTarget?.target}:stop` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                {`Stop ${selectedTarget?.label || selectedTarget?.target || 'target'}`}
               </button>
             </div>
           </AdminPremiumPanel>

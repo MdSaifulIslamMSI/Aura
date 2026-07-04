@@ -87,7 +87,7 @@ const resolveAwsControlConfig = (env = process.env) => {
                 label: TARGETS.production.label,
                 instanceId: envString(env, 'AWS_CONTROL_PRODUCTION_INSTANCE_ID', envString(env, 'AWS_BACKEND_INSTANCE_ID', envString(env, 'INSTANCE_ID'))),
                 tagName: envString(env, 'AWS_CONTROL_PRODUCTION_INSTANCE_TAG_NAME', TARGETS.production.defaultTagName),
-                mutationsEnabled: false,
+                mutationsEnabled: enabled && parseBoolean(env[TARGETS.production.mutationAllowedEnv], false),
             },
         },
     };
@@ -171,7 +171,7 @@ const mapInstance = (instance = {}, target = {}) => ({
     publicIp: instance.PublicIpAddress || '',
     launchTime: instance.LaunchTime || '',
     mutationsEnabled: Boolean(target.mutationsEnabled),
-    allowedActions: target.key === 'staging' && target.mutationsEnabled
+    allowedActions: target.mutationsEnabled
         ? ['start', 'stop']
         : [],
 });
@@ -419,7 +419,7 @@ const getAwsControlStatus = async ({
         },
         mutationPolicy: {
             staging: Boolean(config.targets.staging.mutationsEnabled),
-            production: false,
+            production: Boolean(config.targets.production.mutationsEnabled),
         },
         targets,
         cost,
@@ -439,13 +439,10 @@ const requireEnabledTargetForAction = async ({ targetKey, action, config, execut
     if (!target) {
         throw new AppError('Unsupported AWS control target', 400);
     }
-    if (targetKey !== 'staging') {
-        const error = new AppError('Production AWS mutations are disabled in this control plane phase', 403);
-        error.code = 'AWS_CONTROL_PRODUCTION_MUTATION_DISABLED';
-        throw error;
-    }
     if (!target.mutationsEnabled) {
-        throw new AppError('Staging AWS mutations are not enabled', 403);
+        const error = new AppError(`${target.label} AWS mutations are not enabled`, 403);
+        error.code = 'AWS_CONTROL_TARGET_MUTATION_DISABLED';
+        throw error;
     }
 
     const described = await describeTargetInstance({ target, config, executor });
@@ -455,6 +452,8 @@ const requireEnabledTargetForAction = async ({ targetKey, action, config, execut
 
     return described;
 };
+
+const getStopConfirmationPhrase = (targetKey) => `STOP ${String(targetKey || '').trim().toUpperCase()}`;
 
 const runAwsControlAction = async ({
     target,
@@ -475,8 +474,9 @@ const runAwsControlAction = async ({
         executor,
     });
 
-    if (normalizedAction === 'stop' && String(confirmationPhrase || '').trim() !== 'STOP STAGING') {
-        throw new AppError('Type STOP STAGING to stop the staging AWS instance', 400);
+    const requiredStopPhrase = getStopConfirmationPhrase(normalizedTarget);
+    if (normalizedAction === 'stop' && String(confirmationPhrase || '').trim() !== requiredStopPhrase) {
+        throw new AppError(`Type ${requiredStopPhrase} to stop the ${normalizedTarget} AWS instance`, 400);
     }
 
     const apiAction = ACTIONS[normalizedAction];
@@ -534,6 +534,7 @@ module.exports = {
         parseBoolean,
         redactAwsError,
         runAws,
+        getStopConfirmationPhrase,
         parsePositiveNumber,
     },
 };
