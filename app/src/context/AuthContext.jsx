@@ -1245,6 +1245,7 @@ export const AuthProvider = ({ children }) => {
     const activeUser = currentUser || auth?.currentUser || null;
     const submitChallenge = (options = {}) => authApi.verifyDeviceChallenge(token, challengePayload, '', {
       firebaseUser: activeUser,
+      forceRefreshAuth: true,
       ...options,
     });
     let response;
