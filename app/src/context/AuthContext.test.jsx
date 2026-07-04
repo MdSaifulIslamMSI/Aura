@@ -35,6 +35,10 @@ const loadAuthContext = async () => {
       generateRecoveryCodes: vi.fn(),
       logoutSession: vi.fn(),
       syncSession: vi.fn(),
+      setupTotp: vi.fn(),
+      verifyTotpSetup: vi.fn(),
+      registerMfaPasskey: vi.fn(),
+      regenerateMfaRecoveryCodes: vi.fn(),
       verifyDeviceChallenge: vi.fn(),
     },
     mockUser: {
@@ -184,6 +188,11 @@ describe('AuthProvider', () => {
       },
     });
     mocks.authApiMock.logoutSession.mockResolvedValue({ success: true });
+    mocks.authApiMock.generateRecoveryCodes.mockResolvedValue({ success: true });
+    mocks.authApiMock.setupTotp.mockResolvedValue({ success: true });
+    mocks.authApiMock.verifyTotpSetup.mockResolvedValue({ success: true });
+    mocks.authApiMock.registerMfaPasskey.mockResolvedValue({ success: true });
+    mocks.authApiMock.regenerateMfaRecoveryCodes.mockResolvedValue({ success: true });
     mocks.authApiMock.verifyDeviceChallenge.mockResolvedValue({
       success: true,
       status: 'authenticated',
@@ -1080,5 +1089,140 @@ describe('AuthProvider', () => {
       '2026-04-12T14:00:00.000Z'
     );
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
+  });
+
+  it('reauthenticates before registering an MFA passkey when sensitive auth posture is stale', async () => {
+    let capturedContext = null;
+    const events = [];
+    mocks.mockUser.providerData = [{ providerId: 'google.com' }];
+    mocks.reauthenticateWithPopupMock.mockImplementation(async () => {
+      events.push('reauth');
+      return { user: mocks.mockUser };
+    });
+    mocks.authApiMock.registerMfaPasskey.mockImplementation(async () => {
+      events.push('register');
+      return { success: true };
+    });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="mfa-status">{authContext.status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mfa-status')).toHaveTextContent('authenticated');
+    });
+
+    await act(async () => {
+      await capturedContext.registerMfaPasskey();
+    });
+
+    expect(events).toEqual(['reauth', 'register']);
+    expect(mocks.reauthenticateWithPopupMock).toHaveBeenCalledWith(
+      mocks.mockUser,
+      expect.objectContaining({ providerId: 'google.com' })
+    );
+    expect(mocks.authApiMock.registerMfaPasskey).toHaveBeenCalledWith({
+      firebaseUser: mocks.mockUser,
+      forceRefreshAuth: true,
+    });
+  });
+
+  it('reauthenticates once and retries sensitive MFA recovery-code generation when recent auth is required', async () => {
+    let capturedContext = null;
+    const recentAuthError = new Error('Recent re-authentication is required for this action.');
+    recentAuthError.status = 401;
+    recentAuthError.data = { code: 'AUTH_FACTOR_CHANGE_RECENT_AUTH_REQUIRED' };
+    mocks.mockUser.providerData = [{ providerId: 'google.com' }];
+    mocks.reauthenticateWithPopupMock.mockResolvedValue({ user: mocks.mockUser });
+    mocks.authApiMock.generateRecoveryCodes
+      .mockRejectedValueOnce(recentAuthError)
+      .mockResolvedValueOnce({ success: true });
+    mocks.authApiMock.getSession.mockResolvedValueOnce({
+      status: 'authenticated',
+      session: {
+        sessionId: 'server-session-1',
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+        emailVerified: true,
+        displayName: 'Stale Session',
+        phone: '+919999999999',
+        providerIds: ['google.com'],
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+        phone: '+919999999999',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          stepUpFresh: false,
+        },
+        posture: {
+          session: {
+            authAgeSeconds: 60,
+            freshForSensitiveActions: true,
+            stepUpActive: false,
+          },
+        },
+      },
+    });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="mfa-status">{authContext.status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mfa-status')).toHaveTextContent('authenticated');
+    });
+
+    await act(async () => {
+      await capturedContext.generateRecoveryCodes();
+    });
+
+    expect(mocks.reauthenticateWithPopupMock).toHaveBeenCalledTimes(1);
+    expect(mocks.authApiMock.generateRecoveryCodes).toHaveBeenCalledTimes(2);
+    expect(mocks.authApiMock.generateRecoveryCodes).toHaveBeenNthCalledWith(1, {
+      firebaseUser: mocks.mockUser,
+      forceRefreshAuth: true,
+    });
+    expect(mocks.authApiMock.generateRecoveryCodes).toHaveBeenNthCalledWith(2, {
+      firebaseUser: mocks.mockUser,
+      forceRefreshAuth: true,
+    });
   });
 });
