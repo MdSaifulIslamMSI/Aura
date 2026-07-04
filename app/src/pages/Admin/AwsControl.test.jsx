@@ -64,6 +64,49 @@ const buildControlPayload = () => ({
             storage: 'AWS Systems Manager Parameter Store SecureString',
             secretValuesReturned: false,
         },
+        readOnlyIntelligence: {
+            enabled: true,
+            readOnly: true,
+            ec2Status: {
+                available: true,
+                checks: [{
+                    instanceId: 'i-production',
+                    state: 'running',
+                    availabilityZone: 'ap-south-1a',
+                    instanceStatus: 'ok',
+                    systemStatus: 'ok',
+                }],
+            },
+            ssmManagedInstances: {
+                available: true,
+                instances: [{
+                    instanceId: 'i-production',
+                    pingStatus: 'Online',
+                    agentVersion: '3.3.1',
+                    platformName: 'Amazon Linux',
+                }],
+            },
+            ssmCommandHistory: {
+                available: true,
+                commands: [{
+                    commandId: 'cmd-123',
+                    instanceId: 'i-production',
+                    documentName: 'AWS-RunShellScript',
+                    status: 'Success',
+                    requestedDateTime: '2026-07-04T12:05:00.000Z',
+                }],
+            },
+            cloudWatchAlarms: {
+                available: true,
+                activeAlarms: [{
+                    type: 'metric',
+                    name: 'aura-prod-cpu-high',
+                    state: 'ALARM',
+                    reason: 'CPU high',
+                    metricName: 'CPUUtilization',
+                }],
+            },
+        },
         targets: [
             {
                 target: 'staging',
@@ -183,6 +226,10 @@ describe('AwsControl', () => {
         expect(screen.getByText(/GitHub Actions OIDC/)).toBeInTheDocument();
         expect(screen.getByText('Prefix /aura/prod')).toBeInTheDocument();
         expect(screen.getByText('Budget actions')).toBeInTheDocument();
+        expect(screen.getByText('Live read-only intelligence')).toBeInTheDocument();
+        expect(screen.getByText('SSM command history')).toBeInTheDocument();
+        expect(screen.getByText('AWS-RunShellScript')).toBeInTheDocument();
+        expect(screen.getByText('aura-prod-cpu-high')).toBeInTheDocument();
     });
 
     it('requires the production start confirmation phrase before calling the action API', async () => {

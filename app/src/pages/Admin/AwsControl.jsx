@@ -38,6 +38,7 @@ const awsControlMessages = defineMessages({
   budgetAndExpiration: { id: 'admin.awsControl.guardrails.title', defaultMessage: 'Budget and expiration' },
   budgetActions: { id: 'admin.awsControl.guardrails.budgetActions', defaultMessage: 'Budget actions' },
   budgetLine: { id: 'admin.awsControl.guardrails.budget', defaultMessage: 'Budget: {name}' },
+  cloudWatchAlarms: { id: 'admin.awsControl.intelligence.cloudWatchAlarms', defaultMessage: 'CloudWatch alarms' },
   commandPlan: { id: 'admin.awsControl.operations.commandPlan', defaultMessage: 'Command plan' },
   confirmationPhraseRequired: { id: 'admin.awsControl.error.confirmationPhraseRequired', defaultMessage: 'Type {phrase} before running this AWS action' },
   controlPlane: { id: 'admin.awsControl.stat.controlPlane', defaultMessage: 'Control plane' },
@@ -59,6 +60,7 @@ const awsControlMessages = defineMessages({
   disabled: { id: 'admin.awsControl.state.disabled', defaultMessage: 'Disabled' },
   deployPath: { id: 'admin.awsControl.runtime.deployPath', defaultMessage: 'Deploy path' },
   enabled: { id: 'admin.awsControl.state.enabled', defaultMessage: 'Enabled' },
+  ec2StatusChecks: { id: 'admin.awsControl.intelligence.ec2StatusChecks', defaultMessage: 'EC2 status checks' },
   exactPhrase: { id: 'admin.awsControl.operations.exactPhrase', defaultMessage: 'Exact phrase' },
   failedToLoad: { id: 'admin.awsControl.error.loadState', defaultMessage: 'Failed to load AWS control state' },
   failedToStart: { id: 'admin.awsControl.error.startStaging', defaultMessage: 'Failed to start AWS target' },
@@ -69,6 +71,7 @@ const awsControlMessages = defineMessages({
   heroEyebrow: { id: 'admin.awsControl.eyebrow', defaultMessage: 'AWS operations' },
   limitLine: { id: 'admin.awsControl.guardrails.limit', defaultMessage: 'Limit: {limit}' },
   liveAllowlisted: { id: 'admin.awsControl.operations.liveAllowlisted', defaultMessage: 'Live allowlisted' },
+  liveReadOnlyIntelligence: { id: 'admin.awsControl.intelligence.title', defaultMessage: 'Live read-only intelligence' },
   locked: { id: 'admin.awsControl.state.locked', defaultMessage: 'Locked' },
   loading: { id: 'admin.awsControl.loading', defaultMessage: 'Loading AWS control plane...' },
   monthCost: { id: 'admin.awsControl.stat.monthCost', defaultMessage: 'Month cost' },
@@ -76,6 +79,8 @@ const awsControlMessages = defineMessages({
   mutationsEnabled: { id: 'admin.awsControl.target.mutationsEnabled', defaultMessage: 'Mutations enabled' },
   noCostProfile: { id: 'admin.awsControl.target.noCostProfile', defaultMessage: 'no cost profile' },
   noCostRows: { id: 'admin.awsControl.cost.noRows', defaultMessage: 'No non-zero service costs reported for the current Cost Explorer window.' },
+  noRecentCommands: { id: 'admin.awsControl.intelligence.noRecentCommands', defaultMessage: 'No recent SSM commands reported.' },
+  noActiveAlarms: { id: 'admin.awsControl.intelligence.noActiveAlarms', defaultMessage: 'No active CloudWatch alarms reported.' },
   noRunbooks: { id: 'admin.awsControl.runtime.noRunbooks', defaultMessage: 'No runbooks reported' },
   noTargetConfigured: { id: 'admin.awsControl.stat.noTargetConfigured', defaultMessage: 'No target configured' },
   notAvailable: { id: 'admin.awsControl.value.notAvailable', defaultMessage: 'not available' },
@@ -102,6 +107,8 @@ const awsControlMessages = defineMessages({
   serverEnvMustOptIn: { id: 'admin.awsControl.stat.serverEnvMustOptIn', defaultMessage: 'Server env must opt in' },
   selector: { id: 'admin.awsControl.operations.selector', defaultMessage: 'Selector' },
   serverOnly: { id: 'admin.awsControl.identity.serverOnly', defaultMessage: 'Server only' },
+  ssmCommandHistory: { id: 'admin.awsControl.intelligence.ssmCommandHistory', defaultMessage: 'SSM command history' },
+  ssmManagedInstances: { id: 'admin.awsControl.intelligence.ssmManagedInstances', defaultMessage: 'SSM managed instances' },
   staging: { id: 'admin.awsControl.target.staging', defaultMessage: 'Staging' },
   stagingControls: { id: 'admin.awsControl.controls.eyebrow', defaultMessage: 'AWS controls' },
   startOrStopStaging: { id: 'admin.awsControl.controls.title', defaultMessage: 'Start or stop AWS target' },
@@ -138,6 +145,9 @@ const stateTone = (state = '') => {
 const gateTone = (state = '') => {
   const normalized = String(state || '').toLowerCase();
   if (['armed', 'enabled', 'live_allowlisted'].includes(normalized)) return 'border-rose-300/35 bg-rose-400/10 text-rose-100';
+  if (['alarm', 'failed', 'failure', 'impaired', 'offline', 'timedout', 'cancelled'].includes(normalized)) return 'border-rose-300/35 bg-rose-400/10 text-rose-100';
+  if (['ok', 'online', 'success', 'passed', 'healthy'].includes(normalized)) return 'border-emerald-300/30 bg-emerald-400/10 text-emerald-100';
+  if (['pending', 'inprogress', 'delayed', 'standby'].includes(normalized)) return 'border-amber-300/30 bg-amber-400/10 text-amber-100';
   if (['blocked', 'locked', 'disabled'].includes(normalized)) return 'border-cyan-300/30 bg-cyan-400/10 text-cyan-100';
   if (['dry_run', 'ci_controlled'].includes(normalized)) return 'border-amber-300/30 bg-amber-400/10 text-amber-100';
   if (['enforced'].includes(normalized)) return 'border-emerald-300/30 bg-emerald-400/10 text-emerald-100';
@@ -209,6 +219,11 @@ const AwsControl = () => {
   const topology = Array.isArray(control?.deployment?.topology) ? control.deployment.topology : [];
   const allowedAwsApis = Array.isArray(control?.securityBoundary?.allowedAwsApis) ? control.securityBoundary.allowedAwsApis : [];
   const parameterStore = control?.parameterStore || null;
+  const readOnlyIntelligence = control?.readOnlyIntelligence || {};
+  const ec2Checks = Array.isArray(readOnlyIntelligence?.ec2Status?.checks) ? readOnlyIntelligence.ec2Status.checks : [];
+  const ssmManagedInstances = Array.isArray(readOnlyIntelligence?.ssmManagedInstances?.instances) ? readOnlyIntelligence.ssmManagedInstances.instances : [];
+  const ssmCommands = Array.isArray(readOnlyIntelligence?.ssmCommandHistory?.commands) ? readOnlyIntelligence.ssmCommandHistory.commands : [];
+  const activeAlarms = Array.isArray(readOnlyIntelligence?.cloudWatchAlarms?.activeAlarms) ? readOnlyIntelligence.cloudWatchAlarms.activeAlarms : [];
   const confirmationHints = [
     selectedStartPlan?.confirmationPhrase,
     selectedStopPlan?.confirmationPhrase,
@@ -652,6 +667,106 @@ const AwsControl = () => {
                 )}
               </div>
             </AdminPremiumSubpanel>
+          </AdminPremiumPanel>
+
+          <AdminPremiumPanel className="space-y-4 xl:col-span-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="premium-kicker"><FormattedMessage {...awsControlMessages.serverOnly} /></p>
+                <h2 className="mt-2 text-2xl font-black text-white"><FormattedMessage {...awsControlMessages.liveReadOnlyIntelligence} /></h2>
+              </div>
+              <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black uppercase tracking-widest ${readOnlyIntelligence.enabled ? gateTone('ok') : gateTone('locked')}`}>
+                <Activity className="h-3.5 w-3.5" />
+                {readOnlyIntelligence.enabled ? intl.formatMessage(awsControlMessages.enabled) : intl.formatMessage(awsControlMessages.disabled)}
+              </span>
+            </div>
+            <div className="grid gap-3 xl:grid-cols-4">
+              <AdminPremiumSubpanel className="space-y-3">
+                <p className="text-sm font-black text-white"><FormattedMessage {...awsControlMessages.ec2StatusChecks} /></p>
+                {ec2Checks.length ? ec2Checks.map((check) => (
+                  <div key={check.instanceId} className="rounded-xl border border-white/10 bg-black/15 px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="break-all text-xs font-black uppercase tracking-widest text-slate-300">{check.instanceId}</span>
+                      <span className={`rounded-full border px-2 py-1 text-[0.65rem] font-black uppercase tracking-widest ${gateTone(check.instanceStatus)}`}>
+                        {displayState(check.instanceStatus)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-400">
+                      system {displayState(check.systemStatus)} - {check.availabilityZone || intl.formatMessage(awsControlMessages.notAvailableShort)}
+                    </p>
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-300">
+                    {readOnlyIntelligence?.ec2Status?.warning || readOnlyIntelligence?.ec2Status?.reason || intl.formatMessage(awsControlMessages.notAvailable)}
+                  </p>
+                )}
+              </AdminPremiumSubpanel>
+
+              <AdminPremiumSubpanel className="space-y-3">
+                <p className="text-sm font-black text-white"><FormattedMessage {...awsControlMessages.ssmManagedInstances} /></p>
+                {ssmManagedInstances.length ? ssmManagedInstances.map((instance) => (
+                  <div key={instance.instanceId} className="rounded-xl border border-white/10 bg-black/15 px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="break-all text-xs font-black uppercase tracking-widest text-slate-300">{instance.instanceId}</span>
+                      <span className={`rounded-full border px-2 py-1 text-[0.65rem] font-black uppercase tracking-widest ${gateTone(instance.pingStatus)}`}>
+                        {displayState(instance.pingStatus)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-400">
+                      {instance.platformName || instance.platformType || intl.formatMessage(awsControlMessages.notAvailable)} - agent {instance.agentVersion || intl.formatMessage(awsControlMessages.notAvailableShort)}
+                    </p>
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-300">
+                    {readOnlyIntelligence?.ssmManagedInstances?.warning || readOnlyIntelligence?.ssmManagedInstances?.reason || intl.formatMessage(awsControlMessages.notAvailable)}
+                  </p>
+                )}
+              </AdminPremiumSubpanel>
+
+              <AdminPremiumSubpanel className="space-y-3">
+                <p className="text-sm font-black text-white"><FormattedMessage {...awsControlMessages.ssmCommandHistory} /></p>
+                {ssmCommands.length ? ssmCommands.slice(0, 6).map((command) => (
+                  <div key={`${command.instanceId}:${command.commandId}`} className="rounded-xl border border-white/10 bg-black/15 px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="break-all text-xs font-black uppercase tracking-widest text-slate-300">{command.documentName || command.commandId}</span>
+                      <span className={`rounded-full border px-2 py-1 text-[0.65rem] font-black uppercase tracking-widest ${gateTone(command.status)}`}>
+                        {displayState(command.status)}
+                      </span>
+                    </div>
+                    <p className="mt-2 break-all text-xs font-semibold text-slate-500">
+                      {command.commandId} - {command.instanceId}
+                    </p>
+                    {command.requestedDateTime ? <p className="mt-1 text-xs font-semibold text-slate-500">{command.requestedDateTime}</p> : null}
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-300">
+                    {readOnlyIntelligence?.ssmCommandHistory?.warnings?.[0]?.warning || readOnlyIntelligence?.ssmCommandHistory?.reason || intl.formatMessage(awsControlMessages.noRecentCommands)}
+                  </p>
+                )}
+              </AdminPremiumSubpanel>
+
+              <AdminPremiumSubpanel className="space-y-3">
+                <p className="text-sm font-black text-white"><FormattedMessage {...awsControlMessages.cloudWatchAlarms} /></p>
+                {activeAlarms.length ? activeAlarms.map((alarm) => (
+                  <div key={`${alarm.type}:${alarm.name}`} className="rounded-xl border border-white/10 bg-black/15 px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="break-words text-xs font-black uppercase tracking-widest text-slate-300">{alarm.name}</span>
+                      <span className={`rounded-full border px-2 py-1 text-[0.65rem] font-black uppercase tracking-widest ${gateTone(alarm.state)}`}>
+                        {displayState(alarm.state)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-400">
+                      {alarm.metricName || alarm.type || intl.formatMessage(awsControlMessages.notAvailable)}
+                    </p>
+                    {alarm.reason ? <p className="mt-1 text-xs font-semibold text-amber-100">{alarm.reason}</p> : null}
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-300">
+                    {readOnlyIntelligence?.cloudWatchAlarms?.warning || intl.formatMessage(awsControlMessages.noActiveAlarms)}
+                  </p>
+                )}
+              </AdminPremiumSubpanel>
+            </div>
           </AdminPremiumPanel>
 
           <AdminPremiumPanel className="space-y-4 xl:col-span-2">

@@ -113,6 +113,16 @@ const resolveAwsControlConfig = (env = process.env) => {
         budgetName: envString(env, 'AWS_CONTROL_BUDGET_NAME', 'aura-backend-monthly-guardrail'),
         expirationScheduleName: envString(env, 'AWS_CONTROL_EXPIRATION_SCHEDULE_NAME', 'aura-free-plan-expiration-stop'),
         costEnabled: parseBoolean(env.AWS_CONTROL_COST_ENABLED, true),
+        readOnlyIntelligenceEnabled: parseBoolean(env.AWS_CONTROL_READ_ONLY_INTELLIGENCE_ENABLED, true),
+        ssmCommandHistoryLimit: Math.min(
+            Math.max(parsePositiveNumber(env.AWS_CONTROL_SSM_HISTORY_LIMIT, 5), 1),
+            20,
+        ),
+        cloudWatchAlarmMaxRecords: Math.min(
+            Math.max(parsePositiveNumber(env.AWS_CONTROL_CLOUDWATCH_ALARM_MAX_RECORDS, 10), 1),
+            50,
+        ),
+        cloudWatchAlarmNamePrefix: envString(env, 'AWS_CONTROL_CLOUDWATCH_ALARM_NAME_PREFIX'),
         targets: {
             staging: {
                 key: 'staging',
@@ -533,6 +543,231 @@ const getGuardrailSnapshot = async ({ config, executor, identity }) => {
     };
 };
 
+const toAwsTimestamp = (value) => {
+    if (!value) return '';
+    if (value instanceof Date) return value.toISOString();
+    return String(value);
+};
+
+const getResolvedInstanceIds = (targets = []) => ([
+    ...new Set(
+        targets
+            .map((target) => target?.instanceId)
+            .filter(Boolean)
+    ),
+]);
+
+const mapStatusDetails = (details = []) => (
+    Array.isArray(details)
+        ? details.map((detail) => ({
+            name: detail.Name || '',
+            status: detail.Status || '',
+            impairedSince: toAwsTimestamp(detail.ImpairedSince),
+        }))
+        : []
+);
+
+const getEc2StatusChecks = async ({ config, executor, instanceIds }) => {
+    if (!instanceIds.length) {
+        return { available: false, reason: 'no_resolved_instances', checks: [] };
+    }
+
+    const result = await runAws([
+        'ec2',
+        'describe-instance-status',
+        '--instance-ids',
+        ...instanceIds,
+        '--include-all-instances',
+    ], { config, executor, allowFailure: true });
+
+    if (result?.ok === false) {
+        return { available: false, warning: result.reason, checks: [] };
+    }
+
+    return {
+        available: true,
+        checks: (result?.InstanceStatuses || []).map((status) => ({
+            instanceId: status.InstanceId || '',
+            state: status.InstanceState?.Name || '',
+            availabilityZone: status.AvailabilityZone || '',
+            instanceStatus: status.InstanceStatus?.Status || '',
+            systemStatus: status.SystemStatus?.Status || '',
+            instanceDetails: mapStatusDetails(status.InstanceStatus?.Details),
+            systemDetails: mapStatusDetails(status.SystemStatus?.Details),
+            events: (status.Events || []).map((event) => ({
+                code: event.Code || '',
+                description: event.Description || '',
+                notBefore: toAwsTimestamp(event.NotBefore),
+                notAfter: toAwsTimestamp(event.NotAfter),
+            })),
+        })),
+    };
+};
+
+const getSsmManagedInstances = async ({ config, executor, instanceIds }) => {
+    if (!instanceIds.length) {
+        return { available: false, reason: 'no_resolved_instances', instances: [] };
+    }
+
+    const result = await runAws([
+        'ssm',
+        'describe-instance-information',
+        '--filters',
+        `Key=InstanceIds,Values=${instanceIds.join(',')}`,
+    ], { config, executor, allowFailure: true });
+
+    if (result?.ok === false) {
+        return { available: false, warning: result.reason, instances: [] };
+    }
+
+    return {
+        available: true,
+        instances: (result?.InstanceInformationList || []).map((entry) => ({
+            instanceId: entry.InstanceId || '',
+            pingStatus: entry.PingStatus || '',
+            lastPingDateTime: toAwsTimestamp(entry.LastPingDateTime),
+            agentVersion: entry.AgentVersion || '',
+            platformType: entry.PlatformType || '',
+            platformName: entry.PlatformName || '',
+            platformVersion: entry.PlatformVersion || '',
+            resourceType: entry.ResourceType || '',
+        })),
+    };
+};
+
+const mapCommandPlugin = (plugin = {}) => ({
+    name: plugin.Name || '',
+    status: plugin.Status || '',
+    statusDetails: plugin.StatusDetails || '',
+    responseCode: Number.isFinite(Number(plugin.ResponseCode)) ? Number(plugin.ResponseCode) : null,
+    outputBytes: String(plugin.Output || '').length,
+});
+
+const mapCommandInvocation = (invocation = {}) => ({
+    commandId: invocation.CommandId || '',
+    instanceId: invocation.InstanceId || '',
+    documentName: invocation.DocumentName || '',
+    status: invocation.Status || '',
+    statusDetails: invocation.StatusDetails || '',
+    requestedDateTime: toAwsTimestamp(invocation.RequestedDateTime),
+    executionStartDateTime: toAwsTimestamp(invocation.ExecutionStartDateTime),
+    executionEndDateTime: toAwsTimestamp(invocation.ExecutionEndDateTime),
+    executionElapsedTime: invocation.ExecutionElapsedTime || '',
+    responseCode: Number.isFinite(Number(invocation.ResponseCode)) ? Number(invocation.ResponseCode) : null,
+    plugins: (invocation.CommandPlugins || []).map(mapCommandPlugin),
+});
+
+const getSsmCommandHistory = async ({ config, executor, instanceIds }) => {
+    if (!instanceIds.length) {
+        return { available: false, reason: 'no_resolved_instances', commands: [] };
+    }
+
+    const results = await Promise.all(instanceIds.map(async (instanceId) => {
+        const result = await runAws([
+            'ssm',
+            'list-command-invocations',
+            '--instance-id',
+            instanceId,
+            '--details',
+            '--max-results',
+            String(config.ssmCommandHistoryLimit),
+        ], { config, executor, allowFailure: true });
+
+        if (result?.ok === false) {
+            return { instanceId, warning: result.reason, commands: [] };
+        }
+
+        return {
+            instanceId,
+            commands: (result?.CommandInvocations || []).map(mapCommandInvocation),
+        };
+    }));
+
+    return {
+        available: results.some((entry) => !entry.warning),
+        commands: results.flatMap((entry) => entry.commands),
+        warnings: results
+            .filter((entry) => entry.warning)
+            .map((entry) => ({ instanceId: entry.instanceId, warning: entry.warning })),
+    };
+};
+
+const getCloudWatchAlarmSnapshot = async ({ config, executor }) => {
+    const args = [
+        'cloudwatch',
+        'describe-alarms',
+        '--state-value',
+        'ALARM',
+        '--max-records',
+        String(config.cloudWatchAlarmMaxRecords),
+    ];
+
+    if (config.cloudWatchAlarmNamePrefix) {
+        args.push('--alarm-name-prefix', config.cloudWatchAlarmNamePrefix);
+    }
+
+    const result = await runAws(args, { config, executor, allowFailure: true });
+    if (result?.ok === false) {
+        return { available: false, warning: result.reason, activeAlarms: [] };
+    }
+
+    const metricAlarms = (result?.MetricAlarms || []).map((alarm) => ({
+        type: 'metric',
+        name: alarm.AlarmName || '',
+        state: alarm.StateValue || '',
+        reason: alarm.StateReason || '',
+        updatedAt: toAwsTimestamp(alarm.StateUpdatedTimestamp),
+        namespace: alarm.Namespace || '',
+        metricName: alarm.MetricName || '',
+    }));
+    const compositeAlarms = (result?.CompositeAlarms || []).map((alarm) => ({
+        type: 'composite',
+        name: alarm.AlarmName || '',
+        state: alarm.StateValue || '',
+        reason: alarm.StateReason || '',
+        updatedAt: toAwsTimestamp(alarm.StateUpdatedTimestamp),
+    }));
+
+    return {
+        available: true,
+        activeAlarms: [...metricAlarms, ...compositeAlarms],
+    };
+};
+
+const getReadOnlyIntelligence = async ({ config, executor, targets, now }) => {
+    if (!config.readOnlyIntelligenceEnabled) {
+        return {
+            enabled: false,
+            reason: 'AWS_CONTROL_READ_ONLY_INTELLIGENCE_ENABLED is false',
+            generatedAt: now.toISOString(),
+        };
+    }
+
+    const instanceIds = getResolvedInstanceIds(targets);
+    const [
+        ec2Status,
+        ssmManagedInstances,
+        ssmCommandHistory,
+        cloudWatchAlarms,
+    ] = await Promise.all([
+        getEc2StatusChecks({ config, executor, instanceIds }),
+        getSsmManagedInstances({ config, executor, instanceIds }),
+        getSsmCommandHistory({ config, executor, instanceIds }),
+        getCloudWatchAlarmSnapshot({ config, executor }),
+    ]);
+
+    return {
+        enabled: true,
+        readOnly: true,
+        instanceIds,
+        ec2Status,
+        ssmManagedInstances,
+        ssmCommandHistory,
+        cloudWatchAlarms,
+        generatedAt: now.toISOString(),
+    };
+};
+
 const getAwsControlStatus = async ({
     env = process.env,
     executor = execFile,
@@ -573,6 +808,11 @@ const getAwsControlStatus = async ({
                 operationPlan: buildTargetOperationPlan({ ...target, mutationsEnabled: false }),
             })),
             ...statusEnvelope,
+            readOnlyIntelligence: {
+                enabled: false,
+                reason: 'AWS_CONTROL_ENABLED is not true',
+                generatedAt: now.toISOString(),
+            },
             generatedAt: now.toISOString(),
         };
     }
@@ -581,9 +821,11 @@ const getAwsControlStatus = async ({
         getCallerIdentity({ config, executor }),
         ...targetList.map((target) => describeTargetInstance({ target, config, executor })),
     ]);
-    const [cost, guardrails] = await Promise.all([
+    const decoratedTargets = targets.map((target, index) => decorateTargetForStatus(target, targetList[index]));
+    const [cost, guardrails, readOnlyIntelligence] = await Promise.all([
         getCostSnapshot({ config, executor, now }),
         getGuardrailSnapshot({ config, executor, identity }),
+        getReadOnlyIntelligence({ config, executor, targets: decoratedTargets, now }),
     ]);
 
     return {
@@ -599,9 +841,10 @@ const getAwsControlStatus = async ({
             staging: Boolean(config.targets.staging.mutationsEnabled),
             production: Boolean(config.targets.production.mutationsEnabled),
         },
-        targets: targets.map((target, index) => decorateTargetForStatus(target, targetList[index])),
+        targets: decoratedTargets,
         cost,
         guardrails,
+        readOnlyIntelligence,
         ...statusEnvelope,
         generatedAt: now.toISOString(),
     };
@@ -727,6 +970,7 @@ module.exports = {
         getActionConfirmationPhrase,
         buildRiskGates,
         buildTargetOperationPlan,
+        getReadOnlyIntelligence,
         parsePositiveNumber,
     },
 };

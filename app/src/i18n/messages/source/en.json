@@ -143,6 +143,27 @@
   "admin.awsControl.identity.title": {
     "defaultMessage": "AWS identity and boundary"
   },
+  "admin.awsControl.intelligence.cloudWatchAlarms": {
+    "defaultMessage": "CloudWatch alarms"
+  },
+  "admin.awsControl.intelligence.ec2StatusChecks": {
+    "defaultMessage": "EC2 status checks"
+  },
+  "admin.awsControl.intelligence.noActiveAlarms": {
+    "defaultMessage": "No active CloudWatch alarms reported."
+  },
+  "admin.awsControl.intelligence.noRecentCommands": {
+    "defaultMessage": "No recent SSM commands reported."
+  },
+  "admin.awsControl.intelligence.ssmCommandHistory": {
+    "defaultMessage": "SSM command history"
+  },
+  "admin.awsControl.intelligence.ssmManagedInstances": {
+    "defaultMessage": "SSM managed instances"
+  },
+  "admin.awsControl.intelligence.title": {
+    "defaultMessage": "Live read-only intelligence"
+  },
   "admin.awsControl.loading": {
     "defaultMessage": "Loading AWS control plane..."
   },
