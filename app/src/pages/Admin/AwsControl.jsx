@@ -21,7 +21,8 @@ import {
 import { toast } from 'sonner';
 import { defineMessages, FormattedMessage, useIntl } from 'react-intl';
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
-import { adminApi } from '@/services/api';
+import { adminApi, authApi } from '@/services/api';
+import { isDuoStepUpRequiredError } from '@/utils/authStepUp';
 
 const STOP_CONFIRMATION_BY_TARGET = Object.freeze({
   staging: 'STOP STAGING',
@@ -59,6 +60,12 @@ const awsControlMessages = defineMessages({
   },
   disabled: { id: 'admin.awsControl.state.disabled', defaultMessage: 'Disabled' },
   deployPath: { id: 'admin.awsControl.runtime.deployPath', defaultMessage: 'Deploy path' },
+  duoStepUpBody: {
+    id: 'admin.awsControl.stepUp.duo.body',
+    defaultMessage: 'Complete Duo verification, return here, then retry the guarded AWS action. The backend will still reject the action until this browser session has fresh Duo assurance.',
+  },
+  duoStepUpCta: { id: 'admin.awsControl.stepUp.duo.cta', defaultMessage: 'Complete Duo verification' },
+  duoStepUpTitle: { id: 'admin.awsControl.stepUp.duo.title', defaultMessage: 'Duo step-up verification required' },
   enabled: { id: 'admin.awsControl.state.enabled', defaultMessage: 'Enabled' },
   ec2StatusChecks: { id: 'admin.awsControl.intelligence.ec2StatusChecks', defaultMessage: 'EC2 status checks' },
   exactPhrase: { id: 'admin.awsControl.operations.exactPhrase', defaultMessage: 'Exact phrase' },
@@ -188,6 +195,7 @@ const AwsControl = () => {
   const [selectedTargetKey, setSelectedTargetKey] = useState('staging');
   const [reason, setReason] = useState('');
   const [confirmationPhrase, setConfirmationPhrase] = useState('');
+  const [duoStepUpRequired, setDuoStepUpRequired] = useState(null);
 
   const loadControl = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -312,8 +320,17 @@ const AwsControl = () => {
       }));
       setReason('');
       setConfirmationPhrase('');
+      setDuoStepUpRequired(null);
       await loadControl({ silent: true });
     } catch (error) {
+      if (isDuoStepUpRequiredError(error)) {
+        setDuoStepUpRequired({
+          action: 'admin-sensitive',
+          message: error?.message || intl.formatMessage(awsControlMessages.duoStepUpTitle),
+        });
+        toast.error(error?.message || intl.formatMessage(awsControlMessages.duoStepUpTitle));
+        return;
+      }
       toast.error(error?.message || intl.formatMessage(
         action === 'start'
           ? awsControlMessages.failedToStart
@@ -498,6 +515,35 @@ const AwsControl = () => {
                 ))}
               </div>
             </AdminPremiumSubpanel>
+            {duoStepUpRequired ? (
+              <AdminPremiumSubpanel className="space-y-3 border-amber-300/30 bg-amber-400/10">
+                <div className="flex items-start gap-3 text-amber-100">
+                  <ShieldAlert className="mt-0.5 h-5 w-5" />
+                  <div>
+                    <h3 className="text-sm font-black text-white">
+                      <FormattedMessage {...awsControlMessages.duoStepUpTitle} />
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-slate-200">
+                      <FormattedMessage {...awsControlMessages.duoStepUpBody} />
+                    </p>
+                    {duoStepUpRequired.message ? (
+                      <p className="mt-2 text-xs font-semibold text-amber-100">{duoStepUpRequired.message}</p>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="admin-premium-button w-full px-4 py-2 text-sm font-black"
+                  onClick={() => authApi.startDuoStepUp({
+                    action: duoStepUpRequired.action,
+                    returnTo: '/admin/aws-control',
+                  })}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <FormattedMessage {...awsControlMessages.duoStepUpCta} />
+                </button>
+              </AdminPremiumSubpanel>
+            ) : null}
             <label className="grid gap-2 text-sm font-semibold text-slate-200">
               <FormattedMessage {...awsControlMessages.controlTarget} />
               <select

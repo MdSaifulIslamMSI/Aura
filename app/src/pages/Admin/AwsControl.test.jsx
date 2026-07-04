@@ -5,12 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 import AwsControl from './AwsControl';
 import { ColorModeProvider } from '@/context/ColorModeContext';
-import { adminApi } from '@/services/api';
+import { adminApi, authApi } from '@/services/api';
 
 vi.mock('@/services/api', () => ({
     adminApi: {
         getAwsControl: vi.fn(),
         runAwsControlAction: vi.fn(),
+    },
+    authApi: {
+        startDuoStepUp: vi.fn(),
     },
 }));
 
@@ -257,6 +260,38 @@ describe('AwsControl', () => {
                 action: 'start',
                 confirmationPhrase: 'START PRODUCTION',
             }));
+        });
+    });
+
+    it('shows a Duo step-up recovery action when AWS mutation requires Duo', async () => {
+        adminApi.runAwsControlAction.mockRejectedValueOnce(Object.assign(
+            new Error('Duo step-up verification is required for this action.'),
+            {
+                status: 403,
+                data: {
+                    code: 'DUO_STEP_UP_REQUIRED',
+                    feature: 'duo_step_up',
+                    message: 'Duo step-up verification is required for this action.',
+                },
+            }
+        ));
+
+        renderAwsControl();
+
+        await screen.findByText('AWS identity and boundary');
+        fireEvent.change(screen.getByLabelText('Operator reason'), {
+            target: { value: 'operator requires duo step up' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: /start staging/i }));
+
+        expect(await screen.findByText('Duo step-up verification required')).toBeInTheDocument();
+        expect(screen.getByText(/return here, then retry the guarded AWS action/i)).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: /complete duo verification/i }));
+
+        expect(authApi.startDuoStepUp).toHaveBeenCalledWith({
+            action: 'admin-sensitive',
+            returnTo: '/admin/aws-control',
         });
     });
 });
