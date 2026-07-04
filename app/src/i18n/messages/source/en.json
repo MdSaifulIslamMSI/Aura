@@ -33,16 +33,19 @@
     "defaultMessage": "Public status control room"
   },
   "admin.awsControl.controls.eyebrow": {
-    "defaultMessage": "Staging controls"
+    "defaultMessage": "AWS controls"
   },
   "admin.awsControl.controls.operatorReason": {
     "defaultMessage": "Operator reason"
   },
   "admin.awsControl.controls.operatorReasonPlaceholder": {
-    "defaultMessage": "Why are you changing staging state?"
+    "defaultMessage": "Why are you changing AWS state?"
   },
   "admin.awsControl.controls.start": {
     "defaultMessage": "Start staging"
+  },
+  "admin.awsControl.controls.startTarget": {
+    "defaultMessage": "Start {target}"
   },
   "admin.awsControl.controls.stop": {
     "defaultMessage": "Stop staging"
@@ -51,10 +54,16 @@
     "defaultMessage": "Stop confirmation"
   },
   "admin.awsControl.controls.stopPhraseLeadIn": {
-    "defaultMessage": "These buttons only target staging. Stopping staging requires the phrase"
+    "defaultMessage": "Stopping the selected target requires the phrase"
+  },
+  "admin.awsControl.controls.stopTarget": {
+    "defaultMessage": "Stop {target}"
+  },
+  "admin.awsControl.controls.target": {
+    "defaultMessage": "Target"
   },
   "admin.awsControl.controls.title": {
-    "defaultMessage": "Start or stop staging"
+    "defaultMessage": "Start or stop AWS target"
   },
   "admin.awsControl.cost.currentMonthSpend": {
     "defaultMessage": "Current month AWS spend"
@@ -72,10 +81,10 @@
     "defaultMessage": "Cost Explorer unavailable"
   },
   "admin.awsControl.description": {
-    "defaultMessage": "Admin-only visibility and guarded staging controls for Aura AWS infrastructure. Production is visible here, but destructive production controls stay locked until a stronger approval flow exists."
+    "defaultMessage": "Admin-only visibility and guarded controls for Aura AWS infrastructure. Production actions require explicit server-side break-glass opt-in and exact stop confirmation."
   },
   "admin.awsControl.disabled.description": {
-    "defaultMessage": "Set server-side AWS control environment variables to enable live status and staging controls. Browser clients never receive AWS credentials."
+    "defaultMessage": "Set server-side AWS control environment variables to enable live status and guarded controls. Browser clients never receive AWS credentials."
   },
   "admin.awsControl.disabled.title": {
     "defaultMessage": "AWS control plane is not enabled on this backend"
@@ -162,7 +171,7 @@
     "defaultMessage": "Production"
   },
   "admin.awsControl.target.productionLocked": {
-    "defaultMessage": "Production start/stop is intentionally locked in Phase 1."
+    "defaultMessage": "Production start/stop requires server-side break-glass opt-in."
   },
   "admin.awsControl.target.profileLine": {
     "defaultMessage": "{instanceType} · {environment} · {costProfile}"

@@ -1,4 +1,5 @@
 const {
+    __private,
     getAwsControlStatus,
     resolveAwsControlConfig,
     runAwsControlAction,
@@ -55,10 +56,9 @@ describe('awsControlService', () => {
         expect(executor).not.toHaveBeenCalled();
     });
 
-    test('keeps production mutations disabled even when the env tries to enable them', () => {
+    test('requires explicit env opt-in before production mutations are enabled', () => {
         const config = resolveAwsControlConfig({
             AWS_CONTROL_ENABLED: 'true',
-            AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: 'true',
             AWS_CONTROL_STAGING_MUTATIONS_ENABLED: 'true',
             AWS_CONTROL_TIMEOUT_MS: 'not-a-number',
         });
@@ -68,7 +68,42 @@ describe('awsControlService', () => {
         expect(config.timeoutMs).toBe(15000);
     });
 
-    test('rejects production start and stop actions', async () => {
+    test('exposes production actions only after explicit env opt-in', async () => {
+        const config = resolveAwsControlConfig({
+            AWS_CONTROL_ENABLED: 'true',
+            AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: 'true',
+            AWS_CONTROL_PRODUCTION_INSTANCE_ID: 'i-production',
+        });
+
+        expect(config.targets.production.mutationsEnabled).toBe(true);
+    });
+
+    test('maps explicitly enabled production target as actionable in status payloads', async () => {
+        const config = resolveAwsControlConfig({
+            AWS_CONTROL_ENABLED: 'true',
+            AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: 'true',
+            AWS_CONTROL_PRODUCTION_INSTANCE_ID: 'i-production',
+        });
+        const executor = jest.fn(async () => json(buildDescribeInstance({
+            instanceId: 'i-production',
+            name: 'aura-backend',
+            environment: 'production',
+        })));
+
+        const described = await __private.describeTargetInstance({
+            target: config.targets.production,
+            config,
+            executor,
+        });
+
+        expect(described).toMatchObject({
+            target: 'production',
+            mutationsEnabled: true,
+            allowedActions: ['start', 'stop'],
+        });
+    });
+
+    test('rejects production actions when the production env gate is not enabled', async () => {
         await expect(runAwsControlAction({
             target: 'production',
             action: 'stop',
@@ -82,7 +117,7 @@ describe('awsControlService', () => {
             executor: jest.fn(),
         })).rejects.toMatchObject({
             statusCode: 403,
-            code: 'AWS_CONTROL_PRODUCTION_MUTATION_DISABLED',
+            code: 'AWS_CONTROL_TARGET_MUTATION_DISABLED',
         });
     });
 
@@ -154,6 +189,87 @@ describe('awsControlService', () => {
         expect(executor).toHaveBeenCalledWith(
             'aws',
             expect.arrayContaining(['ec2', 'stop-instances', '--instance-ids', 'i-staging', '--region', 'ap-south-1']),
+            expect.any(Object),
+        );
+    });
+
+    test('requires STOP PRODUCTION confirmation before stopping production', async () => {
+        const executor = jest.fn(async (_command, args) => {
+            if (args.includes('describe-instances')) {
+                return json(buildDescribeInstance({
+                    instanceId: 'i-production',
+                    name: 'aura-backend',
+                    environment: 'production',
+                }));
+            }
+            return json({});
+        });
+
+        await expect(runAwsControlAction({
+            target: 'production',
+            action: 'stop',
+            reason: 'operator requested production stop',
+            confirmationPhrase: 'STOP STAGING',
+            env: {
+                AWS_CONTROL_ENABLED: 'true',
+                AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: 'true',
+                AWS_CONTROL_PRODUCTION_INSTANCE_ID: 'i-production',
+            },
+            executor,
+        })).rejects.toMatchObject({
+            statusCode: 400,
+        });
+
+        expect(executor).toHaveBeenCalledTimes(1);
+    });
+
+    test('executes an explicitly enabled production start through EC2 only', async () => {
+        const executor = jest.fn(async (_command, args) => {
+            if (args.includes('describe-instances')) {
+                return json(buildDescribeInstance({
+                    instanceId: 'i-production',
+                    name: 'aura-backend',
+                    state: 'stopped',
+                    environment: 'production',
+                }));
+            }
+            if (args.includes('start-instances')) {
+                return json({
+                    StartingInstances: [
+                        {
+                            InstanceId: 'i-production',
+                            CurrentState: { Name: 'pending' },
+                            PreviousState: { Name: 'stopped' },
+                        },
+                    ],
+                });
+            }
+            throw new Error(`Unexpected AWS args: ${args.join(' ')}`);
+        });
+
+        const result = await runAwsControlAction({
+            target: 'production',
+            action: 'start',
+            reason: 'operator requested production start',
+            confirmationPhrase: '',
+            env: {
+                AWS_CONTROL_ENABLED: 'true',
+                AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: 'true',
+                AWS_CONTROL_PRODUCTION_INSTANCE_ID: 'i-production',
+                AWS_CONTROL_REGION: 'ap-south-1',
+            },
+            executor,
+        });
+
+        expect(result).toMatchObject({
+            target: 'production',
+            action: 'start',
+            instanceId: 'i-production',
+            previousState: 'stopped',
+        });
+        expect(executor).toHaveBeenCalledWith(
+            'aws',
+            expect.arrayContaining(['ec2', 'start-instances', '--instance-ids', 'i-production', '--region', 'ap-south-1']),
             expect.any(Object),
         );
     });
