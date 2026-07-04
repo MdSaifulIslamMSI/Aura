@@ -52,7 +52,37 @@ describe('awsControlService', () => {
                 staging: false,
                 production: false,
             },
+            securityBoundary: {
+                credentialBoundary: 'server_aws_cli_only',
+                browserReceivesAwsCredentials: false,
+            },
+            parameterStore: {
+                secretValuesReturned: false,
+            },
         });
+        expect(status.targets[0].operationPlan.actions).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                awsApi: 'ec2:start-instances',
+                executionMode: 'locked_read_only',
+                enabled: false,
+            }),
+            expect.objectContaining({
+                awsApi: 'ec2:stop-instances',
+                confirmationPhrase: 'STOP STAGING',
+                enabled: false,
+            }),
+        ]));
+        expect(status.riskGates).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                key: 'browser_credentials',
+                state: 'blocked',
+                enforced: true,
+            }),
+            expect.objectContaining({
+                key: 'action_allowlist',
+                state: 'enforced',
+            }),
+        ]));
         expect(executor).not.toHaveBeenCalled();
     });
 
@@ -119,6 +149,58 @@ describe('awsControlService', () => {
             statusCode: 403,
             code: 'AWS_CONTROL_TARGET_MUTATION_DISABLED',
         });
+    });
+
+    test('requires an operator reason before any AWS mutation is described', async () => {
+        const executor = jest.fn();
+
+        await expect(runAwsControlAction({
+            target: 'staging',
+            action: 'start',
+            reason: '   ',
+            env: {
+                AWS_CONTROL_ENABLED: 'true',
+                AWS_CONTROL_STAGING_MUTATIONS_ENABLED: 'true',
+                AWS_CONTROL_STAGING_INSTANCE_ID: 'i-staging',
+            },
+            executor,
+        })).rejects.toMatchObject({
+            statusCode: 400,
+            code: 'AWS_CONTROL_REASON_REQUIRED',
+        });
+
+        expect(executor).not.toHaveBeenCalled();
+    });
+
+    test('requires START PRODUCTION confirmation before starting production', async () => {
+        const executor = jest.fn(async (_command, args) => {
+            if (args.includes('describe-instances')) {
+                return json(buildDescribeInstance({
+                    instanceId: 'i-production',
+                    name: 'aura-backend',
+                    state: 'stopped',
+                    environment: 'production',
+                }));
+            }
+            return json({});
+        });
+
+        await expect(runAwsControlAction({
+            target: 'production',
+            action: 'start',
+            reason: 'operator requested production start',
+            confirmationPhrase: '',
+            env: {
+                AWS_CONTROL_ENABLED: 'true',
+                AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: 'true',
+                AWS_CONTROL_PRODUCTION_INSTANCE_ID: 'i-production',
+            },
+            executor,
+        })).rejects.toMatchObject({
+            statusCode: 400,
+        });
+
+        expect(executor).toHaveBeenCalledTimes(1);
     });
 
     test('requires STOP STAGING confirmation before stopping staging', async () => {
@@ -251,7 +333,7 @@ describe('awsControlService', () => {
             target: 'production',
             action: 'start',
             reason: 'operator requested production start',
-            confirmationPhrase: '',
+            confirmationPhrase: 'START PRODUCTION',
             env: {
                 AWS_CONTROL_ENABLED: 'true',
                 AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: 'true',
