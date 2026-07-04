@@ -1452,6 +1452,8 @@
   "auth.success.signinSuccess.title": "[Ŵëŀçøømë Ɓåçķ!]",
   "auth.success.signupSuccess.detail": "[Ŵëŀçøømë ŧø ÅÜüŔÅ! Šëŧŧïñĝ üþ ÿøüŕ åççøøüñŧ...]",
   "auth.success.signupSuccess.title": "[Ååççøüüñŧ Çŕëåŧëð!]",
+  "auth.trustedDevice.reauth.passwordHint": "[Ƒŕëšħ šïĝñ-ïñ ïš ŕëqüüïŕëð ƀëƒøŕë ŧħïš ðëvïçë çåñ ŕëĝïïšŧëŕ å þåššķëÿ.]",
+  "auth.trustedDevice.reauth.passwordLabel": "[Ååççøüüñŧ þåššŵøŕð]",
   "backendFailure.catalog.failed.message": "[Üüñåƀŀë ŧøø ŀøååð þŕøðüçŧš ŕïĝħŧ ñøŵ. Þŀëåšëë ŕëŧŕÿ. !!!]",
   "backendFailure.catalog.failed.title": "[Çåŧåŀøĝ ƒëŧçħ ƒåïïŀëð !!!]",
   "backendFailure.catalog.timeout.message": "[Ŧħë çåŧåŀøĝ šëŕvïïçë ŧøøķ ŧøø ŀøñĝ ŧø ŕëšþøñð. Þŀëëåšë ŕëŧŕÿ ïñ å ƒëŵ šëçøñðš. !!!]",
