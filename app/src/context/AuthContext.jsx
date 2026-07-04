@@ -1211,6 +1211,29 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  const reauthenticateForSensitiveAction = async () => {
+    const activeUser = currentUser || auth?.currentUser || null;
+    if (!activeUser) {
+      throw new Error('Sign in again before continuing this protected action.');
+    }
+
+    const reauthProvider = getSensitiveActionReauthProvider(activeUser);
+    if (!reauthProvider) {
+      const unsupportedError = new Error(
+        'Recent re-authentication is required. Sign out and sign in again, then retry this action.'
+      );
+      unsupportedError.code = 'auth/requires-recent-login';
+      throw unsupportedError;
+    }
+
+    assertFirebaseSocialAuthReady(`${reauthProvider.label} re-authentication`);
+    await reauthenticateWithPopup(activeUser, reauthProvider.provider);
+    if (typeof activeUser?.getIdToken === 'function') {
+      await activeUser.getIdToken(true);
+    }
+    return activeUser;
+  };
+
   const verifyDeviceChallenge = async (token, proofOrPayload, publicKeySpkiBase64 = '') => {
     const challengePayload = proofOrPayload && typeof proofOrPayload === 'object' && !Array.isArray(proofOrPayload)
       ? proofOrPayload
@@ -1232,21 +1255,7 @@ export const AuthProvider = ({ children }) => {
         throw error;
       }
 
-      const reauthProvider = getSensitiveActionReauthProvider(activeUser);
-      if (!reauthProvider) {
-        const unsupportedError = new Error(
-          'Recent re-authentication is required. Sign out and sign in again, then retry this action.'
-        );
-        unsupportedError.code = 'auth/requires-recent-login';
-        unsupportedError.cause = error;
-        throw unsupportedError;
-      }
-
-      assertFirebaseSocialAuthReady(`${reauthProvider.label} re-authentication`);
-      await reauthenticateWithPopup(activeUser, reauthProvider.provider);
-      if (typeof activeUser?.getIdToken === 'function') {
-        await activeUser.getIdToken(true);
-      }
+      await reauthenticateForSensitiveAction();
       response = await submitChallenge({ forceRefreshAuth: true });
     }
 
@@ -1436,6 +1445,7 @@ export const AuthProvider = ({ children }) => {
     updateProfile: updateProfileInBackend,
     activateSeller,
     deactivateSeller,
+    reauthenticateForSensitiveAction,
     verifyDeviceChallenge,
     generateRecoveryCodes,
     refreshMfaSecurityCenter,

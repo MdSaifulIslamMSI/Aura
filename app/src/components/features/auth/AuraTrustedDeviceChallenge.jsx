@@ -215,10 +215,26 @@ const buildTrustedDeviceErrorMessage = ({
   return String(error?.message || 'Trusted device verification failed.');
 };
 
+const hasRecentSensitiveAuth = (sessionIntelligence) => Boolean(
+  sessionIntelligence?.assurance?.isRecent
+  || sessionIntelligence?.assurance?.isFresh
+  || sessionIntelligence?.assurance?.fresh
+  || sessionIntelligence?.assurance?.stepUpFresh
+  || sessionIntelligence?.assurance?.webAuthnStepUpFresh
+);
+
 const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const intl = useIntl();
   const location = useLocation();
-  const { currentUser, deviceChallenge, refreshSession, status, verifyDeviceChallenge } = useAuth();
+  const {
+    currentUser,
+    deviceChallenge,
+    refreshSession,
+    reauthenticateForSensitiveAction,
+    sessionIntelligence,
+    status,
+    verifyDeviceChallenge,
+  } = useAuth();
   const [isWorking, setIsWorking] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -327,6 +343,9 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const selectedMethodSupported = activeMethod === 'webauthn'
     ? canUsePasskey
     : canUseBrowserKey;
+  const shouldReauthenticateBeforeDeviceProof = challengeMode === 'enroll'
+    && !hasRecentSensitiveAuth(sessionIntelligence)
+    && typeof reauthenticateForSensitiveAction === 'function';
   const heading = isBlockingRoute
     ? getTrustedDeviceHeading({ method: activeMethod, challengeMode, supportProfile })
     : (challengeMode === 'enroll' ? 'Finish trusted device setup' : 'Privileged mode locked');
@@ -541,6 +560,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
     setErrorMessage('');
 
     try {
+      if (shouldReauthenticateBeforeDeviceProof) {
+        await reauthenticateForSensitiveAction();
+      }
+
       const signedChallenge = await signTrustedDeviceChallenge(deviceChallenge, {
         preferredMethod: activeMethod,
       });

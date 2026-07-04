@@ -47,6 +47,12 @@ const buildAuthValue = (overrides = {}) => ({
     challenge: 'challenge-value',
   },
   refreshSession: vi.fn().mockResolvedValue(null),
+  reauthenticateForSensitiveAction: vi.fn().mockResolvedValue(null),
+  sessionIntelligence: {
+    assurance: {
+      isRecent: true,
+    },
+  },
   status: 'device_challenge_required',
   verifyDeviceChallenge: vi.fn().mockResolvedValue({ success: true }),
   ...overrides,
@@ -114,6 +120,56 @@ describe('AuraTrustedDeviceChallenge', () => {
         { force: true, silent: true },
       );
     });
+  });
+
+  it('reauthenticates from the enrollment click before signing the passkey challenge when auth is stale', async () => {
+    const callOrder = [];
+    const reauthenticateForSensitiveAction = vi.fn().mockImplementation(async () => {
+      callOrder.push('reauth');
+    });
+    const verifyDeviceChallenge = vi.fn().mockImplementation(async () => {
+      callOrder.push('verify');
+      return { success: true };
+    });
+    signTrustedDeviceChallenge.mockImplementation(async () => {
+      callOrder.push('sign');
+      return {
+        method: 'webauthn',
+        credential: { id: 'credential-1' },
+      };
+    });
+    useAuth.mockReturnValue(buildAuthValue({
+      deviceChallenge: {
+        token: 'challenge-token',
+        mode: 'enroll',
+        availableMethods: ['webauthn'],
+        preferredMethod: 'webauthn',
+        registeredMethod: '',
+        registeredLabel: '',
+        challenge: 'challenge-value',
+      },
+      reauthenticateForSensitiveAction,
+      sessionIntelligence: {
+        assurance: {
+          isRecent: false,
+        },
+      },
+      verifyDeviceChallenge,
+    }));
+
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge />);
+
+    fireEvent.click(screen.getByRole('button', { name: /register/i }));
+
+    await waitFor(() => {
+      expect(verifyDeviceChallenge).toHaveBeenCalledWith('challenge-token', expect.objectContaining({
+        method: 'webauthn',
+      }));
+    });
+
+    expect(reauthenticateForSensitiveAction).toHaveBeenCalledTimes(1);
+    expect(callOrder).toEqual(['reauth', 'sign', 'verify']);
   });
 
   it('shows only the offered browser fallback method when passkey proof is unavailable', async () => {
