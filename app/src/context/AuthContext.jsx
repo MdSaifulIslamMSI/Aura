@@ -17,6 +17,7 @@ import {
   signOut,
   onAuthStateChanged,
   reauthenticateWithPopup,
+  reauthenticateWithRedirect,
   updateProfile as updateFirebaseProfile,
   signInWithPopup,
   TwitterAuthProvider,
@@ -105,6 +106,12 @@ const RECENT_REAUTH_REQUIRED_CODES = new Set([
   'AUTH_FACTOR_CHANGE_RECENT_AUTH_REQUIRED',
   'RECENT_AUTH_REQUIRED',
 ]);
+const FIREBASE_POPUP_REDIRECT_FALLBACK_CODES = new Set([
+  'auth/popup-blocked',
+  'auth/operation-not-supported-in-this-environment',
+  'auth/web-storage-unsupported',
+]);
+const SENSITIVE_REAUTH_REDIRECT_PENDING_CODE = 'auth/redirect-pending';
 
 const isRecentReauthRequiredError = (error) => {
   const status = Number(error?.status || error?.data?.status || 0);
@@ -118,10 +125,22 @@ const isRecentReauthRequiredError = (error) => {
   );
 };
 
+const canFallbackToRedirectAuth = (error) => (
+  FIREBASE_POPUP_REDIRECT_FALLBACK_CODES.has(String(error?.code || ''))
+);
+
+const buildSensitiveReauthRedirectPendingError = (providerLabel = 'Provider') => {
+  const error = new Error(
+    `${providerLabel} re-authentication is continuing in the provider page. Return here after it completes, then retry this protected action.`
+  );
+  error.code = SENSITIVE_REAUTH_REDIRECT_PENDING_CODE;
+  error.redirecting = true;
+  return error;
+};
+
 const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
   const session = sessionIntelligence?.posture?.session || {};
   const assurance = sessionIntelligence?.assurance || {};
-  const authAgeSeconds = Number(session.authAgeSeconds);
 
   return Boolean(
     session.freshForSensitiveActions
@@ -129,7 +148,6 @@ const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
     || assurance.stepUpFresh
     || assurance.webAuthnStepUpFresh
     || assurance.freshWebAuthnStepUp
-    || (Number.isFinite(authAgeSeconds) && authAgeSeconds >= 0 && authAgeSeconds <= (15 * 60))
   );
 };
 
@@ -769,6 +787,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const beginRedirectSensitiveReauthFlow = async (activeUser, reauthProvider) => {
+    markRedirectAuthPending();
+
+    try {
+      await reauthenticateWithRedirect(activeUser, reauthProvider.provider);
+    } catch (error) {
+      clearRedirectAuthPending();
+      throw error;
+    }
+
+    throw buildSensitiveReauthRedirectPendingError(reauthProvider.label);
+  };
+
   const getDesktopBridge = () => (
     typeof window !== 'undefined' && window.auraDesktop?.isDesktop
       ? window.auraDesktop
@@ -1242,7 +1273,20 @@ export const AuthProvider = ({ children }) => {
     }
 
     assertFirebaseSocialAuthReady(`${reauthProvider.label} re-authentication`);
-    await reauthenticateWithPopup(activeUser, reauthProvider.provider);
+    if (shouldPreferFirebaseRedirectAuth()) {
+      await beginRedirectSensitiveReauthFlow(activeUser, reauthProvider);
+    }
+
+    try {
+      await reauthenticateWithPopup(activeUser, reauthProvider.provider);
+    } catch (error) {
+      if (canFallbackToRedirectAuth(error)) {
+        await beginRedirectSensitiveReauthFlow(activeUser, reauthProvider);
+      }
+      markFirebaseSocialAuthRejectedForRuntime(error);
+      throw error;
+    }
+
     if (typeof activeUser?.getIdToken === 'function') {
       await activeUser.getIdToken(true);
     }

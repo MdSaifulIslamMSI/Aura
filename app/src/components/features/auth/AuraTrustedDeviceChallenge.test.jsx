@@ -122,7 +122,24 @@ describe('AuraTrustedDeviceChallenge', () => {
     });
   });
 
-  it('reauthenticates from the enrollment click before signing the passkey challenge when auth is stale', async () => {
+  it('ignores duplicate trusted-device verify clicks while one proof is already running', async () => {
+    const verifyDeviceChallenge = vi.fn().mockResolvedValue({ success: true });
+    useAuth.mockReturnValue(buildAuthValue({ verifyDeviceChallenge }));
+
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge />);
+
+    const verifyButton = screen.getByRole('button', { name: /use windows hello passkey/i });
+    fireEvent.click(verifyButton);
+    fireEvent.click(verifyButton);
+
+    await waitFor(() => {
+      expect(signTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
+    });
+    expect(verifyDeviceChallenge).toHaveBeenCalledTimes(1);
+  });
+
+  it('reauthenticates from the enrollment click before signing the passkey challenge when sensitive auth is not explicitly fresh', async () => {
     const callOrder = [];
     const reauthenticateForSensitiveAction = vi.fn().mockImplementation(async () => {
       callOrder.push('reauth');
@@ -155,7 +172,7 @@ describe('AuraTrustedDeviceChallenge', () => {
         },
         posture: {
           session: {
-            authAgeSeconds: 1800,
+            authAgeSeconds: 60,
             freshForSensitiveActions: false,
             stepUpActive: false,
           },

@@ -218,7 +218,6 @@ const buildTrustedDeviceErrorMessage = ({
 const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
   const session = sessionIntelligence?.posture?.session || {};
   const assurance = sessionIntelligence?.assurance || {};
-  const authAgeSeconds = Number(session.authAgeSeconds);
 
   return Boolean(
     session.freshForSensitiveActions
@@ -226,7 +225,6 @@ const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
     || assurance.stepUpFresh
     || assurance.webAuthnStepUpFresh
     || assurance.freshWebAuthnStepUp
-    || (Number.isFinite(authAgeSeconds) && authAgeSeconds >= 0 && authAgeSeconds <= (15 * 60))
   );
 };
 
@@ -251,6 +249,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const dialogRef = useRef(null);
   const primaryActionRef = useRef(null);
   const methodOptionRefs = useRef({});
+  const verifyInFlightRef = useRef(false);
 
   const challengeMode = String(deviceChallenge?.mode || '').trim() === 'enroll'
     ? 'enroll'
@@ -550,6 +549,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   }
 
   const handleVerify = async () => {
+    if (verifyInFlightRef.current) {
+      return;
+    }
+
     if (!selectedMethodSupported) {
       setErrorMessage(
         activeMethod === 'webauthn'
@@ -563,6 +566,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
       return;
     }
 
+    verifyInFlightRef.current = true;
     setIsWorking(true);
     setErrorMessage('');
 
@@ -604,6 +608,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
       setErrorMessage(nextMessage);
       toast.error(nextMessage);
     } finally {
+      verifyInFlightRef.current = false;
       setIsWorking(false);
     }
   };
