@@ -44,6 +44,9 @@
   "admin.awsControl.controls.start": {
     "defaultMessage": "Start staging"
   },
+  "admin.awsControl.controls.startTarget": {
+    "defaultMessage": "Start {target}"
+  },
   "admin.awsControl.controls.stop": {
     "defaultMessage": "Stop staging"
   },
@@ -52,6 +55,15 @@
   },
   "admin.awsControl.controls.stopPhraseLeadIn": {
     "defaultMessage": "Stopping the selected target requires the phrase"
+  },
+  "admin.awsControl.controls.stopTarget": {
+    "defaultMessage": "Stop {target}"
+  },
+  "admin.awsControl.controls.stopTargetFallback": {
+    "defaultMessage": "STOP TARGET"
+  },
+  "admin.awsControl.controls.target": {
+    "defaultMessage": "Target"
   },
   "admin.awsControl.controls.title": {
     "defaultMessage": "Start or stop AWS target"

@@ -29,6 +29,7 @@ const awsControlMessages = defineMessages({
     id: 'admin.awsControl.disabled.description',
     defaultMessage: 'Set server-side AWS control environment variables to enable live status and guarded controls. Browser clients never receive AWS credentials.',
   },
+  controlTarget: { id: 'admin.awsControl.controls.target', defaultMessage: 'Target' },
   costExplorerUnavailable: { id: 'admin.awsControl.cost.unavailable', defaultMessage: 'Cost Explorer unavailable' },
   costLines: { id: 'admin.awsControl.cost.lines', defaultMessage: '{count, plural, one {# cost line} other {# cost lines}}' },
   costWatch: { id: 'admin.awsControl.cost.title', defaultMessage: 'Cost watch' },
@@ -75,9 +76,12 @@ const awsControlMessages = defineMessages({
   stagingStopRequested: { id: 'admin.awsControl.success.stopRequested', defaultMessage: 'Stop staging requested' },
   startOrStopStaging: { id: 'admin.awsControl.controls.title', defaultMessage: 'Start or stop AWS target' },
   startStaging: { id: 'admin.awsControl.controls.start', defaultMessage: 'Start staging' },
+  startTarget: { id: 'admin.awsControl.controls.startTarget', defaultMessage: 'Start {target}' },
   stopConfirmation: { id: 'admin.awsControl.controls.stopConfirmation', defaultMessage: 'Stop confirmation' },
   stopPhraseLeadIn: { id: 'admin.awsControl.controls.stopPhraseLeadIn', defaultMessage: 'Stopping the selected target requires the phrase' },
   stopStaging: { id: 'admin.awsControl.controls.stop', defaultMessage: 'Stop staging' },
+  stopTarget: { id: 'admin.awsControl.controls.stopTarget', defaultMessage: 'Stop {target}' },
+  stopTargetFallback: { id: 'admin.awsControl.controls.stopTargetFallback', defaultMessage: 'STOP TARGET' },
   targetLine: { id: 'admin.awsControl.target.instanceLine', defaultMessage: 'Instance {instanceId} · Name {name}' },
   targetProfileLine: { id: 'admin.awsControl.target.profileLine', defaultMessage: '{instanceType} · {environment} · {costProfile}' },
   targets: { id: 'admin.awsControl.targets.eyebrow', defaultMessage: 'Targets' },
@@ -326,10 +330,10 @@ const AwsControl = () => {
             <p className="premium-kicker"><FormattedMessage {...awsControlMessages.stagingControls} /></p>
             <h2 className="text-2xl font-black text-white"><FormattedMessage {...awsControlMessages.startOrStopStaging} /></h2>
             <p className="text-sm leading-6 text-slate-300">
-              <FormattedMessage {...awsControlMessages.stopPhraseLeadIn} /> <strong>{selectedStopConfirmation || 'STOP TARGET'}</strong>.
+              <FormattedMessage {...awsControlMessages.stopPhraseLeadIn} /> <strong>{selectedStopConfirmation || intl.formatMessage(awsControlMessages.stopTargetFallback)}</strong>.
             </p>
             <label className="grid gap-2 text-sm font-semibold text-slate-200">
-              Target
+              <FormattedMessage {...awsControlMessages.controlTarget} />
               <select
                 value={selectedTarget?.target || 'staging'}
                 onChange={(event) => {
@@ -371,7 +375,10 @@ const AwsControl = () => {
                 className="admin-premium-button admin-premium-button-success"
               >
                 {busy === `${selectedTarget?.target}:start` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                {`Start ${selectedTarget?.label || selectedTarget?.target || 'target'}`}
+                <FormattedMessage
+                  {...awsControlMessages.startTarget}
+                  values={{ target: selectedTarget?.label || selectedTarget?.target || intl.formatMessage(awsControlMessages.notResolved) }}
+                />
               </button>
               <button
                 type="button"
@@ -380,7 +387,10 @@ const AwsControl = () => {
                 className="admin-premium-button admin-premium-button-danger"
               >
                 {busy === `${selectedTarget?.target}:stop` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
-                {`Stop ${selectedTarget?.label || selectedTarget?.target || 'target'}`}
+                <FormattedMessage
+                  {...awsControlMessages.stopTarget}
+                  values={{ target: selectedTarget?.label || selectedTarget?.target || intl.formatMessage(awsControlMessages.notResolved) }}
+                />
               </button>
             </div>
           </AdminPremiumPanel>
