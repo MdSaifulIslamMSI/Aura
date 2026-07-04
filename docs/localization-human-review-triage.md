@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 422
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (94122/94122 required locale/message pairs)
+- Locale key coverage: 100% (94164/94164 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4482
+- Source message keys: 4484
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,10 +16,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 84372
-- Unique review locale/id pairs: 84372
-- Actionable grouped queue entries: 3022
-- Actionable affected locale/message pairs: 39082
+- Total tracked review pairs preserved: 84410
+- Unique review locale/id pairs: 84410
+- Actionable grouped queue entries: 3024
+- Actionable affected locale/message pairs: 39120
 - Native-review audit grouped entries: 2495
 - Native-review audit affected locale/message pairs: 45290
 
@@ -29,7 +29,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 1075 | 17938 | bn 825, hi 989, te 890, mr 896, ur 876, gu 911, pa 905, ml 891, kn 890, or 904, as 889, sa 893, es 1021, fr 1053, de 1040, ar 960, ja 1039, pt 1032, zh 1034 |
+| critical | 1077 | 17976 | bn 827, hi 991, te 892, mr 898, ur 878, gu 913, pa 907, ml 893, kn 892, or 906, as 891, sa 895, es 1023, fr 1055, de 1042, ar 962, ja 1041, pt 1034, zh 1036 |
 | high | 230 | 947 | bn 10, hi 212, te 15, mr 15, ur 17, gu 14, pa 14, ml 18, kn 15, or 23, as 5, sa 8, es 79, fr 86, de 85, ar 82, ja 86, pt 80, zh 83 |
 | medium | 1170 | 16759 | bn 745, hi 1062, te 752, mr 751, ur 750, gu 769, pa 763, ml 750, kn 750, or 760, as 749, sa 759, es 1059, fr 1068, de 1056, ar 1026, ja 1070, pt 1052, zh 1068 |
 | low | 547 | 3438 | bn 2, hi 537, te 1, mr 2, ur 3, gu 3, pa 2, ml 1, kn 2, or 3, as 1, sa 3, es 408, fr 415, de 411, ar 412, ja 412, pt 409, zh 411 |

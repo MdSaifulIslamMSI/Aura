@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { createIntl, createIntlCache, defineMessages } from 'react-intl';
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
   FacebookAuthProvider,
   getRedirectResult,
   GithubAuthProvider,
@@ -16,6 +17,7 @@ import {
   signInWithRedirect,
   signOut,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   reauthenticateWithPopup,
   reauthenticateWithRedirect,
   updateProfile as updateFirebaseProfile,
@@ -112,6 +114,7 @@ const FIREBASE_POPUP_REDIRECT_FALLBACK_CODES = new Set([
   'auth/web-storage-unsupported',
 ]);
 const SENSITIVE_REAUTH_REDIRECT_PENDING_CODE = 'auth/redirect-pending';
+const SENSITIVE_PASSWORD_REAUTH_REQUIRED_CODE = 'auth/password-reauth-required';
 
 const isRecentReauthRequiredError = (error) => {
   const status = Number(error?.status || error?.data?.status || 0);
@@ -135,6 +138,14 @@ const buildSensitiveReauthRedirectPendingError = (providerLabel = 'Provider') =>
   );
   error.code = SENSITIVE_REAUTH_REDIRECT_PENDING_CODE;
   error.redirecting = true;
+  return error;
+};
+
+const buildSensitivePasswordReauthRequiredError = (email = '') => {
+  const error = new Error('Enter your password to refresh this protected session, then retry this action.');
+  error.code = SENSITIVE_PASSWORD_REAUTH_REQUIRED_CODE;
+  error.requiresPasswordReauth = true;
+  error.email = email;
   return error;
 };
 
@@ -172,6 +183,17 @@ const getSensitiveActionReauthProvider = (firebaseUser) => {
   }
 
   return null;
+};
+
+const canUsePasswordReauthProvider = (firebaseUser) => {
+  const linkedProviderIds = Array.isArray(firebaseUser?.providerData)
+    ? firebaseUser.providerData
+      .map((entry) => normalizeText(entry?.providerId || ''))
+      .filter(Boolean)
+    : [];
+
+  return linkedProviderIds.includes('password')
+    || (!linkedProviderIds.length && Boolean(normalizeEmail(firebaseUser?.email || '')));
 };
 
 const readRedirectAuthPending = () => {
@@ -1257,13 +1279,29 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const reauthenticateForSensitiveAction = async () => {
+  const reauthenticateForSensitiveAction = async (options = {}) => {
     const activeUser = currentUser || auth?.currentUser || null;
     if (!activeUser) {
       throw new Error('Sign in again before continuing this protected action.');
     }
 
     const reauthProvider = getSensitiveActionReauthProvider(activeUser);
+    if (!reauthProvider && canUsePasswordReauthProvider(activeUser)) {
+      const email = normalizeEmail(activeUser.email || sessionStateRef.current.session?.email || sessionStateRef.current.profile?.email || '');
+      const password = String(options?.password || '');
+
+      if (!email || !password) {
+        throw buildSensitivePasswordReauthRequiredError(email);
+      }
+
+      const credential = EmailAuthProvider.credential(email, password);
+      await reauthenticateWithCredential(activeUser, credential);
+      if (typeof activeUser?.getIdToken === 'function') {
+        await activeUser.getIdToken(true);
+      }
+      return activeUser;
+    }
+
     if (!reauthProvider) {
       const unsupportedError = new Error(
         'Recent re-authentication is required. Sign out and sign in again, then retry this action.'

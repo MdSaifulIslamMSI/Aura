@@ -1452,6 +1452,8 @@
   "auth.success.signinSuccess.title": "Welcome Back!",
   "auth.success.signupSuccess.detail": "Welcome to AURA! Setting up your account...",
   "auth.success.signupSuccess.title": "Account Created!",
+  "auth.trustedDevice.reauth.passwordHint": "Fresh sign-in is required before this device can register a passkey.",
+  "auth.trustedDevice.reauth.passwordLabel": "Account password",
   "backendFailure.catalog.failed.message": "Unable to load products right now. Please retry.",
   "backendFailure.catalog.failed.title": "Catalog fetch failed",
   "backendFailure.catalog.timeout.message": "The catalog service took too long to respond. Please retry in a few seconds.",
