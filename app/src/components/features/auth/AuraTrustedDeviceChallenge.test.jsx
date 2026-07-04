@@ -151,7 +151,14 @@ describe('AuraTrustedDeviceChallenge', () => {
       reauthenticateForSensitiveAction,
       sessionIntelligence: {
         assurance: {
-          isRecent: false,
+          isRecent: true,
+        },
+        posture: {
+          session: {
+            authAgeSeconds: 1800,
+            freshForSensitiveActions: false,
+            stepUpActive: false,
+          },
         },
       },
       verifyDeviceChallenge,
