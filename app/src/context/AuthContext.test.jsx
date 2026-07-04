@@ -17,6 +17,7 @@ const loadAuthContext = async () => {
     linkWithCredentialMock: vi.fn(),
     linkWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     reauthenticateWithPopupMock: vi.fn(),
+    reauthenticateWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     signInWithEmailAndPasswordMock: vi.fn(),
     signInWithCustomTokenMock: vi.fn(),
     signInWithRedirectMock: vi.fn().mockResolvedValue(undefined),
@@ -69,6 +70,7 @@ const loadAuthContext = async () => {
     signOut: mocks.signOutMock,
     onAuthStateChanged: mocks.onAuthStateChangedMock,
     reauthenticateWithPopup: mocks.reauthenticateWithPopupMock,
+    reauthenticateWithRedirect: mocks.reauthenticateWithRedirectMock,
     updateProfile: vi.fn(),
     signInWithPopup: mocks.signInWithPopupMock,
     TwitterAuthProvider: { credentialFromError: vi.fn(() => null) },
@@ -125,6 +127,7 @@ const loadAuthContext = async () => {
 describe('AuthProvider', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
+    window.sessionStorage.clear();
     await loadAuthContext();
     mocks.getRedirectResultMock.mockResolvedValue(null);
     mocks.onAuthStateChangedMock.mockImplementation((_auth, callback) => {
@@ -1089,6 +1092,62 @@ describe('AuthProvider', () => {
       '2026-04-12T14:00:00.000Z'
     );
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
+  });
+
+  it('falls back to redirect reauthentication when popup is blocked and does not retry trusted-device verification', async () => {
+    let capturedContext = null;
+    const recentAuthError = new Error('Recent re-authentication is required for this action.');
+    recentAuthError.status = 401;
+    recentAuthError.data = { code: 'WEBAUTHN_RECENT_AUTH_REQUIRED' };
+    const popupBlockedError = new Error('Popup blocked');
+    popupBlockedError.code = 'auth/popup-blocked';
+
+    mocks.mockUser.providerData = [{ providerId: 'google.com' }];
+    mocks.reauthenticateWithPopupMock.mockRejectedValueOnce(popupBlockedError);
+    mocks.authApiMock.verifyDeviceChallenge.mockRejectedValueOnce(recentAuthError);
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="verify-status">{authContext.status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('verify-status')).toHaveTextContent('authenticated');
+    });
+
+    let redirectError;
+    await act(async () => {
+      try {
+        await capturedContext.verifyDeviceChallenge('challenge-token', {
+          method: 'webauthn',
+          credential: { id: 'credential-1', response: { clientDataJSON: 'client-data' } },
+        });
+      } catch (error) {
+        redirectError = error;
+      }
+    });
+
+    expect(redirectError).toMatchObject({
+      code: 'auth/redirect-pending',
+      redirecting: true,
+    });
+    expect(mocks.reauthenticateWithPopupMock).toHaveBeenCalledTimes(1);
+    expect(mocks.reauthenticateWithRedirectMock).toHaveBeenCalledTimes(1);
+    expect(mocks.reauthenticateWithRedirectMock).toHaveBeenCalledWith(
+      mocks.mockUser,
+      expect.objectContaining({ providerId: 'google.com' })
+    );
+    expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledTimes(1);
+    expect(mocks.mockUser.getIdToken).not.toHaveBeenCalledWith(true);
   });
 
   it('reauthenticates before registering an MFA passkey when sensitive auth posture is stale', async () => {
