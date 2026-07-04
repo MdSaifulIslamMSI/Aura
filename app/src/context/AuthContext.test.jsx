@@ -16,6 +16,7 @@ const loadAuthContext = async () => {
     linkWithPopupMock: vi.fn(),
     linkWithCredentialMock: vi.fn(),
     linkWithRedirectMock: vi.fn().mockResolvedValue(undefined),
+    reauthenticateWithPopupMock: vi.fn(),
     signInWithEmailAndPasswordMock: vi.fn(),
     signInWithCustomTokenMock: vi.fn(),
     signInWithRedirectMock: vi.fn().mockResolvedValue(undefined),
@@ -63,6 +64,7 @@ const loadAuthContext = async () => {
     signInWithRedirect: mocks.signInWithRedirectMock,
     signOut: mocks.signOutMock,
     onAuthStateChanged: mocks.onAuthStateChangedMock,
+    reauthenticateWithPopup: mocks.reauthenticateWithPopupMock,
     updateProfile: vi.fn(),
     signInWithPopup: mocks.signInWithPopupMock,
     TwitterAuthProvider: { credentialFromError: vi.fn(() => null) },
@@ -70,12 +72,12 @@ const loadAuthContext = async () => {
 
   vi.doMock('../config/firebase', () => ({
     auth: {},
-    googleProvider: {},
-    facebookProvider: {},
+    googleProvider: { providerId: 'google.com' },
+    facebookProvider: { providerId: 'facebook.com' },
     githubProvider: { providerId: 'github.com' },
     microsoftProvider: { providerId: 'microsoft.com' },
     appleProvider: null,
-    xProvider: {},
+    xProvider: { providerId: 'twitter.com' },
     assertFirebaseReady: vi.fn(),
     assertFirebaseSocialAuthReady: vi.fn(),
     clearFirebaseSocialAuthRuntimeBlock: vi.fn(),
@@ -942,6 +944,129 @@ describe('AuthProvider', () => {
       '2026-04-12T14:00:00.000Z'
     );
     expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(1);
+    expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
+  });
+
+  it('reauthenticates once and retries trusted-device verification when recent auth is required', async () => {
+    let capturedContext = null;
+    const recentAuthError = new Error('Recent re-authentication is required for this action.');
+    recentAuthError.status = 401;
+    recentAuthError.data = { code: 'WEBAUTHN_RECENT_AUTH_REQUIRED' };
+    mocks.mockUser.providerData = [{ providerId: 'google.com' }];
+    mocks.reauthenticateWithPopupMock.mockResolvedValue({ user: mocks.mockUser });
+    mocks.authApiMock.verifyDeviceChallenge.mockRejectedValueOnce(recentAuthError);
+    mocks.authApiMock.getSession.mockResolvedValueOnce({
+      status: 'device_challenge_required',
+      deviceChallenge: {
+        token: 'challenge-token',
+        mode: 'enroll',
+        availableMethods: ['webauthn'],
+        challenge: 'challenge-value',
+      },
+      session: {
+        sessionId: 'server-session-1',
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+        emailVerified: true,
+        displayName: 'Stale Session',
+        phone: '+919999999999',
+        providerIds: ['google.com'],
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+        phone: '+919999999999',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'password',
+          label: 'Verified session',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: false,
+        },
+        readiness: {
+          hasVerifiedEmail: true,
+          hasPhone: true,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'social',
+          rememberedIdentifier: 'email',
+          suggestedProvider: 'google.com',
+          providerIds: ['google.com'],
+        },
+      },
+    });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="verify-status">{authContext.status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('verify-status')).toHaveTextContent('device_challenge_required');
+    });
+
+    await act(async () => {
+      await capturedContext.verifyDeviceChallenge('challenge-token', {
+        method: 'webauthn',
+        credential: { id: 'credential-1', response: { clientDataJSON: 'client-data' } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('verify-status')).toHaveTextContent('authenticated');
+    });
+
+    expect(mocks.reauthenticateWithPopupMock).toHaveBeenCalledTimes(1);
+    expect(mocks.reauthenticateWithPopupMock).toHaveBeenCalledWith(
+      mocks.mockUser,
+      expect.objectContaining({ providerId: 'google.com' })
+    );
+    expect(mocks.mockUser.getIdToken).toHaveBeenCalledWith(true);
+    expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledTimes(2);
+    expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenNthCalledWith(
+      2,
+      'challenge-token',
+      expect.objectContaining({
+        method: 'webauthn',
+        credential: expect.objectContaining({ id: 'credential-1' }),
+      }),
+      '',
+      expect.objectContaining({
+        firebaseUser: mocks.mockUser,
+        forceRefreshAuth: true,
+      })
+    );
+    expect(mocks.cacheTrustedDeviceSessionTokenMock).toHaveBeenCalledWith(
+      'trusted-device-session-token',
+      '2026-04-12T14:00:00.000Z'
+    );
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });
 });

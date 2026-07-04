@@ -16,6 +16,7 @@ import {
   signInWithRedirect,
   signOut,
   onAuthStateChanged,
+  reauthenticateWithPopup,
   updateProfile as updateFirebaseProfile,
   signInWithPopup,
   TwitterAuthProvider,
@@ -98,6 +99,47 @@ const hasLinkedProvider = (firebaseUser, providerId) => (
   Array.isArray(firebaseUser?.providerData)
   && firebaseUser.providerData.some((entry) => entry?.providerId === providerId)
 );
+
+const RECENT_REAUTH_REQUIRED_CODES = new Set([
+  'WEBAUTHN_RECENT_AUTH_REQUIRED',
+  'AUTH_FACTOR_CHANGE_RECENT_AUTH_REQUIRED',
+  'RECENT_AUTH_REQUIRED',
+]);
+
+const isRecentReauthRequiredError = (error) => {
+  const status = Number(error?.status || error?.data?.status || 0);
+  const code = normalizeText(error?.code || error?.data?.code || error?.data?.reasonCode || '').toUpperCase();
+  const message = `${error?.message || ''} ${error?.data?.message || ''}`.toLowerCase();
+
+  return status === 401 && (
+    RECENT_REAUTH_REQUIRED_CODES.has(code)
+    || message.includes('recent re-authentication is required')
+    || message.includes('recent authentication is required')
+  );
+};
+
+const getSensitiveActionReauthProvider = (firebaseUser) => {
+  const linkedProviderIds = Array.isArray(firebaseUser?.providerData)
+    ? firebaseUser.providerData
+      .map((entry) => normalizeText(entry?.providerId || ''))
+      .filter(Boolean)
+    : [];
+  const providers = [
+    { providerId: 'google.com', provider: googleProvider, label: 'Google' },
+    { providerId: 'facebook.com', provider: facebookProvider, label: 'Facebook' },
+    { providerId: 'github.com', provider: githubProvider, label: 'GitHub' },
+    { providerId: 'microsoft.com', provider: microsoftProvider, label: 'Microsoft' },
+    { providerId: 'apple.com', provider: appleProvider, label: 'Apple' },
+    { providerId: 'twitter.com', provider: xProvider, label: 'X' },
+  ];
+
+  for (const linkedProviderId of linkedProviderIds) {
+    const match = providers.find((entry) => entry.providerId === linkedProviderId && entry.provider);
+    if (match) return match;
+  }
+
+  return null;
+};
 
 const readRedirectAuthPending = () => {
   if (typeof window === 'undefined') return false;
@@ -1177,9 +1219,37 @@ export const AuthProvider = ({ children }) => {
         proofBase64: proofOrPayload,
         publicKeySpkiBase64,
       };
-    const response = await authApi.verifyDeviceChallenge(token, challengePayload, '', {
-      firebaseUser: currentUser,
+    const activeUser = currentUser || auth?.currentUser || null;
+    const submitChallenge = (options = {}) => authApi.verifyDeviceChallenge(token, challengePayload, '', {
+      firebaseUser: activeUser,
+      ...options,
     });
+    let response;
+    try {
+      response = await submitChallenge();
+    } catch (error) {
+      if (!isRecentReauthRequiredError(error)) {
+        throw error;
+      }
+
+      const reauthProvider = getSensitiveActionReauthProvider(activeUser);
+      if (!reauthProvider) {
+        const unsupportedError = new Error(
+          'Recent re-authentication is required. Sign out and sign in again, then retry this action.'
+        );
+        unsupportedError.code = 'auth/requires-recent-login';
+        unsupportedError.cause = error;
+        throw unsupportedError;
+      }
+
+      assertFirebaseSocialAuthReady(`${reauthProvider.label} re-authentication`);
+      await reauthenticateWithPopup(activeUser, reauthProvider.provider);
+      if (typeof activeUser?.getIdToken === 'function') {
+        await activeUser.getIdToken(true);
+      }
+      response = await submitChallenge({ forceRefreshAuth: true });
+    }
+
     if (response?.deviceSessionToken) {
       cacheTrustedDeviceSessionToken(response.deviceSessionToken, response.expiresAt);
     }
