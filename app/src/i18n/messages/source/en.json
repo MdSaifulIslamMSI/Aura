@@ -5454,6 +5454,12 @@
     "defaultMessage": "Account Created!",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."
   },
+  "auth.trustedDevice.reauth.passwordHint": {
+    "defaultMessage": "Fresh sign-in is required before this device can register a passkey."
+  },
+  "auth.trustedDevice.reauth.passwordLabel": {
+    "defaultMessage": "Account password"
+  },
   "backendFailure.catalog.failed.message": {
     "defaultMessage": "Unable to load products right now. Please retry."
   },
