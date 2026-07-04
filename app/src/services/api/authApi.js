@@ -203,6 +203,19 @@ export const getDuoLoginUrl = (returnTo = '/', options = {}) => {
     return buildServiceUrl(`/api/auth/duo/start?${params.toString()}`);
 };
 
+export const getDuoStepUpUrl = (returnTo = '/', options = {}) => {
+    const params = new URLSearchParams();
+    const normalizedReturnTo = String(returnTo || '/').trim();
+    params.set('returnTo', normalizedReturnTo.startsWith('/') && !normalizedReturnTo.startsWith('//')
+        ? normalizedReturnTo
+        : '/');
+    const action = String(options.action || 'admin-sensitive').trim().toLowerCase();
+    if (/^[a-z0-9_-]+$/.test(action)) {
+        params.set('action', action);
+    }
+    return buildServiceUrl(`/api/auth/duo/step-up?${params.toString()}`);
+};
+
 export const getEnterpriseLoginUrl = (returnTo = '/', options = {}) => {
     const params = new URLSearchParams();
     const normalizedReturnTo = String(returnTo || '/').trim();
@@ -266,6 +279,7 @@ const signMfaPasskeyChallenge = async (challenge = {}, options = {}) => (
 
 export const authApi = {
     getDuoLoginUrl,
+    getDuoStepUpUrl,
     getEnterpriseLoginUrl,
     startDuoLogin: (options = {}) => {
         const returnTo = options.returnTo || (
@@ -275,6 +289,21 @@ export const authApi = {
         );
         const url = getDuoLoginUrl(returnTo, {
             loginHint: options.loginHint,
+        });
+        if (typeof window === 'undefined' || !window.location?.assign) {
+            return { redirecting: true, url };
+        }
+        window.location.assign(url);
+        return { redirecting: true, url };
+    },
+    startDuoStepUp: (options = {}) => {
+        const returnTo = options.returnTo || (
+            typeof window !== 'undefined'
+                ? `${window.location?.pathname || '/'}${window.location?.search || ''}${window.location?.hash || ''}`
+                : '/'
+        );
+        const url = getDuoStepUpUrl(returnTo, {
+            action: options.action,
         });
         if (typeof window === 'undefined' || !window.location?.assign) {
             return { redirecting: true, url };

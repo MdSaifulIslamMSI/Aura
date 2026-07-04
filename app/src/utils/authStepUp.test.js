@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isTrustedDeviceChallengeError } from './authStepUp';
+import { isDuoStepUpRequiredError, isTrustedDeviceChallengeError } from './authStepUp';
 
 describe('auth step-up errors', () => {
   it('detects trusted-device challenge responses', () => {
@@ -25,5 +25,32 @@ describe('auth step-up errors', () => {
       message: 'Trusted device verification required for this account',
     })).toBe(false);
   });
-});
 
+  it('detects Duo step-up required responses', () => {
+    expect(isDuoStepUpRequiredError({
+      status: 403,
+      data: {
+        code: 'DUO_STEP_UP_REQUIRED',
+        feature: 'duo_step_up',
+        message: 'Duo step-up verification is required for this action.',
+      },
+    })).toBe(true);
+
+    expect(isDuoStepUpRequiredError({
+      status: 403,
+      message: 'Duo verification is required before this AWS action.',
+    })).toBe(true);
+  });
+
+  it('does not classify unrelated forbidden responses as Duo step-up', () => {
+    expect(isDuoStepUpRequiredError({
+      status: 403,
+      message: 'Admin access required',
+    })).toBe(false);
+
+    expect(isDuoStepUpRequiredError({
+      status: 401,
+      data: { code: 'DUO_STEP_UP_REQUIRED' },
+    })).toBe(false);
+  });
+});

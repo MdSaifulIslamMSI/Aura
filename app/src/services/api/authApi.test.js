@@ -333,6 +333,17 @@ describe('authApi', () => {
     expect(authApi.getDuoLoginUrl('https://evil.example/steal')).toContain('/api/auth/duo/start?returnTo=%2F');
   });
 
+  it('builds a Duo step-up redirect URL with a safe return path and action', async () => {
+    expect(authApi.getDuoStepUpUrl('/admin/aws-control', { action: 'admin-sensitive' }))
+      .toContain('/api/auth/duo/step-up?returnTo=%2Fadmin%2Faws-control&action=admin-sensitive');
+    expect(authApi.getDuoStepUpUrl('/admin/aws-control', { action: 'ADMIN-SENSITIVE' }))
+      .toContain('action=admin-sensitive');
+    expect(authApi.getDuoStepUpUrl('/admin/aws-control', { action: 'bad action' }))
+      .not.toContain('bad+action');
+    expect(authApi.getDuoStepUpUrl('https://evil.example/steal', { action: 'admin-sensitive' }))
+      .toContain('/api/auth/duo/step-up?returnTo=%2F&action=admin-sensitive');
+  });
+
   it('builds an enterprise OIDC login redirect URL with a safe return path', async () => {
     expect(authApi.getEnterpriseLoginUrl('/admin/dashboard?tab=users')).toContain('/api/auth/enterprise/start?returnTo=%2Fadmin%2Fdashboard%3Ftab%3Dusers');
     expect(authApi.getEnterpriseLoginUrl('/profile', { loginHint: 'Admin@Example.COM' })).toContain('loginHint=admin%40example.com');
