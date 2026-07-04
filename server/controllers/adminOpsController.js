@@ -22,6 +22,10 @@ const {
     listClientDiagnostics,
 } = require('../services/clientDiagnosticIngestionService');
 const { runMaintenanceTasks } = require('../services/opsMaintenanceService');
+const {
+    getAwsControlStatus,
+    runAwsControlAction,
+} = require('../services/awsControlService');
 
 const isHealthyStatus = (value) => ['healthy', 'ok'].includes(String(value || '').trim().toLowerCase());
 
@@ -209,6 +213,35 @@ const runAdminOpsMaintenance = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Get AWS control-plane posture and configured targets
+// @route   GET /api/admin/ops/aws-control
+// @access  Private/Admin
+const getAdminAwsControl = asyncHandler(async (req, res) => {
+    const control = await getAwsControlStatus();
+    res.json({
+        success: true,
+        control,
+    });
+});
+
+// @desc    Run an allowlisted AWS control action
+// @route   POST /api/admin/ops/aws-control/actions
+// @access  Private/Admin
+const runAdminAwsControlAction = asyncHandler(async (req, res) => {
+    const result = await runAwsControlAction({
+        target: req.body?.target,
+        action: req.body?.action,
+        reason: req.body?.reason,
+        confirmationPhrase: req.body?.confirmationPhrase,
+        req,
+    });
+
+    res.json({
+        success: true,
+        result,
+    });
+});
+
 // @desc    Query recent persisted client diagnostics
 // @route   GET /api/admin/ops/client-diagnostics
 // @access  Private/Admin
@@ -232,7 +265,9 @@ const getAdminClientDiagnostics = asyncHandler(async (req, res) => {
 
 module.exports = {
     getAdminClientDiagnostics,
+    getAdminAwsControl,
     getAdminOpsReadiness,
+    runAdminAwsControlAction,
     runAdminOpsSmoke,
     runAdminOpsMaintenance,
 };

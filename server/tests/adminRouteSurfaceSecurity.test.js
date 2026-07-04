@@ -1,9 +1,21 @@
 const request = require('supertest');
+
+const previousTrafficFortressEnabled = process.env.TRAFFIC_FORTRESS_ENABLED;
+process.env.TRAFFIC_FORTRESS_ENABLED = 'false';
+
 const app = require('../index');
 
 jest.setTimeout(30000);
 
 describe('Admin Route Surface Security Matrix', () => {
+    afterAll(() => {
+        if (previousTrafficFortressEnabled === undefined) {
+            delete process.env.TRAFFIC_FORTRESS_ENABLED;
+        } else {
+            process.env.TRAFFIC_FORTRESS_ENABLED = previousTrafficFortressEnabled;
+        }
+    });
+
     const cases = [
         ['GET', '/api/admin/notifications/summary'],
         ['GET', '/api/admin/notifications'],
@@ -62,8 +74,10 @@ describe('Admin Route Surface Security Matrix', () => {
 
         ['GET', '/api/admin/ops/readiness'],
         ['GET', '/api/admin/ops/client-diagnostics'],
+        ['GET', '/api/admin/ops/aws-control'],
         ['POST', '/api/admin/ops/smoke'],
         ['POST', '/api/admin/ops/maintenance'],
+        ['POST', '/api/admin/ops/aws-control/actions'],
     ];
 
     test.each(cases)('%s %s should return 401 without token', async (method, url) => {

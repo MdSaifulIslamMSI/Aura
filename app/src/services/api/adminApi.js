@@ -158,6 +158,24 @@ export const adminApi = {
         const { data } = await apiFetch('/admin/ops/readiness', { headers });
         return data;
     },
+    getAwsControl: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/ops/aws-control', { headers, timeoutMs: 15000 });
+        return data;
+    },
+    runAwsControlAction: async (payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/admin/ops/aws-control/actions', {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': payload?.idempotencyKey || createIdempotencyKey('aws-control'),
+            },
+            body: JSON.stringify(payload),
+            timeoutMs: 20000,
+        });
+        return data;
+    },
     runOpsSmoke: async () => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/admin/ops/smoke', {
