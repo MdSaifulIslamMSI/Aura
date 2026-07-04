@@ -196,6 +196,84 @@ describe('AuraTrustedDeviceChallenge', () => {
     expect(callOrder).toEqual(['reauth', 'sign', 'verify']);
   });
 
+  it('prompts for password reauthentication before retrying passkey enrollment for password users', async () => {
+    const passwordRequiredError = Object.assign(
+      new Error('Enter your password to refresh this protected session, then retry this action.'),
+      {
+        code: 'auth/password-reauth-required',
+        requiresPasswordReauth: true,
+      },
+    );
+    const callOrder = [];
+    const reauthenticateForSensitiveAction = vi.fn()
+      .mockRejectedValueOnce(passwordRequiredError)
+      .mockImplementationOnce(async () => {
+        callOrder.push('reauth');
+      });
+    const verifyDeviceChallenge = vi.fn().mockImplementation(async () => {
+      callOrder.push('verify');
+      return { success: true };
+    });
+    signTrustedDeviceChallenge.mockImplementation(async () => {
+      callOrder.push('sign');
+      return {
+        method: 'webauthn',
+        credential: { id: 'credential-1' },
+      };
+    });
+    useAuth.mockReturnValue(buildAuthValue({
+      currentUser: {
+        uid: 'firebase-user-1',
+        email: 'user@example.com',
+        providerData: [{ providerId: 'password' }],
+      },
+      deviceChallenge: {
+        token: 'challenge-token',
+        mode: 'enroll',
+        availableMethods: ['webauthn'],
+        preferredMethod: 'webauthn',
+        registeredMethod: '',
+        registeredLabel: '',
+        challenge: 'challenge-value',
+      },
+      reauthenticateForSensitiveAction,
+      sessionIntelligence: {
+        assurance: {
+          isRecent: false,
+        },
+        posture: {
+          session: {
+            authAgeSeconds: 1000,
+            freshForSensitiveActions: false,
+            stepUpActive: false,
+          },
+        },
+      },
+      verifyDeviceChallenge,
+    }));
+
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge />);
+
+    const verifyButton = screen.getByRole('button', { name: /register/i });
+    fireEvent.click(verifyButton);
+
+    const passwordInput = await screen.findByLabelText(/account password/i);
+    expect(signTrustedDeviceChallenge).not.toHaveBeenCalled();
+
+    fireEvent.change(passwordInput, { target: { value: 'valid-password' } });
+    fireEvent.click(verifyButton);
+
+    await waitFor(() => {
+      expect(verifyDeviceChallenge).toHaveBeenCalledWith('challenge-token', expect.objectContaining({
+        method: 'webauthn',
+      }));
+    });
+
+    expect(reauthenticateForSensitiveAction).toHaveBeenNthCalledWith(2, { password: 'valid-password' });
+    expect(callOrder).toEqual(['reauth', 'sign', 'verify']);
+  });
+
   it('shows only the offered browser fallback method when passkey proof is unavailable', async () => {
     useAuth.mockReturnValue(buildAuthValue({
       deviceChallenge: {

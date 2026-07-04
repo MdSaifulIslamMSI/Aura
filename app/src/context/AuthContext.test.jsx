@@ -13,9 +13,11 @@ const loadAuthContext = async () => {
     signOutMock: vi.fn().mockResolvedValue(undefined),
     onAuthStateChangedMock: vi.fn(),
     getRedirectResultMock: vi.fn().mockResolvedValue(null),
+    emailCredentialMock: vi.fn((email, password) => ({ providerId: 'password', email, password })),
     linkWithPopupMock: vi.fn(),
     linkWithCredentialMock: vi.fn(),
     linkWithRedirectMock: vi.fn().mockResolvedValue(undefined),
+    reauthenticateWithCredentialMock: vi.fn().mockResolvedValue({ user: null }),
     reauthenticateWithPopupMock: vi.fn(),
     reauthenticateWithRedirectMock: vi.fn().mockResolvedValue(undefined),
     signInWithEmailAndPasswordMock: vi.fn(),
@@ -55,6 +57,7 @@ const loadAuthContext = async () => {
 
   vi.doMock('firebase/auth', () => ({
     createUserWithEmailAndPassword: vi.fn(),
+    EmailAuthProvider: { credential: mocks.emailCredentialMock },
     FacebookAuthProvider: { credentialFromError: vi.fn(() => null) },
     getRedirectResult: mocks.getRedirectResultMock,
     GithubAuthProvider: { credentialFromError: vi.fn((error) => error?.githubCredential || null) },
@@ -69,6 +72,7 @@ const loadAuthContext = async () => {
     signInWithRedirect: mocks.signInWithRedirectMock,
     signOut: mocks.signOutMock,
     onAuthStateChanged: mocks.onAuthStateChangedMock,
+    reauthenticateWithCredential: mocks.reauthenticateWithCredentialMock,
     reauthenticateWithPopup: mocks.reauthenticateWithPopupMock,
     reauthenticateWithRedirect: mocks.reauthenticateWithRedirectMock,
     updateProfile: vi.fn(),
@@ -1148,6 +1152,86 @@ describe('AuthProvider', () => {
     );
     expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledTimes(1);
     expect(mocks.mockUser.getIdToken).not.toHaveBeenCalledWith(true);
+  });
+
+  it('reauthenticates password users with an email credential for sensitive actions', async () => {
+    let capturedContext = null;
+    mocks.mockUser.providerData = [{ providerId: 'password' }];
+    mocks.reauthenticateWithCredentialMock.mockResolvedValue({ user: mocks.mockUser });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="password-reauth-status">{authContext.status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-reauth-status')).toHaveTextContent('authenticated');
+    });
+
+    await act(async () => {
+      await capturedContext.reauthenticateForSensitiveAction({ password: 'valid-password' });
+    });
+
+    expect(mocks.emailCredentialMock).toHaveBeenCalledWith('stale@example.com', 'valid-password');
+    expect(mocks.reauthenticateWithCredentialMock).toHaveBeenCalledWith(
+      mocks.mockUser,
+      expect.objectContaining({
+        providerId: 'password',
+        email: 'stale@example.com',
+        password: 'valid-password',
+      })
+    );
+    expect(mocks.mockUser.getIdToken).toHaveBeenCalledWith(true);
+    expect(mocks.reauthenticateWithPopupMock).not.toHaveBeenCalled();
+  });
+
+  it('requests a password before sensitive reauthentication for password-only users', async () => {
+    let capturedContext = null;
+    mocks.mockUser.providerData = [{ providerId: 'password' }];
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="password-required-status">{authContext.status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('password-required-status')).toHaveTextContent('authenticated');
+    });
+
+    let capturedError;
+    await act(async () => {
+      try {
+        await capturedContext.reauthenticateForSensitiveAction();
+      } catch (error) {
+        capturedError = error;
+      }
+    });
+
+    expect(capturedError).toMatchObject({
+      code: 'auth/password-reauth-required',
+      requiresPasswordReauth: true,
+      email: 'stale@example.com',
+    });
+    expect(mocks.emailCredentialMock).not.toHaveBeenCalled();
+    expect(mocks.reauthenticateWithCredentialMock).not.toHaveBeenCalled();
   });
 
   it('reauthenticates before registering an MFA passkey when sensitive auth posture is stale', async () => {
