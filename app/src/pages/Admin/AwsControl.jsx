@@ -81,7 +81,6 @@ const awsControlMessages = defineMessages({
   stopPhraseLeadIn: { id: 'admin.awsControl.controls.stopPhraseLeadIn', defaultMessage: 'Stopping the selected target requires the phrase' },
   stopStaging: { id: 'admin.awsControl.controls.stop', defaultMessage: 'Stop staging' },
   stopTarget: { id: 'admin.awsControl.controls.stopTarget', defaultMessage: 'Stop {target}' },
-  stopTargetFallback: { id: 'admin.awsControl.controls.stopTargetFallback', defaultMessage: 'STOP TARGET' },
   targetLine: { id: 'admin.awsControl.target.instanceLine', defaultMessage: 'Instance {instanceId} · Name {name}' },
   targetProfileLine: { id: 'admin.awsControl.target.profileLine', defaultMessage: '{instanceType} · {environment} · {costProfile}' },
   targets: { id: 'admin.awsControl.targets.eyebrow', defaultMessage: 'Targets' },
@@ -330,7 +329,7 @@ const AwsControl = () => {
             <p className="premium-kicker"><FormattedMessage {...awsControlMessages.stagingControls} /></p>
             <h2 className="text-2xl font-black text-white"><FormattedMessage {...awsControlMessages.startOrStopStaging} /></h2>
             <p className="text-sm leading-6 text-slate-300">
-              <FormattedMessage {...awsControlMessages.stopPhraseLeadIn} /> <strong>{selectedStopConfirmation || intl.formatMessage(awsControlMessages.stopTargetFallback)}</strong>.
+              <FormattedMessage {...awsControlMessages.stopPhraseLeadIn} /> <strong>{selectedStopConfirmation || STOP_CONFIRMATION_BY_TARGET.staging}</strong>.
             </p>
             <label className="grid gap-2 text-sm font-semibold text-slate-200">
               <FormattedMessage {...awsControlMessages.controlTarget} />

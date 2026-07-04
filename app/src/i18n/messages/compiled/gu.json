@@ -18,7 +18,6 @@
   "admin.awsControl.controls.stopConfirmation": "Stop confirmation",
   "admin.awsControl.controls.stopPhraseLeadIn": "These buttons only target staging. Stopping staging requires the phrase",
   "admin.awsControl.controls.stopTarget": "Stop {target}",
-  "admin.awsControl.controls.stopTargetFallback": "STOP TARGET",
   "admin.awsControl.controls.target": "Target",
   "admin.awsControl.controls.title": "Start or stop staging",
   "admin.awsControl.cost.currentMonthSpend": "Current month AWS spend",

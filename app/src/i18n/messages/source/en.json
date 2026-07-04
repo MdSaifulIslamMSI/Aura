@@ -59,9 +59,6 @@
   "admin.awsControl.controls.stopTarget": {
     "defaultMessage": "Stop {target}"
   },
-  "admin.awsControl.controls.stopTargetFallback": {
-    "defaultMessage": "STOP TARGET"
-  },
   "admin.awsControl.controls.target": {
     "defaultMessage": "Target"
   },
