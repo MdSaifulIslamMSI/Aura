@@ -289,7 +289,7 @@ img {
 
 .route-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.7rem;
   margin-top: 1rem;
 }
@@ -331,6 +331,10 @@ img {
 
 .route-link-aws::before {
   background: linear-gradient(90deg, rgba(216, 170, 88, 0.2), transparent 70%);
+}
+
+.route-link-control::before {
+  background: linear-gradient(90deg, rgba(215, 137, 134, 0.22), transparent 70%);
 }
 
 .route-link:hover,
@@ -392,6 +396,19 @@ img {
   inset: 1.05rem 0.64rem;
   border-left: 0;
   border-right: 0;
+  border-radius: 0;
+}
+
+.route-link-control .route-icon::before {
+  inset: 0.68rem;
+  border-radius: 4px;
+}
+
+.route-link-control .route-icon::after {
+  inset: 1.28rem 0.72rem 0.76rem;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
   border-radius: 0;
 }
 
@@ -1093,6 +1110,10 @@ img {
 
   .platform-linux {
     grid-column: 1 / -1;
+  }
+
+  .route-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

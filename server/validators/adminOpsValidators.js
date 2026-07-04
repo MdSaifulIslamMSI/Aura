@@ -41,8 +41,27 @@ const adminOpsMaintenanceSchema = z.object({
     }).passthrough().optional(),
 });
 
+const adminOpsAwsControlSchema = z.object({
+    query: z.object({}).passthrough(),
+    params: z.object({}).passthrough(),
+    body: z.any().optional(),
+});
+
+const adminOpsAwsControlActionSchema = z.object({
+    query: z.object({}).passthrough(),
+    params: z.object({}).passthrough(),
+    body: z.object({
+        target: z.enum(['staging', 'production']),
+        action: z.enum(['start', 'stop']),
+        reason: z.string().trim().min(8).max(1000),
+        confirmationPhrase: z.string().trim().max(80).optional(),
+    }).strict(),
+});
+
 module.exports = {
     adminClientDiagnosticsSchema,
+    adminOpsAwsControlActionSchema,
+    adminOpsAwsControlSchema,
     adminOpsReadinessSchema,
     adminOpsSmokeSchema,
     adminOpsMaintenanceSchema,

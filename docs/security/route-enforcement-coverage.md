@@ -28,6 +28,7 @@ npm run security:routes:coverage:strict
 | PATCH /api/admin/notifications/:notificationId/read | ADMIN_STATE_CHANGE | `protect`, `admin`, `sensitiveActions.adminNotificationChange` |
 | POST /api/admin/ops/smoke | ADMIN_SECURITY_CONFIG_CHANGE | `protect`, `admin`, `sensitiveActions.adminSecurityConfigChange` |
 | POST /api/admin/ops/maintenance | ADMIN_SECURITY_CONFIG_CHANGE | `protect`, `admin`, `sensitiveActions.adminSecurityConfigChange` |
+| POST /api/admin/ops/aws-control/actions | ADMIN_SECURITY_CONFIG_CHANGE | `protect`, `admin`, `sensitiveActions.adminSecurityConfigChange`, server-side AWS allowlist |
 | POST /api/admin/order-emails/:notificationId/retry | ADMIN_STATE_CHANGE | `protect`, `admin`, `sensitiveActions.adminEmailOperation` |
 | POST /api/admin/payments/ops/expire-stale | PAYMENT_PAYOUT_CHANGE | `protect`, `admin`, `sensitiveActions.paymentPayoutChange` |
 | PATCH /api/admin/payments/refunds/ledger/:orderId/:requestId/reference | PAYMENT_REFUND | `protect`, `admin`, `sensitiveActions.paymentRefund` |

@@ -71,6 +71,7 @@ const AdminEmailOps = lazyWithRetry(() => import('./pages/Admin/EmailOps'), 'adm
 const AdminSupport = lazyWithRetry(() => import('./pages/Admin/Support'), 'admin-support');
 const AdminEmergencyControls = lazyWithRetry(() => import('./pages/Admin/EmergencyControls'), 'admin-emergency-controls');
 const AdminStatusDashboard = lazyWithRetry(() => import('./pages/Admin/StatusDashboard'), 'admin-status');
+const AdminAwsControl = lazyWithRetry(() => import('./pages/Admin/AwsControl'), 'admin-aws-control');
 
 // Marketplace Pages
 const Sell = lazyWithRetry(() => import('./pages/Sell'), 'sell');
@@ -351,6 +352,7 @@ function AppContent() {
               <Route path="/admin/emergency-controls" element={renderCriticalRoute(<AdminRoute><AdminEmergencyControls /></AdminRoute>)} />
               <Route path="/admin/status" element={renderCriticalRoute(<AdminRoute><AdminStatusDashboard /></AdminRoute>)} />
               <Route path="/admin/status/incidents" element={renderCriticalRoute(<AdminRoute><AdminStatusDashboard /></AdminRoute>)} />
+              <Route path="/admin/aws-control" element={renderCriticalRoute(<AdminRoute><AdminAwsControl /></AdminRoute>)} />
               </Routes>
             </RouteTransitionShell>
           </Suspense>

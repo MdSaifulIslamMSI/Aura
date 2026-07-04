@@ -27,8 +27,10 @@ const ADMIN_ROUTE_POLICIES = [
     ['POST', '/api/admin/payments/:id/capture', 'admin.payments.capture'],
     ['POST', '/api/admin/payments/:id/retry-capture', 'admin.payments.capture'],
     ['GET', '/api/admin/ops/readiness', 'admin.ops.read'],
+    ['GET', '/api/admin/ops/aws-control', 'admin.ops.read'],
     ['POST', '/api/admin/ops/smoke', 'admin.ops.smoke'],
     ['POST', '/api/admin/ops/maintenance', 'admin.ops.maintenance'],
+    ['POST', '/api/admin/ops/aws-control/actions', 'admin.ops.aws_control'],
 ].map(([method, path, permission]) => ({
     method,
     path,

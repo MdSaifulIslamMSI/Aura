@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { defineMessages, useIntl } from 'react-intl';
 import {
     CreditCard,
+    Cloud,
     LayoutDashboard,
     Mail,
     MessageSquare,
@@ -38,6 +39,7 @@ const ADMIN_LINKS = [
     { href: '/admin/users', prefix: '/admin/users', label: 'Users', message: adminShellMessages.users, icon: Users },
     { href: '/admin/support', prefix: '/admin/support', label: 'Support', message: adminShellMessages.support, icon: MessageSquare },
     { href: '/admin/status', prefix: '/admin/status', label: 'Status', message: adminShellMessages.status, icon: Signal },
+    { href: '/admin/aws-control', prefix: '/admin/aws-control', label: 'AWS Control', icon: Cloud },
 ];
 
 const hexToRgb = (hex) => {
@@ -164,7 +166,7 @@ export default function AdminPremiumShell({
                                         className={cn('admin-premium-nav-pill', isActive && 'admin-premium-nav-pill-active')}
                                     >
                                         <Icon className="h-4 w-4" />
-                                        {intl.formatMessage(item.message)}
+                                        {item.message ? intl.formatMessage(item.message) : item.label}
                                     </Link>
                                 );
                             })}
