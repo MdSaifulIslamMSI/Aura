@@ -215,13 +215,20 @@ const buildTrustedDeviceErrorMessage = ({
   return String(error?.message || 'Trusted device verification failed.');
 };
 
-const hasRecentSensitiveAuth = (sessionIntelligence) => Boolean(
-  sessionIntelligence?.assurance?.isRecent
-  || sessionIntelligence?.assurance?.isFresh
-  || sessionIntelligence?.assurance?.fresh
-  || sessionIntelligence?.assurance?.stepUpFresh
-  || sessionIntelligence?.assurance?.webAuthnStepUpFresh
-);
+const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
+  const session = sessionIntelligence?.posture?.session || {};
+  const assurance = sessionIntelligence?.assurance || {};
+  const authAgeSeconds = Number(session.authAgeSeconds);
+
+  return Boolean(
+    session.freshForSensitiveActions
+    || session.stepUpActive
+    || assurance.stepUpFresh
+    || assurance.webAuthnStepUpFresh
+    || assurance.freshWebAuthnStepUp
+    || (Number.isFinite(authAgeSeconds) && authAgeSeconds >= 0 && authAgeSeconds <= (15 * 60))
+  );
+};
 
 const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const intl = useIntl();
@@ -344,7 +351,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
     ? canUsePasskey
     : canUseBrowserKey;
   const shouldReauthenticateBeforeDeviceProof = challengeMode === 'enroll'
-    && !hasRecentSensitiveAuth(sessionIntelligence)
+    && !hasFreshSensitiveActionAuth(sessionIntelligence)
     && typeof reauthenticateForSensitiveAction === 'function';
   const heading = isBlockingRoute
     ? getTrustedDeviceHeading({ method: activeMethod, challengeMode, supportProfile })

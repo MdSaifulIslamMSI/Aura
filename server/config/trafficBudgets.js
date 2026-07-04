@@ -5,6 +5,7 @@ const ROUTE_CLASSES = Object.freeze({
     PUBLIC_READ: 'PUBLIC_READ',
     PUBLIC_SEARCH: 'PUBLIC_SEARCH',
     AUTH_LOGIN: 'AUTH_LOGIN',
+    AUTH_WEBAUTHN: 'AUTH_WEBAUTHN',
     OTP: 'OTP',
     OTP_RESET: 'OTP_RESET',
     AUTHENTICATED_READ: 'AUTHENTICATED_READ',
@@ -125,6 +126,20 @@ const TRAFFIC_BUDGETS = Object.freeze({
         canDegrade: false,
         emergencyFlag: 'ATTACK_MODE_STRICT_AUTH',
         description: 'Login, session, recovery, and device challenge routes.',
+    }),
+    [ROUTE_CLASSES.AUTH_WEBAUTHN]: defineBudget({
+        routeClass: ROUTE_CLASSES.AUTH_WEBAUTHN,
+        categoryName: 'webauthnChallenges',
+        maxBodyBytes: 96 * KB,
+        timeoutMs: 10000,
+        perIp: 60,
+        perAccount: 30,
+        perSession: 30,
+        dbQueryCostBudget: 3,
+        challengeAllowed: true,
+        canDegrade: false,
+        emergencyFlag: 'ATTACK_MODE_STRICT_AUTH',
+        description: 'Trusted-device and WebAuthn challenge verification routes separated from generic login/session traffic.',
     }),
     [ROUTE_CLASSES.OTP]: defineBudget({
         routeClass: ROUTE_CLASSES.OTP,
@@ -321,6 +336,7 @@ const classifyRoute = ({ method = 'GET', path = '/', originalUrl = '' } = {}) =>
     if (routePath.startsWith('/api/admin/')) return mutating ? ROUTE_CLASSES.ADMIN_WRITE : ROUTE_CLASSES.ADMIN_READ;
     if (routePath === '/api/otp/reset-password' || routePath === '/api/auth/otp/reset-password') return ROUTE_CLASSES.OTP_RESET;
     if (routePath.startsWith('/api/otp') || routePath.startsWith('/api/auth/otp')) return ROUTE_CLASSES.OTP;
+    if (routePath === '/api/auth/verify-device') return ROUTE_CLASSES.AUTH_WEBAUTHN;
     if (routePath.startsWith('/api/auth')) return ROUTE_CLASSES.AUTH_LOGIN;
     if (routePath.startsWith('/api/ai') || routePath.startsWith('/api/intelligence') || routePath.includes('/visual-search')) return ROUTE_CLASSES.AI_EXPENSIVE;
     if (routePath.startsWith('/api/payments') || routePath.startsWith('/api/checkout')) return ROUTE_CLASSES.PAYMENT;

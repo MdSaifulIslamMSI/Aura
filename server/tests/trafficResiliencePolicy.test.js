@@ -53,6 +53,7 @@ describe('traffic resilience policy', () => {
         expect(result.errors).toEqual([]);
         expect(Object.keys(policy.categories)).toEqual(expect.arrayContaining([
             'loginAttempts',
+            'webauthnChallenges',
             'otpRequests',
             'paymentIntents',
             'aiRequests',
@@ -65,6 +66,7 @@ describe('traffic resilience policy', () => {
 
     test('dangerous route families classify into bounded budgets', () => {
         expect(classifyRoute({ method: 'POST', path: '/api/auth/login' })).toBe(ROUTE_CLASSES.AUTH_LOGIN);
+        expect(classifyRoute({ method: 'POST', path: '/api/auth/verify-device' })).toBe(ROUTE_CLASSES.AUTH_WEBAUTHN);
         expect(classifyRoute({ method: 'POST', path: '/api/otp/send' })).toBe(ROUTE_CLASSES.OTP);
         expect(classifyRoute({ method: 'POST', path: '/api/auth/otp/reset-password' })).toBe(ROUTE_CLASSES.OTP_RESET);
         expect(classifyRoute({ method: 'POST', path: '/api/payments/create-order' })).toBe(ROUTE_CLASSES.PAYMENT);
@@ -75,6 +77,7 @@ describe('traffic resilience policy', () => {
 
     test('sensitive budgets fail closed or stay non-degradable where expected', () => {
         const payment = getTrafficBudget(ROUTE_CLASSES.PAYMENT);
+        const webauthn = getTrafficBudget(ROUTE_CLASSES.AUTH_WEBAUTHN);
         const otpReset = getTrafficBudget(ROUTE_CLASSES.OTP_RESET);
         const ai = getTrafficBudget(ROUTE_CLASSES.AI_EXPENSIVE);
         const webhook = getTrafficBudget(ROUTE_CLASSES.WEBHOOK);
@@ -82,6 +85,9 @@ describe('traffic resilience policy', () => {
         expect(payment.costRisk).toBe('critical');
         expect(payment.productionFailMode).toBe('fail-closed');
         expect(payment.canDegrade).toBe(false);
+        expect(webauthn.categoryName).toBe('webauthnChallenges');
+        expect(webauthn.perSession).toBeGreaterThan(getTrafficBudget(ROUTE_CLASSES.AUTH_LOGIN).perSession);
+        expect(webauthn.productionFailMode).toBe('fail-closed');
         expect(otpReset.costRisk).toBe('critical');
         expect(otpReset.productionFailMode).toBe('fail-closed');
         expect(otpReset.canDegrade).toBe(false);
