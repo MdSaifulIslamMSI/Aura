@@ -1602,7 +1602,8 @@ const admin = asyncHandler(async (req, res, next) => {
         throw error;
     }
 
-    if (sessionAgeSeconds > (ADMIN_REQUIRE_FRESH_LOGIN_MINUTES * 60)) {
+    const hasFreshServerStepUp = hasActiveSessionStepUp(req);
+    if (sessionAgeSeconds > (ADMIN_REQUIRE_FRESH_LOGIN_MINUTES * 60) && !hasFreshServerStepUp) {
         logger.warn('admin_access.blocked_stale_session', {
             requestId: req.requestId || '',
             email: actorEmail,

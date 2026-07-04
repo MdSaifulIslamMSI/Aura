@@ -18,7 +18,12 @@ const configureAdminWebAuthnStepUpEnv = () => {
     process.env.DUO_ENABLED = 'false';
 };
 
-const buildAdminRequest = ({ trustedDevices = [], authSession = {} } = {}) => {
+const buildAdminRequest = ({
+    authAgeSeconds = 60,
+    authSession = {},
+    originalUrl = '/api/admin/users/target',
+    trustedDevices = [],
+} = {}) => {
     const nowSeconds = Math.floor(Date.now() / 1000);
 
     return {
@@ -34,8 +39,8 @@ const buildAdminRequest = ({ trustedDevices = [], authSession = {} } = {}) => {
         authToken: {
             email: 'admin@example.com',
             email_verified: true,
-            auth_time: nowSeconds - 60,
-            iat: nowSeconds - 60,
+            auth_time: nowSeconds - authAgeSeconds,
+            iat: nowSeconds - authAgeSeconds,
         },
         authSession: {
             sessionId: 'session-admin-1',
@@ -44,7 +49,7 @@ const buildAdminRequest = ({ trustedDevices = [], authSession = {} } = {}) => {
             ...authSession,
         },
         headers: {},
-        originalUrl: '/api/admin/users/target',
+        originalUrl,
         get: () => '',
     };
 };
@@ -155,5 +160,54 @@ describe('authMiddleware admin WebAuthn step-up enforcement', () => {
 
         expect(next).toHaveBeenCalledTimes(1);
         expect(next).toHaveBeenCalledWith();
+    });
+
+    test('treats fresh WebAuthn step-up as fresh admin reauthentication', async () => {
+        configureAdminWebAuthnStepUpEnv();
+
+        const { admin } = loadAuthMiddleware();
+        const next = jest.fn();
+
+        await admin(buildAdminRequest({
+            authAgeSeconds: 2 * 60 * 60,
+            trustedDevices: [{
+                deviceId: 'device-admin-webauthn',
+                method: 'webauthn',
+            }],
+            authSession: {
+                amr: ['webauthn'],
+                stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+            },
+            originalUrl: '/api/admin/ops/aws-control/actions',
+        }), {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    test('keeps stale admin logins blocked when WebAuthn step-up is expired', async () => {
+        configureAdminWebAuthnStepUpEnv();
+
+        const { admin } = loadAuthMiddleware();
+        const next = jest.fn();
+
+        await admin(buildAdminRequest({
+            authAgeSeconds: 2 * 60 * 60,
+            trustedDevices: [{
+                deviceId: 'device-admin-webauthn',
+                method: 'webauthn',
+            }],
+            authSession: {
+                amr: ['webauthn'],
+                stepUpUntil: new Date(Date.now() - 60_000).toISOString(),
+            },
+            originalUrl: '/api/admin/ops/aws-control/actions',
+        }), {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            message: 'Admin session expired. Re-authenticate within 30 minutes.',
+            statusCode: 401,
+        }));
     });
 });
