@@ -11,6 +11,9 @@ const staticDirectory = path.join(outputDirectory, 'static');
 const routingContractPath = path.join(appRoot, 'config', 'vercelRoutingContract.mjs');
 
 const {
+    FRONTEND_ASSET_CACHE_CONTROL,
+    FRONTEND_DOCUMENT_CACHE_CONTROL,
+    FRONTEND_SERVICE_WORKER_CACHE_CONTROL,
     FRONTEND_SECURITY_HEADERS,
     assertDeployableHostedBackendOrigin,
     resolveHostedBackendOrigin,
@@ -21,6 +24,9 @@ assertDeployableHostedBackendOrigin(backendOrigin);
 const frontendSecurityHeaders = Object.fromEntries(
     FRONTEND_SECURITY_HEADERS.map(({ key, value }) => [key, value])
 );
+const cacheControlHeaders = (value) => ({
+    'Cache-Control': value,
+});
 
 if (!/^https?:\/\//i.test(backendOrigin)) {
     throw new Error(`Expected an absolute backend origin, received "${backendOrigin}"`);
@@ -36,6 +42,26 @@ const config = {
         {
             src: '/(.*)',
             headers: frontendSecurityHeaders,
+            continue: true,
+        },
+        {
+            src: '/assets/(.*)',
+            headers: cacheControlHeaders(FRONTEND_ASSET_CACHE_CONTROL),
+            continue: true,
+        },
+        {
+            src: '/sw\\.js',
+            headers: cacheControlHeaders(FRONTEND_SERVICE_WORKER_CACHE_CONTROL),
+            continue: true,
+        },
+        {
+            src: '/',
+            headers: cacheControlHeaders(FRONTEND_DOCUMENT_CACHE_CONTROL),
+            continue: true,
+        },
+        {
+            src: '/index\\.html',
+            headers: cacheControlHeaders(FRONTEND_DOCUMENT_CACHE_CONTROL),
             continue: true,
         },
         {
@@ -76,6 +102,7 @@ const config = {
         {
             src: '/(.*)',
             dest: '/index.html',
+            headers: cacheControlHeaders(FRONTEND_DOCUMENT_CACHE_CONTROL),
         },
     ],
 };

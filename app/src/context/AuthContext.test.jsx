@@ -4,6 +4,7 @@ import * as React from 'react';
 
 let AuthProvider;
 let useAuth;
+let resetBrowserSessionState;
 let mocks;
 
 const loadAuthContext = async () => {
@@ -126,11 +127,13 @@ const loadAuthContext = async () => {
   }));
 
   ({ AuthProvider, useAuth } = await import('./AuthContext'));
+  ({ resetBrowserSessionState } = await import('../services/browserSessionReset'));
 };
 
 describe('AuthProvider', () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
     window.sessionStorage.clear();
     await loadAuthContext();
     mocks.getRedirectResultMock.mockResolvedValue(null);
@@ -290,6 +293,100 @@ describe('AuthProvider', () => {
     expect(mocks.clearTrustedDeviceSessionTokenMock).toHaveBeenCalled();
     expect(mocks.authApiMock.logoutSession).toHaveBeenCalled();
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
+  });
+
+  it('reset clears local app storage during browser session recovery', async () => {
+    window.localStorage.setItem('aura_trusted_device_id_v1', 'device-1');
+    window.localStorage.setItem('firebase:authUser:project:web', 'firebase-user');
+    window.sessionStorage.setItem('aura_trusted_device_session_v1', 'trusted-session');
+    window.sessionStorage.setItem('aura-social-auth-redirect-pending', '1');
+
+    const result = await resetBrowserSessionState({
+      redirect: false,
+      windowRef: window,
+      cacheStorage: null,
+      serviceWorkerContainer: null,
+      indexedDBRef: null,
+    });
+
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+    expect(result.clearedLocalStorageKeys).toEqual(expect.arrayContaining([
+      'aura_trusted_device_id_v1',
+      'firebase:authUser:project:web',
+    ]));
+    expect(result.clearedSessionStorageKeys).toEqual(expect.arrayContaining([
+      'aura_trusted_device_session_v1',
+      'aura-social-auth-redirect-pending',
+    ]));
+  });
+
+  it('reset clears origin caches and unregisters service workers when present', async () => {
+    const cacheStorage = {
+      keys: vi.fn().mockResolvedValue(['aura-runtime-v4', 'old-aura-runtime']),
+      delete: vi.fn().mockResolvedValue(true),
+    };
+    const firstUnregister = vi.fn().mockResolvedValue(true);
+    const secondUnregister = vi.fn().mockResolvedValue(true);
+    const serviceWorkerContainer = {
+      getRegistrations: vi.fn().mockResolvedValue([
+        { unregister: firstUnregister },
+        { unregister: secondUnregister },
+      ]),
+    };
+
+    const result = await resetBrowserSessionState({
+      redirect: false,
+      windowRef: null,
+      cacheStorage,
+      serviceWorkerContainer,
+      indexedDBRef: null,
+    });
+
+    expect(cacheStorage.keys).toHaveBeenCalledTimes(1);
+    expect(cacheStorage.delete).toHaveBeenCalledWith('aura-runtime-v4');
+    expect(cacheStorage.delete).toHaveBeenCalledWith('old-aura-runtime');
+    expect(serviceWorkerContainer.getRegistrations).toHaveBeenCalledTimes(1);
+    expect(firstUnregister).toHaveBeenCalledTimes(1);
+    expect(secondUnregister).toHaveBeenCalledTimes(1);
+    expect(result.unregisteredServiceWorkerCount).toBe(2);
+  });
+
+  it('reset calls backend logout and Firebase signOut before local cleanup', async () => {
+    const firebaseAuth = { currentUser: mocks.mockUser };
+    const logoutSession = vi.fn().mockResolvedValue({ success: true });
+    const firebaseSignOut = vi.fn().mockResolvedValue(undefined);
+
+    const result = await resetBrowserSessionState({
+      redirect: false,
+      windowRef: null,
+      cacheStorage: null,
+      serviceWorkerContainer: null,
+      indexedDBRef: null,
+      logoutSession,
+      firebaseAuth,
+      firebaseSignOut,
+    });
+
+    expect(logoutSession).toHaveBeenCalledWith({ firebaseUser: mocks.mockUser });
+    expect(firebaseSignOut).toHaveBeenCalledWith(firebaseAuth);
+    expect(result.backendLogout).toBe(true);
+    expect(result.firebaseSignOut).toBe(true);
+  });
+
+  it('reset redirects to login after browser session recovery cleanup', async () => {
+    const redirectFn = vi.fn();
+
+    const result = await resetBrowserSessionState({
+      windowRef: null,
+      cacheStorage: null,
+      serviceWorkerContainer: null,
+      indexedDBRef: null,
+      redirectFn,
+    });
+
+    expect(redirectFn).toHaveBeenCalledWith('/login');
+    expect(result.redirectedTo).toBe('/login');
   });
 
   it('softens masked backend 500s during session bootstrap into a recoverable sync message', async () => {

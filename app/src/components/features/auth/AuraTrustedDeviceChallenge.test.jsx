@@ -48,6 +48,7 @@ const buildAuthValue = (overrides = {}) => ({
   },
   refreshSession: vi.fn().mockResolvedValue(null),
   reauthenticateForSensitiveAction: vi.fn().mockResolvedValue(null),
+  resetBrowserSession: vi.fn().mockResolvedValue({ redirectedTo: '/login' }),
   sessionIntelligence: {
     assurance: {
       isRecent: true,
@@ -272,6 +273,37 @@ describe('AuraTrustedDeviceChallenge', () => {
 
     expect(reauthenticateForSensitiveAction).toHaveBeenNthCalledWith(2, { password: 'valid-password' });
     expect(callOrder).toEqual(['reauth', 'sign', 'verify']);
+  });
+
+  it('shows a reset browser session fallback after repeated trusted-device failures', async () => {
+    const resetBrowserSession = vi.fn().mockResolvedValue({ redirectedTo: '/login' });
+    const verifyDeviceChallenge = vi.fn()
+      .mockRejectedValueOnce(new Error('Recent re-authentication is required for this action.'))
+      .mockRejectedValueOnce(new Error('Recent re-authentication is required for this action.'));
+    useAuth.mockReturnValue(buildAuthValue({
+      resetBrowserSession,
+      verifyDeviceChallenge,
+    }));
+
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge />);
+
+    const verifyButton = screen.getByRole('button', { name: /use windows hello passkey/i });
+    fireEvent.click(verifyButton);
+
+    await waitFor(() => {
+      expect(verifyDeviceChallenge).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByRole('button', { name: /reset browser session/i })).not.toBeInTheDocument();
+
+    fireEvent.click(verifyButton);
+
+    const resetSessionButton = await screen.findByRole('button', { name: /reset browser session/i });
+    fireEvent.click(resetSessionButton);
+
+    await waitFor(() => {
+      expect(resetBrowserSession).toHaveBeenCalledWith({ reason: 'trusted-device-challenge' });
+    });
   });
 
   it('shows only the offered browser fallback method when passkey proof is unavailable', async () => {
