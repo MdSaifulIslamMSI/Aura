@@ -118,6 +118,21 @@ const isRecentReauthRequiredError = (error) => {
   );
 };
 
+const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
+  const session = sessionIntelligence?.posture?.session || {};
+  const assurance = sessionIntelligence?.assurance || {};
+  const authAgeSeconds = Number(session.authAgeSeconds);
+
+  return Boolean(
+    session.freshForSensitiveActions
+    || session.stepUpActive
+    || assurance.stepUpFresh
+    || assurance.webAuthnStepUpFresh
+    || assurance.freshWebAuthnStepUp
+    || (Number.isFinite(authAgeSeconds) && authAgeSeconds >= 0 && authAgeSeconds <= (15 * 60))
+  );
+};
+
 const getSensitiveActionReauthProvider = (firebaseUser) => {
   const linkedProviderIds = Array.isArray(firebaseUser?.providerData)
     ? firebaseUser.providerData
@@ -1234,6 +1249,24 @@ export const AuthProvider = ({ children }) => {
     return activeUser;
   };
 
+  const runWithFreshSensitiveActionAuth = async (operation) => {
+    if (!hasFreshSensitiveActionAuth(sessionState.intelligence)) {
+      await reauthenticateForSensitiveAction();
+    } else if (typeof currentUser?.getIdToken === 'function') {
+      await currentUser.getIdToken(true);
+    }
+
+    try {
+      return await operation({ forceRefreshAuth: true });
+    } catch (error) {
+      if (!isRecentReauthRequiredError(error)) {
+        throw error;
+      }
+      await reauthenticateForSensitiveAction();
+      return operation({ forceRefreshAuth: true });
+    }
+  };
+
   const verifyDeviceChallenge = async (token, proofOrPayload, publicKeySpkiBase64 = '') => {
     const challengePayload = proofOrPayload && typeof proofOrPayload === 'object' && !Array.isArray(proofOrPayload)
       ? proofOrPayload
@@ -1296,7 +1329,9 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Sign in before generating recovery codes.');
     }
 
-    const response = await authApi.generateRecoveryCodes({ firebaseUser: currentUser });
+    const response = await runWithFreshSensitiveActionAuth((authOptions) => (
+      authApi.generateRecoveryCodes({ firebaseUser: currentUser, ...authOptions })
+    ));
     if (response?.success) {
       refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
     }
@@ -1336,7 +1371,9 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Sign in before setting up authenticator MFA.');
     }
 
-    return authApi.setupTotp({ firebaseUser: currentUser });
+    return runWithFreshSensitiveActionAuth((authOptions) => (
+      authApi.setupTotp({ firebaseUser: currentUser, ...authOptions })
+    ));
   };
 
   const verifyTotpSetup = async (code) => {
@@ -1344,7 +1381,9 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Sign in before verifying authenticator MFA.');
     }
 
-    const response = await authApi.verifyTotpSetup(code, { firebaseUser: currentUser });
+    const response = await runWithFreshSensitiveActionAuth((authOptions) => (
+      authApi.verifyTotpSetup(code, { firebaseUser: currentUser, ...authOptions })
+    ));
     await refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
     return response;
   };
@@ -1354,7 +1393,9 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Sign in before registering a passkey.');
     }
 
-    const response = await authApi.registerMfaPasskey({ firebaseUser: currentUser });
+    const response = await runWithFreshSensitiveActionAuth((authOptions) => (
+      authApi.registerMfaPasskey({ firebaseUser: currentUser, ...authOptions })
+    ));
     if (!applyMfaSessionResponse(response)) {
       await refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
     }
@@ -1366,7 +1407,9 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Sign in before regenerating MFA recovery codes.');
     }
 
-    const response = await authApi.regenerateMfaRecoveryCodes({ firebaseUser: currentUser });
+    const response = await runWithFreshSensitiveActionAuth((authOptions) => (
+      authApi.regenerateMfaRecoveryCodes({ firebaseUser: currentUser, ...authOptions })
+    ));
     await refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
     return response;
   };
