@@ -40,6 +40,7 @@ import {
   shouldPreferFirebaseRedirectAuth,
 } from '../config/firebase';
 import { authApi, userApi } from '../services/api';
+import { resetBrowserSessionState } from '../services/browserSessionReset';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
 import { cacheTrustedDeviceSessionToken, clearTrustedDeviceSessionToken } from '../services/deviceTrustClient';
 import {
@@ -1166,6 +1167,26 @@ export const AuthProvider = ({ children }) => {
     await signOutNativeSocialAuth();
   };
 
+  const resetBrowserSession = async (options = {}) => {
+    const activeUser = currentUser || auth?.currentUser || null;
+
+    return resetBrowserSessionState({
+      logoutSession: authApi.logoutSession,
+      firebaseAuth: isFirebaseReady ? auth : null,
+      firebaseUser: activeUser,
+      firebaseSignOut: signOut,
+      nativeSignOut: signOutNativeSocialAuth,
+      clearRuntimeSession: () => {
+        clearCsrfTokenCache();
+        clearAuthJourneyDraft();
+        clearRedirectAuthPending();
+        setCurrentUser(null);
+        applySignedOutState();
+      },
+      ...options,
+    });
+  };
+
   const updatePhone = async (phone) => {
     if (!currentUser) return null;
     const resolvedEmail = normalizeEmail(currentUser.email || sessionStateRef.current.profile?.email || '');
@@ -1565,6 +1586,7 @@ export const AuthProvider = ({ children }) => {
     linkMicrosoftProvider,
     linkAppleProvider,
     logout,
+    resetBrowserSession,
     refreshSession,
     syncUserWithBackend,
     updatePhone,

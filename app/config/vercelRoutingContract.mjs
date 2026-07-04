@@ -156,6 +156,10 @@ export const buildFrontendSecurityHeaderValues = (origin = HOSTED_BACKEND_ORIGIN
 
 export const FRONTEND_SECURITY_HEADERS = buildFrontendSecurityHeaderValues(HOSTED_BACKEND_ORIGIN);
 
+export const FRONTEND_ASSET_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+export const FRONTEND_SERVICE_WORKER_CACHE_CONTROL = 'no-cache, no-store, must-revalidate';
+export const FRONTEND_DOCUMENT_CACHE_CONTROL = 'no-store';
+
 const HOSTED_PROXY_ROUTE_SUFFIXES = [
     {
         source: '/socket.io',
@@ -227,6 +231,45 @@ export const SPA_FALLBACK_REWRITE = {
     destination: '/index.html',
 };
 
+const withCacheControlHeader = (headers, cacheControl) => [
+    ...headers,
+    {
+        key: 'Cache-Control',
+        value: cacheControl,
+    },
+];
+
+export const buildFrontendSecurityHeaders = (origin = HOSTED_BACKEND_ORIGIN) => {
+    const securityHeaders = buildFrontendSecurityHeaderValues(origin);
+
+    return [
+        {
+            source: '/assets/:path*',
+            headers: withCacheControlHeader(securityHeaders, FRONTEND_ASSET_CACHE_CONTROL),
+        },
+        {
+            source: '/sw.js',
+            headers: withCacheControlHeader(securityHeaders, FRONTEND_SERVICE_WORKER_CACHE_CONTROL),
+        },
+        {
+            source: '/',
+            headers: withCacheControlHeader(securityHeaders, FRONTEND_DOCUMENT_CACHE_CONTROL),
+        },
+        {
+            source: '/index.html',
+            headers: withCacheControlHeader(securityHeaders, FRONTEND_DOCUMENT_CACHE_CONTROL),
+        },
+        {
+            source: SPA_FALLBACK_REWRITE.source,
+            headers: withCacheControlHeader(securityHeaders, FRONTEND_DOCUMENT_CACHE_CONTROL),
+        },
+        {
+            source: '/(.*)',
+            headers: securityHeaders,
+        },
+    ];
+};
+
 export const buildHostedBackendRewrites = (origin = HOSTED_BACKEND_ORIGIN) => {
     assertAbsoluteHttpUrl(origin);
 
@@ -240,13 +283,6 @@ export const buildHostedBackendRewrites = (origin = HOSTED_BACKEND_ORIGIN) => {
         SPA_FALLBACK_REWRITE,
     ];
 };
-
-export const buildFrontendSecurityHeaders = (origin = HOSTED_BACKEND_ORIGIN) => [
-    {
-        source: '/(.*)',
-        headers: buildFrontendSecurityHeaderValues(origin),
-    },
-];
 
 export const buildNetlifyHostedBackendRedirects = (origin = HOSTED_BACKEND_ORIGIN) => {
     assertAbsoluteHttpUrl(origin);

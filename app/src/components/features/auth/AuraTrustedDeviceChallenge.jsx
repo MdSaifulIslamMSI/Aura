@@ -253,6 +253,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
     deviceChallenge,
     refreshSession,
     reauthenticateForSensitiveAction,
+    resetBrowserSession,
     sessionIntelligence,
     status,
     verifyDeviceChallenge,
@@ -265,6 +266,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const [selectedMethod, setSelectedMethod] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showMethodChooser, setShowMethodChooser] = useState(false);
+  const [failedAttemptCount, setFailedAttemptCount] = useState(0);
   const dialogRef = useRef(null);
   const passwordInputRef = useRef(null);
   const primaryActionRef = useRef(null);
@@ -345,6 +347,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
     setSelectedMethod(defaultSelectedMethod);
     setRequiresPasswordReauth(false);
     setReauthPassword('');
+    setFailedAttemptCount(0);
   }, [defaultSelectedMethod, deviceChallenge?.token]);
 
   useEffect(() => {
@@ -436,6 +439,8 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
         ? 'You can keep browsing, but admin-grade actions stay locked until this device finishes trusted verification.'
         : 'You can keep browsing normally. Verify this device when you want to unlock admin and other privileged actions.'
     );
+  const shouldShowBrowserSessionReset = failedAttemptCount >= 2
+    && typeof resetBrowserSession === 'function';
 
   const isTrustedDeviceMethodSupported = (method) => (
     method === 'webauthn'
@@ -458,6 +463,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const selectTrustedDeviceMethod = (method) => {
     setSelectedMethod(method);
     setErrorMessage('');
+    setFailedAttemptCount(0);
     focusTrustedDeviceMethod(method);
   };
 
@@ -587,6 +593,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
     }
 
     if (!selectedMethodSupported) {
+      setFailedAttemptCount((count) => count + 1);
       setErrorMessage(
         activeMethod === 'webauthn'
           ? 'This browser cannot complete face/device passkey verification here. Use a secure browser with WebAuthn platform authenticator support, or use the browser fallback only when Aura offers it for this checkpoint.'
@@ -642,7 +649,9 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
       if (currentUser) {
         await refreshSession(currentUser, { force: true, silent: true }).catch(() => null);
       }
+      setFailedAttemptCount(0);
     } catch (error) {
+      setFailedAttemptCount((count) => count + 1);
       if (isPasswordReauthRequiredError(error)) {
         const nextMessage = getPasswordReauthErrorMessage(error);
         setRequiresPasswordReauth(true);
@@ -688,6 +697,26 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
       }));
     } catch (error) {
       const nextMessage = String(error?.message || 'Unable to reset this browser identity.');
+      setErrorMessage(nextMessage);
+      toast.error(nextMessage);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleResetBrowserSession = async () => {
+    if (typeof resetBrowserSession !== 'function') {
+      return;
+    }
+
+    setIsResetting(true);
+    setErrorMessage('');
+
+    try {
+      await resetBrowserSession({ reason: 'trusted-device-challenge' });
+      setFailedAttemptCount(0);
+    } catch (error) {
+      const nextMessage = String(error?.message || 'Unable to reset browser session.');
       setErrorMessage(nextMessage);
       toast.error(nextMessage);
     } finally {
@@ -945,6 +974,18 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                     </div>
                   ) : null}
 
+                  {shouldShowBrowserSessionReset ? (
+                    <button
+                      type="button"
+                      onClick={handleResetBrowserSession}
+                      disabled={isWorking || isResetting}
+                      className="inline-flex w-full items-center justify-center gap-3 rounded-[1.1rem] border border-rose-200/25 bg-rose-200/10 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-rose-50 transition-colors hover:bg-rose-200/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      <FormattedMessage id="auth.trustedDevice.resetBrowserSession" defaultMessage="Reset browser session" />
+                    </button>
+                  ) : null}
+
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <button
                       type="button"
@@ -1189,6 +1230,18 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                       <p>{errorMessage}</p>
                     </div>
                   </div>
+                ) : null}
+
+                {shouldShowBrowserSessionReset ? (
+                  <button
+                    type="button"
+                    onClick={handleResetBrowserSession}
+                    disabled={isWorking || isResetting}
+                    className="inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] border border-rose-200/25 bg-rose-200/10 px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-rose-50 transition-colors hover:bg-rose-200/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    <FormattedMessage id="auth.trustedDevice.resetBrowserSession" defaultMessage="Reset browser session" />
+                  </button>
                 ) : null}
               </div>
             </div>

@@ -5460,6 +5460,9 @@
   "auth.trustedDevice.reauth.passwordLabel": {
     "defaultMessage": "Account password"
   },
+  "auth.trustedDevice.resetBrowserSession": {
+    "defaultMessage": "Reset browser session"
+  },
   "backendFailure.catalog.failed.message": {
     "defaultMessage": "Unable to load products right now. Please retry."
   },

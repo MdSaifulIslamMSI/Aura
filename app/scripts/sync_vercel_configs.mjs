@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
     buildFrontendSecurityHeaders,
+    buildFrontendSecurityHeaderValues,
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
     assertDeployableHostedBackendOrigin,
@@ -18,8 +19,8 @@ if (hostedBackendOrigin !== DEFAULT_HOSTED_BACKEND_ORIGIN) {
     assertDeployableHostedBackendOrigin(hostedBackendOrigin);
 }
 const sharedRewrites = buildHostedBackendRewrites(hostedBackendOrigin);
-const sharedHeaders = buildFrontendSecurityHeaders();
-const sharedNetlifyHeaders = sharedHeaders[0]?.headers || [];
+const sharedHeaders = buildFrontendSecurityHeaders(hostedBackendOrigin);
+const sharedNetlifyHeaders = buildFrontendSecurityHeaderValues(hostedBackendOrigin);
 const netlifyRedirects = buildNetlifyHostedBackendRedirects(hostedBackendOrigin);
 
 const targets = [

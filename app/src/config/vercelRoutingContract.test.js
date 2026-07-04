@@ -9,6 +9,9 @@ import {
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
     DEFAULT_HOSTED_BACKEND_ORIGIN,
+    FRONTEND_ASSET_CACHE_CONTROL,
+    FRONTEND_DOCUMENT_CACHE_CONTROL,
+    FRONTEND_SERVICE_WORKER_CACHE_CONTROL,
     resolveHostedBackendOrigin,
 } from '../../config/vercelRoutingContract.mjs';
 
@@ -80,6 +83,20 @@ describe('vercel routing contract', () => {
         expect(csp).toContain(stagingOrigin);
         expect(csp).toContain(stagingSocketOrigin);
         expect(csp).not.toContain(DEFAULT_HOSTED_BACKEND_ORIGIN);
+    });
+
+    it('keeps browser cache recovery headers aligned for Vercel deployments', () => {
+        const headers = buildFrontendSecurityHeaders(DEFAULT_HOSTED_BACKEND_ORIGIN);
+        const cacheControlFor = (source) => headers
+            .find((entry) => entry.source === source)
+            ?.headers
+            ?.find((header) => header.key === 'Cache-Control')
+            ?.value;
+
+        expect(cacheControlFor('/assets/:path*')).toBe(FRONTEND_ASSET_CACHE_CONTROL);
+        expect(cacheControlFor('/sw.js')).toBe(FRONTEND_SERVICE_WORKER_CACHE_CONTROL);
+        expect(cacheControlFor('/')).toBe(FRONTEND_DOCUMENT_CACHE_CONTROL);
+        expect(cacheControlFor('/index.html')).toBe(FRONTEND_DOCUMENT_CACHE_CONTROL);
     });
 
     it('does not allow stale backend origins back into committed proxy routes', async () => {

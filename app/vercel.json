@@ -39,6 +39,191 @@
     ],
     "headers": [
         {
+            "source": "/assets/:path*",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtrhsolhec1s.cloudfront.net wss://dbtrhsolhec1s.cloudfront.net https://api.github.com https://api.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firebaselogging.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app https://*.livekit.cloud wss://*.livekit.cloud; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "no-referrer"
+                },
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin-allow-popups"
+                },
+                {
+                    "key": "Cross-Origin-Resource-Policy",
+                    "value": "same-site"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()"
+                },
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
+        },
+        {
+            "source": "/sw.js",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtrhsolhec1s.cloudfront.net wss://dbtrhsolhec1s.cloudfront.net https://api.github.com https://api.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firebaselogging.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app https://*.livekit.cloud wss://*.livekit.cloud; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "no-referrer"
+                },
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin-allow-popups"
+                },
+                {
+                    "key": "Cross-Origin-Resource-Policy",
+                    "value": "same-site"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()"
+                },
+                {
+                    "key": "Cache-Control",
+                    "value": "no-cache, no-store, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtrhsolhec1s.cloudfront.net wss://dbtrhsolhec1s.cloudfront.net https://api.github.com https://api.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firebaselogging.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app https://*.livekit.cloud wss://*.livekit.cloud; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "no-referrer"
+                },
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin-allow-popups"
+                },
+                {
+                    "key": "Cross-Origin-Resource-Policy",
+                    "value": "same-site"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()"
+                },
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store"
+                }
+            ]
+        },
+        {
+            "source": "/index.html",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtrhsolhec1s.cloudfront.net wss://dbtrhsolhec1s.cloudfront.net https://api.github.com https://api.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firebaselogging.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app https://*.livekit.cloud wss://*.livekit.cloud; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "no-referrer"
+                },
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin-allow-popups"
+                },
+                {
+                    "key": "Cross-Origin-Resource-Policy",
+                    "value": "same-site"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()"
+                },
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store"
+                }
+            ]
+        },
+        {
+            "source": "/:path((?!api/|socket\\.io(?:/|$)|uploads/|assets/|manifest\\.json$|sw\\.js$|favicon\\.ico$|robots\\.txt$|.*\\.[^/]+$).*)",
+            "headers": [
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://dbtrhsolhec1s.cloudfront.net wss://dbtrhsolhec1s.cloudfront.net https://api.github.com https://api.stripe.com https://js.stripe.com https://hooks.stripe.com https://checkout.razorpay.com https://api.razorpay.com https://*.razorpay.com https://*.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://firebaseinstallations.googleapis.com https://firebaselogging.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseio.com https://*.firebaseapp.com https://*.web.app https://*.livekit.cloud wss://*.livekit.cloud; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "no-referrer"
+                },
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin-allow-popups"
+                },
+                {
+                    "key": "Cross-Origin-Resource-Policy",
+                    "value": "same-site"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()"
+                },
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store"
+                }
+            ]
+        },
+        {
             "source": "/(.*)",
             "headers": [
                 {
