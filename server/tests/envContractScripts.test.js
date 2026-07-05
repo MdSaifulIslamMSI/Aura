@@ -508,9 +508,9 @@ describe('repo environment contract scripts', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
 
         expect(iamScript).toMatch(/ReadStagingCostExplorerUsage/);
-        expect(iamScript).toMatch(/"Action": "ce:GetCostAndUsage"/);
+        expect(iamScript).toMatch(/"ce:GetCostAndUsage"/);
         expect(iamScript).not.toMatch(/ce:\*/);
-        expect(iamScript).not.toMatch(/ce:GetCostForecast/);
+        expect(iamScript).toMatch(/ce:GetCostForecast/);
         expect(workflow).toMatch(/ALLOW_NO_COST_WATCH:\s*\$\{\{\s*vars\.ALLOW_NO_COST_WATCH \|\| 'true'\s*\}\}/);
     });
 
@@ -685,5 +685,75 @@ describe('repo environment contract scripts', () => {
         } finally {
             await new Promise((resolve) => server.close(resolve));
         }
+    });
+
+    test('giant release gates are wired to package scripts and fail-closed scripts', () => {
+        const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+
+        expect(pkg.scripts['staging:state:check']).toContain('refresh-state-from-aws.mjs --check');
+        expect(pkg.scripts['staging:state:refresh']).toContain('refresh-state-from-aws.mjs');
+        expect(pkg.scripts['smoke:env-contract']).toContain('assert-environment-contract.mjs');
+        expect(pkg.scripts['aws:cost-guard']).toContain('assert-free-tier-cost-guard.mjs');
+        expect(pkg.scripts['aws:observability:guard']).toContain('assert-observability-guard.mjs');
+        expect(pkg.scripts['release:rollback-ready']).toContain('assert-rollback-ready.mjs');
+        expect(pkg.scripts['release:production-mutation-gate']).toContain('assert-production-mutation-gate.mjs');
+
+        const stateRefresh = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', 'refresh-state-from-aws.mjs'), 'utf8');
+        expect(stateRefresh).toContain('Name=tag:Environment,Values=staging');
+        expect(stateRefresh).toContain('expectedManagedBy');
+        expect(stateRefresh).toContain('more than one');
+        expect(stateRefresh).toContain('writeJsonAtomic(stateFile, nextState)');
+        expect(stateRefresh).not.toContain('Environment=production');
+
+        const iamBootstrap = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-create-iam-auth.sh'), 'utf8');
+        expect(iamBootstrap).toContain('sts:AssumeRoleWithWebIdentity');
+        expect(iamBootstrap).toContain('token.actions.githubusercontent.com:sub');
+        expect(iamBootstrap).toContain('repo:$github_repo:environment:staging');
+
+        const productionGate = fs.readFileSync(path.join(repoRoot, 'scripts', 'release', 'assert-production-mutation-gate.mjs'), 'utf8');
+        expect(productionGate).toContain("gitBranch() !== 'main'");
+        expect(productionGate).toContain('AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED');
+        expect(productionGate).toContain('PRODUCTION_MUTATION_CONFIRMATION');
+        expect(productionGate).toContain('staging-smoke');
+        expect(productionGate).toContain('cost-guard');
+
+        const costGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'aws', 'assert-free-tier-cost-guard.mjs'), 'utf8');
+        const observabilityGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'aws', 'assert-observability-guard.mjs'), 'utf8');
+        const branchProtectionGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'github', 'assert-main-protection.mjs'), 'utf8');
+        expect(costGuard).toContain("emitEvidence('blocked')");
+        expect(observabilityGuard).toContain("emitEvidence('blocked')");
+        expect(branchProtectionGuard).toContain("'aws:observability:guard'");
+        expect(branchProtectionGuard).toContain('dismiss_stale_reviews');
+        expect(branchProtectionGuard).toContain('required_status_checks?.strict');
+    });
+
+    test('giant release workflow runs read-only gates and no production mutation gate', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'giant-release-gates.yml'), 'utf8');
+
+        expect(workflow).toMatch(/pull_request:/);
+        expect(workflow).toMatch(/branches: \[main\]/);
+        expect(workflow).toContain('name: smoke:staging');
+        expect(workflow).toContain('name: smoke:staging:frontend');
+        expect(workflow).toContain('name: smoke:env-contract');
+        expect(workflow).toContain('name: aws:cost-guard');
+        expect(workflow).toContain('name: aws:observability:guard');
+        expect(workflow).toContain('name: release:rollback-ready');
+        expect(workflow).toContain('npm run staging:state:refresh');
+        expect(workflow).toContain('npm run aws:observability:guard');
+        expect(workflow).not.toContain('release:production-mutation-gate');
+        expect(workflow).not.toContain('AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: true');
+    });
+
+    test('free-tier AWS guard config blocks expensive services by default', () => {
+        const guard = JSON.parse(fs.readFileSync(path.join(repoRoot, 'config', 'aws-free-guard.json'), 'utf8'));
+
+        expect(guard.region).toBe('ap-south-1');
+        expect(guard.maxMonthlyUsd).toBeLessThanOrEqual(5);
+        expect(guard.allowNatGateway).toBe(false);
+        expect(guard.allowLoadBalancer).toBe(false);
+        expect(guard.allowPaidRds).toBe(false);
+        expect(guard.allowPaidElasticache).toBe(false);
+        expect(guard.allowOpenSearch).toBe(false);
+        expect(guard.requiredSsmPrefixes).toEqual(expect.arrayContaining(['/aura/staging', '/aura/prod']));
     });
 });

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import process from 'node:process';
+import { applyStagingStateEnv } from '../staging/state-env.mjs';
 import {
   KNOWN_PRODUCTION_HOSTS,
   PRODUCTION_SSM_PREFIX,
@@ -10,6 +11,8 @@ import {
   normalize,
   toDisplayUrl,
 } from '../env-contract-lib.mjs';
+
+applyStagingStateEnv({ preferState: process.env.STAGING_STATE_PREFER_STATE !== 'false' });
 
 const failures = [];
 
