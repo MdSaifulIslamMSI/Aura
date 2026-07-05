@@ -68,6 +68,7 @@
     "aws:frontend:oidc": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\bootstrap-frontend-github-oidc.ps1",
     "backend:doctor": "node ./app/scripts/check_backend_connectivity.mjs",
     "aws:ssm:sync": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\sync-parameter-store-env.ps1 -SourceEnvFile .\\server\\.env.aws-secrets",
+    "credentials:setup:local-release-sso": "node scripts/credentials/setup-local-release-sso-profile.mjs",
     "credentials:check:local-release": "node scripts/credentials/check-local-release-credentials.mjs",
     "backend:origin": "node .\\app\\scripts\\print_hosted_backend_origin.mjs",
     "observability:validate": "node scripts/validate-observability-assets.mjs",
