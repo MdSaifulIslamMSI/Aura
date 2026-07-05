@@ -112,7 +112,7 @@ process.exit(2);
     const shPath = path.join(dir, 'aws');
     fs.writeFileSync(shPath, '#!/usr/bin/env sh\nnode "$(dirname "$0")/aws-mock.cjs" "$@"\n');
     fs.chmodSync(shPath, 0o755);
-    return { dir, command: path.join(dir, 'aws.cmd') };
+    return { dir, command: process.platform === 'win32' ? path.join(dir, 'aws.cmd') : shPath };
 };
 
 const safeLocalReleaseEnv = (mockBin, overrides = {}) => ({
