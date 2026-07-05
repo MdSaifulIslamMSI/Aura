@@ -82,15 +82,15 @@ addCheck(
 );
 
 addCheck(
-  'automatic production push pipeline exists',
-  productionOnPush.includes('name: Automatic Production Release On Main Push') && productionOnPush.includes('branches: ["main"]'),
+  'production push gate pipeline exists',
+  productionOnPush.includes('name: Production Release Gate On Main Push') && productionOnPush.includes('branches: ["main"]'),
   '.github/workflows/production-on-push.yml'
 );
 
 addCheck(
   'status watch observes current production and quality workflows',
   [
-    'Automatic Production Release On Main Push',
+    'Production Release Gate On Main Push',
     'Quality Foundation',
     'Security Gates',
     'Deploy Backend To AWS',
@@ -152,8 +152,10 @@ addCheck(
 );
 
 addCheck(
-  'main push pipeline deploys all production surfaces',
+  'manual production dispatch pipeline wires all production surfaces',
   [
+    'workflow_dispatch:',
+    'confirm_production:',
     'staging-promotion-gate:',
     'deploy-backend:',
     'deploy-storefront:',
@@ -167,7 +169,18 @@ addCheck(
     '--workflow desktop-release.yml',
     '--workflow mobile-release.yml',
   ].every((needle) => productionOnPush.includes(needle)),
-  'backend, storefront, gateway, desktop, mobile lanes on every main push'
+  'backend, storefront, gateway, desktop, mobile lanes are still available for confirmed manual dispatch'
+);
+
+addCheck(
+  'main push pipeline requires manual confirmation before production dispatches',
+  [
+    "if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'",
+    'Production dispatch confirmation',
+    'confirm_production=PRODUCTION required',
+  ].every((needle) => productionOnPush.includes(needle)) &&
+    (productionOnPush.match(/if: github\.event_name == 'workflow_dispatch' && inputs\.confirm_production == 'PRODUCTION'/g) || []).length >= 5,
+  'main push runs preflight and staging gate only; deploy/release dispatch requires workflow_dispatch confirmation'
 );
 
 addCheck(

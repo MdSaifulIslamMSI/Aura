@@ -649,6 +649,33 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY/);
     });
 
+    test('production-on-push requires manual confirmation before production dispatch', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-on-push.yml'), 'utf8');
+        const manualGate = "if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'";
+        const jobSection = (jobName) => {
+            const match = workflow.match(new RegExp(`\\n  ${jobName}:\\n[\\s\\S]*?(?=\\n  [a-zA-Z0-9_-]+:\\n|$)`));
+            expect(match).toBeTruthy();
+            return match[0];
+        };
+
+        expect(workflow).toMatch(/push:\s*\n\s*branches: \["main"\]/);
+        expect(workflow).toMatch(/workflow_dispatch:\s*\n\s*inputs:\s*\n\s*confirm_production:/);
+        expect(workflow).toContain('--workflow staging-ops-watch.yml');
+        expect(workflow).toContain('Production dispatch confirmation');
+
+        for (const [jobName, dispatchedWorkflow] of [
+            ['deploy-backend', 'deploy-backend-aws.yml'],
+            ['deploy-storefront', 'deploy-netlify.yml'],
+            ['deploy-gateway', 'deploy-gateway-vercel.yml'],
+            ['release-desktop', 'desktop-release.yml'],
+            ['release-mobile', 'mobile-release.yml'],
+        ]) {
+            const section = jobSection(jobName);
+            expect(section).toContain(manualGate);
+            expect(section).toContain(`--workflow ${dispatchedWorkflow}`);
+        }
+    });
+
     test('production admin recovery keeps direct /aura/prod Parameter Store writes available', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-admin-access.yml'), 'utf8');
         const bootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-github-oidc.ps1'), 'utf8');
@@ -852,6 +879,8 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('name: aws:cost-guard');
         expect(workflow).toContain('name: aws:observability:guard');
         expect(workflow).toContain('name: release:rollback-ready');
+        expect(workflow).toContain('ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA }}');
+        expect(workflow).not.toContain('github.event.pull_request.base.sha');
         expect(workflow).toContain('npm run staging:state:refresh');
         expect(workflow).toContain('npm run aws:observability:guard');
         expect(workflow).not.toContain('release:production-mutation-gate');
