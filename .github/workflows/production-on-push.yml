@@ -1,8 +1,15 @@
-name: Automatic Production Release On Main Push
+name: Production Release Gate On Main Push
 
 on:
   push:
     branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: Type PRODUCTION to allow production deploy/release dispatch
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: write
@@ -84,6 +91,7 @@ jobs:
   deploy-backend:
     name: Dispatch backend production deploy
     needs: staging-promotion-gate
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
     runs-on: ubuntu-latest
     timeout-minutes: 75
 
@@ -113,6 +121,7 @@ jobs:
   deploy-storefront:
     name: Dispatch storefront production deploy
     needs: staging-promotion-gate
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -142,6 +151,7 @@ jobs:
   deploy-gateway:
     name: Dispatch gateway production deploy
     needs: staging-promotion-gate
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -174,6 +184,7 @@ jobs:
       - deploy-backend
       - deploy-storefront
       - deploy-gateway
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
     runs-on: ubuntu-latest
     timeout-minutes: 150
 
@@ -206,6 +217,7 @@ jobs:
       - deploy-backend
       - deploy-storefront
       - deploy-gateway
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PRODUCTION'
     runs-on: ubuntu-latest
     timeout-minutes: 150
 
@@ -233,7 +245,7 @@ jobs:
           --inputs "$MOBILE_RELEASE_INPUTS"
 
   production-summary:
-    name: Production push release summary
+    name: Production push gate summary
     if: always()
     needs:
       - production-preflight
@@ -260,7 +272,7 @@ jobs:
           MOBILE_RESULT: ${{ needs.release-mobile.result }}
         run: |
           {
-            echo "## Aura Production On Every Main Push"
+            echo "## Aura Production Main Push Gate"
             echo
             echo "| Lane | Result |"
             echo "|---|---|"
@@ -276,6 +288,7 @@ jobs:
             echo "|---|---|"
             echo "| Commit | ${COMMIT_SHA} |"
             echo "| Run | ${RUN_ID} |"
+            echo "| Production dispatch confirmation | workflow_dispatch with confirm_production=PRODUCTION required. |"
             echo "| Store publishing | Disabled by default; requires signed manual release inputs. |"
             echo "| Desktop signing | Disabled by default for internal GitHub release artifacts. |"
             echo "| Mobile signing | Disabled by default for internal GitHub release artifacts. |"

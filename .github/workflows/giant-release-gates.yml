@@ -28,7 +28,7 @@ env:
   PROD_SSM_PREFIX: /aura/prod
   AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET }}
   ROLLBACK_ARTIFACT_URI: ${{ vars.ROLLBACK_ARTIFACT_URI }}
-  ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA || github.event.pull_request.base.sha || github.sha }}
+  ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA }}
 
 jobs:
   test:
