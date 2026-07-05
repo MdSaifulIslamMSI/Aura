@@ -1,0 +1,93 @@
+name: Traffic Budget Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  traffic-budget-gates:
+    name: Traffic budget, rate-limit, and regression gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: npm --prefix server ci
+
+      - name: Production fallback scan
+        run: npm run scan:prod-fallbacks
+
+      - name: Secret scan
+        run: npm run security:secrets
+
+      - name: Rate-limit smoothness audit
+        run: npm run traffic:audit:smoothness
+
+      - name: Abuse-resistance audit
+        run: npm run traffic:audit:abuse
+
+      - name: Traffic regression audit
+        run: npm run traffic:audit:regressions
+
+      - name: Existing traffic fortress tests
+        run: npm run traffic:fortress:test
+
+      - name: Registry and response smoothness tests
+        run: npm --prefix server test -- --runTestsByPath tests/trafficPolicyRegistry.test.js tests/trafficResponseSmoothness.test.js --forceExit
+
+      - name: Upload traffic artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-budget-artifacts
+          path: artifacts/traffic
+          if-no-files-found: ignore
+
+  staging-traffic-simulation:
+    name: Optional staging traffic simulation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ vars.ENABLE_STAGING_TRAFFIC_SIMULATION == 'true' }}
+    env:
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      STAGING_FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
+      SMOKE_TARGET_ENV: staging
+      ALLOW_PRODUCTION_TRAFFIC_SIMULATION: 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Run safe staging traffic simulation
+        run: npm run traffic:simulate:staging
+
+      - name: Upload traffic simulation artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-traffic-simulation
+          path: artifacts/traffic
+          if-no-files-found: ignore

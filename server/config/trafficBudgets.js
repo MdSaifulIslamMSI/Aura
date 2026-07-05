@@ -322,33 +322,7 @@ const normalizeMethod = (method = 'GET') => String(method || 'GET').trim().toUpp
 const isStateChangingMethod = (method = 'GET') => STATE_CHANGING_METHODS.has(normalizeMethod(method));
 const hasStaticExtension = (routePath = '') => /\.(?:js|mjs|css|map|png|jpg|jpeg|gif|svg|webp|ico|json|txt|woff2?|ttf|otf)$/i.test(routePath);
 
-const classifyRoute = ({ method = 'GET', path = '/', originalUrl = '' } = {}) => {
-    const routePath = normalizeRoutePath(path || originalUrl);
-    const normalizedMethod = normalizeMethod(method);
-    const mutating = isStateChangingMethod(normalizedMethod);
-
-    if (routePath === '/health' || routePath.startsWith('/health/') || routePath.startsWith('/api/health')) return ROUTE_CLASSES.HEALTH;
-    if (routePath === '/metrics') return ROUTE_CLASSES.HEALTH;
-    if (routePath === '/api/status' || routePath.startsWith('/api/status/') || routePath.startsWith('/status')) return ROUTE_CLASSES.STATUS_PUBLIC;
-    if (routePath.startsWith('/uploads') || routePath.startsWith('/api/uploads')) return ROUTE_CLASSES.UPLOAD;
-    if (!routePath.startsWith('/api/') && (hasStaticExtension(routePath) || routePath.startsWith('/assets/'))) return ROUTE_CLASSES.STATIC_PUBLIC;
-    if (routePath.startsWith('/api/payments/webhooks') || routePath.startsWith('/api/email-webhooks')) return ROUTE_CLASSES.WEBHOOK;
-    if (routePath.startsWith('/api/admin/')) return mutating ? ROUTE_CLASSES.ADMIN_WRITE : ROUTE_CLASSES.ADMIN_READ;
-    if (routePath === '/api/otp/reset-password' || routePath === '/api/auth/otp/reset-password') return ROUTE_CLASSES.OTP_RESET;
-    if (routePath.startsWith('/api/otp') || routePath.startsWith('/api/auth/otp')) return ROUTE_CLASSES.OTP;
-    if (routePath === '/api/auth/verify-device') return ROUTE_CLASSES.AUTH_WEBAUTHN;
-    if (routePath.startsWith('/api/auth')) return ROUTE_CLASSES.AUTH_LOGIN;
-    if (routePath.startsWith('/api/ai') || routePath.startsWith('/api/intelligence') || routePath.includes('/visual-search')) return ROUTE_CLASSES.AI_EXPENSIVE;
-    if (routePath.startsWith('/api/payments') || routePath.startsWith('/api/checkout')) return ROUTE_CLASSES.PAYMENT;
-    if (routePath.startsWith('/api/products') || routePath.startsWith('/api/listings') || routePath.startsWith('/api/recommendations')) {
-        return mutating ? ROUTE_CLASSES.AUTHENTICATED_WRITE : ROUTE_CLASSES.PUBLIC_SEARCH;
-    }
-    if (routePath.startsWith('/api/orders') || routePath.startsWith('/api/cart') || routePath.startsWith('/api/support')) {
-        return mutating ? ROUTE_CLASSES.AUTHENTICATED_WRITE : ROUTE_CLASSES.AUTHENTICATED_READ;
-    }
-    if (routePath.startsWith('/api/')) return mutating ? ROUTE_CLASSES.AUTHENTICATED_WRITE : ROUTE_CLASSES.PUBLIC_READ;
-    return ROUTE_CLASSES.STATIC_PUBLIC;
-};
+const classifyRoute = (route = {}) => require('./trafficPolicyRegistry').classifyRouteFromRegistry(route);
 
 const getTrafficBudget = (routeClass = ROUTE_CLASSES.PUBLIC_READ) => TRAFFIC_BUDGETS[routeClass] || TRAFFIC_BUDGETS[ROUTE_CLASSES.PUBLIC_READ];
 

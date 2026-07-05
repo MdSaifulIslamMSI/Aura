@@ -103,15 +103,28 @@ const createDistributedRateLimit = ({
     scheduleMemoryCleanup();
     const limiterName = parseKey(name);
     const limiterMessage = message || 'Too many requests. Please try again later.';
-    const responsePayload = typeof limiterMessage === 'string'
-        ? { message: limiterMessage }
-        : limiterMessage;
+    const buildResponsePayload = (req, context = {}) => {
+        const payload = typeof limiterMessage === 'function'
+            ? limiterMessage(req, context)
+            : limiterMessage;
+        const responsePayload = typeof payload === 'string'
+            ? { message: payload }
+            : { ...(payload || {}) };
+        if (req.requestId && responsePayload.requestId === undefined) {
+            responsePayload.requestId = req.requestId;
+        }
+        if (context.retryAfterSeconds && responsePayload.retryAfter === undefined) {
+            responsePayload.retryAfter = context.retryAfterSeconds;
+        }
+        return responsePayload;
+    };
     const createKey = typeof keyGenerator === 'function'
         ? keyGenerator
         : (req) => req.ip || req.socket?.remoteAddress || 'unknown';
-    const redisUnavailablePayload = {
+    const buildRedisUnavailablePayload = (req) => ({
         message: 'Rate limiter dependency unavailable. Please try again shortly.',
-    };
+        ...(req.requestId ? { requestId: req.requestId } : {}),
+    });
 
     const failClosedIfRequired = (res, reason) => {
         if (!securityCritical || process.env.NODE_ENV !== 'production') return false;
@@ -120,7 +133,7 @@ const createDistributedRateLimit = ({
             reason,
         });
         if (!res.headersSent) {
-            return res.status(503).json(redisUnavailablePayload);
+            return res.status(503).json(buildRedisUnavailablePayload(res.req || {}));
         }
         return true;
     };
@@ -159,13 +172,16 @@ const createDistributedRateLimit = ({
             }
 
             if (!state) {
-                return failClosedIfRequired(res, skipRedis ? 'redis_circuit_open' : 'redis_unavailable') || res.status(503).json(redisUnavailablePayload);
+                return failClosedIfRequired(res, skipRedis ? 'redis_circuit_open' : 'redis_unavailable')
+                    || res.status(503).json(buildRedisUnavailablePayload(req));
             }
 
             setHeaders(res, max, state.count, state.ttlMs);
 
             if (state.count > max) {
-                return res.status(429).json(responsePayload);
+                const retryAfterSeconds = Math.max(Math.ceil(state.ttlMs / 1000), 1);
+                res.setHeader('Retry-After', String(retryAfterSeconds));
+                return res.status(429).json(buildResponsePayload(req, { retryAfterSeconds }));
             }
             return next();
         } catch (error) {
@@ -175,7 +191,8 @@ const createDistributedRateLimit = ({
             });
 
             if (!allowInMemoryFallback) {
-                return failClosedIfRequired(res, 'unexpected_error') || res.status(503).json(redisUnavailablePayload);
+                return failClosedIfRequired(res, 'unexpected_error')
+                    || res.status(503).json(buildRedisUnavailablePayload(req));
             }
 
             const state = computeMemoryWindow(storeKey, windowMs);
@@ -183,7 +200,9 @@ const createDistributedRateLimit = ({
                 setHeaders(res, max, state.count, state.ttlMs);
             }
             if (state.count > max && !res.headersSent) {
-                return res.status(429).json(responsePayload);
+                const retryAfterSeconds = Math.max(Math.ceil(state.ttlMs / 1000), 1);
+                res.setHeader('Retry-After', String(retryAfterSeconds));
+                return res.status(429).json(buildResponsePayload(req, { retryAfterSeconds }));
             }
             return next();
         }
