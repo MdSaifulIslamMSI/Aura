@@ -10,6 +10,12 @@ need_env AWS_ACCOUNT_ID
 need_env STAGING_BUCKET_NAME
 
 admin_profile="${STAGING_IAM_ADMIN_PROFILE:-${AWS_PROFILE:-default}}"
+github_repo="${GH_REPO:-}"
+if [ -z "$github_repo" ] && command -v gh >/dev/null 2>&1; then
+  github_repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+fi
+[ -n "$github_repo" ] || die "GH_REPO must be set or resolvable with gh repo view so GitHub OIDC trust is preserved"
+github_oidc_provider_arn="${STAGING_GITHUB_OIDC_PROVIDER_ARN:-arn:aws:iam::$AWS_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com}"
 operator_role_name="${STAGING_BOOTSTRAP_ROLE_NAME:-$PROJECT_NAME-$STAGING_NAME-bootstrap-operator}"
 operator_policy_name="${operator_role_name}-policy"
 operator_profile_name="${STAGING_OPERATOR_PROFILE_NAME:-$PROJECT_NAME-$STAGING_NAME-bootstrap}"
@@ -51,6 +57,24 @@ cat > "$operator_trust" <<JSON
         "AWS": "$source_principal"
       },
       "Action": "sts:AssumeRole"
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "$github_oidc_provider_arn"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": [
+            "repo:$github_repo:ref:refs/heads/main",
+            "repo:$github_repo:environment:staging"
+          ]
+        }
+      }
     }
   ]
 }
@@ -78,14 +102,29 @@ cat > "$operator_policy" <<JSON
         "ssm:GetParameter",
         "ssm:GetParameters",
         "ssm:GetParametersByPath",
-        "budgets:ViewBudget"
+        "budgets:ViewBudget",
+        "cloudfront:ListDistributions",
+        "cloudtrail:DescribeTrails",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:ListDashboards",
+        "config:DescribeConfigurationRecorders",
+        "elasticache:DescribeCacheClusters",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "es:ListDomainNames",
+        "logs:DescribeLogGroups",
+        "rds:DescribeDBInstances",
+        "s3:GetBucketVersioning",
+        "ssm:DescribeParameters"
       ],
       "Resource": "*"
     },
     {
       "Sid": "ReadStagingCostExplorerUsage",
       "Effect": "Allow",
-      "Action": "ce:GetCostAndUsage",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetCostForecast"
+      ],
       "Resource": "*"
     },
     {

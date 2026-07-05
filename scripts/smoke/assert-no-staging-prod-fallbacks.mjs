@@ -38,7 +38,11 @@ const TEXT_EXTENSIONS = new Set(['', '.cjs', '.conf', '.js', '.json', '.md', '.m
 const ALLOWED_EXAMPLE_FILES = [
   /^docs\/environment-contract\.md$/,
   /^docs\/staging-/,
+  /^docs\/aws-free-giant-release-inventory\.md$/,
+  /^docs\/release\/main-review-checklist\.md$/,
+  /^config\/aws-free-guard\.json$/,
   /^config\/environments\/staging\.example\./,
+  /^scripts\/smoke\/assert-environment-contract\.mjs$/,
   /^scripts\/smoke\/assert-no-staging-prod-fallbacks\.mjs$/,
   /^scripts\/smoke\/assert-frontend-staging-target\.mjs$/,
   /^scripts\/smoke\/assert-staging-contract\.mjs$/,

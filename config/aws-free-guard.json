@@ -1,0 +1,18 @@
+{
+  "region": "ap-south-1",
+  "maxMonthlyUsd": 5,
+  "allowNatGateway": false,
+  "allowLoadBalancer": false,
+  "allowPaidRds": false,
+  "allowPaidElasticache": false,
+  "allowOpenSearch": false,
+  "maxElasticIps": 1,
+  "maxPublicIpv4": 2,
+  "maxRunningEc2": 2,
+  "allowedInstanceTypes": ["t2.micro", "t3.micro", "t4g.small"],
+  "requiredSsmPrefixes": ["/aura/staging", "/aura/prod"],
+  "requiredBuckets": ["aura-staging-uploads-942679464475-ap-south-1-v2"],
+  "maxCloudWatchAlarms": 5,
+  "maxCloudWatchDashboards": 2,
+  "noisyLogStoredBytesWarn": 262144000
+}
