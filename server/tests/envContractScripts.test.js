@@ -82,6 +82,60 @@ const blankAuthSmokeEnv = {
     AUTH_POST_LOGOUT_REDIRECT_URI: '',
 };
 
+const pathEnvName = process.platform === 'win32' ? 'Path' : 'PATH';
+
+const writeMockAwsCli = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-aws-mock-'));
+    const mockScript = path.join(dir, 'aws-mock.cjs');
+    fs.writeFileSync(mockScript, `
+const args = process.argv.slice(2);
+if (args.includes('--version')) {
+  console.log('aws-cli/2.99.0 Python/3.12');
+  process.exit(0);
+}
+if (args.join(' ') === 'sts get-caller-identity --output json') {
+  if (process.env.AWS_MOCK_MODE === 'missing-creds') {
+    console.error('Unable to locate credentials.');
+    process.exit(254);
+  }
+  console.log(JSON.stringify({
+    UserId: 'AROAEXAMPLE:sso-session',
+    Account: '123456789012',
+    Arn: 'arn:aws:sts::123456789012:assumed-role/aura-staging-operator/session'
+  }));
+  process.exit(0);
+}
+console.error('unexpected aws mock args: ' + args.join(' '));
+process.exit(2);
+`);
+    fs.writeFileSync(path.join(dir, 'aws.cmd'), '@echo off\r\nnode "%~dp0aws-mock.cjs" %*\r\n');
+    const shPath = path.join(dir, 'aws');
+    fs.writeFileSync(shPath, '#!/usr/bin/env sh\nnode "$(dirname "$0")/aws-mock.cjs" "$@"\n');
+    fs.chmodSync(shPath, 0o755);
+    return { dir, command: path.join(dir, 'aws.cmd') };
+};
+
+const safeLocalReleaseEnv = (mockBin, overrides = {}) => ({
+    [pathEnvName]: `${mockBin.dir}${path.delimiter}${process.env[pathEnvName] || process.env.PATH || ''}`,
+    AWS_CLI_PATH: mockBin.command,
+    AWS_MOCK_MODE: 'success',
+    AWS_PROFILE: 'aura-staging-operator',
+    AWS_REGION: 'ap-south-1',
+    SMOKE_TARGET_ENV: 'staging',
+    SMOKE_BASE_URL: 'https://staging.example.test',
+    STAGING_BASE_URL: 'https://staging.example.test',
+    STAGING_FRONTEND_URL: 'https://staging.example.test',
+    STAGING_API_BASE_URL: 'https://api.staging.example.test',
+    STAGING_HEALTH_URL: 'https://api.staging.example.test/health',
+    STAGING_SSM_PREFIX: '/aura/staging',
+    SMOKE_REQUIRE_BACKEND_STAGING: 'true',
+    SMOKE_FORBID_PRODUCTION_ORIGINS: 'true',
+    PROD_BASE_URL: 'https://prod.example.test',
+    PROD_API_BASE_URL: 'https://api.prod.example.test',
+    PROD_SSM_PREFIX: '/aura/prod',
+    ...overrides,
+});
+
 describe('repo environment contract scripts', () => {
     test('staging env validation fails when SMOKE_BASE_URL is missing', () => {
         const result = validate({
@@ -230,6 +284,66 @@ describe('repo environment contract scripts', () => {
 
         expect(result.status).toBe(0);
         expect(result.output).toMatch(/PASS: staging smoke contract is safe/);
+    });
+
+    test('local release credential checker fails when AWS credentials are absent', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin, {
+            AWS_MOCK_MODE: 'missing-creds',
+        }));
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/AWS STS identity check failed/);
+        expect(result.output).not.toMatch(/123456789012/);
+    });
+
+    test('local release credential checker fails when staging env vars are missing', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin, {
+            STAGING_API_BASE_URL: '',
+            STAGING_HEALTH_URL: '',
+        }));
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/Missing required items/);
+        expect(result.output).toMatch(/STAGING_API_BASE_URL is required/);
+        expect(result.output).toMatch(/STAGING_HEALTH_URL is required/);
+    });
+
+    test('local release credential checker fails when a staging URL points to production', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin, {
+            STAGING_API_BASE_URL: 'https://prod.example.test',
+        }));
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/STAGING_API_BASE_URL must not point to a production or production-like URL/);
+        expect(result.output).not.toContain('https://prod.example.test');
+    });
+
+    test('local release credential checker passes with mocked safe AWS identity and staging env', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin));
+
+        expect(result.status).toBe(0);
+        expect(result.output).toMatch(/local-release-credentials: passed/);
+        expect(result.output).toMatch(/AWS STS identity: reachable/);
+        expect(result.output).not.toMatch(/123456789012/);
+    });
+
+    test('local release credential checker never prints secret-like env values', () => {
+        const mockBin = writeMockAwsCli();
+        const secretCanary = 'test-placeholder-do-not-print-release-secret';
+        const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin, {
+            STAGING_HEALTH_URL: '',
+            AWS_SECRET_ACCESS_KEY: secretCanary,
+            AUTH_CLIENT_SECRET: secretCanary,
+        }));
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).not.toContain(secretCanary);
+        expect(result.output).not.toMatch(/AWS_SECRET_ACCESS_KEY/);
+        expect(result.output).not.toMatch(/AUTH_CLIENT_SECRET/);
     });
 
     test('staging Keycloak auth smoke skips with an explicit reason when env is absent', () => {
