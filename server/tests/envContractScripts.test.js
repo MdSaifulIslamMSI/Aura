@@ -799,6 +799,38 @@ describe('repo environment contract scripts', () => {
         }
     });
 
+    test('manual production command center stays within GitHub workflow_dispatch input limit', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+        const inputsBlock = workflow.match(/workflow_dispatch:\s*\r?\n\s*inputs:\s*\r?\n([\s\S]*?)\r?\npermissions:/);
+        expect(inputsBlock).toBeTruthy();
+
+        const inputNames = [...inputsBlock[1].matchAll(/^ {6}([A-Za-z0-9_-]+):\s*$/gm)].map((match) => match[1]);
+
+        expect(inputNames.length).toBeLessThanOrEqual(10);
+        expect(inputNames).toEqual(expect.arrayContaining([
+            'confirm_production',
+            'deploy_targets',
+            'release_targets',
+            'rollback_targets',
+        ]));
+        expect(inputNames).not.toContain('deploy_backend');
+        expect(inputNames).not.toContain('rollback_backend');
+        expect(inputNames).not.toContain('release_desktop');
+    });
+
+    test('manual production command center does not under-grant CI reusable workflow permissions', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+        const ciWorkflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8');
+        const qualityGates = workflow.match(/\n  quality-gates:\n[\s\S]*?(?=\n  [a-zA-Z0-9_-]+:\n|$)/);
+        expect(qualityGates).toBeTruthy();
+
+        expect(ciWorkflow).toContain('workflow_call:');
+        expect(ciWorkflow).toContain('pull-requests: read');
+        expect(qualityGates[0]).toContain('uses: ./.github/workflows/ci.yml');
+        expect(qualityGates[0]).toContain('contents: read');
+        expect(qualityGates[0]).toContain('pull-requests: read');
+    });
+
     test('production admin recovery keeps direct /aura/prod Parameter Store writes available', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-admin-access.yml'), 'utf8');
         const bootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-github-oidc.ps1'), 'utf8');
