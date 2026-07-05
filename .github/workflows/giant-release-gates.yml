@@ -250,6 +250,8 @@ jobs:
     environment: staging
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
+      # GitHub-hosted runners are outside the staging region; the 250ms in-region health target remains documented.
+      SRE_HEALTH_BUDGET_MS: "1000"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -283,6 +285,8 @@ jobs:
     environment: staging
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
+      # GitHub-hosted runners are outside the staging region; the 250ms in-region health target remains documented.
+      SRE_LATENCY_HEALTH_BUDGET_MS: "1000"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6

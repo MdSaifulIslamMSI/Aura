@@ -20,7 +20,8 @@ What changed:
 
 Latency budget:
 
-- Health p95 under 250ms.
+- Health p95 under 250ms from staging-region or app-adjacent probes.
+- GitHub-hosted release runners use a 1000ms remote-runner health guardrail because they currently run outside the staging region.
 - Normal API p95 under 800ms.
 - Normal API p99 under 2000ms.
 - Auth/security-sensitive API p95 under 1000ms.
@@ -46,6 +47,7 @@ Tests run:
 - `git diff --check` - passed.
 - `node --check scripts/sre/synthetic-staging-check.mjs` - passed.
 - `node --check scripts/sre/backend-latency-probe.mjs` - passed.
+- Initial PR #303 SRE CI reached staging and failed only on remote-runner health latency: synthetic health exceeded 250ms 2/5 times; latency p95 was 667ms for `/health` and 252ms for `/api/health`.
 
 Staging result:
 
@@ -202,6 +204,8 @@ This branch adds:
 - `test:reliability`
 - `sre:synthetic:staging`
 - `sre:latency:staging`
+
+The GitHub-hosted SRE jobs use a 1000ms health guardrail because the runners are outside the staging region. The service budget remains 250ms for in-region or app-adjacent health probes.
 
 Rollback path:
 

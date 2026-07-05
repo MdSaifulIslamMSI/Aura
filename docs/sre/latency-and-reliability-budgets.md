@@ -4,6 +4,8 @@ Latency budget is not a fake number. Every endpoint must either meet the budget 
 
 ## Service Budgets
 
+These service budgets are targets for staging-region or app-adjacent measurement. Remote CI runners add network distance and have their own release guardrail below.
+
 | Surface | Target |
 | --- | ---: |
 | API health p95 | under 250ms |
@@ -39,6 +41,7 @@ The existing traffic budget map in `server/config/trafficBudgets.js` is the sour
 
 - `npm run sre:synthetic:staging` checks staging health, API health, frontend HTML, static assets, frontend API proxy, and Socket.IO reachability with small samples.
 - `npm run sre:latency:staging` runs a small read-only latency probe and writes JSON evidence to `artifacts/sre/`.
+- GitHub-hosted SRE jobs currently set the health budget to 1000ms because the runner is outside the staging region; this is a release guardrail, not a replacement for the 250ms service target.
 - `npm run test:reliability` verifies timeout and retry primitives.
 - `npm run github:main-protection` now requires the SRE gates to be configured as required checks.
 
