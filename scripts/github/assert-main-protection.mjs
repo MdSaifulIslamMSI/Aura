@@ -34,6 +34,9 @@ const requiredChecks = [
   'smoke:env-contract',
   'aws:cost-guard',
   'aws:observability:guard',
+  'sre:synthetic:staging',
+  'sre:latency:staging',
+  'test:reliability',
   'release:rollback-ready',
 ];
 
