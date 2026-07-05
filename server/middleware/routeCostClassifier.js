@@ -1,13 +1,15 @@
-const { classifyRoute, getTrafficBudget, normalizeRoutePath } = require('../config/trafficBudgets');
+const { getTrafficBudget, normalizeRoutePath } = require('../config/trafficBudgets');
+const { getTrafficPolicyForRoute } = require('../config/trafficPolicyRegistry');
 
 const routeCostClassifier = (req, _res, next) => {
-    const routeClass = classifyRoute({
+    const trafficPolicy = getTrafficPolicyForRoute({
         method: req.method,
         path: req.path,
         originalUrl: req.originalUrl,
     });
-    req.trafficRouteClass = routeClass;
-    req.trafficBudget = getTrafficBudget(routeClass);
+    req.trafficPolicy = trafficPolicy;
+    req.trafficRouteClass = trafficPolicy.routeClass;
+    req.trafficBudget = getTrafficBudget(trafficPolicy.routeClass);
     req.trafficNormalizedPath = normalizeRoutePath(req.path || req.originalUrl || '/');
     return next();
 };

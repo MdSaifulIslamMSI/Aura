@@ -34,10 +34,12 @@ const getResetPasswordFlowBudgetIdentity = (req = {}) => {
     return `reset-flow:${hashBudgetKeyPart(flowToken)}`;
 };
 
-const limiterMessage = (budget) => ({
+const limiterMessage = (budget) => (req, context = {}) => ({
     success: false,
     code: budget.userMessageCode || 'TRAFFIC_BUDGET_DENIED',
     message: 'Too many requests for this route. Please slow down and try again.',
+    requestId: req.requestId || '',
+    ...(context.retryAfterSeconds ? { retryAfter: context.retryAfterSeconds } : {}),
 });
 
 const getLimiter = (budget, dimension) => {
