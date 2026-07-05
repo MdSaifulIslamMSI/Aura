@@ -230,3 +230,82 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run release:rollback-ready
+
+  test-reliability:
+    name: test:reliability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm --prefix server ci
+      - run: npm run test:reliability
+
+  sre-synthetic-staging:
+    name: sre:synthetic:staging
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Assert staging AWS role is configured
+        run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
+      - name: Configure staging read role
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-giant-release-sre-synthetic
+          mask-aws-account-id: true
+          unset-current-credentials: true
+      - run: npm run staging:state:refresh
+      - run: npm run sre:synthetic:staging
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: sre-synthetic-evidence
+          path: artifacts/sre/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  sre-latency-staging:
+    name: sre:latency:staging
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Assert staging AWS role is configured
+        run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
+      - name: Configure staging read role
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-giant-release-sre-latency
+          mask-aws-account-id: true
+          unset-current-credentials: true
+      - run: npm run staging:state:refresh
+      - run: npm run sre:latency:staging
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: sre-latency-evidence
+          path: artifacts/sre/
+          if-no-files-found: ignore
+          retention-days: 14
