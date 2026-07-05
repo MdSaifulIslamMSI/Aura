@@ -19,6 +19,8 @@ AWS_PROFILE=aura-staging-operator
 
 The profile must point at a staging account or staging role with only the permissions required by the release gates. It must not point at a production administrator role.
 
+The profile must be unique for release-gate operation. Prefer AWS SSO/IAM Identity Center. If IAM Identity Center is not available in the AWS account, the profile may instead be an explicit staging `role_arn` + `source_profile` profile that resolves to temporary STS credentials for the staging release-gate role. Do not store `aws_access_key_id`, `aws_secret_access_key`, or `aws_session_token` directly on `aura-staging-operator`, and do not point this profile at production.
+
 ## One-Time AWS SSO Setup
 
 1. In AWS IAM Identity Center, create or reuse a permission set for Aura staging release gates.
@@ -29,10 +31,34 @@ The profile must point at a staging account or staging role with only the permis
    - read staging EC2/S3/SSM metadata needed by staging state refresh
    - optional read access to rollback artifact metadata when running rollback readiness
 4. Do not grant production mutation permissions to this local profile.
-5. Configure the local AWS CLI profile:
+5. Configure the local AWS CLI profile interactively when IAM Identity Center is available:
 
 ```sh
 aws configure sso --profile aura-staging-operator
+```
+
+   Or configure the same profile reproducibly from non-secret IAM Identity Center metadata:
+
+```powershell
+$env:AURA_AWS_SSO_START_URL = "https://example.awsapps.com/start"
+$env:AURA_AWS_SSO_REGION = "us-east-1"
+$env:AURA_AWS_SSO_ACCOUNT_ID = "123456789012"
+$env:AURA_AWS_SSO_ROLE_NAME = "AuraStagingReleaseGateOperator"
+$env:AWS_REGION = "ap-south-1"
+npm run credentials:setup:local-release-sso
+```
+
+   `AURA_AWS_SSO_START_URL` is a non-secret URL. The SSO account ID, SSO region, role name, and AWS region are non-secret configuration identifiers, but they still must not be replaced with production administrator values.
+
+   If IAM Identity Center is not available, create the unique local profile as a staging role-assumption profile. This stores no new access keys and produces temporary STS credentials when AWS CLI commands use `AWS_PROFILE=aura-staging-operator`:
+
+```powershell
+$stagingRoleArn = aws configure get role_arn --profile aura-staging-bootstrap
+$stagingSourceProfile = aws configure get source_profile --profile aura-staging-bootstrap
+aws configure set role_arn $stagingRoleArn --profile aura-staging-operator
+aws configure set source_profile $stagingSourceProfile --profile aura-staging-operator
+aws configure set region ap-south-1 --profile aura-staging-operator
+aws configure set output json --profile aura-staging-operator
 ```
 
 6. Sign in before running release gates:
