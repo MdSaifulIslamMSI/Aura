@@ -90,7 +90,7 @@ Set these variables before local staging smoke or release-gate checks. URL value
 | `PROD_API_BASE_URL` | production backend URL | No | Non-secret comparison value only. Do not use as a staging target. |
 | `PROD_SSM_PREFIX` | `/aura/prod` | No | Comparison value only. |
 
-For rollback readiness, also set the non-secret rollback artifact references expected by `npm run release:rollback-ready`, such as `AWS_DEPLOY_BUCKET`, `ROLLBACK_ARTIFACT_URI`, and `ROLLBACK_TARGET_SHA`, when that check needs live artifact proof. These values must refer to the expected staging or release artifact scope for the check being run.
+For rollback readiness, also set the non-secret rollback artifact references expected by `npm run release:rollback-ready`, such as `AWS_DEPLOY_BUCKET`, `ROLLBACK_ARTIFACT_URI`, and `ROLLBACK_TARGET_SHA`, when that check needs live artifact proof. `ROLLBACK_TARGET_SHA` must point to a last-known artifact-backed release commit, not merely the latest PR or main commit. These values must refer to the expected staging or release artifact scope for the check being run.
 
 ## Example
 

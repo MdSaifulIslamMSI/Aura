@@ -3,7 +3,7 @@ name: Status Watch
 on:
   workflow_run:
     workflows:
-      - Automatic Production Release On Main Push
+      - Production Release Gate On Main Push
       - CI
       - Quality Foundation
       - Security Gate

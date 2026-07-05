@@ -54,7 +54,7 @@ Store these on the GitHub `staging` environment unless a workflow explicitly doc
 | `PROD_SSM_PREFIX` | environment variable | No | Must be `/aura/prod`; comparison value only. |
 | `AWS_DEPLOY_BUCKET` | environment variable | No by itself | Release or rollback artifact bucket expected by rollback-readiness checks. |
 | `ROLLBACK_ARTIFACT_URI` | environment variable | No by itself | Explicit rollback artifact URI when live rollback proof is required. |
-| `ROLLBACK_TARGET_SHA` | environment variable | No | Commit SHA used for rollback proof. |
+| `ROLLBACK_TARGET_SHA` | environment variable | No | Explicit last-known artifact-backed commit SHA used for rollback proof. Do not default it to the latest PR or main SHA unless that SHA has release artifacts. |
 | `STAGING_SSH_PRIVATE_KEY` | secret | Yes | Only for the manual staging deploy workflow. Not needed by read-only PR gates. |
 
 Do not create GitHub secrets named `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, or `AWS_SESSION_TOKEN` for these gates.
