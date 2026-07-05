@@ -9,65 +9,23 @@ on:
         default: ""
         type: string
 
-      deploy_backend:
-        description: Deploy backend to AWS
+      deploy_targets:
+        description: "Comma-separated deploy targets: backend, frontend-netlify, frontend-aws, gateway"
         required: false
-        default: false
-        type: boolean
+        default: ""
+        type: string
 
-      deploy_frontend_netlify:
-        description: Deploy storefront to Netlify, Vercel, and AWS S3
+      release_targets:
+        description: "Comma-separated release targets: desktop, mobile"
         required: false
-        default: false
-        type: boolean
+        default: ""
+        type: string
 
-      deploy_frontend_aws:
-        description: Deploy storefront to AWS S3 / CloudFront
+      rollback_targets:
+        description: "Comma-separated rollback targets: backend, frontend-netlify, frontend-aws, gateway"
         required: false
-        default: false
-        type: boolean
-
-      deploy_gateway:
-        description: Deploy gateway to Vercel
-        required: false
-        default: false
-        type: boolean
-
-      release_desktop:
-        description: Build and publish desktop GitHub Release
-        required: false
-        default: false
-        type: boolean
-
-      release_mobile:
-        description: Build and publish mobile GitHub Release
-        required: false
-        default: false
-        type: boolean
-
-      rollback_backend:
-        description: Roll back backend deployment
-        required: false
-        default: false
-        type: boolean
-
-      rollback_frontend_netlify:
-        description: Roll back Netlify storefront deployment
-        required: false
-        default: false
-        type: boolean
-
-      rollback_frontend_aws:
-        description: Roll back AWS S3 / CloudFront storefront deployment
-        required: false
-        default: false
-        type: boolean
-
-      rollback_gateway:
-        description: Roll back Vercel gateway deployment
-        required: false
-        default: false
-        type: boolean
+        default: ""
+        type: string
 
       auto_rollback_on_smoke_failure:
         description: Automatically run rollback hooks if smoke tests fail
@@ -147,6 +105,12 @@ jobs:
       should_rollback_frontend_netlify: ${{ steps.plan.outputs.should_rollback_frontend_netlify }}
       should_rollback_frontend_aws: ${{ steps.plan.outputs.should_rollback_frontend_aws }}
       should_rollback_gateway: ${{ steps.plan.outputs.should_rollback_gateway }}
+      deploy_backend_requested: ${{ steps.plan.outputs.deploy_backend_requested }}
+      deploy_frontend_netlify_requested: ${{ steps.plan.outputs.deploy_frontend_netlify_requested }}
+      deploy_frontend_aws_requested: ${{ steps.plan.outputs.deploy_frontend_aws_requested }}
+      deploy_gateway_requested: ${{ steps.plan.outputs.deploy_gateway_requested }}
+      release_desktop_requested: ${{ steps.plan.outputs.release_desktop_requested }}
+      release_mobile_requested: ${{ steps.plan.outputs.release_mobile_requested }}
       should_run_smoke_tests: ${{ steps.plan.outputs.should_run_smoke_tests }}
       signing_enabled: ${{ steps.plan.outputs.signing_enabled }}
       store_publish_enabled: ${{ steps.plan.outputs.store_publish_enabled }}
@@ -165,16 +129,9 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
           CONFIRM_PRODUCTION: ${{ github.event.inputs.confirm_production || '' }}
-          INPUT_DEPLOY_BACKEND: ${{ github.event.inputs.deploy_backend == 'true' }}
-          INPUT_DEPLOY_FRONTEND_NETLIFY: ${{ github.event.inputs.deploy_frontend_netlify == 'true' }}
-          INPUT_DEPLOY_FRONTEND_AWS: ${{ github.event.inputs.deploy_frontend_aws == 'true' }}
-          INPUT_DEPLOY_GATEWAY: ${{ github.event.inputs.deploy_gateway == 'true' }}
-          INPUT_RELEASE_DESKTOP: ${{ github.event.inputs.release_desktop == 'true' }}
-          INPUT_RELEASE_MOBILE: ${{ github.event.inputs.release_mobile == 'true' }}
-          INPUT_ROLLBACK_BACKEND: ${{ github.event.inputs.rollback_backend == 'true' }}
-          INPUT_ROLLBACK_FRONTEND_NETLIFY: ${{ github.event.inputs.rollback_frontend_netlify == 'true' }}
-          INPUT_ROLLBACK_FRONTEND_AWS: ${{ github.event.inputs.rollback_frontend_aws == 'true' }}
-          INPUT_ROLLBACK_GATEWAY: ${{ github.event.inputs.rollback_gateway == 'true' }}
+          INPUT_DEPLOY_TARGETS: ${{ github.event.inputs.deploy_targets || '' }}
+          INPUT_RELEASE_TARGETS: ${{ github.event.inputs.release_targets || '' }}
+          INPUT_ROLLBACK_TARGETS: ${{ github.event.inputs.rollback_targets || '' }}
           INPUT_AUTO_ROLLBACK_ON_SMOKE_FAILURE: ${{ github.event.inputs.auto_rollback_on_smoke_failure == 'true' }}
           AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
           AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
@@ -232,6 +189,29 @@ jobs:
             else
               echo "false"
             fi
+          }
+
+          target_selected() {
+            local targets="$1"
+            shift
+            local normalized
+            normalized="$(printf '%s' "${targets}" | tr '[:upper:]' '[:lower:]' | tr ';[:space:]' ',,')"
+
+            local IFS=','
+            local selected
+            local expected
+            read -ra selected_targets <<< "${normalized}"
+            for selected in "${selected_targets[@]}"; do
+              [ -z "${selected}" ] && continue
+              for expected in "$@"; do
+                if [ "${selected}" = "${expected}" ]; then
+                  echo "true"
+                  return
+                fi
+              done
+            done
+
+            echo "false"
           }
 
           matches_any() {
@@ -400,6 +380,17 @@ jobs:
             manual_confirmed="true"
           fi
 
+          INPUT_DEPLOY_BACKEND="$(target_selected "${INPUT_DEPLOY_TARGETS}" backend)"
+          INPUT_DEPLOY_FRONTEND_NETLIFY="$(target_selected "${INPUT_DEPLOY_TARGETS}" frontend-netlify netlify storefront)"
+          INPUT_DEPLOY_FRONTEND_AWS="$(target_selected "${INPUT_DEPLOY_TARGETS}" frontend-aws aws-frontend)"
+          INPUT_DEPLOY_GATEWAY="$(target_selected "${INPUT_DEPLOY_TARGETS}" gateway)"
+          INPUT_RELEASE_DESKTOP="$(target_selected "${INPUT_RELEASE_TARGETS}" desktop)"
+          INPUT_RELEASE_MOBILE="$(target_selected "${INPUT_RELEASE_TARGETS}" mobile)"
+          INPUT_ROLLBACK_BACKEND="$(target_selected "${INPUT_ROLLBACK_TARGETS}" backend)"
+          INPUT_ROLLBACK_FRONTEND_NETLIFY="$(target_selected "${INPUT_ROLLBACK_TARGETS}" frontend-netlify netlify storefront)"
+          INPUT_ROLLBACK_FRONTEND_AWS="$(target_selected "${INPUT_ROLLBACK_TARGETS}" frontend-aws aws-frontend)"
+          INPUT_ROLLBACK_GATEWAY="$(target_selected "${INPUT_ROLLBACK_TARGETS}" gateway)"
+
           deploy_backend_requested="false"
           deploy_frontend_netlify_requested="false"
           deploy_frontend_aws_requested="false"
@@ -487,6 +478,12 @@ jobs:
           emit should_rollback_frontend_netlify "${should_rollback_frontend_netlify}"
           emit should_rollback_frontend_aws "${should_rollback_frontend_aws}"
           emit should_rollback_gateway "${should_rollback_gateway}"
+          emit deploy_backend_requested "${deploy_backend_requested}"
+          emit deploy_frontend_netlify_requested "${deploy_frontend_netlify_requested}"
+          emit deploy_frontend_aws_requested "${deploy_frontend_aws_requested}"
+          emit deploy_gateway_requested "${deploy_gateway_requested}"
+          emit release_desktop_requested "${release_desktop_requested}"
+          emit release_mobile_requested "${release_mobile_requested}"
           emit should_run_smoke_tests "${should_run_smoke_tests}"
           emit signing_enabled "false"
           emit store_publish_enabled "false"
@@ -521,6 +518,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
+      pull-requests: read
 
   security-gates:
     name: Security gates and SBOM
@@ -888,7 +886,7 @@ jobs:
           MISSING: ${{ needs.plan.outputs.backend_missing }}
           SHOULD: ${{ needs.plan.outputs.should_deploy_backend }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ github.event.inputs.deploy_backend == 'true' }}
+          MANUAL_REQUESTED: ${{ needs.plan.outputs.deploy_backend_requested }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
           APPROVAL_RESULT: ${{ needs.production-approval.result }}
@@ -982,7 +980,7 @@ jobs:
           MISSING: ${{ needs.plan.outputs.frontend_netlify_missing }}
           SHOULD: ${{ needs.plan.outputs.should_deploy_frontend_netlify }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ github.event.inputs.deploy_frontend_netlify == 'true' }}
+          MANUAL_REQUESTED: ${{ needs.plan.outputs.deploy_frontend_netlify_requested }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
           APPROVAL_RESULT: ${{ needs.production-approval.result }}
@@ -1069,7 +1067,7 @@ jobs:
           MISSING: ${{ needs.plan.outputs.frontend_aws_missing }}
           SHOULD: ${{ needs.plan.outputs.should_deploy_frontend_aws }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ github.event.inputs.deploy_frontend_aws == 'true' }}
+          MANUAL_REQUESTED: ${{ needs.plan.outputs.deploy_frontend_aws_requested }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
           APPROVAL_RESULT: ${{ needs.production-approval.result }}
@@ -1148,7 +1146,7 @@ jobs:
           MISSING: ${{ needs.plan.outputs.gateway_missing }}
           SHOULD: ${{ needs.plan.outputs.should_deploy_gateway }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ github.event.inputs.deploy_gateway == 'true' }}
+          MANUAL_REQUESTED: ${{ needs.plan.outputs.deploy_gateway_requested }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
           APPROVAL_RESULT: ${{ needs.production-approval.result }}
@@ -1529,7 +1527,7 @@ jobs:
           CHANGED: ${{ needs.plan.outputs.desktop_changed }}
           SHOULD: ${{ needs.plan.outputs.should_release_desktop }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ github.event.inputs.release_desktop == 'true' }}
+          MANUAL_REQUESTED: ${{ needs.plan.outputs.release_desktop_requested }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
           APPROVAL_RESULT: ${{ needs.production-approval.result }}
@@ -1643,7 +1641,7 @@ jobs:
           CHANGED: ${{ needs.plan.outputs.mobile_changed }}
           SHOULD: ${{ needs.plan.outputs.should_release_mobile }}
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
-          MANUAL_REQUESTED: ${{ github.event.inputs.release_mobile == 'true' }}
+          MANUAL_REQUESTED: ${{ needs.plan.outputs.release_mobile_requested }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
           APPROVAL_RESULT: ${{ needs.production-approval.result }}
