@@ -31,7 +31,7 @@ export const resolveHostedBackendOrigin = (env = process.env, options = {}) => {
         || ''
     ).trim();
 
-    if (!rawOrigin) {
+    if (!rawOrigin || (options.allowSameOriginFallback && rawOrigin === '/')) {
         if (options.allowCommittedFallback) {
             return DEFAULT_HOSTED_BACKEND_ORIGIN;
         }
@@ -44,6 +44,7 @@ export const resolveHostedBackendOrigin = (env = process.env, options = {}) => {
 
 export const HOSTED_BACKEND_ORIGIN = resolveHostedBackendOrigin(process.env, {
     allowCommittedFallback: true,
+    allowSameOriginFallback: true,
 });
 
 const toWebSocketOrigin = (origin = '') => trimTrailingSlash(origin).replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
