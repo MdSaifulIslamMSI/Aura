@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 422
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (94836/94836 required locale/message pairs)
+- Locale key coverage: 100% (94920/94920 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4516
+- Source message keys: 4520
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,10 +16,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 85032
-- Unique review locale/id pairs: 85032
-- Actionable grouped queue entries: 3055
-- Actionable affected locale/message pairs: 39727
+- Total tracked review pairs preserved: 85108
+- Unique review locale/id pairs: 85108
+- Actionable grouped queue entries: 3058
+- Actionable affected locale/message pairs: 39803
 - Native-review audit grouped entries: 2496
 - Native-review audit affected locale/message pairs: 45305
 
@@ -29,7 +29,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 1108 | 18583 | bn 864, hi 1028, te 923, mr 929, ur 909, gu 944, pa 938, ml 924, kn 923, or 937, as 922, sa 926, es 1054, fr 1086, de 1073, ar 999, ja 1072, pt 1065, zh 1067 |
+| critical | 1111 | 18659 | bn 868, hi 1032, te 927, mr 933, ur 913, gu 948, pa 942, ml 928, kn 927, or 941, as 926, sa 930, es 1058, fr 1090, de 1077, ar 1003, ja 1076, pt 1069, zh 1071 |
 | high | 230 | 947 | bn 10, hi 212, te 15, mr 15, ur 17, gu 14, pa 14, ml 18, kn 15, or 23, as 5, sa 8, es 79, fr 86, de 85, ar 82, ja 86, pt 80, zh 83 |
 | medium | 1170 | 16759 | bn 745, hi 1062, te 752, mr 751, ur 750, gu 769, pa 763, ml 750, kn 750, or 760, as 749, sa 759, es 1059, fr 1068, de 1056, ar 1026, ja 1070, pt 1052, zh 1068 |
 | low | 547 | 3438 | bn 2, hi 537, te 1, mr 2, ur 3, gu 3, pa 2, ml 1, kn 2, or 3, as 1, sa 3, es 408, fr 415, de 411, ar 412, ja 412, pt 409, zh 411 |
@@ -41,11 +41,11 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | critical | high | 57 | Recheck your email and phone details, then request a new code. | auth.error.noAccountFound.hint, auth.error.noAccountFoundWithThisEmail.hint, auth.error.noAccountFoundWithThisPhone.hint |
 | critical | high | 57 | Sign in for support | securePathDock.support.guest.title, support.jsx.text.sign.in.for.support, supportLauncher.guest.title |
 | critical | high | 57 | We could not verify those account details for OTP. | auth.error.noAccountFound.detail, auth.error.noAccountFoundWithThisEmail.detail, auth.error.noAccountFoundWithThisPhone.detail |
+| critical | high | 38 | Owner Access | login.desktopOwnerAccess.button, login.desktopOwnerAccess.startedTitle |
 | critical | high | 38 | Account | auth.jsx.text.account, mobileTabBar.account |
 | critical | high | 38 | Active incidents | status.incidents.active, support.jsx.prop.label.active.incidents |
 | critical | high | 38 | Authorize the exact live domain in Firebase Authentication settings, or continue with email and OTP sign-in. | auth.error.illegalIframe.hint, auth.error.illegalUrlForNewIframe.hint |
 | critical | high | 38 | Firebase rejected the current site host for popup-based sign-in. | auth.error.illegalIframe.detail, auth.error.illegalUrlForNewIframe.detail |
-| critical | high | 38 | Frontier AI Layer | common.jsx.text.frontier.ai.layer.21e85bce, common.jsx.text.frontier.ai.layer.39f8bb96 |
 | high | high | 10 | Aura Catalog | listing.catalogTitleFull |
 | high | high | 9 | Aura never asks for your OTP outside this secure verification step. | login.trust.otp.default.2 |
 | high | high | 9 | Keep all negotiation inside Aura chat. | listingDetail.safety.note4 |

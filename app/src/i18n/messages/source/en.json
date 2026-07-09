@@ -239,6 +239,15 @@
   "admin.awsControl.state.locked": {
     "defaultMessage": "Locked"
   },
+  "admin.awsControl.stepUp.duo.body": {
+    "defaultMessage": "Complete Duo verification, return here, then retry the guarded AWS action. The backend will still reject the action until this browser session has fresh Duo assurance."
+  },
+  "admin.awsControl.stepUp.duo.cta": {
+    "defaultMessage": "Complete Duo verification"
+  },
+  "admin.awsControl.stepUp.duo.title": {
+    "defaultMessage": "Duo step-up verification required"
+  },
   "admin.awsControl.success.actionRequested": {
     "defaultMessage": "{action} {target} requested"
   },
@@ -10120,6 +10129,22 @@
   },
   "login.desktopBrowser.unavailable": {
     "defaultMessage": "Desktop browser sign-in is available only in the Aura desktop app.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.desktopOwnerAccess.button": {
+    "defaultMessage": "Owner Access",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.desktopOwnerAccess.startedDetail": {
+    "defaultMessage": "Aura Desktop is verifying the local owner access key.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.desktopOwnerAccess.startedTitle": {
+    "defaultMessage": "Owner Access",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.desktopOwnerAccess.unavailable": {
+    "defaultMessage": "Desktop owner access is not configured for this app.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.error.alreadySignedIn": {

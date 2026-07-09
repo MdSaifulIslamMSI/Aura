@@ -8798,6 +8798,26 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Desktop browser sign-in is available only in the Aura desktop app.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "login.desktopOwnerAccess.button": {
+        id: "login.desktopOwnerAccess.button",
+        defaultMessage: "Owner Access",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopOwnerAccess.startedDetail": {
+        id: "login.desktopOwnerAccess.startedDetail",
+        defaultMessage: "Aura Desktop is verifying the local owner access key.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopOwnerAccess.startedTitle": {
+        id: "login.desktopOwnerAccess.startedTitle",
+        defaultMessage: "Owner Access",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopOwnerAccess.unavailable": {
+        id: "login.desktopOwnerAccess.unavailable",
+        defaultMessage: "Desktop owner access is not configured for this app.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "login.error.alreadySignedIn": {
         id: "login.error.alreadySignedIn",
         defaultMessage: "You are already signed in. Please log out before creating another account.",

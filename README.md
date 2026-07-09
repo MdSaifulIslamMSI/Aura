@@ -222,4 +222,5 @@ AI and recommendation behavior should remain grounded in catalog data, user or s
 - Keep this README as the current front door, not a historical changelog.
 - Put deep operational detail in `docs/` and link it from here.
 - Keep production claims evidence-backed by workflow runs, release markers, or read-only probes.
+- Treat private readiness probes as token-gated: production requires `x-health-token`.
 - Do not widen deploy, auth, payment, catalog, migration, or secret-handling changes while updating documentation.
