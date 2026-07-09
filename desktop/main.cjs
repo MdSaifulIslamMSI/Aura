@@ -103,6 +103,14 @@ ipcMain.handle('desktop:auth:owner-access-sign-in', async () => {
     return runtime.createDesktopOwnerAccessSignIn();
 });
 
+ipcMain.handle('desktop:api:public-catalog-get', async (_event, request = {}) => {
+    if (!runtime?.fetchPublicCatalog) {
+        throw new Error('Desktop catalog runtime is not ready yet.');
+    }
+
+    return runtime.fetchPublicCatalog(request);
+});
+
 const resolveAssetPath = (...segments) => {
     if (app.isPackaged) {
         return path.join(process.resourcesPath, ...segments);

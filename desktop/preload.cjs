@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('auraDesktop', {
     cancelBrowserSignIn: (requestId) => ipcRenderer.invoke('desktop:auth:cancel-browser-sign-in', requestId),
     consumeBrowserSignIn: (requestId) => ipcRenderer.invoke('desktop:auth:consume-browser-sign-in', requestId),
     checkForUpdates: () => ipcRenderer.invoke('desktop:update:check'),
+    fetchPublicCatalog: (request = {}) => ipcRenderer.invoke('desktop:api:public-catalog-get', request),
     getAppInfo: () => ipcRenderer.invoke('desktop:app-info'),
     installUpdateNow: () => ipcRenderer.invoke('desktop:update:install-now'),
     signInWithOwnerAccess: () => ipcRenderer.invoke('desktop:auth:owner-access-sign-in'),
