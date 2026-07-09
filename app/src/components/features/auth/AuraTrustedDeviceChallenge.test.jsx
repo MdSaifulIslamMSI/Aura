@@ -380,13 +380,35 @@ describe('AuraTrustedDeviceChallenge', () => {
     expect(resetAction).toHaveFocus();
   });
 
-  it('stays quiet on public routes so the storefront is not interrupted', async () => {
+  it('keeps repeat public-route trusted-device checks minimized', async () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />, '/');
 
-    expect(screen.queryByRole('button', { name: /verify once to unlock admin actions/i })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /open trusted device checkpoint/i })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it('opens first-time trusted-device enrollment even on public routes', async () => {
+    useAuth.mockReturnValue(buildAuthValue({
+      deviceChallenge: {
+        token: 'challenge-token',
+        mode: 'enroll',
+        availableMethods: ['webauthn', 'browser_key'],
+        preferredMethod: 'webauthn',
+        registeredMethod: '',
+        registeredLabel: '',
+        challenge: 'challenge-value',
+      },
+    }));
+
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge />, '/');
+
+    expect(screen.getByRole('heading', { name: /finish trusted device setup/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /open trusted device checkpoint/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
   });
 
   it('stays quiet when an earlier admin policy lock is active', async () => {
