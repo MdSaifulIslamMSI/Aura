@@ -660,6 +660,139 @@ describe('AuthProvider', () => {
     }
   });
 
+  it('polls desktop browser sign-in results if the completion event is missed', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+
+    const desktopUser = {
+      uid: 'desktop-browser-user-1',
+      email: 'desktop-browser@example.com',
+      emailVerified: true,
+      displayName: 'Desktop Browser User',
+      phoneNumber: '',
+      providerData: [{ providerId: 'google.com' }],
+      getIdToken: vi.fn().mockResolvedValue('desktop-browser-firebase-token'),
+    };
+    const startBrowserSignIn = vi.fn().mockResolvedValue({
+      requestId: 'desktop-browser-request-1',
+      expiresAt: Date.now() + 60_000,
+    });
+    const consumeBrowserSignIn = vi.fn()
+      .mockResolvedValueOnce({
+        success: false,
+        message: 'Desktop browser sign-in is not ready or has expired.',
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        customToken: 'desktop-browser-custom-token',
+      });
+    const onBrowserSignInStatus = vi.fn(() => () => {});
+
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn: vi.fn(),
+      consumeBrowserSignIn,
+      onBrowserSignInStatus,
+      startBrowserSignIn,
+    };
+
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
+    mocks.authApiMock.syncSession.mockResolvedValue({
+      status: 'authenticated',
+      session: {
+        uid: desktopUser.uid,
+        email: desktopUser.email,
+        emailVerified: true,
+        displayName: desktopUser.displayName,
+        phone: '',
+        providerIds: ['google.com'],
+      },
+      profile: {
+        _id: 'db-desktop-browser-1',
+        name: desktopUser.displayName,
+        email: desktopUser.email,
+        phone: '',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'desktop_browser',
+          label: 'Desktop browser',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: true,
+        },
+        readiness: {
+          hasVerifiedEmail: true,
+          hasPhone: false,
+          accountState: 'active',
+          isPrivileged: false,
+        },
+        acceleration: {
+          suggestedRoute: 'social',
+          rememberedIdentifier: 'email',
+          suggestedProvider: 'google.com',
+          providerIds: ['google.com'],
+        },
+      },
+    });
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser, status } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then((value) => setResult(value?.dbUser?.email || 'done'))
+          .catch((error) => setResult(error.message));
+      }, [signInWithDesktopBrowser]);
+
+      return (
+        <>
+          <div data-testid="desktop-browser-status">{status}</div>
+          <div data-testid="desktop-browser-result">{result}</div>
+        </>
+      );
+    };
+
+    try {
+      render(
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-status')).toHaveTextContent('authenticated');
+        expect(screen.getByTestId('desktop-browser-result')).toHaveTextContent('desktop-browser@example.com');
+      }, { timeout: 4000 });
+
+      expect(startBrowserSignIn).toHaveBeenCalledWith({
+        path: '/desktop-login',
+        returnTo: '/',
+      });
+      expect(onBrowserSignInStatus).toHaveBeenCalled();
+      expect(consumeBrowserSignIn).toHaveBeenCalledTimes(2);
+      expect(mocks.signInWithCustomTokenMock).toHaveBeenCalledWith({}, 'desktop-browser-custom-token');
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
   it('prevents popup X sign-in from being cancelled by an auth-state refresh race', async () => {
     let authStateCallback = null;
 

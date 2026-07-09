@@ -639,6 +639,51 @@ describe('useLoginController', () => {
     expect(signInWithDesktopOwnerAccess).toHaveBeenCalled();
   });
 
+  it('routes desktop social sign-in clicks through the external browser bridge', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: true,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+      runtimeElectronDesktop: true,
+    });
+
+    const signInWithGoogle = vi.fn().mockRejectedValue(new Error('Electron popup should not run'));
+    const signInWithDesktopBrowser = vi.fn().mockResolvedValue({
+      dbUser: { email: 'desktop-social@example.com' },
+    });
+    window.auraDesktop = {
+      isDesktop: true,
+      getAppInfo: vi.fn().mockResolvedValue({ ownerAccessSignInAvailable: false }),
+    };
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithGoogle, signInWithDesktopBrowser })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<SocialSignInProbe />} />
+              <Route path="/" element={<div>Home Screen</div>} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('social-result')).toHaveTextContent('completed');
+      expect(screen.getByTestId('social-error-title')).toHaveTextContent('none');
+    });
+
+    expect(signInWithDesktopBrowser).toHaveBeenCalledWith({ returnTo: '/' });
+    expect(signInWithGoogle).not.toHaveBeenCalled();
+  });
+
   it('keeps Duo login hidden unless the deployment explicitly enables it', () => {
     render(
       <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>

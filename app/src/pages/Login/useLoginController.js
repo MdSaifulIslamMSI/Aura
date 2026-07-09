@@ -1861,6 +1861,16 @@ export const useLoginController = () => {
     setAuthError(null);
     setAuthSuccess(null);
     try {
+      if (canUseDesktopBrowserSignIn) {
+        const result = await signInWithDesktopBrowser({ returnTo: from });
+        if (result?.dbUser) {
+          finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
+        } else {
+          navigate(from, { replace: true });
+        }
+        return;
+      }
+
       const result = await providerSignIn();
       if (result?.redirecting) {
         return;
