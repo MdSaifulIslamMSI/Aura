@@ -162,6 +162,10 @@ The gateway exposes GitHub-provided SHA-256 release asset digests for ready desk
 let users verify file integrity after download, but they do not make unsigned Windows or macOS builds equivalent to
 signed/notarized public releases.
 
+The desktop release workflow also attaches `Aura-Desktop-SHA256SUMS-<version>.txt` to each GitHub Release and builds the
+release notes from the actual artifact list. The release page should name the right package per operating system, show
+the gated workflow/source commit, and keep signing status separate from checksum integrity.
+
 To create the Windows certificate secret from a `.pfx` file, run this locally and paste the output into the GitHub secret:
 
 - PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\aura-code-signing.pfx"))`
