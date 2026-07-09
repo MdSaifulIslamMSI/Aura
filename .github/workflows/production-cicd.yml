@@ -323,6 +323,8 @@ jobs:
             'gateway/*' \
             'gateway/vercel.json' \
             '.vercelignore' \
+            'docs/platform-availability.md' \
+            'scripts/validate-gateway-release-contract.mjs' \
             'docs/ci-cd-secrets.md' \
             '.github/workflows/ci.yml' \
             '.github/workflows/deploy-gateway-vercel.yml' \

@@ -61,6 +61,8 @@ on:
       - "config/environments/**"
       - "config/auth.example.env"
       - "docs/desktop-app.md"
+      - "docs/platform-availability.md"
+      - "scripts/validate-gateway-release-contract.mjs"
       - "infra/aws/bootstrap-instance-user-data.sh"
       - "infra/aws/deploy-release.sh"
       - "infra/aws/docker-compose.ec2.yml"
@@ -214,7 +216,7 @@ jobs:
             esac
 
             case "${file}" in
-              gateway/*)
+              gateway/*|docs/platform-availability.md|scripts/validate-gateway-release-contract.mjs)
                 gateway=true
                 ;;
             esac
@@ -648,47 +650,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Validate gateway download links
-        run: |
-          set -euo pipefail
-          node <<'EOF'
-          const fs = require('fs');
-          const html = fs.readFileSync('gateway/index.html', 'utf8');
-          const config = JSON.parse(fs.readFileSync('gateway/vercel.json', 'utf8'));
-          const requiredAssets = [
-            'Aura-Marketplace-Windows-x64-Setup.exe',
-            'Aura-Marketplace-Windows-arm64-Setup.exe',
-            'Aura-Marketplace-Windows-ia32-Setup.exe',
-            'Aura-Marketplace-Windows-x64-Portable.exe',
-            'Aura-Marketplace-macOS-arm64.dmg',
-            'Aura-Marketplace-macOS-x64.dmg',
-            'Aura-Marketplace-macOS-arm64.zip',
-            'Aura-Marketplace-macOS-x64.zip',
-            'Aura-Marketplace-Linux-x86_64.AppImage',
-            'Aura-Marketplace-Linux-amd64.deb',
-            'Aura-Marketplace-Linux-x86_64.rpm',
-            'Aura-Marketplace-Linux-x64.tar.gz',
-            'Aura-Marketplace-Linux-arm64.AppImage',
-            'Aura-Marketplace-Linux-arm64.deb',
-            'Aura-Marketplace-Linux-aarch64.rpm',
-            'Aura-Marketplace-Linux-arm64.tar.gz',
-          ];
-          if (html.includes('/releases/latest/download/')) {
-            throw new Error('Gateway must not link directly to latest/download assets before release resolution.');
-          }
-          for (const asset of requiredAssets) {
-            if (!html.includes(`data-release-asset="${asset}"`)) {
-              throw new Error(`Missing gateway download resolver asset: ${asset}`);
-            }
-          }
-          for (const label of ['Ubuntu/Debian deb', 'Fedora/RHEL RPM', 'iPadOS PWA', 'ChromeOS', 'Unix / BSD', 'HarmonyOS', 'FreeRTOS / RTOS family', 'BOSS Linux family', 'Maya OS', 'Garuda Linux', 'BharOS, JioOS, and Indus', 'JioTele OS', 'watchOS', 'tvOS', 'Red Hat Enterprise Linux', 'VxWorks', 'Linux / GNU-Linux family', 'SUSE Linux Enterprise + openSUSE', 'Raspberry Pi OS', 'Sailfish OS', 'MINIX + RISC OS', 'Symbian OS', 'Mageia', 'Astra Linux, ALT Linux, RED OS, and ROSA Linux', 'Aurora OS', 'KasperskyOS', 'Elbrus Linux / Elbrus OS', 'Calculate Linux', 'KolibriOS + Phantom OS', 'HarmonyOS / Hongmeng OS + OpenHarmony', 'Kylin OS, Galaxy Kylin, UOS, and deepin Linux', 'openEuler, Anolis OS, and TencentOS Server', 'AliOS, AliOS Things, and RT-Thread']) {
-            if (!html.includes(label)) {
-              throw new Error(`Missing gateway platform availability label: ${label}`);
-            }
-          }
-          if (config.outputDirectory !== '.') {
-            throw new Error('gateway/vercel.json must deploy the static gateway root as outputDirectory ".".');
-          }
-          EOF
+        run: npm run gateway:release-contract
 
   desktop-package-smoke:
     needs: changes
