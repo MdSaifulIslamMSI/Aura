@@ -1,256 +1,199 @@
-# Aura Marketplace Engineering Guide
+# Aura Marketplace
 
-## Overview
-This repository contains:
-- `app/`: React + Vite frontend
-- `server/`: Express + MongoDB backend
-- Architecture diagrams: [`docs/system-architecture.md`](docs/system-architecture.md)
+Aura Marketplace is a production-oriented commerce platform with a React storefront, Express API, AI shopping assistance, resilient identity flows, multi-host frontend delivery, and AWS-backed runtime operations.
 
-Core capabilities:
-- Firebase-authenticated user flows
-- AI Shopping Assistant + Hybrid Recommendation Engine
-- Conversational AI assistant for product search, Q&A, comparison, buying guidance, and policy/help answers
-- Hybrid recommendation engine with content-based filtering, popularity ranking, cart add-ons, frequently bought together, session-based personalization, and feedback-loop events
-- Checkout, orders, payment intents, capture/refunds
-- OTP verification with fail-closed email delivery
-- Durable order email queue with retry and admin APIs
-- Split-runtime backend support with Redis-backed workers and reconciliation
-- Market-aware browse FX with real-time provider support plus ECB fallback
+This repository is not a demo landing page. It is the operating surface for product discovery, recommendations, cart and checkout, payments, fulfillment workflows, account security, admin controls, observability, release gates, and production rollback discipline.
 
-## AI Shopping Assistant + Hybrid Recommendation Engine
-Aura now runs two complementary AI layers:
+## Live Production Surfaces
 
-- The **AI E-commerce Assistant** handles conversational shopping help, product search, comparison, product Q&A, buying guidance, and policy answers.
-- The **Hybrid Recommendation Engine** powers Recommended for You, Similar Products, Trending Products, Frequently Bought Together, Complete Your Cart, Recently Viewed, and guest session recommendations.
+| Surface | URL | Role |
+|---|---|---|
+| Gateway | [aura-gateway.vercel.app](https://aura-gateway.vercel.app) | Public gateway and launch surface. |
+| Storefront - Vercel | [aurapilot.vercel.app](https://aurapilot.vercel.app) | Primary hosted React storefront. |
+| Storefront - Netlify | [aurapilot.netlify.app](https://aurapilot.netlify.app) | Same storefront artifact on Netlify. |
+| AWS CloudFront | [dbtrhsolhec1s.cloudfront.net](https://dbtrhsolhec1s.cloudfront.net) | AWS-hosted production surface and same-origin backend proxy target. |
 
-The assistant can use the recommendation APIs as a backend tool, so product suggestions are grounded in catalog data, user/session activity, product similarity, popularity, cart behavior, and purchase patterns. Architecture and API details live in [`docs/recommendation-system.md`](docs/recommendation-system.md).
+Production pages expose release traceability through `aura-release-id` and `aura-release-commit` meta tags. Treat those tags, the GitHub production workflow run, and read-only health probes as the source of truth for what is live.
 
-## Live Links
-- General gateway: [https://aura-gateway.vercel.app](https://aura-gateway.vercel.app)
-- Legacy launch route: [https://aurapilot.vercel.app/launch](https://aurapilot.vercel.app/launch)
-- Vercel frontend: [https://aurapilot.vercel.app](https://aurapilot.vercel.app)
-- Netlify frontend: [https://aurapilot.netlify.app](https://aurapilot.netlify.app)
-- AWS S3 frontend: provision with [`docs/aws-frontend-deployment.md`](docs/aws-frontend-deployment.md)
-- Netlify note: production builds now target the same proxied backend routes through `/api`, `/health`, `/socket.io`, and `/uploads`.
+## System At A Glance
 
-## Run Locally
-1. Backend:
-   - `cd server`
-   - Copy `.env.example` to `.env` and fill secrets
-   - `npm install`
-   - `npm start`
-2. Frontend:
-   - `cd app`
-   - Copy `.env.example` to `.env`
-   - `npm install`
-   - `npm run dev`
+| Area | Stack | Owns |
+|---|---|---|
+| [`app/`](app/) | React 19, Vite, React Router, Firebase Web Auth, Vitest, Playwright, Capacitor | Storefront, auth UX, catalog, cart, checkout, orders, admin UI, mobile shell target. |
+| [`server/`](server/) | Node.js, Express 5, MongoDB, Redis, Socket.IO, Firebase Admin, Stripe, Duo Universal, OpenAI, VoyageAI | API runtime, worker runtime, auth, commerce, payments, AI, realtime, uploads, jobs, smoke tests. |
+| [`gateway/`](gateway/) | Static gateway surface | Public gateway and routing layer. |
+| [`desktop/`](desktop/) | Electron | Desktop shell and desktop packaging. |
+| [`infra/`](infra/) | AWS, SSM, Docker, OpenTofu, Helm | Backend/frontend cloud automation and infrastructure contracts. |
+| [`.github/workflows/`](.github/workflows/) | GitHub Actions | CI, staging, production command center, deploy lanes, desktop/mobile releases. |
+| [`docs/`](docs/) | Markdown runbooks and architecture | The deeper operating manual. |
 
-## Local Dev Toggle
-- Start the local database stack: `npm run dev:on`
-- Stop it and leave it on Manual startup: `npm run dev:off`
-- If MySQL hangs during shutdown, use `npm run dev:off:force`
-- These scripts manage `MongoDB`, `MySQL80`, and `MySQL84`, and they self-elevate when Windows needs admin rights.
+## Product Capabilities
 
-## Split Runtime
-- Production backend is now intended to run as a long-lived Node service, not Vercel serverless.
-- Frontend can remain static/Vercel; backend should run with Mongo replica set support and Redis enabled.
-- The default hosted split-runtime target in this repo is now `Vercel frontend + AWS EC2 backend`.
-- Local split-runtime bootstrap:
-  - `cd server`
-  - `npm run runtime:split:up`
-- Deployment details and validation commands:
-  - [`docs/split-runtime-deployment.md`](docs/split-runtime-deployment.md)
-  - [`docs/aws-backend-deployment.md`](docs/aws-backend-deployment.md)
-  - [`docs/performance-budgets.json`](docs/performance-budgets.json)
+Aura combines the normal commerce path with the systems work needed to operate it safely:
 
-## AWS Runtime Automation
-- Canonical AWS deploy scripts now live in:
-  - [`infra/aws/bootstrap-free-tier.ps1`](infra/aws/bootstrap-free-tier.ps1)
-  - [`infra/aws/bootstrap-github-oidc.ps1`](infra/aws/bootstrap-github-oidc.ps1)
-  - [`infra/aws/sync-parameter-store-env.ps1`](infra/aws/sync-parameter-store-env.ps1)
-  - [`infra/aws/docker-compose.ec2.yml`](infra/aws/docker-compose.ec2.yml)
-- Local env to AWS Parameter Store sync:
-  - `cd server && npm run aws:ssm:sync`
-- Repo-level shortcut for the same sync:
-  - `npm run aws:ssm:sync`
-- CI/CD now builds the backend image once, uploads the release bundle to S3, and rolls EC2 forward through SSM Run Command.
-- Frontend routing requires `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL` in hosted deploy workflows; blank or temporary `sslip.io` origins fail closed instead of becoming production defaults.
+- AI shopping assistant for product search, comparison, product Q&A, buying guidance, and policy answers.
+- Hybrid recommendation engine for home shelves, similar products, trending products, cart add-ons, frequently bought together, recently viewed items, and assistant-backed suggestions.
+- Authenticated cart, checkout, order, refund, replacement, admin, support, and realtime communication flows.
+- Server-authoritative checkout and payment handling, with digital payment intent validation and replay-safe mutation paths.
+- Firebase-backed identity, Duo step-up, trusted-device verification, OTP recovery, CSRF protection, and security telemetry.
+- Split API and worker runtime so payment, email, catalog, reconciliation, and background jobs are not tied to HTTP traffic spikes.
+- Mobile and desktop shells that reuse the hosted storefront while keeping native release lanes available.
 
-## Frontend CI/CD
-- GitHub Actions deploys the same frontend artifact to Netlify, Vercel, and AWS S3 through [`deploy-netlify.yml`](.github/workflows/deploy-netlify.yml).
-- Preview deployments are frontend previews only unless an isolated staging backend is configured. They must not be used as backend staging while `/api`, `/health`, `/uploads`, or `/socket.io` route to production CloudFront.
-- Staging smoke is fail-closed. Use `npm run staging:readiness` before live smoke; current status is documented in [`docs/environment-contract.md`](docs/environment-contract.md) and [`docs/staging-bootstrap.md`](docs/staging-bootstrap.md).
-- AWS S3 static hosting setup lives in [`deploy-frontend-aws.yml`](.github/workflows/deploy-frontend-aws.yml) and [`docs/aws-frontend-deployment.md`](docs/aws-frontend-deployment.md). The production path stays low-spend and publishes from the shared storefront release flow.
-- The workflow builds `app/dist` once, uploads that exact artifact to Netlify and AWS S3, and prepares Vercel Build Output from the same built files so all three hosts publish the same frontend release inputs.
-- Required GitHub setup:
-  - Repository secret: `NETLIFY_AUTH_TOKEN`
-  - Repository variable or secret: `NETLIFY_SITE_ID`
-  - Optional repository variable: `NETLIFY_SITE_NAME`
-  - Repository secret: `VERCEL_TOKEN`
-  - Repository variable or secret: `VERCEL_ORG_ID`
-  - Repository variable or secret: `VERCEL_PROJECT_ID`
-  - Optional repository variable: `VERCEL_PROJECT_NAME`
-  - Repository variable: `AWS_FRONTEND_BUCKET`
-  - Repository variable: `AWS_FRONTEND_DISTRIBUTION_ID`
-  - Repository variable: `AWS_FRONTEND_PUBLIC_URL`
-  - Repository variable or secret: `AWS_FRONTEND_DEPLOY_ROLE_ARN`
-  - Optional repository variable: `AWS_REGION`
-- Pull requests targeting `main` publish preview deploys to both Netlify and Vercel from the same artifact.
-- Pushes to `main` publish production deploys to Netlify, Vercel, and AWS S3 from the same frontend release flow.
-- If Netlify Git auto-publishing is still enabled for the same site, disable it in the Netlify UI to avoid duplicate deploys from both Netlify and GitHub Actions.
-- If Vercel Git auto-deploy is still enabled for the same project, disconnect or disable it once the GitHub Actions path is verified so the shared-artifact workflow remains the single production release source.
+Details: [hybrid recommendation system](docs/recommendation-system.md), [system architecture](docs/system-architecture.md), [mobile delivery](docs/mobile-app-delivery.md).
 
-## Mobile Apps
-- Android and iOS delivery notes live in [`docs/mobile-app-delivery.md`](docs/mobile-app-delivery.md).
-- The mobile shells load the hosted production storefront from `https://aurapilot.vercel.app`, so normal frontend deploys flow into installed mobile apps without rebuilding native binaries for every web-only change.
-- GitHub Actions publishes Android APK/AAB and iOS simulator/IPA artifacts only after the main production CI/CD gates succeed.
-- Google Play and TestFlight publication are wired through Fastlane and run automatically when the required store credentials are configured; otherwise the free GitHub Release lane remains active.
-- Installed mobile shells check the mobile release lane and show an in-app update prompt when a newer native package is available.
+## Runtime Architecture
 
-## Production Catalog + Search Gates
-- Snapshot imports now require both `sourceRef` and `manifestRef`.
-- Validate a licensed provider snapshot before import:
-  - `cd server`
-  - `npm run catalog:validate-snapshot`
-- Prepare a strict Kaggle-backed snapshot with unique products only:
-  - `cd server`
-  - `npm run catalog:kaggle:prepare -- --dataset owner/dataset`
-- Import a strict Kaggle-backed snapshot into Mongo:
-  - `cd server`
-  - `npm run catalog:kaggle:import -- --dataset owner/dataset`
-- Kaggle imports are strict by design: rows missing brand, category, price, description, or a usable real image are skipped, and duplicate title/image/product identities are removed before import.
-- Generate a local 100k synthetic demo catalog snapshot:
-  - `cd server`
-  - `npm run catalog:generate-demo-100k`
-- Import and activate that demo catalog for non-production only:
-  - `cd server`
-  - `npm run catalog:seed-demo-100k`
-- The demo catalog is synthetic inventory for local/staging demos. It is intentionally marked `dev_only` and must not be presented as genuine production merchandise.
-- Remove all demo catalog rows from the real database:
-  - `cd server`
-  - `npm run catalog:purge-demo`
-- Generate the seeded prelaunch relevance report:
-  - `cd server`
-  - `npm run search:report`
-- Latest seeded search report is written to [`docs/reports/search-relevance.latest.json`](docs/reports/search-relevance.latest.json) after a successful run.
+The hosted storefront is a static React/Vite build published to multiple hosts from the same release artifact. Runtime calls use same-origin paths:
 
-## Staging Validation
-- Bootstrap dedicated Firebase + backend smoke identities:
-  - `cd server`
-  - `npm run smoke:bootstrap-accounts`
-- Authenticated smoke and load scripts can use Firebase email/password credentials at runtime instead of static bearer tokens.
-- Full smoke mode now exercises auth sync/session, COD order flow, digital payment intent flow, refund/replacement handling, and admin ops gates.
+- `/api`
+- `/health`
+- `/socket.io`
+- `/uploads`
 
-## Security Implementation ✅ COMPLETE
+Those paths route to the shared backend runtime. The backend is split into:
 
-## Post-Quantum Readiness
-- Readiness guide: [`docs/security/post-quantum-readiness.md`](docs/security/post-quantum-readiness.md)
-- Production checklist: [`docs/security/pqc-production-runbook.md`](docs/security/pqc-production-runbook.md)
-- Controlled-surface matrix: [`docs/security/pqc-controlled-surface-matrix.md`](docs/security/pqc-controlled-surface-matrix.md)
-- SSH hardening: [`docs/security/pqc-ssh-hardening.md`](docs/security/pqc-ssh-hardening.md)
-- TLS edge readiness: [`docs/security/pqc-tls-edge-readiness.md`](docs/security/pqc-tls-edge-readiness.md)
-- OpenSSL/OQS lab evidence: [`docs/security/pqc-openssl-oqs-lab-results.md`](docs/security/pqc-openssl-oqs-lab-results.md)
-- Internal service encryption: [`docs/security/internal-service-encryption-readiness.md`](docs/security/internal-service-encryption-readiness.md)
-- Backup key-agility: [`docs/security/pqc-backup-key-agility.md`](docs/security/pqc-backup-key-agility.md)
-- Release signing readiness: [`docs/security/pqc-release-signing-readiness.md`](docs/security/pqc-release-signing-readiness.md)
-- Provider dependency register: [`docs/security/pqc-provider-dependency-register.md`](docs/security/pqc-provider-dependency-register.md)
-- Staging-only OpenSSL/OQS lab: [`docs/security/openssl-oqs-staging-lab.md`](docs/security/openssl-oqs-staging-lab.md)
-- Free scanner stack: [`docs/security/free-security-scanners.md`](docs/security/free-security-scanners.md)
-- Local commands:
-  - `npm run security:pqc`
-  - `npm run security:pqc:proof`
-  - `npm run security:pqc:inventory:strict`
-  - `npm run security:free-stack`
+- API process: Express routes, middleware, realtime socket entrypoints, auth/session enforcement, and public health checks.
+- Worker process: payment outbox, order email, catalog, analytics, reconciliation, OTP maintenance, and other background jobs.
 
-The project does not implement custom cryptography. Post-quantum work is config-driven through [`config/security/post-quantum-policy.json`](config/security/post-quantum-policy.json), starts with hybrid migration, and keeps experimental OQS/liboqs TLS in staging or lab mode until deliberately approved. Aura is PQC-ready and crypto-agile, not 100% quantum-proof; browser/WebPKI and provider-controlled cryptography remain ecosystem-dependent.
+MongoDB is the transactional document store. Redis supports realtime coordination, queues, rate limits, and distributed security controls. AWS Parameter Store and checked environment contracts keep deployment state explicit instead of relying on hidden defaults.
 
-### Aura Fortress Sensitive Actions
-- Invisible App Fabric: [`docs/security/invisible-app-fabric.md`](docs/security/invisible-app-fabric.md)
-- Route exposure registry: [`docs/security/route-exposure-registry.md`](docs/security/route-exposure-registry.md)
-- Secretless frontend: [`docs/security/secretless-frontend.md`](docs/security/secretless-frontend.md)
-- Campaign guide: [`docs/security/aura-fortress-campaign.md`](docs/security/aura-fortress-campaign.md)
-- Sensitive-action policy: [`docs/security/zero-trust-sensitive-actions.md`](docs/security/zero-trust-sensitive-actions.md)
-- Disaster recovery verifier: `npm run security:backup-restore-check`
-- Focused backend gate:
-  - `npm --prefix server test -- --runTestsByPath tests/sensitiveActionPolicy.test.js tests/sensitiveActionMiddleware.test.js tests/authorizationPolicy.test.js tests/securityAuditService.test.js tests/disasterRecoveryRunbook.test.js tests/authMiddleware.webauthnStepUp.test.js tests/authSecurityTelemetryService.test.js --forceExit`
+Details: [split runtime deployment](docs/split-runtime-deployment.md), [AWS backend deployment](docs/aws-backend-deployment.md), [AWS frontend deployment](docs/aws-frontend-deployment.md), [environment contract](docs/environment-contract.md).
 
-### March 2026 Security Hardening
-All 10 identified login architecture vulnerabilities have been fixed and are production-ready:
+## Quick Start
 
-**Critical Fixes**:
-- ✅ **Hardcoded secrets** → Now parameterized via environment variables
-- ✅ **Weak password policy** → Enforced: 12+ chars + uppercase + lowercase + digit + special character
-- ✅ **CSRF vulnerability** → Token-based middleware (server + frontend integration)
-- ✅ **OTP race conditions** → Atomic database operations
+Prerequisites:
 
-**Quick Start**:
-- Deploy guide: [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md)
-- Secrets management: [`DEPLOYMENT_SECRETS.md`](DEPLOYMENT_SECRETS.md)
-- Technical details: [`SECURITY_FIXES.md`](SECURITY_FIXES.md)
-- Quick reference: [`SECURITY_QUICK_REFERENCE.md`](SECURITY_QUICK_REFERENCE.md)
-- Test suite: [`server/tests/security.integration.test.js`](server/tests/security.integration.test.js)
+- Node.js and npm compatible with the checked-in lockfiles.
+- Local MongoDB and Redis, or the repo-managed local service toggle.
+- Local-only environment files based on the examples. Do not commit secrets.
 
-**New Security Modules**:
-- `server/middleware/csrfMiddleware.js` - CSRF token generation & validation
-- `server/utils/passwordValidator.js` - Password policy enforcement
-- `app/src/services/csrfTokenManager.js` - Frontend CSRF token lifecycle
-- `server/services/trustedDeviceChallengeService.js` - Session-bound trusted-device challenge + verification
-- `app/src/services/deviceTrustClient.js` - Browser-held signing key + trusted-device session token handling
+Install dependencies:
 
-## Trusted Device Gate
-- The legacy "LWE" challenge path has been removed.
-- Privileged device verification now uses a real browser-held `RSA-PSS` signing key stored locally in IndexedDB.
-- Successful verification returns a session-bound trusted-device token which is enforced on privileged server routes.
-- Architecture notes and the postmortem live in [`docs/trusted-device-architecture.md`](docs/trusted-device-architecture.md).
+```powershell
+npm install
+npm --prefix app install
+npm --prefix server install
+```
 
----
+Prepare local environment files:
 
-## Security Model (High Level)
-- All private/admin APIs require Firebase bearer token (`Authorization: Bearer ...`)
-- Admin routes require backend `admin` middleware check
-- Checkout totals are server-authoritative
-- OTP routes are fail-closed when email delivery fails
-- Login OTP requires fresh password credential proof token (`OTP_LOGIN_REQUIRE_CREDENTIAL_PROOF=true`)
-- Login identity snapshots are mirrored to local auth vault for wipe-recovery (`AUTH_VAULT_ENABLED=true`, `AUTH_VAULT_SECRET` required outside tests, optional rotation via `AUTH_VAULT_SECRET_VERSION` + `AUTH_VAULT_PREVIOUS_SECRETS`)
-- Chat is split into:
-  - `POST /api/chat/public` (no paid LLM providers)
-  - `POST /api/chat` (authenticated, quota-limited)
-- **NEW**: CSRF protection on all state-changing auth endpoints (POST/PUT/DELETE)
-- **NEW**: Enhanced password validation (12+ chars + complexity requirements)
-- **NEW**: Atomic OTP operations (no race conditions)
+```powershell
+Copy-Item app\.env.example app\.env
+Copy-Item server\.env.example server\.env
+```
 
-## Critical Invariants
-- Client cannot elevate privilege through profile update payload
-- OTP expiry must never delete user documents
-- Digital order placement requires valid authorized/captured payment intent
-- Authorized payment capture task is transaction-coupled with order commit
-- Webhook and idempotent mutation paths are replay-safe
+Start local supporting services when you want the repo-managed Windows toggle:
 
-## Operational Endpoints
-- `GET /health`: public production-safe app/db/cache status summary
-- `GET /health/ready`: detailed readiness gate for orchestrators; production requires `x-health-token`
+```powershell
+npm run dev:on
+```
 
-## Maintenance Notes
-- Run `npm test` in `server/` and `app/` before merging
-- Run `npm test -- security.integration.test.js` in `server/` to validate all security fixes
-- Run `npm run build:budget` in `app/` before merging frontend bundle-heavy changes
-- Run `npm run smoke:staging` and `npm run load:validate` in `server/` against staging before backend rollout
-- Run `npm run search:report` in `server/` before promoting catalog/search tuning
-- Before production deployment:
-  - Set all environment variables (see [`DEPLOYMENT_SECRETS.md`](DEPLOYMENT_SECRETS.md)); ensure `AUTH_VAULT_SECRET` is set to a strong 32+ char value in production
-  - Verify CSRF tokens are working (check `/api/auth/session` response headers)
-  - Verify password policy enforced (reject passwords < 12 chars)
-  - Verify admin middleware blocks non-admin access to admin routes
-- Keep `.env` secrets out of source control
-- For legacy OTP TTL cleanup, run:
-  - `npm run migrate:drop-user-otp-ttl` (in `server/`)
+Run the backend and frontend in separate terminals:
 
-## FX Rate Providers
-- The backend now supports `PAYMENT_FX_PROVIDER=auto|openexchangerates|ecb`.
-- `auto` prefers Open Exchange Rates when `OPEN_EXCHANGE_RATES_APP_ID` is configured and falls back to ECB reference rates if the real-time provider is unavailable.
-- `PAYMENT_FX_RATES_TTL_MS` overrides the backend FX cache TTL. Leave it blank to use provider-aware defaults.
-- The production FX pipeline is scheduler-driven: `node-cron` refreshes rates every hour, stores the last successful snapshot in MongoDB, and serves all client reads from cache instead of from the provider.
-- Hourly refreshes retry up to 3 times, respect `PAYMENT_FX_MAX_CALLS_PER_DAY`, and fall back to the last successful snapshot when the upstream provider is unavailable.
-- Run a one-shot refresh manually with `cd server && npm run fx:refresh`.
-- Use the protected internal endpoint `GET /api/internal/cron/fx-rates` with `Authorization: Bearer $CRON_SECRET` when wiring Vercel Cron, GCP Scheduler, or another external scheduler.
-- Full setup and deployment notes live in [`docs/fx-rate-pipeline.md`](docs/fx-rate-pipeline.md).
+```powershell
+npm --prefix server start
+```
+
+```powershell
+npm --prefix app run dev
+```
+
+When finished:
+
+```powershell
+npm run dev:off
+```
+
+Use `npm run dev:off:force` only when a local service refuses to stop cleanly.
+
+## Verification Ladder
+
+Run the narrowest check that covers the surface you changed. Prefer focused checks first; widen only when the change crosses boundaries.
+
+| Change surface | Focused verification |
+|---|---|
+| Repo health and CI wiring | `npm run ci:doctor` |
+| Frontend unit behavior | `npm --prefix app test` |
+| Frontend production build | `npm --prefix app run build` |
+| Backend regression slice | `npm test` |
+| Backend focused test | `npm --prefix server test -- --runTestsByPath tests/<name>.test.js` |
+| Auth and Duo posture | `npm run security:duo` |
+| Sensitive route coverage | `npm run security:routes:coverage:strict` |
+| Environment contract | `npm run smoke:env-contract` |
+| Staging readiness | `npm run staging:readiness` |
+| Main branch protection policy | `npm run github:main-protection` |
+| Production mutation guard | `npm run release:production-mutation-gate` |
+
+The default root `npm test` command runs the curated backend regression tracer, not every test in the repository.
+
+## Release And Deployment Model
+
+Aura uses gated release lanes instead of ad hoc production mutation:
+
+- Pull requests build and test the changed surface before merge.
+- A push to `main` runs the non-mutating production gate path.
+- Real production actions run through the manual production command center and require the explicit `PRODUCTION` confirmation input.
+- Storefront production deploys publish the same built artifact to the configured hosts.
+- Backend production deploys use AWS OIDC, S3 release bundles, SSM Run Command, and explicit runtime environment contracts.
+- Rollback, desktop, mobile, gateway, backend, and storefront lanes are selected intentionally instead of all running by accident.
+
+Details: [CI/CD guide](docs/ci-cd.md).
+
+## Security And Safety Posture
+
+Aura is built to fail closed when runtime intent is ambiguous:
+
+- Secrets stay out of source control; example env files contain shape, not real credentials.
+- Local release credential checks are fail-closed: `npm run credentials:setup:local-release-sso` and `npm run credentials:check:local-release`.
+- Staging is not treated as staging unless it has isolated backend, database/cache/storage, and SSM prefix contracts.
+- Frontend code is scanned for secret exposure and route exposure drift.
+- State-changing auth routes use CSRF controls.
+- OTP and recovery flows fail closed on unsafe delivery or stale proof.
+- Privileged device verification uses browser-held trusted-device material and server-enforced tokens.
+- Duo step-up is handled as a server-side auth boundary, not a cosmetic UI challenge.
+- Checkout totals, privilege, ownership, payment state, and admin authority are enforced server-side.
+
+Security docs:
+
+- [Zero-trust sensitive actions](docs/security/zero-trust-sensitive-actions.md)
+- [Invisible app fabric](docs/security/invisible-app-fabric.md)
+- [Secretless frontend](docs/security/secretless-frontend.md)
+- [Trusted device architecture](docs/trusted-device-architecture.md)
+- [Post-quantum readiness](docs/security/post-quantum-readiness.md)
+
+## Catalog, Search, And AI Data
+
+Production catalog imports require source and manifest references. Synthetic demo catalog data is for local and staging demonstrations only and must not be represented as real production merchandise.
+
+Useful commands:
+
+```powershell
+npm --prefix server run catalog:validate-snapshot
+npm --prefix server run catalog:kaggle:prepare -- --dataset owner/dataset
+npm --prefix server run catalog:kaggle:import -- --dataset owner/dataset
+npm --prefix server run search:report
+```
+
+AI and recommendation behavior should remain grounded in catalog data, user or session activity, cart context, product similarity, popularity signals, and explicit assistant tools.
+
+## Operations Index
+
+| Need | Start here |
+|---|---|
+| System shape | [docs/system-architecture.md](docs/system-architecture.md) |
+| Recommendation engine | [docs/recommendation-system.md](docs/recommendation-system.md) |
+| CI/CD and production command center | [docs/ci-cd.md](docs/ci-cd.md) |
+| Environment contracts | [docs/environment-contract.md](docs/environment-contract.md) |
+| Split backend runtime | [docs/split-runtime-deployment.md](docs/split-runtime-deployment.md) |
+| AWS backend | [docs/aws-backend-deployment.md](docs/aws-backend-deployment.md) |
+| AWS frontend | [docs/aws-frontend-deployment.md](docs/aws-frontend-deployment.md) |
+| Mobile apps | [docs/mobile-app-delivery.md](docs/mobile-app-delivery.md) |
+| FX rate pipeline | [docs/fx-rate-pipeline.md](docs/fx-rate-pipeline.md) |
+| Security evidence | [docs/security/](docs/security/) |
+
+## Maintainer Notes
+
+- Keep this README as the current front door, not a historical changelog.
+- Put deep operational detail in `docs/` and link it from here.
+- Keep production claims evidence-backed by workflow runs, release markers, or read-only probes.
+- Do not widen deploy, auth, payment, catalog, migration, or secret-handling changes while updating documentation.
