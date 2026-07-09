@@ -28,6 +28,13 @@ const DEFAULT_REVIEWS_SUMMARY = {
   ratingBreakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
 };
 
+const MALFORMED_PRODUCT_ROUTE_IDS = new Set(['', 'undefined', 'null', 'nan', '[object object]']);
+
+const isMalformedProductRouteId = (value) => {
+  const normalized = String(value ?? '').trim();
+  return MALFORMED_PRODUCT_ROUTE_IDS.has(normalized.toLowerCase());
+};
+
 const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -86,6 +93,7 @@ const ProductDetails = () => {
 
   // Preserve string identifiers so AWS/Mongo IDs and numeric catalog IDs both work.
   const productId = id ? String(id) : '';
+  const hasMalformedProductId = isMalformedProductRouteId(id);
 
   // Derived state
   const isWishlisted = typeof isInWishlist === 'function' ? isInWishlist(productId) : false;
@@ -99,7 +107,10 @@ const ProductDetails = () => {
     let isMounted = true;
 
     const loadData = async () => {
-      if (!id) return;
+      if (hasMalformedProductId) {
+        navigate('/products', { replace: true });
+        return;
+      }
 
       setProduct(null);
       setIsLoading(true);
@@ -139,7 +150,7 @@ const ProductDetails = () => {
     loadData();
 
     return () => { isMounted = false; };
-  }, [id]);
+  }, [hasMalformedProductId, id, navigate]);
 
   useEffect(() => {
     const panel = new URLSearchParams(location.search).get('panel') || '';
@@ -781,7 +792,7 @@ const ProductDetails = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-neo-cyan/5 to-neo-rose/5 pointer-events-none" />
           <h2 className={cn('text-3xl font-black mb-6 tracking-widest uppercase', strongTextClass)}>{t('productPage.notFoundTitle', {}, 'Product Not Found')}</h2>
           <p className={cn('mb-8', mutedTextClass)}>{t('productPage.notFoundBody', {}, 'The item you are looking for could not be found.')}</p>
-          <Link to="/" className="btn-primary inline-block px-10 py-3">{t('productPage.continueShopping', {}, 'Continue Shopping')}</Link>
+          <Link to="/products" className="btn-primary inline-block px-10 py-3">{t('productPage.continueShopping', {}, 'Continue Shopping')}</Link>
         </div>
       </div>
     );
@@ -1636,4 +1647,3 @@ const ProductDetails = () => {
 };
 
 export default ProductDetails;
-
