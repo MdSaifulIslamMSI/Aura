@@ -433,6 +433,9 @@ jobs:
           TAG_NAME: ${{ needs.prepare.outputs.tag_name }}
           RELEASE_SHA: ${{ github.sha }}
           WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REQUIRE_WINDOWS_SIGNING: ${{ inputs.require_windows_signing == true }}
+          REQUIRE_MACOS_SIGNING: ${{ inputs.require_macos_signing == true }}
+          PUBLISH_STORE_RELEASE: ${{ inputs.publish_store_release == true }}
         run: |
           set -euo pipefail
 
@@ -445,43 +448,13 @@ jobs:
             RANGE_LABEL="Recent release context"
           fi
 
-          {
-            echo "## What shipped"
-            echo
-            echo "Aura Marketplace Desktop ${VERSION} was generated from commit \`${RELEASE_SHA}\` after the production CI/CD release gates completed."
-            echo
-            echo "This release includes the packaged desktop app, the bundled production web frontend, the local desktop runtime proxy, and updater metadata for installed apps."
-            echo
-            echo "## Why this release exists"
-            echo
-            echo "- Keep Windows, macOS, and Linux desktop builds aligned with the current Aura web app."
-            echo "- Give installed users the newest trusted-device, login, marketplace, and runtime fixes without requiring a manual reinstall."
-            echo "- Publish only from the automated release flow so failed CI/CD jobs do not move the latest desktop version forward."
-            echo
-            echo "## How updates work"
-            echo
-            echo "- Installed desktop apps check the GitHub latest release feed, download the matching update package, and install it on restart or app quit."
-            echo "- Windows, macOS, and Linux updater metadata is uploaded next to the installers so auto-update clients can resolve the correct build."
-            echo "- The production pipeline must succeed before this job publishes a latest release from the main CI/CD flow."
-            echo
-            echo "## Download guide"
-            echo
-            echo "- Windows users should choose the Setup installer for their CPU architecture, usually x64."
-            echo "- macOS users should choose arm64 for Apple Silicon or x64 for Intel Macs."
-            echo "- Linux users can choose AppImage for portable use, or deb/rpm/tar.gz for distro-specific installation."
-            echo
-            echo "## Distribution trust"
-            echo
-            echo "- When platform signing or notarization secrets are not configured, generated desktop artifacts are intended for internal testing from GitHub Releases only."
-            echo "- Public Windows and macOS distribution should use trusted Windows signing and Apple signing/notarization before directing end users to install."
-            echo
-            echo "## Build context"
-            echo
-            echo "- Workflow run: ${WORKFLOW_URL}"
-            echo "- Source commit: \`${RELEASE_SHA}\`"
-            echo "- ${RANGE_LABEL}:"
-            git log --no-merges --pretty='  - `%h` %s' -n 18 "${COMMIT_RANGE}" || true
-          } > release-notes.md
+          export RANGE_LABEL
+          git log --no-merges --pretty='- `%h` %s' -n 18 "${COMMIT_RANGE}" > release-changes.md || true
+          node scripts/release/write-desktop-release-notes.mjs \
+            --artifacts-dir release-artifacts \
+            --notes-out release-notes.md \
+            --checksums-out "release-artifacts/Aura-Desktop-SHA256SUMS-${VERSION}.txt" \
+            --changes-file release-changes.md
 
       - name: Publish GitHub desktop release
         shell: bash
