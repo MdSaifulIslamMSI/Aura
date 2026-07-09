@@ -6,7 +6,25 @@ Aura is available through the strongest runtime each platform can realistically 
 
 - Web/PWA: Vercel, Netlify, and AWS CloudFront serve the same production storefront.
 - Desktop: Windows, macOS, and Linux packages ship through the desktop release lane.
-- Mobile: Android APK/AAB and iOS/iPadOS IPA artifacts ship through the mobile release lane when signing assets allow it.
+- Mobile: the current mobile release lane publishes an Android debug APK and an iOS simulator ZIP. Store-signed Android AAB and real-device iOS/iPadOS IPA artifacts require signing, provisioning, and distribution setup before they can be presented as installable packages.
+
+## Current Release Asset Contract
+
+Aura's global availability promise is operational, not a claim that one binary runs everywhere. The gateway must keep these lanes distinct.
+
+| Surface | Current gateway state | Expected asset | User-facing behavior |
+| --- | --- | --- | --- |
+| Windows | Ready native desktop | exact `.exe` setup/portable release assets | Direct GitHub release download after hydration |
+| macOS | Ready native desktop | exact `.dmg` and `.zip` release assets | Direct GitHub release download after hydration |
+| Linux | Ready native desktop | exact AppImage, deb, RPM, and tar.gz release assets | Direct GitHub release download after hydration |
+| Android device testing | Ready mobile test build | Android debug APK | Direct GitHub release download after hydration, labeled as debug/testing |
+| iOS simulator testing | Ready simulator build | iOS simulator ZIP | Direct GitHub release download after hydration, labeled as simulator/testing |
+| Android Play release | Not published in current release | AAB | Disabled as `Not published` until a real AAB asset exists |
+| iPhone/iPad real-device install | Not published in current release | signed IPA | Disabled as `Not published` until a real signed IPA asset exists |
+| Modern browser platforms | PWA/web route | no native binary | Use the hosted Aura PWA |
+| Long-tail and embedded OS families | PWA or companion/API mode | no native binary | Use hosted browser access where available; otherwise use authenticated backend/API integration |
+
+Do not add a gateway download button for a platform-specific binary until a real release asset exists. New native claims must ship with a matching GitHub release artifact, gateway resolver metadata, and this matrix update in the same pull request.
 
 ## Requested Platform Coverage
 
