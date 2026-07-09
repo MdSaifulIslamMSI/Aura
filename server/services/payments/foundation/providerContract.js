@@ -1,6 +1,7 @@
 const { PaymentDomainError, PaymentProviderError } = require('./domainErrors');
 const { assertNoRawPaymentData } = require('./stateMachines');
 const logger = require('../../../utils/logger');
+const { computeJitteredBackoffDelayMs } = require('../../../utils/retry');
 
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10000;
 const DEFAULT_PROVIDER_REFUND_TIMEOUT_MS = 15000;
@@ -127,6 +128,9 @@ const retryWithBackoff = async (operation, options = {}) => {
     const retries = Number.isInteger(options.retries) ? options.retries : 2;
     const initialDelayMs = Number.isInteger(options.initialDelayMs) ? options.initialDelayMs : 100;
     const maxDelayMs = Number.isInteger(options.maxDelayMs) ? options.maxDelayMs : 1000;
+    const jitterRatio = Number.isFinite(Number(options.jitterRatio)) ? Number(options.jitterRatio) : 0.2;
+    const random = typeof options.random === 'function' ? options.random : Math.random;
+    const sleepFn = typeof options.sleepFn === 'function' ? options.sleepFn : sleep;
     const shouldRetry = typeof options.shouldRetry === 'function'
         ? options.shouldRetry
         : () => true;
@@ -141,8 +145,14 @@ const retryWithBackoff = async (operation, options = {}) => {
             if (attempt >= retries || !shouldRetry(error, { attempt, retries })) {
                 throw error;
             }
-            const delayMs = Math.min(maxDelayMs, initialDelayMs * (2 ** attempt));
-            await sleep(delayMs);
+            const delayMs = computeJitteredBackoffDelayMs({
+                attempt,
+                initialDelayMs,
+                maxDelayMs,
+                jitterRatio,
+                random,
+            });
+            await sleepFn(delayMs);
             attempt += 1;
         }
     }

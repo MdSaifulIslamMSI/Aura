@@ -1,0 +1,31 @@
+# Traffic Budget Matrix
+
+This is the human-readable merge review matrix. Runtime source of truth is `server/config/trafficPolicyRegistry.js`.
+
+| Component | Route Examples | User Type | Abuse Risk | Rate Limit | Burst | Sustained | Body | Timeout | Retry | Cache | Overload | Fail Mode | Tests | Owner Note |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Auth/login/session | `/api/auth*` | Anonymous/authenticated | Credential stuffing, enumeration | IP 40, account 20, session 20 / 300s | 10 | 40 | 64KB | 7000ms | No automatic mutation retry | no-store | No degrade for strict auth | fail-closed | `authRateLimitSecurity`, `loginAttackSmoke` | Server traffic fortress |
+| OTP send | `/api/otp*`, `/api/auth/otp*` | Anonymous with challenge | OTP spam, brute force | IP 12, account 8, session 8 / 300s | 3 | 12 | 64KB | 7000ms | User-driven cooldown only | no-store | Block via `DISABLE_OTP_SEND` | fail-closed | `otpRoutes`, `otpSystem` | Auth/security owner |
+| Password reset | `/api/otp/reset-password` | Anonymous with flow token | Reset abuse, enumeration | IP 12, account 8, session 8 / 300s plus flow token | 3 | 12 | 64KB | 15000ms | Fresh flow required | no-store | Not degradable | fail-closed | `trafficBudgetPolicy`, `otpRoutes` | Auth/security owner |
+| MFA/passkey/Duo | `/api/auth/verify-device`, `/api/auth/mfa*`, `/api/auth/duo*` | Mixed, challenge-bound | Challenge flooding | WebAuthn IP 60/account 30/session 30; auth IP 40/account 20/session 20 | 8-10 | 30-40 | 64-96KB | 7000-10000ms | Bounded user retry | no-store | Not degradable | fail-closed | `mfaRolloutSmoke`, `authRateLimitSecurity` | Auth/security owner |
+| Admin routes | `/api/admin*` | Admin | Privileged mutation/data exposure | Write IP 40/user 40/session 30; read IP 80/user 120/session 80 | 8 | 40 | 96-128KB | 10000ms | No automatic mutation retry | no-store | Writes not shed | fail-closed | admin security suites | Admin/security owner |
+| Payment/checkout/order | `/api/payments*`, `/api/checkout*`, `/api/orders*` | Authenticated | Double charge/refund abuse | Payment IP 60/account 80/session 40 / 300s | 10 | 50 | 128KB | 12000ms | Idempotency/state machine | no-store | Not degradable for payment | fail-closed | payment/order tests | Payments owner |
+| Cart | `/api/cart*` | Authenticated | State replay/write amplification | Auth write IP 120/account 120/session 80 / 300s | 15 | 80 | 256KB | 10000ms | Canonical command retry only | no-store | Degradable when safe | fail-closed | order/cart tests | Commerce owner |
+| Product browsing | `/api/markets*`, low-cost reads | Anonymous/mixed | Read amplification | Public read IP 300 / 60s | 30 | 120 | 32KB | 6000ms | Bounded read retry | public-short | Can shed | fail-open-safe | cache tests | Marketplace owner |
+| Search/listing/marketplace | `/api/products*`, `/api/listings*`, `/api/recommendations*` | Public/authenticated | Scraping/listing spam | Public search IP 120/session 90 / 60s; writes auth budget | 30 | 120 | 96KB | 4500ms | Mutations no auto retry | public-short/no-store | Search can shed | fail-open-safe/read, fail-closed/write | DB/cache tests | Marketplace owner |
+| Upload/review media | `/api/uploads*`, `/uploads*` | Authenticated/mixed read | Storage/CPU/malware | IP 20/account 20/session 12 / 300s | 6 | 20 | 9MB | 20000ms | No automatic upload retry | no-store/static media | Can block uploads | fail-closed | upload security tests | Media owner |
+| AI assistant/chat | `/api/ai*`, `/api/intelligence*` | Authenticated/risk-gated | Provider/token cost | IP 30/account 50/session 30 / 60s | 8 | 30 | 9MB | 25000ms | No blind provider retry | no-store | Degrade/block AI | fail-closed | AI/provider tests | AI owner |
+| Recommendation events | `/api/recommendation-events*` | Optional auth | Analytics write spam | Auth write budget with quota posture | 15 | 80 | 256KB | 10000ms | No blind retry | no-store | Degradable | fail-closed | rate coverage | Recommendations owner |
+| Email/SMS/webhooks | `/api/payments/webhooks*`, `/api/email-webhooks*`, `/api/status/webhooks*` | Provider signed | Forgery/replay | IP 300 / 60s plus signature/replay/idempotency | 100 | 300 | 256KB | 8000ms | Provider retry after signature proof | no-store | Do not generic-shed | fail-open-safe limiter, fail-closed signature | webhook tests | Provider owner |
+| Live/socket/video | listing `/video/*`, socket token paths | Authenticated | Token/room flooding | Auth write budget plus live-call limiter | 15 | 80 | 256KB | 10000ms | No auto retry | no-store | Degradable when safe | fail-closed | `liveCallSessionKeyAuthz` | Realtime owner |
+| i18n/translation | `/api/i18n*` | Mixed | Provider/cache abuse | Auth write budget plus i18n limiter | 15 | 80 | 256KB | 10000ms | Bounded cache-aware retry | no-store | Degrade to cached/static | fail-closed | `i18nRateLimitPolicy` | Localization owner |
+| Observability/health | `/health*`, `/api/health*`, `/api/status*`, `/api/observability*` | Public/admin | Polling/diagnostic leakage | Health IP 1200; status IP 600; admin diagnostics admin budget | 30 | 120 | 8-16KB health/status | 1500-3000ms | Read-only bounded | no-store/status-public | Liveness cheap, readiness fail closed | mixed by route | health/observability tests | SRE owner |
+| Static frontend/assets | `/assets*`, static extensions | Public | Origin amplification | IP 2400 / 60s | 30 | 120 | 8KB | 5000ms | CDN/cache retry | public-static | Keep at cache edge | fail-open-safe | cache tests | Frontend/platform owner |
+| Internal jobs/workers | `/api/internal*` | Internal signed | Worker amplification | Auth write budget plus internal auth | 15 | 80 | 256KB | 10000ms | Bounded idempotent worker retry | no-store | Fail closed on missing proof | fail-closed | backpressure tests | Platform owner |
+
+## Owner Notes
+
+- Runtime changes must update `server/config/trafficPolicyRegistry.js` first.
+- Numeric budget changes must update `server/config/trafficBudgets.js` and the registry tests.
+- New top-level API mounts must pass `npm run traffic:audit:regressions`.
+- Public smoothness warnings are allowed only when they are understood and documented; audit failures block merge.

@@ -92,3 +92,17 @@ PRODUCTION
 ```
 
 into the `confirm_production` input.
+
+Select manual lanes with comma-separated target inputs. This keeps the
+workflow within GitHub's 10-input `workflow_dispatch` limit while preserving
+per-surface deploy and rollback gates.
+
+```text
+deploy_targets=backend,frontend-netlify,gateway
+release_targets=desktop,mobile
+rollback_targets=backend,frontend-netlify,frontend-aws,gateway
+```
+
+Leave target inputs blank for no-op validation runs. Use only the targets you
+intend to run; for example, the storefront multi-host deploy is
+`frontend-netlify`, while `frontend-aws` is the AWS-only fallback lane.

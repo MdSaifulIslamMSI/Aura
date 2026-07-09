@@ -148,12 +148,73 @@ const validateAwsCli = () => {
   return { ok: true };
 };
 
+const readAwsProfileValue = (key) => {
+  const result = runAws(['configure', 'get', key, '--profile', REQUIRED_PROFILE]);
+  if (result.status !== 0) return '';
+  return normalize(result.stdout);
+};
+
+const isStagingRoleArn = (roleArn, expectedRoleArn = '') => {
+  if (!roleArn.startsWith('arn:aws:iam::') || !roleArn.includes(':role/')) return false;
+  if (expectedRoleArn) return roleArn === expectedRoleArn;
+  return /staging/i.test(roleArn) && !/prod|production/i.test(roleArn);
+};
+
+const validateAwsProfileSource = (env = process.env) => {
+  const directCredentialKeys = [
+    'aws_access_key_id',
+    'aws_secret_access_key',
+    'aws_session_token',
+  ].filter((key) => readAwsProfileValue(key));
+
+  if (directCredentialKeys.length > 0) {
+    return {
+      ok: false,
+      message: `${REQUIRED_PROFILE} must not store AWS access keys or session tokens directly.`,
+    };
+  }
+
+  if (readAwsProfileValue('credential_source') || readAwsProfileValue('credential_process')) {
+    return {
+      ok: false,
+      message: `${REQUIRED_PROFILE} must use AWS SSO or an explicit staging role_arn with source_profile.`,
+    };
+  }
+
+  const hasSsoSource = Boolean(readAwsProfileValue('sso_session') || readAwsProfileValue('sso_start_url'));
+  const hasSsoAccount = Boolean(readAwsProfileValue('sso_account_id'));
+  const hasSsoRole = Boolean(readAwsProfileValue('sso_role_name'));
+  if (hasSsoSource || hasSsoAccount || hasSsoRole) {
+    if (hasSsoSource && hasSsoAccount && hasSsoRole) return { ok: true };
+    return {
+      ok: false,
+      message: `${REQUIRED_PROFILE} must be configured with AWS SSO/IAM Identity Center keys: sso_session or sso_start_url, sso_account_id, and sso_role_name.`,
+    };
+  }
+
+  const roleArn = readAwsProfileValue('role_arn');
+  const sourceProfile = readAwsProfileValue('source_profile');
+  if (roleArn || sourceProfile) {
+    const expectedRoleArn = normalize(env.STAGING_AWS_DEPLOY_ROLE_ARN || env.AURA_ALLOWED_STAGING_ROLE_ARN);
+    if (roleArn && sourceProfile && isStagingRoleArn(roleArn, expectedRoleArn)) return { ok: true };
+    return {
+      ok: false,
+      message: `${REQUIRED_PROFILE} role profiles must assume an explicit staging role and must not point at production.`,
+    };
+  }
+
+  return {
+    ok: false,
+    message: `${REQUIRED_PROFILE} must use AWS SSO/IAM Identity Center or an explicit staging role_arn with source_profile.`,
+  };
+};
+
 const validateAwsIdentity = () => {
   const identity = runAws(['sts', 'get-caller-identity', '--output', 'json']);
   if (identity.status !== 0) {
     return {
       ok: false,
-      message: `AWS STS identity check failed. Run aws sso login --profile ${REQUIRED_PROFILE}.`,
+      message: `AWS STS identity check failed. Run aws sso login --profile ${REQUIRED_PROFILE} or refresh the staging role source profile.`,
     };
   }
 
@@ -163,6 +224,12 @@ const validateAwsIdentity = () => {
       return {
         ok: false,
         message: 'AWS STS identity response was incomplete.',
+      };
+    }
+    if (looksProductionLike(parsed.Arn)) {
+      return {
+        ok: false,
+        message: 'AWS STS identity must not be production-like for staging release gates.',
       };
     }
   } catch {
@@ -189,6 +256,9 @@ export const checkLocalReleaseCredentials = ({ env = process.env } = {}) => {
 
   const canCheckIdentity = cli.ok && normalize(env.AWS_PROFILE) === REQUIRED_PROFILE;
   if (canCheckIdentity) {
+    const profileSource = validateAwsProfileSource(env);
+    if (!profileSource.ok) failures.push(profileSource.message);
+
     const identity = validateAwsIdentity();
     if (!identity.ok) failures.push(identity.message);
   } else if (cli.ok && normalize(env.AWS_PROFILE)) {

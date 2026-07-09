@@ -36,6 +36,7 @@ const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
 const production = read('.github/workflows/production-cicd.yml');
 const productionOnPush = read('.github/workflows/production-on-push.yml');
 const productionAdminAccess = read('.github/workflows/production-admin-access.yml');
+const ciWorkflow = read('.github/workflows/ci.yml');
 const desktop = read('.github/workflows/desktop-release.yml');
 const mobile = read('.github/workflows/mobile-release.yml');
 const gateway = read('.github/workflows/deploy-gateway-vercel.yml');
@@ -61,6 +62,69 @@ const addCheck = (name, pass, detail) => {
   });
 };
 
+const leadingSpaces = (line) => line.match(/^\s*/)?.[0].length || 0;
+
+const workflowDispatchInputNames = (workflow) => {
+  const lines = workflow.split(/\r?\n/);
+  const dispatchIndex = lines.findIndex((line) => /^\s*workflow_dispatch:\s*$/.test(line));
+  if (dispatchIndex === -1) {
+    return [];
+  }
+
+  const dispatchIndent = leadingSpaces(lines[dispatchIndex]);
+  let inputsIndex = -1;
+  for (let index = dispatchIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim()) {
+      continue;
+    }
+
+    const indent = leadingSpaces(line);
+    if (indent <= dispatchIndent) {
+      break;
+    }
+
+    if (indent === dispatchIndent + 2 && line.trim() === 'inputs:') {
+      inputsIndex = index;
+      break;
+    }
+  }
+
+  if (inputsIndex === -1) {
+    return [];
+  }
+
+  const inputsIndent = leadingSpaces(lines[inputsIndex]);
+  const inputIndent = inputsIndent + 2;
+  const inputNames = [];
+  for (let index = inputsIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim()) {
+      continue;
+    }
+
+    const indent = leadingSpaces(line);
+    if (indent <= inputsIndent) {
+      break;
+    }
+
+    const match = line.match(new RegExp(`^\\s{${inputIndent}}([A-Za-z0-9_-]+):\\s*$`));
+    if (match) {
+      inputNames.push(match[1]);
+    }
+  }
+
+  return inputNames;
+};
+
+const workflowJobSection = (workflow, jobName) => {
+  const match = workflow.match(new RegExp(`\\n  ${jobName}:\\n[\\s\\S]*?(?=\\n  [a-zA-Z0-9_-]+:\\n|$)`));
+  return match?.[0] || '';
+};
+
+const productionDispatchInputs = workflowDispatchInputNames(production);
+const productionQualityGates = workflowJobSection(production, 'quality-gates');
+
 for (const workflow of requiredWorkflows) {
   addCheck(
     `workflow exists: ${workflow}`,
@@ -79,6 +143,26 @@ addCheck(
   'manual production command center exists',
   production.includes('name: Manual Production Command Center') && production.includes('workflow_dispatch:'),
   '.github/workflows/production-cicd.yml'
+);
+
+addCheck(
+  'manual production command center fits GitHub dispatch input limit',
+  productionDispatchInputs.length > 0 &&
+    productionDispatchInputs.length <= 10 &&
+    ['deploy_targets', 'release_targets', 'rollback_targets'].every((input) =>
+      productionDispatchInputs.includes(input)
+    ),
+  `inputs=${productionDispatchInputs.length}/10; target inputs collapse selected deploy/release/rollback lanes`
+);
+
+addCheck(
+  'manual production command center grants CI reusable workflow permissions',
+  productionQualityGates.includes('uses: ./.github/workflows/ci.yml') &&
+    productionQualityGates.includes('contents: read') &&
+    productionQualityGates.includes('pull-requests: read') &&
+    ciWorkflow.includes('workflow_call:') &&
+    ciWorkflow.includes('pull-requests: read'),
+  'ci.yml workflow_call needs read-only pull request metadata; the caller must not under-grant it'
 );
 
 addCheck(

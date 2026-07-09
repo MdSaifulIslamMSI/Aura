@@ -93,6 +93,60 @@ if (args.includes('--version')) {
   console.log('aws-cli/2.99.0 Python/3.12');
   process.exit(0);
 }
+if (args[0] === 'configure' && args[1] === 'get' && args[3] === '--profile' && args[4] === 'aura-staging-operator') {
+  const key = args[2];
+  if (process.env.AWS_MOCK_PROFILE_MODE === 'staging-role') {
+    const values = {
+      source_profile: 'aura-admin-cli',
+      role_arn: 'arn:aws:iam::123456789012:role/aura-staging-bootstrap-operator',
+    };
+    if (values[key]) {
+      console.log(values[key]);
+      process.exit(0);
+    }
+    process.exit(1);
+  }
+  if (process.env.AWS_MOCK_PROFILE_MODE === 'production-role') {
+    const values = {
+      source_profile: 'aura-admin-cli',
+      role_arn: 'arn:aws:iam::123456789012:role/aura-production-admin',
+    };
+    if (values[key]) {
+      console.log(values[key]);
+      process.exit(0);
+    }
+    process.exit(1);
+  }
+  if (process.env.AWS_MOCK_PROFILE_MODE === 'direct-static') {
+    const values = {
+      aws_access_key_id: 'AKIA_TEST_DO_NOT_PRINT',
+      aws_secret_access_key: 'test-placeholder-do-not-print-secret',
+    };
+    if (values[key]) {
+      console.log(values[key]);
+      process.exit(0);
+    }
+    process.exit(1);
+  }
+  const values = {
+    sso_session: 'aura-staging',
+    sso_account_id: '123456789012',
+    sso_role_name: 'AuraStagingReleaseGateOperator',
+  };
+  if (values[key]) {
+    console.log(values[key]);
+    process.exit(0);
+  }
+  process.exit(1);
+}
+if (args[0] === 'configure' && args[1] === 'set' && args[4] === '--profile' && args[5] === 'aura-staging-operator') {
+  if (process.env.AWS_MOCK_MODE === 'configure-fail') {
+    console.error('mock configure set failed');
+    process.exit(1);
+  }
+  console.log('mock configured ' + args[2]);
+  process.exit(0);
+}
 if (args.join(' ') === 'sts get-caller-identity --output json') {
   if (process.env.AWS_MOCK_MODE === 'missing-creds') {
     console.error('Unable to locate credentials.');
@@ -297,6 +351,43 @@ describe('repo environment contract scripts', () => {
         expect(result.output).not.toMatch(/123456789012/);
     });
 
+    test('local release credential checker accepts the explicit staging role profile shape', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin, {
+            AWS_MOCK_PROFILE_MODE: 'staging-role',
+            STAGING_AWS_DEPLOY_ROLE_ARN: 'arn:aws:iam::123456789012:role/aura-staging-bootstrap-operator',
+        }));
+
+        expect(result.status).toBe(0);
+        expect(result.output).toMatch(/local-release-credentials: passed/);
+        expect(result.output).not.toMatch(/aura-admin-cli/);
+        expect(result.output).not.toMatch(/123456789012/);
+    });
+
+    test('local release credential checker rejects direct static credentials on the operator profile', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin, {
+            AWS_MOCK_PROFILE_MODE: 'direct-static',
+        }));
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/must not store AWS access keys/);
+        expect(result.output).not.toMatch(/AKIA_TEST_DO_NOT_PRINT/);
+        expect(result.output).not.toMatch(/test-placeholder-do-not-print-secret/);
+    });
+
+    test('local release credential checker rejects production role profiles', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin, {
+            AWS_MOCK_PROFILE_MODE: 'production-role',
+        }));
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/must assume an explicit staging role/);
+        expect(result.output).not.toMatch(/aura-admin-cli/);
+        expect(result.output).not.toMatch(/123456789012/);
+    });
+
     test('local release credential checker fails when staging env vars are missing', () => {
         const mockBin = writeMockAwsCli();
         const result = runScript('scripts/credentials/check-local-release-credentials.mjs', safeLocalReleaseEnv(mockBin, {
@@ -344,6 +435,38 @@ describe('repo environment contract scripts', () => {
         expect(result.output).not.toContain(secretCanary);
         expect(result.output).not.toMatch(/AWS_SECRET_ACCESS_KEY/);
         expect(result.output).not.toMatch(/AUTH_CLIENT_SECRET/);
+    });
+
+    test('local release SSO profile setup fails closed when metadata is missing', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/setup-local-release-sso-profile.mjs', {
+            [pathEnvName]: `${mockBin.dir}${path.delimiter}${process.env[pathEnvName] || process.env.PATH || ''}`,
+            AWS_CLI_PATH: mockBin.command,
+        });
+
+        expect(result.status).not.toBe(0);
+        expect(result.output).toMatch(/local-release-sso-profile: failed/);
+        expect(result.output).toMatch(/AURA_AWS_SSO_START_URL is required/);
+    });
+
+    test('local release SSO profile setup writes only non-secret SSO profile keys', () => {
+        const mockBin = writeMockAwsCli();
+        const result = runScript('scripts/credentials/setup-local-release-sso-profile.mjs', {
+            [pathEnvName]: `${mockBin.dir}${path.delimiter}${process.env[pathEnvName] || process.env.PATH || ''}`,
+            AWS_CLI_PATH: mockBin.command,
+            AWS_REGION: 'ap-south-1',
+            AURA_AWS_SSO_START_URL: 'https://example.awsapps.com/start',
+            AURA_AWS_SSO_REGION: 'us-east-1',
+            AURA_AWS_SSO_ACCOUNT_ID: '123456789012',
+            AURA_AWS_SSO_ROLE_NAME: 'AuraStagingReleaseGateOperator',
+        });
+
+        expect(result.status).toBe(0);
+        expect(result.output).toMatch(/local-release-sso-profile: configured/);
+        expect(result.output).toMatch(/aura-staging-operator/);
+        expect(result.output).not.toContain('example.awsapps.com');
+        expect(result.output).not.toMatch(/123456789012/);
+        expect(result.output).not.toMatch(/AuraStagingReleaseGateOperator/);
     });
 
     test('staging Keycloak auth smoke skips with an explicit reason when env is absent', () => {
@@ -626,9 +749,9 @@ describe('repo environment contract scripts', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
 
         expect(iamScript).toMatch(/ReadStagingCostExplorerUsage/);
-        expect(iamScript).toMatch(/"Action": "ce:GetCostAndUsage"/);
+        expect(iamScript).toMatch(/"ce:GetCostAndUsage"/);
         expect(iamScript).not.toMatch(/ce:\*/);
-        expect(iamScript).not.toMatch(/ce:GetCostForecast/);
+        expect(iamScript).toMatch(/ce:GetCostForecast/);
         expect(workflow).toMatch(/ALLOW_NO_COST_WATCH:\s*\$\{\{\s*vars\.ALLOW_NO_COST_WATCH \|\| 'true'\s*\}\}/);
     });
 
@@ -678,6 +801,38 @@ describe('repo environment contract scripts', () => {
             expect(section).toContain(manualGate);
             expect(section).toContain(`--workflow ${dispatchedWorkflow}`);
         }
+    });
+
+    test('manual production command center stays within GitHub workflow_dispatch input limit', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+        const inputsBlock = workflow.match(/workflow_dispatch:\s*\r?\n\s*inputs:\s*\r?\n([\s\S]*?)\r?\npermissions:/);
+        expect(inputsBlock).toBeTruthy();
+
+        const inputNames = [...inputsBlock[1].matchAll(/^ {6}([A-Za-z0-9_-]+):\s*$/gm)].map((match) => match[1]);
+
+        expect(inputNames.length).toBeLessThanOrEqual(10);
+        expect(inputNames).toEqual(expect.arrayContaining([
+            'confirm_production',
+            'deploy_targets',
+            'release_targets',
+            'rollback_targets',
+        ]));
+        expect(inputNames).not.toContain('deploy_backend');
+        expect(inputNames).not.toContain('rollback_backend');
+        expect(inputNames).not.toContain('release_desktop');
+    });
+
+    test('manual production command center does not under-grant CI reusable workflow permissions', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+        const ciWorkflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8');
+        const qualityGates = workflow.match(/\n  quality-gates:\n[\s\S]*?(?=\n  [a-zA-Z0-9_-]+:\n|$)/);
+        expect(qualityGates).toBeTruthy();
+
+        expect(ciWorkflow).toContain('workflow_call:');
+        expect(ciWorkflow).toContain('pull-requests: read');
+        expect(qualityGates[0]).toContain('uses: ./.github/workflows/ci.yml');
+        expect(qualityGates[0]).toContain('contents: read');
+        expect(qualityGates[0]).toContain('pull-requests: read');
     });
 
     test('production admin recovery keeps direct /aura/prod Parameter Store writes available', () => {
@@ -832,4 +987,75 @@ describe('repo environment contract scripts', () => {
         }
     });
 
+    test('giant release gates are wired to package scripts and fail-closed scripts', () => {
+        const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
+
+        expect(pkg.scripts['staging:state:check']).toContain('refresh-state-from-aws.mjs --check');
+        expect(pkg.scripts['staging:state:refresh']).toContain('refresh-state-from-aws.mjs');
+        expect(pkg.scripts['smoke:env-contract']).toContain('assert-environment-contract.mjs');
+        expect(pkg.scripts['aws:cost-guard']).toContain('assert-free-tier-cost-guard.mjs');
+        expect(pkg.scripts['aws:observability:guard']).toContain('assert-observability-guard.mjs');
+        expect(pkg.scripts['release:rollback-ready']).toContain('assert-rollback-ready.mjs');
+        expect(pkg.scripts['release:production-mutation-gate']).toContain('assert-production-mutation-gate.mjs');
+
+        const stateRefresh = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', 'refresh-state-from-aws.mjs'), 'utf8');
+        expect(stateRefresh).toContain('Name=tag:Environment,Values=staging');
+        expect(stateRefresh).toContain('expectedManagedBy');
+        expect(stateRefresh).toContain('more than one');
+        expect(stateRefresh).toContain('writeJsonAtomic(stateFile, nextState)');
+        expect(stateRefresh).not.toContain('Environment=production');
+
+        const iamBootstrap = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-create-iam-auth.sh'), 'utf8');
+        expect(iamBootstrap).toContain('sts:AssumeRoleWithWebIdentity');
+        expect(iamBootstrap).toContain('token.actions.githubusercontent.com:sub');
+        expect(iamBootstrap).toContain('repo:$github_repo:environment:staging');
+
+        const productionGate = fs.readFileSync(path.join(repoRoot, 'scripts', 'release', 'assert-production-mutation-gate.mjs'), 'utf8');
+        expect(productionGate).toContain("gitBranch() !== 'main'");
+        expect(productionGate).toContain('AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED');
+        expect(productionGate).toContain('PRODUCTION_MUTATION_CONFIRMATION');
+        expect(productionGate).toContain('staging-smoke');
+        expect(productionGate).toContain('cost-guard');
+
+        const costGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'aws', 'assert-free-tier-cost-guard.mjs'), 'utf8');
+        const observabilityGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'aws', 'assert-observability-guard.mjs'), 'utf8');
+        const branchProtectionGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'github', 'assert-main-protection.mjs'), 'utf8');
+        expect(costGuard).toContain("emitEvidence('blocked')");
+        expect(observabilityGuard).toContain("emitEvidence('blocked')");
+        expect(branchProtectionGuard).toContain("'aws:observability:guard'");
+        expect(branchProtectionGuard).toContain('dismiss_stale_reviews');
+        expect(branchProtectionGuard).toContain('required_status_checks?.strict');
+    });
+
+    test('giant release workflow runs read-only gates and no production mutation gate', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'giant-release-gates.yml'), 'utf8');
+
+        expect(workflow).toMatch(/pull_request:/);
+        expect(workflow).toMatch(/branches: \[main\]/);
+        expect(workflow).toContain('name: smoke:staging');
+        expect(workflow).toContain('name: smoke:staging:frontend');
+        expect(workflow).toContain('name: smoke:env-contract');
+        expect(workflow).toContain('name: aws:cost-guard');
+        expect(workflow).toContain('name: aws:observability:guard');
+        expect(workflow).toContain('name: release:rollback-ready');
+        expect(workflow).toContain('ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA }}');
+        expect(workflow).not.toContain('github.event.pull_request.base.sha');
+        expect(workflow).toContain('npm run staging:state:refresh');
+        expect(workflow).toContain('npm run aws:observability:guard');
+        expect(workflow).not.toContain('release:production-mutation-gate');
+        expect(workflow).not.toContain('AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: true');
+    });
+
+    test('free-tier AWS guard config blocks expensive services by default', () => {
+        const guard = JSON.parse(fs.readFileSync(path.join(repoRoot, 'config', 'aws-free-guard.json'), 'utf8'));
+
+        expect(guard.region).toBe('ap-south-1');
+        expect(guard.maxMonthlyUsd).toBeLessThanOrEqual(5);
+        expect(guard.allowNatGateway).toBe(false);
+        expect(guard.allowLoadBalancer).toBe(false);
+        expect(guard.allowPaidRds).toBe(false);
+        expect(guard.allowPaidElasticache).toBe(false);
+        expect(guard.allowOpenSearch).toBe(false);
+        expect(guard.requiredSsmPrefixes).toEqual(expect.arrayContaining(['/aura/staging', '/aura/prod']));
+    });
 });
