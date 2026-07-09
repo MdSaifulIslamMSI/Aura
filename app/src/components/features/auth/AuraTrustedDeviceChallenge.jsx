@@ -351,9 +351,10 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   }, [defaultSelectedMethod, deviceChallenge?.token]);
 
   useEffect(() => {
-    setIsCollapsed(!isBlockingRoute);
-    setShowMethodChooser(isBlockingRoute);
-  }, [deviceChallenge?.token, isBlockingRoute]);
+    const shouldOpenEnrollment = challengeMode === 'enroll';
+    setIsCollapsed(!isBlockingRoute && !shouldOpenEnrollment);
+    setShowMethodChooser(isBlockingRoute || shouldOpenEnrollment);
+  }, [challengeMode, deviceChallenge?.token, isBlockingRoute]);
 
   useEffect(() => {
     if (!requiresPasswordReauth) return;
@@ -369,8 +370,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   const shouldRenderTrustedGate = !disabled
     && status === 'device_challenge_required'
     && Boolean(deviceChallenge)
-    && import.meta.env.MODE !== 'test'
-    && isBlockingRoute;
+    && import.meta.env.MODE !== 'test';
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
