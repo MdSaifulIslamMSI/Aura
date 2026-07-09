@@ -6,7 +6,7 @@
     <title>Aura Gateway</title>
     <meta
       name="description"
-      content="A premium production gateway for the Aura storefront stack across Vercel, Netlify, AWS CloudFront, desktop, mobile, tablet, ChromeOS, Unix, BSD, HarmonyOS, and RTOS companion surfaces."
+      content="A production gateway for Aura storefront routes, verified release packages, and honest web or companion availability across supported devices."
     />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="preload" as="image" href="./assets/aura-gateway-hero.png" />
@@ -144,13 +144,13 @@
         <section class="downloads-section" id="downloads" aria-labelledby="downloads-title">
           <div class="downloads-heading">
             <div>
-              <p class="section-label">Desktop + mobile + PWA availability</p>
-              <h2 id="downloads-title">Install Aura on the device you actually use.</h2>
+              <p class="section-label">Verified package + PWA availability</p>
+              <h2 id="downloads-title">Use Aura on the device you actually use.</h2>
             </div>
             <p>
-              Desktop links follow the latest desktop release. Android and Apple links follow the mobile release lane.
-              iPadOS, ChromeOS, Unix/BSD, Indian Linux and Android-family OSes, HarmonyOS, and RTOS-family devices get
-              explicit install or companion routes.
+              Aura ships native desktop packages for Windows, macOS, and Linux. Every other operating-system route is
+              explicit: use the hosted PWA where a modern browser exists, or the companion/API model where a full UI
+              cannot run.
             </p>
           </div>
 
@@ -158,8 +158,10 @@
             <div>
               <strong>Release intelligence</strong>
               <p>
-                Links below hydrate from GitHub Releases. If a specific package is not published yet, the button keeps
-                you on the release page instead of sending you to a dead asset.
+                Package buttons hydrate from GitHub Releases. A button becomes a direct download only after its matching
+                asset is found; unpublished packages are marked unavailable instead of linking to a fake file. Native
+                desktop coverage is real for Windows, macOS, and Linux; global OS coverage comes through PWA and
+                companion modes.
               </p>
             </div>
             <div class="release-statuses" aria-live="polite">
@@ -298,11 +300,11 @@
                 </div>
               </div>
               <p class="platform-note">
-                Use the APK for direct installs on your own device. The AAB is included for Play Console and managed
-                distribution workflows.
+                Use the published Android APK for direct device testing. A Play Console AAB is shown only when a real
+                AAB asset exists in the mobile release.
               </p>
               <p class="platform-caution">
-                Android binaries come from the dedicated mobile release lane.
+                The current mobile lane publishes a debug APK, not a store-signed Play release.
               </p>
               <div class="download-actions">
                 <a
@@ -311,9 +313,10 @@
                   data-release-channel="mobile"
                   data-release-asset-prefix="Aura-Marketplace-Android-"
                   data-release-asset-suffix=".apk"
+                  data-release-ready-label="Debug APK"
                   rel="noreferrer"
                 >
-                  <span>Android APK</span>
+                  <span>Android debug APK</span>
                   <small>Release page</small>
                 </a>
                 <a
@@ -339,11 +342,12 @@
                 </div>
               </div>
               <p class="platform-note">
-                Use the signed IPA when a real-device build is published. iPadOS users can also install the hosted Aura
-                PWA from Safari today.
+                A signed IPA appears only when a real-device iOS build is published. The simulator ZIP is for developer
+                testing; iPadOS users can install the hosted Aura PWA from Safari today.
               </p>
               <p class="platform-caution">
-                Apple device installs require signing and provisioning.
+                Apple device installs require signing and provisioning, and no signed IPA is published in the current
+                mobile release.
               </p>
               <div class="download-actions">
                 <a
@@ -354,7 +358,7 @@
                   data-release-asset-suffix=".ipa"
                   rel="noreferrer"
                 >
-                  <span>iPhone/iPad IPA</span>
+                  <span>Signed iPhone/iPad IPA</span>
                   <small>Release page</small>
                 </a>
                 <a
@@ -363,6 +367,7 @@
                   data-release-channel="mobile"
                   data-release-asset-prefix="Aura-Marketplace-iOS-Simulator-"
                   data-release-asset-suffix=".zip"
+                  data-release-ready-label="Simulator ZIP"
                   rel="noreferrer"
                 >
                   <span>iOS simulator ZIP</span>
@@ -566,9 +571,10 @@
                   data-release-channel="mobile"
                   data-release-asset-prefix="Aura-Marketplace-Android-"
                   data-release-asset-suffix=".apk"
+                  data-release-ready-label="Debug APK"
                   rel="noreferrer"
                 >
-                  <span>Android-family APK</span>
+                  <span>Android-family debug APK</span>
                   <small>Release page</small>
                 </a>
                 <a class="download-button" href="https://aurapilot.vercel.app" rel="noreferrer">
@@ -998,9 +1004,10 @@
                   data-release-channel="mobile"
                   data-release-asset-prefix="Aura-Marketplace-Android-"
                   data-release-asset-suffix=".apk"
+                  data-release-ready-label="Debug APK"
                   rel="noreferrer"
                 >
-                  <span>Harmony-compatible APK</span>
+                  <span>Harmony-compatible debug APK</span>
                   <small>Release page</small>
                 </a>
               </div>
