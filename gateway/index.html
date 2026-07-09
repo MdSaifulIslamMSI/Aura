@@ -161,7 +161,7 @@
                 Package buttons hydrate from GitHub Releases. A button becomes a direct download only after its matching
                 asset is found; unpublished packages are marked unavailable instead of linking to a fake file. Native
                 desktop coverage is real for Windows, macOS, and Linux; global OS coverage comes through PWA and
-                companion modes.
+                companion modes. Ready packages expose SHA-256 checksum evidence from GitHub release asset metadata.
               </p>
             </div>
             <div class="release-statuses" aria-live="polite">
@@ -170,6 +170,19 @@
             </div>
             <a class="release-link" href="https://github.com/MdSaifulIslamMSI/Aura/releases" rel="noreferrer">
               View all releases
+            </a>
+            <details class="release-checksums">
+              <summary data-release-checksum-status>Loading SHA-256 checksums</summary>
+              <pre data-release-checksum-manifest aria-label="Release SHA-256 checksum manifest">Checksums load from GitHub Releases.</pre>
+            </details>
+            <a
+              class="checksum-download-link"
+              href="https://github.com/MdSaifulIslamMSI/Aura/releases"
+              data-release-checksum-download
+              hidden
+              rel="noreferrer"
+            >
+              Download checksums
             </a>
           </div>
 
