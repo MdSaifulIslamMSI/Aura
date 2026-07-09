@@ -14,7 +14,9 @@
     <a href="https://aura-gateway.vercel.app">Gateway</a> &middot;
     <a href="docs/system-architecture.md">Architecture</a> &middot;
     <a href="docs/ci-cd.md">Release gates</a> &middot;
-    <a href="docs/security/">Security docs</a>
+    <a href="SECURITY.md">Security policy</a> &middot;
+    <a href="docs/security/">Security docs</a> &middot;
+    <a href="LICENSE">License</a>
   </p>
 </div>
 
