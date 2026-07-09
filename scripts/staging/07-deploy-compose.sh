@@ -33,6 +33,18 @@ ssm_get() {
   aws_cli ssm get-parameter --region "$AWS_REGION" --name "$STAGING_SSM_PREFIX/$name" --with-decryption --query 'Parameter.Value' --output text
 }
 
+ssm_get_optional() {
+  local name="$1"
+  aws_cli ssm get-parameter --region "$AWS_REGION" --name "$STAGING_SSM_PREFIX/$name" --with-decryption --query 'Parameter.Value' --output text 2>/dev/null || true
+}
+
+append_env_if_set() {
+  local key="$1"
+  local value="${2:-}"
+  [ -n "$value" ] || return 0
+  printf '%s=%s\n' "$key" "$value" >> "$env_file"
+}
+
 staging_api_url="$(state_get staging_api_base_url)"
 staging_base_url="$(state_get staging_base_url)"
 staging_health_url="$(state_get staging_health_url)"
@@ -47,6 +59,15 @@ otp_flow_secret="$(ssm_get OTP_FLOW_SECRET)"
 otp_challenge_secret="$(ssm_get OTP_CHALLENGE_SECRET)"
 upload_signing_secret="$(ssm_get UPLOAD_SIGNING_SECRET)"
 auth_vault_secret="$(ssm_get AUTH_VAULT_SECRET)"
+duo_enabled="$(ssm_get_optional DUO_ENABLED)"
+duo_client_id="$(ssm_get_optional DUO_CLIENT_ID)"
+duo_client_secret="$(ssm_get_optional DUO_CLIENT_SECRET)"
+duo_api_host="$(ssm_get_optional DUO_API_HOST)"
+duo_oidc_issuer="$(ssm_get_optional DUO_OIDC_ISSUER)"
+duo_discovery_url="$(ssm_get_optional DUO_DISCOVERY_URL)"
+duo_redirect_uri="$(ssm_get_optional DUO_REDIRECT_URI)"
+duo_oidc_state_secret="$(ssm_get_optional DUO_OIDC_STATE_SECRET)"
+duo_fail_closed="$(ssm_get_optional DUO_FAIL_CLOSED)"
 cors_origin="${STAGING_CORS_ORIGIN:-$staging_base_url}"
 
 env_file="$STATE_DIR/.env.staging"
@@ -95,6 +116,15 @@ UPLOAD_SCANNER_PORT=3310
 STAGING_BACKEND_PORT=$STAGING_BACKEND_PORT
 STAGING_BACKEND_IMAGE=$backend_image
 ENV
+append_env_if_set DUO_ENABLED "$duo_enabled"
+append_env_if_set DUO_CLIENT_ID "$duo_client_id"
+append_env_if_set DUO_CLIENT_SECRET "$duo_client_secret"
+append_env_if_set DUO_API_HOST "$duo_api_host"
+append_env_if_set DUO_OIDC_ISSUER "$duo_oidc_issuer"
+append_env_if_set DUO_DISCOVERY_URL "$duo_discovery_url"
+append_env_if_set DUO_REDIRECT_URI "$duo_redirect_uri"
+append_env_if_set DUO_OIDC_STATE_SECRET "$duo_oidc_state_secret"
+append_env_if_set DUO_FAIL_CLOSED "$duo_fail_closed"
 chmod 600 "$env_file"
 
 release_tar="$STATE_DIR/release.tar.gz"

@@ -72,6 +72,11 @@ describe('vercel routing contract', () => {
         expect(() => resolveHostedBackendOrigin({})).toThrow(/AURA_BACKEND_ORIGIN|AWS_BACKEND_BASE_URL/);
         expect(resolveHostedBackendOrigin({}, { allowCommittedFallback: true })).toBe(DEFAULT_HOSTED_BACKEND_ORIGIN);
         expect(() => resolveHostedBackendOrigin({ AURA_BACKEND_ORIGIN: '/' })).toThrow(/absolute http/);
+        expect(() => resolveHostedBackendOrigin({ AURA_BACKEND_ORIGIN: '/' }, { allowCommittedFallback: true })).toThrow(/absolute http/);
+        expect(resolveHostedBackendOrigin({ AURA_BACKEND_ORIGIN: '/' }, {
+            allowCommittedFallback: true,
+            allowSameOriginFallback: true,
+        })).toBe(DEFAULT_HOSTED_BACKEND_ORIGIN);
     });
 
     it('can render staging deployment headers for the isolated AWS backend', () => {

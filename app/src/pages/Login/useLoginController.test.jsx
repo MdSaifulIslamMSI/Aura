@@ -123,6 +123,28 @@ const DuoLoginStartProbe = () => {
   return <div data-testid="duo-start-result">{result}</div>;
 };
 
+const DuoLoginStartWithEmailProbe = () => {
+  const { formData, handleChange, handleDuoSignIn } = useLoginController();
+  const [result, setResult] = React.useState('idle');
+
+  return (
+    <>
+      <input aria-label="Email" name="email" value={formData.email} onChange={handleChange} />
+      <button
+        type="button"
+        onClick={() => {
+          handleDuoSignIn()
+            .then(() => setResult('completed'))
+            .catch((error) => setResult(error?.message || 'failed'));
+        }}
+      >
+        start duo
+      </button>
+      <div data-testid="duo-start-result">{result}</div>
+    </>
+  );
+};
+
 const ResetPasswordFailureProbe = () => {
   const {
     authError,
@@ -641,6 +663,41 @@ describe('useLoginController', () => {
     expect(restored.secret).toBe('secret-1');
     expect(restored.callbackUrl).toBe('http://localhost:47831/desktop-auth/complete');
     expect(restored.returnTo).toBe('/checkout');
+
+    startDuoLogin.mockRestore();
+  });
+
+  it('does not send the app email field as the Duo login hint', async () => {
+    const startDuoLogin = vi.spyOn(authApi, 'startDuoLogin').mockReturnValue({
+      redirecting: true,
+      url: '/api/auth/duo/start',
+    });
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue()}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<DuoLoginStartWithEmailProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { name: 'email', value: 'app.user@example.test' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'start duo' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('duo-start-result')).toHaveTextContent('completed');
+    });
+
+    expect(startDuoLogin).toHaveBeenCalledWith({
+      returnTo: '/',
+      loginHint: '',
+    });
 
     startDuoLogin.mockRestore();
   });
