@@ -1,8 +1,30 @@
-# Aura Marketplace
+<div align="center">
+  <h1>Aura Marketplace</h1>
+  <p><strong>AI shopping, secure checkout, and gated production delivery in one commerce operating repo.</strong></p>
+  <img src="docs/assets/readme/aura-wordmark.svg" alt="Aura Marketplace wordmark" width="720">
+  <p><strong>One release train. Three storefront hosts. Auth and environment gates that fail closed.</strong></p>
+  <p>
+    <a href="https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/quality.yml"><img alt="Quality Foundation" src="https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/quality.yml?branch=main&label=quality&style=for-the-badge"></a>
+    <a href="https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/security.yml"><img alt="Security Gate" src="https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/security.yml?branch=main&label=security&style=for-the-badge"></a>
+    <a href="https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/production-on-push.yml"><img alt="Production Gate" src="https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/production-on-push.yml?branch=main&label=production%20gate&style=for-the-badge"></a>
+    <a href="https://github.com/MdSaifulIslamMSI/Aura/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://img.shields.io/github/actions/workflow/status/MdSaifulIslamMSI/Aura/codeql.yml?branch=main&label=codeql&style=for-the-badge"></a>
+  </p>
+  <p>
+    <a href="https://aurapilot.vercel.app">Live storefront</a> &middot;
+    <a href="https://aura-gateway.vercel.app">Gateway</a> &middot;
+    <a href="docs/system-architecture.md">Architecture</a> &middot;
+    <a href="docs/ci-cd.md">Release gates</a> &middot;
+    <a href="docs/security/">Security docs</a>
+  </p>
+</div>
 
 Aura Marketplace is a production-oriented commerce platform with a React storefront, Express API, AI shopping assistance, resilient identity flows, multi-host frontend delivery, and AWS-backed runtime operations.
 
 This repository is not a demo landing page. It is the operating surface for product discovery, recommendations, cart and checkout, payments, fulfillment workflows, account security, admin controls, observability, release gates, and production rollback discipline.
+
+<p align="center">
+  <img src="docs/assets/readme/storefront-home.png" alt="Aura Marketplace storefront home">
+</p>
 
 ## Live Production Surfaces
 
@@ -42,6 +64,8 @@ Aura combines the normal commerce path with the systems work needed to operate i
 Details: [hybrid recommendation system](docs/recommendation-system.md), [system architecture](docs/system-architecture.md), [mobile delivery](docs/mobile-app-delivery.md).
 
 ## Runtime Architecture
+
+![Aura Marketplace runtime map](docs/assets/readme/system-overview.svg)
 
 The hosted storefront is a static React/Vite build published to multiple hosts from the same release artifact. Runtime calls use same-origin paths:
 

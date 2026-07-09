@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Aura Marketplace system overview</title>
+  <desc id="desc">A high-level diagram showing users entering the Aura gateway and storefront hosts, then flowing through same-origin runtime paths to the shared API, worker runtime, data stores, and external providers.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07131f"/>
+      <stop offset="0.52" stop-color="#0b1726"/>
+      <stop offset="1" stop-color="#0a1f21"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10263a"/>
+      <stop offset="1" stop-color="#0b2028"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#39d8cf"/>
+    </marker>
+    <style>
+      .title { fill: #f8fbff; font: 700 34px Arial, sans-serif; }
+      .label { fill: #f8fbff; font: 700 22px Arial, sans-serif; }
+      .sub { fill: #a8bfce; font: 500 15px Arial, sans-serif; }
+      .tiny { fill: #8da7b8; font: 600 13px Arial, sans-serif; letter-spacing: 1px; }
+      .box { fill: url(#panel); stroke: #14536a; stroke-width: 2; rx: 18; }
+      .boxHot { fill: #062f34; stroke: #20d5c6; stroke-width: 2; rx: 18; }
+      .boxWarm { fill: #1d1f2d; stroke: #6c78ff; stroke-width: 2; rx: 18; }
+      .line { stroke: #39d8cf; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .mutedLine { stroke: #466b82; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .pill { fill: #081925; stroke: #27536a; stroke-width: 1.5; rx: 18; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect x="34" y="32" width="1212" height="656" rx="30" fill="none" stroke="#123a4b" stroke-width="2"/>
+
+  <text x="70" y="86" class="title">Aura Marketplace runtime map</text>
+  <text x="72" y="116" class="sub">One storefront artifact, gated release lanes, split API and worker runtime, explicit environment contracts.</text>
+
+  <rect x="72" y="158" width="185" height="90" class="boxHot"/>
+  <text x="104" y="194" class="label">Users</text>
+  <text x="104" y="222" class="sub">Web, mobile, desktop</text>
+
+  <rect x="330" y="132" width="230" height="78" class="box"/>
+  <text x="360" y="166" class="label">Gateway</text>
+  <text x="360" y="193" class="sub">aura-gateway.vercel.app</text>
+
+  <rect x="330" y="238" width="230" height="108" class="boxHot"/>
+  <text x="360" y="276" class="label">React storefront</text>
+  <text x="360" y="304" class="sub">Vercel, Netlify, CloudFront</text>
+  <text x="360" y="329" class="sub">shared Vite artifact</text>
+
+  <rect x="650" y="152" width="270" height="126" class="boxWarm"/>
+  <text x="682" y="190" class="label">Same-origin paths</text>
+  <text x="682" y="218" class="sub">/api, /health</text>
+  <text x="682" y="244" class="sub">/socket.io, /uploads</text>
+
+  <rect x="1000" y="130" width="210" height="100" class="boxHot"/>
+  <text x="1030" y="168" class="label">API runtime</text>
+  <text x="1030" y="196" class="sub">Express, auth, commerce</text>
+
+  <rect x="1000" y="272" width="210" height="100" class="box"/>
+  <text x="1030" y="310" class="label">Worker runtime</text>
+  <text x="1030" y="338" class="sub">jobs, queues, replay</text>
+
+  <rect x="172" y="456" width="232" height="112" class="box"/>
+  <text x="204" y="494" class="label">Identity</text>
+  <text x="204" y="522" class="sub">Firebase, Duo, CSRF</text>
+  <text x="204" y="548" class="sub">trusted device, OTP</text>
+
+  <rect x="476" y="456" width="232" height="112" class="box"/>
+  <text x="508" y="494" class="label">Data plane</text>
+  <text x="508" y="522" class="sub">MongoDB, Redis</text>
+  <text x="508" y="548" class="sub">catalog, sessions, queues</text>
+
+  <rect x="780" y="456" width="232" height="112" class="box"/>
+  <text x="812" y="494" class="label">Providers</text>
+  <text x="812" y="522" class="sub">Stripe, email, S3</text>
+  <text x="812" y="548" class="sub">OpenAI, VoyageAI, LiveKit</text>
+
+  <rect x="430" y="610" width="420" height="42" class="pill"/>
+  <text x="458" y="637" class="tiny">GATED PRS -> MAIN GATES -> MANUAL PRODUCTION COMMAND CENTER</text>
+
+  <path class="line" d="M257 202 C286 202 296 171 330 171"/>
+  <path class="line" d="M257 202 C286 202 296 292 330 292"/>
+  <path class="line" d="M560 292 C604 292 606 215 650 215"/>
+  <path class="line" d="M920 215 C958 215 960 180 1000 180"/>
+  <path class="line" d="M920 215 C960 215 960 322 1000 322"/>
+  <path class="mutedLine" d="M1105 230 C1105 408 896 420 896 456"/>
+  <path class="mutedLine" d="M1105 372 C1105 418 592 420 592 456"/>
+  <path class="mutedLine" d="M1000 180 C820 180 287 360 287 456"/>
+  <path class="mutedLine" d="M640 610 C640 590 640 582 640 568"/>
+</svg>
