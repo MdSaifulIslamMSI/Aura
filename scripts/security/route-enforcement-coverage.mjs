@@ -149,6 +149,7 @@ const exclusions = new Map([
     ['POST /api/auth/exchange', 'Session establishment endpoint; protected by token verification and CSRF token generation.'],
     ['POST /api/auth/sync', 'Session sync endpoint; protected by token verification, CSRF, and auth sync limiter.'],
     ['POST /api/auth/desktop-handoff/custom-token', 'Desktop handoff token endpoint; protected by auth and security-critical handoff limiter.'],
+    ['POST /api/auth/desktop-handoff/owner-access-token', 'Owner desktop handoff endpoint; fail-closed unless a server-pinned owner UID and high-entropy local access key verify a fresh HMAC assertion under a security-critical limiter.'],
     ['POST /api/orders/quote', 'Order quote calculation route; protected by auth and OTP, but it does not persist order/payment state.'],
     ['POST /api/ai/voice/session', 'Voice session creation is abuse-limited and does not execute tool mutations.'],
     ['POST /api/ai/voice/speak', 'Voice synthesis is abuse-limited and does not execute tool mutations.'],

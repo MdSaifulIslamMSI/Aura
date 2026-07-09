@@ -907,6 +907,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const signInWithDesktopOwnerAccess = async () => {
+    assertFirebaseReady('Desktop owner access');
+    const desktop = getDesktopBridge();
+
+    if (!desktop || typeof desktop.signInWithOwnerAccess !== 'function') {
+      const error = new Error('Desktop owner access is only available in the Aura desktop app.');
+      error.code = 'auth/desktop-owner-access-unavailable';
+      throw error;
+    }
+
+    return completeControlledAuthFlow({
+      execute: async () => {
+        const result = await desktop.signInWithOwnerAccess();
+        if (!result?.success || !result?.customToken) {
+          throw new Error(result?.message || 'Desktop owner access did not return a usable token.');
+        }
+        return signInWithCustomToken(auth, result.customToken);
+      },
+      finalize: async (_result, firebaseUser) => resolveOAuthUser(firebaseUser, {
+        isNewUser: false,
+      }),
+    });
+  };
+
   const signInWithEnterprise = async (options = {}) => authApi.startEnterpriseLogin({
     returnTo: options.returnTo,
     loginHint: options.loginHint || currentUser?.email || sessionStateRef.current.profile?.email || '',
@@ -1583,6 +1607,7 @@ export const AuthProvider = ({ children }) => {
     signInWithX,
     signInWithEnterprise,
     signInWithDesktopBrowser,
+    signInWithDesktopOwnerAccess,
     linkMicrosoftProvider,
     linkAppleProvider,
     logout,

@@ -2,6 +2,7 @@ const path = require('path');
 const { app, BrowserWindow, dialog, ipcMain, powerMonitor, screen, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { startRuntimeServer } = require('./runtimeServer.cjs');
+const { isDesktopOwnerAccessSignInConfigured } = require('./ownerAccessAuth.cjs');
 
 let mainWindow = null;
 let runtime = null;
@@ -41,6 +42,7 @@ app.userAgentFallback = DESKTOP_AUTH_USER_AGENT;
 app.commandLine.appendSwitch('user-agent', DESKTOP_AUTH_USER_AGENT);
 
 ipcMain.handle('desktop:app-info', () => ({
+    ownerAccessSignInAvailable: isDesktopOwnerAccessSignInConfigured(),
     platform: process.platform,
     runtimeUrl: runtime?.url || '',
     version: app.getVersion(),
@@ -91,6 +93,14 @@ ipcMain.handle('desktop:auth:cancel-browser-sign-in', (_event, requestId = '') =
     return {
         success: runtime.cancelDesktopAuthRequest(requestId),
     };
+});
+
+ipcMain.handle('desktop:auth:owner-access-sign-in', async () => {
+    if (!runtime?.createDesktopOwnerAccessSignIn) {
+        throw new Error('Desktop owner access runtime is not ready yet.');
+    }
+
+    return runtime.createDesktopOwnerAccessSignIn();
 });
 
 const resolveAssetPath = (...segments) => {

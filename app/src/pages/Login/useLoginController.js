@@ -394,6 +394,7 @@ export const useLoginController = () => {
     signInWithApple,
     signInWithX,
     signInWithDesktopBrowser,
+    signInWithDesktopOwnerAccess,
   } = useContext(AuthContext);
 
   const [mode, setMode] = useState(launchMode);
@@ -412,6 +413,7 @@ export const useLoginController = () => {
   const [firebasePhoneFallback, setFirebasePhoneFallback] = useState(null);
   const [resumeDraft, setResumeDraft] = useState(null);
   const [identityMemory, setIdentityMemory] = useState(null);
+  const [desktopOwnerAccessAvailable, setDesktopOwnerAccessAvailable] = useState(false);
   const [formData, setFormData] = useState(() => createEmptyFormData({
     email: launchPrefill.email,
     phone: launchPrefill.phone,
@@ -451,9 +453,49 @@ export const useLoginController = () => {
   );
   const hasLaunchDirective = Boolean(location.state?.authMode || launchPrefill.email || launchPrefill.phone);
   const socialAuthStatus = getFirebaseSocialAuthStatus();
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!socialAuthStatus.runtimeElectronDesktop) {
+      setDesktopOwnerAccessAvailable(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const desktop = typeof window !== 'undefined' ? window.auraDesktop : null;
+    if (!desktop?.isDesktop || typeof desktop.getAppInfo !== 'function') {
+      setDesktopOwnerAccessAvailable(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    desktop.getAppInfo()
+      .then((info) => {
+        if (!cancelled) {
+          setDesktopOwnerAccessAvailable(Boolean(info?.ownerAccessSignInAvailable));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDesktopOwnerAccessAvailable(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [socialAuthStatus.runtimeElectronDesktop]);
+
   const canUseDesktopBrowserSignIn = Boolean(
     socialAuthStatus.runtimeElectronDesktop
     && typeof signInWithDesktopBrowser === 'function'
+  );
+  const canUseDesktopOwnerAccessSignIn = Boolean(
+    socialAuthStatus.runtimeElectronDesktop
+    && desktopOwnerAccessAvailable
+    && typeof signInWithDesktopOwnerAccess === 'function'
   );
   const canUseMobileFirebasePhoneOtp = !socialAuthStatus.runtimeCapacitorMobile
     || socialAuthStatus.mobileFirebasePhoneOtpEnabled;
@@ -1866,6 +1908,33 @@ export const useLoginController = () => {
     }
   };
 
+  const handleDesktopOwnerAccessSignIn = async () => {
+    if (!canUseDesktopOwnerAccessSignIn) {
+      setErr({ message: t('login.desktopOwnerAccess.unavailable', {}, 'Desktop owner access is not configured for this app.') });
+      return;
+    }
+
+    setIsLoading(true);
+    setAuthError(null);
+    setAuthSuccess({
+      title: t('login.desktopOwnerAccess.startedTitle', {}, 'Owner Access'),
+      detail: t('login.desktopOwnerAccess.startedDetail', {}, 'Aura Desktop is verifying the local owner access key.'),
+    });
+
+    try {
+      const result = await signInWithDesktopOwnerAccess();
+      if (result?.dbUser) {
+        finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
+      } else {
+        navigate(from, { replace: true });
+      }
+    } catch (error) {
+      setErr(normalizeSocialAuthError(error, 'desktop owner access', socialAuthStatus));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleDuoSignIn = async () => {
     setIsLoading(true);
     setAuthError(null);
@@ -1927,6 +1996,7 @@ export const useLoginController = () => {
     authSuccess,
     canUseFirebasePhoneOtp,
     canUseDesktopBrowserSignIn,
+    canUseDesktopOwnerAccessSignIn,
     countdown,
     desktopBrowserHandoff,
     firebasePhoneFallback,
@@ -1943,6 +2013,7 @@ export const useLoginController = () => {
     handleDuoSignIn,
     isDuoLoginEnabled,
     handleDesktopBrowserSignIn,
+    handleDesktopOwnerAccessSignIn,
     handleSocialSignIn,
     handleSubmit,
     info,

@@ -34,6 +34,31 @@ Security invariants for this bridge:
 - The page CSP allows the loopback callback but does not relax API/backend origins for arbitrary hosts.
 - The desktop app receives only a Firebase custom token result, never Firebase Admin secrets or backend signing material.
 
+## Owner Desktop Access
+
+Owner desktop access is a fail-closed emergency sign-in path for the repository owner. It does not use code-signing certificates, and it is not a general user bypass.
+
+The public desktop app only shows the owner access button when the local Electron process has owner access enabled and local key material available. Public downloads should ship with this unset.
+
+Server-side requirements:
+
+- `AURA_DESKTOP_OWNER_ACCESS_ENABLED=true`
+- `AURA_DESKTOP_OWNER_FIREBASE_UID=<owner Firebase uid>`
+- `AURA_DESKTOP_OWNER_ACCESS_KEY=<high-entropy owner key>` or `AURA_DESKTOP_OWNER_ACCESS_KEY_BASE64=<base64url key>`
+
+Desktop-side requirements:
+
+- `AURA_DESKTOP_OWNER_ACCESS_ENABLED=true`
+- `AURA_DESKTOP_OWNER_ACCESS_KEY=<same high-entropy owner key>` or `AURA_DESKTOP_OWNER_ACCESS_KEY_FILE=<local uncommitted key file>`
+
+Security invariants:
+
+- The desktop app never sends an owner UID, email, role, or privilege claim.
+- The backend maps a valid owner assertion only to `AURA_DESKTOP_OWNER_FIREBASE_UID`.
+- Every request signs a fresh request id, timestamp, and nonce with HMAC-SHA256.
+- Assertions expire quickly and are rejected on replay within the backend process.
+- Missing, short, or mismatched keys fail closed.
+
 ## Commands
 
 - `npm run desktop:start`

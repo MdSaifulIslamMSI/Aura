@@ -4,6 +4,7 @@ const http = require('http');
 const path = require('path');
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const { createDesktopOwnerAccessSignIn } = require('./ownerAccessAuth.cjs');
 
 const DEFAULT_BACKEND_ORIGIN = 'https://dbtrhsolhec1s.cloudfront.net';
 const DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN = 'https://aurapilot.vercel.app';
@@ -479,6 +480,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
             authFrontendOrigin: desktopAuthFrontendOrigin,
             runtimeUrl,
         }),
+        createDesktopOwnerAccessSignIn: () => createDesktopOwnerAccessSignIn({ backendOrigin }),
         desktopAuthFrontendOrigin,
         distDir: resolvedDistDir,
         port: address.port,

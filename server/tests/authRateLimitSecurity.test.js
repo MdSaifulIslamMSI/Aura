@@ -95,6 +95,7 @@ describe('auth route rate-limit security', () => {
                 verifyBackupRecoveryCode: (_req, res) => res.json({ success: true }),
                 verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
                 issueDesktopHandoffToken: (_req, res) => res.json({ customToken: 'handoff' }),
+                issueDesktopOwnerAccessToken: (_req, res) => res.json({ customToken: 'owner-access' }),
                 startEnterpriseLogin: (_req, res) => res.json({ ok: true }),
                 startDuoLogin: (_req, res) => res.json({ ok: true }),
                 startDuoStepUp: (_req, res) => res.json({ ok: true }),

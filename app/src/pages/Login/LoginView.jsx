@@ -13,6 +13,7 @@ const LoginView = ({
   authError,
   authSuccess,
   canUseDesktopBrowserSignIn,
+  canUseDesktopOwnerAccessSignIn,
   canUseFirebasePhoneOtp,
   countdown,
   firebasePhoneFallback,
@@ -29,6 +30,7 @@ const LoginView = ({
   handleDuoSignIn,
   isDuoLoginEnabled,
   handleDesktopBrowserSignIn,
+  handleDesktopOwnerAccessSignIn,
   handleSocialSignIn,
   handleSubmit,
   handleTurnstileError,
@@ -502,6 +504,17 @@ const LoginView = ({
                   >
                     <ExternalLink className="h-4 w-4 text-neo-cyan" aria-hidden="true" />
                     {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
+                  </button>
+                )}
+                {canUseDesktopOwnerAccessSignIn && (
+                  <button
+                    type="button"
+                    onClick={handleDesktopOwnerAccessSignIn}
+                    disabled={isLoading || emergencyAuthDisabled}
+                    className="mb-3 w-full py-3 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 hover:bg-emerald-300/15 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-emerald-300/45"
+                  >
+                    <Shield className="h-4 w-4 text-emerald-200" aria-hidden="true" />
+                    {t('login.desktopOwnerAccess.button', {}, 'Owner Access')}
                   </button>
                 )}
                 {isDuoLoginEnabled && (
