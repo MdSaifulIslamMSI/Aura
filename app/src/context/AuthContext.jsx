@@ -840,6 +840,26 @@ export const AuthProvider = ({ children }) => {
       callback(value);
     };
 
+    const consumeCompletedToken = async ({ rejectOnFailure = false } = {}) => {
+      if (settled) return;
+
+      try {
+        const result = await desktop.consumeBrowserSignIn(request.requestId);
+        if (result?.success && result?.customToken) {
+          settle(resolve, result.customToken);
+          return;
+        }
+
+        if (rejectOnFailure && result?.message) {
+          throw new Error(result.message);
+        }
+      } catch (error) {
+        if (rejectOnFailure) {
+          settle(reject, error);
+        }
+      }
+    };
+
     const timeout = window.setTimeout(() => {
       settle(reject, new Error('Desktop browser sign-in expired. Start a fresh sign-in and try again.'));
     }, Math.max(
@@ -856,17 +876,15 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      try {
-        const result = await desktop.consumeBrowserSignIn(request.requestId);
-        if (!result?.success || !result?.customToken) {
-          throw new Error(result?.message || 'Desktop browser sign-in did not return a usable token.');
-        }
-        settle(resolve, result.customToken);
-      } catch (error) {
-        settle(reject, error);
-      }
+      await consumeCompletedToken({ rejectOnFailure: true });
     });
     cleanupHandlers.push(unsubscribe);
+
+    const poll = window.setInterval(() => {
+      void consumeCompletedToken();
+    }, 1000);
+    cleanupHandlers.push(() => window.clearInterval(poll));
+    void consumeCompletedToken();
   });
 
   const signInWithDesktopBrowser = async ({ returnTo = '/' } = {}) => {
