@@ -26,6 +26,17 @@ Aura's global availability promise is operational, not a claim that one binary r
 
 Do not add a gateway download button for a platform-specific binary until a real release asset exists. New native claims must ship with a matching GitHub release artifact, gateway resolver metadata, and this matrix update in the same pull request.
 
+## Release Checksum Contract
+
+The gateway treats GitHub release asset `sha256:` digests as the live checksum source. A direct download button must not be marked ready unless the GitHub release asset includes a SHA-256 digest.
+
+User-facing checksum behavior:
+
+- The release panel exposes a SHA-256 manifest generated from GitHub Releases asset digest metadata.
+- Ready download buttons are labeled with SHA-256 availability and keep the full checksum in their accessible label and browser title.
+- If GitHub Releases is unavailable, or if an asset lacks a SHA-256 digest, the gateway falls back to the releases page instead of presenting the file as verified.
+- SHA-256 checksums prove file integrity after download. They do not replace Windows Authenticode signing, Apple Developer ID signing, macOS notarization, or store distribution trust.
+
 ## Requested Platform Coverage
 
 | Platform | Aura surface | Notes |

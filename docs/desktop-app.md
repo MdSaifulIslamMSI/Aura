@@ -158,6 +158,10 @@ The free release path publishes unsigned Windows builds and does not require pai
 - macOS: add Apple Developer ID signing and notarization credentials.
 - Linux: publish checksums and optionally sign release checksums with GPG.
 
+The gateway exposes GitHub-provided SHA-256 release asset digests for ready desktop and mobile downloads. These checksums
+let users verify file integrity after download, but they do not make unsigned Windows or macOS builds equivalent to
+signed/notarized public releases.
+
 To create the Windows certificate secret from a `.pfx` file, run this locally and paste the output into the GitHub secret:
 
 - PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\path\to\aura-code-signing.pfx"))`

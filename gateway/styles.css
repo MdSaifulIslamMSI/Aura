@@ -572,6 +572,56 @@ img {
   font-weight: 700;
 }
 
+.release-checksums {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.release-checksums summary {
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: 0.78rem 0.85rem;
+  color: #a8f5d9;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.release-checksums pre {
+  max-height: 18rem;
+  margin: 0;
+  overflow: auto;
+  padding: 0 0.85rem 0.85rem;
+  color: var(--text-soft);
+  font-family: "Consolas", "SFMono-Regular", monospace;
+  font-size: 0.74rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.checksum-download-link {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.45rem;
+  padding: 0.66rem 0.82rem;
+  border: 1px solid rgba(107, 185, 169, 0.36);
+  border-radius: 8px;
+  background: rgba(107, 185, 169, 0.1);
+  color: #d7fff2;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.checksum-download-link[hidden] {
+  display: none;
+}
+
 .release-link {
   display: inline-flex;
   align-items: center;

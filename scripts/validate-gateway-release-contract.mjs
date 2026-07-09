@@ -6,6 +6,7 @@ const liveMode = process.argv.includes('--live');
 const releasesPage = 'https://github.com/MdSaifulIslamMSI/Aura/releases';
 const latestDesktopReleaseApi = 'https://api.github.com/repos/MdSaifulIslamMSI/Aura/releases/latest';
 const releasesApi = 'https://api.github.com/repos/MdSaifulIslamMSI/Aura/releases?per_page=24';
+const sha256DigestPattern = /^sha256:[a-f0-9]{64}$/i;
 
 const desktopAssets = [
   'Aura-Marketplace-Windows-x64-Setup.exe',
@@ -95,6 +96,12 @@ const requireRegex = (name, text, pattern) => {
 
 const extractExactAssets = (html) => [...html.matchAll(/\sdata-release-asset="([^"]+)"/g)].map((match) => match[1]);
 
+const requireAssetDigest = (asset, label) => {
+  if (!asset || !sha256DigestPattern.test(asset.digest || '')) {
+    throw new Error(`${label} is missing a GitHub release asset SHA-256 digest.`);
+  }
+};
+
 const fetchJson = async (url) => {
   const response = await fetch(url, {
     headers: {
@@ -151,11 +158,27 @@ const validateStaticContract = () => {
   requireIncludes('gateway/release-links.js', releaseLinks, 'markUnavailable');
   requireIncludes('gateway/release-links.js', releaseLinks, 'aria-disabled');
   requireIncludes('gateway/release-links.js', releaseLinks, 'releaseReadyLabel');
+  requireIncludes('gateway/release-links.js', releaseLinks, 'sha256DigestPattern');
+  requireIncludes('gateway/release-links.js', releaseLinks, 'releaseChecksum');
+  requireIncludes('gateway/release-links.js', releaseLinks, 'checksumDownload');
+  requireIncludes('gateway/release-links.js', releaseLinks, 'aura-release-sha256s.txt');
+  requireIncludes('gateway/release-links.js', releaseLinks, 'SHA-256 checksums ready');
   if (releaseLinks.includes('markPending')) {
     throw new Error('release-links.js must fail closed with checking/unknown/unavailable states, not the old pending-only state.');
   }
 
+  requireText('gateway/index.html', html, 'Loading SHA-256 checksums');
+  requireText('gateway/index.html', html, 'Download checksums');
+  requireIncludes('gateway/index.html', html, 'data-release-checksum-status');
+  requireIncludes('gateway/index.html', html, 'data-release-checksum-manifest');
+  requireIncludes('gateway/index.html', html, 'data-release-checksum-download');
+  requireIncludes('gateway/styles.css', read('gateway/styles.css'), '.release-checksums');
+  requireIncludes('gateway/styles.css', read('gateway/styles.css'), '.checksum-download-link');
+
   requireText('docs/platform-availability.md', platformAvailability, '## Current Release Asset Contract');
+  requireText('docs/platform-availability.md', platformAvailability, '## Release Checksum Contract');
+  requireText('docs/platform-availability.md', platformAvailability, 'The gateway treats GitHub release asset `sha256:` digests as the live checksum source.');
+  requireText('docs/platform-availability.md', platformAvailability, 'A direct download button must not be marked ready unless the GitHub release asset includes a SHA-256 digest.');
   requireText('docs/platform-availability.md', platformAvailability, '| Android Play release | Not published in current release | AAB |');
   requireText('docs/platform-availability.md', platformAvailability, '| iPhone/iPad real-device install | Not published in current release | signed IPA |');
   requireText('docs/platform-availability.md', platformAvailability, '| Long-tail and embedded OS families | PWA or companion/API mode | no native binary |');
@@ -170,12 +193,14 @@ const validateStaticContract = () => {
 
 const validateLiveReleaseContract = async () => {
   const desktopRelease = await fetchJson(latestDesktopReleaseApi);
-  const desktopAssetNames = new Set((desktopRelease.assets || []).map((asset) => asset.name));
+  const desktopAssetsByName = new Map((desktopRelease.assets || []).map((asset) => [asset.name, asset]));
 
   for (const asset of desktopAssets) {
-    if (!desktopAssetNames.has(asset)) {
+    if (!desktopAssetsByName.has(asset)) {
       throw new Error(`Latest desktop release is missing required gateway asset: ${asset}`);
     }
+
+    requireAssetDigest(desktopAssetsByName.get(asset), `Latest desktop release asset ${asset}`);
   }
 
   const releases = await fetchJson(releasesApi);
@@ -191,23 +216,30 @@ const validateLiveReleaseContract = async () => {
     throw new Error('No published non-prerelease mobile-v release found.');
   }
 
-  const mobileAssetNames = (mobileRelease.assets || []).map((asset) => asset.name);
-  const hasAndroidApk = mobileAssetNames.some((asset) => asset.startsWith('Aura-Marketplace-Android-') && asset.endsWith('.apk'));
-  const hasIosSimulator = mobileAssetNames.some(
-    (asset) => asset.startsWith('Aura-Marketplace-iOS-Simulator-') && asset.endsWith('.zip'),
+  const mobileAssets = mobileRelease.assets || [];
+  const androidApk = mobileAssets.find((asset) => asset.name.startsWith('Aura-Marketplace-Android-') && asset.name.endsWith('.apk'));
+  const iosSimulator = mobileAssets.find(
+    (asset) => asset.name.startsWith('Aura-Marketplace-iOS-Simulator-') && asset.name.endsWith('.zip'),
   );
-  const hasAndroidAab = mobileAssetNames.some((asset) => asset.startsWith('Aura-Marketplace-Android-') && asset.endsWith('.aab'));
-  const hasSignedIpa = mobileAssetNames.some(
-    (asset) => asset.startsWith('Aura-Marketplace-iOS-') && !asset.startsWith('Aura-Marketplace-iOS-Simulator-') && asset.endsWith('.ipa'),
+  const hasAndroidAab = mobileAssets.some((asset) => asset.name.startsWith('Aura-Marketplace-Android-') && asset.name.endsWith('.aab'));
+  const hasSignedIpa = mobileAssets.some(
+    (asset) =>
+      asset.name.startsWith('Aura-Marketplace-iOS-') &&
+      !asset.name.startsWith('Aura-Marketplace-iOS-Simulator-') &&
+      asset.name.endsWith('.ipa'),
   );
 
-  if (!hasAndroidApk) {
+  if (!androidApk) {
     throw new Error(`Mobile release ${mobileRelease.tag_name} is missing the Android APK expected by the gateway.`);
   }
 
-  if (!hasIosSimulator) {
+  requireAssetDigest(androidApk, `Mobile release ${mobileRelease.tag_name} Android APK`);
+
+  if (!iosSimulator) {
     throw new Error(`Mobile release ${mobileRelease.tag_name} is missing the iOS simulator ZIP expected by the gateway.`);
   }
+
+  requireAssetDigest(iosSimulator, `Mobile release ${mobileRelease.tag_name} iOS simulator ZIP`);
 
   if (hasAndroidAab || hasSignedIpa) {
     throw new Error(
@@ -218,6 +250,8 @@ const validateLiveReleaseContract = async () => {
   return {
     desktopRelease: desktopRelease.tag_name,
     mobileRelease: mobileRelease.tag_name,
+    desktopDigestCount: desktopAssets.length,
+    mobileDigestCount: 2,
     releasesPage,
   };
 };
