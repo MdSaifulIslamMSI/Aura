@@ -1881,7 +1881,7 @@ export const useLoginController = () => {
       }
       authApi.startDuoLogin({
         returnTo,
-        loginHint: formData.email,
+        loginHint: '',
       });
     } catch (error) {
       setIsLoading(false);
