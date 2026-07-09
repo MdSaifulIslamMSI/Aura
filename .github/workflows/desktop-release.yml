@@ -135,6 +135,9 @@ jobs:
       tag_name: ${{ steps.version.outputs.tag_name }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Resolve desktop version
         id: version
         env:
@@ -151,6 +154,10 @@ jobs:
             echo "Invalid desktop version: ${VERSION}" >&2
             exit 1
           fi
+
+          EXISTING_DESKTOP_TAGS="$(git ls-remote --tags origin 'refs/tags/desktop-v*' | awk '{print $2}')"
+          printf '%s\n' "${EXISTING_DESKTOP_TAGS}" \
+            | node scripts/release/assert-desktop-version-floor.mjs --requested "${VERSION}"
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_name=desktop-v${VERSION}" >> "$GITHUB_OUTPUT"
