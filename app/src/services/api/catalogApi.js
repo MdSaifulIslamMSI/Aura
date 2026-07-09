@@ -7,6 +7,46 @@ const productDetailCache = new Map();
 const productDetailRequestCache = new Map();
 const prefetchedProductIds = new Set();
 
+const getDesktopPublicCatalogBridge = () => {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const bridge = window.auraDesktop;
+    return bridge?.isDesktop && typeof bridge.fetchPublicCatalog === 'function'
+        ? bridge
+        : null;
+};
+
+const isNetworkLevelCatalogFailure = (error) => (
+    !Number(error?.status)
+    && !/cancelled/i.test(String(error?.message || ''))
+);
+
+const createDesktopCatalogBridgeError = (result = {}) => {
+    const message = result?.data && typeof result.data === 'object' && typeof result.data.message === 'string'
+        ? result.data.message
+        : `Desktop catalog request failed with status ${Number(result?.status) || 0}`;
+    const error = new Error(message);
+    error.status = Number(result?.status) || 0;
+    error.data = result?.data || null;
+    error.serverRequestId = result?.requestId || '';
+    return error;
+};
+
+const fetchPublicCatalogViaDesktopBridge = async (path, params = {}) => {
+    const bridge = getDesktopPublicCatalogBridge();
+    if (!bridge) {
+        return null;
+    }
+
+    const result = await bridge.fetchPublicCatalog({ path, params });
+    if (!result?.ok) {
+        throw createDesktopCatalogBridgeError(result);
+    }
+    return result.data;
+};
+
 const getProductDetailCacheKey = (id) => String(id ?? '').trim();
 
 const readCachedProductDetail = (id) => {
@@ -68,11 +108,21 @@ const fetchProductByIdNetwork = async (id, options = {}) => {
         if (pending) return pending;
     }
 
+    const hasDesktopBridge = Boolean(getDesktopPublicCatalogBridge());
     const request = apiFetch(`/products/${id}`, {
         method: 'GET',
         signal: options.signal,
+        retries: hasDesktopBridge ? 0 : undefined,
     })
         .then(({ data }) => writeCachedProductDetail(cacheKey, data))
+        .catch(async (error) => {
+            if (!hasDesktopBridge || !isNetworkLevelCatalogFailure(error)) {
+                throw error;
+            }
+
+            const data = await fetchPublicCatalogViaDesktopBridge(`/products/${id}`);
+            return writeCachedProductDetail(cacheKey, data);
+        })
         .finally(() => {
             if (productDetailRequestCache.get(cacheKey) === request) {
                 productDetailRequestCache.delete(cacheKey);
@@ -85,14 +135,22 @@ const fetchProductByIdNetwork = async (id, options = {}) => {
 
 export const catalogApi = {
     getProducts: async (params = {}, options = {}) => {
-        const { data } = await apiFetch('/products', {
-            method: 'GET',
-            params,
-            signal: options.signal,
-            timeoutMs: 30000,
-            retries: 2,
-        });
-        return data;
+        const hasDesktopBridge = Boolean(getDesktopPublicCatalogBridge());
+        try {
+            const { data } = await apiFetch('/products', {
+                method: 'GET',
+                params,
+                signal: options.signal,
+                timeoutMs: 30000,
+                retries: hasDesktopBridge ? 0 : 2,
+            });
+            return data;
+        } catch (error) {
+            if (!hasDesktopBridge || !isNetworkLevelCatalogFailure(error)) {
+                throw error;
+            }
+            return fetchPublicCatalogViaDesktopBridge('/products', params);
+        }
     },
     getProductById: async (id, options = {}) => {
         return fetchProductByIdNetwork(id, options);
