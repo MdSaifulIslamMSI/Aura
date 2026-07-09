@@ -1019,8 +1019,37 @@ img {
   color: #a8f5d9;
 }
 
+.download-button[data-download-state="checking"] small,
+.download-button[data-download-state="unknown"] small {
+  color: #f5d28a;
+}
+
 .download-button[data-download-state="pending"] {
   border-style: dashed;
+}
+
+.download-button[data-download-state="unavailable"] {
+  cursor: not-allowed;
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+}
+
+.download-button[data-download-state="unavailable"] small {
+  color: #f4a7a7;
+}
+
+.download-button:not([href]),
+.download-button[data-download-state="unavailable"] {
+  pointer-events: none;
+}
+
+.download-button[data-download-state="unavailable"]:hover,
+.download-button[data-download-state="unavailable"]:focus-visible {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .platform-linux {
