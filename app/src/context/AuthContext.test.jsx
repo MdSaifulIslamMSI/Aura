@@ -545,6 +545,121 @@ describe('AuthProvider', () => {
     expect(mocks.signOutMock).not.toHaveBeenCalled();
   });
 
+  it('uses desktop owner access custom tokens only through the Electron bridge', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+
+    const ownerUser = {
+      uid: 'owner-firebase-uid',
+      email: 'owner@example.com',
+      emailVerified: true,
+      displayName: 'Owner User',
+      phoneNumber: '',
+      providerData: [],
+      getIdToken: vi.fn().mockResolvedValue('owner-firebase-token'),
+    };
+    const signInWithOwnerAccess = vi.fn().mockResolvedValue({
+      success: true,
+      customToken: 'owner-custom-token',
+    });
+    window.auraDesktop = {
+      isDesktop: true,
+      signInWithOwnerAccess,
+    };
+
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: ownerUser });
+    mocks.authApiMock.syncSession.mockResolvedValue({
+      status: 'authenticated',
+      session: {
+        uid: ownerUser.uid,
+        email: ownerUser.email,
+        emailVerified: true,
+        displayName: ownerUser.displayName,
+        phone: '',
+        providerIds: [],
+      },
+      profile: {
+        _id: 'db-owner-1',
+        name: ownerUser.displayName,
+        email: ownerUser.email,
+        phone: '',
+        isAdmin: true,
+        isVerified: true,
+        isSeller: false,
+        sellerActivatedAt: null,
+        accountState: 'active',
+        moderation: {},
+        loyalty: {},
+        createdAt: null,
+      },
+      roles: {
+        isAdmin: true,
+        isSeller: false,
+        isVerified: true,
+      },
+      intelligence: {
+        assurance: {
+          level: 'owner_access',
+          label: 'Owner access',
+          verifiedAt: null,
+          expiresAt: null,
+          isRecent: true,
+        },
+        readiness: {
+          hasVerifiedEmail: true,
+          hasPhone: false,
+          accountState: 'active',
+          isPrivileged: true,
+        },
+        acceleration: {
+          suggestedRoute: 'owner_access',
+          rememberedIdentifier: 'email',
+          suggestedProvider: '',
+          providerIds: [],
+        },
+      },
+    });
+
+    const Probe = () => {
+      const { signInWithDesktopOwnerAccess, status } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopOwnerAccess()
+          .then((value) => setResult(value?.dbUser?.email || 'done'))
+          .catch((error) => setResult(error.message));
+      }, [signInWithDesktopOwnerAccess]);
+
+      return (
+        <>
+          <div data-testid="desktop-owner-status">{status}</div>
+          <div data-testid="desktop-owner-result">{result}</div>
+        </>
+      );
+    };
+
+    try {
+      render(
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-owner-status')).toHaveTextContent('authenticated');
+        expect(screen.getByTestId('desktop-owner-result')).toHaveTextContent('owner@example.com');
+      });
+
+      expect(signInWithOwnerAccess).toHaveBeenCalledTimes(1);
+      expect(mocks.signInWithCustomTokenMock).toHaveBeenCalledWith({}, 'owner-custom-token');
+      expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
   it('prevents popup X sign-in from being cancelled by an auth-state refresh race', async () => {
     let authStateCallback = null;
 

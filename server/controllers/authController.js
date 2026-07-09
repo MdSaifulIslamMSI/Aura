@@ -67,6 +67,9 @@ const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetrySe
 const { isEnabled: isEmergencyFlagEnabled } = require('../services/emergencyControlService');
 const { createMfaChallenge } = require('../services/mfaChallengeService');
 const {
+    verifyDesktopOwnerAccessAssertion,
+} = require('../services/desktopOwnerAccessService');
+const {
     buildPublicMfaPolicy,
     evaluateLogin: evaluateMfaLoginPolicy,
 } = require('../services/mfaPolicyService');
@@ -1193,6 +1196,66 @@ const issueDesktopHandoffToken = asyncHandler(async (req, res) => {
     });
 });
 
+const issueDesktopOwnerAccessToken = asyncHandler(async (req, res) => {
+    const requestId = typeof req.body?.requestId === 'string'
+        ? req.body.requestId.trim()
+        : '';
+    let verification = null;
+
+    try {
+        verification = verifyDesktopOwnerAccessAssertion({
+            requestId,
+            issuedAt: req.body?.issuedAt,
+            nonce: req.body?.nonce,
+            signature: req.body?.signature,
+        });
+    } catch (error) {
+        recordAuthSecurityEvent({
+            event: 'desktop_owner_access_token',
+            outcome: 'denied',
+            reason: error?.code || 'verification_failed',
+            surface: 'auth',
+            req,
+            meta: { requestId },
+        });
+
+        const wrapped = new AppError('Desktop owner access could not be verified.', error?.statusCode || 403);
+        wrapped.code = error?.code || 'DESKTOP_OWNER_ACCESS_INVALID';
+        throw wrapped;
+    }
+
+    let customToken = '';
+    try {
+        customToken = await firebaseAdmin.auth().createCustomToken(verification.ownerUid, {
+            desktop_handoff: true,
+            desktop_owner_access: true,
+            desktop_request_id: requestId,
+        });
+    } catch (error) {
+        const wrapped = new AppError('Desktop owner access is not available on this backend.', 503);
+        wrapped.code = 'DESKTOP_OWNER_ACCESS_UNAVAILABLE';
+        throw wrapped;
+    }
+
+    recordAuthSecurityEvent({
+        event: 'desktop_owner_access_token',
+        outcome: 'issued',
+        reason: 'owner_access',
+        surface: 'auth',
+        req,
+        meta: {
+            keyFingerprint: verification.keyFingerprint,
+            requestId,
+        },
+    });
+
+    res.json({
+        success: true,
+        customToken,
+        expiresInSeconds: 60 * 60,
+    });
+});
+
 const completePhoneFactorLogin = asyncHandler(async (req, res) => {
     const authUser = buildRequestAuthUser(req);
     const tokenEmail = normalizeEmail(req.authToken?.email || authUser.email);
@@ -1764,6 +1827,7 @@ module.exports = {
     generateBackupRecoveryCodes,
     getSession,
     issueDesktopHandoffToken,
+    issueDesktopOwnerAccessToken,
     requestBootstrapDeviceChallenge,
     startDuoStepUp,
     startDuoLogin,

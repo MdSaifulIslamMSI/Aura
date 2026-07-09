@@ -14,6 +14,7 @@ const {
     verifyBackupRecoveryCode,
     verifyDeviceChallenge,
     issueDesktopHandoffToken,
+    issueDesktopOwnerAccessToken,
     startEnterpriseLogin,
     startDuoLogin,
     startDuoStepUp,
@@ -207,6 +208,16 @@ const desktopHandoffLimiter = createDistributedRateLimit({
     },
 });
 
+const desktopOwnerAccessLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    allowInMemoryFallback: process.env.NODE_ENV !== 'production',
+    name: 'auth_desktop_owner_access',
+    windowMs: 5 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 10,
+    message: 'Too many desktop owner access requests, please try again after 5 minutes',
+    keyGenerator: (req) => req.ip,
+});
+
 const authenticatedSessionMutationLimiter = createDistributedRateLimit({
     securityCritical: true,
     name: 'auth_session_mutation',
@@ -222,6 +233,7 @@ router.get('/duo/callback', duoOidcLimiter, completeDuoLogin);
 router.get('/enterprise/start', enterpriseOidcLimiter, startEnterpriseLogin);
 router.get('/enterprise/callback', enterpriseOidcLimiter, completeEnterpriseLogin);
 router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, issueDesktopHandoffToken);
+router.post('/desktop-handoff/owner-access-token', desktopOwnerAccessLimiter, issueDesktopOwnerAccessToken);
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.post('/sync', authGuardRateLimit, authSyncLimiter, protect, csrfTokenValidatorUnlessBearerAuth, validate(loginSchema), syncSession);

@@ -81,9 +81,17 @@ const MicrosoftSignInProbe = () => {
 };
 
 const DesktopBrowserSignInProbe = () => {
-  const { authSuccess, canUseDesktopBrowserSignIn, handleDesktopBrowserSignIn } = useLoginController();
+  const {
+    authSuccess,
+    canUseDesktopBrowserSignIn,
+    canUseDesktopOwnerAccessSignIn,
+    handleDesktopBrowserSignIn,
+    handleDesktopOwnerAccessSignIn,
+  } = useLoginController();
   const [result, setResult] = React.useState('idle');
+  const [ownerResult, setOwnerResult] = React.useState('idle');
   const startedRef = React.useRef(false);
+  const ownerStartedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (startedRef.current) return;
@@ -93,11 +101,21 @@ const DesktopBrowserSignInProbe = () => {
       .catch((error) => setResult(error?.message || 'failed'));
   }, [handleDesktopBrowserSignIn]);
 
+  React.useEffect(() => {
+    if (!canUseDesktopOwnerAccessSignIn || ownerStartedRef.current) return;
+    ownerStartedRef.current = true;
+    handleDesktopOwnerAccessSignIn()
+      .then(() => setOwnerResult('completed'))
+      .catch((error) => setOwnerResult(error?.message || 'failed'));
+  }, [canUseDesktopOwnerAccessSignIn, handleDesktopOwnerAccessSignIn]);
+
   return (
     <>
       <div data-testid="desktop-browser-supported">{String(canUseDesktopBrowserSignIn)}</div>
       <div data-testid="desktop-browser-result">{result}</div>
       <div data-testid="desktop-browser-success-title">{authSuccess?.title || 'none'}</div>
+      <div data-testid="desktop-owner-access-supported">{String(canUseDesktopOwnerAccessSignIn)}</div>
+      <div data-testid="desktop-owner-access-result">{ownerResult}</div>
     </>
   );
 };
@@ -238,6 +256,7 @@ const buildAuthValue = (overrides = {}) => ({
   signInWithApple: vi.fn(),
   signInWithX: vi.fn(),
   signInWithDesktopBrowser: vi.fn(),
+  signInWithDesktopOwnerAccess: vi.fn(),
   signup: vi.fn(),
   syncUserWithBackend: vi.fn(),
   ...overrides,
@@ -263,6 +282,7 @@ describe('useLoginController', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    delete window.auraDesktop;
     getFirebaseSocialAuthStatusMock.mockReturnValue({
       ready: true,
       supported: true,
@@ -587,10 +607,17 @@ describe('useLoginController', () => {
     const signInWithDesktopBrowser = vi.fn().mockResolvedValue({
       dbUser: { email: 'desktop@example.com' },
     });
+    const signInWithDesktopOwnerAccess = vi.fn().mockResolvedValue({
+      dbUser: { email: 'owner@example.com' },
+    });
+    window.auraDesktop = {
+      isDesktop: true,
+      getAppInfo: vi.fn().mockResolvedValue({ ownerAccessSignInAvailable: true }),
+    };
 
     render(
       <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-        <AuthContext.Provider value={buildAuthValue({ signInWithDesktopBrowser })}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithDesktopBrowser, signInWithDesktopOwnerAccess })}>
           <MemoryRouter initialEntries={['/login']}>
             <Routes>
               <Route path="/login" element={<DesktopBrowserSignInProbe />} />
@@ -604,9 +631,12 @@ describe('useLoginController', () => {
     await waitFor(() => {
       expect(screen.getByTestId('desktop-browser-supported')).toHaveTextContent('true');
       expect(screen.getByTestId('desktop-browser-result')).toHaveTextContent('completed');
+      expect(screen.getByTestId('desktop-owner-access-supported')).toHaveTextContent('true');
+      expect(screen.getByTestId('desktop-owner-access-result')).toHaveTextContent('completed');
     });
 
     expect(signInWithDesktopBrowser).toHaveBeenCalledWith({ returnTo: '/' });
+    expect(signInWithDesktopOwnerAccess).toHaveBeenCalled();
   });
 
   it('keeps Duo login hidden unless the deployment explicitly enables it', () => {

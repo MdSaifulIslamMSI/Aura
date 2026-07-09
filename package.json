@@ -324,7 +324,7 @@
       }
     ],
     "win": {
-      "icon": "app/public/assets/icon-512.png",
+      "icon": "desktop/assets/app-icon.ico",
       "signAndEditExecutable": true,
       "verifyUpdateCodeSignature": true,
       "target": [
