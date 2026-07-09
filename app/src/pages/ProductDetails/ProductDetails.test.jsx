@@ -8,6 +8,7 @@ import { CartContext } from '@/context/CartContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { AuthContext } from '@/context/AuthContext';
 import { MARKET_STORAGE_KEY } from '@/config/marketConfig';
+import { productApi } from '@/services/api';
 import ProductDetails from './index';
 
 vi.mock('@/services/api/marketApi', () => ({
@@ -82,16 +83,17 @@ vi.mock('@/components/features/product/ProductCard', () => ({
     default: () => <div data-testid="related-product-card" />,
 }));
 
-const renderProductDetails = () => render(
+const renderProductDetails = (initialEntry = '/product/400046371') => render(
     <ColorModeProvider>
         <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
             <IntlProvider locale="en" messages={{}}>
                 <AuthContext.Provider value={{ currentUser: null }}>
                     <CartContext.Provider value={{ cartItems: [], addToCart: vi.fn(), updateQuantity: vi.fn() }}>
                         <WishlistContext.Provider value={{ toggleWishlist: vi.fn(), isInWishlist: vi.fn(() => false) }}>
-                            <MemoryRouter initialEntries={['/product/400046371']}>
+                            <MemoryRouter initialEntries={[initialEntry]}>
                                 <Routes>
                                     <Route path="/product/:id" element={<ProductDetails />} />
+                                    <Route path="/products" element={<div>Aura Catalog Recovery</div>} />
                                 </Routes>
                             </MemoryRouter>
                         </WishlistContext.Provider>
@@ -146,5 +148,16 @@ describe('ProductDetails', () => {
         expect(screen.getByRole('button', { name: /set price alert/i })).toBeInTheDocument();
         expect(screen.getByText(/trust graph/i)).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /trade-in path/i })).toBeInTheDocument();
+    });
+
+    it('recovers malformed product routes to the live catalog', async () => {
+        renderProductDetails('/product/undefined');
+
+        await waitFor(() => {
+            expect(screen.getByText('Aura Catalog Recovery')).toBeInTheDocument();
+        });
+
+        expect(productApi.getProductById).not.toHaveBeenCalled();
+        expect(screen.queryByText(/product not found/i)).not.toBeInTheDocument();
     });
 });
