@@ -4,6 +4,17 @@ const logger = require('./logger');
 
 const seenJtis = new Map();
 
+const normalizeJti = (value) => {
+    if (typeof value !== 'string') return '';
+    const normalized = value.trim();
+    return normalized.length >= 1 && normalized.length <= 256 ? normalized : '';
+};
+
+const buildJtiReplayKey = (jti) => crypto
+    .createHash('sha256')
+    .update(jti)
+    .digest('hex');
+
 // Periodically clean expired JTIs from memory
 setInterval(() => {
     const now = Date.now();
@@ -153,29 +164,36 @@ const verifyDpopProof = async (req, expectedJwk) => {
     }
 
     // 7. Validate JTI (prevent replay attacks)
-    if (!payload.jti) {
-        return { success: false, reason: 'Missing jti claim' };
+    const jti = normalizeJti(payload.jti);
+    if (!jti) {
+        return {
+            success: false,
+            reason: payload.jti === undefined || payload.jti === null || payload.jti === ''
+                ? 'Missing jti claim'
+                : 'Invalid jti claim',
+        };
     }
     const client = getRedisClient();
     if (client) {
         try {
-            const jtiKey = `${redisFlags.redisPrefix}:dpop:jti:${payload.jti}`;
+            const jtiKey = `${redisFlags.redisPrefix}:dpop:jti:${buildJtiReplayKey(jti)}`;
             const ok = await client.set(jtiKey, '1', { NX: true, EX: 60 });
             if (!ok) {
                 return { success: false, reason: 'DPoP jti replay detected' };
             }
         } catch (err) {
             logger.warn('dpop.jti_redis_check_failed', { error: err.message });
+            return { success: false, reason: 'DPoP replay protection unavailable' };
         }
     } else {
-        if (seenJtis.has(payload.jti)) {
+        if (seenJtis.has(jti)) {
             return { success: false, reason: 'DPoP jti replay detected' };
         }
-        seenJtis.set(payload.jti, Date.now() + 60000);
+        seenJtis.set(jti, Date.now() + 60000);
     }
 
     cacheRequestVerification(req, dpopHeader, header.jwk);
-    return { success: true, jwk: header.jwk };
+    return { success: true, jwk: header.jwk, jti };
 };
 
 module.exports = {

@@ -1,5 +1,6 @@
 const EmergencyControl = require('../models/EmergencyControl');
 const EmergencyAuditLog = require('../models/EmergencyAuditLog');
+const browserSessionService = require('../services/browserSessionService');
 const {
     activateFlag,
     buildPublicStatus,
@@ -152,6 +153,21 @@ describe('EmergencyControlService', () => {
         await expect(isEnabled('DISABLE_PAYMENT', { failClosed: true })).resolves.toBe(true);
         clearEmergencyCache();
         await expect(isEnabled('GLOBAL_MAINTENANCE', { failClosed: false })).resolves.toBe(false);
+    });
+
+    test('force logout reports failure when global session revocation is unconfirmed', async () => {
+        jest.spyOn(browserSessionService, 'revokeAllBrowserSessions')
+            .mockRejectedValue(new Error('revocation store unavailable'));
+
+        await expect(activateFlag('FORCE_LOGOUT_ALL_USERS', {
+            reason: 'suspected credential compromise',
+            userMessage: 'Please sign in again.',
+            expiresAt: new Date(Date.now() + 60_000),
+            req,
+        })).rejects.toMatchObject({
+            code: 'GLOBAL_SESSION_REVOCATION_FAILED',
+            statusCode: 503,
+        });
     });
 
     test('emergency audit logs are append-only', async () => {

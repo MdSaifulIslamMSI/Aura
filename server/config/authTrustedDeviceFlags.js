@@ -127,6 +127,42 @@ const shouldRequireTrustedDevice = ({ user = null, mode = flags.authDeviceChalle
     }
 };
 
+const assertProductionWebAuthnBoundary = () => {
+    if (!isProduction || !parseBoolean(process.env.ADMIN_REQUIRE_PASSKEY, true)) {
+        return;
+    }
+
+    const rpId = flags.authWebAuthnRpId.toLowerCase();
+    const originValue = flags.authWebAuthnOrigin;
+    if (!rpId || !originValue) {
+        throw new Error('AUTH_WEBAUTHN_RP_ID and AUTH_WEBAUTHN_ORIGIN are required when production admin passkeys are enabled');
+    }
+
+    let origin;
+    try {
+        origin = new URL(originValue);
+    } catch {
+        throw new Error('AUTH_WEBAUTHN_ORIGIN must be a valid HTTPS origin in production');
+    }
+
+    if (
+        origin.protocol !== 'https:'
+        || origin.origin !== originValue
+        || origin.username
+        || origin.password
+    ) {
+        throw new Error('AUTH_WEBAUTHN_ORIGIN must be a valid HTTPS origin in production');
+    }
+
+    const originHost = origin.hostname.toLowerCase();
+    if (!/^[a-z0-9.-]+$/.test(rpId) || (originHost !== rpId && !originHost.endsWith(`.${rpId}`))) {
+        throw new Error('AUTH_WEBAUTHN_RP_ID must match AUTH_WEBAUTHN_ORIGIN in production');
+    }
+    if (flags.authWebAuthnUserVerification !== 'required') {
+        throw new Error('AUTH_WEBAUTHN_USER_VERIFICATION must be required for production admin passkeys');
+    }
+};
+
 const assertTrustedDeviceConfig = () => {
     if (isTest) return;
 
@@ -141,26 +177,22 @@ const assertTrustedDeviceConfig = () => {
         throw new Error(`AUTH_DEVICE_CHALLENGE_SECRET must be at least ${MIN_SECRET_LENGTH} chars and not use weak/default phrases in production`);
     }
 
-    if (challengeMode === 'off') {
-        return;
+    if (challengeMode !== 'off' && !hasDedicatedSecret) {
+        if (!flags.authDeviceChallengeAllowVaultFallback) {
+            throw new Error(
+                'AUTH_DEVICE_CHALLENGE_SECRET is required when trusted-device challenge mode is enabled. '
+                + 'Set AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK=true only if you intentionally want to reuse AUTH_VAULT_SECRET.'
+            );
+        }
+
+        if (!authVaultFlags.authVaultSecret) {
+            throw new Error(
+                'AUTH_VAULT_SECRET is required when AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK=true and trusted-device challenge mode is enabled'
+            );
+        }
     }
 
-    if (hasDedicatedSecret) {
-        return;
-    }
-
-    if (!flags.authDeviceChallengeAllowVaultFallback) {
-        throw new Error(
-            'AUTH_DEVICE_CHALLENGE_SECRET is required when trusted-device challenge mode is enabled. '
-            + 'Set AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK=true only if you intentionally want to reuse AUTH_VAULT_SECRET.'
-        );
-    }
-
-    if (!authVaultFlags.authVaultSecret) {
-        throw new Error(
-            'AUTH_VAULT_SECRET is required when AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK=true and trusted-device challenge mode is enabled'
-        );
-    }
+    assertProductionWebAuthnBoundary();
 };
 
 module.exports = {
@@ -175,5 +207,6 @@ module.exports = {
     getTrustedDeviceKeyEntries,
     getTrustedDeviceSecretsByVersion,
     shouldRequireTrustedDevice,
+    assertProductionWebAuthnBoundary,
     assertTrustedDeviceConfig,
 };

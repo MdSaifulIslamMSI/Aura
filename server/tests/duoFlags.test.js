@@ -1,5 +1,4 @@
 const { getDuoFlags, normalizeDuoApiHost, stripTrailingSlash } = require('../config/duoFlags');
-const { normalizeLoginHint } = require('../services/duoOidcService');
 
 describe('Cisco Duo configuration flags', () => {
     test('stays disabled unless explicitly enabled', () => {
@@ -75,11 +74,5 @@ describe('Cisco Duo configuration flags', () => {
 
     test('strips trailing slash from OIDC issuer values', () => {
         expect(stripTrailingSlash('https://sso-example.sso.duosecurity.com/oidc/client/')).toBe('https://sso-example.sso.duosecurity.com/oidc/client');
-    });
-
-    test('normalizes safe OIDC login hints without forwarding arbitrary text', () => {
-        expect(normalizeLoginHint(' Duo.User@Example.Test ')).toBe('duo.user@example.test');
-        expect(normalizeLoginHint('not an email')).toBe('');
-        expect(normalizeLoginHint('x'.repeat(255) + '@example.test')).toBe('');
     });
 });

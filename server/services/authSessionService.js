@@ -374,9 +374,6 @@ const buildSessionIdentity = ({
     authSession = null,
     user = null,
 } = {}) => {
-    const email = resolvePublicEmail(authToken?.email || authUser.email);
-    const phone = canonicalizePhone(authToken?.phone_number || authUser.phoneNumber || authUser.phone || '');
-    const providerIds = resolveProviderIds({ authUser, authToken, authSession });
     const emailVerified = resolveEmailVerifiedState({
         authUser,
         authToken,
@@ -384,6 +381,11 @@ const buildSessionIdentity = ({
         authUid,
         user,
     });
+    const email = emailVerified
+        ? resolvePublicEmail(authSession?.email || authToken?.email || authUser.email)
+        : '';
+    const phone = canonicalizePhone(authToken?.phone_number || authUser.phoneNumber || authUser.phone || '');
+    const providerIds = resolveProviderIds({ authUser, authToken, authSession });
 
     const toIso = (epochSeconds) => {
         const numeric = Number(epochSeconds || 0);
@@ -395,7 +397,7 @@ const buildSessionIdentity = ({
         return {
             sessionId: normalizeText(authSession.sessionId),
             uid: normalizeText(authSession.firebaseUid || authUid || authUser.uid),
-            email: resolvePublicEmail(authSession.email || authToken?.email || authUser.email),
+            email,
             emailVerified,
             displayName: normalizeText(authSession.displayName || authToken?.name || authUser.displayName || authUser.name),
             phone: canonicalizePhone(authSession.phoneNumber || authToken?.phone_number || authUser.phoneNumber || authUser.phone || ''),
@@ -474,7 +476,7 @@ const toSessionIntelligence = (user = null, session = null) => {
             ),
         },
         readiness: {
-            hasVerifiedEmail: Boolean(user?.isVerified || session?.emailVerified),
+            hasVerifiedEmail: Boolean(session?.email && session?.emailVerified),
             hasPhone: Boolean(user?.phone || session?.phone),
             accountState: user?.accountState || 'active',
             isPrivileged: Boolean(user?.isAdmin || user?.isSeller),
@@ -667,14 +669,14 @@ const syncAuthenticatedUser = async ({
     const requestEmail = normalizeEmail(bodyEmail);
     const normalizedName = normalizeText(name);
     const hasPhoneInput = phone !== undefined && phone !== null && String(phone).trim() !== '';
-    const hasProviderEmail = Boolean(providerEmail);
-    const accountEmail = resolveAccountEmail({ email: providerEmail, authUid });
     const trustProviderVerification = shouldTrustProviderVerification({ authUser, authUid });
-    const emailVerified = trustProviderVerification
-        ? true
-        : hasProviderEmail
-        ? Boolean(authUser?.emailVerified ?? authUser?.isVerified)
-        : Boolean(authUid);
+    const emailVerified = resolveEmailVerifiedState({ authUser, authUid });
+    const verifiedProviderEmail = emailVerified ? providerEmail : '';
+    const hasProviderEmail = Boolean(verifiedProviderEmail);
+    const accountEmail = resolveAccountEmail({ email: verifiedProviderEmail, authUid });
+    const accountVerified = emailVerified || Boolean(
+        authUid && (!providerEmail || trustProviderVerification)
+    );
 
     if (!accountEmail) {
         throw new AppError('Authenticated account is missing identity', 400);
@@ -682,7 +684,7 @@ const syncAuthenticatedUser = async ({
     if (requestEmail && hasProviderEmail && requestEmail !== providerEmail) {
         throw new AppError('Email in request does not match authenticated account', 400);
     }
-    if (!emailVerified) {
+    if (!accountVerified) {
         throw new AppError('Email verification is required before session sync', 403);
     }
 
@@ -698,7 +700,7 @@ const syncAuthenticatedUser = async ({
 
         const phoneConflict = await User.findOne(
             {
-                email: { $ne: tokenEmail },
+                email: { $ne: accountEmail },
                 phone: { $in: buildPhoneLookupCandidates(normalizedPhone) },
             },
             'email phone'
@@ -714,7 +716,7 @@ const syncAuthenticatedUser = async ({
         const fallbackName = normalizedName || normalizeText(authUser?.name || authUser?.displayName) || accountEmail.split('@')[0] || 'Aura User';
         const setPayload = {
             name: fallbackName,
-            isVerified: emailVerified,
+            isVerified: accountVerified,
         };
         const preferredUser = await findPreferredIdentityUserLean({
             email: accountEmail,
@@ -848,8 +850,14 @@ const resolveAuthenticatedSession = async ({
     authSession = null,
 }) => {
     const resolvedAuthUid = normalizeUid(authUid || authUser?.uid);
+    const emailVerified = resolveEmailVerifiedState({
+        authUser,
+        authToken,
+        authSession,
+        authUid: resolvedAuthUid,
+    });
     const email = resolveAccountEmail({
-        email: authToken?.email || authUser?.email,
+        email: emailVerified ? authToken?.email || authUser?.email : '',
         authUid: resolvedAuthUid,
     });
     if (!email && !resolvedAuthUid) {

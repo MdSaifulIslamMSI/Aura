@@ -149,10 +149,14 @@ test('desktop runtime has a stable default port but falls back if it is busy', a
         assert.match(runtime.url, /^http:\/\/localhost:\d+$/);
         assert.equal(runtime.callbackUrl, buildRuntimeCallbackUrl(runtime.port));
         assert.equal(new URL(runtime.callbackUrl).hostname, RUNTIME_CALLBACK_HOST);
+        const desktopAuthUrl = new URL(runtime.createDesktopAuthRequest().url);
+        const handoffParams = new URLSearchParams(desktopAuthUrl.hash.slice(1));
         assert.equal(
-            new URL(runtime.createDesktopAuthRequest().url).searchParams.get('desktopAuthCallback'),
+            handoffParams.get('desktopAuthCallback'),
             `${runtime.callbackUrl}${DESKTOP_AUTH_COMPLETE_PATH}`
         );
+        assert.equal(desktopAuthUrl.searchParams.has('desktopAuthCallback'), false);
+        assert.equal(desktopAuthUrl.searchParams.has('desktopAuthSecret'), false);
         assert.equal(DEFAULT_RUNTIME_PORT, 47831);
     } finally {
         await runtime.close();
@@ -176,14 +180,17 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     });
 
     assert.match(request.url, /^https:\/\/aurapilot\.vercel\.app\/desktop-login\?/);
-    assert.match(request.url, /desktopAuthRequest=/);
-    assert.match(request.url, /desktopAuthSecret=/);
-    assert.equal(new URL(request.url).origin, DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN);
+    const desktopAuthUrl = new URL(request.url);
+    const handoffParams = new URLSearchParams(desktopAuthUrl.hash.slice(1));
+    assert.equal(desktopAuthUrl.searchParams.has('desktopAuthRequest'), true);
+    assert.equal(desktopAuthUrl.searchParams.has('desktopAuthSecret'), false);
+    assert.equal(desktopAuthUrl.searchParams.has('desktopAuthCallback'), false);
+    assert.equal(desktopAuthUrl.origin, DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN);
     assert.equal(
-        new URL(request.url).searchParams.get('desktopAuthCallback'),
+        handoffParams.get('desktopAuthCallback'),
         `http://127.0.0.1:47831${DESKTOP_AUTH_COMPLETE_PATH}`
     );
-    assert.match(request.url, /desktopAuthReturnTo=%2Fcheckout%3Fstep%3Dpayment/);
+    assert.equal(handoffParams.get('desktopAuthReturnTo'), '/checkout?step=payment');
 
     assert.throws(() => {
         broker.completeRequest({
@@ -195,7 +202,7 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
 
     broker.completeRequest({
         requestId: request.requestId,
-        secret: new URL(request.url).searchParams.get('desktopAuthSecret'),
+        secret: handoffParams.get('desktopAuthSecret'),
         customToken: 'custom-token',
     });
 

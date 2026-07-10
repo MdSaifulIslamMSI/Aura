@@ -2,11 +2,14 @@ const crypto = require('crypto');
 const fetch = require('node-fetch');
 const AppError = require('../utils/AppError');
 const { getDuoFlags } = require('../config/duoFlags');
+const { withTimeout } = require('../utils/timeout');
 
 const STATE_COOKIE_NAME = 'aura_duo_oidc_state';
 const STATE_TTL_MS = 5 * 60 * 1000;
+const OIDC_HTTP_TIMEOUT_MS = 10 * 1000;
 const usedStateDigests = new Map();
 let cachedDiscovery = null;
+let cachedDiscoveryUrl = '';
 
 const base64urlJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 const parseBase64urlJson = (value) => JSON.parse(Buffer.from(String(value || ''), 'base64url').toString('utf8'));
@@ -14,10 +17,32 @@ const sha256Base64url = (value) => crypto.createHash('sha256').update(value).dig
 
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeEmail = (value) => normalizeText(value).toLowerCase();
-const normalizeLoginHint = (value = '') => {
-    const normalized = normalizeEmail(value);
-    if (!normalized || normalized.length > 254) return '';
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) ? normalized : '';
+
+const fetchOidc = (url, options, label) => withTimeout(
+    ({ signal }) => fetch(url, { ...options, signal }),
+    {
+        label,
+        timeoutMs: OIDC_HTTP_TIMEOUT_MS,
+        code: 'DUO_OIDC_TIMEOUT',
+        statusCode: 503,
+    }
+);
+
+const assertTrustedHttpsEndpoint = (value, expectedOrigin = '') => {
+    try {
+        const endpoint = new URL(normalizeText(value));
+        if (
+            endpoint.protocol !== 'https:'
+            || endpoint.username
+            || endpoint.password
+            || (expectedOrigin && endpoint.origin !== expectedOrigin)
+        ) {
+            throw new Error('untrusted endpoint');
+        }
+        return endpoint;
+    } catch {
+        throw new AppError('Duo OIDC discovery contains an untrusted endpoint.', 503);
+    }
 };
 
 const getStateSecret = (flags) => normalizeText(process.env.DUO_OIDC_STATE_SECRET) || flags.clientSecret;
@@ -122,14 +147,16 @@ const assertDuoReady = (flags = getDuoFlags()) => {
 
 const loadDiscovery = async (flags = getDuoFlags()) => {
     assertDuoReady(flags);
-    if (cachedDiscovery?.issuer === flags.oidcIssuer) {
+    if (cachedDiscovery?.issuer === flags.oidcIssuer && cachedDiscoveryUrl === flags.discoveryUrl) {
         return cachedDiscovery;
     }
 
-    const response = await fetch(flags.discoveryUrl, {
+    const issuerOrigin = assertTrustedHttpsEndpoint(flags.oidcIssuer).origin;
+    assertTrustedHttpsEndpoint(flags.discoveryUrl, issuerOrigin);
+    const response = await fetchOidc(flags.discoveryUrl, {
         method: 'GET',
         headers: { Accept: 'application/json' },
-    });
+    }, 'Duo OIDC discovery');
     if (!response.ok) {
         throw new AppError('Duo OIDC discovery failed.', 503);
     }
@@ -141,8 +168,10 @@ const loadDiscovery = async (flags = getDuoFlags()) => {
         if (!normalizeText(discovery[key])) {
             throw new AppError('Duo OIDC discovery is incomplete.', 503);
         }
+        assertTrustedHttpsEndpoint(discovery[key], issuerOrigin);
     }
     cachedDiscovery = discovery;
+    cachedDiscoveryUrl = flags.discoveryUrl;
     return discovery;
 };
 
@@ -150,7 +179,6 @@ const buildAuthorizationUrl = async ({
     req = {},
     res = null,
     returnTo = '',
-    loginHint = '',
     stateContext = {},
 } = {}) => {
     const flags = assertDuoReady();
@@ -185,10 +213,6 @@ const buildAuthorizationUrl = async ({
     authorizationUrl.searchParams.set('nonce', nonce);
     authorizationUrl.searchParams.set('code_challenge', sha256Base64url(codeVerifier));
     authorizationUrl.searchParams.set('code_challenge_method', 'S256');
-    const normalizedLoginHint = normalizeLoginHint(loginHint);
-    if (normalizedLoginHint) {
-        authorizationUrl.searchParams.set('login_hint', normalizedLoginHint);
-    }
     return authorizationUrl.toString();
 };
 
@@ -262,10 +286,10 @@ const verifyJwtSignature = ({ token = '', header = {}, jwks = {} } = {}) => {
 };
 
 const fetchJwks = async (jwksUri) => {
-    const response = await fetch(jwksUri, {
+    const response = await fetchOidc(jwksUri, {
         method: 'GET',
         headers: { Accept: 'application/json' },
-    });
+    }, 'Duo OIDC signing keys');
     if (!response.ok) {
         throw new AppError('Duo JWKS fetch failed.', 503);
     }
@@ -287,6 +311,10 @@ const verifyIdToken = async ({ idToken = '', nonce = '', discovery = null, flags
     const issuer = normalizeText(claims.iss).replace(/\/+$/, '');
     const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
     const nowSeconds = Math.floor(Date.now() / 1000);
+    const expiresAt = Number(claims.exp);
+    const issuedAt = Number(claims.iat);
+    const notBefore = claims.nbf === undefined ? null : Number(claims.nbf);
+    const authorizedParty = normalizeText(claims.azp);
 
     if (issuer !== flags.oidcIssuer) {
         throw new AppError('Duo identity token issuer is invalid.', 401);
@@ -294,14 +322,20 @@ const verifyIdToken = async ({ idToken = '', nonce = '', discovery = null, flags
     if (!audiences.includes(flags.clientId)) {
         throw new AppError('Duo identity token audience is invalid.', 401);
     }
+    if ((audiences.length > 1 || authorizedParty) && authorizedParty !== flags.clientId) {
+        throw new AppError('Duo identity token authorized party is invalid.', 401);
+    }
     if (normalizeText(claims.nonce) !== nonce) {
         throw new AppError('Duo identity token nonce is invalid.', 401);
     }
-    if (Number(claims.exp || 0) <= nowSeconds) {
+    if (!Number.isFinite(expiresAt) || expiresAt <= nowSeconds) {
         throw new AppError('Duo identity token is expired.', 401);
     }
-    if (Number(claims.iat || 0) > nowSeconds + 60) {
+    if (!Number.isFinite(issuedAt) || issuedAt <= 0 || issuedAt > nowSeconds + 60) {
         throw new AppError('Duo identity token issue time is invalid.', 401);
+    }
+    if (notBefore !== null && (!Number.isFinite(notBefore) || notBefore > nowSeconds + 60)) {
+        throw new AppError('Duo identity token is not active yet.', 401);
     }
     if (!normalizeText(claims.sub)) {
         throw new AppError('Duo identity token subject is missing.', 401);
@@ -324,7 +358,7 @@ const exchangeCodeForClaims = async ({ code = '', statePayload = {} } = {}) => {
         tokenBody.set('code_verifier', statePayload.codeVerifier);
     }
 
-    const response = await fetch(discovery.token_endpoint, {
+    const response = await fetchOidc(discovery.token_endpoint, {
         method: 'POST',
         headers: {
             Accept: 'application/json',
@@ -332,7 +366,7 @@ const exchangeCodeForClaims = async ({ code = '', statePayload = {} } = {}) => {
             Authorization: `Basic ${Buffer.from(`${flags.clientId}:${flags.clientSecret}`).toString('base64')}`,
         },
         body: tokenBody.toString(),
-    });
+    }, 'Duo authorization code exchange');
     if (!response.ok) {
         throw new AppError('Duo authorization code exchange failed.', 401);
     }
@@ -351,6 +385,7 @@ const exchangeCodeForClaims = async ({ code = '', statePayload = {} } = {}) => {
 
 const resetDuoOidcTestState = () => {
     cachedDiscovery = null;
+    cachedDiscoveryUrl = '';
     usedStateDigests.clear();
 };
 
@@ -360,7 +395,6 @@ module.exports = {
     clearStateCookie,
     consumeState,
     exchangeCodeForClaims,
-    normalizeLoginHint,
     resetDuoOidcTestState,
     signStatePayload,
     verifyIdToken,

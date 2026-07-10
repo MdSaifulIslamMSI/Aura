@@ -158,11 +158,13 @@ const buildDesktopAuthUrl = ({
     const url = new URL(isSafeRelativePath(requestPath) ? requestPath : DESKTOP_AUTH_FRONTEND_PATH, authFrontendOrigin);
     const trustedCallbackUrl = callbackUrl || runtimeUrl;
     url.searchParams.set('desktopAuthRequest', requestId);
-    url.searchParams.set('desktopAuthSecret', secret);
-    url.searchParams.set(DESKTOP_AUTH_CALLBACK_PARAM, `${trimTrailingSlash(trustedCallbackUrl)}${DESKTOP_AUTH_COMPLETE_PATH}`);
+    const handoffParams = new URLSearchParams();
+    handoffParams.set('desktopAuthSecret', secret);
+    handoffParams.set(DESKTOP_AUTH_CALLBACK_PARAM, `${trimTrailingSlash(trustedCallbackUrl)}${DESKTOP_AUTH_COMPLETE_PATH}`);
     if (isSafeRelativePath(returnTo)) {
-        url.searchParams.set('desktopAuthReturnTo', returnTo);
+        handoffParams.set('desktopAuthReturnTo', returnTo);
     }
+    url.hash = handoffParams.toString();
     return url.toString();
 };
 

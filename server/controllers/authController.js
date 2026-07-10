@@ -740,7 +740,6 @@ const startDuoLogin = asyncHandler(async (req, res) => {
         req,
         res,
         returnTo: normalizeRelativeReturnTo(req.query?.returnTo || '/'),
-        loginHint: req.query?.loginHint,
     });
 
     recordAuthSecurityEvent({
@@ -996,7 +995,9 @@ const syncSession = asyncHandler(async (req, res) => {
         : '';
     const { deviceId } = extractTrustedDeviceContext(req);
     const deviceSessionHash = hashTrustedDeviceSessionToken(getTrustedDeviceSessionToken(req));
-    const requestedEmail = normalizeEmail(req.body?.email || authUser.email || req.authToken?.email || '');
+    const requestedEmail = authUser.emailVerified
+        ? normalizeEmail(req.body?.email || authUser.email || req.authToken?.email || '')
+        : '';
     const authUid = req.authUid || req.authToken?.uid || '';
 
     if (await isEmergencyFlagEnabled('DISABLE_SIGNUP', { failClosed: false })) {
@@ -1203,7 +1204,7 @@ const issueDesktopOwnerAccessToken = asyncHandler(async (req, res) => {
     let verification = null;
 
     try {
-        verification = verifyDesktopOwnerAccessAssertion({
+        verification = await verifyDesktopOwnerAccessAssertion({
             requestId,
             issuedAt: req.body?.issuedAt,
             nonce: req.body?.nonce,

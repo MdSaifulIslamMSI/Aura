@@ -915,6 +915,10 @@ describe('repo environment contract scripts', () => {
         expect(deployRelease).toContain('AURA_IMAGE_BUNDLE_SHA256');
         expect(deployRelease).toContain('verify_sha256 "${release_dir}/infra.tar.gz"');
         expect(deployRelease).toContain('verify_sha256 "${release_dir}/image.tar.gz"');
+        expect(deployRelease).toContain('upsert_env_value "${shared_dir}/base.env" "AUTH_SESSION_ALLOW_MEMORY_FALLBACK" "false"');
+        expect(deployRelease).toContain('upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_RP_ID" "aurapilot.vercel.app"');
+        expect(deployRelease).toContain('upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_ORIGIN" "https://aurapilot.vercel.app"');
+        expect(deployRelease).toContain('upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_USER_VERIFICATION" "required"');
 
         expect(workflow).toContain('sha256sum "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz"');
         expect(workflow).toContain('sha256sum "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz"');

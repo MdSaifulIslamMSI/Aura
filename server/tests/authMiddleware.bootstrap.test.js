@@ -4,7 +4,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
         jest.clearAllMocks();
     });
 
-    test('protect bootstraps users with isVerified=false when token email_verified is absent', async () => {
+    test('protect isolates an unverified token email behind a uid-backed identity', async () => {
         jest.resetModules();
 
         let protect;
@@ -21,7 +21,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             find = jest.fn(() => ({ lean: jest.fn().mockResolvedValue([]) }));
             findOneAndUpdate = jest.fn().mockResolvedValue({
                 _id: '507f1f77bcf86cd799439011',
-                email: 'new-user@example.com',
+                email: 'dwlklxvudmvyawzpzwq@auth.aura.invalid',
                 name: 'New User',
                 isVerified: false,
             });
@@ -54,12 +54,13 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             {
                 $or: [
                     { authUid: 'uid-unverified' },
-                    { email: 'new-user@example.com' },
+                    { email: 'dwlklxvudmvyawzpzwq@auth.aura.invalid' },
                 ],
             },
             expect.objectContaining({
                 $setOnInsert: expect.objectContaining({
                     authUid: 'uid-unverified',
+                    email: 'dwlklxvudmvyawzpzwq@auth.aura.invalid',
                     isVerified: false,
                 }),
             }),
@@ -226,6 +227,7 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
             verifyIdToken = jest.fn().mockResolvedValue({
                 uid: 'uid-split-social',
                 email: 'admin@example.com',
+                email_verified: true,
                 exp: Math.floor(Date.now() / 1000) + 3600,
             });
             find = jest.fn(() => ({
@@ -281,6 +283,70 @@ describe('Auth Middleware claim-driven verification bootstrap', () => {
         expect(req.user._id).toBe('canonical-user');
         expect(req.user.isAdmin).toBe(true);
         expect(req.user.loyalty.pointsBalance).toBe(1808);
+        expect(findOneAndUpdate).not.toHaveBeenCalled();
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    test('protect does not select a public-email profile from an unverified token', async () => {
+        jest.resetModules();
+
+        let protect;
+        let verifyIdToken;
+        let find;
+        let findOneAndUpdate;
+
+        jest.isolateModules(() => {
+            verifyIdToken = jest.fn().mockResolvedValue({
+                uid: 'uid-unverified-admin-email',
+                email: 'admin@example.com',
+                email_verified: false,
+                exp: Math.floor(Date.now() / 1000) + 3600,
+            });
+            find = jest.fn(() => ({
+                lean: jest.fn().mockResolvedValue([{
+                    _id: 'uid-placeholder-user',
+                    authUid: 'uid-unverified-admin-email',
+                    email: 'dwlklxvudmvyawzpzwqtywrtaw4tzw1haww@auth.aura.invalid',
+                    name: 'UID User',
+                    isAdmin: false,
+                    isVerified: false,
+                }]),
+            }));
+            findOneAndUpdate = jest.fn();
+
+            jest.doMock('../config/firebase', () => ({
+                auth: () => ({ verifyIdToken }),
+            }));
+            jest.doMock('../models/User', () => ({
+                find,
+                findOneAndUpdate,
+            }));
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+
+            protect = require('../middleware/authMiddleware').protect;
+        });
+
+        const req = {
+            headers: { authorization: 'Bearer token-unverified-admin-email' },
+        };
+        const next = jest.fn();
+
+        await protect(req, {}, next);
+
+        expect(find).toHaveBeenCalledWith(
+            {
+                $or: [
+                    { authUid: 'uid-unverified-admin-email' },
+                    { email: 'dwlklxvudmvyawzpzwqtywrtaw4tzw1haww@auth.aura.invalid' },
+                ],
+            },
+            expect.any(Object)
+        );
+        expect(req.user._id).toBe('uid-placeholder-user');
+        expect(req.user.isAdmin).toBe(false);
         expect(findOneAndUpdate).not.toHaveBeenCalled();
         expect(next).toHaveBeenCalledWith();
     });

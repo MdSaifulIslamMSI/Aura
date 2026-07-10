@@ -52,6 +52,14 @@ const isPlaceholderValue = (value = '') => {
 
 const isLikelyUrl = (value = '') => /^https?:\/\/[^/\s]+/i.test(safeString(value));
 
+const isHttpsUrl = (value = '') => {
+    try {
+        return new URL(safeString(value)).protocol === 'https:';
+    } catch {
+        return false;
+    }
+};
+
 const buildKeycloakJwksUrl = (issuerUrl = '') => {
     const issuer = trimTrailingSlash(issuerUrl);
     return issuer ? `${issuer}/protocol/openid-connect/certs` : '';
@@ -141,6 +149,8 @@ const validateAuthEnvironment = ({
         ]) {
             if (value && !isPlaceholderValue(value) && !isLikelyUrl(value)) {
                 failures.push(`${key} must be an absolute http(s) URL`);
+            } else if (production && value && !isPlaceholderValue(value) && !isHttpsUrl(value)) {
+                failures.push(`${key} must use https in production`);
             }
         }
 

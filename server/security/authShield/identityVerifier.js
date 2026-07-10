@@ -61,6 +61,16 @@ const resolveAccountStatus = (user = {}) => {
     return normalizeText(user?.accountState || user?.status || 'active');
 };
 
+const resolveEmailVerified = (req = {}) => {
+    if (typeof req.authIdentity?.emailVerified === 'boolean') {
+        return req.authIdentity.emailVerified;
+    }
+    if (typeof req.authToken?.email_verified === 'boolean') {
+        return req.authToken.email_verified;
+    }
+    return req.user?.isVerified === true;
+};
+
 const verifyIdentity = (req = {}, { sensitivity = 'medium' } = {}) => {
     const userId = normalizeId(req.user?._id || req.user?.id || req.authSession?.userId || req.authUid || '');
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -68,11 +78,7 @@ const verifyIdentity = (req = {}, { sensitivity = 'medium' } = {}) => {
     const tokenAgeSeconds = authTime > 0 ? Math.max(nowSeconds - authTime, 0) : null;
     const accountStatus = resolveAccountStatus(req.user || {});
     const roles = resolveRoles(req.user || {});
-    const emailVerified = Boolean(
-        req.authIdentity?.emailVerified
-        || req.authToken?.email_verified
-        || req.user?.isVerified
-    );
+    const emailVerified = resolveEmailVerified(req);
     const reasons = [];
 
     if (!userId) reasons.push('identity_missing');
@@ -108,6 +114,7 @@ const verifyIdentity = (req = {}, { sensitivity = 'medium' } = {}) => {
 module.exports = {
     resolveAccountStatus,
     resolveAuthTime,
+    resolveEmailVerified,
     resolveMfaLevel,
     resolveRoles,
     verifyIdentity,

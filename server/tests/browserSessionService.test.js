@@ -556,11 +556,13 @@ describe('browserSessionService', () => {
             },
         });
 
-        expect(session.emailVerified).toBe(true);
+        expect(session.email).toBe('');
+        expect(session.emailVerified).toBe(false);
         expect(session.amr).toEqual(expect.arrayContaining(['social_x']));
 
         const storedSession = await browserSessionService.getBrowserSession(session.sessionId);
-        expect(storedSession.emailVerified).toBe(true);
+        expect(storedSession.email).toBe('');
+        expect(storedSession.emailVerified).toBe(false);
     });
 
     test('falls back to in-memory session storage when Redis rejects a session write', async () => {
@@ -783,5 +785,55 @@ describe('browserSessionService', () => {
                 error: 'redis write failed',
             })
         );
+    });
+
+    test('fails closed in production when the global revocation marker cannot be read', async () => {
+        process.env.NODE_ENV = 'production';
+        delete process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK;
+
+        let browserSessionService;
+        const redisClient = {
+            get: jest.fn().mockRejectedValue(new Error('redis read failed')),
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => redisClient,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({}),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        await expect(browserSessionService.getGlobalSessionRevokedAfter())
+            .rejects.toThrow('redis read failed');
+    });
+
+    test('fails closed in production when the global revocation marker cannot be written', async () => {
+        process.env.NODE_ENV = 'production';
+        delete process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK;
+
+        let browserSessionService;
+        const redisClient = {
+            set: jest.fn().mockRejectedValue(new Error('redis write failed')),
+        };
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => redisClient,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({}),
+            }));
+
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        await expect(browserSessionService.setGlobalSessionRevokedAfter())
+            .rejects.toThrow('redis write failed');
     });
 });

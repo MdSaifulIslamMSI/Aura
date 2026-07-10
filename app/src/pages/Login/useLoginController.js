@@ -57,6 +57,11 @@ const DESKTOP_AUTH_REQUEST_PARAM = 'desktopAuthRequest';
 const DESKTOP_AUTH_SECRET_PARAM = 'desktopAuthSecret';
 const DESKTOP_AUTH_RETURN_TO_PARAM = 'desktopAuthReturnTo';
 const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
+const DESKTOP_AUTH_SENSITIVE_PARAMS = [
+  DESKTOP_AUTH_SECRET_PARAM,
+  DESKTOP_AUTH_RETURN_TO_PARAM,
+  DESKTOP_AUTH_CALLBACK_PARAM,
+];
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
 const DESKTOP_AUTH_HANDOFF_STORAGE_KEY = 'aura_desktop_auth_handoff_v1';
 const DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS = 10 * 60 * 1000;
@@ -282,15 +287,51 @@ export const buildDesktopDuoReturnTo = (requestId = '') => {
   return `/desktop-login?${params.toString()}`;
 };
 
-export const resolveDesktopBrowserHandoff = (search = '') => {
+const buildDesktopAuthFragmentParams = (hash = '') => (
+  new URLSearchParams(String(hash || '').replace(/^#/, ''))
+);
+
+const hasInlineDesktopBrowserHandoff = (search = '', hash = '') => {
+  const searchParams = new URLSearchParams(search || '');
+  const fragmentParams = buildDesktopAuthFragmentParams(hash);
+  return DESKTOP_AUTH_SENSITIVE_PARAMS.some((name) => (
+    searchParams.has(name) || fragmentParams.has(name)
+  ));
+};
+
+const stripInlineDesktopBrowserHandoff = ({ pathname = '/', search = '', hash = '' } = {}) => {
+  const searchParams = new URLSearchParams(search || '');
+  DESKTOP_AUTH_SENSITIVE_PARAMS.forEach((name) => searchParams.delete(name));
+
+  const fragmentParams = buildDesktopAuthFragmentParams(hash);
+  const hasSensitiveFragment = DESKTOP_AUTH_SENSITIVE_PARAMS.some((name) => fragmentParams.has(name));
+  if (hasSensitiveFragment) {
+    DESKTOP_AUTH_SENSITIVE_PARAMS.forEach((name) => fragmentParams.delete(name));
+  }
+
+  const sanitizedSearch = searchParams.toString();
+  const sanitizedFragment = fragmentParams.toString();
+  return {
+    pathname: pathname || '/',
+    search: sanitizedSearch ? `?${sanitizedSearch}` : '',
+    hash: hasSensitiveFragment
+      ? (sanitizedFragment ? `#${sanitizedFragment}` : '')
+      : hash,
+  };
+};
+
+export const resolveDesktopBrowserHandoff = (search = '', hash = '') => {
   const params = new URLSearchParams(search || '');
+  const fragmentParams = buildDesktopAuthFragmentParams(hash);
+  const getInlineValue = (name) => fragmentParams.get(name) || params.get(name);
   const requestId = String(params.get(DESKTOP_AUTH_REQUEST_PARAM) || '').trim();
   const stored = readStoredDesktopBrowserHandoff(requestId);
-  const secret = String(params.get(DESKTOP_AUTH_SECRET_PARAM) || stored?.secret || '').trim();
-  const returnTo = params.has(DESKTOP_AUTH_RETURN_TO_PARAM)
-    ? resolveNavigationTarget(params.get(DESKTOP_AUTH_RETURN_TO_PARAM), '/')
+  const secret = String(getInlineValue(DESKTOP_AUTH_SECRET_PARAM) || stored?.secret || '').trim();
+  const inlineReturnTo = getInlineValue(DESKTOP_AUTH_RETURN_TO_PARAM);
+  const returnTo = inlineReturnTo
+    ? resolveNavigationTarget(inlineReturnTo, '/')
     : resolveNavigationTarget(stored?.returnTo, '/');
-  const callbackUrl = normalizeDesktopAuthCallbackUrl(params.get(DESKTOP_AUTH_CALLBACK_PARAM))
+  const callbackUrl = normalizeDesktopAuthCallbackUrl(getInlineValue(DESKTOP_AUTH_CALLBACK_PARAM))
     || stored?.callbackUrl
     || '';
 
@@ -441,8 +482,12 @@ export const useLoginController = () => {
     [location.hash, location.pathname, location.search]
   );
   const desktopBrowserHandoff = useMemo(
-    () => resolveDesktopBrowserHandoff(location.search),
-    [location.search]
+    () => resolveDesktopBrowserHandoff(location.search, location.hash),
+    [location.hash, location.search]
+  );
+  const desktopBrowserHandoffIsInline = useMemo(
+    () => hasInlineDesktopBrowserHandoff(location.search, location.hash),
+    [location.hash, location.search]
   );
   const duoCallbackStatus = useMemo(
     () => String(new URLSearchParams(location.search || '').get('duo') || '').trim().toLowerCase(),
@@ -711,6 +756,30 @@ export const useLoginController = () => {
     const timer = setTimeout(() => setCountdown((prev) => prev - 1), 1000);
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  useEffect(() => {
+    if (!desktopBrowserHandoff.active || !desktopBrowserHandoffIsInline) {
+      return;
+    }
+
+    if (!persistDesktopBrowserHandoff(desktopBrowserHandoff)) {
+      setAuthError(resolveAuthError(new Error(
+        'Desktop sign-in could not secure the browser handoff. Refresh from Aura Desktop and try again.'
+      ), t));
+      return;
+    }
+
+    navigate(stripInlineDesktopBrowserHandoff(location), {
+      replace: true,
+      state: location.state,
+    });
+  }, [
+    desktopBrowserHandoff,
+    desktopBrowserHandoffIsInline,
+    location,
+    navigate,
+    t,
+  ]);
 
   useEffect(() => {
     if (initialResolvedAuthRedirectCheckedRef.current) return;
@@ -1966,7 +2035,6 @@ export const useLoginController = () => {
       }
       authApi.startDuoLogin({
         returnTo,
-        loginHint: '',
       });
     } catch (error) {
       setIsLoading(false);

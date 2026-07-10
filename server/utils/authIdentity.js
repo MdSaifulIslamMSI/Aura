@@ -1,5 +1,12 @@
 const INTERNAL_AUTH_EMAIL_DOMAIN = 'auth.aura.invalid';
-const TRUSTED_SOCIAL_PROVIDER_REGEX = /google|facebook|twitter|x\.com|github|apple/i;
+const TRUSTED_SOCIAL_PROVIDER_IDS = new Set([
+    'apple.com',
+    'facebook.com',
+    'github.com',
+    'google.com',
+    'twitter.com',
+    'x.com',
+]);
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -65,7 +72,7 @@ const resolveProviderIds = ({
 };
 
 const isTrustedSocialProvider = (providerId = '') => (
-    TRUSTED_SOCIAL_PROVIDER_REGEX.test(normalizeText(providerId))
+    TRUSTED_SOCIAL_PROVIDER_IDS.has(normalizeText(providerId).toLowerCase())
 );
 
 const shouldTrustProviderVerification = ({
@@ -100,28 +107,21 @@ const resolveEmailVerifiedState = ({
     authUser = {},
     authToken = null,
     authSession = null,
-    authUid = '',
-    user = null,
     fallback = false,
 } = {}) => {
-    if (shouldTrustProviderVerification({ authUser, authToken, authSession, authUid, user })) {
-        return true;
-    }
-
-    const booleanSignals = [
+    const proofSignals = [
         authSession?.emailVerified,
         authToken?.email_verified,
         authUser?.emailVerified,
         authUser?.isVerified,
-        user?.isVerified,
     ].filter((value) => typeof value === 'boolean');
 
-    if (booleanSignals.includes(true)) {
-        return true;
+    if (proofSignals.includes(false)) {
+        return false;
     }
 
-    if (booleanSignals.length > 0) {
-        return false;
+    if (proofSignals.includes(true)) {
+        return true;
     }
 
     return Boolean(fallback);

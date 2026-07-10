@@ -210,6 +210,7 @@ requireEnvValue(baseEnv, 'REDIS_URL', 'redis://redis:6379', 'AWS base.env');
 requireEnvPresent(baseEnv, 'AUTH_RISK_IP_DENYLIST', 'AWS base.env');
 requireEnvPresent(baseEnv, 'AUTH_RISK_IP_WATCHLIST', 'AWS base.env');
 requireTruthyEnv(baseEnv, 'AUTH_SESSION_COOKIE_SECURE', 'AWS base.env');
+requireEnvValue(baseEnv, 'AUTH_SESSION_ALLOW_MEMORY_FALLBACK', 'false', 'AWS base.env');
 requireNotFalsyEnv(baseEnv, 'DISTRIBUTED_SECURITY_CONTROLS_ENABLED', 'AWS base.env');
 
 const sameSite = String(baseEnv.get('AUTH_SESSION_SAME_SITE') || '').trim().toLowerCase();
@@ -241,6 +242,26 @@ const publicUrl = String(baseEnv.get('APP_PUBLIC_URL') || '').trim();
 if (!/^https:\/\//i.test(publicUrl)) {
     addFailure(`AWS base.env APP_PUBLIC_URL must be an https URL; found ${publicUrl || '(missing)'}`);
 }
+
+const webAuthnOrigin = String(baseEnv.get('AUTH_WEBAUTHN_ORIGIN') || '').trim();
+const webAuthnRpId = String(baseEnv.get('AUTH_WEBAUTHN_RP_ID') || '').trim().toLowerCase();
+let publicUrlHost = '';
+try {
+    const parsedPublicUrl = new URL(publicUrl);
+    publicUrlHost = parsedPublicUrl.hostname.toLowerCase();
+    if (parsedPublicUrl.origin !== publicUrl) {
+        addFailure('AWS base.env APP_PUBLIC_URL must be an origin without path, query, or fragment');
+    }
+} catch {
+    // The HTTPS validation above already records the malformed public URL.
+}
+if (webAuthnOrigin !== publicUrl) {
+    addFailure('AWS base.env AUTH_WEBAUTHN_ORIGIN must match APP_PUBLIC_URL for production passkeys');
+}
+if (!publicUrlHost || webAuthnRpId !== publicUrlHost) {
+    addFailure('AWS base.env AUTH_WEBAUTHN_RP_ID must match the APP_PUBLIC_URL hostname');
+}
+requireEnvValue(baseEnv, 'AUTH_WEBAUTHN_USER_VERIFICATION', 'required', 'AWS base.env');
 
 const backendPublicHost = String(baseEnv.get('AURA_BACKEND_PUBLIC_HOST') || '').trim();
 if (!/^[a-z0-9.-]+$/i.test(backendPublicHost)) {
@@ -388,6 +409,9 @@ const report = {
         redisRequired: baseEnv.get('REDIS_REQUIRED') || null,
         sessionCookieSecure: baseEnv.get('AUTH_SESSION_COOKIE_SECURE') || null,
         sessionSameSite: sameSite || null,
+        sessionMemoryFallback: baseEnv.get('AUTH_SESSION_ALLOW_MEMORY_FALLBACK') || null,
+        webAuthnOrigin: webAuthnOrigin || null,
+        webAuthnRpId: webAuthnRpId || null,
         distributedSecurityControls: baseEnv.get('DISTRIBUTED_SECURITY_CONTROLS_ENABLED') || '(production default)',
         backendPublicHost: backendPublicHost || null,
     },
