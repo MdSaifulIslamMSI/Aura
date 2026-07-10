@@ -18,7 +18,12 @@
   let checksumManifestUrl = "";
   let pendingReleaseChecks = 2;
 
-  const getButtonName = (button) => button.querySelector("span")?.textContent.trim() || button.textContent.trim();
+  const getButtonName = (button) => {
+    const actionName = button.querySelector("span")?.textContent.trim() || button.textContent.trim();
+    const platformName = button.closest("[data-platform-card]")?.querySelector("h3")?.textContent.trim();
+
+    return platformName ? `${platformName}: ${actionName}` : actionName;
+  };
   const getReleaseLabel = (release) => release.name || release.tag_name || "release";
   const getAssetSha256 = (asset) =>
     typeof asset?.digest === "string" && sha256DigestPattern.test(asset.digest)
@@ -34,6 +39,15 @@
     }
   };
 
+  const setReleaseStatus = (element, state, label) => {
+    if (!element) {
+      return;
+    }
+
+    element.dataset.releaseState = state;
+    element.textContent = label;
+  };
+
   const markChecking = (button) => {
     button.href = releasesPage;
     button.removeAttribute("aria-disabled");
@@ -43,7 +57,7 @@
     setButtonStatus(button, "checking", "Checking asset");
     button.setAttribute(
       "aria-label",
-      `${getButtonName(button)} is being checked against GitHub Releases.`,
+      `${getButtonName(button)} is being checked against GitHub Releases. Open GitHub Releases for current availability.`,
     );
   };
 
@@ -95,7 +109,7 @@
     });
 
     if (!records.length && pendingReleaseChecks > 0) {
-      checksumStatus.textContent = "Loading SHA-256 checksums";
+      setReleaseStatus(checksumStatus, "checking", "Loading SHA-256 checksums");
       checksumManifest.textContent = "Checksums load from GitHub Releases.";
       if (checksumDownload) {
         checksumDownload.hidden = true;
@@ -104,7 +118,7 @@
     }
 
     if (!records.length) {
-      checksumStatus.textContent = "SHA-256 checksums unavailable";
+      setReleaseStatus(checksumStatus, "fallback", "SHA-256 checksums unavailable");
       checksumManifest.textContent = "No release checksums could be verified here. Open GitHub Releases before installing.";
       if (checksumDownload) {
         checksumDownload.hidden = true;
@@ -130,7 +144,7 @@
 
     const manifestText = `${lines.join("\n")}\n`;
 
-    checksumStatus.textContent = `SHA-256 checksums ready (${records.length})`;
+    setReleaseStatus(checksumStatus, "ready", `SHA-256 checksums ready (${records.length})`);
     checksumManifest.textContent = manifestText;
 
     if (checksumDownload && "Blob" in window && "URL" in window) {
@@ -164,7 +178,7 @@
     setButtonStatus(button, "ready", `${button.dataset.releaseReadyLabel || "Ready"} · SHA-256`);
     button.setAttribute(
       "aria-label",
-      `${getButtonName(button)} download. SHA-256 checksum ${sha256}.`,
+      `${getButtonName(button)} download. SHA-256 checksum available in the release manifest.`,
     );
     button.removeAttribute("aria-disabled");
     button.removeAttribute("tabindex");
@@ -224,20 +238,22 @@
         unverifiedCount += 1;
       });
 
-      if (!desktopStatus) {
-        return;
-      }
-
-      desktopStatus.textContent = availableCount
-        ? `Desktop: ${getReleaseLabel(release)}. ${availableCount} checksummed download links ready${unavailableCount ? `, ${unavailableCount} unpublished` : ""}${unverifiedCount ? `, ${unverifiedCount} missing checksums` : ""}.`
-        : "Desktop release found, but package files are not published yet.";
+      setReleaseStatus(
+        desktopStatus,
+        availableCount ? "ready" : "unavailable",
+        availableCount
+          ? `Desktop: ${getReleaseLabel(release)}. ${availableCount} checksummed download links ready${unavailableCount ? `, ${unavailableCount} unpublished` : ""}${unverifiedCount ? `, ${unverifiedCount} missing checksums` : ""}.`
+          : "Desktop release found, but package files are not published yet.",
+      );
     })
     .catch(() => {
       desktopButtons.forEach(markUnknown);
 
-      if (desktopStatus) {
-        desktopStatus.textContent = "Desktop packages could not be verified here. Open releases for current availability.";
-      }
+      setReleaseStatus(
+        desktopStatus,
+        "fallback",
+        "Desktop packages could not be verified here. Open releases for current availability.",
+      );
     })
     .finally(completeReleaseCheck);
 
@@ -284,20 +300,22 @@
         unverifiedCount += 1;
       });
 
-      if (!mobileStatus) {
-        return;
-      }
-
-      mobileStatus.textContent = availableCount
-        ? `Mobile: ${getReleaseLabel(mobileRelease)}. ${availableCount} checksummed links ready${unavailableCount ? `, ${unavailableCount} unpublished` : ""}${unverifiedCount ? `, ${unverifiedCount} missing checksums` : ""}.`
-        : "Mobile release found, but installable package files are not published yet.";
+      setReleaseStatus(
+        mobileStatus,
+        availableCount ? "ready" : "unavailable",
+        availableCount
+          ? `Mobile: ${getReleaseLabel(mobileRelease)}. ${availableCount} checksummed links ready${unavailableCount ? `, ${unavailableCount} unpublished` : ""}${unverifiedCount ? `, ${unverifiedCount} missing checksums` : ""}.`
+          : "Mobile release found, but installable package files are not published yet.",
+      );
     })
     .catch(() => {
       mobileButtons.forEach(markUnknown);
 
-      if (mobileStatus) {
-        mobileStatus.textContent = "Mobile packages could not be verified here. Open releases for Android and iPhone.";
-      }
+      setReleaseStatus(
+        mobileStatus,
+        "fallback",
+        "Mobile packages could not be verified here. Open releases for Android and iPhone.",
+      );
     })
     .finally(completeReleaseCheck);
 })();
