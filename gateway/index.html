@@ -9,17 +9,14 @@
       content="A production gateway for Aura storefront routes, verified release packages, and honest web or companion availability across supported devices."
     />
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
-    <link rel="preload" as="image" href="./assets/aura-gateway-hero.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="theme-color" content="#050606" />
+    <link rel="preload" as="image" href="./assets/aura-gateway-hero.webp" type="image/webp" fetchpriority="high" />
     <link rel="stylesheet" href="./styles.css" />
     <script src="./release-links.js" defer></script>
+    <script src="./gateway-ui.js" defer></script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="gateway-shell">
       <header class="masthead" aria-label="Aura Gateway">
         <a class="brand-lockup" href="/" aria-label="Aura Gateway home">
@@ -32,71 +29,126 @@
         <nav class="masthead-nav" aria-label="Gateway navigation">
           <a href="#routes">Storefronts</a>
           <a href="#downloads">Downloads</a>
-          <a href="https://aurapilot.vercel.app/admin/aws-control" rel="noreferrer">AWS Control</a>
+          <a href="#contract">Trust</a>
+          <a href="https://aurapilot.vercel.app/admin/aws-control" aria-label="AWS Control, admin-only" rel="noreferrer">AWS Control</a>
           <a href="https://github.com/MdSaifulIslamMSI/Aura/releases" rel="noreferrer">Releases</a>
         </nav>
       </header>
 
-      <main>
+      <main id="main-content" tabindex="-1">
         <section class="hero-section" aria-labelledby="gateway-title">
           <div class="hero-art" aria-hidden="true">
-            <img src="./assets/aura-gateway-hero.png" alt="" />
+            <picture>
+              <source srcset="./assets/aura-gateway-hero.webp" type="image/webp" />
+              <img
+                src="./assets/aura-gateway-hero.png"
+                alt=""
+                width="1836"
+                height="856"
+                fetchpriority="high"
+                decoding="async"
+              />
+            </picture>
           </div>
 
           <div class="hero-content">
             <div class="hero-copy">
-              <h1 id="gateway-title">Aura Gateway</h1>
-              <p class="hero-statement">Choose the host. Keep the same Aura reality.</p>
+              <p class="hero-kicker"><span aria-hidden="true"></span>Aura command gateway <strong>Production entry</strong></p>
+              <h1 id="gateway-title">One Aura Gateway.<br />Every production lane.</h1>
+              <p class="hero-statement">Choose the edge. Keep the same Aura reality.</p>
+
+              <div class="hero-actions" aria-label="Primary gateway actions">
+                <a class="action-button action-primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span>Enter Vercel primary runtime</span>
+                  <small>Default production entrance</small>
+                </a>
+                <a class="action-button" href="#routes">
+                  <span>Choose another route</span>
+                  <small>Mirror, CloudFront, or AWS Control</small>
+                </a>
+                <a class="action-button action-device" href="#downloads" data-device-cta>
+                  <span data-device-cta-label>Find your install lane</span>
+                  <small data-device-cta-note>Device-aware guidance</small>
+                </a>
+              </div>
+
               <p class="hero-lede">
                 One gateway introduces Aura&apos;s production stack, then hands you to the runtime or install channel
                 that fits your device. Vercel, Netlify, and AWS CloudFront stay separate at the edge while account,
                 cart, wishlist, checkout, profile, and order behavior keep one shared contract.
               </p>
+
+              <ul class="hero-facts" aria-label="Gateway contract facts">
+                <li><strong>3</strong><span>storefront edges</span></li>
+                <li><strong>1</strong><span>shared behavior contract</span></li>
+                <li><strong>SHA-256</strong><span>gated release links</span></li>
+              </ul>
             </div>
 
-            <div class="route-selector" id="routes" aria-labelledby="routes-title">
+            <div class="command-atlas" aria-hidden="true">
+              <span class="atlas-ring atlas-ring-one"></span>
+              <span class="atlas-ring atlas-ring-two"></span>
+              <span class="atlas-path atlas-path-one"></span>
+              <span class="atlas-path atlas-path-two"></span>
+              <span class="atlas-path atlas-path-three"></span>
+              <div class="atlas-core"><span>A</span><strong>Shared Aura contract</strong><small>Auth · cart · checkout · orders</small></div>
+              <div class="atlas-node atlas-vercel"><span>01</span><strong>Vercel</strong><small>Primary</small></div>
+              <div class="atlas-node atlas-netlify"><span>02</span><strong>Netlify</strong><small>Mirror</small></div>
+              <div class="atlas-node atlas-cloudfront"><span>03</span><strong>CloudFront</strong><small>Secure edge</small></div>
+              <div class="atlas-telemetry"><span></span>Release intelligence resolves after first paint</div>
+            </div>
+
+            <section class="route-selector" id="routes" aria-labelledby="routes-title">
               <div class="selector-header">
                 <div>
-                  <p class="section-label">Choose your route</p>
-                  <h2 id="routes-title">Three storefronts. One commerce core.</h2>
+                  <p class="section-label">Production lanes</p>
+                  <h2 id="routes-title">Three storefronts. One controlled admin surface.</h2>
                 </div>
                 <p>
-                  Pick the host you want to enter. The destination changes; Aura&apos;s production state and product
-                  posture do not.
+                  The destination changes; the behavior contract does not. Every lane below is an existing production
+                  or admin route—nothing here is a simulated status claim.
                 </p>
               </div>
 
               <div class="route-grid">
-                <a class="route-link route-link-vercel" href="https://aurapilot.vercel.app" rel="noreferrer">
+                <a class="route-link route-link-vercel route-link-primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                  <span class="route-index">01</span>
                   <span class="route-icon" aria-hidden="true"></span>
                   <span>
+                    <span class="route-role">Primary storefront</span>
                     <strong>aurapilot.vercel.app</strong>
-                    <small>Vercel primary runtime</small>
+                    <small>Default production entrance</small>
                   </span>
                   <span class="route-arrow" aria-hidden="true"></span>
                 </a>
 
                 <a class="route-link route-link-netlify" href="https://aurapilot.netlify.app" rel="noreferrer">
+                  <span class="route-index">02</span>
                   <span class="route-icon" aria-hidden="true"></span>
                   <span>
+                    <span class="route-role">Mirror storefront</span>
                     <strong>aurapilot.netlify.app</strong>
-                    <small>Netlify mirrored runtime</small>
+                    <small>Alternate edge, shared behavior</small>
                   </span>
                   <span class="route-arrow" aria-hidden="true"></span>
                 </a>
 
                 <a class="route-link route-link-aws" href="https://dbtrhsolhec1s.cloudfront.net" rel="noreferrer">
+                  <span class="route-index">03</span>
                   <span class="route-icon" aria-hidden="true"></span>
                   <span>
+                    <span class="route-role">AWS storefront</span>
                     <strong>dbtrhsolhec1s.cloudfront.net</strong>
-                    <small>AWS CloudFront secure runtime</small>
+                    <small>CloudFront secure runtime</small>
                   </span>
                   <span class="route-arrow" aria-hidden="true"></span>
                 </a>
 
                 <a class="route-link route-link-control" href="https://aurapilot.vercel.app/admin/aws-control" rel="noreferrer">
+                  <span class="route-index">04</span>
                   <span class="route-icon" aria-hidden="true"></span>
                   <span>
+                    <span class="route-role">Admin only</span>
                     <strong>AWS Control</strong>
                     <small>Admin-only staging controls and cost guardrails</small>
                   </span>
@@ -104,17 +156,17 @@
                 </a>
               </div>
 
-              <div class="route-assurance" aria-label="runtime guarantees">
-                <span>Authentication continuity</span>
-                <span>Shared backend behavior</span>
-                <span>CloudFront edge parity</span>
-                <span>Admin-only AWS control</span>
-              </div>
-            </div>
+              <ul class="route-assurance" aria-label="Runtime contract">
+                <li>Authentication continuity</li>
+                <li>Shared backend behavior</li>
+                <li>CloudFront edge parity</li>
+                <li>Admin-only AWS control</li>
+              </ul>
+            </section>
           </div>
         </section>
 
-        <section class="proof-section" aria-label="Aura runtime contract">
+        <section class="proof-section" id="contract" aria-label="Aura runtime contract">
           <article>
             <span>01</span>
             <h2>Not a switchboard.</h2>
@@ -144,7 +196,7 @@
         <section class="downloads-section" id="downloads" aria-labelledby="downloads-title">
           <div class="downloads-heading">
             <div>
-              <p class="section-label">Verified package + PWA availability</p>
+              <p class="section-label">Install intelligence</p>
               <h2 id="downloads-title">Use Aura on the device you actually use.</h2>
             </div>
             <p>
@@ -154,8 +206,23 @@
             </p>
           </div>
 
-          <div class="release-panel">
+          <div class="device-guide" aria-label="Current device guidance">
             <div>
+              <p class="section-label">Current device lane</p>
+              <h3 data-device-guide-title>Choose a platform below</h3>
+              <p data-device-guide-copy>
+                Aura will suggest a matching section when your browser exposes enough device information. No package
+                is guessed and no download starts automatically.
+              </p>
+            </div>
+            <a class="device-guide-link" href="#downloads" data-device-guide-link>
+              <span data-device-guide-link-label>Browse every supported platform</span>
+              <small>Safe guidance only</small>
+            </a>
+          </div>
+
+          <div class="release-panel">
+            <div class="release-intro">
               <strong>Release intelligence</strong>
               <p>
                 Package buttons hydrate from GitHub Releases. A button becomes a direct download only after its matching
@@ -165,29 +232,59 @@
               </p>
             </div>
             <div class="release-statuses" aria-live="polite">
-              <p data-release-status="desktop">Checking latest desktop release...</p>
-              <p data-release-status="mobile">Checking latest mobile release...</p>
+              <p data-release-status="desktop" data-release-state="checking">Checking latest desktop release...</p>
+              <p data-release-status="mobile" data-release-state="checking">Checking latest mobile release...</p>
             </div>
             <a class="release-link" href="https://github.com/MdSaifulIslamMSI/Aura/releases" rel="noreferrer">
               View all releases
             </a>
+            <div class="release-checksum-status-row">
+              <p class="release-checksum-status" data-release-checksum-status data-release-state="checking" role="status" aria-live="polite">
+                Loading SHA-256 checksums
+              </p>
+              <a
+                class="checksum-download-link"
+                href="https://github.com/MdSaifulIslamMSI/Aura/releases"
+                data-release-checksum-download
+                hidden
+                rel="noreferrer"
+              >
+                Download checksums
+              </a>
+            </div>
             <details class="release-checksums">
-              <summary data-release-checksum-status>Loading SHA-256 checksums</summary>
+              <summary>View checksum manifest</summary>
               <pre data-release-checksum-manifest aria-label="Release SHA-256 checksum manifest">Checksums load from GitHub Releases.</pre>
             </details>
-            <a
-              class="checksum-download-link"
-              href="https://github.com/MdSaifulIslamMSI/Aura/releases"
-              data-release-checksum-download
-              hidden
-              rel="noreferrer"
-            >
-              Download checksums
-            </a>
           </div>
 
-          <div class="download-grid">
-            <article class="download-card platform-windows">
+          <div class="platform-tools" data-platform-tools hidden>
+            <div class="platform-search">
+              <label for="platform-search">Find your platform</label>
+              <input
+                id="platform-search"
+                type="search"
+                inputmode="search"
+                autocomplete="off"
+                placeholder="Search Windows, Linux, Android, RTOS..."
+                data-platform-search
+              />
+            </div>
+            <div class="platform-filter-bar" aria-label="Filter platform coverage">
+              <button type="button" data-platform-filter="all" aria-pressed="true">All</button>
+              <button type="button" data-platform-filter="desktop" aria-pressed="false">Desktop</button>
+              <button type="button" data-platform-filter="mobile" aria-pressed="false">Mobile</button>
+              <button type="button" data-platform-filter="browser" aria-pressed="false">Browser / PWA</button>
+              <button type="button" data-platform-filter="linux" aria-pressed="false">Linux families</button>
+              <button type="button" data-platform-filter="embedded" aria-pressed="false">Embedded</button>
+              <button type="button" data-platform-filter="specialized" aria-pressed="false">Specialized</button>
+            </div>
+            <p class="platform-result-count" data-platform-result-count role="status" aria-live="polite">All platform lanes shown.</p>
+          </div>
+          <p class="platform-empty" data-platform-empty hidden>No platform lane matches that search. Clear the search or choose another group.</p>
+
+          <div class="download-grid" data-platform-grid>
+            <article class="download-card platform-windows" id="platform-windows" data-platform-card data-platform-category="desktop">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-windows" aria-hidden="true"></span>
                 <div>
@@ -199,30 +296,30 @@
                 Choose the standard installer for most laptops and desktops. Portable builds are available when you do
                 not want an installer.
               </p>
-              <p class="platform-caution">
+              <p class="platform-caution" id="windows-release-warning">
                 Free Windows builds are unsigned, so Microsoft Defender SmartScreen may warn on first launch.
               </p>
               <div class="download-actions">
-                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-x64-Setup.exe" rel="noreferrer">
+                <a class="download-button primary" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-x64-Setup.exe" aria-describedby="windows-release-warning" rel="noreferrer">
                   <span>Windows x64 installer</span>
                   <small>Release page</small>
                 </a>
-                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-arm64-Setup.exe" rel="noreferrer">
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-arm64-Setup.exe" aria-describedby="windows-release-warning" rel="noreferrer">
                   <span>Windows ARM64 installer</span>
                   <small>Release page</small>
                 </a>
-                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-ia32-Setup.exe" rel="noreferrer">
+                <a class="download-button" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-ia32-Setup.exe" aria-describedby="windows-release-warning" rel="noreferrer">
                   <span>Windows 32-bit installer</span>
                   <small>Release page</small>
                 </a>
-                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-x64-Portable.exe" rel="noreferrer">
+                <a class="download-button muted" href="https://github.com/MdSaifulIslamMSI/Aura/releases" data-release-asset="Aura-Marketplace-Windows-x64-Portable.exe" aria-describedby="windows-release-warning" rel="noreferrer">
                   <span>Portable x64 app</span>
                   <small>Release page</small>
                 </a>
               </div>
             </article>
 
-            <article class="download-card platform-macos">
+            <article class="download-card platform-macos" id="platform-macos" data-platform-card data-platform-category="desktop">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-macos" aria-hidden="true"></span>
                 <div>
@@ -254,7 +351,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-linux">
+            <article class="download-card platform-linux" id="platform-linux" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-linux" aria-hidden="true"></span>
                 <div>
@@ -304,7 +401,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-android">
+            <article class="download-card platform-android" id="platform-android" data-platform-card data-platform-category="mobile">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-android" aria-hidden="true"></span>
                 <div>
@@ -316,7 +413,7 @@
                 Use the published Android APK for direct device testing. A Play Console AAB is shown only when a real
                 AAB asset exists in the mobile release.
               </p>
-              <p class="platform-caution">
+              <p class="platform-caution" id="android-release-warning">
                 The current mobile lane publishes a debug APK, not a store-signed Play release.
               </p>
               <div class="download-actions">
@@ -327,6 +424,7 @@
                   data-release-asset-prefix="Aura-Marketplace-Android-"
                   data-release-asset-suffix=".apk"
                   data-release-ready-label="Debug APK"
+                  aria-describedby="android-release-warning"
                   rel="noreferrer"
                 >
                   <span>Android debug APK</span>
@@ -338,6 +436,7 @@
                   data-release-channel="mobile"
                   data-release-asset-prefix="Aura-Marketplace-Android-"
                   data-release-asset-suffix=".aab"
+                  aria-describedby="android-release-warning"
                   rel="noreferrer"
                 >
                   <span>Android AAB</span>
@@ -346,7 +445,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-ios">
+            <article class="download-card platform-ios" id="platform-ios" data-platform-card data-platform-category="mobile">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-ios" aria-hidden="true"></span>
                 <div>
@@ -358,7 +457,7 @@
                 A signed IPA appears only when a real-device iOS build is published. The simulator ZIP is for developer
                 testing; iPadOS users can install the hosted Aura PWA from Safari today.
               </p>
-              <p class="platform-caution">
+              <p class="platform-caution" id="ios-release-warning">
                 Apple device installs require signing and provisioning, and no signed IPA is published in the current
                 mobile release.
               </p>
@@ -369,6 +468,7 @@
                   data-release-channel="mobile"
                   data-release-asset-prefix="Aura-Marketplace-iOS-"
                   data-release-asset-suffix=".ipa"
+                  aria-describedby="ios-release-warning"
                   rel="noreferrer"
                 >
                   <span>Signed iPhone/iPad IPA</span>
@@ -381,6 +481,7 @@
                   data-release-asset-prefix="Aura-Marketplace-iOS-Simulator-"
                   data-release-asset-suffix=".zip"
                   data-release-ready-label="Simulator ZIP"
+                  aria-describedby="ios-release-warning"
                   rel="noreferrer"
                 >
                   <span>iOS simulator ZIP</span>
@@ -389,7 +490,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-web platform-ipados">
+            <article class="download-card platform-web platform-ipados" id="platform-ipados" data-platform-card data-platform-category="browser">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-tablet" aria-hidden="true"></span>
                 <div>
@@ -409,7 +510,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-web platform-chromeos">
+            <article class="download-card platform-web platform-chromeos" id="platform-chromeos" data-platform-card data-platform-category="browser">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-chromeos" aria-hidden="true"></span>
                 <div>
@@ -429,7 +530,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-web platform-unix">
+            <article class="download-card platform-web platform-unix" id="platform-unix" data-platform-card data-platform-category="browser">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-unix" aria-hidden="true"></span>
                 <div>
@@ -449,7 +550,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-web platform-harmony">
+            <article class="download-card platform-web platform-harmony" id="platform-harmony" data-platform-card data-platform-category="browser">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-harmony" aria-hidden="true"></span>
                 <div>
@@ -469,7 +570,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-rtos">
+            <article class="download-card platform-rtos" id="platform-rtos" data-platform-card data-platform-category="embedded">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-rtos" aria-hidden="true"></span>
                 <div>
@@ -481,19 +582,19 @@
                 RTOS devices cannot run the full Aura UI. They are supported as companion clients that call the Aura
                 backend for device status, telemetry, inventory signals, and lightweight commerce events.
               </p>
-              <p class="platform-caution">
+              <p class="platform-caution" id="rtos-safety-warning">
                 Use HTTPS/MQTT-capable firmware or a gateway bridge. Keep checkout and account screens on web, mobile,
                 or desktop.
               </p>
               <div class="download-actions">
-                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" aria-describedby="rtos-safety-warning" rel="noreferrer">
                   <span>Open full Aura app</span>
                   <small>Web fallback</small>
                 </a>
               </div>
             </article>
 
-            <article class="download-card platform-india-os platform-boss">
+            <article class="download-card platform-india-os platform-boss" id="platform-boss" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-india" aria-hidden="true"></span>
                 <div>
@@ -517,7 +618,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-india-os platform-maya">
+            <article class="download-card platform-india-os platform-maya" id="platform-maya" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-shield" aria-hidden="true"></span>
                 <div>
@@ -541,7 +642,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-india-os platform-garuda">
+            <article class="download-card platform-india-os platform-garuda" id="platform-garuda" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-garuda" aria-hidden="true"></span>
                 <div>
@@ -565,7 +666,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-india-os platform-android-family">
+            <article class="download-card platform-india-os platform-android-family" id="platform-android-family" data-platform-card data-platform-category="mobile">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-android" aria-hidden="true"></span>
                 <div>
@@ -597,7 +698,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-india-os platform-tv">
+            <article class="download-card platform-india-os platform-tv" id="platform-jio-tele" data-platform-card data-platform-category="embedded">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-tv" aria-hidden="true"></span>
                 <div>
@@ -617,7 +718,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-specialized platform-apple-watch">
+            <article class="download-card platform-specialized platform-apple-watch" id="platform-watchos" data-platform-card data-platform-category="embedded">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-watch" aria-hidden="true"></span>
                 <div>
@@ -637,7 +738,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-specialized platform-tvos">
+            <article class="download-card platform-specialized platform-tvos" id="platform-tvos" data-platform-card data-platform-category="embedded">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-tv" aria-hidden="true"></span>
                 <div>
@@ -657,7 +758,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-specialized platform-rhel">
+            <article class="download-card platform-specialized platform-rhel" id="platform-rhel" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
                 <div>
@@ -681,7 +782,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-specialized platform-vxworks">
+            <article class="download-card platform-specialized platform-vxworks" id="platform-vxworks" data-platform-card data-platform-category="embedded">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-rtos" aria-hidden="true"></span>
                 <div>
@@ -693,18 +794,18 @@
                 VxWorks cannot run the full Aura UI. It is supported through the same embedded companion model as RTOS:
                 authenticated telemetry, inventory signals, device state, and gateway-mediated commerce events.
               </p>
-              <p class="platform-caution">
+              <p class="platform-caution" id="vxworks-safety-warning">
                 Keep payments, account access, checkout, and admin tasks on Aura web, mobile, or desktop surfaces.
               </p>
               <div class="download-actions">
-                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" aria-describedby="vxworks-safety-warning" rel="noreferrer">
                   <span>Open full Aura app</span>
                   <small>Web fallback</small>
                 </a>
               </div>
             </article>
 
-            <article class="download-card platform-europe-os platform-linux-family">
+            <article class="download-card platform-europe-os platform-linux-family" id="platform-linux-family" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-linux" aria-hidden="true"></span>
                 <div>
@@ -728,7 +829,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-europe-os platform-suse">
+            <article class="download-card platform-europe-os platform-suse" id="platform-suse" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
                 <div>
@@ -752,7 +853,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-europe-os platform-raspberry">
+            <article class="download-card platform-europe-os platform-raspberry" id="platform-raspberry" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-chip" aria-hidden="true"></span>
                 <div>
@@ -776,7 +877,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-europe-os platform-sailfish">
+            <article class="download-card platform-europe-os platform-sailfish" id="platform-sailfish" data-platform-card data-platform-category="mobile">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-mobile" aria-hidden="true"></span>
                 <div>
@@ -796,7 +897,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-europe-os platform-research">
+            <article class="download-card platform-europe-os platform-research" id="platform-research" data-platform-card data-platform-category="specialized">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-research" aria-hidden="true"></span>
                 <div>
@@ -816,7 +917,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-europe-os platform-legacy-mobile">
+            <article class="download-card platform-europe-os platform-legacy-mobile" id="platform-symbian" data-platform-card data-platform-category="specialized">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-mobile" aria-hidden="true"></span>
                 <div>
@@ -828,18 +929,18 @@
                 Symbian is treated as a legacy compatibility target. The full Aura UI requires modern browser APIs, so
                 Symbian users should use a newer companion device for account, checkout, and marketplace flows.
               </p>
-              <p class="platform-caution">
+              <p class="platform-caution" id="symbian-safety-warning">
                 No native Symbian package is produced.
               </p>
               <div class="download-actions">
-                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" aria-describedby="symbian-safety-warning" rel="noreferrer">
                   <span>Open modern web fallback</span>
                   <small>Live app</small>
                 </a>
               </div>
             </article>
 
-            <article class="download-card platform-europe-os platform-mageia">
+            <article class="download-card platform-europe-os platform-mageia" id="platform-mageia" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
                 <div>
@@ -863,7 +964,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-regional-os platform-russian-linux">
+            <article class="download-card platform-regional-os platform-russian-linux" id="platform-russian-linux" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
                 <div>
@@ -887,7 +988,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-regional-os platform-aurora">
+            <article class="download-card platform-regional-os platform-aurora" id="platform-aurora" data-platform-card data-platform-category="mobile">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-mobile" aria-hidden="true"></span>
                 <div>
@@ -907,7 +1008,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-regional-os platform-secure-microkernel">
+            <article class="download-card platform-regional-os platform-secure-microkernel" id="platform-kaspersky" data-platform-card data-platform-category="embedded">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-shield" aria-hidden="true"></span>
                 <div>
@@ -919,18 +1020,18 @@
                 KasperskyOS cannot run the full Aura storefront. It is supported as a secure companion endpoint through
                 authenticated telemetry, inventory, device-state, and gateway-mediated event APIs.
               </p>
-              <p class="platform-caution">
+              <p class="platform-caution" id="kaspersky-safety-warning">
                 Keep account, checkout, payment, and admin workflows on full Aura web, mobile, or desktop clients.
               </p>
               <div class="download-actions">
-                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" aria-describedby="kaspersky-safety-warning" rel="noreferrer">
                   <span>Open full Aura app</span>
                   <small>Web fallback</small>
                 </a>
               </div>
             </article>
 
-            <article class="download-card platform-regional-os platform-elbrus">
+            <article class="download-card platform-regional-os platform-elbrus" id="platform-elbrus" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-chip" aria-hidden="true"></span>
                 <div>
@@ -950,7 +1051,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-regional-os platform-calculate">
+            <article class="download-card platform-regional-os platform-calculate" id="platform-calculate" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-linux" aria-hidden="true"></span>
                 <div>
@@ -974,7 +1075,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-regional-os platform-experimental-os">
+            <article class="download-card platform-regional-os platform-experimental-os" id="platform-experimental" data-platform-card data-platform-category="specialized">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-research" aria-hidden="true"></span>
                 <div>
@@ -994,7 +1095,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-asia-os platform-harmony-family">
+            <article class="download-card platform-asia-os platform-harmony-family" id="platform-harmony-family" data-platform-card data-platform-category="mobile">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-harmony" aria-hidden="true"></span>
                 <div>
@@ -1026,7 +1127,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-asia-os platform-china-linux">
+            <article class="download-card platform-asia-os platform-china-linux" id="platform-china-linux" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-enterprise" aria-hidden="true"></span>
                 <div>
@@ -1050,7 +1151,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-asia-os platform-china-enterprise">
+            <article class="download-card platform-asia-os platform-china-enterprise" id="platform-china-enterprise" data-platform-card data-platform-category="linux">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-cloud" aria-hidden="true"></span>
                 <div>
@@ -1074,7 +1175,7 @@
               </div>
             </article>
 
-            <article class="download-card platform-asia-os platform-china-iot">
+            <article class="download-card platform-asia-os platform-china-iot" id="platform-china-iot" data-platform-card data-platform-category="embedded">
               <div class="platform-heading">
                 <span class="platform-icon platform-icon-chip" aria-hidden="true"></span>
                 <div>
@@ -1086,11 +1187,11 @@
                 AliOS Things and RT-Thread cannot host the full Aura UI. They are covered through the embedded
                 companion model: authenticated events, telemetry, inventory signals, and gateway-mediated actions.
               </p>
-              <p class="platform-caution">
+              <p class="platform-caution" id="embedded-safety-warning">
                 Keep account, checkout, payment, and admin workflows on web, desktop, or mobile.
               </p>
               <div class="download-actions">
-                <a class="download-button primary" href="https://aurapilot.vercel.app" rel="noreferrer">
+                <a class="download-button primary" href="https://aurapilot.vercel.app" aria-describedby="embedded-safety-warning" rel="noreferrer">
                   <span>Open full Aura app</span>
                   <small>Web fallback</small>
                 </a>
@@ -1114,6 +1215,34 @@
           </div>
         </section>
       </main>
+
+      <footer class="gateway-footer">
+        <div class="footer-brand">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <div>
+            <strong>Aura Gateway</strong>
+            <p>One production entrance for every storefront, verified package, and honest fallback lane.</p>
+          </div>
+        </div>
+
+        <nav class="footer-routes" aria-label="Production routes">
+          <a href="https://aurapilot.vercel.app" rel="noreferrer"><span>Primary</span>Vercel storefront</a>
+          <a href="https://aurapilot.netlify.app" rel="noreferrer"><span>Mirror</span>Netlify storefront</a>
+          <a href="https://dbtrhsolhec1s.cloudfront.net" rel="noreferrer"><span>AWS edge</span>CloudFront storefront</a>
+          <a href="https://aurapilot.vercel.app/admin/aws-control" aria-label="AWS Control, admin-only" rel="noreferrer"><span>Admin only</span>AWS Control</a>
+        </nav>
+
+        <div class="footer-safety">
+          <strong>Release safety stays visible.</strong>
+          <p>
+            Direct package links appear only after GitHub Releases returns the matching asset and SHA-256 digest.
+            Unpublished packages are labelled unavailable; unverifiable packages keep the safe GitHub Releases fallback.
+          </p>
+          <a href="https://github.com/MdSaifulIslamMSI/Aura/releases" rel="noreferrer">Open GitHub Releases</a>
+        </div>
+
+        <p class="footer-meta">Static gateway · release metadata resolves live · no package URL is guessed</p>
+      </footer>
     </div>
   </body>
 </html>
