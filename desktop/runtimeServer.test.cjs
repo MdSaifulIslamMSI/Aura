@@ -15,6 +15,8 @@ const {
     DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
     DESKTOP_AUTH_COMPLETE_PATH,
+    RUNTIME_CALLBACK_HOST,
+    buildRuntimeCallbackUrl,
     isLoopbackBackendOrigin,
     resolveBackendOrigin,
     resolveAllowedDesktopAuthOrigins,
@@ -145,6 +147,12 @@ test('desktop runtime has a stable default port but falls back if it is busy', a
     try {
         assert.notEqual(runtime.port, busyPort);
         assert.match(runtime.url, /^http:\/\/localhost:\d+$/);
+        assert.equal(runtime.callbackUrl, buildRuntimeCallbackUrl(runtime.port));
+        assert.equal(new URL(runtime.callbackUrl).hostname, RUNTIME_CALLBACK_HOST);
+        assert.equal(
+            new URL(runtime.createDesktopAuthRequest().url).searchParams.get('desktopAuthCallback'),
+            `${runtime.callbackUrl}${DESKTOP_AUTH_COMPLETE_PATH}`
+        );
         assert.equal(DEFAULT_RUNTIME_PORT, 47831);
     } finally {
         await runtime.close();
@@ -162,6 +170,7 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     });
 
     const request = broker.createRequest({
+        callbackUrl: 'http://127.0.0.1:47831',
         runtimeUrl: 'http://localhost:47831',
         returnTo: '/checkout?step=payment',
     });
@@ -172,7 +181,7 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     assert.equal(new URL(request.url).origin, DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN);
     assert.equal(
         new URL(request.url).searchParams.get('desktopAuthCallback'),
-        `http://localhost:47831${DESKTOP_AUTH_COMPLETE_PATH}`
+        `http://127.0.0.1:47831${DESKTOP_AUTH_COMPLETE_PATH}`
     );
     assert.match(request.url, /desktopAuthReturnTo=%2Fcheckout%3Fstep%3Dpayment/);
 
@@ -206,9 +215,13 @@ test('desktop auth callback CORS only allows the hosted auth frontend', () => {
     };
 
     assert.equal(applyDesktopAuthCors({
-        headers: { origin: 'https://aurapilot.vercel.app' },
+        headers: {
+            origin: 'https://aurapilot.vercel.app',
+            'access-control-request-private-network': 'true',
+        },
     }, response, allowedOrigins), true);
     assert.equal(headers.get('Access-Control-Allow-Origin'), 'https://aurapilot.vercel.app');
+    assert.equal(headers.get('Access-Control-Allow-Private-Network'), 'true');
 
     assert.equal(applyDesktopAuthCors({
         headers: { origin: 'https://evil.example.test' },

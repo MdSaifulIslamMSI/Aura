@@ -13,6 +13,7 @@ const DEFAULT_RUNTIME_PORT = 47831;
 const STABLE_RUNTIME_FALLBACK_PORTS = 10;
 const RUNTIME_LISTEN_HOST = '127.0.0.1';
 const RUNTIME_PUBLIC_HOST = 'localhost';
+const RUNTIME_CALLBACK_HOST = RUNTIME_LISTEN_HOST;
 const BROWSER_ONLY_PROXY_HEADERS = ['origin', 'referer'];
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
 const DESKTOP_AUTH_FRONTEND_PATH = '/desktop-login';
@@ -128,6 +129,8 @@ const applyLocalFrontendCachePolicy = (request, response, next) => {
 
 const buildRuntimeUrl = (port) => `http://${RUNTIME_PUBLIC_HOST}:${port}`;
 
+const buildRuntimeCallbackUrl = (port) => `http://${RUNTIME_CALLBACK_HOST}:${port}`;
+
 const createDesktopAuthSecret = () => crypto.randomBytes(32).toString('base64url');
 
 const normalizeDesktopAuthString = (value = '') => String(value || '').trim();
@@ -145,6 +148,7 @@ const safeEquals = (left = '', right = '') => {
 
 const buildDesktopAuthUrl = ({
     runtimeUrl,
+    callbackUrl,
     authFrontendOrigin = DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     path: requestPath = DESKTOP_AUTH_FRONTEND_PATH,
     requestId,
@@ -152,9 +156,10 @@ const buildDesktopAuthUrl = ({
     returnTo = '',
 } = {}) => {
     const url = new URL(isSafeRelativePath(requestPath) ? requestPath : DESKTOP_AUTH_FRONTEND_PATH, authFrontendOrigin);
+    const trustedCallbackUrl = callbackUrl || runtimeUrl;
     url.searchParams.set('desktopAuthRequest', requestId);
     url.searchParams.set('desktopAuthSecret', secret);
-    url.searchParams.set(DESKTOP_AUTH_CALLBACK_PARAM, `${trimTrailingSlash(runtimeUrl)}${DESKTOP_AUTH_COMPLETE_PATH}`);
+    url.searchParams.set(DESKTOP_AUTH_CALLBACK_PARAM, `${trimTrailingSlash(trustedCallbackUrl)}${DESKTOP_AUTH_COMPLETE_PATH}`);
     if (isSafeRelativePath(returnTo)) {
         url.searchParams.set('desktopAuthReturnTo', returnTo);
     }
@@ -238,6 +243,7 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
 
     const createRequest = ({
         runtimeUrl,
+        callbackUrl,
         authFrontendOrigin = DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
         path: requestPath = DESKTOP_AUTH_FRONTEND_PATH,
         returnTo = '',
@@ -262,6 +268,7 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
             expiresAt,
             url: buildDesktopAuthUrl({
                 runtimeUrl,
+                callbackUrl,
                 authFrontendOrigin,
                 path: requestPath,
                 requestId,
@@ -471,6 +478,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     }
 
     const runtimeUrl = buildRuntimeUrl(address.port);
+    const runtimeCallbackUrl = buildRuntimeCallbackUrl(address.port);
 
     return {
         backendOrigin,
@@ -479,6 +487,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
         createDesktopAuthRequest: (options = {}) => desktopAuthBroker.createRequest({
             ...options,
             authFrontendOrigin: desktopAuthFrontendOrigin,
+            callbackUrl: runtimeCallbackUrl,
             runtimeUrl,
         }),
         createDesktopOwnerAccessSignIn: () => createDesktopOwnerAccessSignIn({ backendOrigin }),
@@ -488,6 +497,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
         port: address.port,
         server,
         url: runtimeUrl,
+        callbackUrl: runtimeCallbackUrl,
         close: () => new Promise((resolve, reject) => {
             server.close((error) => {
                 if (error) {
@@ -510,11 +520,13 @@ module.exports = {
     buildDesktopAuthUrl,
     RUNTIME_LISTEN_HOST,
     RUNTIME_PUBLIC_HOST,
+    RUNTIME_CALLBACK_HOST,
     buildProxyOptions,
     isLoopbackBackendOrigin,
     applyLocalFrontendCachePolicy,
     createDesktopAuthBroker,
     createLocalRateLimiter,
+    buildRuntimeCallbackUrl,
     buildRuntimeUrl,
     resolveAllowedDesktopAuthOrigins,
     resolveBackendOrigin,
