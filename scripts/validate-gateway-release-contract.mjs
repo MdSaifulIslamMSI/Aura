@@ -365,8 +365,14 @@ const validateStaticContract = () => {
   requireIncludes('gateway/index.html', html, 'data-platform-tools hidden');
   requireIncludes('gateway/index.html', html, '<script src="./gateway-ui.js" defer></script>');
 
-  if (html.includes('fonts.googleapis.com') || html.includes('fonts.gstatic.com')) {
-    throw new Error('Gateway must not add remote font requests to the critical rendering path.');
+  const blockedFontHosts = new Set(['fonts.googleapis.com', 'fonts.gstatic.com']);
+  const externalResourceUrls = [...`${html}\n${styles}`.matchAll(/(?:https?:)?\/\/[^\s"'()<>]+/gi)];
+
+  for (const [resourceUrl] of externalResourceUrls) {
+    const parsedResourceUrl = new URL(resourceUrl, 'https://aura-gateway.vercel.app');
+    if (blockedFontHosts.has(parsedResourceUrl.hostname.toLowerCase())) {
+      throw new Error('Gateway must not add remote font requests to the critical rendering path.');
+    }
   }
 
   if (!existsSync(heroWebpPath)) {
