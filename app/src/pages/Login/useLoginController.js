@@ -60,16 +60,17 @@ const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
 const DESKTOP_AUTH_HANDOFF_STORAGE_KEY = 'aura_desktop_auth_handoff_v1';
 const DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS = 10 * 60 * 1000;
+const DESKTOP_AUTH_CALLBACK_HOST = '127.0.0.1';
+const DESKTOP_AUTH_CALLBACK_UNREACHABLE_MESSAGE = 'Aura Desktop is not reachable at the local sign-in bridge. Keep Aura Desktop open, start a fresh desktop sign-in, and try again.';
 
 const normalizeDesktopAuthLoopbackHost = (hostname = '') => {
   switch (String(hostname || '').trim().toLowerCase()) {
     case 'localhost':
-      return 'localhost';
     case '127.0.0.1':
-      return '127.0.0.1';
+      return DESKTOP_AUTH_CALLBACK_HOST;
     case '::1':
     case '[::1]':
-      return '[::1]';
+      return DESKTOP_AUTH_CALLBACK_HOST;
     default:
       return '';
   }
@@ -558,17 +559,22 @@ export const useLoginController = () => {
       }
 
       // Callback URL is rebuilt from same-origin /desktop-auth/complete or fixed loopback desktop ports only.
-      const response = await fetch(callbackUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          requestId: desktopBrowserHandoff.requestId,
-          secret: desktopBrowserHandoff.secret,
-          customToken,
-        }),
-      });
+      let response;
+      try {
+        response = await fetch(callbackUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            requestId: desktopBrowserHandoff.requestId,
+            secret: desktopBrowserHandoff.secret,
+            customToken,
+          }),
+        });
+      } catch {
+        throw new Error(DESKTOP_AUTH_CALLBACK_UNREACHABLE_MESSAGE);
+      }
 
       if (!response.ok) {
         let message = 'Desktop sign-in could not be completed.';

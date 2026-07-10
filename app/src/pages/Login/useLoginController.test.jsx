@@ -299,8 +299,10 @@ describe('useLoginController', () => {
 
   it('accepts only loopback desktop callback urls for hosted handoff', () => {
     expect(normalizeDesktopAuthCallbackUrl('http://localhost:47831/desktop-auth/complete?x=1#frag'))
-      .toBe('http://localhost:47831/desktop-auth/complete');
+      .toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(normalizeDesktopAuthCallbackUrl('http://127.0.0.1:47831/desktop-auth/complete'))
+      .toBe('http://127.0.0.1:47831/desktop-auth/complete');
+    expect(normalizeDesktopAuthCallbackUrl('http://[::1]:47831/desktop-auth/complete'))
       .toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(normalizeDesktopAuthCallbackUrl('/desktop-auth/complete')).toBe('/desktop-auth/complete');
     expect(normalizeDesktopAuthCallbackUrl('')).toBe('');
@@ -315,7 +317,7 @@ describe('useLoginController', () => {
     );
 
     expect(handoff.active).toBe(true);
-    expect(handoff.callbackUrl).toBe('http://localhost:47831/desktop-auth/complete');
+    expect(handoff.callbackUrl).toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(handoff.returnTo).toBe('/checkout');
   });
 
@@ -331,7 +333,7 @@ describe('useLoginController', () => {
 
     expect(handoff.active).toBe(true);
     expect(handoff.secret).toBe('secret-restore-1');
-    expect(handoff.callbackUrl).toBe('http://localhost:47831/desktop-auth/complete');
+    expect(handoff.callbackUrl).toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(handoff.returnTo).toBe('/checkout');
   });
 
@@ -736,7 +738,7 @@ describe('useLoginController', () => {
     const restored = resolveDesktopBrowserHandoff('?desktopAuthRequest=req-1&duo=success');
     expect(restored.active).toBe(true);
     expect(restored.secret).toBe('secret-1');
-    expect(restored.callbackUrl).toBe('http://localhost:47831/desktop-auth/complete');
+    expect(restored.callbackUrl).toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(restored.returnTo).toBe('/checkout');
 
     startDuoLogin.mockRestore();
@@ -1130,7 +1132,7 @@ describe('useLoginController', () => {
           firebaseUser: null,
           requestId,
         });
-        expect(fetchMock).toHaveBeenCalledWith('http://localhost:47831/desktop-auth/complete', expect.objectContaining({
+        expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:47831/desktop-auth/complete', expect.objectContaining({
           method: 'POST',
         }));
       });
