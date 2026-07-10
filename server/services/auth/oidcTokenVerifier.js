@@ -2,8 +2,10 @@ const crypto = require('crypto');
 const fetch = require('node-fetch');
 const AppError = require('../../utils/AppError');
 const { resolveAuthEnvironment } = require('../../config/authEnvironment');
+const { withTimeout } = require('../../utils/timeout');
 
 const JWKS_CACHE_TTL_MS = 5 * 60 * 1000;
+const JWKS_FETCH_TIMEOUT_MS = 10 * 1000;
 const jwksCache = new Map();
 
 const decodeBase64UrlJson = (value = '') => {
@@ -40,9 +42,15 @@ const fetchJwks = async (jwksUrl = '', fetchJson = null) => {
 
     const jwks = fetchJson
         ? await fetchJson(url)
-        : await fetch(url, {
+        : await withTimeout(({ signal }) => fetch(url, {
             method: 'GET',
             headers: { accept: 'application/json' },
+            signal,
+        }), {
+            label: 'OIDC signing keys',
+            timeoutMs: JWKS_FETCH_TIMEOUT_MS,
+            code: 'OIDC_JWKS_TIMEOUT',
+            statusCode: 503,
         }).then((response) => {
             if (!response.ok) {
                 throw new AppError('Unable to fetch OIDC signing keys', 503);
@@ -111,12 +119,23 @@ const validateClaims = ({ claims, config, nowSeconds }) => {
     const issuer = String(config.issuerUrl || '').trim();
     const audience = String(config.audience || config.clientId || '').trim();
 
+    const expiresAt = Number(claims.exp);
+    const notBefore = claims.nbf === undefined ? null : Number(claims.nbf);
+    const issuedAt = claims.iat === undefined ? null : Number(claims.iat);
+    const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    const authorizedParty = String(claims.azp || '').trim();
+
     if (!claims.sub) throw new AppError('Token subject is missing', 401);
     if (issuer && claims.iss !== issuer) throw new AppError('Invalid token issuer', 401);
     if (audience && !tokenAudienceMatches(claims.aud, audience)) throw new AppError('Invalid token audience', 401);
-    if (Number(claims.exp || 0) <= nowSeconds - skew) throw new AppError('Token has expired', 401);
-    if (claims.nbf !== undefined && Number(claims.nbf) > nowSeconds + skew) throw new AppError('Token is not active yet', 401);
-    if (claims.iat !== undefined && Number(claims.iat) > nowSeconds + skew) throw new AppError('Token issued-at is in the future', 401);
+    if (
+        config.clientId
+        && (audiences.length > 1 || authorizedParty)
+        && authorizedParty !== config.clientId
+    ) throw new AppError('Invalid token authorized party', 401);
+    if (!Number.isFinite(expiresAt) || expiresAt <= nowSeconds - skew) throw new AppError('Token has expired', 401);
+    if (notBefore !== null && (!Number.isFinite(notBefore) || notBefore > nowSeconds + skew)) throw new AppError('Token is not active yet', 401);
+    if (issuedAt !== null && (!Number.isFinite(issuedAt) || issuedAt > nowSeconds + skew)) throw new AppError('Token issued-at is invalid', 401);
 };
 
 const extractKeycloakRoles = (claims = {}, clientId = '') => {

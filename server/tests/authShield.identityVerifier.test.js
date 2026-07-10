@@ -29,4 +29,20 @@ describe('authShield identity verifier', () => {
         expect(result.identity.roles).not.toContain('admin');
         expect(result.identity.hasAdminRole).toBe(false);
     });
+
+    test('explicitly unverified current identity cannot inherit a stored verified flag', () => {
+        const result = verifyIdentity({
+            authIdentity: { emailVerified: false },
+            authToken: { email_verified: false },
+            user: {
+                _id: 'user-1',
+                isVerified: true,
+                accountState: 'active',
+            },
+        }, { sensitivity: 'critical' });
+
+        expect(result.ok).toBe(false);
+        expect(result.identity.emailVerified).toBe(false);
+        expect(result.reasons).toContain('identity_unverified');
+    });
 });

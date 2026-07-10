@@ -84,7 +84,7 @@ const verifyRequestProof = async ({
     return {
         ok: true,
         enabled: true,
-        jti: proofPayload.jti || '',
+        jti: verification.jti || '',
         nonce: proofPayload.nonce || '',
         jwk: verification.jwk || null,
         reasons: [],

@@ -8,6 +8,10 @@ const ORIGINAL_ENV = {
     AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK: process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK,
     AUTH_VAULT_SECRET: process.env.AUTH_VAULT_SECRET,
     AUTH_VAULT_SECRET_VERSION: process.env.AUTH_VAULT_SECRET_VERSION,
+    ADMIN_REQUIRE_PASSKEY: process.env.ADMIN_REQUIRE_PASSKEY,
+    AUTH_WEBAUTHN_RP_ID: process.env.AUTH_WEBAUTHN_RP_ID,
+    AUTH_WEBAUTHN_ORIGIN: process.env.AUTH_WEBAUTHN_ORIGIN,
+    AUTH_WEBAUTHN_USER_VERIFICATION: process.env.AUTH_WEBAUTHN_USER_VERIFICATION,
     AUTH_WEBAUTHN_AUTHENTICATOR_ATTACHMENT: process.env.AUTH_WEBAUTHN_AUTHENTICATOR_ATTACHMENT,
 };
 
@@ -42,6 +46,19 @@ describe('authTrustedDeviceFlags', () => {
         expect(() => assertTrustedDeviceConfig()).toThrow(/AUTH_DEVICE_CHALLENGE_SECRET is required/);
     });
 
+    test('fails closed when production admin passkeys have no fixed WebAuthn boundary', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
+        process.env.AUTH_DEVICE_CHALLENGE_SECRET = 'test-only-device-challenge-value-not-credential';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'true';
+        delete process.env.AUTH_WEBAUTHN_RP_ID;
+        delete process.env.AUTH_WEBAUTHN_ORIGIN;
+
+        const { assertTrustedDeviceConfig } = loadFlags();
+
+        expect(() => assertTrustedDeviceConfig()).toThrow(/AUTH_WEBAUTHN_RP_ID and AUTH_WEBAUTHN_ORIGIN/);
+    });
+
     test('allows an explicit vault fallback when challenge mode is enabled', () => {
         process.env.NODE_ENV = 'production';
         process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
@@ -49,6 +66,9 @@ describe('authTrustedDeviceFlags', () => {
         process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK = 'true';
         process.env.AUTH_VAULT_SECRET = 'vault-secret-ABCDEFGHIJKLMNOPQRSTUVWXYZ12';
         process.env.AUTH_VAULT_SECRET_VERSION = 'vault-v3';
+        process.env.AUTH_WEBAUTHN_RP_ID = 'app.example.test';
+        process.env.AUTH_WEBAUTHN_ORIGIN = 'https://app.example.test';
+        process.env.AUTH_WEBAUTHN_USER_VERIFICATION = 'required';
 
         const {
             assertTrustedDeviceConfig,

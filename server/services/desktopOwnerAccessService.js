@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { getRedisClient, flags: redisFlags } = require('../config/redis');
 
 const DESKTOP_OWNER_ACCESS_AUDIENCE = 'aura.desktop.owner.access.v1';
 const DESKTOP_OWNER_ACCESS_ASSERTION_TTL_MS = 5 * 60 * 1000;
@@ -111,6 +112,58 @@ const pruneReplayCache = (nowMs) => {
     }
 };
 
+const isDistributedReplayRequired = (env = process.env) => (
+    String(env?.NODE_ENV || '').trim().toLowerCase() === 'production'
+    || parseBooleanEnv(env?.REDIS_REQUIRED, false)
+    || parseBooleanEnv(env?.DISTRIBUTED_SECURITY_CONTROLS_ENABLED, false)
+);
+
+const consumeReplayKey = async ({
+    replayKey,
+    expiresAtMs,
+    nowMs,
+    env = process.env,
+    redisClient = getRedisClient(),
+} = {}) => {
+    const replayDigest = crypto.createHash('sha256').update(replayKey).digest('hex');
+    const ttlMs = Math.max(Number(expiresAtMs || 0) - Number(nowMs || 0), 1000);
+
+    if (redisClient) {
+        try {
+            const result = await redisClient.set(
+                `${redisFlags.redisPrefix}:desktop-owner-access:replay:${replayDigest}`,
+                '1',
+                { NX: true, PX: ttlMs }
+            );
+            if (result !== 'OK' && result !== true) {
+                throw new DesktopOwnerAccessError('Desktop owner access assertion was already used.', 409);
+            }
+            return;
+        } catch (error) {
+            if (error instanceof DesktopOwnerAccessError) throw error;
+            throw new DesktopOwnerAccessError(
+                'Desktop owner access replay protection is unavailable.',
+                503,
+                'DESKTOP_OWNER_ACCESS_REPLAY_UNAVAILABLE'
+            );
+        }
+    }
+
+    if (isDistributedReplayRequired(env)) {
+        throw new DesktopOwnerAccessError(
+            'Desktop owner access replay protection is unavailable.',
+            503,
+            'DESKTOP_OWNER_ACCESS_REPLAY_UNAVAILABLE'
+        );
+    }
+
+    pruneReplayCache(nowMs);
+    if (replayCache.has(replayKey)) {
+        throw new DesktopOwnerAccessError('Desktop owner access assertion was already used.', 409);
+    }
+    replayCache.set(replayKey, expiresAtMs);
+};
+
 const assertFreshAssertion = ({ issuedAt = '', nowMs }) => {
     const issuedAtMs = Date.parse(String(issuedAt || '').trim());
     if (!Number.isFinite(issuedAtMs)) {
@@ -128,12 +181,16 @@ const assertFreshAssertion = ({ issuedAt = '', nowMs }) => {
     return issuedAtMs;
 };
 
-const verifyDesktopOwnerAccessAssertion = ({
+const verifyDesktopOwnerAccessAssertion = async ({
     requestId = '',
     issuedAt = '',
     nonce = '',
     signature = '',
-} = {}, { env = process.env, now = () => Date.now() } = {}) => {
+} = {}, {
+    env = process.env,
+    now = () => Date.now(),
+    redisClient = getRedisClient(),
+} = {}) => {
     if (!parseBooleanEnv(env?.AURA_DESKTOP_OWNER_ACCESS_ENABLED, false)) {
         throw new DesktopOwnerAccessError(
             'Desktop owner access is not configured.',
@@ -178,11 +235,6 @@ const verifyDesktopOwnerAccessAssertion = ({
         normalizedIssuedAt,
     ].join(':');
 
-    pruneReplayCache(nowMs);
-    if (replayCache.has(replayKey)) {
-        throw new DesktopOwnerAccessError('Desktop owner access assertion was already used.', 409);
-    }
-
     const payload = buildDesktopOwnerAccessPayload({
         requestId: normalizedRequestId,
         issuedAt: normalizedIssuedAt,
@@ -193,7 +245,13 @@ const verifyDesktopOwnerAccessAssertion = ({
         throw new DesktopOwnerAccessError('Desktop owner access signature could not be verified.');
     }
 
-    replayCache.set(replayKey, issuedAtMs + DESKTOP_OWNER_ACCESS_ASSERTION_TTL_MS);
+    await consumeReplayKey({
+        replayKey,
+        expiresAtMs: issuedAtMs + DESKTOP_OWNER_ACCESS_ASSERTION_TTL_MS,
+        nowMs,
+        env,
+        redisClient,
+    });
 
     return {
         keyFingerprint: config.keyFingerprint,
@@ -212,6 +270,7 @@ module.exports = {
     buildDesktopOwnerAccessPayload,
     createDesktopOwnerAccessSignature,
     isDesktopOwnerAccessConfigured,
+    isDistributedReplayRequired,
     resetDesktopOwnerAccessReplayCacheForTests,
     verifyDesktopOwnerAccessAssertion,
 };

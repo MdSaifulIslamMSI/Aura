@@ -461,8 +461,14 @@ describe('authSessionService social identity fallback', () => {
         expect(session.payload.session.email).toBe('');
     });
 
-    test('allows trusted social providers to sync even when Firebase emailVerified is false', async () => {
+    test('keeps an unverified social email from binding an existing public-email profile', async () => {
         const providerEmail = uniqueEmail('x_unverified_email');
+        const canonicalUser = await User.create({
+            name: 'Canonical Admin',
+            email: providerEmail,
+            isAdmin: true,
+            isVerified: true,
+        });
 
         const resolvedUser = await syncAuthenticatedUser({
             authUser: {
@@ -479,15 +485,19 @@ describe('authSessionService social identity fallback', () => {
             awardLoginPoints: false,
         });
 
-        expect(resolvedUser.email).toBe(providerEmail);
+        expect(resolvedUser._id.toString()).not.toBe(canonicalUser._id.toString());
+        expect(resolvedUser.email).toMatch(/@auth\.aura\.invalid$/);
         expect(resolvedUser.isVerified).toBe(true);
 
         const persistedUser = await User.findById(resolvedUser._id).lean();
+        const unchangedCanonicalUser = await User.findById(canonicalUser._id).lean();
         expect(persistedUser.authUid).toBe('uid-x-with-email');
         expect(persistedUser.isVerified).toBe(true);
+        expect(unchangedCanonicalUser.authUid).toBeUndefined();
+        expect(unchangedCanonicalUser.isAdmin).toBe(true);
     });
 
-    test('builds authenticated session payloads with verified email for trusted social providers', () => {
+    test('does not advertise an explicitly unverified social email as verified', () => {
         const payload = buildSessionPayload({
             authUser: {
                 uid: 'uid-x-admin',
@@ -505,7 +515,7 @@ describe('authSessionService social identity fallback', () => {
             },
             user: {
                 _id: 'user-x-admin',
-                email: 'x-admin@example.com',
+                email: 'dWlkLXgtYWRtaW4@auth.aura.invalid',
                 phone: '',
                 isVerified: true,
                 isAdmin: true,
@@ -517,9 +527,10 @@ describe('authSessionService social identity fallback', () => {
             },
         });
 
-        expect(payload.session.emailVerified).toBe(true);
+        expect(payload.session.email).toBe('');
+        expect(payload.session.emailVerified).toBe(false);
         expect(payload.roles.isVerified).toBe(true);
-        expect(payload.intelligence.readiness.hasVerifiedEmail).toBe(true);
+        expect(payload.intelligence.readiness.hasVerifiedEmail).toBe(false);
     });
 
     test('prefers the canonical public-email profile over a stale authUid placeholder during social sync', async () => {
@@ -545,7 +556,7 @@ describe('authSessionService social identity fallback', () => {
             authUser: {
                 uid: 'uid-social-split',
                 email: publicEmail,
-                emailVerified: false,
+                emailVerified: true,
                 displayName: 'Canonical Admin',
                 signInProvider: 'twitter.com',
                 providerIds: ['twitter.com'],
@@ -566,10 +577,10 @@ describe('authSessionService social identity fallback', () => {
         expect(refreshedPlaceholderUser.authUid).toBeUndefined();
     });
 
-    test('resolves authenticated sessions against the canonical public-email profile when a placeholder also exists', async () => {
+    test('resolves an unverified social email against the uid placeholder, not the canonical profile', async () => {
         const publicEmail = uniqueEmail('session_split');
 
-        await User.create({
+        const placeholderUser = await User.create({
             name: 'Placeholder User',
             authUid: 'uid-session-split',
             email: 'dWlkLXNlc3Npb24tc3BsaXQ@auth.aura.invalid',
@@ -603,9 +614,10 @@ describe('authSessionService social identity fallback', () => {
             },
         });
 
-        expect(session.user._id.toString()).toBe(canonicalUser._id.toString());
-        expect(session.user.isAdmin).toBe(true);
-        expect(session.payload.profile.email).toBe(publicEmail);
-        expect(session.payload.roles.isAdmin).toBe(true);
+        expect(session.user._id.toString()).toBe(placeholderUser._id.toString());
+        expect(session.user._id.toString()).not.toBe(canonicalUser._id.toString());
+        expect(session.user.isAdmin).toBe(false);
+        expect(session.payload.profile.email).toBe('');
+        expect(session.payload.roles.isAdmin).toBe(false);
     });
 });

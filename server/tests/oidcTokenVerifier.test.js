@@ -105,6 +105,41 @@ describe('oidcTokenVerifier', () => {
         })).rejects.toThrow(/expired/);
     });
 
+    test('rejects malformed NumericDate claims', async () => {
+        await expect(verifyOidcAccessToken({
+            token: signToken({ exp: 'not-a-number' }),
+            config,
+            jwks: { keys: [jwk] },
+            nowSeconds: 1_700_000_100,
+        })).rejects.toThrow(/expired/);
+
+        await expect(verifyOidcAccessToken({
+            token: signToken({ nbf: 'not-a-number' }),
+            config,
+            jwks: { keys: [jwk] },
+            nowSeconds: 1_700_000_100,
+        })).rejects.toThrow(/not active/);
+
+        await expect(verifyOidcAccessToken({
+            token: signToken({ iat: 'not-a-number' }),
+            config,
+            jwks: { keys: [jwk] },
+            nowSeconds: 1_700_000_100,
+        })).rejects.toThrow(/issued-at/);
+    });
+
+    test('rejects a mismatched authorized party for multi-audience tokens', async () => {
+        await expect(verifyOidcAccessToken({
+            token: signToken({
+                aud: [audience, 'other-api'],
+                azp: 'other-client',
+            }),
+            config,
+            jwks: { keys: [jwk] },
+            nowSeconds: 1_700_000_100,
+        })).rejects.toThrow(/authorized party/);
+    });
+
     test('rejects wrong issuer and wrong audience', async () => {
         await expect(verifyOidcAccessToken({
             token: signToken({ iss: 'https://evil.example.test/realms/aura' }),

@@ -583,19 +583,22 @@ const buildSessionIdentitySnapshot = ({
         authSession: previousSession,
         authToken,
     });
-    const email = normalizeEmail(previousSession?.email || authToken?.email || user?.email || '');
+    const emailVerified = resolveEmailVerifiedState({
+        authToken,
+        authSession: previousSession,
+        authUid,
+        user,
+    });
+    const email = emailVerified
+        ? normalizeEmail(previousSession?.email || authToken?.email || user?.email || '')
+        : '';
     const displayName = normalizeText(previousSession?.displayName || authToken?.name || user?.name || '');
     const phoneNumber = normalizeText(previousSession?.phoneNumber || authToken?.phone_number || user?.phone || '');
 
     return {
         firebaseUid: normalizeText(authUid || previousSession?.firebaseUid || ''),
         email,
-        emailVerified: resolveEmailVerifiedState({
-            authToken,
-            authSession: previousSession,
-            authUid,
-            user,
-        }),
+        emailVerified,
         displayName,
         phoneNumber,
         providerIds,
@@ -806,6 +809,9 @@ async function setGlobalSessionRevokedAfter(value = new Date()) {
         logger.warn('browser_session.global_revocation_write_failed', {
             error: error?.message || 'unknown',
         });
+        if (!isMemorySessionFallbackAllowed()) {
+            throw error;
+        }
     }
 
     return revokedAfterMs;
@@ -833,6 +839,9 @@ async function getGlobalSessionRevokedAfter() {
             error: error?.message || 'unknown',
         });
         globalSessionRevocationCacheExpiresAt = Date.now() + Math.min(GLOBAL_SESSION_REVOCATION_CACHE_MS, 1000);
+        if (!isMemorySessionFallbackAllowed()) {
+            throw error;
+        }
     }
 
     return inMemoryGlobalSessionRevokedAfter;

@@ -1295,17 +1295,20 @@ const protect = asyncHandler(async (req, res, next) => {
                 emailVerified: resolvedIdentity.emailVerified,
                 providerIds: resolvedIdentity.providerIds || [req.authProvider].filter(Boolean),
             };
-            const normalizedEmail = normalizeEmail(resolvedIdentity.email);
-            const accountEmail = normalizedEmail || buildInternalAuthEmail(uid);
+            const identityEmail = normalizeEmail(resolvedIdentity.email);
+            const verifiedEmail = resolvedIdentity.emailVerified === true ? identityEmail : '';
+            const accountEmail = verifiedEmail || buildInternalAuthEmail(uid);
             if (!accountEmail && !uid) {
                 throw new AppError('Authenticated account is missing identity', 401);
             }
 
                         // ── Step 2: Check Redis cache first ─────────────────────────────────────
-             const cachedUser = await getCachedUser(uid);
+            const cachedUser = await getCachedUser(uid);
             if (cachedUser) {
                 const cachedEmail = normalizeEmail(cachedUser.email || '');
-                const cacheMatchesResolvedIdentity = !normalizedEmail || cachedEmail === normalizedEmail;
+                const cacheMatchesResolvedIdentity = verifiedEmail
+                    ? cachedEmail === verifiedEmail
+                    : normalizeUid(cachedUser.authUid) === uid;
 
                 if (cacheMatchesResolvedIdentity) {
                     await enforceUserScopedTokenRevocation(req, decodedToken, cachedUser);

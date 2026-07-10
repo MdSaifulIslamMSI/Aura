@@ -31,22 +31,19 @@ const buildAssertion = ({ env = buildEnv(), nowMs = Date.now(), requestId = cryp
     };
 };
 
+const verifyAsync = (...args) => Promise.resolve().then(() => verifyDesktopOwnerAccessAssertion(...args));
+
 describe('desktop owner access service', () => {
     beforeEach(() => {
         resetDesktopOwnerAccessReplayCacheForTests();
     });
 
-    test('fails closed when disabled or missing owner binding', () => {
+    test('fails closed when disabled or missing owner binding', async () => {
         expect(isDesktopOwnerAccessConfigured({})).toBe(false);
-        try {
-            verifyDesktopOwnerAccessAssertion({}, { env: {} });
-            throw new Error('expected owner access verification to fail');
-        } catch (error) {
-            expect(error).toMatchObject({
-                code: 'DESKTOP_OWNER_ACCESS_NOT_CONFIGURED',
-                statusCode: 503,
-            });
-        }
+        await expect(verifyAsync({}, { env: {} })).rejects.toMatchObject({
+            code: 'DESKTOP_OWNER_ACCESS_NOT_CONFIGURED',
+            statusCode: 503,
+        });
 
         expect(isDesktopOwnerAccessConfigured({
             AURA_DESKTOP_OWNER_ACCESS_ENABLED: 'true',
@@ -54,12 +51,12 @@ describe('desktop owner access service', () => {
         })).toBe(false);
     });
 
-    test('verifies a fresh owner assertion and maps only to configured owner uid', () => {
+    test('verifies a fresh owner assertion and maps only to configured owner uid', async () => {
         const env = buildEnv();
         const nowMs = Date.now();
         const assertion = buildAssertion({ env, nowMs });
 
-        const result = verifyDesktopOwnerAccessAssertion(assertion, {
+        const result = await verifyAsync(assertion, {
             env,
             now: () => nowMs + 1000,
         });
@@ -68,31 +65,71 @@ describe('desktop owner access service', () => {
         expect(result.keyFingerprint).toMatch(/^[a-f0-9]{16}$/);
     });
 
-    test('rejects tampered signatures and replayed assertions', () => {
+    test('rejects tampered signatures and replayed assertions', async () => {
         const env = buildEnv();
         const nowMs = Date.now();
         const assertion = buildAssertion({ env, nowMs });
 
-        expect(() => verifyDesktopOwnerAccessAssertion({
+        await expect(verifyAsync({
             ...assertion,
             nonce: 'tampered-owner-access-nonce',
         }, {
             env,
             now: () => nowMs + 1000,
-        })).toThrow(/could not be verified/);
+        })).rejects.toThrow(/could not be verified/);
 
-        verifyDesktopOwnerAccessAssertion(assertion, {
+        await verifyAsync(assertion, {
             env,
             now: () => nowMs + 1000,
         });
-        try {
-            verifyDesktopOwnerAccessAssertion(assertion, {
-                env,
-                now: () => nowMs + 2000,
-            });
-            throw new Error('expected owner access replay to fail');
-        } catch (error) {
-            expect(error).toMatchObject({ statusCode: 409 });
-        }
+        await expect(verifyAsync(assertion, {
+            env,
+            now: () => nowMs + 2000,
+        })).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    test('distributed replay protection survives a process-local cache reset', async () => {
+        const env = {
+            ...buildEnv(),
+            NODE_ENV: 'production',
+            REDIS_REQUIRED: 'true',
+        };
+        const nowMs = Date.now();
+        const assertion = buildAssertion({ env, nowMs });
+        const redisClient = {
+            set: jest.fn()
+                .mockResolvedValueOnce('OK')
+                .mockResolvedValueOnce(null),
+        };
+
+        await expect(verifyAsync(assertion, {
+            env,
+            now: () => nowMs + 1000,
+            redisClient,
+        })).resolves.toMatchObject({ ownerUid: 'owner-firebase-uid' });
+
+        resetDesktopOwnerAccessReplayCacheForTests();
+        await expect(verifyAsync(assertion, {
+            env,
+            now: () => nowMs + 2000,
+            redisClient,
+        })).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    test('fails closed when production replay storage is unavailable', async () => {
+        const env = {
+            ...buildEnv(),
+            NODE_ENV: 'production',
+            REDIS_REQUIRED: 'true',
+        };
+        const assertion = buildAssertion({ env });
+        const redisClient = {
+            set: jest.fn().mockRejectedValue(new Error('redis unavailable')),
+        };
+
+        await expect(verifyAsync(assertion, { env, redisClient })).rejects.toMatchObject({
+            code: 'DESKTOP_OWNER_ACCESS_REPLAY_UNAVAILABLE',
+            statusCode: 503,
+        });
     });
 });

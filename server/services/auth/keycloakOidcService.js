@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fetch = require('node-fetch');
 const AppError = require('../../utils/AppError');
+const { withTimeout } = require('../../utils/timeout');
 const {
     resolveAuthEnvironment,
     validateAuthEnvironment,
@@ -9,14 +10,43 @@ const { verifyOidcAccessToken } = require('./oidcTokenVerifier');
 
 const STATE_COOKIE_NAME = 'aura_keycloak_oidc_state';
 const STATE_TTL_MS = 5 * 60 * 1000;
+const OIDC_HTTP_TIMEOUT_MS = 10 * 1000;
 const usedStateDigests = new Map();
 let cachedDiscovery = null;
+let cachedDiscoveryUrl = '';
 
 const base64urlJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 const parseBase64urlJson = (value) => JSON.parse(Buffer.from(String(value || ''), 'base64url').toString('utf8'));
 const sha256Base64url = (value) => crypto.createHash('sha256').update(value).digest('base64url');
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeEmail = (value) => normalizeText(value).toLowerCase();
+
+const fetchOidc = (url, options, label) => withTimeout(
+    ({ signal }) => fetch(url, { ...options, signal }),
+    {
+        label,
+        timeoutMs: OIDC_HTTP_TIMEOUT_MS,
+        code: 'ENTERPRISE_OIDC_TIMEOUT',
+        statusCode: 503,
+    }
+);
+
+const assertTrustedHttpsEndpoint = (value, expectedOrigin = '') => {
+    try {
+        const endpoint = new URL(normalizeText(value));
+        if (
+            endpoint.protocol !== 'https:'
+            || endpoint.username
+            || endpoint.password
+            || (expectedOrigin && endpoint.origin !== expectedOrigin)
+        ) {
+            throw new Error('untrusted endpoint');
+        }
+        return endpoint;
+    } catch {
+        throw new AppError('Enterprise OIDC discovery contains an untrusted endpoint.', 503);
+    }
+};
 
 const normalizeLoginHint = (value = '') => {
     const normalized = normalizeEmail(value);
@@ -145,14 +175,16 @@ const assertKeycloakReady = () => {
 };
 
 const loadDiscovery = async (config = assertKeycloakReady()) => {
-    if (cachedDiscovery?.issuer === config.issuerUrl) {
+    if (cachedDiscovery?.issuer === config.issuerUrl && cachedDiscoveryUrl === config.discoveryUrl) {
         return cachedDiscovery;
     }
 
-    const response = await fetch(config.discoveryUrl, {
+    const issuerOrigin = assertTrustedHttpsEndpoint(config.issuerUrl).origin;
+    assertTrustedHttpsEndpoint(config.discoveryUrl, issuerOrigin);
+    const response = await fetchOidc(config.discoveryUrl, {
         method: 'GET',
         headers: { Accept: 'application/json' },
-    });
+    }, 'Enterprise OIDC discovery');
     if (!response.ok) {
         throw new AppError('Enterprise OIDC discovery failed.', 503);
     }
@@ -164,8 +196,10 @@ const loadDiscovery = async (config = assertKeycloakReady()) => {
         if (!normalizeText(discovery[key])) {
             throw new AppError('Enterprise OIDC discovery is incomplete.', 503);
         }
+        assertTrustedHttpsEndpoint(discovery[key], issuerOrigin);
     }
     cachedDiscovery = discovery;
+    cachedDiscoveryUrl = config.discoveryUrl;
     return discovery;
 };
 
@@ -257,11 +291,11 @@ const exchangeCodeForAuthContext = async ({ code = '', statePayload = {} } = {})
         tokenBody.set('client_id', config.clientId);
     }
 
-    const response = await fetch(discovery.token_endpoint, {
+    const response = await fetchOidc(discovery.token_endpoint, {
         method: 'POST',
         headers,
         body: tokenBody.toString(),
-    });
+    }, 'Enterprise authorization code exchange');
     if (!response.ok) {
         throw new AppError('Enterprise authorization code exchange failed.', 401);
     }
@@ -282,6 +316,7 @@ const exchangeCodeForAuthContext = async ({ code = '', statePayload = {} } = {})
 
 const resetKeycloakOidcTestState = () => {
     cachedDiscovery = null;
+    cachedDiscoveryUrl = '';
     usedStateDigests.clear();
 };
 

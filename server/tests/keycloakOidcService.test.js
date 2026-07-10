@@ -112,6 +112,19 @@ describe('keycloakOidcService', () => {
         expect(res.setHeader.mock.calls[0][1]).toContain('Secure');
     });
 
+    test('rejects discovery endpoints outside the configured issuer origin', async () => {
+        fetch.mockResolvedValueOnce(jsonResponse({
+            ...discovery,
+            jwks_uri: 'https://attacker.example.test/jwks',
+        }));
+
+        await expect(buildAuthorizationUrl({
+            req: { headers: {} },
+            res: { setHeader: jest.fn() },
+            returnTo: '/profile',
+        })).rejects.toThrow(/untrusted endpoint/i);
+    });
+
     test('consumes state once and rejects replay', async () => {
         fetch.mockResolvedValueOnce(jsonResponse(discovery));
         const res = { setHeader: jest.fn() };

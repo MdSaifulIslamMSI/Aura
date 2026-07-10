@@ -347,7 +347,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         }));
     });
 
-    test('accepts trusted social providers when the stored admin profile is verified', async () => {
+    test('rejects admin access when the current provider explicitly reports an unverified email', async () => {
         process.env.NODE_ENV = 'test';
         process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
         process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
@@ -391,7 +391,10 @@ describe('authMiddleware admin second-factor enforcement', () => {
         await admin(req, {}, next);
 
         expect(next).toHaveBeenCalledTimes(1);
-        expect(next).toHaveBeenCalledWith();
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            message: 'Admin access requires verified email identity',
+            statusCode: 403,
+        }));
     });
 
     test('fails closed for admin state changes when Duo is enabled but incomplete', async () => {

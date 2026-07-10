@@ -78,6 +78,26 @@ describe('authEnvironment', () => {
         expect(result.config.allowedClockSkewSeconds).toBe(60);
     });
 
+    test('rejects plain-http Keycloak endpoints in production', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_PROVIDER: 'keycloak',
+                AUTH_ISSUER_URL: 'http://idp.company.test/realms/aura',
+                AUTH_CLIENT_ID: 'aura-web',
+                AUTH_CLIENT_TYPE: 'public',
+                AUTH_OIDC_STATE_SECRET: 'prod-state-secret-with-more-than-32-characters',
+                AUTH_AUDIENCE: 'aura-web',
+                AUTH_REDIRECT_URI: 'http://app.company.test/auth/callback',
+                AUTH_POST_LOGOUT_REDIRECT_URI: 'http://app.company.test/login',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures.join('\n')).toMatch(/must use https in production/);
+    });
+
     test('fails TOTP MFA validation without a strong encryption key', () => {
         const result = validateAuthEnvironment({
             env: {

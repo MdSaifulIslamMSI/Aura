@@ -284,6 +284,132 @@ Fix: `infra/aws/docker-compose.ec2.yml` adds a Caddy TLS edge, binds the API con
 
 Verification: `npm.cmd run security:prod-live-smoke` passes against production and explicitly checks that `http://3.109.181.238:5000` is not publicly usable. AWS security group `sg-0264279f9673777d3` now exposes only ports `80` and `443`.
 
+## 2026-07-10 Auth Deep-Hardening Addendum
+
+### SEC-29 (High): Unverified provider email could select an existing privileged profile
+
+Impact: A valid external identity carrying an email that the provider explicitly marked unverified could be treated as email-verified, participate in the email-or-UID lookup, and select the existing public-email profile. The prior regression fixtures demonstrated that the selected profile could be an admin profile.
+
+Evidence: `server/utils/authIdentity.js:106` previously returned provider trust before evaluating explicit false verification signals. `server/middleware/authMiddleware.js:1299` and `server/services/authSessionService.js:673` now separate verified public-email authority from UID-backed account identity.
+
+Fix: Exact-match the supported provider IDs, make any explicit false verification signal authoritative, never infer email verification from provider name or stored profile state, and use an internal UID-backed identity whenever the current proof does not verify the public email. Social sign-in without a verified email remains available, but it cannot merge into or inherit privilege from the matching public-email account.
+
+Verification: `server/tests/authIdentity.test.js`, `server/tests/authMiddleware.bootstrap.test.js:290`, and `server/tests/authSessionService.test.js:464` cover provider-name spoofing, explicit false claims, and an attempted collision with an existing admin email.
+
+### SEC-30 (High): Desktop browser handoff capability was exposed in the hosted URL query
+
+Impact: The one-time desktop handoff secret, loopback callback, and post-login route appeared in the request query sent to the hosted frontend. Query values can enter edge logs, browser history, screenshots, support captures, and referrer-dependent tooling before the capability expires.
+
+Evidence: `desktop/runtimeServer.cjs:161` now keeps only the non-secret request id in the query and puts capability material in the fragment. `app/src/pages/Login/useLoginController.js:761` persists that capability to session storage and immediately replaces the visible route without it.
+
+Fix: Move capability values to the URL fragment, scrub them after first client-side receipt, retain ten-minute session-storage expiry, and continue accepting legacy query handoffs during desktop-client rollout.
+
+Verification: `desktop/runtimeServer.test.cjs` proves the hosted query has no secret or callback; `app/src/pages/Login/useLoginController.test.jsx:314` covers fragment parsing, legacy compatibility, immediate scrubbing, Duo return restoration, and loopback completion.
+
+### SEC-31 (Medium): Duo start accepted a caller-controlled login hint
+
+Impact: Any direct caller of `/api/auth/duo/start` could put an arbitrary email into Duo's optional `login_hint`, creating privacy leakage and account-selection confusion even though the normal UI passed an empty value.
+
+Evidence: `server/controllers/authController.js:738` no longer forwards the query field, `server/services/duoOidcService.js:178` no longer supports a login-hint parameter, and `app/src/services/api/authApi.js:280` no longer constructs one.
+
+Fix: Remove Duo login-hint support at every client and server layer. Enterprise Keycloak login hints remain a separate, intentional SSO feature.
+
+Verification: `server/tests/auth.duo-oidc.security.test.js:143` sends a hostile `loginHint` query and proves that the upstream authorization URL has no `login_hint`.
+
+### SEC-32 (High): OIDC discovery and key fetches lacked endpoint confinement and time bounds
+
+Impact: A compromised or drifted discovery document could direct server-side token or JWKS requests to another origin, and unavailable identity-provider requests could occupy authentication work without a fixed deadline.
+
+Evidence: `server/services/duoOidcService.js:31` and `server/services/auth/keycloakOidcService.js:34` now require HTTPS endpoints on the configured issuer origin. All discovery, token, and signing-key network calls have ten-second abortable deadlines.
+
+Fix: Fail closed on non-HTTPS, credential-bearing, or cross-origin discovery endpoints; bind the discovery cache to both issuer and discovery URL; and bound provider network operations.
+
+Verification: Focused Duo and Keycloak tests reject cross-origin discovery documents while normal PKCE, callback, and step-up flows continue to pass.
+
+### SEC-33 (High): OIDC temporal and authorized-party claims were incompletely validated
+
+Impact: Non-numeric `exp`, `iat`, or `nbf` values could evade JavaScript comparison checks, and multi-audience tokens were accepted without proving the expected authorized party.
+
+Evidence: `server/services/duoOidcService.js:326` and `server/services/auth/oidcTokenVerifier.js:135` now enforce `azp` where required. Both verifiers reject non-finite NumericDate claims, and production Keycloak configuration rejects plain HTTP at `server/config/authEnvironment.js:153`.
+
+Fix: Validate finite expiration, issued-at, and not-before values; enforce expected authorized party for multi-audience or `azp`-bearing tokens; and require HTTPS for production enterprise OIDC endpoints.
+
+Verification: `server/tests/auth.duo-oidc.security.test.js:324`, `server/tests/oidcTokenVerifier.test.js`, and `server/tests/authEnvironment.test.js:81` cover malformed dates, `azp` mismatch, and HTTP production configuration.
+
+### SEC-34 (Open, Medium): Backend auth events are not centrally queryable in CloudWatch Logs
+
+Impact: The backend emits structured `auth.security_event` records, but a read-only AWS inventory on 2026-07-10 found CloudTrail and VPC flow-log groups only. Authentication incident reconstruction currently depends on local container logs and cannot be performed through a retained application log group.
+
+Recommended fix: Add a separately reviewed log-shipping change with a dedicated application log group, retention and cost limits, least-privilege instance-role writes, PII redaction validation, alarms for auth failure classes, and a staged rollback test. This was not bundled into the auth code patch because it changes shared production observability and IAM behavior.
+
+### SEC-35 (Open, Medium): Auth Shield remains shadow-only without a client nonce contract
+
+Impact: `server/security/authShield/config.js:41` defaults the shield to disabled and shadow mode, while critical replay checks require the nonce read at `server/security/authShield/sessionContext.js:37`. Enabling enforcement before clients generate and rotate that nonce would block legitimate critical actions.
+
+Current mitigation: The independent sensitive-action policy remains enforced on recovery, MFA, phone-factor, and device-verification routes in `server/routes/authRoutes.js:242-260`.
+
+Recommended fix: Add a versioned request-nonce client contract, validate it in staging shadow telemetry, then promote route classes incrementally. Do not flip the production flag as an emergency one-line change.
+
+### SEC-36 (High): DPoP replay checks accepted ambiguous identifiers and failed open on Redis errors
+
+Exploit path: An attacker able to submit a validly signed proof could use a non-string `jti` whose object identity evaded the process-local replay map. In a Redis-backed deployment, a replay-store outage was logged but the proof was still accepted.
+
+Affected surface: `server/utils/dpop.js` and all routes that call `server/security/authShield/dpopVerifier.js`, including protected auth-session and sensitive-action requests.
+
+Fix: Require a non-empty string `jti` of at most 256 characters, hash the value before building a Redis key, use the canonical string in memory, and reject proofs when Redis replay storage errors.
+
+Regression test: `server/tests/dpopVerifier.security.test.js` proves object-valued identifiers and Redis failures are denied.
+
+### SEC-37 (High): Auth Shield could override a current unverified identity with stored profile state
+
+Exploit path: A request whose current provider proof explicitly marked the email unverified could still pass the shield's verified-email condition when the persisted user profile had `isVerified=true`.
+
+Affected surface: `server/security/authShield/identityVerifier.js` for sensitive actions evaluated through Auth Shield.
+
+Fix: Treat the current normalized `req.authIdentity.emailVerified` or token verification boolean as authoritative; consult persisted profile state only when the current proof has no verification signal.
+
+Regression test: `server/tests/authShield.identityVerifier.test.js` proves an explicit current false value cannot be overridden by stored state.
+
+### SEC-38 (High): Global session revocation and emergency logout failed open on Redis errors
+
+Exploit path: During a Redis read failure, an existing browser session could be accepted without observing the global revocation marker. During a write failure, `FORCE_LOGOUT_ALL_USERS` could report success although other processes never received the revocation.
+
+Affected surface: browser-cookie authentication through `server/services/browserSessionService.js` and the emergency-control `FORCE_LOGOUT_ALL_USERS` action in `server/services/emergencyControlService.js`.
+
+Fix: In production or any deployment that disallows memory fallback, propagate global marker read/write failures and return `GLOBAL_SESSION_REVOCATION_FAILED` with status 503 from the emergency action.
+
+Regression test: `server/tests/browserSessionService.test.js` covers failed global marker reads and writes; `server/tests/emergencyControlService.test.js` proves emergency logout cannot resolve successfully after revocation failure.
+
+### SEC-39 (High): Production admin passkeys lacked a pinned WebAuthn relying-party boundary
+
+Exploit path: A production configuration could require admin passkeys while deriving or omitting the relying-party ID/origin, weakening deployment assurance and allowing host drift to change the WebAuthn verification boundary.
+
+Affected surface: trusted-device/admin passkey startup in `server/config/authTrustedDeviceFlags.js`, the production contract audit, and AWS bootstrap/release configuration.
+
+Fix: Require an HTTPS origin with no credentials or path, require the RP ID to match that origin, require user verification, pin the production values, disable session memory fallback, and synchronize those non-secret settings on every normal EC2 release without altering secrets.
+
+Regression test: `server/tests/authTrustedDeviceFlags.test.js` covers missing and valid boundaries; `server/tests/envContractScripts.test.js` verifies bootstrap, audit, and release-time synchronization; the production env audit returns no failures or warnings.
+
+### SEC-40 (High): Desktop owner assertion replay protection was process-local
+
+Exploit path: A captured, otherwise valid owner HMAC assertion could be replayed against a different API process or after a process restart because each process maintained an independent replay map.
+
+Affected surface: the desktop owner access route backed by `server/services/desktopOwnerAccessService.js` and its controller call site.
+
+Fix: Consume a SHA-256 replay digest atomically with Redis `SET NX PX`; require distributed replay storage in production and distributed-security deployments; retain memory replay only for non-production local workflows; await verification in the controller.
+
+Regression test: `server/tests/desktopOwnerAccessService.test.js` proves cross-process replay and Redis outage are denied; `desktop/runtimeServer.test.cjs` covers the desktop caller contract.
+
+### SEC-41 (Open, Medium): Historical identity links may predate verified-email binding
+
+Exploit path: Accounts linked before SEC-29 could retain a public email or `authUid` association created from an unverified provider claim. The new code prevents new collisions but does not prove all historical records are clean.
+
+Affected surface: existing production user/account records consumed by the auth middleware and session services. No production data was read or changed during this patch.
+
+Recommended fix: Run a separately reviewed, read-only inventory that flags conflicting provider UID, public email, verification provenance, and privileged role combinations; require an owner-approved repair plan with backup and rollback before any mutation.
+
+Regression test: `server/tests/authIdentity.test.js`, `server/tests/authMiddleware.bootstrap.test.js`, and `server/tests/authSessionService.test.js` prevent creation or selection of new unverified-email collisions. A production data audit remains required to measure historical exposure.
+
 ## Residual Dependency Risk
 
 - Root, frontend, and backend production audits now report `0` vulnerabilities.
@@ -341,3 +467,16 @@ Verification: `npm.cmd run security:prod-live-smoke` passes against production a
 - `git diff --check`
 
 Note: `tests/otpSystem.test.js` was updated to document the same generic signup behavior, but isolated runs of that legacy suite timed out in this environment and were stopped after orphaned Jest processes remained active.
+
+## 2026-07-10 Deep-Hardening Verification
+
+- Focused regression tests were written to fail before the DPoP, identity precedence, global revocation, emergency logout, WebAuthn boundary, EC2 release contract, and owner replay fixes.
+- `npm run security:login-gates` passed: all three production dependency audits found zero known vulnerabilities; login architecture tests passed 25/25; attack smoke passed 5/5; shared auth passed 164/164.
+- `npm run security:tokens` passed 51/51; `npm run security:otp-reset` passed 165/165; IDOR and LiveKit authorization passed 18/18.
+- Focused browser/desktop tests passed: login handoff 50/50 and desktop runtime 10/10.
+- `npm run security:routes:coverage:strict` covered 97/97 registered route entries.
+- `npm run security:secrets` passed across 2,371 repository files.
+- Production hardening and login environment audits returned zero failures; the environment audit also returned zero warnings.
+- JavaScript syntax checks passed for all 36 changed JavaScript files, both changed shell scripts passed `bash -n`, and `git diff --check` passed.
+
+Merge assessment: Ready for a pull request based on the completed local evidence. Safe to merge only if the required GitHub checks pass for the final commit and the branch remains based on current `origin/main`. Production rollout must use the gated workflow, preserve rollback, and verify the served release SHA plus backend readiness after deployment.

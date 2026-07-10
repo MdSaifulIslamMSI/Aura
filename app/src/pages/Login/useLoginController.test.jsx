@@ -311,14 +311,46 @@ describe('useLoginController', () => {
     expect(normalizeDesktopAuthCallbackUrl('https://evil.example.test/desktop-auth/complete')).toBe('');
   });
 
-  it('parses a desktop browser handoff with a local callback bridge', () => {
+  it('parses a desktop browser handoff with capabilities in the URL fragment', () => {
     const handoff = resolveDesktopBrowserHandoff(
-      '?desktopAuthRequest=req-1&desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout'
+      '?desktopAuthRequest=req-1',
+      '#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout'
     );
 
     expect(handoff.active).toBe(true);
     expect(handoff.callbackUrl).toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(handoff.returnTo).toBe('/checkout');
+  });
+
+  it('keeps accepting legacy query handoffs during desktop client rollout', () => {
+    const handoff = resolveDesktopBrowserHandoff(
+      '?desktopAuthRequest=req-legacy&desktopAuthSecret=secret-legacy&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete'
+    );
+
+    expect(handoff.active).toBe(true);
+    expect(handoff.callbackUrl).toBe('http://127.0.0.1:47831/desktop-auth/complete');
+  });
+
+  it('stores and removes inline desktop capabilities from the visible route', async () => {
+    renderLoginController({
+      currentUser: null,
+      isAuthenticated: false,
+      loading: false,
+    }, '/login?desktopAuthRequest=req-scrub#desktopAuthSecret=secret-scrub&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?desktopAuthRequest=req-scrub"');
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('"hash":""');
+    });
+
+    const restored = resolveDesktopBrowserHandoff('?desktopAuthRequest=req-scrub');
+    expect(restored).toMatchObject({
+      active: true,
+      callbackUrl: 'http://127.0.0.1:47831/desktop-auth/complete',
+      requestId: 'req-scrub',
+      returnTo: '/checkout',
+      secret: 'secret-scrub',
+    });
   });
 
   it('restores a Duo desktop handoff after the provider returns with only the request id', () => {
@@ -707,7 +739,7 @@ describe('useLoginController', () => {
       redirecting: true,
       url: '/api/auth/duo/start',
     });
-    const desktopLoginUrl = '/desktop-login?desktopAuthRequest=req-1&desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout#bridge';
+    const desktopLoginUrl = '/desktop-login?desktopAuthRequest=req-1#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout';
 
     render(
       <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
@@ -728,7 +760,6 @@ describe('useLoginController', () => {
     const expectedReturnTo = buildDesktopDuoReturnTo('req-1');
     expect(startDuoLogin).toHaveBeenCalledWith({
       returnTo: expectedReturnTo,
-      loginHint: '',
     });
     expect(expectedReturnTo).toBe('/desktop-login?desktopAuthRequest=req-1');
     expect(expectedReturnTo).not.toContain('desktopAuthSecret');
@@ -773,7 +804,6 @@ describe('useLoginController', () => {
 
     expect(startDuoLogin).toHaveBeenCalledWith({
       returnTo: '/',
-      loginHint: '',
     });
 
     startDuoLogin.mockRestore();
@@ -1118,7 +1148,7 @@ describe('useLoginController', () => {
             isAuthenticated: false,
             loading: false,
           })}>
-            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout&duo=success#bridge`]}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&duo=success#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout`]}>
               <Routes>
                 <Route path="/desktop-login" element={<LoginControllerProbe />} />
               </Routes>

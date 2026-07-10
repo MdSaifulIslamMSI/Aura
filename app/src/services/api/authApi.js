@@ -190,16 +190,12 @@ const getTurnstileRequestFields = (options = {}) => {
     return token ? { turnstileToken: token } : {};
 };
 
-export const getDuoLoginUrl = (returnTo = '/', options = {}) => {
+export const getDuoLoginUrl = (returnTo = '/') => {
     const params = new URLSearchParams();
     const normalizedReturnTo = String(returnTo || '/').trim();
     params.set('returnTo', normalizedReturnTo.startsWith('/') && !normalizedReturnTo.startsWith('//')
         ? normalizedReturnTo
         : '/');
-    const loginHint = String(options.loginHint || '').trim();
-    if (loginHint && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginHint)) {
-        params.set('loginHint', loginHint.toLowerCase());
-    }
     return buildServiceUrl(`/api/auth/duo/start?${params.toString()}`);
 };
 
@@ -287,9 +283,7 @@ export const authApi = {
                 ? `${window.location?.pathname || '/'}${window.location?.search || ''}${window.location?.hash || ''}`
                 : '/'
         );
-        const url = getDuoLoginUrl(returnTo, {
-            loginHint: options.loginHint,
-        });
+        const url = getDuoLoginUrl(returnTo);
         if (typeof window === 'undefined' || !window.location?.assign) {
             return { redirecting: true, url };
         }

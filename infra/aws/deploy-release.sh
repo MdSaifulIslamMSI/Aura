@@ -76,6 +76,48 @@ resolve_env_value() {
   printf '%s' "$(normalize_env_value "${value}")"
 }
 
+upsert_env_value() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  local temp_file=""
+
+  if [[ ! -f "${file}" ]]; then
+    echo "Refusing deploy: required environment file is missing: ${file}" >&2
+    exit 1
+  fi
+
+  if ! [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || [[ "${value}" == *$'\n'* || "${value}" == *$'\r'* ]]; then
+    echo "Refusing deploy: invalid non-secret environment contract entry." >&2
+    exit 1
+  fi
+
+  temp_file="$(mktemp "${file}.XXXXXX")"
+  awk -v key="${key}" -v replacement="${key}=${value}" '
+    BEGIN { written = 0 }
+    {
+      current_key = $0
+      sub(/=.*/, "", current_key)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", current_key)
+      if (current_key == key) {
+        if (!written) {
+          print replacement
+          written = 1
+        }
+        next
+      }
+      print
+    }
+    END {
+      if (!written) {
+        print replacement
+      }
+    }
+  ' "${file}" > "${temp_file}"
+  chmod 600 "${temp_file}"
+  mv "${temp_file}" "${file}"
+}
+
 read_compose_environment_value() {
   local key="$1"
   local file="$2"
@@ -248,6 +290,11 @@ tar -xzf "${release_dir}/infra.tar.gz" -C "${current_dir}"
 gunzip -c "${release_dir}/image.tar.gz" | docker load
 
 bash "${current_dir}/infra/aws/render-runtime-secrets.sh"
+
+upsert_env_value "${shared_dir}/base.env" "AUTH_SESSION_ALLOW_MEMORY_FALLBACK" "false"
+upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_RP_ID" "aurapilot.vercel.app"
+upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_ORIGIN" "https://aurapilot.vercel.app"
+upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_USER_VERIFICATION" "required"
 
 cat > "${shared_dir}/release.env" <<EOF
 AURA_BACKEND_IMAGE=aura-backend:${release_sha}

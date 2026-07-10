@@ -21,7 +21,7 @@ const {
     setEmergencyFlagMetric,
 } = require('./emergencyControlMetrics');
 const { notifyEmergencyFlagChanged } = require('./emergencyNotificationService');
-const { revokeAllBrowserSessions } = require('./browserSessionService');
+const browserSessionService = require('./browserSessionService');
 
 const CACHE_TTL_MS = Math.min(
     Math.max(Number(process.env.EMERGENCY_CONTROL_CACHE_TTL_MS || 10000), 5000),
@@ -473,7 +473,7 @@ const activateFlag = async (key, {
 
     if (normalized === 'FORCE_LOGOUT_ALL_USERS') {
         try {
-            const revocation = await revokeAllBrowserSessions({ revokedAfter: new Date() });
+            const revocation = await browserSessionService.revokeAllBrowserSessions({ revokedAfter: new Date() });
             logger.warn('emergency.force_logout_sessions_revoked', {
                 flagKey: normalized,
                 revoked: revocation.revoked,
@@ -486,6 +486,9 @@ const activateFlag = async (key, {
                 error: error?.message || 'unknown',
                 requestId: actor.requestId,
             });
+            const revocationError = new AppError('Global session revocation could not be confirmed.', 503);
+            revocationError.code = 'GLOBAL_SESSION_REVOCATION_FAILED';
+            throw revocationError;
         }
     }
 

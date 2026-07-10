@@ -140,8 +140,19 @@ describe('Duo OIDC security flow', () => {
         expect(location.searchParams.get('nonce')).toEqual(expect.any(String));
         expect(location.searchParams.get('code_challenge')).toEqual(expect.any(String));
         expect(location.searchParams.get('code_challenge_method')).toBe('S256');
-        expect(location.searchParams.get('login_hint')).toBe('duo.user@example.test');
+        expect(location.searchParams.has('login_hint')).toBe(false);
         expect(getCookieValue(res.headers['set-cookie'], STATE_COOKIE_NAME)).toContain(`${STATE_COOKIE_NAME}=`);
+    });
+
+    test('rejects discovery endpoints outside the configured Duo issuer origin', async () => {
+        fetch.mockResolvedValueOnce(jsonResponse({
+            ...discovery,
+            token_endpoint: 'https://attacker.example.test/token',
+        }));
+
+        const res = await request(app).get('/api/auth/duo/start?returnTo=/profile');
+
+        expect(res.status).toBe(503);
     });
 
     test('callback creates a normal server session without granting admin fields', async () => {
@@ -308,5 +319,31 @@ describe('Duo OIDC security flow', () => {
             nonce: 'nonce',
             discovery,
         })).rejects.toMatchObject({ statusCode: 401 });
+    });
+
+    test('rejects invalid authorized-party and NumericDate claims', async () => {
+        fetch.mockResolvedValue(jsonResponse({ keys: [jwk] }));
+
+        await expect(verifyIdToken({
+            idToken: signIdToken({
+                aud: [clientId, 'other-audience'],
+                azp: 'other-client',
+                nonce: 'nonce',
+            }),
+            nonce: 'nonce',
+            discovery,
+        })).rejects.toThrow(/authorized party/i);
+
+        await expect(verifyIdToken({
+            idToken: signIdToken({ exp: 'not-a-number', nonce: 'nonce' }),
+            nonce: 'nonce',
+            discovery,
+        })).rejects.toThrow(/expired/i);
+
+        await expect(verifyIdToken({
+            idToken: signIdToken({ nbf: 'not-a-number', nonce: 'nonce' }),
+            nonce: 'nonce',
+            discovery,
+        })).rejects.toThrow(/not active/i);
     });
 });
