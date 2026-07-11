@@ -1314,6 +1314,7 @@ jobs:
       id-token: write
     with:
       rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
+      execute_rollback: true
     secrets:
       AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
 
@@ -1370,6 +1371,7 @@ jobs:
       id-token: write
     with:
       rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
+      execute_rollback: true
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
 

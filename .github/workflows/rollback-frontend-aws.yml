@@ -1,6 +1,7 @@
 name: Rollback Frontend AWS
 
 on:
+  workflow_dispatch:
   workflow_call:
     inputs:
       rollback_ref:
@@ -8,6 +9,11 @@ on:
         required: false
         default: ""
         type: string
+      execute_rollback:
+        description: Allow a trusted reusable-workflow caller to execute the rollback hook
+        required: false
+        default: false
+        type: boolean
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN:
         required: false
@@ -23,11 +29,12 @@ jobs:
   rollback:
     name: Roll back AWS S3 / CloudFront storefront
     runs-on: ubuntu-latest
-    environment:
-      name: production
+    # The deploy role trusts the main-branch OIDC subject. A GitHub Environment
+    # changes that subject, so do not add one without updating and verifying IAM.
 
     steps:
       - name: Checkout
+        if: inputs.execute_rollback == true
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.rollback_ref != '' && inputs.rollback_ref || github.sha }}
@@ -38,7 +45,11 @@ jobs:
           role-to-assume: ${{ vars.AWS_FRONTEND_DEPLOY_ROLE_ARN || secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'ap-south-1' }}
 
+      - name: Verify AWS rollback identity
+        run: aws sts get-caller-identity --query Account --output text > /dev/null
+
       - name: Setup Node.js for rebuild fallback
+        if: inputs.execute_rollback == true
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
@@ -46,6 +57,7 @@ jobs:
           cache-dependency-path: app/package-lock.json
 
       - name: Execute AWS frontend rollback hook
+        if: inputs.execute_rollback == true
         env:
           ROLLBACK_REF: ${{ inputs.rollback_ref }}
           AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET }}
@@ -64,3 +76,7 @@ jobs:
             echo "Create one hook that restores the previous S3 release prefix and invalidates CloudFront."
             exit 1
           fi
+
+      - name: Confirm credential-only validation
+        if: inputs.execute_rollback != true
+        run: echo "AWS rollback credential validation passed; no rollback hook was executed."

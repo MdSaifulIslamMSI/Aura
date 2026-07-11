@@ -1,6 +1,7 @@
 const { execFile, execFileSync } = require('child_process');
 const fs = require('fs');
 const http = require('http');
+const yaml = require('js-yaml');
 const os = require('os');
 const path = require('path');
 
@@ -1048,6 +1049,39 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('npm run aws:observability:guard');
         expect(workflow).not.toContain('release:production-mutation-gate');
         expect(workflow).not.toContain('AWS_CONTROL_PRODUCTION_MUTATIONS_ENABLED: true');
+    });
+
+    test.each([
+        ['rollback-backend-aws.yml', 'Execute backend rollback hook'],
+        ['rollback-frontend-aws.yml', 'Execute AWS frontend rollback hook'],
+    ])('%s keeps manual OIDC validation non-mutating', (filename, rollbackStepName) => {
+        const workflow = yaml.load(
+            fs.readFileSync(path.join(repoRoot, '.github', 'workflows', filename), 'utf8'),
+            { schema: yaml.JSON_SCHEMA }
+        );
+        const rollbackJob = workflow.jobs.rollback;
+        const stepByName = new Map(rollbackJob.steps.map((step) => [step.name, step]));
+        const executionInput = workflow.on.workflow_call.inputs.execute_rollback;
+
+        expect(Object.prototype.hasOwnProperty.call(workflow.on, 'workflow_call')).toBe(true);
+        expect(Object.prototype.hasOwnProperty.call(workflow.on, 'workflow_dispatch')).toBe(true);
+        expect(executionInput).toMatchObject({ default: false, type: 'boolean' });
+        expect(workflow.permissions['id-token']).toBe('write');
+        expect(rollbackJob.environment).toBeUndefined();
+        expect(stepByName.get('Verify AWS rollback identity').run).toContain('sts get-caller-identity');
+        expect(stepByName.get('Checkout').if).toBe('inputs.execute_rollback == true');
+        expect(stepByName.get(rollbackStepName).if).toBe('inputs.execute_rollback == true');
+        expect(stepByName.get('Confirm credential-only validation').if).toBe('inputs.execute_rollback != true');
+    });
+
+    test('production command center explicitly authorizes both AWS rollback hooks', () => {
+        const workflow = yaml.load(
+            fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8'),
+            { schema: yaml.JSON_SCHEMA }
+        );
+
+        expect(workflow.jobs['rollback-backend'].with.execute_rollback).toBe(true);
+        expect(workflow.jobs['rollback-frontend-aws'].with.execute_rollback).toBe(true);
     });
 
     test('free-tier AWS guard config blocks expensive services by default', () => {
