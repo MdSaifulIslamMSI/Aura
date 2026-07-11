@@ -7138,6 +7138,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Temporarily Unavailable",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "desktopLogin.action.waitingForBrowser": {
+        id: "desktopLogin.action.waitingForBrowser",
+        defaultMessage: "Waiting for Browser",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "desktopLogin.bridge.api": {
         id: "desktopLogin.bridge.api",
         defaultMessage: "API",
@@ -7206,6 +7211,16 @@ export const stableUiMessages = defineMessages({
     "desktopLogin.field.phoneNumber": {
         id: "desktopLogin.field.phoneNumber",
         defaultMessage: "Phone Number *",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.handoff.stepsDetail": {
+        id: "desktopLogin.handoff.stepsDetail",
+        defaultMessage: "Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.handoff.stepsTitle": {
+        id: "desktopLogin.handoff.stepsTitle",
+        defaultMessage: "Complete all three browser steps",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.otp.emailSent": {
@@ -8758,6 +8773,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Continue in Browser",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "login.desktopBrowser.cancel": {
+        id: "login.desktopBrowser.cancel",
+        defaultMessage: "Cancel Browser Sign-In",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "login.desktopBrowser.completeDetail": {
         id: "login.desktopBrowser.completeDetail",
         defaultMessage: "Return to Aura Marketplace Desktop. You can close this browser tab.",
@@ -8780,7 +8800,7 @@ export const stableUiMessages = defineMessages({
     },
     "login.desktopBrowser.startedDetail": {
         id: "login.desktopBrowser.startedDetail",
-        defaultMessage: "Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.",
+        defaultMessage: "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.desktopBrowser.startedTitle": {
@@ -8796,6 +8816,16 @@ export const stableUiMessages = defineMessages({
     "login.desktopBrowser.unavailable": {
         id: "login.desktopBrowser.unavailable",
         defaultMessage: "Desktop browser sign-in is available only in the Aura desktop app.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopBrowser.waiting": {
+        id: "login.desktopBrowser.waiting",
+        defaultMessage: "WAITING FOR BROWSER...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopBrowser.waitingShort": {
+        id: "login.desktopBrowser.waitingShort",
+        defaultMessage: "Waiting for Browser",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.desktopOwnerAccess.button": {
