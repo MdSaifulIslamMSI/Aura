@@ -107,7 +107,7 @@ export const startFirebasePhoneLoginChallenge = async ({
   try {
     const userCredential = await signInWithEmailAndPassword(tempAuth, email, password);
     const { user } = userCredential;
-    const credentialProofToken = await user.getIdToken(true);
+    const credentialProofToken = await user.getIdToken();
     const linkedPhone = user?.phoneNumber ? normalizePhoneToE164(user.phoneNumber) : '';
     const useReauthFlow = Boolean(linkedPhone || hasLinkedPhoneProvider(user));
 
@@ -183,7 +183,7 @@ export const completeFirebasePhoneLoginChallenge = async (challenge, otp) => {
     throw new Error('Firebase phone verification did not return an authenticated user');
   }
 
-  await verifiedUser.getIdToken(true);
+  await verifiedUser.getIdToken();
 
   return {
     user: verifiedUser,

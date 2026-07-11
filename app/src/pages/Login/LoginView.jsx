@@ -186,6 +186,57 @@ const LoginView = ({
               </div>
             )}
 
+            {canUseDesktopBrowserSignIn ? (
+              <div className="space-y-4">
+                <div className="rounded-[24px] border border-neo-cyan/25 bg-neo-cyan/10 p-5 text-center shadow-[0_18px_45px_rgba(6,182,212,0.12)]">
+                  <ExternalLink className="mx-auto h-9 w-9 text-neo-cyan" aria-hidden="true" />
+                  <h2 className="mt-3 text-lg font-black uppercase tracking-[0.12em] text-white">
+                    {t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser')}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    {t('login.desktopBrowser.startedDetail', {}, 'In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.')}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={desktopBrowserSignInPending ? handleReopenDesktopBrowserSignIn : handleDesktopBrowserSignIn}
+                  disabled={emergencyAuthDisabled}
+                  className="w-full btn-primary py-4 sm:py-5 text-sm sm:text-base tracking-[0.2em] relative overflow-hidden group/submit shadow-[0_0_20px_rgba(6,182,212,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="flex items-center justify-center gap-3 relative z-10 text-white">
+                    {desktopBrowserSignInPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <ExternalLink className="h-5 w-5" aria-hidden="true" />
+                    )}
+                    {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
+                  </span>
+                </button>
+
+                {desktopBrowserSignInPending && (
+                  <button
+                    type="button"
+                    onClick={handleCancelDesktopBrowserSignIn}
+                    className="w-full py-3 rounded-2xl border border-rose-300/25 bg-rose-300/10 hover:bg-rose-300/15 text-rose-100 font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300"
+                  >
+                    {t('login.desktopBrowser.cancel', {}, 'Cancel Browser Sign-In')}
+                  </button>
+                )}
+
+                {canUseDesktopOwnerAccessSignIn && (
+                  <button
+                    type="button"
+                    onClick={handleDesktopOwnerAccessSignIn}
+                    disabled={isLoading || emergencyAuthDisabled}
+                    className="w-full py-3 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 hover:bg-emerald-300/15 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-emerald-300/45"
+                  >
+                    <Shield className="h-4 w-4 text-emerald-200" aria-hidden="true" />
+                    {t('login.desktopOwnerAccess.button', {}, 'Owner Access')}
+                  </button>
+                )}
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-5" autoComplete="on">
               <div ref={recaptchaContainerRef} id="firebase-phone-recaptcha" className="sr-only" aria-hidden="true" />
 
@@ -505,8 +556,9 @@ const LoginView = ({
                 </button>
               )}
             </form>
+            )}
 
-            {step === 'form' && mode !== 'forgot-password' && (
+            {!canUseDesktopBrowserSignIn && step === 'form' && mode !== 'forgot-password' && (
               <div className="mt-6 animate-fade-in">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />

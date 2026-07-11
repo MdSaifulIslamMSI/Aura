@@ -134,7 +134,7 @@ describe('authApi', () => {
     });
   });
 
-  it('creates a desktop handoff token with a fresh Firebase bearer proof', async () => {
+  it('creates a desktop handoff token from the token already issued by browser sign-in', async () => {
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),
     };
@@ -161,7 +161,6 @@ describe('authApi', () => {
 
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
       useFirebaseBearer: true,
-      forceRefresh: true,
     });
     const [url, requestOptions] = global.fetch.mock.calls[0];
     expect(url).toContain('/auth/desktop-handoff/custom-token');
@@ -192,7 +191,6 @@ describe('authApi', () => {
 
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(null, {
       useFirebaseBearer: true,
-      forceRefresh: true,
     });
     const [url, requestOptions] = global.fetch.mock.calls[0];
     expect(url).toContain('/auth/desktop-handoff/custom-token');

@@ -326,7 +326,6 @@ export const authApi = {
             requestId,
         }, {
             firebaseUser,
-            forceRefreshAuth: true,
         });
     },
     getSession: async (options = {}) => {
