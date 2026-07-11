@@ -2050,7 +2050,7 @@ export const useLoginController = () => {
 
   const handleReopenDesktopBrowserSignIn = async () => {
     if (!desktopBrowserRequestId || typeof reopenDesktopBrowserSignIn !== 'function') {
-      setErr({ message: t('login.desktopBrowser.reopenUnavailable', {}, 'This browser sign-in can no longer be reopened. Cancel it and start again.') });
+      setErr({ message: t('login.desktopBrowser.unavailable', {}, 'Desktop browser sign-in is available only in the Aura desktop app.') });
       return;
     }
 
@@ -2059,7 +2059,7 @@ export const useLoginController = () => {
       setAuthError(null);
       setAuthSuccess({
         title: t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser'),
-        detail: t('login.desktopBrowser.reopenedDetail', {}, 'The secure sign-in page was reopened. Complete the browser steps, or cancel this request and start again.'),
+        detail: t('login.desktopBrowser.startedDetail', {}, 'Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.'),
       });
     } catch (error) {
       setErr(error);
