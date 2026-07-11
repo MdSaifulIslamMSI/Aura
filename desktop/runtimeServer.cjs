@@ -391,6 +391,7 @@ const listenOnPort = (server, port) => new Promise((resolve, reject) => {
 const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesktopAuthComplete = null } = {}) => {
     const resolvedDistDir = path.resolve(distDir);
     assertDistExists(resolvedDistDir);
+    const frontendIndexHtml = fs.readFileSync(path.join(resolvedDistDir, 'index.html'), 'utf8');
 
     const backendOrigin = resolveBackendOrigin();
     const desktopAuthFrontendOrigin = resolveDesktopAuthFrontendOrigin();
@@ -444,7 +445,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     app.use(express.static(resolvedDistDir, { index: false }));
 
     app.use(frontendFallbackLimiter, (_request, response) => {
-        response.sendFile('index.html', { root: resolvedDistDir });
+        response.type('html').send(frontendIndexHtml);
     });
 
     server.on('upgrade', socketProxy.upgrade);
