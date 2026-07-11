@@ -7,6 +7,14 @@ on:
         description: Optional desktop version, for example 1.0.42
         required: false
         type: string
+      release_mode:
+        description: Fast publishes Windows x64; full publishes every platform and architecture
+        required: false
+        default: fast
+        type: choice
+        options:
+          - fast
+          - full
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
         required: false
@@ -28,6 +36,11 @@ on:
         description: Optional desktop version, for example 1.0.42
         required: false
         default: ""
+        type: string
+      release_mode:
+        description: Fast publishes Windows x64; full publishes every platform and architecture
+        required: false
+        default: fast
         type: string
       require_windows_signing:
         description: Require Windows Authenticode signing before publishing
@@ -193,8 +206,19 @@ jobs:
           REQUIRE_WINDOWS_SIGNING: ${{ inputs.require_windows_signing }}
           REQUIRE_MACOS_SIGNING: ${{ inputs.require_macos_signing }}
           PUBLISH_STORE_RELEASE: ${{ inputs.publish_store_release }}
+          RELEASE_MODE: ${{ inputs.release_mode }}
         run: |
           set -euo pipefail
+
+          if [ "${RELEASE_MODE}" != "fast" ] && [ "${RELEASE_MODE}" != "full" ]; then
+            echo "::error::release_mode must be fast or full."
+            exit 1
+          fi
+
+          if [ "${RELEASE_MODE}" = "fast" ] && [ "${REQUIRE_MACOS_SIGNING}" = "true" ]; then
+            echo "::error::macOS signing requires release_mode=full."
+            exit 1
+          fi
 
           if [ "${REQUIRE_WINDOWS_SIGNING}" != "true" ]; then
             echo "Windows signing skipped because require_windows_signing=false"
@@ -254,16 +278,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: windows
-            os: windows-2025
-            command: npm run desktop:dist:win:all -- --publish never
-          - platform: macos
-            os: macos-latest
-            command: npm run desktop:dist:mac -- --publish never
-          - platform: linux
-            os: ubuntu-latest
-            command: npm run desktop:dist:linux -- --publish never
+        include: ${{ fromJSON(inputs.release_mode == 'full' && '[{"platform":"windows","os":"windows-2025","command":"npm run desktop:dist:win:all -- --publish never"},{"platform":"macos","os":"macos-latest","command":"npm run desktop:dist:mac -- --publish never"},{"platform":"linux","os":"ubuntu-latest","command":"npm run desktop:dist:linux -- --publish never"}]' || '[{"platform":"windows","os":"windows-2025","command":"npm run desktop:dist:win -- --publish never"}]') }}
 
     steps:
       - uses: actions/checkout@v6
@@ -369,11 +384,14 @@ jobs:
 
       - name: Build desktop artifacts
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WINDOWS_BUILD_SCRIPT: ${{ inputs.release_mode == 'full' && 'desktop:dist:win:all' || 'desktop:dist:win' }}
         run: |
           if [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_MODE:-}" = "pfx" ]; then
-            npm run desktop:dist:win:all -- --publish never --config.win.signAndEditExecutable=true --config.win.verifyUpdateCodeSignature=true
+            npm run "${WINDOWS_BUILD_SCRIPT}" -- --publish never --config.win.signAndEditExecutable=true --config.win.verifyUpdateCodeSignature=true
           elif [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_MODE:-}" = "trusted-signing" ]; then
-            npm run desktop:dist:win:all -- --publish never \
+            npm run "${WINDOWS_BUILD_SCRIPT}" -- --publish never \
               --config.win.signAndEditExecutable=true \
               --config.win.verifyUpdateCodeSignature=true \
               --config.win.azureSignOptions.endpoint="${AZURE_TRUSTED_SIGNING_ENDPOINT}" \
@@ -381,14 +399,12 @@ jobs:
               --config.win.azureSignOptions.codeSigningAccountName="${AZURE_TRUSTED_SIGNING_ACCOUNT_NAME}" \
               --config.win.azureSignOptions.publisherName="${WINDOWS_CODE_SIGNING_PUBLISHER_NAME}"
           elif [ "${{ matrix.platform }}" = "windows" ]; then
-            npm run desktop:dist:win:all -- --publish never \
+            npm run "${WINDOWS_BUILD_SCRIPT}" -- --publish never \
               --config.win.signAndEditExecutable=false \
               --config.win.verifyUpdateCodeSignature=false
           else
             ${{ matrix.command }}
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Verify Windows signatures
         if: matrix.platform == 'windows' && env.AURA_WINDOWS_SIGNING_MODE != 'unsigned'

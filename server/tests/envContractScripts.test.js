@@ -814,6 +814,15 @@ describe('repo environment contract scripts', () => {
         expect(preflight[0]).not.toContain('continue-on-error: true');
     });
 
+    test('desktop release defaults to fast Windows x64 while preserving full cross-platform mode', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'desktop-release.yml'), 'utf8');
+
+        expect(workflow).toMatch(/release_mode:[\s\S]*?default:\s*fast/);
+        expect(workflow).toContain("inputs.release_mode == 'full'");
+        expect(workflow).toContain("'desktop:dist:win:all' || 'desktop:dist:win'");
+        expect(workflow).toContain('macOS signing requires release_mode=full.');
+    });
+
     test('manual production command center stays within GitHub workflow_dispatch input limit', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
         const inputsBlock = workflow.match(/workflow_dispatch:\s*\r?\n\s*inputs:\s*\r?\n([\s\S]*?)\r?\npermissions:/);

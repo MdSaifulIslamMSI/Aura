@@ -202,6 +202,15 @@ addCheck(
 );
 
 addCheck(
+  'desktop release defaults to a fast Windows x64 lane',
+  desktop.includes('release_mode:')
+    && desktop.includes('default: fast')
+    && desktop.includes("inputs.release_mode == 'full'")
+    && desktop.includes("'desktop:dist:win:all' || 'desktop:dist:win'"),
+  'desktop-release.yml keeps full cross-platform publishing as an explicit mode'
+);
+
+addCheck(
   'mobile release exposes signing-skip inputs',
   ['require_android_signing', 'require_ios_signing', 'publish_store_release'].every((needle) =>
     mobile.includes(needle)
