@@ -14,6 +14,8 @@ const {
     DEFAULT_BACKEND_ORIGIN,
     DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
+    DESKTOP_AUTH_PROTOCOL_VERSION,
+    DESKTOP_AUTH_REQUEST_TTL_MS,
     DESKTOP_AUTH_COMPLETE_PATH,
     RUNTIME_CALLBACK_HOST,
     buildRuntimeCallbackUrl,
@@ -21,9 +23,11 @@ const {
     isLoopbackBackendOrigin,
     resolveBackendOrigin,
     resolveAllowedDesktopAuthOrigins,
+    readDesktopAuthProtocolVersion,
     shouldAllowInsecureBackendProxy,
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
+    validateDesktopAuthFrontend,
 } = require('./runtimeServer.cjs');
 
 test('desktop runtime only uses the callback ports accepted by the hosted handoff', () => {
@@ -33,6 +37,41 @@ test('desktop runtime only uses the callback ports accepted by the hosted handof
     );
     assert.equal(buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT).includes(0), false);
     assert.throws(() => buildRuntimePortCandidates(0), /requires a fixed loopback port/);
+});
+
+test('desktop browser handoff allows enough time for password and two OTP stages', () => {
+    const now = 1_000_000;
+    const broker = createDesktopAuthBroker({ now: () => now });
+    const request = broker.createRequest({
+        callbackUrl: 'http://127.0.0.1:47831',
+        runtimeUrl: 'http://localhost:47831',
+    });
+
+    assert.equal(DESKTOP_AUTH_REQUEST_TTL_MS, 10 * 60 * 1000);
+    assert.equal(request.expiresAt - now, DESKTOP_AUTH_REQUEST_TTL_MS);
+});
+
+test('desktop validates the hosted browser protocol before opening a request', async () => {
+    const sourceHtml = fs.readFileSync(path.join(__dirname, '..', 'app', 'index.html'), 'utf8');
+    assert.equal(readDesktopAuthProtocolVersion(sourceHtml), DESKTOP_AUTH_PROTOCOL_VERSION);
+
+    const compatible = await validateDesktopAuthFrontend({
+        fetchImpl: async () => ({
+            ok: true,
+            text: async () => sourceHtml,
+        }),
+    });
+    assert.equal(compatible.protocolVersion, DESKTOP_AUTH_PROTOCOL_VERSION);
+
+    await assert.rejects(
+        validateDesktopAuthFrontend({
+            fetchImpl: async () => ({
+                ok: true,
+                text: async () => '<!doctype html><title>Old Aura Login</title>',
+            }),
+        }),
+        /Hosted desktop sign-in is out of date/
+    );
 });
 
 test('desktop default backend origin matches the hosted backend routing contract', async () => {

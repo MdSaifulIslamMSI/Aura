@@ -460,6 +460,7 @@ export const useLoginController = () => {
   const [resumeDraft, setResumeDraft] = useState(null);
   const [identityMemory, setIdentityMemory] = useState(null);
   const [desktopOwnerAccessAvailable, setDesktopOwnerAccessAvailable] = useState(false);
+  const [desktopBrowserSignInPending, setDesktopBrowserSignInPending] = useState(false);
   const [formData, setFormData] = useState(() => createEmptyFormData({
     email: launchPrefill.email,
     phone: launchPrefill.phone,
@@ -475,6 +476,7 @@ export const useLoginController = () => {
   const authAccelerationHydratedRef = useRef(false);
   const initialResolvedAuthRedirectCheckedRef = useRef(false);
   const desktopBrowserHandoffCompletedRef = useRef('');
+  const desktopBrowserAbortControllerRef = useRef(null);
   const resetPasswordRequestInFlightRef = useRef(false);
 
   const from = useMemo(
@@ -897,6 +899,7 @@ export const useLoginController = () => {
 
   useEffect(() => () => {
     clearFirebaseChallenge().catch(() => {});
+    desktopBrowserAbortControllerRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -1976,25 +1979,42 @@ export const useLoginController = () => {
       return;
     }
 
+    if (desktopBrowserSignInPending || desktopBrowserAbortControllerRef.current) return;
+
+    const abortController = new AbortController();
+    desktopBrowserAbortControllerRef.current = abortController;
+    setDesktopBrowserSignInPending(true);
     setIsLoading(true);
     setAuthError(null);
     setAuthSuccess({
       title: t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser'),
-      detail: t('login.desktopBrowser.startedDetail', {}, 'Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.'),
+      detail: t('login.desktopBrowser.startedDetail', {}, 'In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.'),
     });
 
     try {
-      const result = await signInWithDesktopBrowser({ returnTo: from });
+      const result = await signInWithDesktopBrowser({
+        returnTo: from,
+        signal: abortController.signal,
+      });
       if (result?.dbUser) {
         finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
       } else {
         navigate(from, { replace: true });
       }
     } catch (error) {
+      setAuthSuccess(null);
       setErr(normalizeSocialAuthError(error, 'desktop browser', socialAuthStatus));
     } finally {
+      if (desktopBrowserAbortControllerRef.current === abortController) {
+        desktopBrowserAbortControllerRef.current = null;
+      }
+      setDesktopBrowserSignInPending(false);
       setIsLoading(false);
     }
+  };
+
+  const handleCancelDesktopBrowserSignIn = () => {
+    desktopBrowserAbortControllerRef.current?.abort();
   };
 
   const handleDesktopOwnerAccessSignIn = async () => {
@@ -2088,6 +2108,7 @@ export const useLoginController = () => {
     canUseDesktopOwnerAccessSignIn,
     countdown,
     desktopBrowserHandoff,
+    desktopBrowserSignInPending,
     firebasePhoneFallback,
     formData,
     goBack,
@@ -2102,6 +2123,7 @@ export const useLoginController = () => {
     handleDuoSignIn,
     isDuoLoginEnabled,
     handleDesktopBrowserSignIn,
+    handleCancelDesktopBrowserSignIn,
     handleDesktopOwnerAccessSignIn,
     handleSocialSignIn,
     handleSubmit,

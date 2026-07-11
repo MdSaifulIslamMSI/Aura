@@ -19,7 +19,9 @@ const BROWSER_ONLY_PROXY_HEADERS = ['origin', 'referer'];
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
 const DESKTOP_AUTH_FRONTEND_PATH = '/desktop-login';
 const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
-const DESKTOP_AUTH_REQUEST_TTL_MS = 5 * 60 * 1000;
+const DESKTOP_AUTH_PROTOCOL_META_NAME = 'aura-desktop-auth-protocol';
+const DESKTOP_AUTH_PROTOCOL_VERSION = '2';
+const DESKTOP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const DESKTOP_AUTH_RESULT_TTL_MS = 60 * 1000;
 const DESKTOP_AUTH_TOKEN_MAX_LENGTH = 8192;
 
@@ -89,6 +91,61 @@ const assertDistExists = (distDir) => {
         throw new Error(
             `Frontend build not found at "${indexPath}". Run "npm run desktop:frontend:build" first.`
         );
+    }
+};
+
+const readDesktopAuthProtocolVersion = (html = '') => {
+    const metaPattern = new RegExp(
+        `<meta\\s+name=["']${DESKTOP_AUTH_PROTOCOL_META_NAME}["']\\s+content=["']([^"']+)["']\\s*\\/?\\s*>`,
+        'i'
+    );
+    return String(metaPattern.exec(String(html || ''))?.[1] || '').trim();
+};
+
+const validateDesktopAuthFrontend = async ({
+    authFrontendOrigin = DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
+    fetchImpl = globalThis.fetch,
+    timeoutMs = 8000,
+} = {}) => {
+    if (typeof fetchImpl !== 'function') {
+        throw new Error('Desktop browser sign-in compatibility check is unavailable.');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetchImpl(new URL(DESKTOP_AUTH_FRONTEND_PATH, authFrontendOrigin), {
+            headers: { Accept: 'text/html' },
+            redirect: 'follow',
+            signal: controller.signal,
+        });
+        if (!response.ok) {
+            throw new Error(`Hosted desktop sign-in returned HTTP ${response.status}.`);
+        }
+
+        const protocolVersion = readDesktopAuthProtocolVersion(await response.text());
+        if (protocolVersion !== DESKTOP_AUTH_PROTOCOL_VERSION) {
+            const error = new Error(
+                'Hosted desktop sign-in is out of date. Update the Aura web login before starting browser sign-in.'
+            );
+            error.code = 'auth/desktop-browser-protocol-mismatch';
+            throw error;
+        }
+
+        return { protocolVersion };
+    } catch (error) {
+        if (error?.code === 'auth/desktop-browser-protocol-mismatch') {
+            throw error;
+        }
+        const compatibilityError = new Error(
+            'Aura could not verify the hosted browser sign-in service. Check your connection and try again.'
+        );
+        compatibilityError.code = 'auth/desktop-browser-compatibility-check-failed';
+        compatibilityError.cause = error;
+        throw compatibilityError;
+    } finally {
+        clearTimeout(timeout);
     }
 };
 
@@ -522,6 +579,9 @@ module.exports = {
     DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
     MAX_STABLE_RUNTIME_PORT,
+    DESKTOP_AUTH_PROTOCOL_META_NAME,
+    DESKTOP_AUTH_PROTOCOL_VERSION,
+    DESKTOP_AUTH_REQUEST_TTL_MS,
     DESKTOP_AUTH_COMPLETE_PATH,
     DESKTOP_AUTH_FRONTEND_PATH,
     applyDesktopAuthCors,
@@ -540,7 +600,9 @@ module.exports = {
     resolveAllowedDesktopAuthOrigins,
     resolveBackendOrigin,
     resolveDesktopAuthFrontendOrigin,
+    readDesktopAuthProtocolVersion,
     shouldAllowInsecureBackendProxy,
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
+    validateDesktopAuthFrontend,
 };

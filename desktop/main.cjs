@@ -5,6 +5,7 @@ const {
     DEFAULT_RUNTIME_PORT,
     MAX_STABLE_RUNTIME_PORT,
     startRuntimeServer,
+    validateDesktopAuthFrontend,
 } = require('./runtimeServer.cjs');
 const { isDesktopOwnerAccessSignInConfigured } = require('./ownerAccessAuth.cjs');
 const { revealWindow, runWithTimeout } = require('./startupReliability.cjs');
@@ -60,6 +61,10 @@ ipcMain.handle('desktop:auth:start-browser-sign-in', async (_event, options = {}
     if (!runtime?.createDesktopAuthRequest) {
         throw new Error('Desktop auth runtime is not ready yet.');
     }
+
+    await validateDesktopAuthFrontend({
+        authFrontendOrigin: runtime.desktopAuthFrontendOrigin,
+    });
 
     const request = runtime.createDesktopAuthRequest({
         path: options?.path || '/login',

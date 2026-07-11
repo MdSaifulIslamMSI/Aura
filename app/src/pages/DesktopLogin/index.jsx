@@ -221,6 +221,18 @@ const DesktopLogin = () => {
                   ))}
                 </div>
 
+                <div className="mb-5 rounded-[1rem] border border-amber-300/25 bg-amber-300/10 p-4 text-amber-50">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-200">
+                    <StableText id="desktopLogin.handoff.stepsTitle" defaultMessage="Complete all three browser steps" />
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-200">
+                    <StableText
+                      id="desktopLogin.handoff.stepsDetail"
+                      defaultMessage="Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes."
+                    />
+                  </p>
+                </div>
+
                 {controller.authError ? (
                   <div className="mb-4">
                     <AuthFeedback
@@ -365,7 +377,11 @@ const DesktopLogin = () => {
 
                   <button type="submit" disabled={actionDisabled} className="group relative mt-1 flex min-h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-[1rem] bg-cyan-300 px-5 py-4 text-sm font-black uppercase text-slate-950 shadow-[0_18px_42px_rgba(34,211,238,0.22)] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-55">
                     {controller.isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
-                    {emergencyActionDisabled ? <StableText id="desktopLogin.action.temporarilyUnavailable" defaultMessage="Temporarily Unavailable" /> : controller.submitLabel}
+                    {emergencyActionDisabled
+                      ? <StableText id="desktopLogin.action.temporarilyUnavailable" defaultMessage="Temporarily Unavailable" />
+                      : controller.desktopBrowserSignInPending
+                        ? <StableText id="desktopLogin.action.waitingForBrowser" defaultMessage="Waiting for Browser" />
+                        : controller.submitLabel}
                   </button>
                 </form>
 
