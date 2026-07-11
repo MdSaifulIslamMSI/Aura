@@ -16,6 +16,11 @@ export const normalizeHost = (value = '') => String(value || '')
 
 const isAbsoluteHttpUrl = (value = '') => /^https?:\/\//i.test(String(value || '').trim());
 
+const isSupportedApiBaseUrl = (value = '') => {
+    const normalized = String(value || '').trim();
+    return isAbsoluteHttpUrl(normalized) || normalized.startsWith('/');
+};
+
 const HOSTED_FRONTEND_EXACT_HOSTS = new Set(['aurapilot.aws.app']);
 
 export const isHostedFrontendRuntimeHost = (host = '') => {
@@ -94,6 +99,9 @@ export const getSafeEnv = (key, fallback = '') => {
 
 export const resolveApiBaseUrl = (fallback = '/api') => {
     const configured = trimTrailingSlash(getSafeEnv('VITE_API_URL', ''));
+    if (configured && !isSupportedApiBaseUrl(configured)) {
+        return fallback;
+    }
     if (shouldPreferLocalProxyApi(configured, fallback)) {
         return fallback;
     }
@@ -104,7 +112,10 @@ export const resolveApiBaseUrl = (fallback = '/api') => {
 };
 
 export const resolveServiceOrigin = (fallback = '') => {
-    const raw = trimTrailingSlash(getSafeEnv('VITE_API_URL', fallback));
+    const configured = trimTrailingSlash(getSafeEnv('VITE_API_URL', fallback));
+    const raw = configured && isSupportedApiBaseUrl(configured)
+        ? configured
+        : trimTrailingSlash(fallback);
 
     if (shouldPreferLocalProxyApi(raw, fallback)) {
         return typeof window !== 'undefined'

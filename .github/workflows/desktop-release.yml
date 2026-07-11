@@ -382,29 +382,36 @@ jobs:
           echo "::error::macOS signing/notarization is required but this workflow currently only supports unsigned macOS GitHub artifacts. Configure signing steps before enabling require_macos_signing."
           exit 1
 
-      - name: Build desktop artifacts
-        shell: bash
+      - name: Build Windows desktop artifacts
+        if: matrix.platform == 'windows'
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           WINDOWS_BUILD_SCRIPT: ${{ inputs.release_mode == 'full' && 'desktop:dist:win:all' || 'desktop:dist:win' }}
         run: |
-          if [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_MODE:-}" = "pfx" ]; then
-            npm run "${WINDOWS_BUILD_SCRIPT}" -- --publish never --config.win.signAndEditExecutable=true --config.win.verifyUpdateCodeSignature=true
-          elif [ "${{ matrix.platform }}" = "windows" ] && [ "${AURA_WINDOWS_SIGNING_MODE:-}" = "trusted-signing" ]; then
-            npm run "${WINDOWS_BUILD_SCRIPT}" -- --publish never \
-              --config.win.signAndEditExecutable=true \
-              --config.win.verifyUpdateCodeSignature=true \
-              --config.win.azureSignOptions.endpoint="${AZURE_TRUSTED_SIGNING_ENDPOINT}" \
-              --config.win.azureSignOptions.certificateProfileName="${AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME}" \
-              --config.win.azureSignOptions.codeSigningAccountName="${AZURE_TRUSTED_SIGNING_ACCOUNT_NAME}" \
-              --config.win.azureSignOptions.publisherName="${WINDOWS_CODE_SIGNING_PUBLISHER_NAME}"
-          elif [ "${{ matrix.platform }}" = "windows" ]; then
-            npm run "${WINDOWS_BUILD_SCRIPT}" -- --publish never \
-              --config.win.signAndEditExecutable=false \
-              --config.win.verifyUpdateCodeSignature=false
-          else
-            ${{ matrix.command }}
-          fi
+          $builderArgs = @('--publish', 'never')
+          if ($env:AURA_WINDOWS_SIGNING_MODE -eq 'pfx') {
+            $builderArgs += @('--config.win.signAndEditExecutable=true', '--config.win.verifyUpdateCodeSignature=true')
+          } elseif ($env:AURA_WINDOWS_SIGNING_MODE -eq 'trusted-signing') {
+            $builderArgs += @(
+              '--config.win.signAndEditExecutable=true',
+              '--config.win.verifyUpdateCodeSignature=true',
+              "--config.win.azureSignOptions.endpoint=$env:AZURE_TRUSTED_SIGNING_ENDPOINT",
+              "--config.win.azureSignOptions.certificateProfileName=$env:AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME",
+              "--config.win.azureSignOptions.codeSigningAccountName=$env:AZURE_TRUSTED_SIGNING_ACCOUNT_NAME",
+              "--config.win.azureSignOptions.publisherName=$env:WINDOWS_CODE_SIGNING_PUBLISHER_NAME"
+            )
+          } else {
+            $builderArgs += @('--config.win.signAndEditExecutable=false', '--config.win.verifyUpdateCodeSignature=false')
+          }
+          npm run $env:WINDOWS_BUILD_SCRIPT -- @builderArgs
+
+      - name: Build non-Windows desktop artifacts
+        if: matrix.platform != 'windows'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ${{ matrix.command }}
 
       - name: Verify Windows signatures
         if: matrix.platform == 'windows' && env.AURA_WINDOWS_SIGNING_MODE != 'unsigned'
