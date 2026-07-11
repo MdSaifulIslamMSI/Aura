@@ -399,6 +399,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     const server = http.createServer(app);
     const desktopAuthBroker = createDesktopAuthBroker({ onComplete: onDesktopAuthComplete });
     const desktopAuthCompleteLimiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 60 });
+    const frontendFallbackLimiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 600 });
 
     const socketProxy = createProxyMiddleware(buildProxyOptions(backendOrigin));
     const apiProxy = createProxyMiddleware(buildProxyOptions(backendOrigin));
@@ -442,7 +443,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     app.use(applyLocalFrontendCachePolicy);
     app.use(express.static(resolvedDistDir, { index: false }));
 
-    app.use((_request, response) => {
+    app.use(frontendFallbackLimiter, (_request, response) => {
         response.sendFile('index.html', { root: resolvedDistDir });
     });
 
