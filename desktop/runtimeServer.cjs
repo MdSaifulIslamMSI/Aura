@@ -11,6 +11,7 @@ const DEFAULT_BACKEND_ORIGIN = 'https://dbtrhsolhec1s.cloudfront.net';
 const DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN = 'https://aurapilot.vercel.app';
 const DEFAULT_RUNTIME_PORT = 47831;
 const STABLE_RUNTIME_FALLBACK_PORTS = 10;
+const MAX_STABLE_RUNTIME_PORT = DEFAULT_RUNTIME_PORT + STABLE_RUNTIME_FALLBACK_PORTS;
 const RUNTIME_LISTEN_HOST = '127.0.0.1';
 const RUNTIME_PUBLIC_HOST = 'localhost';
 const RUNTIME_CALLBACK_HOST = RUNTIME_LISTEN_HOST;
@@ -358,7 +359,7 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
 const buildRuntimePortCandidates = (port) => {
     const requestedPort = Number(port);
     if (!Number.isInteger(requestedPort) || requestedPort <= 0) {
-        return [0];
+        throw new Error('Desktop runtime requires a fixed loopback port.');
     }
 
     const candidates = [requestedPort];
@@ -369,7 +370,6 @@ const buildRuntimePortCandidates = (port) => {
         }
     }
 
-    candidates.push(0);
     return candidates;
 };
 
@@ -391,6 +391,7 @@ const listenOnPort = (server, port) => new Promise((resolve, reject) => {
 const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesktopAuthComplete = null } = {}) => {
     const resolvedDistDir = path.resolve(distDir);
     assertDistExists(resolvedDistDir);
+    const frontendIndexHtml = fs.readFileSync(path.join(resolvedDistDir, 'index.html'), 'utf8');
 
     const backendOrigin = resolveBackendOrigin();
     const desktopAuthFrontendOrigin = resolveDesktopAuthFrontendOrigin();
@@ -399,6 +400,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     const server = http.createServer(app);
     const desktopAuthBroker = createDesktopAuthBroker({ onComplete: onDesktopAuthComplete });
     const desktopAuthCompleteLimiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 60 });
+    const frontendFallbackLimiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 600 });
 
     const socketProxy = createProxyMiddleware(buildProxyOptions(backendOrigin));
     const apiProxy = createProxyMiddleware(buildProxyOptions(backendOrigin));
@@ -442,8 +444,8 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     app.use(applyLocalFrontendCachePolicy);
     app.use(express.static(resolvedDistDir, { index: false }));
 
-    app.use((_request, response) => {
-        response.sendFile(path.join(resolvedDistDir, 'index.html'));
+    app.use(frontendFallbackLimiter, (_request, response) => {
+        response.type('html').send(frontendIndexHtml);
     });
 
     server.on('upgrade', socketProxy.upgrade);
@@ -454,10 +456,8 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     for (const candidatePort of portCandidates) {
         try {
             await listenOnPort(server, candidatePort);
-            if (candidatePort !== port && Number(candidatePort) !== 0) {
+            if (candidatePort !== port) {
                 console.info(`[desktop] runtime server using fallback port ${candidatePort}.`);
-            } else if (Number(candidatePort) === 0 && Number(port) !== 0) {
-                console.warn('[desktop] stable runtime ports are busy; falling back to an ephemeral port.');
             }
             lastListenError = null;
             break;
@@ -471,7 +471,12 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     }
 
     if (lastListenError) {
-        throw lastListenError;
+        const error = new Error(
+            `Aura could not start its secure local sign-in service because ports ${portCandidates[0]}-${portCandidates.at(-1)} are busy.`
+        );
+        error.code = lastListenError.code;
+        error.cause = lastListenError;
+        throw error;
     }
 
     const address = server.address();
@@ -516,10 +521,12 @@ module.exports = {
     DEFAULT_BACKEND_ORIGIN,
     DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
+    MAX_STABLE_RUNTIME_PORT,
     DESKTOP_AUTH_COMPLETE_PATH,
     DESKTOP_AUTH_FRONTEND_PATH,
     applyDesktopAuthCors,
     buildDesktopAuthUrl,
+    buildRuntimePortCandidates,
     RUNTIME_LISTEN_HOST,
     RUNTIME_PUBLIC_HOST,
     RUNTIME_CALLBACK_HOST,

@@ -93,6 +93,7 @@ const normalizeDesktopAuthCallbackPort = (port = '') => {
     case '47838':
     case '47839':
     case '47840':
+    case '47841':
       return String(port).trim();
     default:
       return '';

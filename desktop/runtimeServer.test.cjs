@@ -17,6 +17,7 @@ const {
     DESKTOP_AUTH_COMPLETE_PATH,
     RUNTIME_CALLBACK_HOST,
     buildRuntimeCallbackUrl,
+    buildRuntimePortCandidates,
     isLoopbackBackendOrigin,
     resolveBackendOrigin,
     resolveAllowedDesktopAuthOrigins,
@@ -24,6 +25,15 @@ const {
     startRuntimeServer,
     stripBrowserOnlyProxyHeaders,
 } = require('./runtimeServer.cjs');
+
+test('desktop runtime only uses the callback ports accepted by the hosted handoff', () => {
+    assert.deepEqual(
+        buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT),
+        Array.from({ length: 11 }, (_value, index) => DEFAULT_RUNTIME_PORT + index)
+    );
+    assert.equal(buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT).includes(0), false);
+    assert.throws(() => buildRuntimePortCandidates(0), /requires a fixed loopback port/);
+});
 
 test('desktop default backend origin matches the hosted backend routing contract', async () => {
     const { HOSTED_BACKEND_ORIGIN } = await import('../app/config/vercelRoutingContract.mjs');
@@ -158,6 +168,14 @@ test('desktop runtime has a stable default port but falls back if it is busy', a
         assert.equal(desktopAuthUrl.searchParams.has('desktopAuthCallback'), false);
         assert.equal(desktopAuthUrl.searchParams.has('desktopAuthSecret'), false);
         assert.equal(DEFAULT_RUNTIME_PORT, 47831);
+
+        const rootResponse = await fetch(`${runtime.url}/`);
+        assert.equal(rootResponse.status, 200);
+        assert.match(await rootResponse.text(), /<title>Aura<\/title>/);
+
+        const spaResponse = await fetch(`${runtime.url}/login`);
+        assert.equal(spaResponse.status, 200);
+        assert.match(await spaResponse.text(), /<title>Aura<\/title>/);
     } finally {
         await runtime.close();
         await new Promise((resolve) => blocker.close(resolve));
@@ -212,6 +230,57 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     assert.equal(consumed.customToken, 'custom-token');
     assert.equal(typeof consumed.completedAt, 'number');
     assert.equal(broker.consumeResult(request.requestId), null);
+});
+
+test('desktop auth callback completes the HTTP handoff and consumes its token once', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-callback-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+    const portProbe = http.createServer();
+    await new Promise((resolve) => portProbe.listen(0, '127.0.0.1', resolve));
+    const freePort = portProbe.address().port;
+    await new Promise((resolve) => portProbe.close(resolve));
+
+    const runtime = await startRuntimeServer({ distDir, port: freePort });
+    try {
+        const request = runtime.createDesktopAuthRequest();
+        const handoff = new URLSearchParams(new URL(request.url).hash.slice(1));
+        const callbackUrl = handoff.get('desktopAuthCallback');
+        const origin = 'https://aurapilot.vercel.app';
+
+        const preflight = await fetch(callbackUrl, {
+            method: 'OPTIONS',
+            headers: {
+                Origin: origin,
+                'Access-Control-Request-Method': 'POST',
+                'Access-Control-Request-Private-Network': 'true',
+            },
+        });
+        assert.equal(preflight.status, 204);
+        assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+        assert.equal(preflight.headers.get('access-control-allow-private-network'), 'true');
+
+        const response = await fetch(callbackUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: origin,
+            },
+            body: JSON.stringify({
+                requestId: request.requestId,
+                secret: handoff.get('desktopAuthSecret'),
+                customToken: 'integration-custom-token',
+            }),
+        });
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('access-control-allow-origin'), origin);
+        assert.equal((await response.json()).success, true);
+
+        assert.equal(runtime.consumeDesktopAuthResult(request.requestId).customToken, 'integration-custom-token');
+        assert.equal(runtime.consumeDesktopAuthResult(request.requestId), null);
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
 });
 
 test('desktop auth callback CORS only allows the hosted auth frontend', () => {

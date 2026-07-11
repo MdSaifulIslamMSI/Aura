@@ -804,6 +804,25 @@ describe('repo environment contract scripts', () => {
         }
     });
 
+    test('desktop release validates Firebase auth configuration before packaging', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'desktop-release.yml'), 'utf8');
+        const preflight = workflow.match(/\n  release-preflight:\n[\s\S]*?(?=\n  [a-zA-Z0-9_-]+:\n|$)/);
+
+        expect(preflight).toBeTruthy();
+        expect(preflight[0]).toContain('Validate desktop Firebase auth configuration');
+        expect(preflight[0]).toContain('node scripts/release/validate-desktop-firebase-config.mjs');
+        expect(preflight[0]).not.toContain('continue-on-error: true');
+    });
+
+    test('desktop release defaults to fast Windows x64 while preserving full cross-platform mode', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'desktop-release.yml'), 'utf8');
+
+        expect(workflow).toMatch(/release_mode:[\s\S]*?default:\s*fast/);
+        expect(workflow).toContain("inputs.release_mode == 'full'");
+        expect(workflow).toContain("'desktop:dist:win:all' || 'desktop:dist:win'");
+        expect(workflow).toContain('macOS signing requires release_mode=full.');
+    });
+
     test('manual production command center stays within GitHub workflow_dispatch input limit', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
         const inputsBlock = workflow.match(/workflow_dispatch:\s*\r?\n\s*inputs:\s*\r?\n([\s\S]*?)\r?\npermissions:/);

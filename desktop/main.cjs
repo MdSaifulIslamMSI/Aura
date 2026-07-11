@@ -1,10 +1,16 @@
 const path = require('path');
 const { app, BrowserWindow, dialog, ipcMain, powerMonitor, screen, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const { startRuntimeServer } = require('./runtimeServer.cjs');
+const {
+    DEFAULT_RUNTIME_PORT,
+    MAX_STABLE_RUNTIME_PORT,
+    startRuntimeServer,
+} = require('./runtimeServer.cjs');
 const { isDesktopOwnerAccessSignInConfigured } = require('./ownerAccessAuth.cjs');
+const { revealWindow, runWithTimeout } = require('./startupReliability.cjs');
 
 let mainWindow = null;
+let mainWindowCreationPromise = null;
 let runtime = null;
 let isQuitting = false;
 let updateChecksStarted = false;
@@ -14,6 +20,8 @@ let updateReadyPromptShown = false;
 const isMac = process.platform === 'darwin';
 const APP_ID = 'com.aura.marketplace.desktop';
 const UPDATE_CHECK_DELAY_MS = 8000;
+const STARTUP_CACHE_CLEAR_TIMEOUT_MS = 5000;
+const STARTUP_WINDOW_REVEAL_TIMEOUT_MS = 8000;
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const UPDATE_FOCUS_THROTTLE_MS = 30 * 60 * 1000;
 const UPDATE_FEED = Object.freeze({
@@ -135,7 +143,9 @@ const resolveRequestedRuntimePort = () => {
     if (!rawValue) return undefined;
 
     const parsed = Number(rawValue);
-    return Number.isInteger(parsed) && parsed > 0 && parsed < 65536
+    return Number.isInteger(parsed)
+        && parsed >= DEFAULT_RUNTIME_PORT
+        && parsed <= MAX_STABLE_RUNTIME_PORT
         ? parsed
         : undefined;
 };
@@ -353,7 +363,15 @@ const createMainWindow = async () => {
         }
         runtime = await startRuntimeServer(runtimeOptions);
     }
-    await clearDesktopRuntimeWebCaches(runtime.url);
+    try {
+        await runWithTimeout(
+            () => clearDesktopRuntimeWebCaches(runtime.url),
+            STARTUP_CACHE_CLEAR_TIMEOUT_MS,
+            'Desktop cache cleanup timed out.'
+        );
+    } catch (error) {
+        console.warn('[desktop] continuing after cache cleanup timeout:', error?.message || error);
+    }
 
     const iconPath = resolveIconPath();
     const initialBounds = getInitialWindowBounds();
@@ -375,13 +393,25 @@ const createMainWindow = async () => {
     });
     mainWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
 
+    const activeWindow = mainWindow;
+    const revealActiveWindow = () => revealWindow(activeWindow, {
+        maximize: process.env.AURA_DESKTOP_START_MAXIMIZED !== 'false',
+    });
+    const revealTimer = setTimeout(() => {
+        console.warn('[desktop] ready-to-show was delayed; revealing the startup window.');
+        revealActiveWindow();
+    }, STARTUP_WINDOW_REVEAL_TIMEOUT_MS);
+
     mainWindow.once('ready-to-show', () => {
-        if (mainWindow) {
-            if (process.env.AURA_DESKTOP_START_MAXIMIZED !== 'false') {
-                mainWindow.maximize();
-            }
-            mainWindow.show();
-        }
+        clearTimeout(revealTimer);
+        revealActiveWindow();
+    });
+
+    mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
+        if (isMainFrame === false) return;
+        clearTimeout(revealTimer);
+        console.error('[desktop] main window failed to load:', errorCode, errorDescription, validatedUrl);
+        revealActiveWindow();
     });
 
     mainWindow.webContents.on('did-finish-load', () => {
@@ -425,12 +455,32 @@ const createMainWindow = async () => {
     });
 
     mainWindow.on('closed', () => {
-        mainWindow = null;
+        clearTimeout(revealTimer);
+        if (mainWindow === activeWindow) {
+            mainWindow = null;
+        }
     });
 
     const startupUrl = new URL(runtime.url);
     startupUrl.searchParams.set('desktopRuntimeVersion', app.getVersion());
-    await mainWindow.loadURL(startupUrl.toString());
+    await activeWindow.loadURL(startupUrl.toString());
+    return activeWindow;
+};
+
+const ensureMainWindow = async () => {
+    await app.whenReady();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        return mainWindow;
+    }
+
+    if (!mainWindowCreationPromise) {
+        mainWindowCreationPromise = createMainWindow()
+            .finally(() => {
+                mainWindowCreationPromise = null;
+            });
+    }
+
+    return mainWindowCreationPromise;
 };
 
 const startAutoUpdateChecks = () => {
@@ -575,12 +625,12 @@ const bootstrap = async () => {
     app.setAppUserModelId(APP_ID);
     await app.whenReady();
     installDesktopPermissionPolicy();
-    await createMainWindow();
+    await ensureMainWindow();
     startAutoUpdateChecks();
 
     app.on('activate', async () => {
         if (BrowserWindow.getAllWindows().length === 0 && !mainWindow) {
-            await createMainWindow();
+            await ensureMainWindow();
         }
     });
 };
@@ -606,11 +656,11 @@ if (!app.requestSingleInstanceLock()) {
     app.quit();
 } else {
     app.on('second-instance', () => {
-        if (!mainWindow) return;
-        if (mainWindow.isMinimized()) {
-            mainWindow.restore();
-        }
-        mainWindow.focus();
+        void ensureMainWindow()
+            .then((window) => revealWindow(window, { focus: true }))
+            .catch((error) => {
+                console.error('[desktop] failed to recover the main window:', error);
+            });
     });
 
     bootstrap().catch(async (error) => {
