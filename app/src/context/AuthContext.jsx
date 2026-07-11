@@ -900,7 +900,7 @@ export const AuthProvider = ({ children }) => {
     void consumeCompletedToken();
   });
 
-  const signInWithDesktopBrowser = async ({ returnTo = '/', signal } = {}) => {
+  const signInWithDesktopBrowser = async ({ returnTo = '/', signal, onRequestStarted } = {}) => {
     assertFirebaseReady('Desktop browser sign-in');
     const desktop = getDesktopBridge();
 
@@ -923,6 +923,10 @@ export const AuthProvider = ({ children }) => {
             path: '/desktop-login',
             returnTo,
           });
+          onRequestStarted?.({
+            requestId: request?.requestId || '',
+            expiresAt: request?.expiresAt || 0,
+          });
           const customToken = await waitForDesktopBrowserCustomToken(desktop, request, { signal });
           return signInWithCustomToken(auth, customToken);
         },
@@ -936,6 +940,17 @@ export const AuthProvider = ({ children }) => {
       }
       throw error;
     }
+  };
+
+  const reopenDesktopBrowserSignIn = async (requestId = '') => {
+    const desktop = getDesktopBridge();
+    if (!desktop || typeof desktop.reopenBrowserSignIn !== 'function') {
+      const error = new Error('Desktop browser sign-in cannot be reopened in this app.');
+      error.code = 'auth/desktop-browser-sign-in-unavailable';
+      throw error;
+    }
+
+    return desktop.reopenBrowserSignIn(requestId);
   };
 
   const signInWithDesktopOwnerAccess = async () => {
@@ -1638,6 +1653,7 @@ export const AuthProvider = ({ children }) => {
     signInWithX,
     signInWithEnterprise,
     signInWithDesktopBrowser,
+    reopenDesktopBrowserSignIn,
     signInWithDesktopOwnerAccess,
     linkMicrosoftProvider,
     linkAppleProvider,

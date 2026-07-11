@@ -57,10 +57,13 @@ const DESKTOP_AUTH_REQUEST_PARAM = 'desktopAuthRequest';
 const DESKTOP_AUTH_SECRET_PARAM = 'desktopAuthSecret';
 const DESKTOP_AUTH_RETURN_TO_PARAM = 'desktopAuthReturnTo';
 const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
+const DESKTOP_AUTH_TRANSPORT_PARAM = 'desktopAuthTransport';
+const DESKTOP_AUTH_FORM_TRANSPORT = 'form_post';
 const DESKTOP_AUTH_SENSITIVE_PARAMS = [
   DESKTOP_AUTH_SECRET_PARAM,
   DESKTOP_AUTH_RETURN_TO_PARAM,
   DESKTOP_AUTH_CALLBACK_PARAM,
+  DESKTOP_AUTH_TRANSPORT_PARAM,
 ];
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
 const DESKTOP_AUTH_HANDOFF_STORAGE_KEY = 'aura_desktop_auth_handoff_v1';
@@ -179,6 +182,52 @@ export const normalizeDesktopAuthCallbackUrl = (value = '') => {
   return '';
 };
 
+export const submitDesktopBrowserHandoffForm = ({ callbackUrl, requestId, secret, customToken } = {}) => {
+  if (typeof document === 'undefined' || !document.body) {
+    throw new Error(DESKTOP_AUTH_CALLBACK_UNREACHABLE_MESSAGE);
+  }
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = callbackUrl;
+  form.style.display = 'none';
+
+  Object.entries({ requestId, secret, customToken }).forEach(([name, value]) => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = String(value || '');
+    form.appendChild(input);
+  });
+
+  document.body.appendChild(form);
+  form.submit();
+};
+
+const postLegacyDesktopBrowserHandoff = async ({ callbackUrl, requestId, secret, customToken } = {}) => {
+  let response;
+  try {
+    response = await fetch(callbackUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId, secret, customToken }),
+    });
+  } catch {
+    throw new Error(DESKTOP_AUTH_CALLBACK_UNREACHABLE_MESSAGE);
+  }
+
+  if (!response.ok) {
+    let message = 'Desktop sign-in could not be completed.';
+    try {
+      const payload = await response.json();
+      message = payload?.message || message;
+    } catch {
+      // Keep the generic message.
+    }
+    throw new Error(message);
+  }
+};
+
 const getDesktopAuthStorage = () => {
   try {
     if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -248,6 +297,7 @@ export const persistDesktopBrowserHandoff = (handoff = {}) => {
     secret,
     callbackUrl,
     returnTo: resolveNavigationTarget(handoff.returnTo, '/'),
+    transport: handoff.transport === DESKTOP_AUTH_FORM_TRANSPORT ? DESKTOP_AUTH_FORM_TRANSPORT : '',
     expiresAt: Date.now() + DESKTOP_AUTH_HANDOFF_STORAGE_TTL_MS,
   });
   return writeDesktopAuthStorageMap(stored);
@@ -276,6 +326,7 @@ const readStoredDesktopBrowserHandoff = (requestId = '') => {
     secret,
     callbackUrl,
     returnTo: resolveNavigationTarget(entry.returnTo, '/'),
+    transport: entry.transport === DESKTOP_AUTH_FORM_TRANSPORT ? DESKTOP_AUTH_FORM_TRANSPORT : '',
   };
 };
 
@@ -335,12 +386,14 @@ export const resolveDesktopBrowserHandoff = (search = '', hash = '') => {
   const callbackUrl = normalizeDesktopAuthCallbackUrl(getInlineValue(DESKTOP_AUTH_CALLBACK_PARAM))
     || stored?.callbackUrl
     || '';
+  const transport = getInlineValue(DESKTOP_AUTH_TRANSPORT_PARAM) || stored?.transport || '';
 
   return {
     active: Boolean(requestId && secret),
     callbackUrl,
     requestId,
     secret,
+    transport: transport === DESKTOP_AUTH_FORM_TRANSPORT ? DESKTOP_AUTH_FORM_TRANSPORT : '',
     returnTo,
   };
 };
@@ -440,6 +493,7 @@ export const useLoginController = () => {
     signInWithApple,
     signInWithX,
     signInWithDesktopBrowser,
+    reopenDesktopBrowserSignIn,
     signInWithDesktopOwnerAccess,
   } = useContext(AuthContext);
 
@@ -461,6 +515,7 @@ export const useLoginController = () => {
   const [identityMemory, setIdentityMemory] = useState(null);
   const [desktopOwnerAccessAvailable, setDesktopOwnerAccessAvailable] = useState(false);
   const [desktopBrowserSignInPending, setDesktopBrowserSignInPending] = useState(false);
+  const [desktopBrowserRequestId, setDesktopBrowserRequestId] = useState('');
   const [formData, setFormData] = useState(() => createEmptyFormData({
     email: launchPrefill.email,
     phone: launchPrefill.phone,
@@ -609,48 +664,25 @@ export const useLoginController = () => {
         throw new Error('Desktop sign-in token was not returned by the server.');
       }
 
-      // Callback URL is rebuilt from same-origin /desktop-auth/complete or fixed loopback desktop ports only.
-      let response;
-      try {
-        response = await fetch(callbackUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            requestId: desktopBrowserHandoff.requestId,
-            secret: desktopBrowserHandoff.secret,
-            customToken,
-          }),
+      if (desktopBrowserHandoff.transport === DESKTOP_AUTH_FORM_TRANSPORT) {
+        // Use a top-level loopback navigation. Public HTTPS pages can require Local Network Access
+        // permission for fetch/subresource requests, while native-app loopback redirects use navigation.
+        clearStoredDesktopBrowserHandoff(desktopBrowserHandoff.requestId);
+        submitDesktopBrowserHandoffForm({
+          callbackUrl,
+          requestId: desktopBrowserHandoff.requestId,
+          secret: desktopBrowserHandoff.secret,
+          customToken,
         });
-      } catch {
-        throw new Error(DESKTOP_AUTH_CALLBACK_UNREACHABLE_MESSAGE);
-      }
-
-      if (!response.ok) {
-        let message = 'Desktop sign-in could not be completed.';
-        try {
-          const payload = await response.json();
-          message = payload?.message || message;
-        } catch {
-          // Keep the generic message.
-        }
-        throw new Error(message);
-      }
-
-      clearStoredDesktopBrowserHandoff(desktopBrowserHandoff.requestId);
-      if (!isCancelled()) {
-        setAuthSuccess({
-          title: t('login.desktopBrowser.completeTitle', {}, 'Desktop Sign-In Complete'),
-          detail: t('login.desktopBrowser.completeDetail', {}, 'Return to Aura Marketplace Desktop. You can close this browser tab.'),
+      } else {
+        // Keep older desktop releases working while the new form transport rolls out.
+        await postLegacyDesktopBrowserHandoff({
+          callbackUrl,
+          requestId: desktopBrowserHandoff.requestId,
+          secret: desktopBrowserHandoff.secret,
+          customToken,
         });
-        window.setTimeout(() => {
-          try {
-            window.close();
-          } catch {
-            // Browsers may refuse to close tabs that were not opened by Aura Desktop.
-          }
-        }, 800);
+        clearStoredDesktopBrowserHandoff(desktopBrowserHandoff.requestId);
       }
     } catch (error) {
       desktopBrowserHandoffCompletedRef.current = '';
@@ -666,6 +698,7 @@ export const useLoginController = () => {
     desktopBrowserHandoff.callbackUrl,
     desktopBrowserHandoff.requestId,
     desktopBrowserHandoff.secret,
+    desktopBrowserHandoff.transport,
     t,
   ]);
 
@@ -1995,6 +2028,7 @@ export const useLoginController = () => {
       const result = await signInWithDesktopBrowser({
         returnTo: from,
         signal: abortController.signal,
+        onRequestStarted: ({ requestId = '' } = {}) => setDesktopBrowserRequestId(requestId),
       });
       if (result?.dbUser) {
         finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
@@ -2009,7 +2043,26 @@ export const useLoginController = () => {
         desktopBrowserAbortControllerRef.current = null;
       }
       setDesktopBrowserSignInPending(false);
+      setDesktopBrowserRequestId('');
       setIsLoading(false);
+    }
+  };
+
+  const handleReopenDesktopBrowserSignIn = async () => {
+    if (!desktopBrowserRequestId || typeof reopenDesktopBrowserSignIn !== 'function') {
+      setErr({ message: t('login.desktopBrowser.unavailable', {}, 'Desktop browser sign-in is available only in the Aura desktop app.') });
+      return;
+    }
+
+    try {
+      await reopenDesktopBrowserSignIn(desktopBrowserRequestId);
+      setAuthError(null);
+      setAuthSuccess({
+        title: t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser'),
+        detail: t('login.desktopBrowser.startedDetail', {}, 'In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.'),
+      });
+    } catch (error) {
+      setErr(error);
     }
   };
 
@@ -2123,6 +2176,7 @@ export const useLoginController = () => {
     handleDuoSignIn,
     isDuoLoginEnabled,
     handleDesktopBrowserSignIn,
+    handleReopenDesktopBrowserSignIn,
     handleCancelDesktopBrowserSignIn,
     handleDesktopOwnerAccessSignIn,
     handleSocialSignIn,

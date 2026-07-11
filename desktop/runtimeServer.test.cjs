@@ -247,7 +247,13 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
         handoffParams.get('desktopAuthCallback'),
         `http://127.0.0.1:47831${DESKTOP_AUTH_COMPLETE_PATH}`
     );
+    assert.equal(handoffParams.get('desktopAuthTransport'), 'form_post');
     assert.equal(handoffParams.get('desktopAuthReturnTo'), '/checkout?step=payment');
+    assert.deepEqual(broker.getRequest(request.requestId), {
+        requestId: request.requestId,
+        expiresAt: request.expiresAt,
+        url: request.url,
+    });
 
     assert.throws(() => {
         broker.completeRequest({
@@ -264,6 +270,7 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     });
 
     assert.equal(completedRequestId, request.requestId);
+    assert.equal(broker.getRequest(request.requestId), null);
     const consumed = broker.consumeResult(request.requestId);
     assert.equal(consumed.requestId, request.requestId);
     assert.equal(consumed.customToken, 'custom-token');
@@ -316,6 +323,26 @@ test('desktop auth callback completes the HTTP handoff and consumes its token on
 
         assert.equal(runtime.consumeDesktopAuthResult(request.requestId).customToken, 'integration-custom-token');
         assert.equal(runtime.consumeDesktopAuthResult(request.requestId), null);
+
+        const formRequest = runtime.createDesktopAuthRequest();
+        const formHandoff = new URLSearchParams(new URL(formRequest.url).hash.slice(1));
+        const formResponse = await fetch(formHandoff.get('desktopAuthCallback'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                Origin: origin,
+            },
+            body: new URLSearchParams({
+                requestId: formRequest.requestId,
+                secret: formHandoff.get('desktopAuthSecret'),
+                customToken: 'form-navigation-custom-token',
+            }),
+        });
+        assert.equal(formResponse.status, 200);
+        assert.match(formResponse.headers.get('content-type'), /^text\/html/);
+        assert.match(await formResponse.text(), /Aura Desktop received the secure result/);
+        assert.equal(runtime.consumeDesktopAuthResult(formRequest.requestId).customToken, 'form-navigation-custom-token');
+        assert.equal(runtime.getDesktopAuthRequest(formRequest.requestId), null);
     } finally {
         await runtime.close();
         fs.rmSync(distDir, { force: true, recursive: true });
@@ -343,7 +370,7 @@ test('desktop auth callback CORS only allows the hosted auth frontend', () => {
     }, response, allowedOrigins), false);
 });
 
-test('desktop auth callback limiter rejects excess local attempts', () => {
+test('local fallback limiter rejects excess local attempts', () => {
     const limiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 1 });
     const request = { ip: '127.0.0.1' };
     const response = {
@@ -365,4 +392,27 @@ test('desktop auth callback limiter rejects excess local attempts', () => {
 
     assert.equal(response.statusCode, 429);
     assert.match(response.body.message, /Too many desktop sign-in callback requests/);
+});
+
+test('desktop auth callback applies the recognized route rate limiter', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-rate-limit-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+    const portProbe = http.createServer();
+    await new Promise((resolve) => portProbe.listen(0, '127.0.0.1', resolve));
+    const freePort = portProbe.address().port;
+    await new Promise((resolve) => portProbe.close(resolve));
+
+    const runtime = await startRuntimeServer({ distDir, port: freePort });
+    try {
+        const responses = await Promise.all(Array.from({ length: 61 }, () => fetch(runtime.callbackUrl + DESKTOP_AUTH_COMPLETE_PATH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+        })));
+        assert.equal(responses.filter((response) => response.status === 429).length, 1);
+        assert.match(await responses.find((response) => response.status === 429).text(), /Too many desktop sign-in callback requests/);
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
 });

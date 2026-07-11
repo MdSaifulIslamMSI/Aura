@@ -31,6 +31,7 @@ const LoginView = ({
   handleDuoSignIn,
   isDuoLoginEnabled,
   handleDesktopBrowserSignIn,
+  handleReopenDesktopBrowserSignIn,
   handleCancelDesktopBrowserSignIn,
   handleDesktopOwnerAccessSignIn,
   handleSocialSignIn,
@@ -465,20 +466,24 @@ const LoginView = ({
               )}
 
               <button
-                type="submit"
-                disabled={isLoading || emergencyActionDisabled}
+                type={desktopBrowserSignInPending ? 'button' : 'submit'}
+                onClick={desktopBrowserSignInPending ? handleReopenDesktopBrowserSignIn : undefined}
+                disabled={desktopBrowserSignInPending ? emergencyActionDisabled : (isLoading || emergencyActionDisabled)}
                 className={cn(
                   'w-full btn-primary py-4 sm:py-5 mt-2 text-sm sm:text-base tracking-[0.2em] relative overflow-hidden group/submit shadow-[0_0_20px_rgba(6,182,212,0.3)]',
-                  isLoading && 'opacity-70 cursor-wait',
+                  isLoading && !desktopBrowserSignInPending && 'opacity-70 cursor-wait',
                   emergencyActionDisabled && 'cursor-not-allowed opacity-60'
                 )}
               >
-                {isLoading ? (
+                {desktopBrowserSignInPending ? (
+                  <span className="flex items-center justify-center gap-3 relative z-10 text-white">
+                    <ExternalLink className="w-5 h-5" aria-hidden="true" />
+                    {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
+                  </span>
+                ) : isLoading ? (
                   <span className="flex items-center justify-center gap-3 relative z-10 text-white">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    {desktopBrowserSignInPending
-                      ? t('login.desktopBrowser.waiting', {}, 'WAITING FOR BROWSER...')
-                      : t('login.processing', {}, 'PROCESSING...')}
+                    {t('login.processing', {}, 'PROCESSING...')}
                   </span>
                 ) : (
                   <span className="relative z-10 flex items-center justify-center gap-2">
@@ -490,6 +495,15 @@ const LoginView = ({
                 )}
                 <div className="absolute inset-0 bg-gradient-to-r from-neo-cyan to-neo-fuchsia opacity-0 group-hover/submit:opacity-40 transition-opacity duration-300 pointer-events-none" />
               </button>
+              {desktopBrowserSignInPending && (
+                <button
+                  type="button"
+                  onClick={handleCancelDesktopBrowserSignIn}
+                  className="w-full py-3 rounded-2xl border border-rose-300/25 bg-rose-300/10 hover:bg-rose-300/15 text-rose-100 font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300"
+                >
+                  {t('login.desktopBrowser.cancel', {}, 'Cancel Browser Sign-In')}
+                </button>
+              )}
             </form>
 
             {step === 'form' && mode !== 'forgot-password' && (
@@ -499,8 +513,7 @@ const LoginView = ({
                   <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-500">{t('login.or', {}, 'or')}</span>
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                 </div>
-                {canUseDesktopBrowserSignIn && (
-                  <>
+                {canUseDesktopBrowserSignIn && !desktopBrowserSignInPending && (
                     <button
                       type="button"
                       onClick={handleDesktopBrowserSignIn}
@@ -508,20 +521,8 @@ const LoginView = ({
                       className="mb-3 w-full py-3 rounded-2xl border border-neo-cyan/25 bg-neo-cyan/10 hover:bg-neo-cyan/15 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-neo-cyan/45"
                     >
                       <ExternalLink className="h-4 w-4 text-neo-cyan" aria-hidden="true" />
-                      {desktopBrowserSignInPending
-                        ? t('login.desktopBrowser.waitingShort', {}, 'Waiting for Browser')
-                        : t('login.desktopBrowser.button', {}, 'Continue in Browser')}
+                      {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
                     </button>
-                    {desktopBrowserSignInPending && (
-                      <button
-                        type="button"
-                        onClick={handleCancelDesktopBrowserSignIn}
-                        className="mb-3 w-full py-3 rounded-2xl border border-rose-300/25 bg-rose-300/10 hover:bg-rose-300/15 text-rose-100 font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300"
-                      >
-                        {t('login.desktopBrowser.cancel', {}, 'Cancel Browser Sign-In')}
-                      </button>
-                    )}
-                  </>
                 )}
                 {canUseDesktopOwnerAccessSignIn && (
                   <button

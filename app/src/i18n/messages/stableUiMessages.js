@@ -8778,16 +8778,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Cancel Browser Sign-In",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.desktopBrowser.completeDetail": {
-        id: "login.desktopBrowser.completeDetail",
-        defaultMessage: "Return to Aura Marketplace Desktop. You can close this browser tab.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.desktopBrowser.completeTitle": {
-        id: "login.desktopBrowser.completeTitle",
-        defaultMessage: "Desktop Sign-In Complete",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "login.desktopBrowser.completingDetail": {
         id: "login.desktopBrowser.completingDetail",
         defaultMessage: "Aura is securely returning this browser sign-in to the desktop app.",
@@ -8816,16 +8806,6 @@ export const stableUiMessages = defineMessages({
     "login.desktopBrowser.unavailable": {
         id: "login.desktopBrowser.unavailable",
         defaultMessage: "Desktop browser sign-in is available only in the Aura desktop app.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.desktopBrowser.waiting": {
-        id: "login.desktopBrowser.waiting",
-        defaultMessage: "WAITING FOR BROWSER...",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.desktopBrowser.waitingShort": {
-        id: "login.desktopBrowser.waitingShort",
-        defaultMessage: "Waiting for Browser",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.desktopOwnerAccess.button": {
