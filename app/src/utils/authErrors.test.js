@@ -15,9 +15,9 @@ describe('resolveAuthError', () => {
             message: 'Firebase: Error (auth/error-code:-26).',
         });
 
-        expect(resolved.title).toBe('Secure Sign-In Interrupted');
-        expect(resolved.detail).toContain('session proof');
-        expect(resolved.hint).toContain('fresh browser sign-in');
+        expect(resolved.title).toBe('Secure Sign-In Needs Retry');
+        expect(resolved.detail).toContain('browser proof');
+        expect(resolved.hint).toContain('sign in again');
         expect(resolved.action).toBe('signin');
     });
 

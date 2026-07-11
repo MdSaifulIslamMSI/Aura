@@ -166,13 +166,6 @@ export const AUTH_ERRORS = {
         action: 'forgot-password',
         actionLabel: 'Reset my password'
     },
-    'auth/error-code:-26': {
-        title: 'Secure Sign-In Interrupted',
-        detail: 'Firebase could not finish issuing the session proof for this sign-in.',
-        hint: 'Close stale sign-in tabs, return to Aura Desktop, and start a fresh browser sign-in.',
-        action: 'signin',
-        actionLabel: 'Start fresh sign-in'
-    },
     'auth/user-not-found': {
         title: 'Unable to Sign In',
         detail: 'We could not verify those account details.',
@@ -2821,6 +2814,14 @@ export const resolveAuthError = (rawError, t) => {
         ?? ''
     );
     const errorStr = String(primaryErrorValue).toLowerCase();
+
+    if (rawError?.code === 'auth/error-code:-26') {
+        return localizeStaticAuthError(
+            'dpop verification failed',
+            AUTH_ERRORS['dpop verification failed'],
+            t
+        );
+    }
 
     if (rawError?.code === 'auth/social-invalid-credential') {
         return buildSocialInvalidCredentialError(rawError, t);
