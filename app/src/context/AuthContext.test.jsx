@@ -793,6 +793,62 @@ describe('AuthProvider', () => {
     }
   });
 
+  it('cancels an abandoned desktop browser request without creating a Firebase session', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+
+    const cancelBrowserSignIn = vi.fn().mockResolvedValue({ success: true });
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn,
+      consumeBrowserSignIn: vi.fn().mockResolvedValue({
+        success: false,
+        message: 'Desktop browser sign-in is not ready or has expired.',
+      }),
+      onBrowserSignInStatus: vi.fn(() => () => {}),
+      startBrowserSignIn: vi.fn().mockResolvedValue({
+        requestId: 'desktop-browser-cancel-1',
+        expiresAt: Date.now() + 10 * 60_000,
+      }),
+    };
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (startedRef.current) return undefined;
+        startedRef.current = true;
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), 10);
+        signInWithDesktopBrowser({ signal: controller.signal })
+          .then(() => setResult('unexpected-success'))
+          .catch((error) => setResult(`${error.code}:${error.message}`));
+        return () => window.clearTimeout(timer);
+      }, [signInWithDesktopBrowser]);
+
+      return <div data-testid="desktop-browser-cancel-result">{result}</div>;
+    };
+
+    try {
+      render(
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-cancel-result'))
+          .toHaveTextContent('auth/desktop-browser-sign-in-cancelled');
+      });
+
+      expect(cancelBrowserSignIn).toHaveBeenCalledWith('desktop-browser-cancel-1');
+      expect(mocks.signInWithCustomTokenMock).not.toHaveBeenCalled();
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
   it('prevents popup X sign-in from being cancelled by an auth-state refresh race', async () => {
     let authStateCallback = null;
 

@@ -222,6 +222,27 @@ export const AUTH_ERRORS = {
         action: null,
         actionLabel: null
     },
+    'auth/desktop-browser-sign-in-cancelled': {
+        title: 'Sign-In Cancelled',
+        detail: 'Aura stopped waiting for the browser and invalidated the local sign-in request.',
+        hint: 'Click "Continue in Browser" whenever you are ready to start a fresh request.',
+        action: null,
+        actionLabel: null
+    },
+    'hosted desktop sign-in is out of date': {
+        title: 'Authentication Misconfigured',
+        detail: 'Aura Desktop and the hosted browser login are not using the same sign-in protocol.',
+        hint: 'Update the hosted Aura login before retrying. No browser request was opened.',
+        action: null,
+        actionLabel: null
+    },
+    'aura could not verify the hosted browser sign-in service': {
+        title: 'Connection Problem',
+        detail: 'Aura could not verify that the hosted browser login is compatible with this desktop release.',
+        hint: 'Check your connection and try again. Owner Access remains available on configured desktop installs.',
+        action: null,
+        actionLabel: null
+    },
     'auth/account-exists-with-different-credential': {
         title: 'Account Already Exists',
         detail: 'This email is already linked to a different sign-in method.',

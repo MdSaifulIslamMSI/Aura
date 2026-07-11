@@ -81,7 +81,7 @@ export const useAuth = () => {
 
 const AUTH_SYNC_DEDUPE_MS = 5 * 1000;  // Reduced from 30s for faster security updates
 const BOOTSTRAP_TIMEOUT_MS = 6000;
-const DESKTOP_BROWSER_SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
+const DESKTOP_BROWSER_SIGN_IN_TIMEOUT_MS = 10 * 60 * 1000;
 const REDIRECT_AUTH_PENDING_KEY = 'aura-social-auth-redirect-pending';
 const REDIRECT_AUTH_PENDING_TTL_MS = 5 * 60 * 1000;
 const authContextIntlCache = createIntlCache();
@@ -829,7 +829,7 @@ export const AuthProvider = ({ children }) => {
       : null
   );
 
-  const waitForDesktopBrowserCustomToken = async (desktop, request) => new Promise((resolve, reject) => {
+  const waitForDesktopBrowserCustomToken = async (desktop, request, { signal } = {}) => new Promise((resolve, reject) => {
     let settled = false;
     const cleanupHandlers = [];
 
@@ -860,6 +860,19 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
+    const cancelFromSignal = () => {
+      const error = new Error('Desktop browser sign-in was cancelled.');
+      error.code = 'auth/desktop-browser-sign-in-cancelled';
+      settle(reject, error);
+    };
+
+    if (signal?.aborted) {
+      cancelFromSignal();
+      return;
+    }
+    signal?.addEventListener('abort', cancelFromSignal, { once: true });
+    cleanupHandlers.push(() => signal?.removeEventListener('abort', cancelFromSignal));
+
     const timeout = window.setTimeout(() => {
       settle(reject, new Error('Desktop browser sign-in expired. Start a fresh sign-in and try again.'));
     }, Math.max(
@@ -887,7 +900,7 @@ export const AuthProvider = ({ children }) => {
     void consumeCompletedToken();
   });
 
-  const signInWithDesktopBrowser = async ({ returnTo = '/' } = {}) => {
+  const signInWithDesktopBrowser = async ({ returnTo = '/', signal } = {}) => {
     assertFirebaseReady('Desktop browser sign-in');
     const desktop = getDesktopBridge();
 
@@ -910,7 +923,7 @@ export const AuthProvider = ({ children }) => {
             path: '/desktop-login',
             returnTo,
           });
-          const customToken = await waitForDesktopBrowserCustomToken(desktop, request);
+          const customToken = await waitForDesktopBrowserCustomToken(desktop, request, { signal });
           return signInWithCustomToken(auth, customToken);
         },
         finalize: async (_result, firebaseUser) => resolveOAuthUser(firebaseUser, {

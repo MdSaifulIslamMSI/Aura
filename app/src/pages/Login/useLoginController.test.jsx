@@ -120,6 +120,24 @@ const DesktopBrowserSignInProbe = () => {
   );
 };
 
+const DesktopBrowserCancelProbe = () => {
+  const {
+    authError,
+    desktopBrowserSignInPending,
+    handleCancelDesktopBrowserSignIn,
+    handleDesktopBrowserSignIn,
+  } = useLoginController();
+
+  return (
+    <>
+      <button type="button" onClick={handleDesktopBrowserSignIn}>Start browser</button>
+      <button type="button" onClick={handleCancelDesktopBrowserSignIn}>Cancel browser</button>
+      <div data-testid="desktop-browser-pending">{String(desktopBrowserSignInPending)}</div>
+      <div data-testid="desktop-browser-cancel-title">{authError?.title || 'none'}</div>
+    </>
+  );
+};
+
 const DesktopOwnerAccessFailureProbe = () => {
   const {
     authError,
@@ -694,8 +712,66 @@ describe('useLoginController', () => {
       expect(screen.getByTestId('desktop-owner-access-result')).toHaveTextContent('completed');
     });
 
-    expect(signInWithDesktopBrowser).toHaveBeenCalledWith({ returnTo: '/' });
+    expect(signInWithDesktopBrowser).toHaveBeenCalledWith(expect.objectContaining({
+      returnTo: '/',
+      signal: expect.any(AbortSignal),
+    }));
     expect(signInWithDesktopOwnerAccess).toHaveBeenCalled();
+  });
+
+  it('exposes a cancel action while desktop browser sign-in is waiting', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: true,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+      runtimeElectronDesktop: true,
+    });
+
+    const signInWithDesktopBrowser = vi.fn(({ signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => {
+        reject(Object.assign(new Error('Desktop browser sign-in was cancelled.'), {
+          code: 'auth/desktop-browser-sign-in-cancelled',
+        }));
+      }, { once: true });
+    }));
+    window.auraDesktop = {
+      isDesktop: true,
+      getAppInfo: vi.fn().mockResolvedValue({ ownerAccessSignInAvailable: true }),
+    };
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({ signInWithDesktopBrowser })}>
+            <MemoryRouter initialEntries={['/login']}>
+              <Routes>
+                <Route path="/login" element={<DesktopBrowserCancelProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Start browser' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-pending')).toHaveTextContent('true');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel browser' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-pending')).toHaveTextContent('false');
+        expect(screen.getByTestId('desktop-browser-cancel-title'))
+          .toHaveTextContent('Sign-In Cancelled');
+      });
+    } finally {
+      delete window.auraDesktop;
+    }
   });
 
   it('preserves native desktop owner errors and clears the stale verifying state', async () => {

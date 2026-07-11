@@ -16,6 +16,7 @@ const LoginView = ({
   canUseDesktopOwnerAccessSignIn,
   canUseFirebasePhoneOtp,
   countdown,
+  desktopBrowserSignInPending,
   firebasePhoneFallback,
   formData,
   goBack,
@@ -30,6 +31,7 @@ const LoginView = ({
   handleDuoSignIn,
   isDuoLoginEnabled,
   handleDesktopBrowserSignIn,
+  handleCancelDesktopBrowserSignIn,
   handleDesktopOwnerAccessSignIn,
   handleSocialSignIn,
   handleSubmit,
@@ -474,7 +476,9 @@ const LoginView = ({
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-3 relative z-10 text-white">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    {t('login.processing', {}, 'PROCESSING...')}
+                    {desktopBrowserSignInPending
+                      ? t('login.desktopBrowser.waiting', {}, 'WAITING FOR BROWSER...')
+                      : t('login.processing', {}, 'PROCESSING...')}
                   </span>
                 ) : (
                   <span className="relative z-10 flex items-center justify-center gap-2">
@@ -496,15 +500,28 @@ const LoginView = ({
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
                 </div>
                 {canUseDesktopBrowserSignIn && (
-                  <button
-                    type="button"
-                    onClick={handleDesktopBrowserSignIn}
-                    disabled={isLoading || emergencyAuthDisabled}
-                    className="mb-3 w-full py-3 rounded-2xl border border-neo-cyan/25 bg-neo-cyan/10 hover:bg-neo-cyan/15 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-neo-cyan/45"
-                  >
-                    <ExternalLink className="h-4 w-4 text-neo-cyan" aria-hidden="true" />
-                    {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleDesktopBrowserSignIn}
+                      disabled={isLoading || emergencyAuthDisabled}
+                      className="mb-3 w-full py-3 rounded-2xl border border-neo-cyan/25 bg-neo-cyan/10 hover:bg-neo-cyan/15 text-white font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300 flex items-center justify-center gap-2 hover:border-neo-cyan/45"
+                    >
+                      <ExternalLink className="h-4 w-4 text-neo-cyan" aria-hidden="true" />
+                      {desktopBrowserSignInPending
+                        ? t('login.desktopBrowser.waitingShort', {}, 'Waiting for Browser')
+                        : t('login.desktopBrowser.button', {}, 'Continue in Browser')}
+                    </button>
+                    {desktopBrowserSignInPending && (
+                      <button
+                        type="button"
+                        onClick={handleCancelDesktopBrowserSignIn}
+                        className="mb-3 w-full py-3 rounded-2xl border border-rose-300/25 bg-rose-300/10 hover:bg-rose-300/15 text-rose-100 font-bold text-xs tracking-[0.08em] uppercase transition-all duration-300"
+                      >
+                        {t('login.desktopBrowser.cancel', {}, 'Cancel Browser Sign-In')}
+                      </button>
+                    )}
+                  </>
                 )}
                 {canUseDesktopOwnerAccessSignIn && (
                   <button
