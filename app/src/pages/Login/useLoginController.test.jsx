@@ -120,6 +120,29 @@ const DesktopBrowserSignInProbe = () => {
   );
 };
 
+const DesktopOwnerAccessFailureProbe = () => {
+  const {
+    authError,
+    authSuccess,
+    canUseDesktopOwnerAccessSignIn,
+    handleDesktopOwnerAccessSignIn,
+  } = useLoginController();
+  const startedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!canUseDesktopOwnerAccessSignIn || startedRef.current) return;
+    startedRef.current = true;
+    handleDesktopOwnerAccessSignIn();
+  }, [canUseDesktopOwnerAccessSignIn, handleDesktopOwnerAccessSignIn]);
+
+  return (
+    <>
+      <div data-testid="desktop-owner-error-detail">{authError?.detail || 'none'}</div>
+      <div data-testid="desktop-owner-success-title">{authSuccess?.title || 'none'}</div>
+    </>
+  );
+};
+
 const DuoLoginFlagProbe = () => {
   const { isDuoLoginEnabled } = useLoginController();
   return <div data-testid="duo-login-enabled">{String(isDuoLoginEnabled)}</div>;
@@ -671,6 +694,49 @@ describe('useLoginController', () => {
 
     expect(signInWithDesktopBrowser).toHaveBeenCalledWith({ returnTo: '/' });
     expect(signInWithDesktopOwnerAccess).toHaveBeenCalled();
+  });
+
+  it('preserves native desktop owner errors and clears the stale verifying state', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: true,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+      runtimeElectronDesktop: true,
+    });
+
+    const signInWithDesktopOwnerAccess = vi.fn().mockRejectedValue(
+      new Error('Desktop owner access could not be verified.')
+    );
+    window.auraDesktop = {
+      isDesktop: true,
+      getAppInfo: vi.fn().mockResolvedValue({ ownerAccessSignInAvailable: true }),
+    };
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithDesktopOwnerAccess })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<DesktopOwnerAccessFailureProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('desktop-owner-error-detail'))
+        .toHaveTextContent('Desktop owner access could not be verified.');
+      expect(screen.getByTestId('desktop-owner-success-title')).toHaveTextContent('none');
+    });
+
+    expect(signInWithDesktopOwnerAccess).toHaveBeenCalledOnce();
   });
 
   it('routes desktop social sign-in clicks through the external browser bridge', async () => {
