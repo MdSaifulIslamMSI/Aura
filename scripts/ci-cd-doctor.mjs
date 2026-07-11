@@ -195,6 +195,13 @@ addCheck(
 );
 
 addCheck(
+  'desktop release fails closed without Firebase auth configuration',
+  desktop.includes('Validate desktop Firebase auth configuration')
+    && desktop.includes('node scripts/release/validate-desktop-firebase-config.mjs'),
+  'desktop-release.yml release-preflight'
+);
+
+addCheck(
   'mobile release exposes signing-skip inputs',
   ['require_android_signing', 'require_ios_signing', 'publish_store_release'].every((needle) =>
     mobile.includes(needle)

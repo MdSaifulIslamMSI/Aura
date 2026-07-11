@@ -167,6 +167,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate desktop Firebase auth configuration
+        run: node scripts/release/validate-desktop-firebase-config.mjs
+
       - name: Check release signing and store policy
         env:
           WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}

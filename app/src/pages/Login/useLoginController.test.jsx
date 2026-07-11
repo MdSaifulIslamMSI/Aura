@@ -327,10 +327,12 @@ describe('useLoginController', () => {
       .toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(normalizeDesktopAuthCallbackUrl('http://[::1]:47831/desktop-auth/complete'))
       .toBe('http://127.0.0.1:47831/desktop-auth/complete');
+    expect(normalizeDesktopAuthCallbackUrl('http://localhost:47841/desktop-auth/complete'))
+      .toBe('http://127.0.0.1:47841/desktop-auth/complete');
     expect(normalizeDesktopAuthCallbackUrl('/desktop-auth/complete')).toBe('/desktop-auth/complete');
     expect(normalizeDesktopAuthCallbackUrl('')).toBe('');
     expect(normalizeDesktopAuthCallbackUrl('https://localhost:47831/desktop-auth/complete')).toBe('');
-    expect(normalizeDesktopAuthCallbackUrl('http://localhost:49999/desktop-auth/complete')).toBe('');
+    expect(normalizeDesktopAuthCallbackUrl('http://localhost:47842/desktop-auth/complete')).toBe('');
     expect(normalizeDesktopAuthCallbackUrl('https://evil.example.test/desktop-auth/complete')).toBe('');
   });
 
