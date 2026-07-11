@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 
@@ -686,6 +686,7 @@ describe('AuthProvider', () => {
         customToken: 'desktop-browser-custom-token',
       });
     const onBrowserSignInStatus = vi.fn(() => () => {});
+    const onRequestStarted = vi.fn();
 
     window.auraDesktop = {
       isDesktop: true,
@@ -756,7 +757,7 @@ describe('AuthProvider', () => {
       React.useEffect(() => {
         if (startedRef.current) return;
         startedRef.current = true;
-        signInWithDesktopBrowser()
+        signInWithDesktopBrowser({ onRequestStarted })
           .then((value) => setResult(value?.dbUser?.email || 'done'))
           .catch((error) => setResult(error.message));
       }, [signInWithDesktopBrowser]);
@@ -785,9 +786,55 @@ describe('AuthProvider', () => {
         path: '/desktop-login',
         returnTo: '/',
       });
+      expect(onRequestStarted).toHaveBeenCalledWith({
+        requestId: 'desktop-browser-request-1',
+        expiresAt: expect.any(Number),
+      });
       expect(onBrowserSignInStatus).toHaveBeenCalled();
       expect(consumeBrowserSignIn).toHaveBeenCalledTimes(2);
       expect(mocks.signInWithCustomTokenMock).toHaveBeenCalledWith({}, 'desktop-browser-custom-token');
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it('reopens the exact pending desktop browser request through the native bridge', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    const reopenBrowserSignIn = vi.fn().mockResolvedValue({
+      success: true,
+      requestId: 'desktop-browser-reopen-1',
+    });
+    window.auraDesktop = {
+      isDesktop: true,
+      reopenBrowserSignIn,
+    };
+
+    const Probe = () => {
+      const { reopenDesktopBrowserSignIn } = useAuth();
+      const [result, setResult] = React.useState('idle');
+
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => reopenDesktopBrowserSignIn('desktop-browser-reopen-1')
+              .then(() => setResult('reopened'))}
+          >
+            Reopen
+          </button>
+          <div data-testid="desktop-browser-reopen-result">{result}</div>
+        </>
+      );
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      fireEvent.click(screen.getByRole('button', { name: 'Reopen' }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-reopen-result')).toHaveTextContent('reopened');
+      });
+      expect(reopenBrowserSignIn).toHaveBeenCalledWith('desktop-browser-reopen-1');
     } finally {
       delete window.auraDesktop;
     }

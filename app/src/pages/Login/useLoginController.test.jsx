@@ -126,11 +126,13 @@ const DesktopBrowserCancelProbe = () => {
     desktopBrowserSignInPending,
     handleCancelDesktopBrowserSignIn,
     handleDesktopBrowserSignIn,
+    handleReopenDesktopBrowserSignIn,
   } = useLoginController();
 
   return (
     <>
       <button type="button" onClick={handleDesktopBrowserSignIn}>Start browser</button>
+      <button type="button" onClick={handleReopenDesktopBrowserSignIn}>Reopen browser</button>
       <button type="button" onClick={handleCancelDesktopBrowserSignIn}>Cancel browser</button>
       <div data-testid="desktop-browser-pending">{String(desktopBrowserSignInPending)}</div>
       <div data-testid="desktop-browser-cancel-title">{authError?.title || 'none'}</div>
@@ -297,6 +299,7 @@ const buildAuthValue = (overrides = {}) => ({
   signInWithApple: vi.fn(),
   signInWithX: vi.fn(),
   signInWithDesktopBrowser: vi.fn(),
+  reopenDesktopBrowserSignIn: vi.fn(),
   signInWithDesktopOwnerAccess: vi.fn(),
   signup: vi.fn(),
   syncUserWithBackend: vi.fn(),
@@ -357,12 +360,13 @@ describe('useLoginController', () => {
   it('parses a desktop browser handoff with capabilities in the URL fragment', () => {
     const handoff = resolveDesktopBrowserHandoff(
       '?desktopAuthRequest=req-1',
-      '#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout'
+      '#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post&desktopAuthReturnTo=%2Fcheckout'
     );
 
     expect(handoff.active).toBe(true);
     expect(handoff.callbackUrl).toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(handoff.returnTo).toBe('/checkout');
+    expect(handoff.transport).toBe('form_post');
   });
 
   it('keeps accepting legacy query handoffs during desktop client rollout', () => {
@@ -372,6 +376,7 @@ describe('useLoginController', () => {
 
     expect(handoff.active).toBe(true);
     expect(handoff.callbackUrl).toBe('http://127.0.0.1:47831/desktop-auth/complete');
+    expect(handoff.transport).toBe('');
   });
 
   it('stores and removes inline desktop capabilities from the visible route', async () => {
@@ -379,7 +384,7 @@ describe('useLoginController', () => {
       currentUser: null,
       isAuthenticated: false,
       loading: false,
-    }, '/login?desktopAuthRequest=req-scrub#desktopAuthSecret=secret-scrub&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout');
+    }, '/login?desktopAuthRequest=req-scrub#desktopAuthSecret=secret-scrub&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post&desktopAuthReturnTo=%2Fcheckout');
 
     await waitFor(() => {
       expect(screen.getByTestId('location-probe')).toHaveTextContent('"search":"?desktopAuthRequest=req-scrub"');
@@ -393,6 +398,7 @@ describe('useLoginController', () => {
       requestId: 'req-scrub',
       returnTo: '/checkout',
       secret: 'secret-scrub',
+      transport: 'form_post',
     });
   });
 
@@ -719,7 +725,7 @@ describe('useLoginController', () => {
     expect(signInWithDesktopOwnerAccess).toHaveBeenCalled();
   });
 
-  it('exposes a cancel action while desktop browser sign-in is waiting', async () => {
+  it('exposes reopen and cancel actions while desktop browser sign-in is waiting', async () => {
     getFirebaseSocialAuthStatusMock.mockReturnValue({
       ready: true,
       supported: true,
@@ -733,13 +739,15 @@ describe('useLoginController', () => {
       runtimeElectronDesktop: true,
     });
 
-    const signInWithDesktopBrowser = vi.fn(({ signal }) => new Promise((_resolve, reject) => {
+    const signInWithDesktopBrowser = vi.fn(({ signal, onRequestStarted }) => new Promise((_resolve, reject) => {
+      onRequestStarted({ requestId: 'desktop-browser-reopen-1', expiresAt: Date.now() + 60_000 });
       signal.addEventListener('abort', () => {
         reject(Object.assign(new Error('Desktop browser sign-in was cancelled.'), {
           code: 'auth/desktop-browser-sign-in-cancelled',
         }));
       }, { once: true });
     }));
+    const reopenDesktopBrowserSignIn = vi.fn().mockResolvedValue({ success: true });
     window.auraDesktop = {
       isDesktop: true,
       getAppInfo: vi.fn().mockResolvedValue({ ownerAccessSignInAvailable: true }),
@@ -748,7 +756,10 @@ describe('useLoginController', () => {
     try {
       render(
         <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-          <AuthContext.Provider value={buildAuthValue({ signInWithDesktopBrowser })}>
+          <AuthContext.Provider value={buildAuthValue({
+            reopenDesktopBrowserSignIn,
+            signInWithDesktopBrowser,
+          })}>
             <MemoryRouter initialEntries={['/login']}>
               <Routes>
                 <Route path="/login" element={<DesktopBrowserCancelProbe />} />
@@ -761,6 +772,11 @@ describe('useLoginController', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Start browser' }));
       await waitFor(() => {
         expect(screen.getByTestId('desktop-browser-pending')).toHaveTextContent('true');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Reopen browser' }));
+      await waitFor(() => {
+        expect(reopenDesktopBrowserSignIn).toHaveBeenCalledWith('desktop-browser-reopen-1');
       });
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel browser' }));
@@ -883,7 +899,7 @@ describe('useLoginController', () => {
       redirecting: true,
       url: '/api/auth/duo/start',
     });
-    const desktopLoginUrl = '/desktop-login?desktopAuthRequest=req-1#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout';
+    const desktopLoginUrl = '/desktop-login?desktopAuthRequest=req-1#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post&desktopAuthReturnTo=%2Fcheckout';
 
     render(
       <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
@@ -915,6 +931,7 @@ describe('useLoginController', () => {
     expect(restored.secret).toBe('secret-1');
     expect(restored.callbackUrl).toBe('http://127.0.0.1:47831/desktop-auth/complete');
     expect(restored.returnTo).toBe('/checkout');
+    expect(restored.transport).toBe('form_post');
 
     startDuoLogin.mockRestore();
   });
@@ -1269,20 +1286,13 @@ describe('useLoginController', () => {
     }
   });
 
-  it('finishes a Duo desktop handoff from the backend session callback', async () => {
+  it('finishes a Duo desktop handoff with a top-level form navigation to loopback', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174000';
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
       success: true,
       customToken: 'duo-desktop-custom-token',
     });
-    const previousFetch = global.fetch;
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
-    vi.stubGlobal('fetch', fetchMock);
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
 
     try {
       render(
@@ -1292,7 +1302,7 @@ describe('useLoginController', () => {
             isAuthenticated: false,
             loading: false,
           })}>
-            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&duo=success#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthReturnTo=%2Fcheckout`]}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&duo=success#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post&desktopAuthReturnTo=%2Fcheckout`]}>
               <Routes>
                 <Route path="/desktop-login" element={<LoginControllerProbe />} />
               </Routes>
@@ -1306,16 +1316,64 @@ describe('useLoginController', () => {
           firebaseUser: null,
           requestId,
         });
-        expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:47831/desktop-auth/complete', expect.objectContaining({
-          method: 'POST',
-        }));
+        expect(submitSpy).toHaveBeenCalledTimes(1);
       });
 
-      const [, requestOptions] = fetchMock.mock.calls[0];
-      expect(JSON.parse(requestOptions.body)).toEqual({
+      const form = document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/complete"]');
+      expect(form).not.toBeNull();
+      expect(form.method).toBe('post');
+      expect(Object.fromEntries(new FormData(form).entries())).toEqual({
         requestId,
         secret: 'secret-1',
         customToken: 'duo-desktop-custom-token',
+      });
+    } finally {
+      createToken.mockRestore();
+      submitSpy.mockRestore();
+      document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/complete"]')?.remove();
+    }
+  });
+
+  it('keeps JSON callback completion for desktop releases without the form capability', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174001';
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
+      success: true,
+      customToken: 'legacy-desktop-custom-token',
+    });
+    const previousFetch = global.fetch;
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser: null,
+            isAuthenticated: false,
+            loading: false,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&duo=success#desktopAuthSecret=secret-legacy&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<LoginControllerProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          'http://127.0.0.1:47831/desktop-auth/complete',
+          expect.objectContaining({ method: 'POST' })
+        );
+      });
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+        requestId,
+        secret: 'secret-legacy',
+        customToken: 'legacy-desktop-custom-token',
       });
     } finally {
       createToken.mockRestore();

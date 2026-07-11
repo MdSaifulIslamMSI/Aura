@@ -98,6 +98,24 @@ ipcMain.handle('desktop:auth:consume-browser-sign-in', (_event, requestId = '') 
     };
 });
 
+ipcMain.handle('desktop:auth:reopen-browser-sign-in', async (_event, requestId = '') => {
+    if (!runtime?.getDesktopAuthRequest) {
+        throw new Error('Desktop auth runtime is not ready yet.');
+    }
+
+    const request = runtime.getDesktopAuthRequest(requestId);
+    if (!request?.url) {
+        throw new Error('Desktop browser sign-in is expired or no longer pending.');
+    }
+
+    await shell.openExternal(request.url);
+    return {
+        success: true,
+        requestId: request.requestId,
+        expiresAt: request.expiresAt,
+    };
+});
+
 ipcMain.handle('desktop:auth:cancel-browser-sign-in', (_event, requestId = '') => {
     if (!runtime?.cancelDesktopAuthRequest) {
         return { success: false };
@@ -360,7 +378,12 @@ const createMainWindow = async () => {
     if (!runtime) {
         const runtimeOptions = {
             distDir: resolveDistDir(),
-            onDesktopAuthComplete: (payload) => sendDesktopAuthStatus('completed', payload),
+            onDesktopAuthComplete: (payload) => {
+                sendDesktopAuthStatus('completed', payload);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    revealWindow(mainWindow);
+                }
+            },
         };
         const requestedPort = resolveRequestedRuntimePort();
         if (requestedPort) {

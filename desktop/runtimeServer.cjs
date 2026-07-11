@@ -19,11 +19,28 @@ const BROWSER_ONLY_PROXY_HEADERS = ['origin', 'referer'];
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
 const DESKTOP_AUTH_FRONTEND_PATH = '/desktop-login';
 const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
+const DESKTOP_AUTH_TRANSPORT_PARAM = 'desktopAuthTransport';
+const DESKTOP_AUTH_FORM_TRANSPORT = 'form_post';
 const DESKTOP_AUTH_PROTOCOL_META_NAME = 'aura-desktop-auth-protocol';
 const DESKTOP_AUTH_PROTOCOL_VERSION = '2';
 const DESKTOP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const DESKTOP_AUTH_RESULT_TTL_MS = 60 * 1000;
 const DESKTOP_AUTH_TOKEN_MAX_LENGTH = 8192;
+const DESKTOP_AUTH_COMPLETE_HTML = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Aura Desktop Sign-In Complete</title>
+  <style>
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#050b18;color:#f8fafc;font:16px/1.5 system-ui,sans-serif}
+    main{max-width:34rem;margin:2rem;padding:2rem;border:1px solid #155e75;border-radius:1.25rem;background:#081426;text-align:center}
+    h1{margin:0 0 .75rem;color:#67e8f9;font-size:1.5rem}p{margin:.5rem 0;color:#cbd5e1}
+  </style>
+</head>
+<body><main><h1>Sign-in received</h1><p>Aura Desktop received the secure result.</p><p>Return to the desktop app. You can close this tab.</p></main></body>
+</html>`;
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 
@@ -219,6 +236,7 @@ const buildDesktopAuthUrl = ({
     const handoffParams = new URLSearchParams();
     handoffParams.set('desktopAuthSecret', secret);
     handoffParams.set(DESKTOP_AUTH_CALLBACK_PARAM, `${trimTrailingSlash(trustedCallbackUrl)}${DESKTOP_AUTH_COMPLETE_PATH}`);
+    handoffParams.set(DESKTOP_AUTH_TRANSPORT_PARAM, DESKTOP_AUTH_FORM_TRANSPORT);
     if (isSafeRelativePath(returnTo)) {
         handoffParams.set('desktopAuthReturnTo', returnTo);
     }
@@ -316,25 +334,42 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
         const requestId = crypto.randomUUID();
         const secret = createDesktopAuthSecret();
         const expiresAt = now() + DESKTOP_AUTH_REQUEST_TTL_MS;
+        const url = buildDesktopAuthUrl({
+            runtimeUrl,
+            callbackUrl,
+            authFrontendOrigin,
+            path: requestPath,
+            requestId,
+            secret,
+            returnTo,
+        });
         const request = {
             requestId,
             secret,
             expiresAt,
+            url,
         };
         pendingRequests.set(requestId, request);
 
         return {
             requestId,
             expiresAt,
-            url: buildDesktopAuthUrl({
-                runtimeUrl,
-                callbackUrl,
-                authFrontendOrigin,
-                path: requestPath,
-                requestId,
-                secret,
-                returnTo,
-            }),
+            url,
+        };
+    };
+
+    const getRequest = (requestId = '') => {
+        pruneExpired();
+        const normalizedRequestId = normalizeDesktopAuthString(requestId);
+        const request = pendingRequests.get(normalizedRequestId);
+        if (!request) {
+            return null;
+        }
+
+        return {
+            requestId: request.requestId,
+            expiresAt: request.expiresAt,
+            url: request.url,
         };
     };
 
@@ -409,6 +444,7 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
         completeRequest,
         consumeResult,
         createRequest,
+        getRequest,
         pruneExpired,
     };
 };
@@ -475,7 +511,12 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
         }
         response.status(204).end();
     });
-    app.post(DESKTOP_AUTH_COMPLETE_PATH, desktopAuthCompleteLimiter, express.json({ limit: '16kb' }), (request, response) => {
+    app.post(
+        DESKTOP_AUTH_COMPLETE_PATH,
+        desktopAuthCompleteLimiter,
+        express.json({ limit: '16kb' }),
+        express.urlencoded({ extended: false, limit: '16kb' }),
+        (request, response) => {
         const hasOrigin = Boolean(String(request.headers.origin || '').trim());
         if (hasOrigin && !applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
             response.status(403).json({
@@ -487,6 +528,10 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
 
         try {
             const result = desktopAuthBroker.completeRequest(request.body || {});
+            if (request.is('application/x-www-form-urlencoded')) {
+                response.status(200).type('html').send(DESKTOP_AUTH_COMPLETE_HTML);
+                return;
+            }
             response.json({
                 success: true,
                 requestId: result.requestId,
@@ -554,6 +599,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
             callbackUrl: runtimeCallbackUrl,
             runtimeUrl,
         }),
+        getDesktopAuthRequest: desktopAuthBroker.getRequest,
         createDesktopOwnerAccessSignIn: () => createDesktopOwnerAccessSignIn({ backendOrigin }),
         fetchPublicCatalog: createPublicCatalogFetch({ backendOrigin }),
         desktopAuthFrontendOrigin,
