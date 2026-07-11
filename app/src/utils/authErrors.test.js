@@ -9,6 +9,18 @@ describe('resolveAuthError', () => {
         expect(resolved.detail).toBe('Email or password is incorrect.');
     });
 
+    it('does not expose Firebase numeric token errors as raw implementation text', () => {
+        const resolved = resolveAuthError({
+            code: 'auth/error-code:-26',
+            message: 'Firebase: Error (auth/error-code:-26).',
+        });
+
+        expect(resolved.title).toBe('Secure Sign-In Needs Retry');
+        expect(resolved.detail).toContain('browser proof');
+        expect(resolved.hint).toContain('sign in again');
+        expect(resolved.action).toBe('signin');
+    });
+
     it('maps traffic budget auth throttles to recoverable rate-limit guidance', () => {
         const resolved = resolveAuthError({
             status: 429,

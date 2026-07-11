@@ -11,7 +11,11 @@ export const verifyCredentialsWithoutSession = async (email, password) => {
 
   try {
     const credential = await signInWithEmailAndPassword(tempAuth, email, password);
-    const credentialProofToken = await credential.user.getIdToken(true);
+    // Password sign-in already returns a fresh ID token. Forcing an immediate
+    // refresh adds a second Secure Token request that can fail after the
+    // credential itself was accepted, leaving the login flow in a false error
+    // state before either OTP is sent.
+    const credentialProofToken = await credential.user.getIdToken();
     return {
       credentialProofToken,
       uid: credential.user.uid,

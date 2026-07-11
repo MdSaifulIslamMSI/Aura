@@ -2815,6 +2815,14 @@ export const resolveAuthError = (rawError, t) => {
     );
     const errorStr = String(primaryErrorValue).toLowerCase();
 
+    if (rawError?.code === 'auth/error-code:-26') {
+        return localizeStaticAuthError(
+            'dpop verification failed',
+            AUTH_ERRORS['dpop verification failed'],
+            t
+        );
+    }
+
     if (rawError?.code === 'auth/social-invalid-credential') {
         return buildSocialInvalidCredentialError(rawError, t);
     }
