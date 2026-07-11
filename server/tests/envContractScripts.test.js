@@ -823,6 +823,16 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('macOS signing requires release_mode=full.');
     });
 
+    test('desktop release builds Windows artifacts outside Git Bash path conversion', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'desktop-release.yml'), 'utf8');
+        const windowsBuild = workflow.match(/- name: Build Windows desktop artifacts[\s\S]*?(?=\n\s+- name:)/);
+
+        expect(windowsBuild).toBeTruthy();
+        expect(windowsBuild[0]).toContain("if: matrix.platform == 'windows'");
+        expect(windowsBuild[0]).toContain('shell: pwsh');
+        expect(windowsBuild[0]).not.toContain('shell: bash');
+    });
+
     test('manual production command center stays within GitHub workflow_dispatch input limit', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
         const inputsBlock = workflow.match(/workflow_dispatch:\s*\r?\n\s*inputs:\s*\r?\n([\s\S]*?)\r?\npermissions:/);

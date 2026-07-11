@@ -129,4 +129,19 @@ describe('runtimeApiConfig', () => {
 
     expect(resolveApiBaseUrl('/api')).toBe('/api');
   });
+
+  it('rejects a Windows filesystem path injected into the API URL', () => {
+    vi.stubEnv('VITE_API_URL', 'C:/Program Files/Git/api');
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        origin: 'http://localhost:47831',
+        host: 'localhost:47831',
+        hostname: 'localhost',
+      },
+    });
+
+    expect(resolveApiBaseUrl('/api')).toBe('/api');
+    expect(resolveServiceOrigin('/api')).toBe('http://localhost:47831');
+  });
 });
