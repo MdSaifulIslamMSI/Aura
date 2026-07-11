@@ -478,7 +478,7 @@ const LoginView = ({
                 {desktopBrowserSignInPending ? (
                   <span className="flex items-center justify-center gap-3 relative z-10 text-white">
                     <ExternalLink className="w-5 h-5" aria-hidden="true" />
-                    {t('login.desktopBrowser.button', {}, 'CONTINUE IN BROWSER')}
+                    {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
                   </span>
                 ) : isLoading ? (
                   <span className="flex items-center justify-center gap-3 relative z-10 text-white">

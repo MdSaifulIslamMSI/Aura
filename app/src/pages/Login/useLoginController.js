@@ -2059,7 +2059,7 @@ export const useLoginController = () => {
       setAuthError(null);
       setAuthSuccess({
         title: t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser'),
-        detail: t('login.desktopBrowser.startedDetail', {}, 'Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.'),
+        detail: t('login.desktopBrowser.startedDetail', {}, 'In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.'),
       });
     } catch (error) {
       setErr(error);
