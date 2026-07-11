@@ -370,7 +370,7 @@ test('desktop auth callback CORS only allows the hosted auth frontend', () => {
     }, response, allowedOrigins), false);
 });
 
-test('desktop auth callback limiter rejects excess local attempts', () => {
+test('local fallback limiter rejects excess local attempts', () => {
     const limiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 1 });
     const request = { ip: '127.0.0.1' };
     const response = {
@@ -392,4 +392,27 @@ test('desktop auth callback limiter rejects excess local attempts', () => {
 
     assert.equal(response.statusCode, 429);
     assert.match(response.body.message, /Too many desktop sign-in callback requests/);
+});
+
+test('desktop auth callback applies the recognized route rate limiter', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-rate-limit-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+    const portProbe = http.createServer();
+    await new Promise((resolve) => portProbe.listen(0, '127.0.0.1', resolve));
+    const freePort = portProbe.address().port;
+    await new Promise((resolve) => portProbe.close(resolve));
+
+    const runtime = await startRuntimeServer({ distDir, port: freePort });
+    try {
+        const responses = await Promise.all(Array.from({ length: 61 }, () => fetch(runtime.callbackUrl + DESKTOP_AUTH_COMPLETE_PATH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+        })));
+        assert.equal(responses.filter((response) => response.status === 429).length, 1);
+        assert.match(await responses.find((response) => response.status === 429).text(), /Too many desktop sign-in callback requests/);
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
 });

@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const http = require('http');
 const path = require('path');
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { createDesktopOwnerAccessSignIn } = require('./ownerAccessAuth.cjs');
 const { createPublicCatalogFetch } = require('./publicCatalogBridge.cjs');
@@ -492,7 +493,16 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     const app = express();
     const server = http.createServer(app);
     const desktopAuthBroker = createDesktopAuthBroker({ onComplete: onDesktopAuthComplete });
-    const desktopAuthCompleteLimiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 60 });
+    const desktopAuthCompleteLimiter = rateLimit({
+        windowMs: 60 * 1000,
+        limit: 60,
+        standardHeaders: false,
+        legacyHeaders: false,
+        handler: (_request, response) => response.status(429).json({
+            success: false,
+            message: 'Too many desktop sign-in callback requests. Please try again shortly.',
+        }),
+    });
     const frontendFallbackLimiter = createLocalRateLimiter({ windowMs: 60 * 1000, max: 600 });
 
     const socketProxy = createProxyMiddleware(buildProxyOptions(backendOrigin));
