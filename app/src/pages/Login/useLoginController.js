@@ -351,6 +351,9 @@ const normalizeSocialAuthError = (error, providerLabel = 'Social', socialAuthSta
   const normalizedMessage = errorMessage.toLowerCase();
   const normalizedError = {
     ...error,
+    ...(errorCode ? { code: errorCode } : {}),
+    ...(errorMessage ? { message: errorMessage } : {}),
+    ...(errorStatus ? { status: errorStatus } : {}),
     provider: error?.provider || providerLabel,
     host: error?.host || socialAuthStatus?.runtimeHost || '',
   };
@@ -2014,6 +2017,7 @@ export const useLoginController = () => {
         navigate(from, { replace: true });
       }
     } catch (error) {
+      setAuthSuccess(null);
       setErr(normalizeSocialAuthError(error, 'desktop owner access', socialAuthStatus));
     } finally {
       setIsLoading(false);
