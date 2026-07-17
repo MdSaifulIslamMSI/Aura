@@ -973,6 +973,8 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/RUNNER_CIDR="\$\{RUNNER_IP\}\/32"/);
         expect(workflow).toMatch(/authorize-security-group-ingress[\s\S]*?--port 22[\s\S]*?--cidr "\$\{RUNNER_CIDR\}"/);
         expect(workflow).toMatch(/security_group_rule_id=\$\{SECURITY_GROUP_RULE_ID\}/);
+        expect(workflow).toMatch(/runner_cidr=\$\{RUNNER_CIDR\}/);
+        expect(workflow).toMatch(/STAGING_ALLOWED_SSH_CIDR:\s*\$\{\{\s*steps\.lease-runner-ssh\.outputs\.runner_cidr\s*\}\}/);
         expect(workflow).toMatch(/if:\s*\$\{\{ always\(\) && steps\.lease-runner-ssh\.outputs\.security_group_rule_id != '' \}\}/);
         expect(workflow).toMatch(/revoke-security-group-ingress[\s\S]*?--security-group-rule-ids "\$\{LEASED_SECURITY_GROUP_RULE_ID\}"/);
 

@@ -198,6 +198,7 @@ jobs:
           {
             echo "security_group_id=${SECURITY_GROUP_ID}"
             echo "security_group_rule_id=${SECURITY_GROUP_RULE_ID}"
+            echo "runner_cidr=${RUNNER_CIDR}"
           } >> "${GITHUB_OUTPUT}"
           echo "Leased temporary /32 SSH access for this workflow run."
 
@@ -210,6 +211,8 @@ jobs:
           STAGING_KEY_PATH="$PWD/.staging/staging-key.pem" node scripts/run-bash.mjs scripts/staging/06-render-ssh-config.sh
 
       - name: Deploy and verify isolated staging
+        env:
+          STAGING_ALLOWED_SSH_CIDR: ${{ steps.lease-runner-ssh.outputs.runner_cidr }}
         run: STAGING_KEY_PATH="$PWD/.staging/staging-key.pem" npm run staging:deploy
 
       - name: Revoke runner SSH access
