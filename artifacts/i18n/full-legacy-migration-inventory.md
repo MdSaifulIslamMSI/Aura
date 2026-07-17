@@ -1,16 +1,16 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-07-17T06:56:07.137Z
+Generated: 2026-07-17T18:14:54.926Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 355
+- Source files scanned: 358
 - Tracked files: 111
 - Production files with stable literal UI copy: 79
-- Production stable literal references: 3662
-- Unique production stable IDs: 3324
+- Production stable literal references: 3709
+- Unique production stable IDs: 3367
 - Dynamic lookup references requiring manual review: 14
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
@@ -31,10 +31,10 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/Login/useLoginController.js` | 164 | 153 | 1 | stable-ui |
 | high | `app/src/pages/Profile/components/SupportSection.jsx` | 149 | 134 | 0 | runtime-content-nearby |
 | high | `app/src/pages/Checkout/components/StepPayment.jsx` | 151 | 133 | 0 | stable-ui |
+| high | `app/src/pages/Profile/components/SettingsSection.jsx` | 124 | 121 | 0 | stable-ui |
 | high | `app/src/pages/ListingDetail/index.jsx` | 123 | 116 | 0 | runtime-content-nearby |
 | high | `app/src/pages/Orders/index.jsx` | 105 | 102 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/index.jsx` | 103 | 92 | 0 | stable-ui |
-| high | `app/src/pages/Profile/components/SettingsSection.jsx` | 83 | 82 | 0 | stable-ui |
 | high | `app/src/pages/Login/LoginView.jsx` | 77 | 67 | 0 | stable-ui |
 | high | `app/src/pages/DesktopLogin/index.jsx` | 61 | 60 | 0 | stable-ui |
 | high | `app/src/pages/ProductListing/index.jsx` | 53 | 51 | 1 | stable-ui |
@@ -49,7 +49,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/MyListings/index.jsx` | 30 | 28 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepAddress.jsx` | 23 | 22 | 0 | stable-ui |
 | high | `app/src/pages/SellerProfile/index.jsx` | 22 | 21 | 0 | stable-ui |
-| high | `app/src/components/shared/ProtectedRoute.jsx` | 19 | 19 | 0 | stable-ui |
+| high | `app/src/components/shared/ProtectedRoute.jsx` | 17 | 17 | 0 | stable-ui |
 | high | `app/src/pages/Bundles/index.jsx` | 17 | 17 | 0 | stable-ui |
 | high | `app/src/pages/Contact/index.jsx` | 15 | 15 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepReview.jsx` | 14 | 14 | 0 | stable-ui |
@@ -77,9 +77,9 @@ These production references are eligible for reviewed ICU catalog migration.
 | medium | `app/src/pages/TradeIn/index.jsx` | 12 | 11 | 0 | runtime-content-nearby |
 | medium | `app/src/context/NotificationContext.jsx` | 1 | 1 | 0 | runtime-content-nearby |
 | low | `app/src/pages/Sell/index.jsx` | 140 | 140 | 0 | stable-ui |
+| low | `app/src/pages/Profile/index.jsx` | 105 | 102 | 0 | stable-ui |
 | low | `app/src/pages/Admin/Payments.jsx` | 102 | 99 | 0 | stable-ui |
 | low | `app/src/pages/Admin/Users.jsx` | 116 | 96 | 0 | stable-ui |
-| low | `app/src/pages/Profile/index.jsx` | 97 | 96 | 0 | stable-ui |
 | low | `app/src/pages/Admin/EmailOps.jsx` | 116 | 93 | 0 | stable-ui |
 | low | `app/src/pages/Admin/OrderList.jsx` | 72 | 64 | 0 | stable-ui |
 | low | `app/src/pages/Admin/ProductEdit.jsx` | 62 | 59 | 0 | stable-ui |

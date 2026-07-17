@@ -1,26 +1,286 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 const SUPPORTED_METHODS = ['passkey', 'totp', 'recovery_code'];
 const MAX_TIMER_SECONDS = 24 * 60 * 60;
 
-const METHOD_COPY = {
+const messages = defineMessages({
+  passkeyLabel: {
+    id: 'auth.mfaChallenge.method.passkey.label',
+    defaultMessage: 'Passkey',
+  },
+  passkeyDescription: {
+    id: 'auth.mfaChallenge.method.passkey.description',
+    defaultMessage: 'Use your device unlock, security key, or saved passkey.',
+  },
+  passkeyAction: {
+    id: 'auth.mfaChallenge.method.passkey.action',
+    defaultMessage: 'Continue with passkey',
+  },
+  passkeyPending: {
+    id: 'auth.mfaChallenge.method.passkey.pending',
+    defaultMessage: 'Waiting for passkey...',
+  },
+  totpLabel: {
+    id: 'auth.mfaChallenge.method.totp.label',
+    defaultMessage: 'Authenticator app',
+  },
+  totpDescription: {
+    id: 'auth.mfaChallenge.method.totp.description',
+    defaultMessage: 'Enter the current 6-digit code from your authenticator app.',
+  },
+  totpAction: {
+    id: 'auth.mfaChallenge.method.totp.action',
+    defaultMessage: 'Verify code',
+  },
+  totpPending: {
+    id: 'auth.mfaChallenge.method.totp.pending',
+    defaultMessage: 'Verifying code...',
+  },
+  recoveryLabel: {
+    id: 'auth.mfaChallenge.method.recovery.label',
+    defaultMessage: 'Recovery code',
+  },
+  recoveryDescription: {
+    id: 'auth.mfaChallenge.method.recovery.description',
+    defaultMessage: 'Use one unused recovery code. Each code works only once.',
+  },
+  recoveryAction: {
+    id: 'auth.mfaChallenge.method.recovery.action',
+    defaultMessage: 'Verify recovery code',
+  },
+  recoveryPending: {
+    id: 'auth.mfaChallenge.method.recovery.pending',
+    defaultMessage: 'Checking recovery code...',
+  },
+  errorRateLimitPaused: {
+    id: 'auth.mfaChallenge.error.rateLimitPaused',
+    defaultMessage: 'Too many verification attempts. Verification is temporarily paused.',
+  },
+  errorRateLimitWait: {
+    id: 'auth.mfaChallenge.error.rateLimitWait',
+    defaultMessage: 'Too many attempts. Wait a moment, then try again.',
+  },
+  errorPasskeyCancelled: {
+    id: 'auth.mfaChallenge.error.passkeyCancelled',
+    defaultMessage: 'The passkey prompt was cancelled or timed out. Try again or use another method.',
+  },
+  errorRejected: {
+    id: 'auth.mfaChallenge.error.rejected',
+    defaultMessage: 'That verification was not accepted or has expired. Check it and try again.',
+  },
+  errorGeneric: {
+    id: 'auth.mfaChallenge.error.generic',
+    defaultMessage: 'We could not complete verification. Try again or choose another method.',
+  },
+  errorExpired: {
+    id: 'auth.mfaChallenge.error.expired',
+    defaultMessage: 'This verification request has expired. Sign out and start again.',
+  },
+  errorUnavailableRequest: {
+    id: 'auth.mfaChallenge.error.unavailableRequest',
+    defaultMessage: 'This verification request is no longer available. Sign out and try again.',
+  },
+  errorUnavailableMethod: {
+    id: 'auth.mfaChallenge.error.unavailableMethod',
+    defaultMessage: 'This verification method is temporarily unavailable. Try another method.',
+  },
+  errorSessionIncomplete: {
+    id: 'auth.mfaChallenge.error.sessionIncomplete',
+    defaultMessage: 'Verification returned, but the authenticated session could not be confirmed. Sign out and sign in again.',
+  },
+  errorInvalidTotp: {
+    id: 'auth.mfaChallenge.error.invalidTotp',
+    defaultMessage: 'Enter the 6-digit code from your authenticator app.',
+  },
+  errorInvalidRecovery: {
+    id: 'auth.mfaChallenge.error.invalidRecovery',
+    defaultMessage: 'Enter one unused recovery code.',
+  },
+  errorSignOut: {
+    id: 'auth.mfaChallenge.error.signOut',
+    defaultMessage: 'We could not sign you out. Try again.',
+  },
+  countdownMinute: {
+    id: 'auth.mfaChallenge.countdown.minute',
+    defaultMessage: '{count, plural, one {# minute} other {# minutes}}',
+  },
+  countdownSecond: {
+    id: 'auth.mfaChallenge.countdown.second',
+    defaultMessage: '{count, plural, one {# second} other {# seconds}}',
+  },
+  actionLogin: {
+    id: 'auth.mfaChallenge.action.login',
+    defaultMessage: 'Finish secure sign-in.',
+  },
+  actionAccount: {
+    id: 'auth.mfaChallenge.action.account',
+    defaultMessage: 'Continue with a protected account security action.',
+  },
+  actionPayment: {
+    id: 'auth.mfaChallenge.action.payment',
+    defaultMessage: 'Continue with a protected payment action.',
+  },
+  actionAdmin: {
+    id: 'auth.mfaChallenge.action.admin',
+    defaultMessage: 'Continue with a protected admin action.',
+  },
+  actionGeneric: {
+    id: 'auth.mfaChallenge.action.generic',
+    defaultMessage: 'Continue with a protected action.',
+  },
+  reasonUnusual: {
+    id: 'auth.mfaChallenge.reason.unusual',
+    defaultMessage: 'This sign-in needs extra verification because it appears unusual.',
+  },
+  reasonAdmin: {
+    id: 'auth.mfaChallenge.reason.admin',
+    defaultMessage: 'Your admin security policy requires stronger verification.',
+  },
+  reasonSeller: {
+    id: 'auth.mfaChallenge.reason.seller',
+    defaultMessage: 'Your seller security policy requires stronger verification.',
+  },
+  reasonSensitive: {
+    id: 'auth.mfaChallenge.reason.sensitive',
+    defaultMessage: 'This sensitive action requires fresh verification.',
+  },
+  reasonMfa: {
+    id: 'auth.mfaChallenge.reason.mfa',
+    defaultMessage: 'Multi-factor authentication is enabled for this account.',
+  },
+  reasonPolicy: {
+    id: 'auth.mfaChallenge.reason.policy',
+    defaultMessage: 'Your security policy requires additional verification.',
+  },
+  strengthPasskey: {
+    id: 'auth.mfaChallenge.strength.passkey',
+    defaultMessage: 'Passkey verification required.',
+  },
+  strengthTotp: {
+    id: 'auth.mfaChallenge.strength.totp',
+    defaultMessage: 'Authenticator app verification required.',
+  },
+  strengthRecovery: {
+    id: 'auth.mfaChallenge.strength.recovery',
+    defaultMessage: 'Recovery code verification required.',
+  },
+  retryIn: {
+    id: 'auth.mfaChallenge.retry.in',
+    defaultMessage: 'Try again in {countdown}',
+  },
+  publicEyebrow: {
+    id: 'auth.mfaChallenge.public.eyebrow',
+    defaultMessage: 'Secure sign-in',
+  },
+  adminEyebrow: {
+    id: 'auth.mfaChallenge.admin.eyebrow',
+    defaultMessage: 'Admin security checkpoint',
+  },
+  publicTitle: {
+    id: 'auth.mfaChallenge.public.title',
+    defaultMessage: "Confirm it's you",
+  },
+  adminTitle: {
+    id: 'auth.mfaChallenge.admin.title',
+    defaultMessage: 'Admin verification required',
+  },
+  publicDescription: {
+    id: 'auth.mfaChallenge.public.description',
+    defaultMessage: 'Complete one verification method to continue securely.',
+  },
+  adminDescription: {
+    id: 'auth.mfaChallenge.admin.description',
+    defaultMessage: 'Complete an approved verification method before continuing to this admin area.',
+  },
+  contextLabel: {
+    id: 'auth.mfaChallenge.context.label',
+    defaultMessage: 'Verification context',
+  },
+  requestedAction: {
+    id: 'auth.mfaChallenge.context.requestedAction',
+    defaultMessage: 'Requested action',
+  },
+  requestExpired: {
+    id: 'auth.mfaChallenge.status.requestExpired',
+    defaultMessage: 'Verification request expired.',
+  },
+  expiresIn: {
+    id: 'auth.mfaChallenge.status.expiresIn',
+    defaultMessage: 'Verification expires in {countdown}.',
+  },
+  shortLived: {
+    id: 'auth.mfaChallenge.status.shortLived',
+    defaultMessage: 'This verification request is short-lived.',
+  },
+  complete: {
+    id: 'auth.mfaChallenge.status.complete',
+    defaultMessage: 'Verification complete. Finishing your session...',
+  },
+  noMethod: {
+    id: 'auth.mfaChallenge.error.noMethod',
+    defaultMessage: 'No supported verification method is available for this checkpoint. Sign out and try again.',
+  },
+  totpInputLabel: {
+    id: 'auth.mfaChallenge.input.totpLabel',
+    defaultMessage: '6-digit authenticator code',
+  },
+  recoveryInputLabel: {
+    id: 'auth.mfaChallenge.input.recoveryLabel',
+    defaultMessage: 'Recovery code',
+  },
+  retryDisabled: {
+    id: 'auth.mfaChallenge.retry.disabled',
+    defaultMessage: 'Verification is disabled for {countdown}.',
+  },
+  retryReady: {
+    id: 'auth.mfaChallenge.retry.ready',
+    defaultMessage: 'You can try verification again now.',
+  },
+  tryAnotherWay: {
+    id: 'auth.mfaChallenge.alternative.toggle',
+    defaultMessage: 'Try another way',
+  },
+  useMethod: {
+    id: 'auth.mfaChallenge.alternative.useMethod',
+    defaultMessage: 'Use {method}',
+  },
+  leaveAdmin: {
+    id: 'auth.mfaChallenge.cancel.admin',
+    defaultMessage: 'Leave admin checkpoint',
+  },
+  returnStorefront: {
+    id: 'auth.mfaChallenge.cancel.public',
+    defaultMessage: 'Return to storefront',
+  },
+  signingOut: {
+    id: 'auth.mfaChallenge.signOut.pending',
+    defaultMessage: 'Signing out...',
+  },
+  signOut: {
+    id: 'auth.mfaChallenge.signOut.action',
+    defaultMessage: 'Sign out',
+  },
+});
+
+const METHOD_MESSAGES = {
   passkey: {
-    label: 'Passkey',
-    description: 'Use your device unlock, security key, or saved passkey.',
-    action: 'Continue with passkey',
-    pending: 'Waiting for passkey...',
+    label: messages.passkeyLabel,
+    description: messages.passkeyDescription,
+    action: messages.passkeyAction,
+    pending: messages.passkeyPending,
   },
   totp: {
-    label: 'Authenticator app',
-    description: 'Enter the current 6-digit code from your authenticator app.',
-    action: 'Verify code',
-    pending: 'Verifying code...',
+    label: messages.totpLabel,
+    description: messages.totpDescription,
+    action: messages.totpAction,
+    pending: messages.totpPending,
   },
   recovery_code: {
-    label: 'Recovery code',
-    description: 'Use one unused recovery code. Each code works only once.',
-    action: 'Verify recovery code',
-    pending: 'Checking recovery code...',
+    label: messages.recoveryLabel,
+    description: messages.recoveryDescription,
+    action: messages.recoveryAction,
+    pending: messages.recoveryPending,
   },
 };
 
@@ -50,7 +310,7 @@ const normalizeTimerSeconds = (value) => {
   return Math.min(seconds, MAX_TIMER_SECONDS);
 };
 
-const buildVerificationError = (error, method) => {
+const buildVerificationError = (error, method, intl) => {
   const status = Number(error?.status || error?.data?.status || 0);
   const retryAfterSeconds = normalizeTimerSeconds(
     error?.retryAfterSeconds
@@ -62,25 +322,25 @@ const buildVerificationError = (error, method) => {
   if (status === 429) {
     return {
       message: retryAfterSeconds > 0
-        ? 'Too many verification attempts. Verification is temporarily paused.'
-        : 'Too many attempts. Wait a moment, then try again.',
+        ? intl.formatMessage(messages.errorRateLimitPaused)
+        : intl.formatMessage(messages.errorRateLimitWait),
       retryAfterSeconds,
     };
   }
   if (method === 'passkey' && ['AbortError', 'NotAllowedError'].includes(errorName)) {
     return {
-      message: 'The passkey prompt was cancelled or timed out. Try again or use another method.',
+      message: intl.formatMessage(messages.errorPasskeyCancelled),
       retryAfterSeconds: 0,
     };
   }
   if ([400, 401, 403].includes(status)) {
     return {
-      message: 'That verification was not accepted or has expired. Check it and try again.',
+      message: intl.formatMessage(messages.errorRejected),
       retryAfterSeconds: 0,
     };
   }
   return {
-    message: 'We could not complete verification. Try again or choose another method.',
+    message: intl.formatMessage(messages.errorGeneric),
     retryAfterSeconds: 0,
   };
 };
@@ -98,61 +358,61 @@ const resolveExpiryDeadline = (expiresAtValue, expiresInValue, challengeId) => {
   return Date.now() + (normalizeTimerSeconds(rawExpiresIn) * 1000);
 };
 
-const formatCountdown = (seconds) => {
+const formatCountdown = (seconds, intl) => {
   const safeSeconds = Math.max(Math.ceil(Number(seconds) || 0), 0);
   const minutes = Math.floor(safeSeconds / 60);
   const remainingSeconds = safeSeconds % 60;
   const parts = [];
-  if (minutes) parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`);
+  if (minutes) parts.push(intl.formatMessage(messages.countdownMinute, { count: minutes }));
   if (remainingSeconds || !minutes) {
-    parts.push(`${remainingSeconds} second${remainingSeconds === 1 ? '' : 's'}`);
+    parts.push(intl.formatMessage(messages.countdownSecond, { count: remainingSeconds }));
   }
   return parts.join(' ');
 };
 
-const describeAction = (challenge, isAdmin) => {
+const describeAction = (challenge, isAdmin, intl) => {
   const purpose = String(challenge?.purpose || '').trim().toLowerCase();
   const action = String(challenge?.action || '').trim().toLowerCase().slice(0, 120);
   if (purpose === 'login' || /(?:^|[_-])(login|sign[_-]?in)(?:$|[_-])/.test(action)) {
-    return 'Finish secure sign-in.';
+    return intl.formatMessage(messages.actionLogin);
   }
   if (/account|profile|password|security|mfa|recovery/.test(action)) {
-    return 'Continue with a protected account security action.';
+    return intl.formatMessage(messages.actionAccount);
   }
   if (/payment|checkout|payout|refund|wallet/.test(action)) {
-    return 'Continue with a protected payment action.';
+    return intl.formatMessage(messages.actionPayment);
   }
   if (isAdmin && /admin|production|role|permission|catalog|backup|restore/.test(action)) {
-    return 'Continue with a protected admin action.';
+    return intl.formatMessage(messages.actionAdmin);
   }
-  return 'Continue with a protected action.';
+  return intl.formatMessage(messages.actionGeneric);
 };
 
-const describeReason = (challenge, policy, isAdmin) => {
+const describeReason = (challenge, policy, isAdmin, intl) => {
   const reason = String(challenge?.reason || policy?.reason || '').trim().toLowerCase();
   if (/suspicious|risk|unusual/.test(reason)) {
-    return 'This sign-in needs extra verification because it appears unusual.';
+    return intl.formatMessage(messages.reasonUnusual);
   }
   if (isAdmin && /admin/.test(reason)) {
-    return 'Your admin security policy requires stronger verification.';
+    return intl.formatMessage(messages.reasonAdmin);
   }
   if (/seller/.test(reason)) {
-    return 'Your seller security policy requires stronger verification.';
+    return intl.formatMessage(messages.reasonSeller);
   }
   if (/dangerous|sensitive|fresh|step[_-]?up/.test(reason)) {
-    return 'This sensitive action requires fresh verification.';
+    return intl.formatMessage(messages.reasonSensitive);
   }
   if (/user|enabled|mfa/.test(reason)) {
-    return 'Multi-factor authentication is enabled for this account.';
+    return intl.formatMessage(messages.reasonMfa);
   }
-  return 'Your security policy requires additional verification.';
+  return intl.formatMessage(messages.reasonPolicy);
 };
 
-const describeRequiredStrength = (challenge) => {
+const describeRequiredStrength = (challenge, intl) => {
   const strength = String(challenge?.requiredStrength || '').trim().toLowerCase();
-  if (/passkey|webauthn/.test(strength)) return 'Passkey verification required.';
-  if (/totp|authenticator/.test(strength)) return 'Authenticator app verification required.';
-  if (/recovery/.test(strength)) return 'Recovery code verification required.';
+  if (/passkey|webauthn/.test(strength)) return intl.formatMessage(messages.strengthPasskey);
+  if (/totp|authenticator/.test(strength)) return intl.formatMessage(messages.strengthTotp);
+  if (/recovery/.test(strength)) return intl.formatMessage(messages.strengthRecovery);
   return '';
 };
 
@@ -173,6 +433,7 @@ const MfaChallengePanel = ({
   onCancel,
   onSignOut,
 }) => {
+  const intl = useIntl();
   const panelId = useId();
   const headingRef = useRef(null);
   const codeInputRef = useRef(null);
@@ -212,7 +473,7 @@ const MfaChallengePanel = ({
     : null;
   const challengeExpired = expiryRemainingSeconds === 0 && expiryDeadlineMs > 0;
   const displayedErrorMessage = challengeExpired
-    ? 'This verification request has expired. Sign out and start again.'
+    ? intl.formatMessage(messages.errorExpired)
     : errorMessage;
   const verificationDisabled = Boolean(
     isBusy
@@ -221,13 +482,19 @@ const MfaChallengePanel = ({
     || completionFailed
     || completed
   );
-  const methodCopy = METHOD_COPY[selectedMethod];
+  const methodCopy = METHOD_MESSAGES[selectedMethod];
+  const methodLabel = methodCopy ? intl.formatMessage(methodCopy.label) : '';
+  const methodDescription = methodCopy ? intl.formatMessage(methodCopy.description) : '';
+  const methodAction = methodCopy ? intl.formatMessage(methodCopy.action) : '';
+  const methodPending = methodCopy ? intl.formatMessage(methodCopy.pending) : '';
   const alternativeMethods = offeredMethods.filter((method) => method !== selectedMethod);
-  const actionDescription = describeAction(challenge, isAdmin);
-  const reasonDescription = describeReason(challenge, policy, isAdmin);
-  const requiredStrengthDescription = describeRequiredStrength(challenge);
+  const actionDescription = describeAction(challenge, isAdmin, intl);
+  const reasonDescription = describeReason(challenge, policy, isAdmin, intl);
+  const requiredStrengthDescription = describeRequiredStrength(challenge, intl);
   const retryButtonLabel = retryAfterSeconds > 0
-    ? `Try again in ${formatCountdown(retryAfterSeconds)}`
+    ? intl.formatMessage(messages.retryIn, {
+      countdown: formatCountdown(retryAfterSeconds, intl),
+    })
     : '';
 
   useEffect(() => {
@@ -288,7 +555,7 @@ const MfaChallengePanel = ({
   const verify = async (method, code = '') => {
     if (verificationDisabled) return;
     if (!challengeId) {
-      setErrorMessage('This verification request is no longer available. Sign out and try again.');
+      setErrorMessage(intl.formatMessage(messages.errorUnavailableRequest));
       return;
     }
 
@@ -298,7 +565,7 @@ const MfaChallengePanel = ({
         ? onVerifyTotp
         : onVerifyRecoveryCode;
     if (typeof verifier !== 'function') {
-      setErrorMessage('This verification method is temporarily unavailable. Try another method.');
+      setErrorMessage(intl.formatMessage(messages.errorUnavailableMethod));
       return;
     }
 
@@ -315,19 +582,19 @@ const MfaChallengePanel = ({
         ...(code ? { code } : {}),
       });
       if (response?.success === false) {
-        const responseError = new Error('Verification failed');
+        const responseError = new Error('MFA_VERIFICATION_FAILED');
         responseError.status = response?.status;
         responseError.data = response;
         throw responseError;
       }
       if (!hasCompleteSessionPayload(response)) {
         setCompletionFailed(true);
-        setErrorMessage('Verification returned, but the authenticated session could not be confirmed. Sign out and sign in again.');
+        setErrorMessage(intl.formatMessage(messages.errorSessionIncomplete));
         return;
       }
       setCompleted(true);
     } catch (error) {
-      const feedback = buildVerificationError(error, method);
+      const feedback = buildVerificationError(error, method, intl);
       setErrorMessage(feedback.message);
       retryDeadlineRef.current = feedback.retryAfterSeconds > 0
         ? Date.now() + (feedback.retryAfterSeconds * 1000)
@@ -345,7 +612,7 @@ const MfaChallengePanel = ({
     if (selectedMethod === 'totp') {
       const normalizedCode = totpCode.trim();
       if (!/^\d{6}$/.test(normalizedCode)) {
-        setErrorMessage('Enter the 6-digit code from your authenticator app.');
+        setErrorMessage(intl.formatMessage(messages.errorInvalidTotp));
         return;
       }
       verify('totp', normalizedCode);
@@ -354,7 +621,7 @@ const MfaChallengePanel = ({
 
     const normalizedCode = recoveryCode.trim();
     if (!normalizedCode) {
-      setErrorMessage('Enter one unused recovery code.');
+      setErrorMessage(intl.formatMessage(messages.errorInvalidRecovery));
       return;
     }
     verify('recovery_code', normalizedCode);
@@ -367,7 +634,7 @@ const MfaChallengePanel = ({
     try {
       await onSignOut();
     } catch {
-      setErrorMessage('We could not sign you out. Try again.');
+      setErrorMessage(intl.formatMessage(messages.errorSignOut));
     } finally {
       setPendingAction('');
     }
@@ -382,7 +649,7 @@ const MfaChallengePanel = ({
         aria-busy={isBusy}
       >
         <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-200">
-          {isAdmin ? 'Admin security checkpoint' : 'Secure sign-in'}
+          {intl.formatMessage(isAdmin ? messages.adminEyebrow : messages.publicEyebrow)}
         </p>
         <h1
           ref={headingRef}
@@ -390,19 +657,17 @@ const MfaChallengePanel = ({
           tabIndex={-1}
           className="mt-3 text-2xl font-black text-white outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
         >
-          {isAdmin ? 'Admin verification required' : "Confirm it's you"}
+          {intl.formatMessage(isAdmin ? messages.adminTitle : messages.publicTitle)}
         </h1>
         <p id={`${panelId}-description`} className="mt-3 text-sm leading-6 text-slate-300">
-          {isAdmin
-            ? 'Complete an approved verification method before continuing to this admin area.'
-            : 'Complete one verification method to continue securely.'}
+          {intl.formatMessage(isAdmin ? messages.adminDescription : messages.publicDescription)}
         </p>
 
         <div
           className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300"
-          aria-label="Verification context"
+          aria-label={intl.formatMessage(messages.contextLabel)}
         >
-          <p className="font-bold text-white">Requested action</p>
+          <p className="font-bold text-white">{intl.formatMessage(messages.requestedAction)}</p>
           <p className="mt-1">{actionDescription}</p>
           <p className="mt-2 text-slate-400">{reasonDescription}</p>
           {requiredStrengthDescription ? (
@@ -416,27 +681,29 @@ const MfaChallengePanel = ({
               aria-atomic="true"
             >
               {challengeExpired
-                ? 'Verification request expired.'
-                : `Verification expires in ${formatCountdown(expiryRemainingSeconds)}.`}
+                ? intl.formatMessage(messages.requestExpired)
+                : intl.formatMessage(messages.expiresIn, {
+                  countdown: formatCountdown(expiryRemainingSeconds, intl),
+                })}
             </p>
           ) : (
-            <p className="mt-2 text-slate-400">This verification request is short-lived.</p>
+            <p className="mt-2 text-slate-400">{intl.formatMessage(messages.shortLived)}</p>
           )}
         </div>
 
         {completed ? (
           <p className="mt-6 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4 text-sm text-emerald-100" role="status" aria-live="polite">
-            Verification complete. Finishing your session...
+            {intl.formatMessage(messages.complete)}
           </p>
         ) : completionFailed ? null : offeredMethods.length === 0 ? (
           <p className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100" role="alert">
-            No supported verification method is available for this checkpoint. Sign out and try again.
+            {intl.formatMessage(messages.noMethod)}
           </p>
         ) : (
           <>
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-              <p className="font-bold text-white">{methodCopy?.label}</p>
-              <p className="mt-1 text-sm leading-5 text-slate-400">{methodCopy?.description}</p>
+              <p className="font-bold text-white">{methodLabel}</p>
+              <p className="mt-1 text-sm leading-5 text-slate-400">{methodDescription}</p>
             </div>
 
             {selectedMethod === 'passkey' ? (
@@ -447,12 +714,16 @@ const MfaChallengePanel = ({
                 disabled={verificationDisabled}
                 className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {retryButtonLabel || (pendingAction === 'passkey' ? METHOD_COPY.passkey.pending : METHOD_COPY.passkey.action)}
+                {retryButtonLabel || (pendingAction === 'passkey'
+                  ? intl.formatMessage(messages.passkeyPending)
+                  : intl.formatMessage(messages.passkeyAction))}
               </button>
             ) : (
               <form className="mt-5" onSubmit={submitCode} aria-busy={isBusy}>
                 <label htmlFor={`${panelId}-code`} className="block text-sm font-bold text-white">
-                  {selectedMethod === 'totp' ? '6-digit authenticator code' : 'Recovery code'}
+                  {intl.formatMessage(
+                    selectedMethod === 'totp' ? messages.totpInputLabel : messages.recoveryInputLabel
+                  )}
                 </label>
                 <input
                   ref={codeInputRef}
@@ -474,7 +745,7 @@ const MfaChallengePanel = ({
                   disabled={verificationDisabled}
                   className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {retryButtonLabel || (pendingAction === selectedMethod ? methodCopy?.pending : methodCopy?.action)}
+                  {retryButtonLabel || (pendingAction === selectedMethod ? methodPending : methodAction)}
                 </button>
               </form>
             )}
@@ -496,8 +767,10 @@ const MfaChallengePanel = ({
         {retryCooldownObserved ? (
           <p className="mt-3 text-sm text-amber-100" role="status" aria-live="polite" aria-atomic="true">
             {retryAfterSeconds > 0
-              ? `Verification is disabled for ${formatCountdown(retryAfterSeconds)}.`
-              : 'You can try verification again now.'}
+              ? intl.formatMessage(messages.retryDisabled, {
+                countdown: formatCountdown(retryAfterSeconds, intl),
+              })
+              : intl.formatMessage(messages.retryReady)}
           </p>
         ) : null}
 
@@ -511,7 +784,7 @@ const MfaChallengePanel = ({
               disabled={verificationDisabled}
               className="text-sm font-bold text-cyan-200 underline decoration-cyan-300/40 underline-offset-4 disabled:opacity-60"
             >
-              Try another way
+              {intl.formatMessage(messages.tryAnotherWay)}
             </button>
             <div id={`${panelId}-alternatives`} hidden={!showAlternatives} className="mt-3 flex flex-wrap gap-2">
               {alternativeMethods.map((method) => (
@@ -522,7 +795,9 @@ const MfaChallengePanel = ({
                   disabled={verificationDisabled}
                   className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-slate-200 hover:bg-white/[0.1] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Use {METHOD_COPY[method].label.toLowerCase()}
+                  {intl.formatMessage(messages.useMethod, {
+                    method: intl.formatMessage(METHOD_MESSAGES[method].label),
+                  })}
                 </button>
               ))}
             </div>
@@ -537,7 +812,7 @@ const MfaChallengePanel = ({
               disabled={isBusy}
               className="rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.06] disabled:opacity-60"
             >
-              {isAdmin ? 'Leave admin checkpoint' : 'Return to storefront'}
+              {intl.formatMessage(isAdmin ? messages.leaveAdmin : messages.returnStorefront)}
             </button>
           ) : null}
           {typeof onSignOut === 'function' ? (
@@ -547,7 +822,9 @@ const MfaChallengePanel = ({
               disabled={isBusy}
               className="rounded-full border border-rose-300/20 px-4 py-2 text-sm font-bold text-rose-200 hover:bg-rose-300/10 disabled:opacity-60"
             >
-              {pendingAction === 'sign_out' ? 'Signing out...' : 'Sign out'}
+              {intl.formatMessage(
+                pendingAction === 'sign_out' ? messages.signingOut : messages.signOut
+              )}
             </button>
           ) : null}
         </div>

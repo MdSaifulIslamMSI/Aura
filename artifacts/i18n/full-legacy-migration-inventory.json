@@ -648,6 +648,141 @@
     },
     {
       "dynamicLookupCount": 0,
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 121,
+      "messageIds": [
+        "common.cancel",
+        "common.confirm",
+        "common.rename",
+        "common.revoke",
+        "common.revoking",
+        "common.save",
+        "common.saving",
+        "profile.settings.devices.activeCount",
+        "profile.settings.devices.adminBody",
+        "profile.settings.devices.adminPasskey",
+        "profile.settings.devices.adminWarning",
+        "profile.settings.devices.cancelRename",
+        "profile.settings.devices.confirmRevokeAria",
+        "profile.settings.devices.confirmRevokeOthers",
+        "profile.settings.devices.current",
+        "profile.settings.devices.currentBound",
+        "profile.settings.devices.currentRevokeWarning",
+        "profile.settings.devices.currentUnbound",
+        "profile.settings.devices.deviceBound",
+        "profile.settings.devices.emptyBody",
+        "profile.settings.devices.emptyTitle",
+        "profile.settings.devices.lastVerified",
+        "profile.settings.devices.legacyAdminWarning",
+        "profile.settings.devices.mfaPasskey",
+        "profile.settings.devices.nameFor",
+        "profile.settings.devices.nameLabel",
+        "profile.settings.devices.never",
+        "profile.settings.devices.publicBody",
+        "profile.settings.devices.recognitionPasskey",
+        "profile.settings.devices.rememberedBrowser",
+        "profile.settings.devices.renameAria",
+        "profile.settings.devices.revokeAndSignOut",
+        "profile.settings.devices.revokeAria",
+        "profile.settings.devices.revokeOthers",
+        "profile.settings.devices.revokingOthers",
+        "profile.settings.devices.syncEligible",
+        "profile.settings.devices.syncedPasskey",
+        "profile.settings.devices.title",
+        "profile.settings.devices.unknown",
+        "profile.settings.notifications.marketplace.desc",
+        "profile.settings.notifications.marketplace.label",
+        "profile.settings.notifications.orders.desc",
+        "profile.settings.notifications.orders.label",
+        "profile.settings.notifications.support.desc",
+        "profile.settings.notifications.support.label",
+        "profile.settings.notifications.title",
+        "profile.settings.safety.contactSupport",
+        "profile.settings.safety.logout",
+        "profile.settings.safety.privacyPolicy",
+        "profile.settings.safety.securityPolicy",
+        "profile.settings.safety.title",
+        "profile.settings.security.incomplete",
+        "profile.settings.security.incompleteBody",
+        "profile.settings.security.linkedProviders",
+        "profile.settings.security.linkedProvidersBody",
+        "profile.settings.security.mfaAvailable",
+        "profile.settings.security.mfaBody",
+        "profile.settings.security.mfaChecking",
+        "profile.settings.security.mfaFactorSummary",
+        "profile.settings.security.mfaPolicyReason",
+        "profile.settings.security.mfaReady",
+        "profile.settings.security.mfaTitle",
+        "profile.settings.security.openRecovery",
+        "profile.settings.security.opening",
+        "profile.settings.security.otpLabel",
+        "profile.settings.security.passkeyRegister",
+        "profile.settings.security.passkeyRegistering",
+        "profile.settings.security.password",
+        "profile.settings.security.passwordBody",
+        "profile.settings.security.paymentLabel",
+        "profile.settings.security.paymentReviewBody",
+        "profile.settings.security.paymentSecuredBody",
+        "profile.settings.security.providerLink",
+        "profile.settings.security.providerLinked",
+        "profile.settings.security.providerLinking",
+        "profile.settings.security.ready",
+        "profile.settings.security.readyBody",
+        "profile.settings.security.recoveryCodesAction",
+        "profile.settings.security.recoveryCodesBody",
+        "profile.settings.security.recoveryCodesCopy",
+        "profile.settings.security.recoveryCodesCount",
+        "profile.settings.security.recoveryCodesDownload",
+        "profile.settings.security.recoveryCodesEnrollHint",
+        "profile.settings.security.recoveryCodesGenerate",
+        "profile.settings.security.recoveryCodesGenerating",
+        "profile.settings.security.recoveryCodesHide",
+        "profile.settings.security.recoveryCodesPasskeyFirst",
+        "profile.settings.security.recoveryCodesReady",
+        "profile.settings.security.recoveryCodesRegenerate",
+        "profile.settings.security.recoveryCodesShownOnce",
+        "profile.settings.security.recoveryCodesShownOnceBody",
+        "profile.settings.security.recoveryCodesTitle",
+        "profile.settings.security.recoveryHint",
+        "profile.settings.security.reviewNeeded",
+        "profile.settings.security.title",
+        "profile.settings.security.tokenized",
+        "profile.settings.security.totpCodeLabel",
+        "profile.settings.security.totpCodePlaceholder",
+        "profile.settings.security.totpPending",
+        "profile.settings.security.totpQrAlt",
+        "profile.settings.security.totpRotate",
+        "profile.settings.security.totpStart",
+        "profile.settings.security.totpStarting",
+        "profile.settings.security.totpVerify",
+        "profile.settings.security.totpVerifying",
+        "profile.settings.trust.checking",
+        "profile.settings.trust.degraded",
+        "profile.settings.trust.fortified",
+        "profile.settings.trust.healthy",
+        "profile.settings.trust.identityLabel",
+        "profile.settings.trust.lastSweep",
+        "profile.settings.trust.meta",
+        "profile.settings.trust.needsAttention",
+        "profile.settings.trust.noRecent",
+        "profile.settings.trust.paymentSafety",
+        "profile.settings.trust.platformStatus",
+        "profile.settings.trust.reviewNeeded",
+        "profile.settings.trust.title",
+        "profile.settings.trust.tokenizedDefault",
+        "profile.settings.trust.unknown",
+        "profile.settings.trust.warning"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 124,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
       "file": "app/src/pages/ListingDetail/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -995,102 +1130,6 @@
       ],
       "risk": "high",
       "stableLiteralCount": 103,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
-    },
-    {
-      "dynamicLookupCount": 0,
-      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 82,
-      "messageIds": [
-        "profile.settings.notifications.marketplace.desc",
-        "profile.settings.notifications.marketplace.label",
-        "profile.settings.notifications.orders.desc",
-        "profile.settings.notifications.orders.label",
-        "profile.settings.notifications.support.desc",
-        "profile.settings.notifications.support.label",
-        "profile.settings.notifications.title",
-        "profile.settings.safety.contactSupport",
-        "profile.settings.safety.logout",
-        "profile.settings.safety.privacyPolicy",
-        "profile.settings.safety.securityPolicy",
-        "profile.settings.safety.title",
-        "profile.settings.security.incomplete",
-        "profile.settings.security.incompleteBody",
-        "profile.settings.security.linkedProviders",
-        "profile.settings.security.linkedProvidersBody",
-        "profile.settings.security.mfaAvailable",
-        "profile.settings.security.mfaBody",
-        "profile.settings.security.mfaChecking",
-        "profile.settings.security.mfaFactorSummary",
-        "profile.settings.security.mfaPolicyReason",
-        "profile.settings.security.mfaReady",
-        "profile.settings.security.mfaTitle",
-        "profile.settings.security.openRecovery",
-        "profile.settings.security.opening",
-        "profile.settings.security.otpLabel",
-        "profile.settings.security.passkeyRegister",
-        "profile.settings.security.passkeyRegistering",
-        "profile.settings.security.password",
-        "profile.settings.security.passwordBody",
-        "profile.settings.security.paymentLabel",
-        "profile.settings.security.paymentReviewBody",
-        "profile.settings.security.paymentSecuredBody",
-        "profile.settings.security.providerLink",
-        "profile.settings.security.providerLinked",
-        "profile.settings.security.providerLinking",
-        "profile.settings.security.ready",
-        "profile.settings.security.readyBody",
-        "profile.settings.security.recoveryCodesAction",
-        "profile.settings.security.recoveryCodesBody",
-        "profile.settings.security.recoveryCodesCopy",
-        "profile.settings.security.recoveryCodesCount",
-        "profile.settings.security.recoveryCodesDownload",
-        "profile.settings.security.recoveryCodesEnrollHint",
-        "profile.settings.security.recoveryCodesGenerate",
-        "profile.settings.security.recoveryCodesGenerating",
-        "profile.settings.security.recoveryCodesHide",
-        "profile.settings.security.recoveryCodesPasskeyFirst",
-        "profile.settings.security.recoveryCodesReady",
-        "profile.settings.security.recoveryCodesRegenerate",
-        "profile.settings.security.recoveryCodesShownOnce",
-        "profile.settings.security.recoveryCodesShownOnceBody",
-        "profile.settings.security.recoveryCodesTitle",
-        "profile.settings.security.recoveryHint",
-        "profile.settings.security.reviewNeeded",
-        "profile.settings.security.title",
-        "profile.settings.security.tokenized",
-        "profile.settings.security.totpCodeLabel",
-        "profile.settings.security.totpCodePlaceholder",
-        "profile.settings.security.totpPending",
-        "profile.settings.security.totpQrAlt",
-        "profile.settings.security.totpRotate",
-        "profile.settings.security.totpStart",
-        "profile.settings.security.totpStarting",
-        "profile.settings.security.totpVerify",
-        "profile.settings.security.totpVerifying",
-        "profile.settings.trust.checking",
-        "profile.settings.trust.degraded",
-        "profile.settings.trust.fortified",
-        "profile.settings.trust.healthy",
-        "profile.settings.trust.identityLabel",
-        "profile.settings.trust.lastSweep",
-        "profile.settings.trust.meta",
-        "profile.settings.trust.needsAttention",
-        "profile.settings.trust.noRecent",
-        "profile.settings.trust.paymentSafety",
-        "profile.settings.trust.platformStatus",
-        "profile.settings.trust.reviewNeeded",
-        "profile.settings.trust.title",
-        "profile.settings.trust.tokenizedDefault",
-        "profile.settings.trust.unknown",
-        "profile.settings.trust.warning"
-      ],
-      "risk": "high",
-      "stableLiteralCount": 83,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1828,11 +1867,9 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 19,
+      "messageIdCount": 17,
       "messageIds": [
         "admin.jsx.text.admin.safety.lock.ad4f61f6",
-        "auth.mfaChallenge.message",
-        "auth.mfaChallenge.title",
         "auth.pending.admin",
         "auth.pending.seller",
         "auth.recoverableIssue",
@@ -1851,7 +1888,7 @@
         "support.jsx.text.support.aura.shop.6e88e9bf"
       ],
       "risk": "high",
-      "stableLiteralCount": 19,
+      "stableLiteralCount": 17,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -3384,6 +3421,122 @@
     },
     {
       "dynamicLookupCount": 0,
+      "file": "app/src/pages/Profile/index.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 102,
+      "messageIds": [
+        "profile.accountState.active",
+        "profile.accountState.deleted",
+        "profile.accountState.suspended",
+        "profile.accountState.warned",
+        "profile.avatar.alt",
+        "profile.confirm.deleteAddress",
+        "profile.confirm.deletePaymentMethod",
+        "profile.hero.admin",
+        "profile.hero.auraTier",
+        "profile.hero.bioFallback",
+        "profile.hero.completion",
+        "profile.hero.eyebrow",
+        "profile.hero.identityNeedsAttention",
+        "profile.hero.identityVerified",
+        "profile.hero.memberSince",
+        "profile.hero.noEmail",
+        "profile.hero.noPhone",
+        "profile.hero.paymentMethod.plural",
+        "profile.hero.paymentMethod.single",
+        "profile.hero.paymentMethods",
+        "profile.hero.refineProfile",
+        "profile.hero.supportAppeals",
+        "profile.hero.trustDegraded",
+        "profile.hero.trustHealthy",
+        "profile.hero.viewOrders",
+        "profile.heroMetric.listings.detail",
+        "profile.heroMetric.listings.label",
+        "profile.heroMetric.orders.detail",
+        "profile.heroMetric.orders.label",
+        "profile.heroMetric.points.detail",
+        "profile.heroMetric.points.label",
+        "profile.heroMetric.wishlist.detail",
+        "profile.heroMetric.wishlist.label",
+        "profile.loading.body",
+        "profile.loading.kicker",
+        "profile.loading.title",
+        "profile.memberFallback",
+        "profile.memberSince.recent",
+        "profile.message.addressDeleteFailed",
+        "profile.message.addressDeleted",
+        "profile.message.addressSaveFailed",
+        "profile.message.addressSaved",
+        "profile.message.addressUpdated",
+        "profile.message.avatarUpdateFailed",
+        "profile.message.avatarUpdated",
+        "profile.message.bankPreferenceFailed",
+        "profile.message.bankPreferenceSaved",
+        "profile.message.bankRequired",
+        "profile.message.cardSaveFailed",
+        "profile.message.cardSaved",
+        "profile.message.currentTrustedDeviceRevoked",
+        "profile.message.defaultPaymentUpdateFailed",
+        "profile.message.defaultPaymentUpdated",
+        "profile.message.netbankingCatalogFailed",
+        "profile.message.optimizationFailed",
+        "profile.message.optimizationStarted",
+        "profile.message.otherTrustedDevicesRevoked",
+        "profile.message.passkeyRegisterFailed",
+        "profile.message.passkeyRegistered",
+        "profile.message.passkeyUnavailable",
+        "profile.message.paymentMethodDeleteFailed",
+        "profile.message.paymentMethodDeleted",
+        "profile.message.profileUpdateFailed",
+        "profile.message.profileUpdated",
+        "profile.message.providerAlreadyLinked",
+        "profile.message.providerLinkFailed",
+        "profile.message.providerLinkRedirect",
+        "profile.message.providerLinkUnavailable",
+        "profile.message.providerLinked",
+        "profile.message.recoveryCodesCopied",
+        "profile.message.recoveryCodesCopyFailed",
+        "profile.message.recoveryCodesDownloaded",
+        "profile.message.recoveryCodesFailed",
+        "profile.message.recoveryCodesGenerated",
+        "profile.message.recoveryCodesNeedPasskey",
+        "profile.message.recoveryCodesUnavailable",
+        "profile.message.secureRecoveryFailed",
+        "profile.message.secureRecoveryRequirements",
+        "profile.message.totpCodeRequired",
+        "profile.message.totpEnabled",
+        "profile.message.totpSetupFailed",
+        "profile.message.totpSetupStarted",
+        "profile.message.totpUnavailable",
+        "profile.message.totpVerifyFailed",
+        "profile.message.trustedDeviceActionFailed",
+        "profile.message.trustedDeviceRenamed",
+        "profile.message.trustedDeviceRevoked",
+        "profile.message.trustedDeviceUnavailable",
+        "profile.payments.addCard.cancel",
+        "profile.payments.addCard.submit",
+        "profile.payments.addCard.title",
+        "profile.rewardTier.rookie",
+        "profile.tab.addresses",
+        "profile.tab.listings",
+        "profile.tab.notifications",
+        "profile.tab.orders",
+        "profile.tab.overview",
+        "profile.tab.payments",
+        "profile.tab.personal",
+        "profile.tab.rewards",
+        "profile.tab.settings",
+        "profile.tab.support"
+      ],
+      "risk": "low",
+      "stableLiteralCount": 105,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
       "file": "app/src/pages/Admin/Payments.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -3602,116 +3755,6 @@
       ],
       "risk": "low",
       "stableLiteralCount": 116,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
-    },
-    {
-      "dynamicLookupCount": 0,
-      "file": "app/src/pages/Profile/index.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 96,
-      "messageIds": [
-        "profile.accountState.active",
-        "profile.accountState.deleted",
-        "profile.accountState.suspended",
-        "profile.accountState.warned",
-        "profile.avatar.alt",
-        "profile.confirm.deleteAddress",
-        "profile.confirm.deletePaymentMethod",
-        "profile.hero.admin",
-        "profile.hero.auraTier",
-        "profile.hero.bioFallback",
-        "profile.hero.completion",
-        "profile.hero.eyebrow",
-        "profile.hero.identityNeedsAttention",
-        "profile.hero.identityVerified",
-        "profile.hero.memberSince",
-        "profile.hero.noEmail",
-        "profile.hero.noPhone",
-        "profile.hero.paymentMethod.plural",
-        "profile.hero.paymentMethod.single",
-        "profile.hero.paymentMethods",
-        "profile.hero.refineProfile",
-        "profile.hero.supportAppeals",
-        "profile.hero.trustDegraded",
-        "profile.hero.trustHealthy",
-        "profile.hero.viewOrders",
-        "profile.heroMetric.listings.detail",
-        "profile.heroMetric.listings.label",
-        "profile.heroMetric.orders.detail",
-        "profile.heroMetric.orders.label",
-        "profile.heroMetric.points.detail",
-        "profile.heroMetric.points.label",
-        "profile.heroMetric.wishlist.detail",
-        "profile.heroMetric.wishlist.label",
-        "profile.loading.body",
-        "profile.loading.kicker",
-        "profile.loading.title",
-        "profile.memberFallback",
-        "profile.memberSince.recent",
-        "profile.message.addressDeleteFailed",
-        "profile.message.addressDeleted",
-        "profile.message.addressSaveFailed",
-        "profile.message.addressSaved",
-        "profile.message.addressUpdated",
-        "profile.message.avatarUpdateFailed",
-        "profile.message.avatarUpdated",
-        "profile.message.bankPreferenceFailed",
-        "profile.message.bankPreferenceSaved",
-        "profile.message.bankRequired",
-        "profile.message.cardSaveFailed",
-        "profile.message.cardSaved",
-        "profile.message.defaultPaymentUpdateFailed",
-        "profile.message.defaultPaymentUpdated",
-        "profile.message.netbankingCatalogFailed",
-        "profile.message.optimizationFailed",
-        "profile.message.optimizationStarted",
-        "profile.message.passkeyRegisterFailed",
-        "profile.message.passkeyRegistered",
-        "profile.message.passkeyUnavailable",
-        "profile.message.paymentMethodDeleteFailed",
-        "profile.message.paymentMethodDeleted",
-        "profile.message.profileUpdateFailed",
-        "profile.message.profileUpdated",
-        "profile.message.providerAlreadyLinked",
-        "profile.message.providerLinkFailed",
-        "profile.message.providerLinkRedirect",
-        "profile.message.providerLinkUnavailable",
-        "profile.message.providerLinked",
-        "profile.message.recoveryCodesCopied",
-        "profile.message.recoveryCodesCopyFailed",
-        "profile.message.recoveryCodesDownloaded",
-        "profile.message.recoveryCodesFailed",
-        "profile.message.recoveryCodesGenerated",
-        "profile.message.recoveryCodesNeedPasskey",
-        "profile.message.recoveryCodesUnavailable",
-        "profile.message.secureRecoveryFailed",
-        "profile.message.secureRecoveryRequirements",
-        "profile.message.totpCodeRequired",
-        "profile.message.totpEnabled",
-        "profile.message.totpSetupFailed",
-        "profile.message.totpSetupStarted",
-        "profile.message.totpUnavailable",
-        "profile.message.totpVerifyFailed",
-        "profile.payments.addCard.cancel",
-        "profile.payments.addCard.submit",
-        "profile.payments.addCard.title",
-        "profile.rewardTier.rookie",
-        "profile.tab.addresses",
-        "profile.tab.listings",
-        "profile.tab.notifications",
-        "profile.tab.orders",
-        "profile.tab.overview",
-        "profile.tab.payments",
-        "profile.tab.personal",
-        "profile.tab.rewards",
-        "profile.tab.settings",
-        "profile.tab.support"
-      ],
-      "risk": "low",
-      "stableLiteralCount": 97,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -5109,7 +5152,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-07-17T06:56:07.137Z",
+  "generatedAt": "2026-07-17T18:14:54.926Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -9853,7 +9896,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 102,
+      "line": 103,
       "reason": ""
     },
     {
@@ -9866,7 +9909,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 113,
+      "line": 114,
       "reason": ""
     },
     {
@@ -9879,7 +9922,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 122,
+      "line": 123,
       "reason": ""
     },
     {
@@ -9892,7 +9935,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 125,
+      "line": 126,
       "reason": ""
     },
     {
@@ -9905,7 +9948,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 135,
+      "line": 136,
       "reason": ""
     },
     {
@@ -9918,7 +9961,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 141,
+      "line": 142,
       "reason": ""
     },
     {
@@ -9931,33 +9974,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 147,
-      "reason": ""
-    },
-    {
-      "column": 24,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "MFA checkpoint",
-      "file": "app/src/components/shared/ProtectedRoute.jsx",
-      "icuDefaultMessage": "MFA checkpoint",
-      "id": "auth.mfaChallenge.title",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 194,
-      "reason": ""
-    },
-    {
-      "column": 26,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Complete the second-factor challenge to finish this session.",
-      "file": "app/src/components/shared/ProtectedRoute.jsx",
-      "icuDefaultMessage": "Complete the second-factor challenge to finish this session.",
-      "id": "auth.mfaChallenge.message",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 195,
+      "line": 148,
       "reason": ""
     },
     {
@@ -9970,7 +9987,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 225,
+      "line": 241,
       "reason": ""
     },
     {
@@ -9983,7 +10000,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 226,
+      "line": 242,
       "reason": ""
     },
     {
@@ -9996,7 +10013,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 227,
+      "line": 243,
       "reason": ""
     },
     {
@@ -10009,7 +10026,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 228,
+      "line": 244,
       "reason": ""
     },
     {
@@ -10022,7 +10039,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 229,
+      "line": 245,
       "reason": ""
     },
     {
@@ -10035,7 +10052,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 230,
+      "line": 246,
       "reason": ""
     },
     {
@@ -10048,7 +10065,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 231,
+      "line": 247,
       "reason": ""
     },
     {
@@ -10061,7 +10078,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 232,
+      "line": 248,
       "reason": ""
     },
     {
@@ -10074,7 +10091,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 292,
+      "line": 319,
       "reason": ""
     },
     {
@@ -10087,7 +10104,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 326,
+      "line": 346,
       "reason": ""
     },
     {
@@ -45601,7 +45618,33 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 99,
+      "line": 112,
+      "reason": ""
+    },
+    {
+      "column": 28,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Never",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Never",
+      "id": "profile.settings.devices.never",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 117,
+      "reason": ""
+    },
+    {
+      "column": 50,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Unknown",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Unknown",
+      "id": "profile.settings.devices.unknown",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 119,
       "reason": ""
     },
     {
@@ -45614,7 +45657,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 108,
+      "line": 176,
       "reason": ""
     },
     {
@@ -45627,7 +45670,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 114,
+      "line": 182,
       "reason": ""
     },
     {
@@ -45640,7 +45683,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 115,
+      "line": 183,
       "reason": ""
     },
     {
@@ -45653,7 +45696,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 118,
+      "line": 186,
       "reason": ""
     },
     {
@@ -45666,7 +45709,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 128,
+      "line": 196,
       "reason": ""
     },
     {
@@ -45679,7 +45722,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 129,
+      "line": 197,
       "reason": ""
     },
     {
@@ -45692,7 +45735,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linked sign-in providers",
-      "line": 140,
+      "line": 208,
       "reason": ""
     },
     {
@@ -45705,7 +45748,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Attach another provider after signing in with the method that already owns this email.",
-      "line": 143,
+      "line": 211,
       "reason": ""
     },
     {
@@ -45720,7 +45763,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linked",
-      "line": 160,
+      "line": 228,
       "reason": ""
     },
     {
@@ -45735,7 +45778,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linking {{provider}}...",
-      "line": 162,
+      "line": 230,
       "reason": ""
     },
     {
@@ -45750,7 +45793,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Link {{provider}}",
-      "line": 163,
+      "line": 231,
       "reason": ""
     },
     {
@@ -45763,7 +45806,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 179,
+      "line": 247,
       "reason": ""
     },
     {
@@ -45776,7 +45819,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 180,
+      "line": 248,
       "reason": ""
     },
     {
@@ -45789,7 +45832,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 184,
+      "line": 252,
       "reason": ""
     },
     {
@@ -45805,7 +45848,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 185,
+      "line": 253,
       "reason": ""
     },
     {
@@ -45818,7 +45861,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 194,
+      "line": 262,
       "reason": ""
     },
     {
@@ -45833,7 +45876,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 198,
+      "line": 266,
       "reason": ""
     },
     {
@@ -45846,7 +45889,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 199,
+      "line": 267,
       "reason": ""
     },
     {
@@ -45859,7 +45902,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 211,
+      "line": 279,
       "reason": ""
     },
     {
@@ -45872,7 +45915,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 212,
+      "line": 280,
       "reason": ""
     },
     {
@@ -45885,7 +45928,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 222,
+      "line": 290,
       "reason": ""
     },
     {
@@ -45898,7 +45941,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 224,
+      "line": 292,
       "reason": ""
     },
     {
@@ -45911,7 +45954,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 225,
+      "line": 293,
       "reason": ""
     },
     {
@@ -45924,7 +45967,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 235,
+      "line": 303,
       "reason": ""
     },
     {
@@ -45937,7 +45980,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 246,
+      "line": 314,
       "reason": ""
     },
     {
@@ -45950,7 +45993,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 259,
+      "line": 327,
       "reason": ""
     },
     {
@@ -45963,7 +46006,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 261,
+      "line": 329,
       "reason": ""
     },
     {
@@ -45976,7 +46019,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 271,
+      "line": 339,
       "reason": ""
     },
     {
@@ -45989,7 +46032,528 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 272,
+      "line": 340,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "{{count}} active",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "{count} active",
+      "id": "profile.settings.devices.activeCount",
+      "interpolationTokens": [
+        "count"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 357,
+      "reason": ""
+    },
+    {
+      "column": 46,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "This browser is identified",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "This browser is identified",
+      "id": "profile.settings.devices.currentBound",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 361,
+      "reason": ""
+    },
+    {
+      "column": 46,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "This session is not bound to a managed device",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "This session is not bound to a managed device",
+      "id": "profile.settings.devices.currentUnbound",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 365,
+      "reason": ""
+    },
+    {
+      "column": 38,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Devices, passkeys & remembered browsers",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Devices, passkeys & remembered browsers",
+      "id": "profile.settings.devices.title",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 371,
+      "reason": ""
+    },
+    {
+      "column": 43,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
+      "id": "profile.settings.devices.adminBody",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 375,
+      "reason": ""
+    },
+    {
+      "column": 43,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "A remembered browser can reduce recognition prompts, but it is not MFA. Passkeys protect MFA; a synced passkey may be available on more than one physical device.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "A remembered browser can reduce recognition prompts, but it is not MFA. Passkeys protect MFA; a synced passkey may be available on more than one physical device.",
+      "id": "profile.settings.devices.publicBody",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 376,
+      "reason": ""
+    },
+    {
+      "column": 47,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Revoking...",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Revoking...",
+      "id": "profile.settings.devices.revokingOthers",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 390,
+      "reason": ""
+    },
+    {
+      "column": 51,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirm revoke {{count}}",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Confirm revoke {count}",
+      "id": "profile.settings.devices.confirmRevokeOthers",
+      "interpolationTokens": [
+        "count"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 392,
+      "reason": ""
+    },
+    {
+      "column": 51,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Revoke all others",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Revoke all others",
+      "id": "profile.settings.devices.revokeOthers",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 393,
+      "reason": ""
+    },
+    {
+      "column": 46,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Cancel",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Cancel",
+      "id": "common.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 401,
+      "reason": ""
+    },
+    {
+      "column": 37,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Keep at least one independent admin passkey. The server blocks removal of the final policy-required admin factor.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Keep at least one independent admin passkey. The server blocks removal of the final policy-required admin factor.",
+      "id": "profile.settings.devices.adminWarning",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 411,
+      "reason": ""
+    },
+    {
+      "column": 38,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "No managed devices yet",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "No managed devices yet",
+      "id": "profile.settings.devices.emptyTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 419,
+      "reason": ""
+    },
+    {
+      "column": 38,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Register a passkey or complete a trusted-browser checkpoint to add one.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Register a passkey or complete a trusted-browser checkpoint to add one.",
+      "id": "profile.settings.devices.emptyBody",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 422,
+      "reason": ""
+    },
+    {
+      "column": 47,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Admin passkey",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Admin passkey",
+      "id": "profile.settings.devices.adminPasskey",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 436,
+      "reason": ""
+    },
+    {
+      "column": 51,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "MFA passkey",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "MFA passkey",
+      "id": "profile.settings.devices.mfaPasskey",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 438,
+      "reason": ""
+    },
+    {
+      "column": 51,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Recognition passkey",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Recognition passkey",
+      "id": "profile.settings.devices.recognitionPasskey",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 439,
+      "reason": ""
+    },
+    {
+      "column": 43,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Remembered browser · not MFA",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Remembered browser · not MFA",
+      "id": "profile.settings.devices.rememberedBrowser",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 440,
+      "reason": ""
+    },
+    {
+      "column": 47,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Synced passkey",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Synced passkey",
+      "id": "profile.settings.devices.syncedPasskey",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 443,
+      "reason": ""
+    },
+    {
+      "column": 51,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Sync eligible",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Sync eligible",
+      "id": "profile.settings.devices.syncEligible",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 445,
+      "reason": ""
+    },
+    {
+      "column": 51,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Device-bound or sync unknown",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Device-bound or sync unknown",
+      "id": "profile.settings.devices.deviceBound",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 446,
+      "reason": ""
+    },
+    {
+      "column": 92,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Device name",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Device name",
+      "id": "profile.settings.devices.nameLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 460,
+      "reason": ""
+    },
+    {
+      "column": 81,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Name for {{device}}",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Name for {device}",
+      "id": "profile.settings.devices.nameFor",
+      "interpolationTokens": [
+        "device"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 467,
+      "reason": ""
+    },
+    {
+      "column": 66,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Current",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Current",
+      "id": "profile.settings.devices.current",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 475,
+      "reason": ""
+    },
+    {
+      "column": 64,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Last verified {{date}}",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Last verified {date}",
+      "id": "profile.settings.devices.lastVerified",
+      "interpolationTokens": [
+        "date"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 488,
+      "reason": ""
+    },
+    {
+      "column": 62,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Fresh passkey verification is required before this credential can protect admin actions.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Fresh passkey verification is required before this credential can protect admin actions.",
+      "id": "profile.settings.devices.legacyAdminWarning",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 493,
+      "reason": ""
+    },
+    {
+      "column": 62,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Revoking this device signs you out and removes its local trust identity.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Revoking this device signs you out and removes its local trust identity.",
+      "id": "profile.settings.devices.currentRevokeWarning",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 498,
+      "reason": ""
+    },
+    {
+      "column": 86,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Saving...",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Saving...",
+      "id": "common.saving",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 514,
+      "reason": ""
+    },
+    {
+      "column": 124,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Save",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Save",
+      "id": "common.save",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 514,
+      "reason": ""
+    },
+    {
+      "column": 81,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Cancel rename",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Cancel rename",
+      "id": "profile.settings.devices.cancelRename",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 520,
+      "reason": ""
+    },
+    {
+      "column": 70,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Cancel",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Cancel",
+      "id": "common.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 523,
+      "reason": ""
+    },
+    {
+      "column": 77,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Rename {{device}}",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Rename {device}",
+      "id": "profile.settings.devices.renameAria",
+      "interpolationTokens": [
+        "device"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 532,
+      "reason": ""
+    },
+    {
+      "column": 66,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Rename",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Rename",
+      "id": "common.rename",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 535,
+      "reason": ""
+    },
+    {
+      "column": 67,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirm revoke {{device}}",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Confirm revoke {device}",
+      "id": "profile.settings.devices.confirmRevokeAria",
+      "interpolationTokens": [
+        "device"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 544,
+      "reason": ""
+    },
+    {
+      "column": 67,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Revoke {{device}}",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Revoke {device}",
+      "id": "profile.settings.devices.revokeAria",
+      "interpolationTokens": [
+        "device"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 545,
+      "reason": ""
+    },
+    {
+      "column": 67,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Revoking...",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Revoking...",
+      "id": "common.revoking",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 549,
+      "reason": ""
+    },
+    {
+      "column": 71,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirm",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Confirm",
+      "id": "common.confirm",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 551,
+      "reason": ""
+    },
+    {
+      "column": 75,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Revoke & sign out",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Revoke & sign out",
+      "id": "profile.settings.devices.revokeAndSignOut",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 553,
+      "reason": ""
+    },
+    {
+      "column": 75,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Revoke",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Revoke",
+      "id": "common.revoke",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 554,
+      "reason": ""
+    },
+    {
+      "column": 66,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Cancel",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Cancel",
+      "id": "common.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 562,
       "reason": ""
     },
     {
@@ -46002,7 +46566,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 287,
+      "line": 582,
       "reason": ""
     },
     {
@@ -46015,7 +46579,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 288,
+      "line": 583,
       "reason": ""
     },
     {
@@ -46030,7 +46594,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 291,
+      "line": 586,
       "reason": ""
     },
     {
@@ -46043,7 +46607,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 300,
+      "line": 595,
       "reason": ""
     },
     {
@@ -46056,7 +46620,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 304,
+      "line": 599,
       "reason": ""
     },
     {
@@ -46069,7 +46633,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 305,
+      "line": 600,
       "reason": ""
     },
     {
@@ -46082,7 +46646,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 309,
+      "line": 604,
       "reason": ""
     },
     {
@@ -46095,7 +46659,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 321,
+      "line": 616,
       "reason": ""
     },
     {
@@ -46108,7 +46672,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 323,
+      "line": 618,
       "reason": ""
     },
     {
@@ -46121,7 +46685,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 324,
+      "line": 619,
       "reason": ""
     },
     {
@@ -46134,7 +46698,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 333,
+      "line": 628,
       "reason": ""
     },
     {
@@ -46147,7 +46711,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 336,
+      "line": 631,
       "reason": ""
     },
     {
@@ -46160,7 +46724,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 346,
+      "line": 641,
       "reason": ""
     },
     {
@@ -46173,7 +46737,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 354,
+      "line": 649,
       "reason": ""
     },
     {
@@ -46186,7 +46750,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 361,
+      "line": 656,
       "reason": ""
     },
     {
@@ -46199,7 +46763,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 378,
+      "line": 673,
       "reason": ""
     },
     {
@@ -46212,7 +46776,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 380,
+      "line": 675,
       "reason": ""
     },
     {
@@ -46225,7 +46789,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 380,
+      "line": 675,
       "reason": ""
     },
     {
@@ -46238,7 +46802,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 384,
+      "line": 679,
       "reason": ""
     },
     {
@@ -46251,7 +46815,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 385,
+      "line": 680,
       "reason": ""
     },
     {
@@ -46264,7 +46828,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 390,
+      "line": 685,
       "reason": ""
     },
     {
@@ -46277,7 +46841,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 392,
+      "line": 687,
       "reason": ""
     },
     {
@@ -46290,7 +46854,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 392,
+      "line": 687,
       "reason": ""
     },
     {
@@ -46305,7 +46869,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 396,
+      "line": 691,
       "reason": ""
     },
     {
@@ -46320,7 +46884,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 397,
+      "line": 692,
       "reason": ""
     },
     {
@@ -46333,7 +46897,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 407,
+      "line": 702,
       "reason": ""
     },
     {
@@ -46346,7 +46910,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 412,
+      "line": 707,
       "reason": ""
     },
     {
@@ -46359,7 +46923,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 415,
+      "line": 710,
       "reason": ""
     },
     {
@@ -46372,7 +46936,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 417,
+      "line": 712,
       "reason": ""
     },
     {
@@ -46385,7 +46949,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 418,
+      "line": 713,
       "reason": ""
     },
     {
@@ -46398,7 +46962,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 422,
+      "line": 717,
       "reason": ""
     },
     {
@@ -46411,7 +46975,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 424,
+      "line": 719,
       "reason": ""
     },
     {
@@ -46424,7 +46988,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 424,
+      "line": 719,
       "reason": ""
     },
     {
@@ -46437,7 +47001,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 428,
+      "line": 723,
       "reason": ""
     },
     {
@@ -46450,7 +47014,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 430,
+      "line": 725,
       "reason": ""
     },
     {
@@ -46463,7 +47027,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 430,
+      "line": 725,
       "reason": ""
     },
     {
@@ -46476,7 +47040,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 438,
+      "line": 733,
       "reason": ""
     },
     {
@@ -46493,7 +47057,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 442,
+      "line": 737,
       "reason": ""
     },
     {
@@ -46506,7 +47070,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 446,
+      "line": 741,
       "reason": ""
     },
     {
@@ -46519,7 +47083,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 447,
+      "line": 742,
       "reason": ""
     },
     {
@@ -46532,7 +47096,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 456,
+      "line": 751,
       "reason": ""
     },
     {
@@ -46545,7 +47109,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 464,
+      "line": 759,
       "reason": ""
     },
     {
@@ -46558,7 +47122,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 468,
+      "line": 763,
       "reason": ""
     },
     {
@@ -46571,7 +47135,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 469,
+      "line": 764,
       "reason": ""
     },
     {
@@ -46584,7 +47148,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 474,
+      "line": 769,
       "reason": ""
     },
     {
@@ -46597,7 +47161,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 475,
+      "line": 770,
       "reason": ""
     },
     {
@@ -46610,7 +47174,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 480,
+      "line": 775,
       "reason": ""
     },
     {
@@ -46623,7 +47187,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 481,
+      "line": 776,
       "reason": ""
     },
     {
@@ -46636,7 +47200,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 491,
+      "line": 786,
       "reason": ""
     },
     {
@@ -46649,7 +47213,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 495,
+      "line": 790,
       "reason": ""
     },
     {
@@ -46662,7 +47226,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 498,
+      "line": 793,
       "reason": ""
     },
     {
@@ -46675,7 +47239,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 501,
+      "line": 796,
       "reason": ""
     },
     {
@@ -46688,7 +47252,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 508,
+      "line": 803,
       "reason": ""
     },
     {
@@ -48818,7 +49382,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 226,
+      "line": 230,
       "reason": ""
     },
     {
@@ -48831,7 +49395,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 485,
+      "line": 489,
       "reason": ""
     },
     {
@@ -48844,7 +49408,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 487,
+      "line": 491,
       "reason": ""
     },
     {
@@ -48857,7 +49421,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 504,
+      "line": 508,
       "reason": ""
     },
     {
@@ -48870,7 +49434,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 506,
+      "line": 510,
       "reason": ""
     },
     {
@@ -48883,7 +49447,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 547,
+      "line": 551,
       "reason": ""
     },
     {
@@ -48896,7 +49460,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 548,
+      "line": 552,
       "reason": ""
     },
     {
@@ -48909,7 +49473,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 550,
+      "line": 554,
       "reason": ""
     },
     {
@@ -48922,7 +49486,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 557,
+      "line": 561,
       "reason": ""
     },
     {
@@ -48935,7 +49499,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 561,
+      "line": 565,
       "reason": ""
     },
     {
@@ -48948,7 +49512,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 563,
+      "line": 567,
       "reason": ""
     },
     {
@@ -48961,7 +49525,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 572,
+      "line": 576,
       "reason": ""
     },
     {
@@ -48974,7 +49538,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 593,
+      "line": 597,
       "reason": ""
     },
     {
@@ -48987,7 +49551,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 601,
+      "line": 605,
       "reason": ""
     },
     {
@@ -49000,7 +49564,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 607,
+      "line": 611,
       "reason": ""
     },
     {
@@ -49015,7 +49579,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 623,
+      "line": 627,
       "reason": ""
     },
     {
@@ -49028,7 +49592,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 632,
+      "line": 636,
       "reason": ""
     },
     {
@@ -49041,7 +49605,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 641,
+      "line": 645,
       "reason": ""
     },
     {
@@ -49054,7 +49618,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 650,
+      "line": 654,
       "reason": ""
     },
     {
@@ -49067,7 +49631,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 652,
+      "line": 656,
       "reason": ""
     },
     {
@@ -49080,7 +49644,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 661,
+      "line": 665,
       "reason": ""
     },
     {
@@ -49093,7 +49657,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 665,
+      "line": 669,
       "reason": ""
     },
     {
@@ -49106,7 +49670,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 682,
+      "line": 686,
       "reason": ""
     },
     {
@@ -49119,7 +49683,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 684,
+      "line": 688,
       "reason": ""
     },
     {
@@ -49132,7 +49696,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 692,
+      "line": 696,
       "reason": ""
     },
     {
@@ -49145,7 +49709,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 703,
+      "line": 707,
       "reason": ""
     },
     {
@@ -49158,7 +49722,111 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 705,
+      "line": 709,
+      "reason": ""
+    },
+    {
+      "column": 34,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Could not update this trusted device.",
+      "file": "app/src/pages/Profile/index.jsx",
+      "icuDefaultMessage": "Could not update this trusted device.",
+      "id": "profile.message.trustedDeviceActionFailed",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 729,
+      "reason": ""
+    },
+    {
+      "column": 29,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Trusted-device management is unavailable in this session.",
+      "file": "app/src/pages/Profile/index.jsx",
+      "icuDefaultMessage": "Trusted-device management is unavailable in this session.",
+      "id": "profile.message.trustedDeviceUnavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 739,
+      "reason": ""
+    },
+    {
+      "column": 29,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Trusted device renamed.",
+      "file": "app/src/pages/Profile/index.jsx",
+      "icuDefaultMessage": "Trusted device renamed.",
+      "id": "profile.message.trustedDeviceRenamed",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 744,
+      "reason": ""
+    },
+    {
+      "column": 29,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Trusted-device management is unavailable in this session.",
+      "file": "app/src/pages/Profile/index.jsx",
+      "icuDefaultMessage": "Trusted-device management is unavailable in this session.",
+      "id": "profile.message.trustedDeviceUnavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 750,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "This device was revoked. You are being signed out.",
+      "file": "app/src/pages/Profile/index.jsx",
+      "icuDefaultMessage": "This device was revoked. You are being signed out.",
+      "id": "profile.message.currentTrustedDeviceRevoked",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 756,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Trusted device revoked.",
+      "file": "app/src/pages/Profile/index.jsx",
+      "icuDefaultMessage": "Trusted device revoked.",
+      "id": "profile.message.trustedDeviceRevoked",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 757,
+      "reason": ""
+    },
+    {
+      "column": 29,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Trusted-device management is unavailable in this session.",
+      "file": "app/src/pages/Profile/index.jsx",
+      "icuDefaultMessage": "Trusted-device management is unavailable in this session.",
+      "id": "profile.message.trustedDeviceUnavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 763,
+      "reason": ""
+    },
+    {
+      "column": 29,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Other trusted devices were revoked.",
+      "file": "app/src/pages/Profile/index.jsx",
+      "icuDefaultMessage": "Other trusted devices were revoked.",
+      "id": "profile.message.otherTrustedDevicesRevoked",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 768,
       "reason": ""
     },
     {
@@ -49171,7 +49839,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 716,
+      "line": 777,
       "reason": ""
     },
     {
@@ -49184,7 +49852,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 718,
+      "line": 779,
       "reason": ""
     },
     {
@@ -49197,7 +49865,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 743,
+      "line": 804,
       "reason": ""
     },
     {
@@ -49210,7 +49878,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 750,
+      "line": 811,
       "reason": ""
     },
     {
@@ -49223,7 +49891,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 752,
+      "line": 813,
       "reason": ""
     },
     {
@@ -49236,7 +49904,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 757,
+      "line": 818,
       "reason": ""
     },
     {
@@ -49249,7 +49917,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 761,
+      "line": 822,
       "reason": ""
     },
     {
@@ -49262,7 +49930,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 763,
+      "line": 824,
       "reason": ""
     },
     {
@@ -49275,7 +49943,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 773,
+      "line": 834,
       "reason": ""
     },
     {
@@ -49288,7 +49956,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 774,
+      "line": 835,
       "reason": ""
     },
     {
@@ -49301,7 +49969,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 775,
+      "line": 836,
       "reason": ""
     },
     {
@@ -49314,7 +49982,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 787,
+      "line": 848,
       "reason": ""
     },
     {
@@ -49327,7 +49995,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 790,
+      "line": 851,
       "reason": ""
     },
     {
@@ -49340,7 +50008,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 797,
+      "line": 858,
       "reason": ""
     },
     {
@@ -49353,7 +50021,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 817,
+      "line": 878,
       "reason": ""
     },
     {
@@ -49366,7 +50034,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 819,
+      "line": 880,
       "reason": ""
     },
     {
@@ -49381,7 +50049,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linking is not available in this build.",
-      "line": 825,
+      "line": 886,
       "reason": ""
     },
     {
@@ -49396,7 +50064,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Complete {{provider}} linking in the provider window.",
-      "line": 833,
+      "line": 894,
       "reason": ""
     },
     {
@@ -49411,7 +50079,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} is already linked to this account.",
-      "line": 838,
+      "line": 899,
       "reason": ""
     },
     {
@@ -49426,7 +50094,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linked to this account.",
-      "line": 839,
+      "line": 900,
       "reason": ""
     },
     {
@@ -49441,7 +50109,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not link {{provider}}.",
-      "line": 841,
+      "line": 902,
       "reason": ""
     },
     {
@@ -49454,7 +50122,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 859,
+      "line": 920,
       "reason": ""
     },
     {
@@ -49467,7 +50135,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 864,
+      "line": 925,
       "reason": ""
     },
     {
@@ -49480,7 +50148,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 890,
+      "line": 951,
       "reason": ""
     },
     {
@@ -49493,7 +50161,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 892,
+      "line": 953,
       "reason": ""
     },
     {
@@ -49506,7 +50174,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 903,
+      "line": 964,
       "reason": ""
     },
     {
@@ -49519,7 +50187,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 944,
+      "line": 1005,
       "reason": ""
     },
     {
@@ -49532,7 +50200,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 946,
+      "line": 1007,
       "reason": ""
     },
     {
@@ -49545,7 +50213,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 949,
+      "line": 1010,
       "reason": ""
     },
     {
@@ -49558,7 +50226,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 951,
+      "line": 1012,
       "reason": ""
     },
     {
@@ -49571,7 +50239,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 954,
+      "line": 1015,
       "reason": ""
     },
     {
@@ -49584,7 +50252,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 956,
+      "line": 1017,
       "reason": ""
     },
     {
@@ -49597,7 +50265,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 959,
+      "line": 1020,
       "reason": ""
     },
     {
@@ -49612,7 +50280,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 961,
+      "line": 1022,
       "reason": ""
     },
     {
@@ -49625,7 +50293,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 966,
+      "line": 1027,
       "reason": ""
     },
     {
@@ -49638,7 +50306,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 967,
+      "line": 1028,
       "reason": ""
     },
     {
@@ -49651,7 +50319,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 968,
+      "line": 1029,
       "reason": ""
     },
     {
@@ -49664,7 +50332,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 969,
+      "line": 1030,
       "reason": ""
     },
     {
@@ -49677,7 +50345,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 986,
+      "line": 1047,
       "reason": ""
     },
     {
@@ -49690,7 +50358,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 987,
+      "line": 1048,
       "reason": ""
     },
     {
@@ -49703,7 +50371,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 988,
+      "line": 1049,
       "reason": ""
     },
     {
@@ -49716,7 +50384,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1015,
+      "line": 1076,
       "reason": ""
     },
     {
@@ -49731,7 +50399,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1016,
+      "line": 1077,
       "reason": ""
     },
     {
@@ -49746,7 +50414,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1017,
+      "line": 1078,
       "reason": ""
     },
     {
@@ -49761,7 +50429,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1041,
+      "line": 1102,
       "reason": ""
     },
     {
@@ -49774,7 +50442,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1069,
+      "line": 1130,
       "reason": ""
     },
     {
@@ -49787,7 +50455,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1070,
+      "line": 1131,
       "reason": ""
     },
     {
@@ -49800,7 +50468,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1074,
+      "line": 1135,
       "reason": ""
     },
     {
@@ -49815,7 +50483,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1078,
+      "line": 1139,
       "reason": ""
     },
     {
@@ -49828,7 +50496,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1082,
+      "line": 1143,
       "reason": ""
     },
     {
@@ -49841,7 +50509,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1083,
+      "line": 1144,
       "reason": ""
     },
     {
@@ -49854,7 +50522,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1092,
+      "line": 1153,
       "reason": ""
     },
     {
@@ -49867,7 +50535,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1096,
+      "line": 1157,
       "reason": ""
     },
     {
@@ -49880,7 +50548,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1098,
+      "line": 1159,
       "reason": ""
     },
     {
@@ -49896,7 +50564,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1101,
+      "line": 1162,
       "reason": ""
     },
     {
@@ -49909,7 +50577,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1106,
+      "line": 1167,
       "reason": ""
     },
     {
@@ -49922,7 +50590,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1107,
+      "line": 1168,
       "reason": ""
     },
     {
@@ -49935,7 +50603,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1121,
+      "line": 1182,
       "reason": ""
     },
     {
@@ -49948,7 +50616,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1128,
+      "line": 1189,
       "reason": ""
     },
     {
@@ -49961,7 +50629,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1135,
+      "line": 1196,
       "reason": ""
     },
     {
@@ -53515,14 +54183,14 @@
     "legacyPackInternalFiles": 21,
     "parseErrors": 0,
     "productionFiles": 79,
-    "productionStableReferences": 3662,
+    "productionStableReferences": 3709,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 355,
+    "sourceFilesScanned": 358,
     "testHarnessReferences": 4,
     "totalTrackedFiles": 111,
-    "uniqueProductionStableIds": 3324,
+    "uniqueProductionStableIds": 3367,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -54377,8 +55045,6 @@
     "auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d",
     "auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df",
     "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe",
-    "auth.mfaChallenge.message",
-    "auth.mfaChallenge.title",
     "auth.pending.admin",
     "auth.pending.seller",
     "auth.recoverableIssue",
@@ -54753,7 +55419,9 @@
     "common.action.back",
     "common.answer.no",
     "common.answer.yes",
+    "common.cancel",
     "common.choice.or",
+    "common.confirm",
     "common.jsx.expression.a.live.lane.is.active.e6c9da1a",
     "common.jsx.expression.a.live.lane.is.already.active.112f9357",
     "common.jsx.expression.audio.only.4c272d78",
@@ -54982,6 +55650,11 @@
     "common.jsx.text.working.through.live.evidence.856c66cc",
     "common.jsx.text.your.camera.preview.is.live.029460fd",
     "common.jsx.text.your.hosted.aura.experience.keeps.updating.automatically.5f175dd0",
+    "common.rename",
+    "common.revoke",
+    "common.revoking",
+    "common.save",
+    "common.saving",
     "common.validation.jsx.text.a.ui.module.failed.to.load.correctly.547ea3f7",
     "common.validation.jsx.text.an.unexpected.error.occurred.in.this.section.5b3902e0",
     "common.validation.jsx.text.failed.to.load.920b5b20",
@@ -56092,11 +56765,13 @@
     "profile.message.bankRequired",
     "profile.message.cardSaveFailed",
     "profile.message.cardSaved",
+    "profile.message.currentTrustedDeviceRevoked",
     "profile.message.defaultPaymentUpdateFailed",
     "profile.message.defaultPaymentUpdated",
     "profile.message.netbankingCatalogFailed",
     "profile.message.optimizationFailed",
     "profile.message.optimizationStarted",
+    "profile.message.otherTrustedDevicesRevoked",
     "profile.message.passkeyRegisterFailed",
     "profile.message.passkeyRegistered",
     "profile.message.passkeyUnavailable",
@@ -56124,6 +56799,10 @@
     "profile.message.totpSetupStarted",
     "profile.message.totpUnavailable",
     "profile.message.totpVerifyFailed",
+    "profile.message.trustedDeviceActionFailed",
+    "profile.message.trustedDeviceRenamed",
+    "profile.message.trustedDeviceRevoked",
+    "profile.message.trustedDeviceUnavailable",
     "profile.notifications.body",
     "profile.notifications.empty.body",
     "profile.notifications.empty.title",
@@ -56308,6 +56987,38 @@
     "profile.rewards.streak.label",
     "profile.rewards.tierBadge",
     "profile.rewards.title",
+    "profile.settings.devices.activeCount",
+    "profile.settings.devices.adminBody",
+    "profile.settings.devices.adminPasskey",
+    "profile.settings.devices.adminWarning",
+    "profile.settings.devices.cancelRename",
+    "profile.settings.devices.confirmRevokeAria",
+    "profile.settings.devices.confirmRevokeOthers",
+    "profile.settings.devices.current",
+    "profile.settings.devices.currentBound",
+    "profile.settings.devices.currentRevokeWarning",
+    "profile.settings.devices.currentUnbound",
+    "profile.settings.devices.deviceBound",
+    "profile.settings.devices.emptyBody",
+    "profile.settings.devices.emptyTitle",
+    "profile.settings.devices.lastVerified",
+    "profile.settings.devices.legacyAdminWarning",
+    "profile.settings.devices.mfaPasskey",
+    "profile.settings.devices.nameFor",
+    "profile.settings.devices.nameLabel",
+    "profile.settings.devices.never",
+    "profile.settings.devices.publicBody",
+    "profile.settings.devices.recognitionPasskey",
+    "profile.settings.devices.rememberedBrowser",
+    "profile.settings.devices.renameAria",
+    "profile.settings.devices.revokeAndSignOut",
+    "profile.settings.devices.revokeAria",
+    "profile.settings.devices.revokeOthers",
+    "profile.settings.devices.revokingOthers",
+    "profile.settings.devices.syncEligible",
+    "profile.settings.devices.syncedPasskey",
+    "profile.settings.devices.title",
+    "profile.settings.devices.unknown",
     "profile.settings.notifications.marketplace.desc",
     "profile.settings.notifications.marketplace.label",
     "profile.settings.notifications.orders.desc",

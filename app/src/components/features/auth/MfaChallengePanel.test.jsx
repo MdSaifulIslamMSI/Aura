@@ -1,6 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { IntlProvider } from 'react-intl';
 import MfaChallengePanel from './MfaChallengePanel';
+
+const renderPanel = (panel) => render(
+  <IntlProvider locale="en" messages={{}}>
+    {panel}
+  </IntlProvider>
+);
 
 const buildChallenge = (overrides = {}) => ({
   challengeId: 'mfa-challenge-1',
@@ -23,7 +30,7 @@ describe('MfaChallengePanel', () => {
   it('focuses the public heading and submits the offered TOTP challenge contract', async () => {
     const onVerifyTotp = vi.fn().mockResolvedValue(buildCompleteSessionResponse());
 
-    render(
+    renderPanel(
       <MfaChallengePanel
         challenge={buildChallenge()}
         onVerifyTotp={onVerifyTotp}
@@ -57,7 +64,7 @@ describe('MfaChallengePanel', () => {
       finishPasskey = resolve;
     }));
 
-    render(
+    renderPanel(
       <MfaChallengePanel
         challenge={buildChallenge({ preferredMethod: 'passkey' })}
         onVerifyTotp={vi.fn()}
@@ -88,7 +95,7 @@ describe('MfaChallengePanel', () => {
     const rejection = Object.assign(new Error('Recovery code rejected'), { status: 401 });
     const onVerifyRecoveryCode = vi.fn().mockRejectedValue(rejection);
 
-    render(
+    renderPanel(
       <MfaChallengePanel
         challenge={buildChallenge()}
         onVerifyTotp={vi.fn()}
@@ -125,7 +132,7 @@ describe('MfaChallengePanel', () => {
     const onCancel = vi.fn();
     const onSignOut = vi.fn().mockResolvedValue(null);
 
-    render(
+    renderPanel(
       <MfaChallengePanel
         challenge={buildChallenge({ allowedMethods: ['totp'] })}
         onVerifyTotp={vi.fn()}
@@ -151,7 +158,7 @@ describe('MfaChallengePanel', () => {
     const onVerifyTotp = vi.fn().mockRejectedValue(rateLimitError);
 
     try {
-      render(
+      renderPanel(
         <MfaChallengePanel
           challenge={buildChallenge()}
           onVerifyTotp={onVerifyTotp}
@@ -191,7 +198,7 @@ describe('MfaChallengePanel', () => {
     vi.setSystemTime(new Date('2026-07-17T12:00:00.000Z'));
 
     try {
-      render(
+      renderPanel(
         <MfaChallengePanel
           challenge={buildChallenge({
             purpose: 'step_up',
@@ -233,7 +240,7 @@ describe('MfaChallengePanel', () => {
       session: { sessionId: 'session-1' },
     });
 
-    render(
+    renderPanel(
       <MfaChallengePanel
         challenge={buildChallenge({ allowedMethods: ['totp'] })}
         onVerifyTotp={onVerifyTotp}
