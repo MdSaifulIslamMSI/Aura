@@ -962,6 +962,20 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/PROD_SSM_PREFIX.*\/aura\/prod/);
         expect(workflow).toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_BASE_URL\s*\}\}/);
         expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY/);
+        expect(workflow).toMatch(/id:\s*lease-runner-ssh/);
+        expect(workflow).toContain('https://checkip.amazonaws.com');
+        expect(workflow).toMatch(/RUNNER_CIDR="\$\{RUNNER_IP\}\/32"/);
+        expect(workflow).toMatch(/authorize-security-group-ingress[\s\S]*?--port 22[\s\S]*?--cidr "\$\{RUNNER_CIDR\}"/);
+        expect(workflow).toMatch(/security_group_rule_id=\$\{SECURITY_GROUP_RULE_ID\}/);
+        expect(workflow).toMatch(/if:\s*\$\{\{ always\(\) && steps\.lease-runner-ssh\.outputs\.security_group_rule_id != '' \}\}/);
+        expect(workflow).toMatch(/revoke-security-group-ingress[\s\S]*?--security-group-rule-ids "\$\{LEASED_SECURITY_GROUP_RULE_ID\}"/);
+
+        const leaseIndex = workflow.indexOf('- name: Lease runner SSH access');
+        const deployIndex = workflow.indexOf('- name: Deploy and verify isolated staging');
+        const revokeIndex = workflow.indexOf('- name: Revoke runner SSH access');
+        expect(leaseIndex).toBeGreaterThan(-1);
+        expect(deployIndex).toBeGreaterThan(leaseIndex);
+        expect(revokeIndex).toBeGreaterThan(deployIndex);
     });
 
     test('production-on-push requires manual confirmation before production dispatch', () => {

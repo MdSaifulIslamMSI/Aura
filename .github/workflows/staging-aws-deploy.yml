@@ -126,6 +126,76 @@ jobs:
           fs.writeFileSync('.staging/state.json', `${JSON.stringify(state, null, 2)}\n`);
           NODE
 
+      - name: Lease runner SSH access
+        id: lease-runner-ssh
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(node --input-type=module -e "import fs from 'node:fs'; const state = JSON.parse(fs.readFileSync('.staging/state.json', 'utf8')); process.stdout.write(String(state.instance_id || '')); ")"
+          test -n "${INSTANCE_ID}" || { echo "Staging instance ID is missing."; exit 1; }
+
+          SECURITY_GROUP_ID="$(aws ec2 describe-instances \
+            --region "${AWS_REGION}" \
+            --instance-ids "${INSTANCE_ID}" \
+            --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' \
+            --output text)"
+          test -n "${SECURITY_GROUP_ID}" && test "${SECURITY_GROUP_ID}" != "None" || {
+            echo "Staging security group could not be resolved."
+            exit 1
+          }
+
+          SG_ENVIRONMENT="$(aws ec2 describe-security-groups \
+            --region "${AWS_REGION}" \
+            --group-ids "${SECURITY_GROUP_ID}" \
+            --query 'SecurityGroups[0].Tags[?Key==`Environment`].Value | [0]' \
+            --output text)"
+          SG_PROJECT="$(aws ec2 describe-security-groups \
+            --region "${AWS_REGION}" \
+            --group-ids "${SECURITY_GROUP_ID}" \
+            --query 'SecurityGroups[0].Tags[?Key==`Project`].Value | [0]' \
+            --output text)"
+          SG_MANAGED_BY="$(aws ec2 describe-security-groups \
+            --region "${AWS_REGION}" \
+            --group-ids "${SECURITY_GROUP_ID}" \
+            --query 'SecurityGroups[0].Tags[?Key==`ManagedBy`].Value | [0]' \
+            --output text)"
+          test "${SG_ENVIRONMENT}" = "staging" || { echo "Refusing SSH access outside the staging security group."; exit 1; }
+          test "${SG_PROJECT}" = "${PROJECT_NAME}" || { echo "Staging security group project tag mismatch."; exit 1; }
+          test "${SG_MANAGED_BY}" = "codex-staging-bootstrap" || { echo "Staging security group ownership tag mismatch."; exit 1; }
+
+          RUNNER_IP="$(curl --fail --silent --show-error --max-time 10 https://checkip.amazonaws.com | tr -d '[:space:]')"
+          RUNNER_IP="${RUNNER_IP}" node --input-type=module <<'NODE'
+          import net from 'node:net';
+          if (!net.isIPv4(process.env.RUNNER_IP || '')) {
+            throw new Error('GitHub runner did not resolve to one IPv4 address.');
+          }
+          NODE
+          RUNNER_CIDR="${RUNNER_IP}/32"
+
+          SECURITY_GROUP_RULE_ID="$(aws ec2 authorize-security-group-ingress \
+            --region "${AWS_REGION}" \
+            --group-id "${SECURITY_GROUP_ID}" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${RUNNER_CIDR}" \
+            --query 'SecurityGroupRules[0].SecurityGroupRuleId' \
+            --output text)"
+          if [ -z "${SECURITY_GROUP_RULE_ID}" ] || [ "${SECURITY_GROUP_RULE_ID}" = "None" ]; then
+            aws ec2 revoke-security-group-ingress \
+              --region "${AWS_REGION}" \
+              --group-id "${SECURITY_GROUP_ID}" \
+              --protocol tcp \
+              --port 22 \
+              --cidr "${RUNNER_CIDR}" >/dev/null || true
+            echo "Temporary SSH rule was created without a rule ID and was revoked."
+            exit 1
+          fi
+
+          {
+            echo "security_group_id=${SECURITY_GROUP_ID}"
+            echo "security_group_rule_id=${SECURITY_GROUP_RULE_ID}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Leased temporary /32 SSH access for this workflow run."
+
       - name: Render SSH config
         run: |
           set -euo pipefail
@@ -136,3 +206,18 @@ jobs:
 
       - name: Deploy and verify isolated staging
         run: STAGING_KEY_PATH="$PWD/.staging/staging-key.pem" npm run staging:deploy
+
+      - name: Revoke runner SSH access
+        if: ${{ always() && steps.lease-runner-ssh.outputs.security_group_rule_id != '' }}
+        env:
+          LEASED_SECURITY_GROUP_ID: ${{ steps.lease-runner-ssh.outputs.security_group_id }}
+          LEASED_SECURITY_GROUP_RULE_ID: ${{ steps.lease-runner-ssh.outputs.security_group_rule_id }}
+        run: |
+          set -euo pipefail
+          test -n "${LEASED_SECURITY_GROUP_ID}"
+          test -n "${LEASED_SECURITY_GROUP_RULE_ID}"
+          aws ec2 revoke-security-group-ingress \
+            --region "${AWS_REGION}" \
+            --group-id "${LEASED_SECURITY_GROUP_ID}" \
+            --security-group-rule-ids "${LEASED_SECURITY_GROUP_RULE_ID}" >/dev/null
+          echo "Revoked temporary runner SSH access."
