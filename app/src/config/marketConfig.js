@@ -213,6 +213,17 @@ export const marketRules = SUPPORTED_MARKETS.reduce((result, market) => {
 }, {});
 
 const EN_MESSAGES = {
+  'assistant.cart.itemSubtotal': 'Item subtotal',
+  'assistant.cart.itemSavings': 'Item savings',
+  'assistant.cart.checkoutVerification': 'Shipping, tax, stock, and final discounts are verified at checkout.',
+  'assistant.grounding.whyThisAnswer': 'Why this answer',
+  'assistant.capability.unknown': '{{label}} unknown',
+  'assistant.product.delivery': 'delivery',
+  'assistant.product.warranty': 'warranty',
+  'assistant.product.deliveryLabel': 'Delivery:',
+  'assistant.product.warrantyLabel': 'Warranty:',
+  'assistant.product.confirmMissingDetails': 'Open details to confirm {{details}}.',
+  'assistant.product.whyItFits': 'Why it fits:',
   'market.title': 'Market Studio',
   'market.subtitle': 'Tune country, language, and browse currency without losing your place.',
   'market.country': 'Country',
@@ -762,6 +773,17 @@ const SIMPLE_OVERRIDES = {
 };
 
 const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
+  'assistant.cart.itemSubtotal': 'Item subtotal',
+  'assistant.cart.itemSavings': 'Item savings',
+  'assistant.cart.checkoutVerification': 'Shipping, tax, stock, and final discounts are verified at checkout.',
+  'assistant.grounding.whyThisAnswer': 'Why this answer',
+  'assistant.capability.unknown': '{{label}} unknown',
+  'assistant.product.delivery': 'delivery',
+  'assistant.product.warranty': 'warranty',
+  'assistant.product.deliveryLabel': 'Delivery:',
+  'assistant.product.warrantyLabel': 'Warranty:',
+  'assistant.product.confirmMissingDetails': 'Open details to confirm {{details}}.',
+  'assistant.product.whyItFits': 'Why it fits:',
   'login.error.turnstileRequired': 'Security check is still loading. Please try again.',
   'auth.mfaChallenge.title': 'MFA checkpoint',
   'auth.mfaChallenge.message': 'Complete the second-factor challenge to finish this session.',

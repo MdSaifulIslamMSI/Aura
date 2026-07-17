@@ -73,7 +73,9 @@ export const chatApi = {
                 audio: Array.isArray(input?.audio) ? input.audio : [],
             };
 
-        const response = await aiApi.chat(payload);
+        const response = await aiApi.chat(payload, {
+            signal: typeof input === 'object' ? input?.signal : undefined,
+        });
         return normalizeChatResponse(response, payload);
     },
     streamMessage: async (input = {}, onEvent = () => undefined) => {
@@ -102,6 +104,8 @@ export const chatApi = {
             if (typeof onEvent === 'function') {
                 onEvent(eventName, data);
             }
+        }, {
+            signal: typeof input === 'object' ? input?.signal : undefined,
         });
 
         if (!finalResponse) {

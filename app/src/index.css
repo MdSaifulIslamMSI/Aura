@@ -538,29 +538,45 @@ html[data-color-mode] :is(.assistant-theme-shell, .support-workspace, .contact-s
     inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-.assistant-theme-shell :is(
-  [class*='text-cyan-'],
-  [class*='text-emerald-'],
-  [class*='text-amber-']
-) {
+.assistant-theme-shell [class*='text-cyan-'] {
   color: rgb(var(--theme-primary-rgb) / 0.96) !important;
 }
 
-.assistant-theme-shell :is(
-  [class*='bg-cyan-'],
-  [class*='bg-emerald-'],
-  [class*='bg-amber-']
-) {
+.assistant-theme-shell [class*='text-emerald-'] {
+  color: rgb(var(--aura-palette-emerald-rgb) / 0.96) !important;
+}
+
+.assistant-theme-shell [class*='text-amber-'] {
+  color: rgb(var(--aura-palette-gold-rgb) / 0.96) !important;
+}
+
+.assistant-theme-shell [class*='bg-cyan-'] {
   background:
     linear-gradient(135deg, rgb(var(--theme-primary-rgb) / 0.16), rgb(var(--theme-secondary-rgb) / 0.08)) !important;
 }
 
-.assistant-theme-shell :is(
-  [class*='border-cyan-'],
-  [class*='border-emerald-'],
-  [class*='border-amber-']
-) {
+.assistant-theme-shell [class*='bg-emerald-'] {
+  background: rgb(var(--aura-palette-emerald-rgb) / 0.12) !important;
+}
+
+.assistant-theme-shell [class*='bg-amber-'] {
+  background: rgb(var(--aura-palette-gold-rgb) / 0.12) !important;
+}
+
+.assistant-theme-shell [class*='border-cyan-'] {
   border-color: rgb(var(--theme-primary-rgb) / 0.22) !important;
+}
+
+.assistant-theme-shell [class*='border-emerald-'] {
+  border-color: rgb(var(--aura-palette-emerald-rgb) / 0.24) !important;
+}
+
+.assistant-theme-shell [class*='border-amber-'] {
+  border-color: rgb(var(--aura-palette-gold-rgb) / 0.24) !important;
+}
+
+.assistant-composer-dock {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 .assistant-theme-shell textarea,
@@ -583,6 +599,14 @@ html[data-color-mode] :is(.assistant-theme-shell, .support-workspace, .contact-s
   background:
     linear-gradient(135deg, rgb(var(--theme-primary-rgb) / 0.16), rgb(var(--theme-secondary-rgb) / 0.1)) !important;
   color: var(--theme-fg-base) !important;
+}
+
+.assistant-inline-product__primary:not(:disabled) {
+  border-color: rgb(var(--theme-primary-rgb) / 0.28) !important;
+  background:
+    linear-gradient(135deg, rgb(var(--theme-primary-rgb) / 0.94), rgb(var(--theme-secondary-rgb) / 0.86)) !important;
+  color: rgb(var(--theme-surface-strong-rgb) / 1) !important;
+  box-shadow: 0 12px 30px rgb(var(--theme-primary-rgb) / 0.16);
 }
 
 @media (max-width: 1023px) {
@@ -6399,12 +6423,30 @@ html[data-color-mode] .assistant-theme-shell :is(aside, header, form, .assistant
 .assistant-theme-shell .assistant-composer-textarea { background: transparent !important; scrollbar-width: none; }
 .assistant-theme-shell .assistant-composer-textarea::-webkit-scrollbar { display: none; }
 
-html[data-color-mode] :is(.support-workspace, .assistant-theme-shell, .contact-support-shell) :is([class*='text-cyan-'], [class*='text-emerald-'], [class*='text-amber-']) {
+html[data-color-mode] :is(.support-workspace, .contact-support-shell) :is([class*='text-cyan-'], [class*='text-emerald-'], [class*='text-amber-']),
+html[data-color-mode] .assistant-theme-shell [class*='text-cyan-'] {
   color: rgb(var(--theme-primary-rgb) / 0.96) !important;
 }
 
-html[data-color-mode] :is(.support-workspace, .assistant-theme-shell, .contact-support-shell) :is([class*='border-cyan-'], [class*='border-emerald-'], [class*='border-amber-']) {
+html[data-color-mode] .assistant-theme-shell [class*='text-emerald-'] {
+  color: rgb(var(--aura-palette-emerald-rgb) / 0.96) !important;
+}
+
+html[data-color-mode] .assistant-theme-shell [class*='text-amber-'] {
+  color: rgb(var(--aura-palette-gold-rgb) / 0.96) !important;
+}
+
+html[data-color-mode] :is(.support-workspace, .contact-support-shell) :is([class*='border-cyan-'], [class*='border-emerald-'], [class*='border-amber-']),
+html[data-color-mode] .assistant-theme-shell [class*='border-cyan-'] {
   border-color: rgb(var(--theme-primary-rgb) / 0.22) !important;
+}
+
+html[data-color-mode] .assistant-theme-shell [class*='border-emerald-'] {
+  border-color: rgb(var(--aura-palette-emerald-rgb) / 0.24) !important;
+}
+
+html[data-color-mode] .assistant-theme-shell [class*='border-amber-'] {
+  border-color: rgb(var(--aura-palette-gold-rgb) / 0.24) !important;
 }
 
 html[data-color-mode] .support-workspace .premium-panel {

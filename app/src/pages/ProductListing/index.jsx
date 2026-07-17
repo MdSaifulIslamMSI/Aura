@@ -125,14 +125,92 @@ const parseDeliveryWindows = (value = '') => {
     .filter(Boolean);
 };
 
-const createFiltersFromParams = (params, previous = {}) => ({
+const parseListParam = (value = '') => {
+  if (!value) return [];
+  return [...new Set(String(value)
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean))];
+};
+
+const parseBoundedNumber = (value, { min = 0, max, fallback = 0 } = {}) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Number.isFinite(max) ? Math.min(max, parsed) : parsed);
+};
+
+export const parseListingPage = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
+
+export const createFiltersFromParams = (params, previous = {}) => ({
   ...createDefaultFilters(buildPriceRange(params.get('minPrice'), params.get('maxPrice'))),
+  brands: parseListParam(params.get('brand')),
+  categories: parseListParam(params.get('categories')),
   minRating: parseMinRating(params.get('rating')),
+  minDiscount: parseBoundedNumber(params.get('discount'), { max: 90 }),
   inStockOnly: params.get('inStock') === 'true',
+  warrantyOnly: params.get('hasWarranty') === 'true',
+  minReviews: parseBoundedNumber(params.get('minReviews')),
   deliveryWindows: parseDeliveryWindows(params.get('deliveryTime')),
   availableBrands: previous.availableBrands || DEFAULT_BRANDS,
   availableCategories: previous.availableCategories || DEFAULT_CATEGORIES,
 });
+
+const setOptionalParam = (params, key, value, shouldInclude) => {
+  if (shouldInclude) {
+    params.set(key, String(value));
+  } else {
+    params.delete(key);
+  }
+};
+
+export const buildListingSearchParams = (currentParams, {
+  filters,
+  sortBy,
+  page,
+  pathname = '',
+} = {}) => {
+  const nextParams = new URLSearchParams(currentParams);
+  const normalizedFilters = filters || createDefaultFilters();
+  const priceRange = normalizedFilters.priceRange || [DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE];
+  const normalizedPage = parseListingPage(page);
+  const normalizedSort = normalizeSort(sortBy, pathname);
+
+  setOptionalParam(nextParams, 'minPrice', priceRange[0], priceRange[0] > DEFAULT_MIN_PRICE);
+  setOptionalParam(nextParams, 'maxPrice', priceRange[1], priceRange[1] < DEFAULT_MAX_PRICE);
+  setOptionalParam(nextParams, 'brand', (normalizedFilters.brands || []).join(','), normalizedFilters.brands?.length > 0);
+  setOptionalParam(nextParams, 'categories', (normalizedFilters.categories || []).join(','), normalizedFilters.categories?.length > 0);
+  setOptionalParam(nextParams, 'rating', normalizedFilters.minRating, normalizedFilters.minRating > 0);
+  setOptionalParam(nextParams, 'discount', normalizedFilters.minDiscount, normalizedFilters.minDiscount > 0);
+  setOptionalParam(nextParams, 'inStock', 'true', normalizedFilters.inStockOnly);
+  setOptionalParam(nextParams, 'hasWarranty', 'true', normalizedFilters.warrantyOnly);
+  setOptionalParam(nextParams, 'minReviews', normalizedFilters.minReviews, normalizedFilters.minReviews > 0);
+  setOptionalParam(
+    nextParams,
+    'deliveryTime',
+    (normalizedFilters.deliveryWindows || []).join(','),
+    normalizedFilters.deliveryWindows?.length > 0
+  );
+  setOptionalParam(nextParams, 'sort', normalizedSort, normalizedSort !== getRouteDefaultSort(pathname));
+  setOptionalParam(nextParams, 'page', normalizedPage, normalizedPage > 1);
+
+  return nextParams;
+};
+
+const areFilterStatesEqual = (left, right) => (
+  left.priceRange[0] === right.priceRange[0]
+  && left.priceRange[1] === right.priceRange[1]
+  && left.brands.join('\u0000') === right.brands.join('\u0000')
+  && left.categories.join('\u0000') === right.categories.join('\u0000')
+  && left.minRating === right.minRating
+  && left.minDiscount === right.minDiscount
+  && left.inStockOnly === right.inStockOnly
+  && left.warrantyOnly === right.warrantyOnly
+  && left.minReviews === right.minReviews
+  && left.deliveryWindows.join('\u0000') === right.deliveryWindows.join('\u0000')
+);
 
 const buildListingTelemetryContext = ({ searchQuery, effectiveCategorySlug, viewMode }) => {
   if (searchQuery) return `search_results_${viewMode}`;
@@ -181,7 +259,7 @@ const ProductListing = () => {
   const [fetchError, setFetchError] = useState(null);
   const [fetchErrorReference, setFetchErrorReference] = useState('');
   const [laneFallback, setLaneFallback] = useState(null);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => parseListingPage(searchParams.get('page')));
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
 
@@ -194,23 +272,33 @@ const ProductListing = () => {
     createFiltersFromParams(searchParams)
   );
 
+  const replaceListingSearchParams = useCallback((nextFilters, nextSort, nextPage) => {
+    const nextParams = buildListingSearchParams(searchParams, {
+      filters: nextFilters,
+      sortBy: nextSort,
+      page: nextPage,
+      pathname: location.pathname,
+    });
+    if (nextParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [location.pathname, searchParams, setSearchParams]);
+
   // NP-Hard: Intent-based Prefetching (Steiner Tree)
   usePrefetchOracle(products);
 
   const resetScanParameters = useCallback(() => {
-    setFilters((prev) => ({
+    const nextFilters = {
       ...createDefaultFilters(),
-      availableBrands: prev.availableBrands,
-      availableCategories: prev.availableCategories,
-    }));
-    setSortBy(getRouteDefaultSort(location.pathname));
+      availableBrands: filters.availableBrands,
+      availableCategories: filters.availableCategories,
+    };
+    const nextSort = getRouteDefaultSort(location.pathname);
+    setFilters(nextFilters);
+    setSortBy(nextSort);
     setPage(1);
-
-    const nextParams = new URLSearchParams();
-    if (searchQuery) nextParams.set('q', searchQuery);
-    if (queryCategory) nextParams.set('category', normalizeCategorySlug(queryCategory));
-    setSearchParams(nextParams, { replace: true });
-  }, [location.pathname, queryCategory, searchQuery, setSearchParams]);
+    replaceListingSearchParams(nextFilters, nextSort, 1);
+  }, [filters.availableBrands, filters.availableCategories, location.pathname, replaceListingSearchParams]);
 
   const activeScanSignals = useMemo(() => {
     const signals = [];
@@ -477,19 +565,32 @@ const ProductListing = () => {
 
   useEffect(() => {
     const routeParams = new URLSearchParams(location.search);
-    setFilters((prev) => createFiltersFromParams(routeParams, prev));
+    setFilters((prev) => {
+      const nextFilters = createFiltersFromParams(routeParams, prev);
+      return areFilterStatesEqual(prev, nextFilters) ? prev : nextFilters;
+    });
 
     setSortBy(normalizeSort(routeParams.get('sort'), location.pathname));
-    setPage(1);
-  }, [effectiveCategorySlug, location.pathname, location.search]);
+    setPage(parseListingPage(routeParams.get('page')));
+  }, [location.pathname, location.search]);
 
-  useEffect(() => {
+  const handleFilterChange = useCallback((nextFilters) => {
+    setFilters(nextFilters);
     setPage(1);
-  }, [sortBy, searchQuery, effectiveCategorySlug, filters]);
+    replaceListingSearchParams(nextFilters, sortBy, 1);
+  }, [replaceListingSearchParams, sortBy]);
+
+  const handleSortChange = useCallback((nextSort) => {
+    const normalizedSort = normalizeSort(nextSort, location.pathname);
+    setSortBy(normalizedSort);
+    setPage(1);
+    replaceListingSearchParams(filters, normalizedSort, 1);
+  }, [filters, location.pathname, replaceListingSearchParams]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setPage(newPage);
+      replaceListingSearchParams(filters, sortBy, newPage);
     }
   };
 
@@ -563,7 +664,7 @@ const ProductListing = () => {
           <div className="listing-filter-panel">
             <Filters
               filters={filters}
-              onFilterChange={setFilters}
+              onFilterChange={handleFilterChange}
               closeMobile={() => setShowMobileFilters(false)}
             />
           </div>
@@ -587,7 +688,7 @@ const ProductListing = () => {
               <div className="relative w-full sm:w-48">
                 <PremiumSelect
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => handleSortChange(e.target.value)}
                   className="listing-sort-select w-full appearance-none cursor-pointer outline-none"
                 >
                   <option value="relevance">{getSortLabel('relevance', t)}</option>

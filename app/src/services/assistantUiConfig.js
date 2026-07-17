@@ -46,6 +46,29 @@ const BACKEND_STATUS_ROUTE_PREFIXES = [
 
 const normalizePathname = (pathname = '/') => String(pathname || '/').trim() || '/';
 
+const parseInternalLocation = (value = '/') => {
+    const rawValue = String(value || '').trim();
+    if (!rawValue.startsWith('/') || rawValue.startsWith('//') || rawValue.startsWith('/\\')) {
+        return null;
+    }
+
+    const hashIndex = rawValue.indexOf('#');
+    const valueWithoutHash = hashIndex >= 0 ? rawValue.slice(0, hashIndex) : rawValue;
+    const hash = hashIndex >= 0 ? rawValue.slice(hashIndex) : '';
+    const searchIndex = valueWithoutHash.indexOf('?');
+    const pathname = normalizePathname(searchIndex >= 0
+        ? valueWithoutHash.slice(0, searchIndex)
+        : valueWithoutHash);
+    const search = searchIndex >= 0 ? valueWithoutHash.slice(searchIndex) : '';
+
+    return {
+        pathname,
+        search,
+        hash,
+        path: `${pathname}${search}${hash}`,
+    };
+};
+
 export const routeMatches = (pathname = '/', prefixes = []) => {
     const normalizedPathname = normalizePathname(pathname);
 
@@ -123,4 +146,19 @@ export const buildAssistantWorkspacePath = (location = {}) => {
     const search = typeof location?.search === 'string' ? location.search : '';
     const from = `${pathname}${search}`;
     return `${ASSISTANT_WORKSPACE_PATH}?from=${encodeURIComponent(from)}`;
+};
+
+export const resolveAssistantOriginLocation = (location = {}, fallback = '/') => {
+    const currentLocation = parseInternalLocation(
+        `${normalizePathname(location?.pathname)}${typeof location?.search === 'string' ? location.search : ''}${typeof location?.hash === 'string' ? location.hash : ''}`
+    );
+
+    if (!isAssistantWorkspacePath(currentLocation?.pathname)) {
+        return currentLocation || parseInternalLocation(fallback) || parseInternalLocation('/');
+    }
+
+    const params = new URLSearchParams(currentLocation.search);
+    return parseInternalLocation(params.get('from'))
+        || parseInternalLocation(fallback)
+        || parseInternalLocation('/');
 };

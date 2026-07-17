@@ -36,6 +36,11 @@ const STATUS_BADGES = {
         lightClassName: 'border-rose-200 bg-rose-50 text-rose-800',
     },
 };
+const getCapabilityStatus = (value) => {
+    if (value === true) return 'ready';
+    if (value === false) return 'gated';
+    return 'unknown';
+};
 const buildCapabilityEntries = (capabilities = null) => {
     if (!capabilities || typeof capabilities !== 'object') {
         return [];
@@ -46,19 +51,19 @@ const buildCapabilityEntries = (capabilities = null) => {
             key: 'text',
             labelId: 'assistant.capability.text',
             labelDefault: 'Text',
-            enabled: capabilities.textInput !== false,
+            status: getCapabilityStatus(capabilities.textInput),
         },
         {
             key: 'image',
             labelId: 'assistant.capability.image',
             labelDefault: 'Image',
-            enabled: Boolean(capabilities.imageInput),
+            status: getCapabilityStatus(capabilities.imageInput),
         },
         {
             key: 'audio',
             labelId: 'assistant.capability.audio',
             labelDefault: 'Audio',
-            enabled: Boolean(capabilities.audioInput),
+            status: getCapabilityStatus(capabilities.audioInput),
         },
     ];
 };
@@ -107,6 +112,8 @@ const renderCartSummary = (cartSummary, isWhiteMode, t) => {
         ? 'border-slate-200 bg-slate-50 text-slate-950'
         : 'border-white/10 bg-white/[0.04] text-slate-100';
     const mutedTextClass = isWhiteMode ? 'text-slate-500' : 'text-slate-400';
+    const totalDiscount = Number(cartSummary.totalDiscount || 0);
+    const hasSavings = Number.isFinite(totalDiscount) && totalDiscount > 0;
 
     return (
         <div className={cn('rounded-[1.25rem] border p-4', cardClassName)}>
@@ -115,20 +122,30 @@ const renderCartSummary = (cartSummary, isWhiteMode, t) => {
                 <p className="text-sm font-bold">{t('product.cartSummary', {}, 'Cart summary')}</p>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+            <div className={cn('mt-3 grid gap-3 text-xs', hasSavings ? 'grid-cols-3' : 'grid-cols-2')}>
                 <div>
                     <span className={mutedTextClass}>{t('product.items', {}, 'Items')}</span>
                     <p className="mt-1 text-sm font-bold">{cartSummary.totalItems || 0}</p>
                 </div>
                 <div>
-                    <span className={mutedTextClass}>{t('product.total', {}, 'Total')}</span>
+                    <span className={mutedTextClass}>{t('assistant.cart.itemSubtotal', {}, 'Item subtotal')}</span>
                     <p className="mt-1 text-sm font-bold">{formatPrice(cartSummary.totalPrice, cartSummary.currency)}</p>
                 </div>
-                <div>
-                    <span className={mutedTextClass}>{t('product.saved', {}, 'Saved')}</span>
-                    <p className="mt-1 text-sm font-bold">{formatPrice(cartSummary.totalDiscount, cartSummary.currency)}</p>
-                </div>
+                {hasSavings ? (
+                    <div>
+                        <span className={mutedTextClass}>{t('assistant.cart.itemSavings', {}, 'Item savings')}</span>
+                        <p className="mt-1 text-sm font-bold">{formatPrice(totalDiscount, cartSummary.currency)}</p>
+                    </div>
+                ) : null}
             </div>
+
+            <p className={cn('mt-3 text-[11px] leading-5', mutedTextClass)}>
+                {t(
+                    'assistant.cart.checkoutVerification',
+                    {},
+                    'Shipping, tax, stock, and final discounts are verified at checkout.'
+                )}
+            </p>
         </div>
     );
 };
@@ -181,7 +198,7 @@ const formatVerificationLabel = (label = '', t) => {
         model_knowledge: ['assistant.verification.modelKnowledge', 'Model knowledge'],
         cannot_verify: ['assistant.verification.cannotVerify', 'Cannot verify'],
     };
-    const [id, fallback] = defaults[label] || ['assistant.verification.verified', 'Verified'];
+    const [id, fallback] = defaults[label] || defaults.cannot_verify;
     return t(id, {}, fallback);
 };
 
@@ -193,8 +210,27 @@ const renderGroundingMeta = (message, isWhiteMode, t) => {
     const providerInfo = message?.providerInfo || null;
     const capabilityEntries = buildCapabilityEntries(message?.providerCapabilities || null);
     const guardReason = String(grounding?.reason || '').trim();
+    const route = String(grounding?.route || '').trim();
+    const retrievalHitCount = Math.max(0, Number(grounding?.retrievalHitCount || 0));
+    const providerName = String(grounding?.provider || providerInfo?.name || '').trim();
+    const providerModel = String(grounding?.providerModel || providerInfo?.model || '').trim();
+    const hasTechnicalDetails = Boolean(
+        route
+        || retrievalHitCount > 0
+        || providerName
+        || providerModel
+        || capabilityEntries.length > 0
+        || citations.length > 0
+        || toolRuns.length > 0
+        || grounding?.status
+        || guardReason
+        || grounding?.staleBundle
+        || grounding?.missingEvidence
+        || grounding?.bundleVersion
+        || grounding?.traceId
+    );
 
-    if (!verification && citations.length === 0 && toolRuns.length === 0 && !grounding && !providerInfo && capabilityEntries.length === 0) {
+    if (!verification && !hasTechnicalDetails) {
         return null;
     }
 
@@ -205,10 +241,6 @@ const renderGroundingMeta = (message, isWhiteMode, t) => {
     const chipClassName = isWhiteMode
         ? 'border-slate-200 bg-white text-slate-700'
         : 'border-white/10 bg-white/[0.05] text-slate-200';
-    const route = String(grounding?.route || '').trim();
-    const retrievalHitCount = Math.max(0, Number(grounding?.retrievalHitCount || 0));
-    const providerName = String(grounding?.provider || providerInfo?.name || '').trim();
-    const providerModel = String(grounding?.providerModel || providerInfo?.model || '').trim();
 
     return (
         <div className={cn('w-full rounded-[1.1rem] border px-3 py-3 text-xs', panelClassName)}>
@@ -223,6 +255,15 @@ const renderGroundingMeta = (message, isWhiteMode, t) => {
                 </div>
             ) : null}
 
+            {hasTechnicalDetails ? (
+                <details className={cn(verification ? 'mt-3' : '')}>
+                    <summary className={cn(
+                        'cursor-pointer rounded-md text-[11px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70',
+                        subtleTextClass
+                    )}>
+                        {t('assistant.grounding.whyThisAnswer', {}, 'Why this answer')}
+                    </summary>
+                    <div>
             {(route || providerName || retrievalHitCount > 0) ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                     {route ? (
@@ -252,16 +293,22 @@ const renderGroundingMeta = (message, isWhiteMode, t) => {
                                 key={entry.key}
                                 className={cn(
                                     'rounded-full border px-2.5 py-1 font-semibold',
-                                    entry.enabled
+                                    entry.status === 'ready'
                                         ? chipClassName
-                                        : (isWhiteMode
-                                            ? 'border-amber-200 bg-amber-50 text-amber-900'
-                                            : 'border-amber-300/20 bg-amber-500/10 text-amber-100')
+                                        : entry.status === 'gated'
+                                            ? (isWhiteMode
+                                                ? 'border-amber-200 bg-amber-50 text-amber-900'
+                                                : 'border-amber-300/20 bg-amber-500/10 text-amber-100')
+                                            : (isWhiteMode
+                                                ? 'border-slate-200 bg-slate-100 text-slate-600'
+                                                : 'border-white/10 bg-white/[0.03] text-slate-400')
                                 )}
                             >
-                                {entry.enabled
+                                {entry.status === 'ready'
                                     ? t('assistant.capability.ready', { label: t(entry.labelId, {}, entry.labelDefault) }, '{{label}} ready')
-                                    : t('assistant.capability.gated', { label: t(entry.labelId, {}, entry.labelDefault) }, '{{label}} gated')}
+                                    : entry.status === 'gated'
+                                        ? t('assistant.capability.gated', { label: t(entry.labelId, {}, entry.labelDefault) }, '{{label}} gated')
+                                        : t('assistant.capability.unknown', { label: t(entry.labelId, {}, entry.labelDefault) }, '{{label}} unknown')}
                             </span>
                         ))}
                     </div>
@@ -302,19 +349,17 @@ const renderGroundingMeta = (message, isWhiteMode, t) => {
                 </div>
             ) : null}
 
-            {(grounding?.traceId || grounding?.bundleVersion || providerInfo?.model) ? (
-                <details className="mt-3">
-                    <summary className={cn('cursor-pointer text-[10px] font-black uppercase tracking-[0.18em]', subtleTextClass)}>
-                        <StableText id={"common.jsx.text.trace.details.af1f8b27"} defaultMessage={"Trace details"} />
-                    </summary>
-                    <div className={cn('mt-2 space-y-1 text-[11px]', subtleTextClass)}>
+            {(grounding?.status || guardReason || grounding?.staleBundle || grounding?.missingEvidence || grounding?.traceId || grounding?.bundleVersion || providerModel) ? (
+                    <div className={cn('mt-3 space-y-1 text-[11px]', subtleTextClass)}>
                         {grounding?.status ? <p><StableText id={"common.jsx.text.status.ff570aa3"} defaultMessage={"Status:"} /> {grounding.status}</p> : null}
                         {guardReason ? <p><StableText id={"common.jsx.text.guard.9c93eb32"} defaultMessage={"Guard:"} /> {guardReason.replace(/_/g, ' ')}</p> : null}
                         {grounding?.staleBundle ? <p><StableText id={"common.jsx.text.bundle.state.stale.89ba8d68"} defaultMessage={"Bundle state: stale"} /></p> : null}
                         {grounding?.missingEvidence ? <p><StableText id={"common.jsx.text.evidence.state.missing.9db870cd"} defaultMessage={"Evidence state: missing"} /></p> : null}
                         {grounding?.bundleVersion ? <p><StableText id={"common.jsx.text.index.version.286a2b27"} defaultMessage={"Index version:"} /> {grounding.bundleVersion}</p> : null}
                         {grounding?.traceId ? <p><StableText id={"common.jsx.text.trace.id.000d6b80"} defaultMessage={"Trace id:"} /> {grounding.traceId}</p> : null}
-                        {providerInfo?.model ? <p><StableText id={"common.jsx.text.model.23184662"} defaultMessage={"Model:"} /> {providerInfo.model}</p> : null}
+                        {providerModel ? <p><StableText id={"common.jsx.text.model.23184662"} defaultMessage={"Model:"} /> {providerModel}</p> : null}
+                    </div>
+            ) : null}
                     </div>
                 </details>
             ) : null}

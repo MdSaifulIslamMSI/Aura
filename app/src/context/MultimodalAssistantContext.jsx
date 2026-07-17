@@ -12,6 +12,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import { useIntl } from 'react-intl';
 import VoiceSearch from '@/components/shared/VoiceSearch';
+import { resolveAssistantOriginLocation } from '@/services/assistantUiConfig';
 import { useChatStore } from '@/store/chatStore';
 import { useVideoCall } from './VideoCallContext';
 
@@ -120,14 +121,19 @@ export const MultimodalAssistantProvider = ({ children }) => {
     const lastCallSignatureRef = useRef('');
 
     const routeContext = useMemo(() => {
-        const listingId = parseListingIdFromPath(location.pathname);
-        return {
+        const originLocation = resolveAssistantOriginLocation({
             pathname: location.pathname,
-            routeLabel: resolveRouteLabel(location.pathname),
+            search: location.search,
+            hash: location.hash,
+        });
+        const listingId = parseListingIdFromPath(originLocation.pathname);
+        return {
+            pathname: originLocation.pathname,
+            routeLabel: resolveRouteLabel(originLocation.pathname),
             listingId,
             canLaunchInspection: Boolean(listingId),
         };
-    }, [location.pathname]);
+    }, [location.hash, location.pathname, location.search]);
 
     const recordSessionEvent = useCallback((payload = {}) => {
         const nextEvent = createTimelineEvent(payload);
@@ -195,7 +201,7 @@ export const MultimodalAssistantProvider = ({ children }) => {
 
         lastLoggedMessageIdRef.current = latestMessage.id;
         captureChatEvent(latestMessage);
-    }, [captureChatEvent, chatMessages]);
+    }, [chatMessages]);
 
     useEffect(() => {
         const signature = [

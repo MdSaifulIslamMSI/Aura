@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
     buildAssistantRequestPayload,
     buildLocalAssistantResponse,
+    buildNonExecutableAssistantTurn,
     buildModeActions,
     buildSuggestionActions,
     buildSupportHandoffPath,
+    buildUnavailableAssistantResponse,
     capVisibleActions,
     deriveAssistantMode,
     normalizeProductSummary,
@@ -32,6 +34,128 @@ describe('assistantCommands', () => {
             primaryAction: expect.objectContaining({
                 kind: 'handoff-support',
             }),
+        });
+    });
+
+    it.each([
+        ['open wishlist', 'wishlist'],
+        ['show my orders', 'orders'],
+        ['open profile', 'profile'],
+        ['open compare', 'compare'],
+        ['show deals', 'deals'],
+        ['show trending', 'trending'],
+        ['show new arrivals', 'new_arrivals'],
+        ['open price alerts', 'price_alerts'],
+        ['start trade-in', 'trade_in'],
+        ['become a seller', 'become_seller'],
+        ['sell my phone', 'sell'],
+        ['my listings', 'my_listings'],
+    ])('recognizes the manifest-backed local app command %s', (input, capabilityId) => {
+        expect(parseAssistantCommand(input)).toMatchObject({
+            type: 'capability',
+            capability: {
+                id: capabilityId,
+            },
+        });
+    });
+
+    it('answers what can I do here with route and cart facts', () => {
+        const response = buildLocalAssistantResponse('what can I do here?', {
+            pathname: '/cart',
+            cartCount: 2,
+            cartSummary: {
+                totalItems: 2,
+                itemCount: 1,
+                totalPrice: 19998,
+                totalDiscount: 2000,
+            },
+        });
+
+        expect(response).toMatchObject({
+            local: true,
+            mode: 'explore',
+            primaryAction: expect.objectContaining({
+                kind: 'navigate',
+            }),
+        });
+        expect(response.answer).toContain('You are on Cart');
+        expect(response.answer).toContain('2 items');
+        expect(response.answer).toContain('Rs 19,998');
+        expect(response.answer).toContain('will not invent');
+    });
+
+    it('explains manifest prerequisites without claiming a sensitive action ran', () => {
+        const response = buildLocalAssistantResponse('open price alerts', {
+            isAuthenticated: false,
+        });
+
+        expect(response).toMatchObject({
+            local: true,
+            primaryAction: expect.objectContaining({
+                kind: 'navigate',
+                payload: {
+                    page: 'price_alerts',
+                    params: {},
+                },
+            }),
+        });
+        expect(response.answer).toContain('Sign-in is required');
+        expect(response.answer).toContain('verified by that page');
+    });
+
+    it('provides useful and honest no-service responses for search, media, and checkout', () => {
+        const search = buildUnavailableAssistantResponse('find phones under Rs 30000');
+        expect(search.answer).toContain('have not invented products');
+        expect(search.primaryAction).toMatchObject({
+            kind: 'navigate',
+            payload: {
+                page: 'search',
+                params: {
+                    q: 'phones under Rs 30000',
+                },
+            },
+        });
+
+        const media = buildUnavailableAssistantResponse('', { hasMedia: true });
+        expect(media.answer).toContain('was not analyzed');
+        expect(media.primaryAction).toBeNull();
+
+        const checkout = buildUnavailableAssistantResponse('checkout', {
+            cartCount: 2,
+            cartSummary: {
+                totalItems: 2,
+                totalPrice: 45000,
+            },
+        });
+        expect(checkout.answer).toContain('2 items');
+        expect(checkout.answer).toContain('Rs 45,000');
+        expect(checkout.answer).toContain('verify stock');
+    });
+
+    it('removes stale executable UI from a response after session focus is lost', () => {
+        expect(buildNonExecutableAssistantTurn({
+            decision: 'confirm',
+            actionRequest: { type: 'cancel_order', orderId: 'order-1' },
+            actions: [{ type: 'navigate_to', page: 'orders' }],
+            ui: {
+                surface: 'confirmation_card',
+                confirmation: { token: 'stale-token' },
+                navigation: { page: 'orders' },
+            },
+            followUps: ['Yes'],
+        }, 'Return to this thread and ask again.')).toMatchObject({
+            decision: 'respond',
+            actionRequest: null,
+            actions: [],
+            confirmation: null,
+            navigation: null,
+            response: 'Return to this thread and ask again.',
+            ui: {
+                surface: 'plain_answer',
+                confirmation: null,
+                navigation: null,
+            },
+            followUps: [],
         });
     });
 
@@ -74,11 +198,15 @@ describe('assistantCommands', () => {
             assistantRank: 1,
             assistantReason: 'within Rs 60000',
             assistantWatchout: 'low review depth',
+            deliveryTime: 'Usually dispatches in 2 days',
+            warranty: '1 year manufacturer warranty',
         })).toMatchObject({
             id: '501',
             assistantRank: 1,
             assistantReason: 'within Rs 60000',
             assistantWatchout: 'low review depth',
+            deliveryTime: 'Usually dispatches in 2 days',
+            warranty: '1 year manufacturer warranty',
         });
     });
 
@@ -129,6 +257,18 @@ describe('assistantCommands', () => {
             'Show deals',
         ])).toEqual([
             expect.objectContaining({ kind: 'navigate', payload: expect.objectContaining({ page: 'deals' }) }),
+        ]);
+    });
+
+    it('turns manifest-backed page suggestions into direct user-triggered navigation', () => {
+        expect(buildSuggestionActions(['Open Price alerts'])).toEqual([
+            expect.objectContaining({
+                kind: 'navigate',
+                payload: {
+                    page: 'price_alerts',
+                    params: {},
+                },
+            }),
         ]);
     });
 

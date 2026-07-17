@@ -1,4 +1,5 @@
 import { parseClientAssistantIntent } from './assistantIntent';
+import assistantCapabilities from '../../../shared/assistantCapabilities.json';
 
 const ROUTE_LABELS = [
     { match: (pathname = '/') => pathname === '/', label: 'Home' },
@@ -16,10 +17,10 @@ const SUPPORT_CATEGORY_RULES = [
     { pattern: /\b(login|account|profile|password|security)\b/i, category: 'account' },
 ];
 
-const HELP_PATTERN = /^(?:help|what can you do|how does this work)\??$/i;
+const HELP_PATTERN = /^(?:help|what can (?:i|you) do(?: here)?|how does this work)\??$/i;
 const CART_PATTERN = /^(?:cart|bag|basket|open cart|view cart|show cart|take me to cart)$/i;
 const CHECKOUT_PATTERN = /\b(checkout|pay now|place order)\b/i;
-const SUPPORT_PATTERN = /\b(support|help with|track my order|refund|return|replace|cancel order|issue|problem|payment failed|complaint)\b/i;
+const SUPPORT_PATTERN = /\b(support|help with|track my order|where is my order|order status|delivery status|refund|return|replace|cancel order|issue|problem|payment failed|complaint)\b/i;
 const SEARCH_PATTERN = /^\s*(?:search(?:\s+for)?|find|look\s+for|show\s+me|need|want)\s+(.+)$/i;
 const PRODUCT_PATTERN = /\b(?:open|show|view)\s+(?:product|item)\s+(\d+)\b/i;
 const COMPARE_PATTERN = /\b(compare|vs|versus|better between)\b/i;
@@ -27,6 +28,76 @@ const BUNDLE_PATTERN = /\b(bundle|setup|kit)\b/i;
 const BUDGET_PATTERN = /\b(budget|under|below|within|max)\b/i;
 
 const safeString = (value = '') => String(value ?? '').trim();
+
+const normalizeCapabilityText = (value = '') => safeString(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+export const APP_ASSISTANT_CAPABILITIES = Object.freeze(
+    (Array.isArray(assistantCapabilities) ? assistantCapabilities : []).map((capability) => ({
+        ...capability,
+        aliases: Array.isArray(capability?.aliases) ? capability.aliases.map((alias) => safeString(alias)).filter(Boolean) : [],
+        contextRequired: Array.isArray(capability?.contextRequired) ? capability.contextRequired.map((entry) => safeString(entry)).filter(Boolean) : [],
+    }))
+);
+
+const capabilityAliasMatches = (normalizedText = '', alias = '') => {
+    const normalizedAlias = normalizeCapabilityText(alias);
+    if (!normalizedText || !normalizedAlias) return false;
+    return ` ${normalizedText} `.includes(` ${normalizedAlias} `);
+};
+
+export const findAppAssistantCapability = (rawText = '') => {
+    const normalizedText = normalizeCapabilityText(rawText);
+    if (!normalizedText) return null;
+
+    return APP_ASSISTANT_CAPABILITIES
+        .flatMap((capability) => capability.aliases.map((alias) => ({ capability, alias })))
+        .sort((left, right) => normalizeCapabilityText(right.alias).length - normalizeCapabilityText(left.alias).length)
+        .find((entry) => capabilityAliasMatches(normalizedText, entry.alias))
+        ?.capability || null;
+};
+
+const routeMatchesCapability = (pathname = '/', route = '/') => {
+    const normalizedPath = safeString(pathname).split('?')[0].split('#')[0] || '/';
+    const routePath = safeString(route).split('?')[0] || '/';
+    if (routePath === '/') return normalizedPath === '/';
+    const routePattern = routePath
+        .split('/')
+        .map((segment) => (segment.startsWith(':') ? '[^/]+' : segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+        .join('/');
+    return new RegExp(`^${routePattern}(?:/|$)`, 'i').test(normalizedPath);
+};
+
+const findCapabilityForPath = (pathname = '/') => (
+    APP_ASSISTANT_CAPABILITIES.find((capability) => routeMatchesCapability(pathname, capability.route)) || null
+);
+
+const buildCapabilityAction = (capability = {}, params = {}) => createChatAction(
+    'navigate',
+    `Open ${safeString(capability?.title || 'page')}`,
+    {
+        page: safeString(capability?.id || 'home'),
+        params,
+    },
+    'primary',
+);
+
+const buildCapabilityRequirementText = (capability = {}, options = {}) => {
+    const requirements = [];
+    if (capability?.authRequired && options?.isAuthenticated !== true) {
+        requirements.push('Sign-in is required');
+    }
+    if (safeString(capability?.roleRequired)) {
+        requirements.push(`${safeString(capability.roleRequired)} access is required`);
+    }
+    if (Array.isArray(capability?.contextRequired) && capability.contextRequired.length > 0) {
+        requirements.push(`Needs ${capability.contextRequired.join(' and ')}`);
+    }
+    return requirements.length > 0 ? ` ${requirements.join('. ')}.` : '';
+};
 
 const normalizeText = (value = '') => safeString(value)
     .toLowerCase()
@@ -93,6 +164,8 @@ export const normalizeProductSummary = (product = {}) => ({
     stock: Math.max(0, Number(product?.stock || 0)),
     rating: Number(product?.rating || 0),
     ratingCount: Number(product?.ratingCount || 0),
+    deliveryTime: safeString(product?.deliveryTime || ''),
+    warranty: safeString(product?.warranty || ''),
     category: safeString(product?.category || ''),
     assistantRank: Math.max(0, Number(product?.assistantRank || 0)),
     assistantReason: safeString(product?.assistantReason || product?.reason || ''),
@@ -171,6 +244,18 @@ export const parseAssistantCommand = (rawText = '') => {
         return {
             type: 'product',
             productId: productMatch[1],
+        };
+    }
+
+    const capability = findAppAssistantCapability(raw);
+    const normalizedRaw = normalizeCapabilityText(raw);
+    const isGenericCatalogSearch = ['catalog', 'search'].includes(capability?.id)
+        && SEARCH_PATTERN.test(raw)
+        && /\b(search|find|need|want|best|recommend|under|below|within|budget)\b/.test(normalizedRaw);
+    if (capability && !isGenericCatalogSearch) {
+        return {
+            type: 'capability',
+            capability,
         };
     }
 
@@ -294,6 +379,15 @@ export const buildSuggestionActions = (suggestions = []) => capVisibleActions((A
     .flatMap((suggestion) => {
         if (QUESTION_SUGGESTION_PATTERN.test(suggestion)) {
             return [];
+        }
+
+        const capability = findAppAssistantCapability(suggestion);
+        const isStaticCapability = capability
+            && capability.assistantAction === 'navigate_to'
+            && !safeString(capability.route).includes(':')
+            && (!Array.isArray(capability.contextRequired) || capability.contextRequired.length === 0);
+        if (isStaticCapability && /^(?:open|show|view|go to|take me to)\b/i.test(suggestion)) {
+            return [buildCapabilityAction(capability)];
         }
 
         const parsed = parseClientAssistantIntent(suggestion);
@@ -422,23 +516,33 @@ export const buildLocalAssistantResponse = (rawText = '', options = {}) => {
     const cartCount = Number(options?.cartCount || 0);
     const cartSummary = options?.cartSummary || summarizeCartItems(options?.cartItems || []);
     const activeProductId = safeString(options?.activeProductId || '');
+    const totalItems = Math.max(0, Number(cartSummary?.totalItems ?? cartCount) || 0);
+    const itemCount = Math.max(0, Number(cartSummary?.itemCount) || 0);
+    const subtotal = Math.max(0, Number(cartSummary?.totalPrice) || 0);
+    const savings = Math.max(0, Number(cartSummary?.totalDiscount) || 0);
 
     switch (command.type) {
         case 'help': {
-            const actions = buildModeActions({
-                mode: 'explore',
-                cartCount,
-                externalActions: buildSuggestionActions([
-                    'Show the best deals today',
-                    'Find phones under Rs 30000',
-                ]),
-            });
+            const routeCapability = findCapabilityForPath(options?.pathname || '/');
+            const catalogCapability = APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'catalog');
+            const cartCapability = APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'cart');
+            const supportCapability = APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'support');
+            const helpActions = [catalogCapability, cartCapability, supportCapability]
+                .filter(Boolean)
+                .map((capability) => buildCapabilityAction(capability));
 
             return {
                 local: true,
-                answer: 'Ask for a product, a budget, or help with an order. I will keep one next step in focus.',
+                answer: [
+                    routeCapability
+                        ? `You are on ${routeCapability.title}. ${routeCapability.description}`
+                        : 'I can explain and open the app\'s shopping, account, order, support, and seller surfaces.',
+                    `Your current cart has ${totalItems} item${totalItems === 1 ? '' : 's'} with a subtotal of ${formatInr(subtotal)}.`,
+                    'Without live model access I can still open catalog, deals, wishlist, cart, checkout, orders, profile, support, compare, price alerts, trade-in, and seller pages. I will not invent product, price, stock, payment, or order facts.',
+                ].join(' '),
                 mode: 'explore',
-                ...actions,
+                primaryAction: helpActions[0] || null,
+                secondaryActions: helpActions.slice(1, 3),
             };
         }
         case 'cart': {
@@ -450,9 +554,9 @@ export const buildLocalAssistantResponse = (rawText = '', options = {}) => {
 
             return {
                 local: true,
-                answer: cartCount > 0
-                    ? `Your cart is ready with ${cartSummary.totalItems} item${cartSummary.totalItems === 1 ? '' : 's'} worth ${formatInr(cartSummary.totalPrice)}.`
-                    : 'Your cart is empty right now. Search for a product and I will keep the next decision tight.',
+                answer: totalItems > 0
+                    ? `Your cart has ${totalItems} item${totalItems === 1 ? '' : 's'}${itemCount > 0 ? ` across ${itemCount} product${itemCount === 1 ? '' : 's'}` : ''}. The current item subtotal is ${formatInr(subtotal)}${savings > 0 ? `, with ${formatInr(savings)} shown as item savings` : ''}. Checkout must verify the final price, stock, shipping, tax, and coupon eligibility.`
+                    : 'Your cart is empty. Open the catalog to add a verified product; I have not invented any recommendations.',
                 mode: 'cart',
                 cartSummary,
                 ...actions,
@@ -466,9 +570,9 @@ export const buildLocalAssistantResponse = (rawText = '', options = {}) => {
 
             return {
                 local: true,
-                answer: cartCount > 0
-                    ? 'Checkout is the next step. I will keep the handoff clean so nothing competes with the purchase.'
-                    : 'Add at least one item before moving to checkout.',
+                answer: totalItems > 0
+                    ? `Your cart has ${totalItems} item${totalItems === 1 ? '' : 's'} with a current item subtotal of ${formatInr(subtotal)}. Open checkout to verify stock, address, shipping, tax, discounts, and payment before placing the order.`
+                    : 'Checkout needs a non-empty cart. Open the catalog, add a verified product, then return to checkout.',
                 mode: 'checkout',
                 cartSummary,
                 ...actions,
@@ -485,7 +589,7 @@ export const buildLocalAssistantResponse = (rawText = '', options = {}) => {
 
             return {
                 local: true,
-                answer: 'Support works best in the dedicated support desk. I can hand this off with the context prefilled.',
+                answer: 'I can open the support desk with this issue prefilled. Without the live service I cannot verify order status, eligibility, refunds, cancellations, payments, or support outcomes.',
                 mode: 'support',
                 supportPrefill,
                 ...actions,
@@ -501,10 +605,36 @@ export const buildLocalAssistantResponse = (rawText = '', options = {}) => {
 
             return {
                 local: true,
-                answer: 'I found that product reference. Open the full detail page to continue the decision.',
+                answer: `Product reference ${safeString(command.productId)} is available in this conversation context. Open its product page to verify the current price, stock, rating, and specifications.`,
                 mode: 'product',
                 ...actions,
                 activeProductId: safeString(command.productId),
+            };
+        }
+        case 'capability': {
+            const capability = command.capability || {};
+            const params = capability.id === 'product' && activeProductId
+                ? { productId: activeProductId }
+                : capability.id === 'compare' && Array.isArray(options?.candidateProductIds)
+                    ? { products: options.candidateProductIds.filter(Boolean).join(',') }
+                    : {};
+            const hasDynamicContext = !safeString(capability.route).includes(':')
+                || (capability.id === 'product' && Boolean(activeProductId));
+            const action = hasDynamicContext ? buildCapabilityAction(capability, params) : null;
+
+            return {
+                local: true,
+                answer: `${safeString(capability.title)}: ${safeString(capability.description)}${buildCapabilityRequirementText(capability, options)} Live values and sensitive operations are verified by that page's APIs, not by this offline response.`,
+                mode: capability.id === 'cart'
+                    ? 'cart'
+                    : capability.id === 'checkout'
+                        ? 'checkout'
+                        : capability.id === 'support'
+                            ? 'support'
+                            : 'explore',
+                cartSummary: capability.id === 'cart' || capability.id === 'checkout' ? cartSummary : null,
+                primaryAction: action,
+                secondaryActions: [],
             };
         }
         case 'search':
@@ -516,3 +646,59 @@ export const buildLocalAssistantResponse = (rawText = '', options = {}) => {
             return null;
     }
 };
+
+export const buildUnavailableAssistantResponse = (rawText = '', options = {}) => {
+    const hasMedia = Boolean(options?.hasMedia);
+    if (hasMedia) {
+        return {
+            answer: 'Image and audio analysis need the live assistant service. Your attachment was not analyzed, and I did not infer any product from it.',
+            mode: 'explore',
+            primaryAction: null,
+            secondaryActions: [],
+        };
+    }
+
+    const localResponse = buildLocalAssistantResponse(rawText, options);
+    if (localResponse?.local === true) {
+        return localResponse;
+    }
+
+    if (localResponse?.local === false) {
+        const searchCapability = APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'search')
+            || APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'catalog');
+        return {
+            answer: 'Live assistant search is unavailable, so I have not invented products or rankings. Open the catalog search to use canonical product data.',
+            mode: 'explore',
+            primaryAction: searchCapability ? buildCapabilityAction(searchCapability, {
+                q: safeString(localResponse.query || rawText),
+            }) : null,
+            secondaryActions: [],
+        };
+    }
+
+    const cartCapability = APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'cart');
+    const catalogCapability = APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'catalog');
+    return {
+        answer: 'I could not reach live reasoning, so I cannot verify an answer to that question. Offline I can still report current cart totals and explain or open known app features; I will not invent catalog, price, stock, payment, or order facts.',
+        mode: 'explore',
+        primaryAction: catalogCapability ? buildCapabilityAction(catalogCapability) : null,
+        secondaryActions: cartCapability ? [buildCapabilityAction(cartCapability)] : [],
+    };
+};
+
+export const buildNonExecutableAssistantTurn = (assistantTurn = {}, response = '') => ({
+    ...assistantTurn,
+    decision: 'respond',
+    actionRequest: null,
+    actions: [],
+    confirmation: null,
+    navigation: null,
+    response: safeString(response || assistantTurn?.response || ''),
+    ui: {
+        ...(assistantTurn?.ui || {}),
+        surface: 'plain_answer',
+        confirmation: null,
+        navigation: null,
+    },
+    followUps: [],
+});

@@ -11,12 +11,15 @@ import { AuthContext } from '@/context/AuthContext';
 import { useSocket } from '@/context/SocketContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { chatApi } from '@/services/chatApi';
+import { resolveAssistantOriginLocation } from '@/services/assistantUiConfig';
 import { useChatStore } from '@/store/chatStore';
 import { selectCartItems, selectCartSummary, useCommerceStore } from '@/store/commerceStore';
 import {
     buildAssistantRequestPayload,
     buildModeActions,
+    buildNonExecutableAssistantTurn,
     buildSuggestionActions,
+    buildUnavailableAssistantResponse,
     createChatAction,
     normalizeProductSummary,
 } from '@/utils/assistantCommands';
@@ -27,16 +30,6 @@ const MAX_HISTORY_ENTRIES = 12;
 const extractProductIdFromPath = (pathname = '') => {
     const match = String(pathname || '').match(/^\/product\/([^/?#]+)/i);
     return match?.[1] ? String(match[1]).trim() : null;
-};
-
-const resolveAssistantContextPath = (location = {}) => {
-    const pathname = safeString(location?.pathname || '/');
-    if (!pathname.startsWith('/assistant')) {
-        return pathname;
-    }
-
-    const from = safeString(new URLSearchParams(location?.search || '').get('from') || '/');
-    return from.startsWith('/') ? from : `/${from}`;
 };
 
 const trimConversationHistory = (messages = []) => messages
@@ -180,11 +173,13 @@ export const useAssistantController = () => {
     const { socket } = useSocket() || {};
 
     const inputRef = useRef(null);
-    const requestSequenceRef = useRef(0);
 
     const messages = useChatStore((state) => state.messages);
     const visibleProducts = useChatStore((state) => state.visibleProducts);
     const activeSessionId = useChatStore((state) => state.activeSessionId);
+    const requestStateBySessionRef = useRef(new Map());
+    const activeSessionIdRef = useRef(activeSessionId);
+    const sessionFocusEpochRef = useRef(0);
     const context = useChatStore((state) => state.context);
     const assistantSession = useChatStore((state) => state.context.assistantSession);
     const supportPrefill = useChatStore((state) => state.supportPrefill);
@@ -204,6 +199,7 @@ export const useAssistantController = () => {
     const setInputValue = useChatStore((state) => state.setInputValue);
     const setStatus = useChatStore((state) => state.setStatus);
     const setPendingAction = useChatStore((state) => state.setPendingAction);
+    const clearTurnActions = useChatStore((state) => state.clearTurnActions);
     const clearPendingConfirmation = useChatStore((state) => state.clearPendingConfirmation);
     const close = useChatStore((state) => state.close);
     const setSurface = useChatStore((state) => state.setSurface);
@@ -213,11 +209,98 @@ export const useAssistantController = () => {
     const cartSummary = useMemo(() => selectCartSummary({ cart: cartState }), [cartState]);
 
     const assistantContextPath = useMemo(
-        () => resolveAssistantContextPath(location),
-        [location.pathname, location.search],
+        () => resolveAssistantOriginLocation({
+            pathname: location.pathname,
+            search: location.search,
+            hash: location.hash,
+        }).path,
+        [location.hash, location.pathname, location.search],
     );
     const routeProductId = useMemo(() => extractProductIdFromPath(assistantContextPath), [assistantContextPath]);
     const conversationHistory = useMemo(() => trimConversationHistory(messages), [messages]);
+
+    useEffect(() => {
+        activeSessionIdRef.current = useChatStore.getState().activeSessionId;
+        return useChatStore.subscribe((state, previousState) => {
+            if (state.activeSessionId !== previousState.activeSessionId) {
+                activeSessionIdRef.current = state.activeSessionId;
+                sessionFocusEpochRef.current += 1;
+            }
+        });
+    }, []);
+
+    useEffect(() => () => {
+        requestStateBySessionRef.current.forEach((requestState) => {
+            requestState?.abortController?.abort();
+        });
+        requestStateBySessionRef.current.clear();
+    }, []);
+
+    const isCurrentSessionRequest = useCallback((sessionId = '', generation = 0) => (
+        requestStateBySessionRef.current.get(sessionId)?.generation === generation
+    ), []);
+
+    const beginSessionRequest = useCallback((sessionId = '') => {
+        const previousRequest = requestStateBySessionRef.current.get(sessionId) || {
+            generation: 0,
+            streamMessageId: '',
+            abortController: null,
+        };
+        previousRequest.abortController?.abort();
+        if (previousRequest.streamMessageId) {
+            discardAssistantStream(previousRequest.streamMessageId, sessionId);
+        }
+
+        const generation = previousRequest.generation + 1;
+        const abortController = typeof AbortController === 'function' ? new AbortController() : null;
+        requestStateBySessionRef.current.set(sessionId, {
+            generation,
+            streamMessageId: '',
+            abortController,
+        });
+        return {
+            generation,
+            signal: abortController?.signal,
+        };
+    }, [discardAssistantStream]);
+
+    const registerSessionStream = useCallback((sessionId = '', generation = 0, streamMessageId = '') => {
+        if (!isCurrentSessionRequest(sessionId, generation)) {
+            return false;
+        }
+        requestStateBySessionRef.current.set(sessionId, {
+            generation,
+            streamMessageId,
+            abortController: requestStateBySessionRef.current.get(sessionId)?.abortController || null,
+        });
+        return true;
+    }, [isCurrentSessionRequest]);
+
+    const invalidateSessionRequest = useCallback((sessionId = '') => {
+        const targetSessionId = safeString(sessionId || useChatStore.getState().activeSessionId || '');
+        if (!targetSessionId) return;
+
+        const previousRequest = requestStateBySessionRef.current.get(targetSessionId) || {
+            generation: 0,
+            streamMessageId: '',
+            abortController: null,
+        };
+        previousRequest.abortController?.abort();
+        if (previousRequest.streamMessageId) {
+            discardAssistantStream(previousRequest.streamMessageId, targetSessionId);
+        }
+        requestStateBySessionRef.current.set(targetSessionId, {
+            generation: previousRequest.generation + 1,
+            streamMessageId: '',
+            abortController: null,
+        });
+        setStatus('idle', targetSessionId);
+        clearTurnActions(targetSessionId);
+    }, [clearTurnActions, discardAssistantStream, setStatus]);
+
+    const ownsActionFocus = useCallback((sessionId = '', focusEpoch = 0) => (
+        activeSessionIdRef.current === sessionId && sessionFocusEpochRef.current === focusEpoch
+    ), []);
 
     const productCandidates = useMemo(() => {
         const pool = [...visibleProducts];
@@ -272,6 +355,7 @@ export const useAssistantController = () => {
         cartSummary.totalItems,
         context.activeProductId,
         context.candidateProductIds,
+        context.cartCount,
         context.isAuthenticated,
         context.route,
         hydrateContext,
@@ -306,7 +390,10 @@ export const useAssistantController = () => {
         };
     }, [isAuthenticated, mergeAssistantUpgrade, socket]);
 
-    const executePlannedActions = useCallback(async (assistantTurn) => {
+    const executePlannedActions = useCallback(async (assistantTurn, {
+        sessionId = '',
+        canExecute = () => true,
+    } = {}) => {
         const uiProducts = normalizeUiProducts(assistantTurn, {});
         const results = [];
         const plannedActions = assistantTurn?.actionRequest
@@ -314,14 +401,29 @@ export const useAssistantController = () => {
             : (assistantTurn?.actions || []);
 
         for (const action of plannedActions) {
-            setPendingAction(action);
+            if (!canExecute()) {
+                return {
+                    ...mergeExecutionResults(results),
+                    success: false,
+                    ownershipLost: true,
+                };
+            }
+            setPendingAction(action, sessionId);
             const result = await registry.executeAssistantAction(action, {
                 uiProducts,
+                canExecute,
             });
             results.push(result);
+            if (result?.ownershipLost) {
+                return {
+                    ...mergeExecutionResults(results),
+                    success: false,
+                    ownershipLost: true,
+                };
+            }
         }
 
-        setPendingAction(null);
+        setPendingAction(null, sessionId);
         return mergeExecutionResults(results);
     }, [registry, setPendingAction]);
 
@@ -397,22 +499,30 @@ export const useAssistantController = () => {
             return;
         }
 
-        setStatus('executing');
-        clearPendingConfirmation();
+        const initiatingSessionId = activeSessionIdRef.current;
+        const focusEpoch = sessionFocusEpochRef.current;
+        const {
+            generation: requestGeneration,
+            signal: requestSignal,
+        } = beginSessionRequest(initiatingSessionId);
+        const isCurrentRequest = () => isCurrentSessionRequest(initiatingSessionId, requestGeneration);
+        const canExecute = () => isCurrentRequest() && ownsActionFocus(initiatingSessionId, focusEpoch);
+        setStatus('executing', initiatingSessionId);
+        clearPendingConfirmation(initiatingSessionId);
 
         try {
             const response = await chatApi.sendMessage({
                 message: '',
                 conversationHistory: conversationHistory.slice(-MAX_HISTORY_ENTRIES),
                 assistantMode: 'chat',
-                sessionId: assistantSession?.sessionId || activeSessionId || '',
+                sessionId: assistantSession?.sessionId || initiatingSessionId || '',
                 confirmation: {
                     actionId: pendingConfirmation.token,
                     approved: true,
                     contextVersion: pendingConfirmation.action?.contextVersion || assistantSession?.contextVersion || 0,
                 },
                 context: {
-                    clientSessionId: activeSessionId,
+                    clientSessionId: initiatingSessionId,
                     route: assistantContextPath,
                     routeLabel: context.routeLabel,
                     cartItems,
@@ -421,7 +531,9 @@ export const useAssistantController = () => {
                     currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
                     assistantSession,
                 },
+                signal: requestSignal,
             });
+            if (!isCurrentRequest()) return;
             const assistantTurn = response?.assistantTurn;
             if (!assistantTurn || typeof assistantTurn !== 'object') {
                 throw new Error('Assistant confirmation response is missing a structured turn');
@@ -431,14 +543,38 @@ export const useAssistantController = () => {
                 ? [assistantTurn.actionRequest]
                 : (Array.isArray(assistantTurn.actions) ? assistantTurn.actions : []);
 
+            if (!canExecute()) {
+                presentAssistantTurn(buildNonExecutableAssistantTurn(
+                    assistantTurn,
+                    'I did not run that action because you changed assistant threads. Return to this thread and ask again if you still want it.',
+                ), response, null, {
+                    sessionId: initiatingSessionId,
+                });
+                return;
+            }
+
             if (assistantTurn.decision === 'act' && plannedActions.length > 0) {
-                const execution = await executePlannedActions(assistantTurn);
+                const execution = await executePlannedActions(assistantTurn, {
+                    sessionId: initiatingSessionId,
+                    canExecute,
+                });
+                if (execution?.ownershipLost) {
+                    presentAssistantTurn(buildNonExecutableAssistantTurn(
+                        assistantTurn,
+                        'I did not run that action because you changed assistant threads. Return to this thread and ask again if you still want it.',
+                    ), response, null, {
+                        sessionId: initiatingSessionId,
+                    });
+                    return;
+                }
                 if (!execution?.suppressedDuplicate) {
                     const responseTurn = {
                         ...assistantTurn,
                         response: safeString(execution.message || assistantTurn.response),
                     };
-                    presentAssistantTurn(responseTurn, response, execution);
+                    presentAssistantTurn(responseTurn, response, execution, {
+                        sessionId: initiatingSessionId,
+                    });
 
                     const leadingActionType = plannedActions[0]?.type;
                     const leadingPage = plannedActions[0]?.page;
@@ -451,10 +587,14 @@ export const useAssistantController = () => {
                     }
                 }
             } else {
-                presentAssistantTurn(assistantTurn, response, null);
+                presentAssistantTurn(assistantTurn, response, null, {
+                    sessionId: initiatingSessionId,
+                });
             }
         } catch (error) {
+            if (!isCurrentRequest()) return;
             appendAssistantTurn({
+                sessionId: initiatingSessionId,
                 text: error?.message || 'I could not complete that action right now.',
                 mode: 'explore',
                 assistantTurn: {
@@ -468,14 +608,21 @@ export const useAssistantController = () => {
                 },
             });
         } finally {
-        setStatus('idle');
-        setPendingAction(null);
+            if (isCurrentRequest()) {
+                requestStateBySessionRef.current.set(initiatingSessionId, {
+                    generation: requestGeneration,
+                    streamMessageId: '',
+                    abortController: null,
+                });
+                setStatus('idle', initiatingSessionId);
+                setPendingAction(null, initiatingSessionId);
+            }
         }
     }, [
-        activeSessionId,
         assistantSession,
         assistantContextPath,
         appendAssistantTurn,
+        beginSessionRequest,
         cartItems,
         cartSummary,
         clearPendingConfirmation,
@@ -484,6 +631,8 @@ export const useAssistantController = () => {
         context.routeLabel,
         conversationHistory,
         executePlannedActions,
+        isCurrentSessionRequest,
+        ownsActionFocus,
         pendingConfirmation,
         presentAssistantTurn,
         productCandidates,
@@ -497,20 +646,26 @@ export const useAssistantController = () => {
             return;
         }
 
-        clearPendingConfirmation();
+        const initiatingSessionId = activeSessionIdRef.current;
+        const {
+            generation: requestGeneration,
+            signal: requestSignal,
+        } = beginSessionRequest(initiatingSessionId);
+        const isCurrentRequest = () => isCurrentSessionRequest(initiatingSessionId, requestGeneration);
+        clearPendingConfirmation(initiatingSessionId);
         try {
             const response = await chatApi.sendMessage({
                 message: '',
                 conversationHistory: conversationHistory.slice(-MAX_HISTORY_ENTRIES),
                 assistantMode: 'chat',
-                sessionId: assistantSession?.sessionId || activeSessionId || '',
+                sessionId: assistantSession?.sessionId || initiatingSessionId || '',
                 confirmation: {
                     actionId: pendingConfirmation.token,
                     approved: false,
                     contextVersion: pendingConfirmation.action?.contextVersion || assistantSession?.contextVersion || 0,
                 },
                 context: {
-                    clientSessionId: activeSessionId,
+                    clientSessionId: initiatingSessionId,
                     route: assistantContextPath,
                     routeLabel: context.routeLabel,
                     cartItems,
@@ -519,15 +674,21 @@ export const useAssistantController = () => {
                     currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
                     assistantSession,
                 },
+                signal: requestSignal,
             });
+            if (!isCurrentRequest()) return;
             const assistantTurn = response?.assistantTurn;
             if (!assistantTurn || typeof assistantTurn !== 'object') {
                 throw new Error('Assistant cancellation response is missing a structured turn');
             }
 
-            presentAssistantTurn(assistantTurn, response, null);
+            presentAssistantTurn(assistantTurn, response, null, {
+                sessionId: initiatingSessionId,
+            });
         } catch {
+            if (!isCurrentRequest()) return;
             appendAssistantTurn({
+                sessionId: initiatingSessionId,
                 text: 'Okay, I will hold here.',
                 mode: 'checkout',
                 assistantTurn: {
@@ -540,18 +701,27 @@ export const useAssistantController = () => {
                     followUps: ['Show my cart', 'Continue shopping'],
                 },
             });
+        } finally {
+            if (isCurrentRequest()) {
+                requestStateBySessionRef.current.set(initiatingSessionId, {
+                    generation: requestGeneration,
+                    streamMessageId: '',
+                    abortController: null,
+                });
+            }
         }
     }, [
-        activeSessionId,
         assistantSession,
         assistantContextPath,
         appendAssistantTurn,
+        beginSessionRequest,
         cartItems,
         cartSummary,
         clearPendingConfirmation,
         context.activeProductId,
         context.routeLabel,
         conversationHistory,
+        isCurrentSessionRequest,
         pendingConfirmation,
         presentAssistantTurn,
         productCandidates,
@@ -571,24 +741,29 @@ export const useAssistantController = () => {
         const userVisibleText = cleanedText || buildMediaSummary({ images: safeImages, audio: safeAudio });
         if (!cleanedText && !confirmationToken && safeImages.length === 0 && safeAudio.length === 0) return;
 
+        const initiatingSessionId = activeSessionIdRef.current || activeSessionId;
         if (confirmationToken || (pendingConfirmation && isConfirmationMessage(cleanedText))) {
             if (cleanedText) {
-                appendUserMessage(cleanedText);
+                appendUserMessage(cleanedText, { sessionId: initiatingSessionId });
             }
             void confirmPendingAction(confirmationToken || pendingConfirmation?.token || '');
             setInputValue('');
             return;
         }
 
+        clearTurnActions(initiatingSessionId);
         appendUserMessage(userVisibleText, {
+            sessionId: initiatingSessionId,
             images: safeImages,
             audio: safeAudio,
         });
         setInputValue('');
-        setStatus('thinking');
-        const requestId = requestSequenceRef.current + 1;
-        requestSequenceRef.current = requestId;
-
+        setStatus('thinking', initiatingSessionId);
+        const {
+            generation: requestGeneration,
+            signal: requestSignal,
+        } = beginSessionRequest(initiatingSessionId);
+        const focusEpoch = sessionFocusEpochRef.current;
         const requestConfig = buildAssistantRequestPayload({
             message: cleanedText,
             pathname: assistantContextPath,
@@ -599,7 +774,17 @@ export const useAssistantController = () => {
             activeProductId: context.activeProductId || routeProductId,
         });
         const streamMessageId = beginAssistantStream({
-            sessionId: activeSessionId,
+            sessionId: initiatingSessionId,
+        });
+        registerSessionStream(initiatingSessionId, requestGeneration, streamMessageId);
+        const isCurrentRequest = () => isCurrentSessionRequest(initiatingSessionId, requestGeneration);
+        const canExecute = () => isCurrentRequest() && ownsActionFocus(initiatingSessionId, focusEpoch);
+        const presentOwnershipNotice = (assistantTurn, response) => presentAssistantTurn(buildNonExecutableAssistantTurn(
+            assistantTurn,
+            'I did not run that action because you changed assistant threads. Return to this thread and ask again if you still want it.',
+        ), response, null, {
+            replaceMessageId: streamMessageId,
+            sessionId: initiatingSessionId,
         });
 
         try {
@@ -610,10 +795,10 @@ export const useAssistantController = () => {
                     { role: 'user', content: cleanedText },
                 ].slice(-MAX_HISTORY_ENTRIES),
                 assistantMode: requestConfig.assistantMode,
-                sessionId: assistantSession?.sessionId || activeSessionId || '',
+                sessionId: assistantSession?.sessionId || initiatingSessionId || '',
                 context: {
                     ...requestConfig.context,
-                    clientSessionId: activeSessionId,
+                    clientSessionId: initiatingSessionId,
                     clientMessageId: streamMessageId,
                     cartItems,
                     cartSummary,
@@ -623,36 +808,26 @@ export const useAssistantController = () => {
                 },
                 images: safeImages,
                 audio: safeAudio,
+                signal: requestSignal,
             }, (eventName, data) => {
-                if (requestId !== requestSequenceRef.current) {
-                    return;
-                }
+                if (!isCurrentRequest()) return;
 
                 if (eventName === 'message_meta') {
-                    setAssistantStreamMeta(
-                        safeString(data?.messageId || streamMessageId),
-                        data || {},
-                        safeString(data?.sessionId || activeSessionId),
-                    );
+                    setAssistantStreamMeta(streamMessageId, data || {}, initiatingSessionId);
                     return;
                 }
 
                 if (eventName === 'token') {
                     appendAssistantStreamToken(
-                        safeString(data?.messageId || streamMessageId),
+                        streamMessageId,
                         String(data?.text ?? data?.delta ?? data?.raw ?? ''),
-                        safeString(data?.sessionId || activeSessionId),
+                        initiatingSessionId,
                     );
                     return;
                 }
 
                 if (['tool_start', 'tool_end', 'citation', 'verification'].includes(eventName)) {
-                    mergeAssistantStreamEvent(
-                        safeString(data?.messageId || streamMessageId),
-                        eventName,
-                        data || {},
-                        safeString(data?.sessionId || activeSessionId),
-                    );
+                    mergeAssistantStreamEvent(streamMessageId, eventName, data || {}, initiatingSessionId);
                 }
             });
 
@@ -660,25 +835,31 @@ export const useAssistantController = () => {
             if (!assistantTurn || typeof assistantTurn !== 'object') {
                 throw new Error('Assistant response is missing a structured turn');
             }
-            if (requestId !== requestSequenceRef.current) {
-                discardAssistantStream(streamMessageId, activeSessionId);
-                return;
-            }
+            if (!isCurrentRequest()) return;
 
             const plannedActions = assistantTurn?.actionRequest
                 ? [assistantTurn.actionRequest]
                 : (Array.isArray(assistantTurn.actions) ? assistantTurn.actions : []);
 
             if (assistantTurn.decision === 'act' && plannedActions.length > 0) {
-                setStatus('executing');
+                if (!canExecute()) {
+                    presentOwnershipNotice(assistantTurn, response);
+                    return;
+                }
+
+                setStatus('executing', initiatingSessionId);
                 try {
-                    const execution = await executePlannedActions(assistantTurn);
-                    if (requestId !== requestSequenceRef.current) {
-                        discardAssistantStream(streamMessageId, activeSessionId);
+                    const execution = await executePlannedActions(assistantTurn, {
+                        sessionId: initiatingSessionId,
+                        canExecute,
+                    });
+                    if (!isCurrentRequest()) return;
+                    if (execution?.ownershipLost) {
+                        presentOwnershipNotice(assistantTurn, response);
                         return;
                     }
                     if (execution?.suppressedDuplicate) {
-                        discardAssistantStream(streamMessageId, activeSessionId);
+                        discardAssistantStream(streamMessageId, initiatingSessionId);
                         return;
                     }
                     const responseTurn = {
@@ -687,47 +868,97 @@ export const useAssistantController = () => {
                     };
                     presentAssistantTurn(responseTurn, response, execution, {
                         replaceMessageId: streamMessageId,
-                        sessionId: activeSessionId,
+                        sessionId: initiatingSessionId,
                     });
 
                     const leadingActionType = plannedActions[0]?.type;
                     const leadingPage = plannedActions[0]?.page;
-                    if (
+                    if (canExecute() && (
                         leadingActionType === 'go_to_checkout'
                         || leadingActionType === 'open_support'
                         || (leadingActionType === 'navigate_to' && ['checkout', 'support', 'orders'].includes(safeString(leadingPage || '')))
-                    ) {
+                    )) {
                         close();
                     }
                 } catch (error) {
-                    failAssistantStream(
-                        streamMessageId,
-                        error?.message || 'I could not complete that action right now.',
-                        {},
-                        activeSessionId,
-                    );
+                    if (isCurrentRequest()) {
+                        failAssistantStream(
+                            streamMessageId,
+                            error?.message || 'I could not complete that action right now.',
+                            {},
+                            initiatingSessionId,
+                        );
+                    }
                 }
             } else {
                 presentAssistantTurn(assistantTurn, response, null, {
                     replaceMessageId: streamMessageId,
-                    sessionId: activeSessionId,
+                    sessionId: initiatingSessionId,
                 });
             }
         } catch {
-            if (requestId !== requestSequenceRef.current) {
-                discardAssistantStream(streamMessageId, activeSessionId);
-                return;
-            }
-            failAssistantStream(
-                streamMessageId,
-                'I hit a live service issue before I could finish that. Please try again in a moment.',
-                {},
-                activeSessionId,
-            );
+            if (!isCurrentRequest()) return;
+
+            clearTurnActions(initiatingSessionId);
+            const fallback = buildUnavailableAssistantResponse(cleanedText, {
+                hasMedia: safeImages.length > 0 || safeAudio.length > 0,
+                cartCount: cartSummary.totalItems,
+                cartSummary,
+                cartItems,
+                lastQuery: context.lastQuery,
+                activeProductId: context.activeProductId || routeProductId,
+                candidateProductIds: context.candidateProductIds,
+                isAuthenticated,
+                pathname: assistantContextPath,
+            });
+            const fallbackTurn = {
+                intent: 'local_fallback',
+                decision: 'respond',
+                response: fallback.answer,
+                actions: [],
+                ui: {
+                    surface: fallback.mode === 'cart'
+                        ? 'cart_summary'
+                        : fallback.mode === 'product'
+                            ? 'product_focus'
+                            : fallback.mode === 'checkout'
+                                ? 'cart_summary'
+                                : fallback.mode === 'support'
+                                    ? 'support_handoff'
+                                    : 'plain_answer',
+                },
+                followUps: [],
+            };
+
+            finalizeAssistantStream(streamMessageId, {
+                text: fallback.answer,
+                mode: fallback.mode,
+                cartSummary: fallback.cartSummary || null,
+                supportPrefill: fallback.supportPrefill || null,
+                primaryAction: fallback.primaryAction || null,
+                secondaryActions: fallback.secondaryActions || [],
+                activeProductId: fallback.activeProductId,
+                providerInfo: {
+                    name: 'local',
+                    model: 'deterministic',
+                },
+                providerCapabilities: {
+                    textInput: true,
+                    imageInput: false,
+                    audioInput: false,
+                },
+                decision: 'respond',
+                assistantTurn: fallbackTurn,
+            }, initiatingSessionId);
         } finally {
-            if (requestId === requestSequenceRef.current) {
-                setStatus('idle');
-                setPendingAction(null);
+            if (isCurrentRequest()) {
+                requestStateBySessionRef.current.set(initiatingSessionId, {
+                    generation: requestGeneration,
+                    streamMessageId: '',
+                    abortController: null,
+                });
+                setStatus('idle', initiatingSessionId);
+                setPendingAction(null, initiatingSessionId);
             }
         }
     }, [
@@ -737,20 +968,28 @@ export const useAssistantController = () => {
         appendAssistantStreamToken,
         appendUserMessage,
         beginAssistantStream,
+        beginSessionRequest,
         cartItems,
         cartSummary,
+        clearTurnActions,
         close,
         confirmPendingAction,
         context.activeProductId,
         context.candidateProductIds,
+        context.lastQuery,
         conversationHistory,
         discardAssistantStream,
         executePlannedActions,
         failAssistantStream,
+        finalizeAssistantStream,
+        isCurrentSessionRequest,
+        isAuthenticated,
         mergeAssistantStreamEvent,
+        ownsActionFocus,
         pendingConfirmation,
         presentAssistantTurn,
         productCandidates,
+        registerSessionStream,
         routeProductId,
         setAssistantStreamMeta,
         setInputValue,
@@ -828,30 +1067,48 @@ export const useAssistantController = () => {
         }
 
         if (action.kind === 'prepare-checkout') {
-            setStatus('thinking');
+            const initiatingSessionId = activeSessionIdRef.current;
+            const focusEpoch = sessionFocusEpochRef.current;
+            const {
+                generation: requestGeneration,
+                signal: requestSignal,
+            } = beginSessionRequest(initiatingSessionId);
+            const isCurrentRequest = () => isCurrentSessionRequest(initiatingSessionId, requestGeneration);
+            setStatus('thinking', initiatingSessionId);
             void chatApi.sendMessage({
                 message: '',
                 conversationHistory,
                 assistantMode: 'chat',
-                sessionId: assistantSession?.sessionId || activeSessionId || '',
+                sessionId: assistantSession?.sessionId || initiatingSessionId || '',
                 actionRequest: {
                     type: 'checkout',
                 },
                 context: {
                     cartItems,
                     cartSummary,
-                    clientSessionId: activeSessionId,
+                    clientSessionId: initiatingSessionId,
                     currentProductId: context.activeProductId || routeProductId,
                     currentProduct: productCandidates.find((product) => product.id === (context.activeProductId || routeProductId)) || null,
                     assistantSession,
                 },
+                signal: requestSignal,
             }).then((response) => {
+                if (!isCurrentRequest()) return;
                 const assistantTurn = response?.assistantTurn;
                 if (!assistantTurn || typeof assistantTurn !== 'object') {
                     throw new Error('Assistant response is missing a structured turn');
                 }
-                presentAssistantTurn(assistantTurn, response, null);
+                const safeTurn = ownsActionFocus(initiatingSessionId, focusEpoch)
+                    ? assistantTurn
+                    : buildNonExecutableAssistantTurn(
+                        assistantTurn,
+                        'Checkout preparation did not continue because you changed assistant threads. Return to this thread and ask again.',
+                    );
+                presentAssistantTurn(safeTurn, response, null, {
+                    sessionId: initiatingSessionId,
+                });
             }).catch(() => {
+                if (!isCurrentRequest()) return;
                 presentAssistantTurn({
                     intent: 'navigation',
                     confidence: 1,
@@ -862,9 +1119,18 @@ export const useAssistantController = () => {
                         surface: 'plain_answer',
                     },
                     followUps: ['View cart'],
-                }, {}, null);
+                }, {}, null, {
+                    sessionId: initiatingSessionId,
+                });
             }).finally(() => {
-                setStatus('idle');
+                if (isCurrentRequest()) {
+                    requestStateBySessionRef.current.set(initiatingSessionId, {
+                        generation: requestGeneration,
+                        streamMessageId: '',
+                        abortController: null,
+                    });
+                    setStatus('idle', initiatingSessionId);
+                }
             });
             return;
         }
@@ -887,9 +1153,9 @@ export const useAssistantController = () => {
             });
         }
     }, [
-        activeSessionId,
         close,
         assistantSession,
+        beginSessionRequest,
         cartItems,
         cartSummary,
         conversationHistory,
@@ -897,7 +1163,9 @@ export const useAssistantController = () => {
         context.lastOrderId,
         context.activeProductId,
         handleUserInput,
+        isCurrentSessionRequest,
         lastAssistantTurn,
+        ownsActionFocus,
         pendingConfirmation?.token,
         presentAssistantTurn,
         productCandidates,
@@ -959,6 +1227,7 @@ export const useAssistantController = () => {
         confirmPendingAction,
         handleAction,
         handleUserInput,
+        invalidateSessionRequest,
         modifyPendingAction,
         openSupport,
         selectProduct,

@@ -13,6 +13,8 @@ const product = {
     originalPrice: 59999,
     image: '/phone.png',
     rating: 4.5,
+    ratingCount: 1248,
+    stock: 8,
 };
 
 const renderWithMarket = (ui, initialPreference = { countryCode: 'IN', language: 'en', currency: 'INR' }) => render(
@@ -64,6 +66,57 @@ describe('ProductCardInline', () => {
 
         expect(onAddToCart).toHaveBeenCalledWith('101');
         expect(onViewDetails).toHaveBeenCalledWith('101');
+        expect(screen.getByLabelText('4.5 out of 5 from 1,248 reviews')).toBeInTheDocument();
+    });
+
+    it('fails closed when a product is out of stock', () => {
+        const onAddToCart = vi.fn();
+
+        renderWithMarket(
+            <ProductCardInline
+                product={{ ...product, stock: 0 }}
+                mode="product"
+                onAddToCart={onAddToCart}
+                onViewDetails={vi.fn()}
+            />
+        );
+
+        const unavailableButton = screen.getByRole('button', { name: /out of stock/i });
+        expect(unavailableButton).toBeDisabled();
+        fireEvent.click(unavailableButton);
+        expect(onAddToCart).not.toHaveBeenCalled();
+    });
+
+    it('shows only catalog-supplied delivery and warranty facts', () => {
+        renderWithMarket(
+            <ProductCardInline
+                product={{
+                    ...product,
+                    deliveryTime: 'Usually dispatches in 2 days',
+                    warranty: '1 year manufacturer warranty',
+                }}
+                mode="product"
+                onAddToCart={vi.fn()}
+                onViewDetails={vi.fn()}
+            />
+        );
+
+        expect(screen.getByText('Usually dispatches in 2 days')).toBeInTheDocument();
+        expect(screen.getByText('1 year manufacturer warranty')).toBeInTheDocument();
+        expect(screen.queryByText(/Open details to confirm/i)).not.toBeInTheDocument();
+    });
+
+    it('asks the shopper to confirm commerce facts that are not supplied', () => {
+        renderWithMarket(
+            <ProductCardInline
+                product={product}
+                mode="product"
+                onAddToCart={vi.fn()}
+                onViewDetails={vi.fn()}
+            />
+        );
+
+        expect(screen.getByText('Open details to confirm delivery and warranty.')).toBeInTheDocument();
     });
 
     it('renders inline pricing in the active market currency even when stale backend display pricing differs', () => {
@@ -104,7 +157,8 @@ describe('ProductCardInline', () => {
             />
         );
 
-        expect(screen.getByText('within Rs 60000, 4.5 rating, 8 in stock')).toBeInTheDocument();
+        expect(screen.getByText('Why it fits:')).toBeInTheDocument();
+        expect(screen.getByText(/within Rs 60000, 4.5 rating, 8 in stock/)).toBeInTheDocument();
         expect(screen.getByText('Watch: low review depth')).toBeInTheDocument();
     });
 });

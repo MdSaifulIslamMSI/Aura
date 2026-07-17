@@ -341,6 +341,7 @@ const createSessionMeta = ({
     updatedAt = createdAt,
     pinned = false,
     originPath = '/',
+    serverSynced = false,
 } = {}) => ({
     id,
     title: safeString(title || DEFAULT_SESSION_TITLE, DEFAULT_SESSION_TITLE),
@@ -349,6 +350,7 @@ const createSessionMeta = ({
     updatedAt: normalizeTimestamp(updatedAt, createdAt),
     pinned: Boolean(pinned),
     originPath: safeString(originPath || '/', '/'),
+    serverSynced: Boolean(serverSynced),
 });
 
 const createSessionBundle = ({ originPath = '/', preservedContext = {} } = {}) => {
@@ -382,6 +384,78 @@ const createScopeSnapshot = ({
     sessions: Array.isArray(sessions) ? sessions.map((session) => createSessionMeta(session)) : [],
     sessionStateById: sessionStateById && typeof sessionStateById === 'object' ? sessionStateById : {},
 });
+
+const stripAttachmentData = (attachments = []) => (Array.isArray(attachments) ? attachments.map((attachment) => {
+    const { dataUrl: _dataUrl, ...safeAttachment } = attachment || {};
+    return safeAttachment;
+}) : []);
+
+const sanitizeMessageForPersistence = (message = {}) => {
+    const status = safeString(message?.status || 'complete') || 'complete';
+    const wasTransient = Boolean(message?.isStreaming) || ['thinking', 'streaming', 'pending'].includes(status);
+
+    return {
+        ...message,
+        status: wasTransient ? (message?.role === 'assistant' ? 'error' : 'complete') : status,
+        isStreaming: false,
+        upgradeEligible: false,
+        images: stripAttachmentData(message?.images),
+        audio: stripAttachmentData(message?.audio),
+    };
+};
+
+const sanitizeSessionConversationForPersistence = (sessionState = {}) => ({
+    ...sessionState,
+    status: 'idle',
+    isLoading: false,
+    pendingAction: null,
+    pendingConfirmation: null,
+    pendingUpgradeMessageIds: [],
+    messages: (Array.isArray(sessionState?.messages) ? sessionState.messages : [])
+        .filter((message) => !(
+            message?.role === 'assistant'
+            && (message?.isStreaming || ['thinking', 'streaming', 'pending'].includes(safeString(message?.status)))
+            && !safeString(message?.text || message?.content || '')
+        ))
+        .map((message) => sanitizeMessageForPersistence(message)),
+});
+
+const sanitizeSessionStateByIdForPersistence = (sessionStateById = {}) => Object.fromEntries(
+    Object.entries(sessionStateById && typeof sessionStateById === 'object' ? sessionStateById : {})
+        .map(([sessionId, sessionState]) => [sessionId, sanitizeSessionConversationForPersistence(sessionState)])
+);
+
+const sanitizeScopeSnapshotsForPersistence = (scopeSnapshotsById = {}) => Object.fromEntries(
+    Object.entries(scopeSnapshotsById && typeof scopeSnapshotsById === 'object' ? scopeSnapshotsById : {})
+        .map(([scopeId, snapshot]) => [scopeId, {
+            ...(snapshot || {}),
+            sessionStateById: sanitizeSessionStateByIdForPersistence(snapshot?.sessionStateById),
+        }])
+);
+
+const sanitizePersistedChatState = (state = {}) => ({
+    ...state,
+    status: 'idle',
+    isLoading: false,
+    pendingAction: null,
+    pendingConfirmation: null,
+    messages: Array.isArray(state?.messages)
+        ? state.messages.map((message) => sanitizeMessageForPersistence(message))
+        : state?.messages,
+    sessionStateById: sanitizeSessionStateByIdForPersistence(state?.sessionStateById),
+    scopeSnapshotsById: sanitizeScopeSnapshotsForPersistence(state?.scopeSnapshotsById),
+});
+
+const buildConversationRevision = (sessionState = {}) => JSON.stringify(
+    (Array.isArray(sessionState?.messages) ? sessionState.messages : []).map((message) => ([
+        safeString(message?.id || ''),
+        safeString(message?.role || ''),
+        String(message?.text || message?.content || ''),
+        Number(message?.createdAt || 0),
+        safeString(message?.status || ''),
+        Boolean(message?.isStreaming),
+    ]))
+);
 
 const createScopeSnapshotBundle = ({ originPath = '/', preservedContext = {} } = {}) => {
     const bundle = createSessionBundle({ originPath, preservedContext });
@@ -615,6 +689,9 @@ const refreshSessionMeta = (meta = {}, sessionState = {}, overrides = {}) => ({
             : (sessionState?.context?.route || meta?.originPath || '/'),
         '/',
     ),
+    serverSynced: overrides?.serverSynced !== undefined
+        ? Boolean(overrides.serverSynced)
+        : Boolean(meta?.serverSynced),
 });
 
 const ensureSessionCollections = (state = {}) => {
@@ -801,13 +878,49 @@ const updateSessionConversationState = (state = {}, sessionId = '', updater = (v
     );
 };
 
-const mergeServerSessionsIntoState = (state = {}, serverSessions = [], { authoritative = true } = {}) => {
+const hasUnsyncedLocalWork = (sessionState = {}) => (
+    Array.isArray(sessionState?.messages)
+    && sessionState.messages.some((message) => message?.role === 'user')
+);
+
+const mergeServerSessionsIntoState = (state = {}, serverSessions = [], {
+    authoritative = true,
+    expectedViewerScope = '',
+    expectedRevisions = {},
+} = {}) => {
+    const normalizedExpectedViewerScope = safeString(expectedViewerScope || '');
+    if (
+        normalizedExpectedViewerScope
+        && normalizeViewerScope(state?.viewerScope) !== normalizeViewerScope(normalizedExpectedViewerScope)
+    ) {
+        return state;
+    }
+
     const { sessions, sessionStateById } = ensureSessionCollections(state);
-    const mergedStateById = authoritative ? {} : {
-        ...sessionStateById,
-    };
-    const mergedSessions = authoritative ? [] : [...sessions];
     const normalizedServerSessions = Array.isArray(serverSessions) ? serverSessions : [];
+    const normalizedExpectedRevisions = expectedRevisions && typeof expectedRevisions === 'object'
+        ? expectedRevisions
+        : {};
+    const serverSessionIds = new Set(normalizedServerSessions.map((session) => safeString(session?.id || '')).filter(Boolean));
+    const didSessionRevisionChange = (sessionId = '') => (
+        Object.prototype.hasOwnProperty.call(normalizedExpectedRevisions, sessionId)
+        && Boolean(sessionStateById[sessionId])
+        && buildConversationRevision(sessionStateById[sessionId]) !== normalizedExpectedRevisions[sessionId]
+    );
+    const locallyPreservedSessions = authoritative
+        ? sessions.filter((session) => (
+            didSessionRevisionChange(session.id)
+            || (
+                session?.serverSynced !== true
+                && !serverSessionIds.has(session.id)
+                && hasUnsyncedLocalWork(sessionStateById[session.id])
+            )
+        ))
+        : sessions;
+    const mergedSessions = [...locallyPreservedSessions];
+    const mergedStateById = authoritative
+        ? Object.fromEntries(locallyPreservedSessions.map((session) => [session.id, sessionStateById[session.id]]))
+        : { ...sessionStateById };
 
     normalizedServerSessions.forEach((serverSession) => {
         const sessionId = safeString(serverSession?.id || '');
@@ -815,8 +928,12 @@ const mergeServerSessionsIntoState = (state = {}, serverSessions = [], { authori
             return;
         }
 
+        const localMeta = getSessionMetaById(sessions, sessionId);
+        const localSessionState = sessionStateById[sessionId] || null;
+        const localRevisionChanged = didSessionRevisionChange(sessionId);
+
         if (!mergedStateById[sessionId]) {
-            mergedStateById[sessionId] = createSessionConversationState({
+            mergedStateById[sessionId] = localSessionState || createSessionConversationState({
                 sessionId,
                 preservedContext: {
                     route: safeString(serverSession?.originPath || '/', '/'),
@@ -825,9 +942,18 @@ const mergeServerSessionsIntoState = (state = {}, serverSessions = [], { authori
         }
 
         const nextMeta = refreshSessionMeta(
-            getSessionMetaById(mergedSessions, sessionId) || createSessionMeta({ id: sessionId }),
+            getSessionMetaById(mergedSessions, sessionId) || localMeta || createSessionMeta({ id: sessionId }),
             mergedStateById[sessionId],
-            {
+            localRevisionChanged && localMeta ? {
+                id: sessionId,
+                title: localMeta.title,
+                preview: localMeta.preview,
+                createdAt: localMeta.createdAt,
+                updatedAt: localMeta.updatedAt,
+                originPath: localMeta.originPath,
+                pinned: localMeta.pinned,
+                serverSynced: true,
+            } : {
                 id: sessionId,
                 title: safeString(serverSession?.title || DEFAULT_SESSION_TITLE, DEFAULT_SESSION_TITLE),
                 preview: safeString(serverSession?.preview || DEFAULT_SESSION_PREVIEW, DEFAULT_SESSION_PREVIEW),
@@ -835,6 +961,7 @@ const mergeServerSessionsIntoState = (state = {}, serverSessions = [], { authori
                 updatedAt: normalizeTimestamp(serverSession?.updatedAt, Date.now()),
                 originPath: safeString(serverSession?.originPath || '/', '/'),
                 pinned: getSessionMetaById(mergedSessions, sessionId)?.pinned || false,
+                serverSynced: true,
             },
         );
         const existingIndex = mergedSessions.findIndex((entry) => entry.id === sessionId);
@@ -1180,7 +1307,7 @@ const buildSessionBundleFromLegacyState = (legacyState = {}) => {
 };
 
 const mergeState = (persistedState, currentState) => {
-    const nextState = persistedState?.state || persistedState || {};
+    const nextState = sanitizePersistedChatState(persistedState?.state || persistedState || {});
     const baseState = {
         ...currentState,
         isOpen: false,
@@ -1346,10 +1473,23 @@ export const useChatStore = create(
                 resetSearch,
             })),
             replaceSessionsFromServer: (serverSessions = [], options = {}) => set((state) => mergeServerSessionsIntoState(state, serverSessions, options)),
-            hydrateSessionFromServer: (payload = {}) => set((state) => {
+            hydrateSessionFromServer: (payload = {}, options = {}) => set((state) => {
+                const normalizedExpectedViewerScope = safeString(options?.expectedViewerScope || '');
+                if (
+                    normalizedExpectedViewerScope
+                    && normalizeViewerScope(state.viewerScope) !== normalizeViewerScope(normalizedExpectedViewerScope)
+                ) {
+                    return state;
+                }
+
                 const session = payload?.session || {};
-                const sessionId = safeString(session?.id || state.activeSessionId || '');
+                const requestedSessionId = safeString(options?.sessionId || '');
+                const sessionId = safeString(requestedSessionId || session?.id || state.activeSessionId || '');
                 if (!sessionId) {
+                    return state;
+                }
+
+                if (requestedSessionId && safeString(session?.id || requestedSessionId) !== requestedSessionId) {
                     return state;
                 }
 
@@ -1362,6 +1502,12 @@ export const useChatStore = create(
                     buildPreservedContext(state.sessionStateById?.[sessionId]?.context || { route: currentMeta.originPath || '/' }),
                     sessionId,
                 );
+                if (
+                    options?.expectedRevision !== undefined
+                    && buildConversationRevision(currentConversationState) !== options.expectedRevision
+                ) {
+                    return state;
+                }
                 const nextConversationState = buildConversationStateFromServerPayload(payload, currentConversationState);
                 const nextMeta = refreshSessionMeta(currentMeta, nextConversationState, {
                     id: sessionId,
@@ -1371,12 +1517,15 @@ export const useChatStore = create(
                     updatedAt: normalizeTimestamp(session?.updatedAt, Date.now()),
                     originPath: safeString(session?.originPath || currentMeta.originPath || '/', '/'),
                     pinned: currentMeta.pinned,
+                    serverSynced: true,
                 });
 
                 const sessionExists = state.sessions.some((entry) => entry.id === sessionId);
                 return syncDerivedSessionState({
                     ...state,
-                    activeSessionId: sessionId,
+                    activeSessionId: options?.activate === false
+                        ? (state.activeSessionId || sessionId)
+                        : sessionId,
                     sessions: sortSessions(sessionExists
                         ? state.sessions.map((entry) => (entry.id === sessionId ? nextMeta : entry))
                         : [nextMeta, ...state.sessions]),
@@ -1437,21 +1586,33 @@ export const useChatStore = create(
                     status: isLoading ? (sessionState.status === 'executing' ? 'executing' : 'thinking') : 'idle',
                 }),
             )),
-            setStatus: (status = 'idle') => set((state) => updateSessionConversationState(
+            setStatus: (status = 'idle', sessionId = '') => set((state) => updateSessionConversationState(
                 state,
-                state.activeSessionId,
+                sessionId || state.activeSessionId,
                 (sessionState) => ({
                     ...sessionState,
                     status,
                     isLoading: status === 'thinking' || status === 'executing',
                 }),
             )),
-            setPendingAction: (pendingAction = null) => set((state) => updateSessionConversationState(
+            setPendingAction: (pendingAction = null, sessionId = '') => set((state) => updateSessionConversationState(
                 state,
-                state.activeSessionId,
+                sessionId || state.activeSessionId,
                 (sessionState) => ({
                     ...sessionState,
                     pendingAction,
+                }),
+            )),
+            clearTurnActions: (sessionId = '') => set((state) => updateSessionConversationState(
+                state,
+                sessionId || state.activeSessionId,
+                (sessionState) => ({
+                    ...sessionState,
+                    primaryAction: null,
+                    secondaryActions: [],
+                    supportPrefill: null,
+                    pendingAction: null,
+                    pendingConfirmation: null,
                 }),
             )),
             setPendingConfirmation: (pendingConfirmation = null) => set((state) => updateSessionConversationState(
@@ -1462,9 +1623,9 @@ export const useChatStore = create(
                     pendingConfirmation,
                 }),
             )),
-            clearPendingConfirmation: () => set((state) => updateSessionConversationState(
+            clearPendingConfirmation: (sessionId = '') => set((state) => updateSessionConversationState(
                 state,
-                state.activeSessionId,
+                sessionId || state.activeSessionId,
                 (sessionState) => ({
                     ...sessionState,
                     pendingConfirmation: null,
@@ -1521,6 +1682,11 @@ export const useChatStore = create(
                         status: 'idle',
                         isLoading: false,
                         messages: trimMessages([...currentConversationState.messages, nextMessage]),
+                        primaryAction: null,
+                        secondaryActions: [],
+                        supportPrefill: null,
+                        pendingAction: null,
+                        pendingConfirmation: null,
                         context: {
                             ...currentConversationState.context,
                             lastQuery: safeText,
@@ -1585,6 +1751,11 @@ export const useChatStore = create(
                             status: 'thinking',
                             isLoading: true,
                             messages: trimMessages([...sessionState.messages, streamingMessage]),
+                            primaryAction: null,
+                            secondaryActions: [],
+                            supportPrefill: null,
+                            pendingAction: null,
+                            pendingConfirmation: null,
                             pendingUpgradeMessageIds: upgradeEligible
                                 ? uniqueStrings([...sessionState.pendingUpgradeMessageIds, streamingMessageId])
                                 : sessionState.pendingUpgradeMessageIds,
@@ -1725,6 +1896,11 @@ export const useChatStore = create(
                     }),
                     {
                         updatedAt: Date.now(),
+                        ...(safeString(
+                            payload?.assistantSession?.sessionId
+                            || payload?.assistantTurn?.assistantSession?.sessionId
+                            || ''
+                        ) ? { serverSynced: true } : {}),
                     },
                 ));
             },
@@ -1848,6 +2024,11 @@ export const useChatStore = create(
                 (sessionState) => applyAssistantTurnToConversationState(sessionState, payload),
                 {
                     updatedAt: Date.now(),
+                    ...(safeString(
+                        payload?.assistantSession?.sessionId
+                        || payload?.assistantTurn?.assistantSession?.sessionId
+                        || ''
+                    ) ? { serverSynced: true } : {}),
                 },
             )),
             mergeAssistantUpgrade: (payload = {}) => set((state) => {
@@ -1927,9 +2108,9 @@ export const useChatStore = create(
                     sessionSearchQuery: '',
                 });
             }),
-            clearActiveSessionConversation: () => set((state) => updateSessionConversationState(
+            clearActiveSessionConversation: (sessionId = '') => set((state) => updateSessionConversationState(
                 state,
-                state.activeSessionId,
+                sessionId || state.activeSessionId,
                 (sessionState, currentMeta) => createSessionConversationState({
                     sessionId: currentMeta?.id || state.activeSessionId,
                     preservedContext: buildPreservedContext(sessionState.context || { route: currentMeta?.originPath || '/' }),
@@ -1940,6 +2121,10 @@ export const useChatStore = create(
                 },
             )),
             getVisibleSessions: () => filterChatSessions(get().sessions, get().sessionSearchQuery),
+            getSessionConversationRevision: (sessionId = '') => {
+                const targetSessionId = safeString(sessionId || get().activeSessionId || '');
+                return buildConversationRevision(get().sessionStateById?.[targetSessionId] || {});
+            },
             getGroupedSessionHistory: () => groupChatSessionsByRecency(
                 filterChatSessions(get().sessions, get().sessionSearchQuery),
             ),
@@ -1947,7 +2132,7 @@ export const useChatStore = create(
         {
             name: CHAT_STORAGE_KEY,
             storage: createSafeStorage(),
-            partialize: (state) => ({
+            partialize: (state) => sanitizePersistedChatState({
                 viewerScope: state.viewerScope,
                 scopeSnapshotsById: state.scopeSnapshotsById,
                 activeSessionId: state.activeSessionId,

@@ -27,6 +27,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useSpeechInput } from '@/hooks/useSpeechInput';
 import { cn } from '@/lib/utils';
 import { aiApi } from '@/services/aiApi';
+import { resolveAssistantOriginLocation } from '@/services/assistantUiConfig';
 import { useChatStore } from '@/store/chatStore';
 import { selectCartSummary, useCommerceStore } from '@/store/commerceStore';
 import { getAssistantRouteLabel } from '@/utils/assistantCommands';
@@ -146,16 +147,6 @@ const toComposerAttachment = async (file) => {
     };
 };
 
-const resolveOriginPath = (location, fallback = '/') => {
-    const from = new URLSearchParams(location?.search || '').get('from');
-    if (!from) {
-        return fallback || '/';
-    }
-
-    const decoded = String(from || '').trim();
-    return decoded.startsWith('/') ? decoded : `/${decoded}`;
-};
-
 const formatSessionTime = (timestamp = 0) => {
     if (!timestamp) return '';
 
@@ -165,11 +156,15 @@ const formatSessionTime = (timestamp = 0) => {
     }).format(new Date(timestamp));
 };
 
-const getCapabilityTone = (enabled = false) => (
-    enabled
-        ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
-        : 'border-amber-300/20 bg-amber-500/10 text-amber-100'
-);
+const getCapabilityTone = (availability = null) => {
+    if (availability === true) {
+        return 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100';
+    }
+    if (availability === false) {
+        return 'border-amber-300/20 bg-amber-500/10 text-amber-100';
+    }
+    return 'border-white/10 bg-white/[0.04] text-slate-300';
+};
 
 const AssistantPage = () => {
     const intl = useIntl();
@@ -207,6 +202,7 @@ const AssistantPage = () => {
     const fileInputRef = useRef(null);
     const [attachments, setAttachments] = useState([]);
     const [attachmentError, setAttachmentError] = useState('');
+    const [contextError, setContextError] = useState('');
     const [voiceSessionConfig, setVoiceSessionConfig] = useState(null);
     const [voiceSessionError, setVoiceSessionError] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -218,6 +214,7 @@ const AssistantPage = () => {
         confirmPendingAction,
         handleAction,
         handleUserInput,
+        invalidateSessionRequest,
         modifyPendingAction,
         openSupport,
         selectProduct,
@@ -235,7 +232,10 @@ const AssistantPage = () => {
         lang: 'en-IN',
     });
 
-    const originPath = resolveOriginPath(location, activeSession?.originPath || context.route || '/');
+    const originPath = resolveAssistantOriginLocation(
+        location,
+        activeSession?.originPath || context.route || '/',
+    ).path;
     const routeLabel = getAssistantRouteLabel(originPath);
     const viewerScope = useMemo(() => {
         if (isAuthLoading) {
@@ -264,6 +264,17 @@ const AssistantPage = () => {
         () => [...messages].reverse().find((message) => message?.role === 'assistant') || null,
         [messages],
     );
+    const latestTurnOwnsActions = useMemo(() => {
+        const surface = String(latestAssistantMessage?.uiSurface || latestAssistantMessage?.assistantTurn?.ui?.surface || '');
+        const productCount = Array.isArray(latestAssistantMessage?.products) ? latestAssistantMessage.products.length : 0;
+        const ownsProductActions = ['product_results', 'product_focus'].includes(surface) && productCount === 1;
+        const ownsSupportAction = Boolean(
+            latestAssistantMessage?.supportPrefill
+            || latestAssistantMessage?.assistantTurn?.ui?.support?.orderId
+        );
+
+        return ownsProductActions || ownsSupportAction || surface === 'confirmation_card';
+    }, [latestAssistantMessage]);
     const hasUserMessages = useMemo(
         () => messages.some((message) => message?.role === 'user'),
         [messages],
@@ -281,7 +292,7 @@ const AssistantPage = () => {
                 { providerName, providerModel },
             );
         }
-        return providerName || intl.formatMessage({ id: 'assistant.provider.awaitingFirstTurn', defaultMessage: 'Awaiting first grounded turn' });
+        return providerName || intl.formatMessage({ id: 'assistant.provider.localToolsReady', defaultMessage: 'Local store tools ready' });
     }, [intl, latestAssistantMessage]);
     const assistantCapabilities = useMemo(() => {
         const providerCapabilities = latestAssistantMessage?.providerCapabilities || null;
@@ -291,32 +302,34 @@ const AssistantPage = () => {
             {
                 id: 'text',
                 label: intl.formatMessage({ id: 'assistant.capability.textReasoning', defaultMessage: 'Text reasoning' }),
-                ready: providerCapabilities?.textInput !== false,
+                ready: providerCapabilities ? providerCapabilities.textInput === true : null,
             },
             {
                 id: 'image',
                 label: intl.formatMessage({ id: 'assistant.capability.imageGrounding', defaultMessage: 'Image grounding' }),
-                ready: Boolean(providerCapabilities?.imageInput),
+                ready: providerCapabilities ? Boolean(providerCapabilities.imageInput) : null,
             },
             {
                 id: 'audio',
                 label: intl.formatMessage({ id: 'assistant.capability.audioReasoning', defaultMessage: 'Audio reasoning' }),
-                ready: Boolean(providerCapabilities?.audioInput),
+                ready: providerCapabilities ? Boolean(providerCapabilities.audioInput) : null,
             },
             {
                 id: 'speech',
                 label: intl.formatMessage({ id: 'assistant.capability.speechIntake', defaultMessage: 'Speech intake' }),
-                ready: voiceSessionConfig?.supportsAudioUpload || voiceCapabilities?.speechToText?.mode === 'server_ready',
+                ready: voiceSessionConfig
+                    ? Boolean(voiceSessionConfig.supportsAudioUpload || voiceCapabilities?.speechToText?.mode === 'server_ready')
+                    : null,
             },
             {
                 id: 'voice',
                 label: intl.formatMessage({ id: 'assistant.capability.voiceOutput', defaultMessage: 'Voice output' }),
-                ready: voiceCapabilities?.textToSpeech?.mode === 'server_ready',
+                ready: voiceSessionConfig ? voiceCapabilities?.textToSpeech?.mode === 'server_ready' : null,
             },
             {
                 id: 'live',
                 label: intl.formatMessage({ id: 'assistant.capability.liveLane', defaultMessage: 'Live lane' }),
-                ready: Boolean(voiceSessionConfig?.realtimeEnabled),
+                ready: voiceSessionConfig ? Boolean(voiceSessionConfig.realtimeEnabled) : null,
             },
         ];
     }, [intl, latestAssistantMessage, voiceSessionConfig]);
@@ -330,12 +343,27 @@ const AssistantPage = () => {
         if (voiceSessionConfig) {
             return intl.formatMessage({ id: 'assistant.readiness.turnBasedVoice', defaultMessage: 'Text and image are grounded here. Voice stays turn-based until realtime media is available.' });
         }
-        return intl.formatMessage({ id: 'assistant.readiness.preparing', defaultMessage: 'Preparing multimodal status surface.' });
+        return intl.formatMessage({
+            id: 'assistant.readiness.localCoreReady',
+            defaultMessage: 'App guidance, cart review, and grounded store tools remain available without a model. Media support appears when ready.',
+        });
     }, [intl, voiceSessionConfig, voiceSessionError]);
+    const cartContextLabel = cartSummary.totalItems > 0
+        ? intl.formatMessage(
+            { id: 'assistant.context.cartSummary', defaultMessage: 'Cart {count} · {subtotal}' },
+            {
+                count: cartSummary.totalItems,
+                subtotal: intl.formatNumber(cartSummary.totalPrice, {
+                    style: 'currency',
+                    currency: cartSummary.currency || 'INR',
+                    maximumFractionDigits: 0,
+                }),
+            },
+        )
+        : intl.formatMessage({ id: 'assistant.context.cartEmpty', defaultMessage: 'Cart empty' });
     const contextChips = [
         { id: 'route', label: routeLabel },
-        { id: 'path', label: originPath },
-        { id: 'cart', label: intl.formatMessage({ id: 'assistant.context.cartCount', defaultMessage: 'Cart {count}' }, { count: cartSummary.totalItems || 0 }) },
+        { id: 'cart', label: cartContextLabel },
         { id: 'auth', label: context.isAuthenticated
             ? intl.formatMessage({ id: 'assistant.context.signedIn', defaultMessage: 'Signed in' })
             : intl.formatMessage({ id: 'assistant.context.guest', defaultMessage: 'Guest' }) },
@@ -367,15 +395,29 @@ const AssistantPage = () => {
     ]);
 
     useEffect(() => {
-        if (isAuthLoading || !isAuthenticated) {
+        if (isAuthLoading || !isAuthenticated || !viewerScope) {
             return undefined;
         }
 
+        const requestSnapshot = useChatStore.getState();
+        if (String(requestSnapshot.viewerScope || '').toLowerCase() !== viewerScope.toLowerCase()) {
+            return undefined;
+        }
+        const expectedRevisions = Object.fromEntries(
+            (requestSnapshot.sessions || []).map((session) => [
+                session.id,
+                requestSnapshot.getSessionConversationRevision(session.id),
+            ]),
+        );
         let cancelled = false;
         aiApi.listSessions()
             .then((payload) => {
                 if (cancelled) return;
-                replaceSessionsFromServer(payload?.sessions || [], { authoritative: true });
+                replaceSessionsFromServer(payload?.sessions || [], {
+                    authoritative: true,
+                    expectedViewerScope: viewerScope,
+                    expectedRevisions,
+                });
             })
             .catch(() => {
                 // Keep local cache when history hydration fails.
@@ -384,18 +426,31 @@ const AssistantPage = () => {
         return () => {
             cancelled = true;
         };
-    }, [isAuthLoading, isAuthenticated, replaceSessionsFromServer]);
+    }, [isAuthLoading, isAuthenticated, replaceSessionsFromServer, viewerScope]);
 
     useEffect(() => {
-        if (isAuthLoading || !isAuthenticated || !activeSessionId) {
+        if (isAuthLoading || !isAuthenticated || !activeSessionId || !viewerScope) {
             return undefined;
         }
 
+        const requestSnapshot = useChatStore.getState();
+        if (
+            String(requestSnapshot.viewerScope || '').toLowerCase() !== viewerScope.toLowerCase()
+            || requestSnapshot.activeSessionId !== activeSessionId
+        ) {
+            return undefined;
+        }
         let cancelled = false;
+        const expectedRevision = requestSnapshot.getSessionConversationRevision(activeSessionId);
         aiApi.getSession(activeSessionId)
             .then((payload) => {
                 if (cancelled || !payload?.session) return;
-                hydrateSessionFromServer(payload);
+                hydrateSessionFromServer(payload, {
+                    activate: false,
+                    expectedRevision,
+                    expectedViewerScope: viewerScope,
+                    sessionId: activeSessionId,
+                });
             })
             .catch(() => {
                 // Local-only sessions are allowed until the first server-backed turn lands.
@@ -404,7 +459,7 @@ const AssistantPage = () => {
         return () => {
             cancelled = true;
         };
-    }, [activeSessionId, hydrateSessionFromServer, isAuthLoading, isAuthenticated]);
+    }, [activeSessionId, hydrateSessionFromServer, isAuthLoading, isAuthenticated, viewerScope]);
 
     useEffect(() => {
         let cancelled = false;
@@ -466,19 +521,26 @@ const AssistantPage = () => {
     const handleClearContext = useCallback(() => {
         setAttachments([]);
         setAttachmentError('');
+        setContextError('');
+        const targetSessionId = activeSessionId;
+        invalidateSessionRequest(targetSessionId);
         if (isAuthenticated && activeSessionId) {
-            aiApi.resetSession(activeSessionId)
-                .catch(() => undefined)
+            aiApi.resetSession(targetSessionId)
+                .then(() => {
+                    clearActiveSessionConversation(targetSessionId);
+                })
+                .catch(() => {
+                    setContextError('I could not clear this saved thread because the assistant service did not confirm the reset. Your existing messages are still here.');
+                })
                 .finally(() => {
-                    clearActiveSessionConversation();
                     window.requestAnimationFrame(() => inputRef.current?.focus());
                 });
             return;
         }
 
-        clearActiveSessionConversation();
+        clearActiveSessionConversation(targetSessionId);
         window.requestAnimationFrame(() => inputRef.current?.focus());
-    }, [activeSessionId, clearActiveSessionConversation, inputRef, isAuthenticated]);
+    }, [activeSessionId, clearActiveSessionConversation, inputRef, invalidateSessionRequest, isAuthenticated]);
 
     const handleRetry = useCallback(() => {
         if (!String(lastUserMessage || '').trim() || isLoading) {
@@ -550,7 +612,7 @@ const AssistantPage = () => {
     }, [isSidebarOpen]);
 
     return (
-        <div className="assistant-theme-shell relative h-screen overflow-hidden text-slate-100">
+        <div className="assistant-theme-shell relative h-dvh overflow-hidden text-slate-100">
             <div className="assistant-theme-shell__base pointer-events-none absolute inset-0" />
             <div className="assistant-theme-shell__rail pointer-events-none absolute inset-y-0 left-1/4 w-px" />
             {isSidebarOpen ? (
@@ -560,9 +622,9 @@ const AssistantPage = () => {
                     className="fixed inset-0 z-30 bg-black/30 transition lg:hidden"
                 />
             ) : null}
-            <div className="relative mx-auto flex h-screen w-full overflow-hidden">
+            <div className="relative mx-auto flex h-dvh w-full overflow-hidden">
                 <aside className={cn(
-                    'assistant-history-panel fixed inset-y-0 left-0 z-40 flex h-screen w-72 max-w-full flex-col overflow-hidden border-r border-cyan-300/10 px-3 py-4 transition-transform duration-300 lg:static lg:z-auto lg:w-full lg:max-w-xs lg:translate-x-0 lg:px-4 lg:py-5 lg:shadow-none',
+                    'assistant-history-panel fixed inset-y-0 left-0 z-40 flex h-dvh w-72 max-w-full flex-col overflow-hidden border-r border-cyan-300/10 px-3 py-4 transition-transform duration-300 lg:static lg:z-auto lg:w-full lg:max-w-xs lg:translate-x-0 lg:px-4 lg:py-5 lg:shadow-none',
                     isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
                 )}>
                     <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4 shadow-lg">
@@ -693,7 +755,7 @@ const AssistantPage = () => {
                             <div className="rounded-[1.45rem] border border-white/10 bg-white/[0.04] p-4">
                                 <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">
                                     <Orbit className="h-3.5 w-3.5" />
-                                    <StableText id={"common.jsx.text.model.surface.dae6758e"} defaultMessage={"Model surface"} />
+                                    <FormattedMessage id="assistant.sidebar.readiness" defaultMessage="Assistant readiness" />
                                 </div>
                                 <p className="mt-2 text-sm font-semibold text-white">{providerLabel}</p>
                                 <p className="mt-1 text-xs leading-5 text-slate-400">{assistantReadinessCopy}</p>
@@ -705,21 +767,17 @@ const AssistantPage = () => {
                                             className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold', getCapabilityTone(capability.ready))}
                                         >
                                             {capability.label}
+                                            <span className="sr-only">: </span>
+                                            <span className="ml-1 opacity-80">
+                                                {capability.ready === true
+                                                    ? intl.formatMessage({ id: 'assistant.capability.available', defaultMessage: 'Available' })
+                                                    : capability.ready === false
+                                                        ? intl.formatMessage({ id: 'assistant.capability.unavailable', defaultMessage: 'Unavailable' })
+                                                        : intl.formatMessage({ id: 'assistant.capability.checking', defaultMessage: 'Checking' })}
+                                            </span>
                                         </span>
                                     ))}
                                 </div>
-
-                                {latestAssistantMessage?.grounding?.route ? (
-                                    <div className="mt-3 rounded-[1rem] border border-white/10 bg-[#08111f] px-3 py-2.5 text-[11px] text-slate-300">
-                                        <StableText id={"common.jsx.text.active.route.adea24bd"} defaultMessage={"Active route"} /> {latestAssistantMessage.grounding.route.replace(/_/g, ' ')}
-                                        {latestAssistantMessage?.grounding?.retrievalHitCount
-                                            ? intl.formatMessage(
-                                                { id: 'assistant.grounding.hitsSuffix', defaultMessage: ' | {count} hits' },
-                                                { count: latestAssistantMessage.grounding.retrievalHitCount },
-                                            )
-                                            : ''}
-                                    </div>
-                                ) : null}
                             </div>
 
                             <MultimodalDock variant="compact" />
@@ -729,7 +787,7 @@ const AssistantPage = () => {
 
                 <section
                     aria-label={intl.formatMessage({ id: 'assistant.workspace.ariaLabel', defaultMessage: 'Assistant workspace' })}
-                    className="flex h-screen min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0"
+                    className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:pl-0"
                 >
                     <header className="assistant-command-header shrink-0 border-b border-white/10 bg-[linear-gradient(180deg,rgba(5,8,17,0.9),rgba(5,8,17,0.78))] px-3 py-3 backdrop-blur-xl sm:px-6 sm:py-4">
                         <div className="assistant-command-header__panel rounded-[1rem] border border-white/10 bg-white/[0.03] px-3 py-3 shadow-lg sm:rounded-[1.2rem] sm:px-5 sm:py-4">
@@ -781,21 +839,18 @@ const AssistantPage = () => {
                                 </div>
                             </div>
 
-                            <div className="mt-3 hidden flex-wrap gap-2 sm:flex">
+                            <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible sm:pb-0">
                                 {contextChips.map((chip) => (
                                     <span
                                         key={chip.id}
-                                        className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300"
+                                        className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300"
                                     >
                                         {chip.label}
                                     </span>
                                 ))}
-                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-slate-300">
-                                    {providerLabel}
-                                </span>
                             </div>
 
-                            {(primaryAction || (Array.isArray(secondaryActions) && secondaryActions.length > 0)) ? (
+                            {!latestTurnOwnsActions && (primaryAction || (Array.isArray(secondaryActions) && secondaryActions.length > 0)) ? (
                                 <div className="mt-4">
                                     <ActionBar
                                         primaryAction={primaryAction}
@@ -822,11 +877,11 @@ const AssistantPage = () => {
                                                 <FormattedMessage id="assistant.fastStarts.title" defaultMessage="Start with a grounded shopping workflow." />
                                             </p>
                                             <p className="mt-1 hidden max-w-2xl text-sm leading-6 text-slate-400 sm:block">
-                                                <FormattedMessage id="assistant.fastStarts.description" defaultMessage="Pick a starter and the assistant will either launch the flow directly or stage the right brief for you to refine." />
+                                                <FormattedMessage id="assistant.fastStarts.description" defaultMessage="Choose a task. The assistant uses current store context, explains trade-offs, and asks before any account-changing action." />
                                             </p>
                                         </div>
                                         <span className="hidden rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 sm:inline-flex sm:px-3 sm:text-xs">
-                                            <FormattedMessage id="assistant.fastStarts.badge" defaultMessage="Controlled by design" />
+                                            <FormattedMessage id="assistant.fastStarts.badge" defaultMessage="Verified store context" />
                                         </span>
                                     </div>
 
@@ -841,8 +896,8 @@ const AssistantPage = () => {
                                                 <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-cyan-300 sm:gap-2 sm:text-[10px] sm:tracking-[0.17em]">
                                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                                     {starter.intent === 'prefill'
-                                                        ? <FormattedMessage id="assistant.starter.stage" defaultMessage="Stage" />
-                                                        : <FormattedMessage id="assistant.starter.launch" defaultMessage="Launch" />}
+                                                        ? <FormattedMessage id="assistant.starter.stage" defaultMessage="Prepare" />
+                                                        : <FormattedMessage id="assistant.starter.launch" defaultMessage="Ask now" />}
                                                 </div>
                                                 <p className="mt-1.5 text-sm font-semibold leading-snug text-white sm:mt-2.5">
                                                     {intl.formatMessage(starter.titleMessage)}
@@ -870,7 +925,7 @@ const AssistantPage = () => {
                             onModifyPending={modifyPendingAction}
                         />
 
-                        <div className="shrink-0 border-t border-white/10 bg-slate-950 px-3 py-2 sm:px-5 sm:py-3">
+                        <div className="assistant-composer-dock shrink-0 border-t border-white/10 bg-slate-950 px-3 pt-2 sm:px-5 sm:pt-3">
                             <div className="mx-auto w-full max-w-4xl">
                                 <input
                                     ref={fileInputRef}
@@ -927,6 +982,10 @@ const AssistantPage = () => {
                                     <p className="mb-3 text-xs text-rose-300">{attachmentError}</p>
                                 ) : null}
 
+                                {contextError ? (
+                                    <p className="mb-3 text-xs text-rose-300" role="alert">{contextError}</p>
+                                ) : null}
+
                                 <form
                                     onSubmit={(event) => {
                                         event.preventDefault();
@@ -955,7 +1014,7 @@ const AssistantPage = () => {
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
+                                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
                                             aria-label={intl.formatMessage({ id: 'assistant.attachments.upload.ariaLabel', defaultMessage: 'Upload attachments' })}
                                         >
                                             <Paperclip className="h-4 w-4" />
@@ -1002,7 +1061,7 @@ const AssistantPage = () => {
                                                 <button
                                                     type="button"
                                                     onClick={toggleListening}
-                                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
+                                                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08]"
                                                 aria-label={isListening
                                                     ? intl.formatMessage({ id: 'assistant.dictation.stop.ariaLabel', defaultMessage: 'Stop dictation' })
                                                     : intl.formatMessage({ id: 'assistant.dictation.start.ariaLabel', defaultMessage: 'Start dictation' })}
@@ -1013,7 +1072,7 @@ const AssistantPage = () => {
                                             <button
                                                 type="submit"
                                                 disabled={(!String(inputValue || '').trim() && attachments.length === 0) || isLoading}
-                                                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-cyan-400 text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
+                                                className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-cyan-400 text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
                                                 aria-label={intl.formatMessage({ id: 'assistant.composer.send.ariaLabel', defaultMessage: 'Send message' })}
                                             >
                                                 <ArrowUp className="h-4.5 w-4.5" />

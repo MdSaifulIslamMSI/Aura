@@ -50,7 +50,7 @@ const SupportHandoffCard = ({ prefill, orderId = '', isWhiteMode = false, onOpen
                     <button
                         type="button"
                         onClick={() => onOpenSupport?.(prefill, orderId)}
-                        className={cn('mt-4 inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors', buttonClassName)}
+                        className={cn('mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors sm:w-auto', buttonClassName)}
                     >
                         {orderId ? <FormattedMessage id="order.jsx.expression.open.order.support" defaultMessage="Open order support" /> : <FormattedMessage id="support.jsx.expression.open.support.desk" defaultMessage="Open support desk" />}
                         <ArrowUpRight className="h-3.5 w-3.5" />
