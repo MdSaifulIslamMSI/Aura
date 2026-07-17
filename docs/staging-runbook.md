@@ -26,6 +26,8 @@ npm run staging:bootstrap
 
 The bootstrap creates or reuses staging-only resources. It does not fall back to production resources.
 
+The default staging host is HTTP. Its generated runtime configuration therefore sets `ADMIN_REQUIRE_PASSKEY=false` explicitly while keeping the backend in `NODE_ENV=production`. This prevents an HTTP-only environment from pretending to validate WebAuthn. Production remains fail-closed with admin passkeys and a fixed HTTPS RP ID/origin; enable equivalent staging passkey coverage only after a real HTTPS staging hostname is configured.
+
 ## Verify Health
 
 ```sh

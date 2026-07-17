@@ -918,10 +918,14 @@ describe('repo environment contract scripts', () => {
         const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
         expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);
         expect(composeScript).toMatch(/MONGO_REQUIRE_TLS=false/);
+        expect(composeScript).toMatch(/^ADMIN_REQUIRE_PASSKEY=false$/m);
         expect(composeScript).toMatch(/ssm_get_optional\(\)/);
         expect(composeScript).toMatch(/append_env_if_set DUO_ENABLED "\$duo_enabled"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_CLIENT_SECRET "\$duo_client_secret"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_DISCOVERY_URL "\$duo_discovery_url"/);
+
+        const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
+        expect(ssmScript).toMatch(/^put_string ADMIN_REQUIRE_PASSKEY false$/m);
 
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
