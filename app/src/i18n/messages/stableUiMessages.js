@@ -3788,9 +3788,64 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "{label} ready",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "assistant.capability.unknown": {
+        id: "assistant.capability.unknown",
+        defaultMessage: "{label} unknown",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.cart.checkoutVerification": {
+        id: "assistant.cart.checkoutVerification",
+        defaultMessage: "Shipping, tax, stock, and final discounts are verified at checkout.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.cart.itemSavings": {
+        id: "assistant.cart.itemSavings",
+        defaultMessage: "Item savings",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.cart.itemSubtotal": {
+        id: "assistant.cart.itemSubtotal",
+        defaultMessage: "Item subtotal",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "assistant.grounding.providerModel": {
         id: "assistant.grounding.providerModel",
         defaultMessage: "{providerName} · {providerModel}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.grounding.whyThisAnswer": {
+        id: "assistant.grounding.whyThisAnswer",
+        defaultMessage: "Why this answer",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.product.confirmMissingDetails": {
+        id: "assistant.product.confirmMissingDetails",
+        defaultMessage: "Open details to confirm {details}.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.product.delivery": {
+        id: "assistant.product.delivery",
+        defaultMessage: "delivery",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.product.deliveryLabel": {
+        id: "assistant.product.deliveryLabel",
+        defaultMessage: "Delivery:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.product.warranty": {
+        id: "assistant.product.warranty",
+        defaultMessage: "warranty",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.product.warrantyLabel": {
+        id: "assistant.product.warrantyLabel",
+        defaultMessage: "Warranty:",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.product.whyItFits": {
+        id: "assistant.product.whyItFits",
+        defaultMessage: "Why it fits:",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "assistant.tool.status.done": {
@@ -6158,11 +6213,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "| Active lane",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "common.jsx.text.active.route.adea24bd": {
-        id: "common.jsx.text.active.route.adea24bd",
-        defaultMessage: "Active route",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "common.jsx.text.advanced.controls.037c1ff0": {
         id: "common.jsx.text.advanced.controls.037c1ff0",
         defaultMessage: "Advanced controls",
@@ -6608,11 +6658,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Model:",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "common.jsx.text.model.surface.dae6758e": {
-        id: "common.jsx.text.model.surface.dae6758e",
-        defaultMessage: "Model surface",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "common.jsx.text.modify.b63f7e1f": {
         id: "common.jsx.text.modify.b63f7e1f",
         defaultMessage: "Modify",
@@ -6886,11 +6931,6 @@ export const stableUiMessages = defineMessages({
     "common.jsx.text.tower.7.innovation.district.9a662aca": {
         id: "common.jsx.text.tower.7.innovation.district.9a662aca",
         defaultMessage: "Tower 7, Innovation District,",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "common.jsx.text.trace.details.af1f8b27": {
-        id: "common.jsx.text.trace.details.af1f8b27",
-        defaultMessage: "Trace details",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "common.jsx.text.trace.id.000d6b80": {
@@ -11598,11 +11638,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "reviews",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "product.saved": {
-        id: "product.saved",
-        defaultMessage: "Saved",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "product.score": {
         id: "product.score",
         defaultMessage: "Score",
@@ -11641,11 +11676,6 @@ export const stableUiMessages = defineMessages({
     "product.stock.outOfStock": {
         id: "product.stock.outOfStock",
         defaultMessage: "Out of stock",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "product.total": {
-        id: "product.total",
-        defaultMessage: "Total",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "product.unavailable": {

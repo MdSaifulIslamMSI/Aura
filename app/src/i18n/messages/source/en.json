@@ -3669,6 +3669,9 @@
   "assistant.action.cart.addMissingProduct": {
     "defaultMessage": "I could not find that product to add it to your cart."
   },
+  "assistant.action.cart.addUnavailableProduct": {
+    "defaultMessage": "That product is unavailable or out of stock, so I did not add it to your cart."
+  },
   "assistant.action.cart.added": {
     "defaultMessage": "Added {title} to your cart."
   },
@@ -3781,6 +3784,12 @@
   "assistant.capability.audioReasoning": {
     "defaultMessage": "Audio reasoning"
   },
+  "assistant.capability.available": {
+    "defaultMessage": "Available"
+  },
+  "assistant.capability.checking": {
+    "defaultMessage": "Checking"
+  },
   "assistant.capability.gated": {
     "defaultMessage": "{label} gated",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -3801,8 +3810,27 @@
   "assistant.capability.textReasoning": {
     "defaultMessage": "Text reasoning"
   },
+  "assistant.capability.unavailable": {
+    "defaultMessage": "Unavailable"
+  },
+  "assistant.capability.unknown": {
+    "defaultMessage": "{label} unknown",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "assistant.capability.voiceOutput": {
     "defaultMessage": "Voice output"
+  },
+  "assistant.cart.checkoutVerification": {
+    "defaultMessage": "Shipping, tax, stock, and final discounts are verified at checkout.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.cart.itemSavings": {
+    "defaultMessage": "Item savings",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.cart.itemSubtotal": {
+    "defaultMessage": "Item subtotal",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "assistant.chat.new": {
     "defaultMessage": "New chat"
@@ -3813,8 +3841,11 @@
   "assistant.context.analyzing": {
     "defaultMessage": "Analyzing"
   },
-  "assistant.context.cartCount": {
-    "defaultMessage": "Cart {count}"
+  "assistant.context.cartEmpty": {
+    "defaultMessage": "Cart empty"
+  },
+  "assistant.context.cartSummary": {
+    "defaultMessage": "Cart {count} · {subtotal}"
   },
   "assistant.context.guest": {
     "defaultMessage": "Guest"
@@ -3829,10 +3860,10 @@
     "defaultMessage": "Stop dictation"
   },
   "assistant.fastStarts.badge": {
-    "defaultMessage": "Controlled by design"
+    "defaultMessage": "Verified store context"
   },
   "assistant.fastStarts.description": {
-    "defaultMessage": "Pick a starter and the assistant will either launch the flow directly or stage the right brief for you to refine."
+    "defaultMessage": "Choose a task. The assistant uses current store context, explains trade-offs, and asks before any account-changing action."
   },
   "assistant.fastStarts.eyebrow": {
     "defaultMessage": "Fast starts"
@@ -3840,11 +3871,12 @@
   "assistant.fastStarts.title": {
     "defaultMessage": "Start with a grounded shopping workflow."
   },
-  "assistant.grounding.hitsSuffix": {
-    "defaultMessage": "| {count} hits"
-  },
   "assistant.grounding.providerModel": {
     "defaultMessage": "{providerName} · {providerModel}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.grounding.whyThisAnswer": {
+    "defaultMessage": "Why this answer",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "assistant.history.close.ariaLabel": {
@@ -3946,20 +3978,50 @@
   "assistant.intent.voice.unknownCommand": {
     "defaultMessage": "I could not understand that. Say help for examples."
   },
-  "assistant.provider.awaitingFirstTurn": {
-    "defaultMessage": "Awaiting first grounded turn"
+  "assistant.product.confirmMissingDetails": {
+    "defaultMessage": "Open details to confirm {details}.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.product.delivery": {
+    "defaultMessage": "delivery",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.product.deliveryLabel": {
+    "defaultMessage": "Delivery:",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.product.ratingSummary": {
+    "defaultMessage": "{rating} out of 5 from {count, number} reviews"
+  },
+  "assistant.product.warranty": {
+    "defaultMessage": "warranty",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.product.warrantyLabel": {
+    "defaultMessage": "Warranty:",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.product.whyItFits": {
+    "defaultMessage": "Why it fits:",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "assistant.provider.localToolsReady": {
+    "defaultMessage": "Local store tools ready"
   },
   "assistant.provider.modelLabel": {
     "defaultMessage": "{providerName} · {providerModel}"
   },
-  "assistant.readiness.preparing": {
-    "defaultMessage": "Preparing multimodal status surface."
+  "assistant.readiness.localCoreReady": {
+    "defaultMessage": "App guidance, cart review, and grounded store tools remain available without a model. Media support appears when ready."
   },
   "assistant.readiness.realtimeReady": {
     "defaultMessage": "Voice, speech, and live-lane controls are wired and ready from this workspace."
   },
   "assistant.readiness.turnBasedVoice": {
     "defaultMessage": "Text and image are grounded here. Voice stays turn-based until realtime media is available."
+  },
+  "assistant.sidebar.readiness": {
+    "defaultMessage": "Assistant readiness"
   },
   "assistant.sidebar.threads": {
     "defaultMessage": "Threads"
@@ -3977,7 +4039,7 @@
     "defaultMessage": "Grounded comparison"
   },
   "assistant.starter.launch": {
-    "defaultMessage": "Launch"
+    "defaultMessage": "Ask now"
   },
   "assistant.starter.orders.detail": {
     "defaultMessage": "Track an order or escalate into support without losing context."
@@ -3986,7 +4048,7 @@
     "defaultMessage": "Order follow-up"
   },
   "assistant.starter.stage": {
-    "defaultMessage": "Stage"
+    "defaultMessage": "Prepare"
   },
   "assistant.starter.visual.detail": {
     "defaultMessage": "Prepare a visual-search brief before you attach an image."
@@ -7553,10 +7615,6 @@
     "defaultMessage": "| Active lane",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.active.route.adea24bd": {
-    "defaultMessage": "Active route",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.advanced.controls.037c1ff0": {
     "defaultMessage": "Advanced controls",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -7917,10 +7975,6 @@
     "defaultMessage": "Model:",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "common.jsx.text.model.surface.dae6758e": {
-    "defaultMessage": "Model surface",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "common.jsx.text.modify.b63f7e1f": {
     "defaultMessage": "Modify",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -8139,10 +8193,6 @@
   },
   "common.jsx.text.tower.7.innovation.district.9a662aca": {
     "defaultMessage": "Tower 7, Innovation District,",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "common.jsx.text.trace.details.af1f8b27": {
-    "defaultMessage": "Trace details",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.jsx.text.trace.id.000d6b80": {
@@ -10115,14 +10165,6 @@
     "defaultMessage": "Cancel Browser Sign-In",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.desktopBrowser.completeDetail": {
-    "defaultMessage": "Return to Aura Marketplace Desktop. You can close this browser tab.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.desktopBrowser.completeTitle": {
-    "defaultMessage": "Desktop Sign-In Complete",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "login.desktopBrowser.completingDetail": {
     "defaultMessage": "Aura is securely returning this browser sign-in to the desktop app.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -10145,14 +10187,6 @@
   },
   "login.desktopBrowser.unavailable": {
     "defaultMessage": "Desktop browser sign-in is available only in the Aura desktop app.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.desktopBrowser.waiting": {
-    "defaultMessage": "WAITING FOR BROWSER...",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.desktopBrowser.waitingShort": {
-    "defaultMessage": "Waiting for Browser",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.desktopOwnerAccess.button": {
@@ -12539,10 +12573,6 @@
     "defaultMessage": "reviews",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "product.saved": {
-    "defaultMessage": "Saved",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "product.score": {
     "defaultMessage": "Score",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -12573,10 +12603,6 @@
   },
   "product.stock.outOfStock": {
     "defaultMessage": "Out of stock",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "product.total": {
-    "defaultMessage": "Total",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "product.unavailable": {
