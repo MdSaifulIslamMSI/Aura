@@ -1,43 +1,92 @@
 # AWS Backend Deployment
 
-## Architecture
-- `app/` stays on Vercel and proxies `/api`, `/health`, and `/uploads` to `AURA_BACKEND_ORIGIN`.
-- `server/` runs on one low-cost EC2 host as two containers from the same image:
+## Production Architecture
+
+- The backend runs on one EC2 host as API and worker containers built from the same immutable image.
   - API: `node scripts/start_api_runtime.js`
   - Worker: `node scripts/start_worker_runtime.js`
-- Redis runs as a sidecar container on the same EC2 host.
-- Ollama runs as an internal sidecar container when `COMPOSE_PROFILES=ollama` and `AI_MODEL_PROVIDER=ollama` are set in the EC2 `base.env`. API and worker containers reach it at `http://ollama:11434`.
-- The deployed no-key assistant uses local Ollama models for LLM and embeddings, with retrieval, live commerce tools, citations, and deterministic grounded fallback when the model is unavailable.
-- Caddy runs as the public HTTPS edge on ports `80` and `443`, terminates TLS for `AURA_BACKEND_PUBLIC_HOST`, and proxies to the API container on the private Docker network.
-- The API container binds port `5000` only to `127.0.0.1` for local health probes; public traffic should use the HTTPS edge.
-- Secrets live in AWS Systems Manager Parameter Store using the `AWS_PARAMETER_STORE_PATH_PREFIX` path.
-- Review uploads live in S3 via `UPLOAD_STORAGE_DRIVER=s3`.
-- GitHub Actions builds the image once, uploads the release bundle to S3, and deploys through SSM Run Command.
-- GitHub Actions CI is path-aware and now skips docs-only churn while still validating backend, frontend, and deploy changes.
-- The historical free-plan target was `t4g.small` with an arm64 image build, 16 GiB `gp3` root volume, and automatic cost guardrails.
-- The Ollama sidecar needs more memory than that free-plan target. On a blocked/free-plan `t4g.small`, use `llama3.2:1b` with a smaller context window. For live LLM traffic with `llama3.2:3b` plus `all-minilm`, use at least `t4g.large`; `t4g.xlarge` is the budget-friendly production choice for more CPU and 16 GiB RAM. GPU instances are faster but much more expensive.
-- Amazon Linux 2023 installs Docker from `dnf`, while the Compose plugin is installed from Docker's official `latest` release URL for the detected host architecture.
+- Redis runs on the same private Compose network.
+- Caddy terminates public TLS and proxies to the API. Port `5000` is bound only to `127.0.0.1` for host health checks.
+- Runtime secrets are rendered from AWS Systems Manager Parameter Store into `/opt/aura/shared/runtime-secrets.env`; they are never packaged in an image or release artifact.
+- Review uploads use S3 when `UPLOAD_STORAGE_DRIVER=s3`.
+- GitHub Actions uses short-lived AWS OIDC credentials and deploys through SSM Run Command. SSH is not part of the release path.
 
-## Why This Shape
-- It is cheaper than ECS, App Runner, or managed Redis for a small production footprint.
-- It keeps the split API/worker runtime the app already expects.
-- It avoids SSH and keeps deploy access on short-lived GitHub OIDC credentials.
+## No-LLM Commerce Assistant Contract
+
+AWS production intentionally runs the commerce assistant without an LLM. The API and worker receive these enforced values from [docker-compose.ec2.yml](../infra/aws/docker-compose.ec2.yml):
+
+```text
+AI_MODEL_PROVIDER=disabled
+AI_MODEL_PROVIDER_FALLBACKS=
+ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA=false
+ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false
+```
+
+`AI_PUBLIC_CHAT_ACCESS_ENABLED` also defaults to `false`, so anonymous callers cannot invoke the authenticated assistant route.
+
+The assistant remains useful through deterministic intent routing, live catalog lookup, lexical retrieval, checked application knowledge, recommendation data, structured filters, citations, and app-grounded actions. A production response must have an empty `providerModel`; a non-empty model name is a deployment failure.
+
+The Compose file retains an `ollama` profile only for non-production compatibility. Production bootstrap and release scripts:
+
+- do not enable the profile;
+- remove `ollama` from inherited profile lists;
+- reject unknown production profiles;
+- stop and remove any legacy Ollama container during activation; and
+- never select hosted-provider fallbacks.
+
+`OLLAMA_*` compatibility variables may still appear in the Compose schema, but they do not activate a model provider. Do not set `COMPOSE_PROFILES=ollama` or `AI_MODEL_PROVIDER=ollama` in production.
 
 ## Bootstrap
-1. Provision the EC2 backend stack:
-   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-free-tier.ps1 -InstanceType t4g.xlarge -RootVolumeSizeGiB 32 -FrontendOrigin https://aurapilot.vercel.app -SecondaryFrontendOrigin https://aurapilot.netlify.app`
-2. Install monthly budget and free-plan expiration guardrails:
-   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-cost-guardrails.ps1 -AwsProfile aura-bootstrap -MonthlyBudgetUsd 90`
-3. Install security visibility guardrails:
-   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-security-posture.ps1 -AwsProfile aura-bootstrap`
-   - This enables or refreshes AWS Config and VPC Flow Logs for the backend VPC, and enables GuardDuty after the account has accepted the GuardDuty service terms. A GuardDuty subscription gate is reported as blocked instead of being treated as success.
-4. Create or refresh the GitHub deploy role:
-   - `powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-github-oidc.ps1 -Repository MdSaifulIslamMSI/Aura -AwsProfile aura-bootstrap`
-   - Re-run this after CI/CD policy updates; the role needs narrow `ssm:PutParameter` access to `/aura/prod/*` so production admin allowlist changes can be written to Parameter Store.
-5. Publish secrets into Parameter Store:
-   - `powershell -ExecutionPolicy Bypass -File infra\aws\sync-parameter-store-env.ps1 -SourceEnvFile .\server\.env.aws-secrets -PathPrefix /aura/prod -AwsRegion ap-south-1 -AwsProfile aura-bootstrap`
 
-## GitHub Variables
+1. Provision or refresh the EC2 stack:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-free-tier.ps1 `
+     -InstanceType t4g.xlarge `
+     -RootVolumeSizeGiB 32 `
+     -FrontendOrigin https://aurapilot.vercel.app `
+     -SecondaryFrontendOrigin https://aurapilot.netlify.app
+   ```
+
+2. Install cost and expiration guardrails:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-cost-guardrails.ps1 `
+     -AwsProfile aura-bootstrap `
+     -MonthlyBudgetUsd 90
+   ```
+
+3. Install security visibility controls:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-security-posture.ps1 `
+     -AwsProfile aura-bootstrap
+   ```
+
+4. Create or refresh the GitHub OIDC role after deployment-policy changes:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File infra\aws\bootstrap-github-oidc.ps1 `
+     -Repository MdSaifulIslamMSI/Aura `
+     -AwsProfile aura-bootstrap
+   ```
+
+5. Publish local runtime secrets to Parameter Store. Never commit or print the source file:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File infra\aws\sync-parameter-store-env.ps1 `
+     -SourceEnvFile .\server\.env.aws-secrets `
+     -PathPrefix /aura/prod `
+     -AwsRegion ap-south-1 `
+     -AwsProfile aura-bootstrap
+   ```
+
+Amazon Linux 2023 installs Docker from `dnf`; bootstrap installs the Compose plugin for the detected host architecture. Size EC2 for API, worker, Redis, malware scanning, and traffic needs—not for an Ollama sidecar.
+
+## Required GitHub Configuration
+
+Repository variables:
+
 - `AWS_REGION`
 - `AWS_DEPLOY_BUCKET`
 - `AWS_INSTANCE_TAG_KEY`
@@ -48,67 +97,69 @@
 - `AWS_DOCKER_PLATFORM`
 - `AWS_DEPLOY_ROLE_ARN`
 
-The deploy workflow intentionally has no checked-in account, bucket, instance, or role defaults. Production deploys fail closed until these values are configured as GitHub variables or secrets.
+`AWS_DEPLOY_ROLE_ARN` may instead be supplied as a repository secret. Account, bucket, instance, and role identifiers have no checked-in production defaults; preflight fails closed when required configuration is missing.
 
-## GitHub Secret
-- `AWS_DEPLOY_ROLE_ARN`
+For Graviton hosts, set `AWS_DOCKER_PLATFORM=linux/arm64`. `AURA_BACKEND_PUBLIC_HOST` must resolve to the Caddy origin hostname. Hosted frontends proxy `/api`, `/health`, and `/uploads` to the durable HTTPS backend origin.
 
-## Frontend Routing
-- Vercel now reads the backend origin from `AURA_BACKEND_ORIGIN` or `AWS_BACKEND_BASE_URL`.
-- Set that value to a durable HTTPS edge URL or custom domain, for example `https://api.example.com`.
-- If those variables are blank on a hosted deployment, CI fails closed instead of publishing a frontend pinned to a temporary host.
-- For the Graviton `t4g.*` target, set `AWS_DOCKER_PLATFORM=linux/arm64`.
-- The EC2 `base.env` file must include `AURA_BACKEND_PUBLIC_HOST` for Caddy. Replace the placeholder with a durable API hostname before production traffic.
-- The bootstrap defaults already disable paid integrations that would otherwise fail closed on a bare free-plan stack: payments, OTP SMS, and order email sending.
-- The checked-in AWS bootstrap now seeds `CORS_ORIGIN` with both production frontends, `https://aurapilot.vercel.app` and `https://aurapilot.netlify.app`, so hosted auth POST flows do not fail when the second domain is added later.
-- The AWS Ollama runtime uses:
-  - `COMPOSE_PROFILES=ollama`
-  - `AI_MODEL_PROVIDER=ollama`
-  - `ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA=false`
-  - `ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false` on constrained CPU hosts so product/search answers use deterministic catalog/RAG summaries instead of a slow final LLM JSON pass
-  - `OLLAMA_BASE_URL=http://ollama:11434`
-  - `OLLAMA_CHAT_MODEL=llama3.2:1b` on `t4g.small`; `llama3.2:3b` on `t4g.large` or larger
-  - `OLLAMA_EMBED_MODEL=all-minilm`
-  - `OLLAMA_TIMEOUT_MS=180000` on constrained CPU hosts
-  - `OLLAMA_CONTEXT_LENGTH=1024`
-  - `OLLAMA_NUM_PARALLEL=1`
-  - `OLLAMA_MAX_LOADED_MODELS=2`
-- Existing EC2 instances keep their current `/opt/aura/shared/base.env`; update that file manually or reprovision before relying on the no-key assistant in AWS.
+## Immutable Release and Rollback Flow
 
-## No-Domain Origin Protection
-- If no owned domain is available, the current zero-cost fallback is to keep the free TLS hostname such as `13.206.172.186.sslip.io` as the CloudFront backend origin.
-- To reduce direct-origin exposure, configure a CloudFront custom origin header named `X-Aura-Origin-Verify` and store the same secret in Parameter Store as `/aura/prod/AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET`.
-- Before promoting `AUTH_RISK_ENGINE_MODE=enforce`, store a separate `/aura/prod/AUTH_RISK_SIGNAL_SECRET`. Edge or server-side risk signal injectors must sign `X-Aura-Login-Failure-Count`, `X-Aura-IP-Reputation`, and `X-Aura-Impossible-Travel` with `X-Aura-Login-Risk-Signature` plus `X-Aura-Login-Risk-Timestamp`; unsigned copies are ignored and stripped by the API. The backend middleware can also produce signed IP reputation for exact-match `AUTH_RISK_IP_DENYLIST` / `AUTH_RISK_IP_WATCHLIST` entries.
-- When that secret is present, the API rejects direct non-health, non-webhook requests that do not include the CloudFront origin header. Health routes remain reachable for liveness checks, and signed provider webhook routes remain reachable so payment/email providers do not lose events.
-- Do not put this secret in the frontend bundle. Rotate it by updating CloudFront first, waiting for `Deployed`, updating Parameter Store, and then redeploying the backend.
-- Verify this guard with `npm run security:origin-protection-smoke` after setting `AURA_EDGE_ORIGIN` to the CloudFront URL and `AURA_DIRECT_BACKEND_ORIGIN` to the backend TLS origin.
+[deploy-backend-aws.yml](../.github/workflows/deploy-backend-aws.yml) and [deploy-release.sh](../infra/aws/deploy-release.sh) enforce this sequence:
 
-## Runtime Secret Files
-- Checked-in non-secret defaults live in [server/.env.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.example).
-- Checked-in secret placeholders live in [server/.env.aws-secrets.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.aws-secrets.example).
-- Local secrets should live in `server/.env.aws-secrets`, which is ignored by git.
-- `HEALTH_READY_TOKEN` is required in production Parameter Store. Public deploy smoke checks use `GET /health`; the EC2 rollout script uses `GET /health/ready` with `x-health-token` from runtime secrets.
-- Hosted model API keys such as `GEMINI_API_KEY`, `GROQ_API_KEY`, and `VOYAGE_API_KEY` are optional when the AWS runtime uses Ollama. Leave their placeholders in `.env.aws-secrets.example`; the SSM sync skips placeholder values.
+1. Resolve and check out one full lowercase commit SHA.
+2. Build the backend image once and package image and infrastructure artifacts.
+3. Compute SHA-256 digests for both artifacts.
+4. Capture the currently active full SHA before uploading or mutating anything.
+5. Reject a same-SHA redeploy so immutable rollback artifacts cannot be overwritten.
+6. Upload artifacts under the immutable release SHA and verify their digests on the host.
+7. Acquire the shared non-blocking backend release lock and refuse activation if any recovery journal exists.
+8. Stage code, `release.env`, `base.env`, and decrypted `runtime-secrets.env`; validate trust, no-LLM, Compose, and health contracts against the staged state.
+9. Back up all four active state components, atomically activate all four, recreate API and worker, and verify local readiness plus the TLS edge.
+10. Restore the complete previous state automatically if any post-activation check fails.
 
-## Trusted Device Gate
-- The tracked AWS runtime keeps `AUTH_DEVICE_CHALLENGE_MODE=admin` in [server/.env.example](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/server/.env.example) and [docker-compose.ec2.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/docker-compose.ec2.yml).
-- Do not set that mode to `off` for production.
-- The AWS contract audit in CI now checks the non-secret env example, the AWS secrets example, and the EC2 compose file together so trusted-device enforcement cannot drift silently.
-- The EC2 rollout script in [deploy-release.sh](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/deploy-release.sh) now refuses to start a release if the resolved runtime mode is `off`, blank, invalid, or enabled without `AUTH_DEVICE_CHALLENGE_SECRET` or an allowed `AUTH_VAULT_SECRET` fallback.
+The deploy workflow refreshes OIDC credentials after the image build and again before any failure restoration. SSM polling retries only the documented `InvocationDoesNotExist` eventual-consistency response and fails closed on other AWS errors.
 
-## Deploy Workflow
-- Validation workflow: [ci.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/.github/workflows/ci.yml)
-- Production backend deploy workflow: [deploy-backend-aws.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/.github/workflows/deploy-backend-aws.yml)
-- EC2 compose file: [docker-compose.ec2.yml](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/docker-compose.ec2.yml)
-- EC2 rollout script: [deploy-release.sh](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/deploy-release.sh)
-- Parameter Store sync: [sync-parameter-store-env.ps1](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/sync-parameter-store-env.ps1)
-- Security posture bootstrap: [bootstrap-security-posture.ps1](/c:/Users/mdsai/Downloads/Kimi_Agent_Flipkart-Style%20Frontend/infra/aws/bootstrap-security-posture.ps1)
+[rollback-backend.sh](../infra/aws/rollback-backend.sh) requires an explicit known-good 40-character SHA. It always uses current rollback tooling; it never executes historical repository code or infers a target from directory modification time.
 
-## CI/CD Shape
-- GitHub Actions now keeps only two first-party workflows: `CI` for validation and `Deploy Backend To AWS` for production rollout.
-- The old duplicated coverage pass has been removed. Backend regressions now run once per relevant change set.
-- Frontend preview and production deploys continue to come from the Vercel GitHub integration, not an extra GitHub Actions deploy workflow.
-- Backend, frontend, and deploy checks are gated by file-path detection so docs-only and unrelated edits do not burn CI minutes.
-- Production deploys now trigger only for backend runtime changes, not for every AWS bootstrap script edit.
-- Production deploys are serialized with workflow concurrency, and manual dispatch can target a specific git ref when rollback or re-release is needed.
-- The AWS deploy workflow now ships with live repo defaults for the current production stack and validates real AWS access during preflight, so missing GitHub repo variables no longer hard-fail the pipeline.
+## Runtime Security Contracts
+
+- `HEALTH_READY_TOKEN` is required. Public probes use `GET /health`; protected readiness uses `GET /health/ready` with `x-health-token` inside the trusted runtime.
+- `AUTH_DEVICE_CHALLENGE_MODE=always` is enforced for API and worker startup. Do not set it to `off`.
+- `ADMIN_REQUIRE_PASSKEY=true` remains enforced in the EC2 runtime.
+- CloudFront origin verification uses `X-Aura-Origin-Verify` and the matching Parameter Store secret. Never put that value in a frontend bundle.
+- Hosted model keys may exist for other environments or features, but the AWS production assistant cannot select them while the no-LLM contract above is enforced.
+- Do not edit `/opt/aura/shared/base.env` to change model behavior. Make tracked contract changes, pass CI, and use the release workflow.
+
+### Origin protection and secret hygiene
+
+- When the backend origin uses a free TLS hostname such as `sslip.io`, configure CloudFront with `X-Aura-Origin-Verify` and store the matching value as `/aura/prod/AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET`.
+- Store `AUTH_RISK_SIGNAL_SECRET` separately before enabling risk-engine enforcement. Edge or server-side producers must sign login-risk headers with `X-Aura-Login-Risk-Signature` and `X-Aura-Login-Risk-Timestamp`; unsigned client copies are ignored and stripped.
+- Origin protection keeps health routes and signed provider webhooks reachable. Verify both allowed and denied paths with `npm run security:origin-protection-smoke` before promotion.
+- Rotate origin verification by updating CloudFront first, waiting until the distribution is deployed, updating Parameter Store, and then releasing the backend.
+- Never put origin, risk-signal, health, or runtime secrets in the frontend bundle or workflow logs.
+- Checked-in defaults and placeholders live in [server/.env.example](../server/.env.example) and [server/.env.aws-secrets.example](../server/.env.aws-secrets.example). The real `server/.env.aws-secrets` remains ignored and local.
+
+## Verification
+
+Before release:
+
+```powershell
+npm run ci:doctor
+npm run quality:actions
+npm run security:prod-env-audit
+npm run security:prod-hardening-audit
+npm run scan:prod-fallbacks
+npm --prefix server run aws:ssm:audit
+```
+
+After release, a sanitized SSM check must prove all of the following without printing secret values:
+
+- active release SHA equals the deployed merge SHA;
+- API and worker are running;
+- API and worker use `AI_MODEL_PROVIDER=disabled` with empty fallbacks;
+- hosted-model requirement and model summaries are disabled;
+- anonymous `/api/ai/chat` returns `401`;
+- internal live and token-protected ready probes return `200`;
+- no Ollama container or activation recovery journal exists; and
+- a live commerce query returns an app-grounded answer, catalog products, and an empty `providerModel`.
+
+The production command center must first pass a targetless no-op run. A real deployment should name `backend` explicitly, keep health checks enabled, enable automatic rollback, and retain the captured previous SHA until post-deploy verification succeeds.
