@@ -59,6 +59,18 @@ describe('authTrustedDeviceFlags', () => {
         expect(() => assertTrustedDeviceConfig()).toThrow(/AUTH_WEBAUTHN_RP_ID and AUTH_WEBAUTHN_ORIGIN/);
     });
 
+    test('allows an explicit production-mode staging passkey disable without a WebAuthn boundary', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'off';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'false';
+        delete process.env.AUTH_WEBAUTHN_RP_ID;
+        delete process.env.AUTH_WEBAUTHN_ORIGIN;
+
+        const { assertTrustedDeviceConfig } = loadFlags();
+
+        expect(() => assertTrustedDeviceConfig()).not.toThrow();
+    });
+
     test('allows an explicit vault fallback when challenge mode is enabled', () => {
         process.env.NODE_ENV = 'production';
         process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';

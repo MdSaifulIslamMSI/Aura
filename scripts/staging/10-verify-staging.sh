@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
-bash "$SCRIPT_DIR/00-preflight.sh"
+STAGING_PREFLIGHT_MODE=verify bash "$SCRIPT_DIR/00-preflight.sh"
 
 ensure_state
 staging_base_url="${STAGING_BASE_URL:-$(state_get staging_base_url)}"
@@ -28,7 +28,12 @@ if [ -n "$staging_frontend_url" ]; then
 fi
 
 node "$(node_path "$REPO_ROOT/scripts/smoke/assert-staging-contract.mjs")"
-node "$(node_path "$REPO_ROOT/scripts/smoke/staging-route-smoke.mjs")"
+if ! node "$(node_path "$REPO_ROOT/scripts/smoke/staging-route-smoke.mjs")"; then
+  if [ "${SMOKE_REQUIRE_SCANNER_READY:-false}" = "true" ]; then
+    bash "$SCRIPT_DIR/17-diagnose-scanner.sh" || true
+  fi
+  exit 1
+fi
 
 frontend_smoke="not_configured"
 frontend_mode="not_configured"

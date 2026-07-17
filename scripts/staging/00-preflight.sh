@@ -5,7 +5,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
-log "Running staging bootstrap preflight"
+preflight_mode="${STAGING_PREFLIGHT_MODE:-bootstrap}"
+case "$preflight_mode" in
+  bootstrap|verify) ;;
+  *) die "STAGING_PREFLIGHT_MODE must be bootstrap or verify" ;;
+esac
+
+log "Running staging $preflight_mode preflight"
 
 if [ "${STAGING_PREFLIGHT_DRY_RUN:-false}" = "true" ]; then
   log "DRY-RUN: command, environment, and AWS identity checks are skipped"
@@ -26,9 +32,13 @@ if ! command -v vercel >/dev/null 2>&1; then
   warn "Vercel CLI is not installed; scripts/staging/09-set-vercel-vars.sh will skip unless REQUIRE_VERCEL=true"
 fi
 
+required_env_provider=required_bootstrap_env_vars
+if [ "$preflight_mode" = "verify" ]; then
+  required_env_provider=required_verify_env_vars
+fi
 while IFS= read -r env_name; do
   [ -n "$env_name" ] && need_env "$env_name"
-done < <(required_bootstrap_env_vars)
+done < <("$required_env_provider")
 
 [ "$STAGING_SSM_PREFIX" = "/aura/staging" ] || die "STAGING_SSM_PREFIX must be /aura/staging"
 [ "$PROD_SSM_PREFIX" = "/aura/prod" ] || die "PROD_SSM_PREFIX must be /aura/prod"

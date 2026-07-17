@@ -914,14 +914,30 @@ describe('repo environment contract scripts', () => {
         expect(commonScript).toMatch(/nginx_staging_server_name/);
         expect(commonScript).toMatch(/Could not derive concrete Nginx server_name/);
         expect(commonScript).toMatch(/ec2PublicDns/);
+        expect(commonScript).toMatch(/required_verify_env_vars\(\)/);
+        const verifyEnvSection = commonScript.match(/required_verify_env_vars\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+        expect(verifyEnvSection).toContain('STAGING_ALLOWED_SSH_CIDR');
+        expect(verifyEnvSection).not.toContain('STAGING_BUDGET_EMAIL');
+
+        const verifyScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '10-verify-staging.sh'), 'utf8');
+        expect(verifyScript).toMatch(/STAGING_PREFLIGHT_MODE=verify bash "\$SCRIPT_DIR\/00-preflight\.sh"/);
+        expect(verifyScript).toMatch(/17-diagnose-scanner\.sh/);
+
+        const scannerDiagnostic = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '17-diagnose-scanner.sh'), 'utf8');
+        expect(scannerDiagnostic).toMatch(/docker compose logs --tail=80 scanner/);
+        expect(scannerDiagnostic).toMatch(/backend-to-scanner PING/);
 
         const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
         expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);
         expect(composeScript).toMatch(/MONGO_REQUIRE_TLS=false/);
+        expect(composeScript).toMatch(/^ADMIN_REQUIRE_PASSKEY=false$/m);
         expect(composeScript).toMatch(/ssm_get_optional\(\)/);
         expect(composeScript).toMatch(/append_env_if_set DUO_ENABLED "\$duo_enabled"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_CLIENT_SECRET "\$duo_client_secret"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_DISCOVERY_URL "\$duo_discovery_url"/);
+
+        const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
+        expect(ssmScript).toMatch(/^put_string ADMIN_REQUIRE_PASSKEY false$/m);
 
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
@@ -961,12 +977,16 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/STAGING_SSM_PREFIX.*\/aura\/staging/);
         expect(workflow).toMatch(/PROD_SSM_PREFIX.*\/aura\/prod/);
         expect(workflow).toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_BASE_URL\s*\}\}/);
-        expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY/);
+        expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
+        expect(workflow).toMatch(/cache-dependency-path:[\s\S]*?package-lock\.json[\s\S]*?app\/package-lock\.json/);
+        expect(workflow).toMatch(/npm ci[\s\S]*?npm --prefix app ci/);
         expect(workflow).toMatch(/id:\s*lease-runner-ssh/);
         expect(workflow).toContain('https://checkip.amazonaws.com');
         expect(workflow).toMatch(/RUNNER_CIDR="\$\{RUNNER_IP\}\/32"/);
         expect(workflow).toMatch(/authorize-security-group-ingress[\s\S]*?--port 22[\s\S]*?--cidr "\$\{RUNNER_CIDR\}"/);
         expect(workflow).toMatch(/security_group_rule_id=\$\{SECURITY_GROUP_RULE_ID\}/);
+        expect(workflow).toMatch(/runner_cidr=\$\{RUNNER_CIDR\}/);
+        expect(workflow).toMatch(/STAGING_ALLOWED_SSH_CIDR:\s*\$\{\{\s*steps\.lease-runner-ssh\.outputs\.runner_cidr\s*\}\}/);
         expect(workflow).toMatch(/if:\s*\$\{\{ always\(\) && steps\.lease-runner-ssh\.outputs\.security_group_rule_id != '' \}\}/);
         expect(workflow).toMatch(/revoke-security-group-ingress[\s\S]*?--security-group-rule-ids "\$\{LEASED_SECURITY_GROUP_RULE_ID\}"/);
 
@@ -976,6 +996,12 @@ describe('repo environment contract scripts', () => {
         expect(leaseIndex).toBeGreaterThan(-1);
         expect(deployIndex).toBeGreaterThan(leaseIndex);
         expect(revokeIndex).toBeGreaterThan(deployIndex);
+    });
+
+    test('scheduled staging operations require malware scanner readiness', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
+
+        expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
     });
 
     test('production-on-push requires manual confirmation before production dispatch', () => {

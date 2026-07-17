@@ -57,7 +57,7 @@ jobs:
       SMOKE_BASE_URL: ${{ vars.STAGING_BASE_URL }}
       SMOKE_REQUIRE_BACKEND_STAGING: "true"
       SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
-      SMOKE_REQUIRE_SCANNER_READY: ${{ vars.SMOKE_REQUIRE_SCANNER_READY || 'false' }}
+      SMOKE_REQUIRE_SCANNER_READY: "true"
       STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
     steps:
       - name: Checkout
@@ -70,9 +70,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm --prefix app ci
 
       - name: Fail closed unless staging deploy is explicitly enabled
         env:
@@ -193,6 +198,7 @@ jobs:
           {
             echo "security_group_id=${SECURITY_GROUP_ID}"
             echo "security_group_rule_id=${SECURITY_GROUP_RULE_ID}"
+            echo "runner_cidr=${RUNNER_CIDR}"
           } >> "${GITHUB_OUTPUT}"
           echo "Leased temporary /32 SSH access for this workflow run."
 
@@ -205,6 +211,8 @@ jobs:
           STAGING_KEY_PATH="$PWD/.staging/staging-key.pem" node scripts/run-bash.mjs scripts/staging/06-render-ssh-config.sh
 
       - name: Deploy and verify isolated staging
+        env:
+          STAGING_ALLOWED_SSH_CIDR: ${{ steps.lease-runner-ssh.outputs.runner_cidr }}
         run: STAGING_KEY_PATH="$PWD/.staging/staging-key.pem" npm run staging:deploy
 
       - name: Revoke runner SSH access
