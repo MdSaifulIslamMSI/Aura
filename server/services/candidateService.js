@@ -361,11 +361,20 @@ const getRecentlyViewedBasedCandidates = async ({ userId = null, sessionId = '',
     return merged;
 };
 
-const getSearchBasedCandidates = async ({ query = '', limit = 24 } = {}) => {
+const getSearchBasedCandidates = async ({
+    query = '',
+    category = '',
+    maxPrice = 0,
+    limit = 24,
+} = {}) => {
     const safeQuery = safeString(query);
-    if (!safeQuery) return [];
+    const safeCategory = safeString(category);
+    const safeMaxPrice = Number(maxPrice || 0);
+    if (!safeQuery && !safeCategory && !(Number.isFinite(safeMaxPrice) && safeMaxPrice > 0)) return [];
     const result = await queryProducts({
-        keyword: safeQuery,
+        ...(safeQuery ? { keyword: safeQuery } : {}),
+        ...(safeCategory ? { category: safeCategory } : {}),
+        ...(Number.isFinite(safeMaxPrice) && safeMaxPrice > 0 ? { maxPrice: safeMaxPrice } : {}),
         sort: 'relevance',
         limit: clampRecommendationLimit(limit, 8, 24),
         includeMeta: false,

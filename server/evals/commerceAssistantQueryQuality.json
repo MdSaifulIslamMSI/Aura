@@ -1,6 +1,6 @@
 {
   "name": "commerce-assistant-query-quality",
-  "version": 1,
+  "version": 2,
   "description": "Fast local eval set for ecommerce assistant routing, filters, and deterministic retrieval query quality.",
   "cases": [
     {
@@ -350,6 +350,99 @@
       "expect": {
         "route": "ECOMMERCE_SEARCH",
         "category": "Laptops"
+      }
+    },
+    {
+      "id": "rupee-budget",
+      "message": "show phones below ₹20,000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "maxPrice": 20000
+      }
+    },
+    {
+      "id": "compact-thousands-budget",
+      "message": "show laptops under 60k",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Laptops",
+        "maxPrice": 60000
+      }
+    },
+    {
+      "id": "indian-lakh-budget",
+      "message": "show phones at most 1.5 lakh",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "maxPrice": 150000
+      }
+    },
+    {
+      "id": "indian-budget-range",
+      "message": "phones between 10k and ₹20,000",
+      "expect": {
+        "route": "ECOMMERCE_SEARCH",
+        "category": "Mobiles",
+        "minPrice": 10000,
+        "maxPrice": 20000
+      }
+    },
+    {
+      "id": "buy-now-action",
+      "message": "buy now",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "where-order-action",
+      "message": "where is my order",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "late-package-action",
+      "message": "my package is late",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "wishlist-navigation-action",
+      "message": "open wishlist",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "cart-subtotal-action",
+      "message": "what is my cart subtotal",
+      "expect": {
+        "route": "ACTION"
+      }
+    },
+    {
+      "id": "price-alerts-app-workflow",
+      "message": "how do price alerts work",
+      "expect": {
+        "route": "GENERAL"
+      }
+    },
+    {
+      "id": "become-seller-app-workflow",
+      "message": "how do I become a seller",
+      "expect": {
+        "route": "GENERAL"
+      }
+    },
+    {
+      "id": "trade-in-app-workflow",
+      "message": "trade in my phone",
+      "expect": {
+        "route": "GENERAL"
       }
     }
   ]

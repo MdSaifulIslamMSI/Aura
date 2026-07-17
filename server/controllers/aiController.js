@@ -110,7 +110,7 @@ const validateAssistantMediaPayload = async (payload = {}, req = {}) => {
 
 const buildTimeoutAssistantResponse = ({ payload = {}, startedAt = Date.now(), timeoutMs = DEFAULT_AI_CHAT_TIMEOUT_MS } = {}) => {
     const sessionId = safeString(payload.sessionId || payload.context?.clientSessionId || '');
-    const answer = 'I switched to quick catalog mode so this chat stays responsive. Try a narrower product, budget, or category and I will rerun the catalog-backed answer.';
+    const answer = 'That assistant turn took too long, so I stopped it and did not use its unfinished result. Try a narrower product, budget, or category and I will try again.';
     const followUps = ['Show trending products', 'Recommend products for me', 'Search by budget'];
     const assistantTurn = {
         intent: 'unclear',
@@ -123,7 +123,7 @@ const buildTimeoutAssistantResponse = ({ payload = {}, startedAt = Date.now(), t
         followUps,
         safetyFlags: ['assistant_timeout_fallback'],
         verification: {
-            label: 'degraded',
+            label: 'cannot_verify',
             confidence: 0.2,
             summary: `Assistant turn exceeded ${timeoutMs}ms and returned a structured fallback.`,
             evidenceCount: 0,
@@ -163,10 +163,35 @@ const buildTimeoutAssistantResponse = ({ payload = {}, startedAt = Date.now(), t
     };
 };
 
-const runAssistantWithTimeout = async ({ work, payload, traceLabel = 'assistant.chat' } = {}) => {
+const runAssistantWithTimeout = async ({
+    work,
+    payload,
+    traceLabel = 'assistant.chat',
+    externalAbortSignal = null,
+} = {}) => {
     const timeoutMs = resolveAiChatTimeoutMs();
     const startedAt = Date.now();
-    const workPromise = Promise.resolve().then(work);
+    const abortController = new AbortController();
+    let rejectExternalAbort;
+    const externalAbortPromise = new Promise((resolve, reject) => {
+        rejectExternalAbort = reject;
+    });
+    const abortFromExternalSignal = () => {
+        if (abortController.signal.aborted) return;
+        const error = externalAbortSignal?.reason instanceof Error
+            ? externalAbortSignal.reason
+            : new Error('assistant_client_disconnected');
+        abortController.abort(error);
+        rejectExternalAbort(error);
+    };
+    if (externalAbortSignal?.aborted) {
+        abortFromExternalSignal();
+    } else {
+        externalAbortSignal?.addEventListener?.('abort', abortFromExternalSignal, { once: true });
+    }
+    const workPromise = Promise.resolve().then(() => work({
+        abortSignal: abortController.signal,
+    }));
     let timeoutId;
 
     const timeoutPromise = new Promise((resolve) => {
@@ -183,15 +208,36 @@ const runAssistantWithTimeout = async ({ work, payload, traceLabel = 'assistant.
                 });
             });
             resolve(buildTimeoutAssistantResponse({ payload, startedAt, timeoutMs }));
+            abortController.abort(new Error('assistant_timeout'));
         }, timeoutMs);
         timeoutId.unref?.();
     });
 
     try {
-        return await Promise.race([workPromise, timeoutPromise]);
+        return await Promise.race([workPromise, timeoutPromise, externalAbortPromise]);
     } finally {
         clearTimeout(timeoutId);
+        externalAbortSignal?.removeEventListener?.('abort', abortFromExternalSignal);
     }
+};
+
+const createRequestAbortContext = (req = {}, res = {}) => {
+    const controller = new AbortController();
+    const abortOnDisconnect = () => {
+        if (controller.signal.aborted || res.writableEnded) return;
+        controller.abort(new Error('assistant_client_disconnected'));
+    };
+
+    req.once?.('aborted', abortOnDisconnect);
+    res.once?.('close', abortOnDisconnect);
+
+    return {
+        signal: controller.signal,
+        cleanup: () => {
+            req.removeListener?.('aborted', abortOnDisconnect);
+            res.removeListener?.('close', abortOnDisconnect);
+        },
+    };
 };
 
 const handleAiChat = asyncHandler(async (req, res, next) => {
@@ -208,11 +254,26 @@ const handleAiChat = asyncHandler(async (req, res, next) => {
         await assertPrivateChatQuota(payload.user._id);
     }
 
-    const result = await runAssistantWithTimeout({
-        work: () => processAssistantTurn(payload),
-        payload,
-        traceLabel: 'assistant.chat',
-    });
+    const requestAbort = createRequestAbortContext(req, res);
+    let result;
+    try {
+        result = await runAssistantWithTimeout({
+            work: ({ abortSignal }) => processAssistantTurn({
+                ...payload,
+                abortSignal,
+            }),
+            payload,
+            traceLabel: 'assistant.chat',
+            externalAbortSignal: requestAbort.signal,
+        });
+    } catch (error) {
+        if (requestAbort.signal.aborted) return undefined;
+        throw error;
+    } finally {
+        requestAbort.cleanup();
+    }
+
+    if (res.destroyed || res.writableEnded) return undefined;
 
     return res.json(result);
 });
@@ -242,14 +303,17 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
         res.write(`data: ${JSON.stringify(data || {})}\n\n`);
     };
 
+    const requestAbort = createRequestAbortContext(req, res);
     try {
         const result = await runAssistantWithTimeout({
-            work: () => streamAssistantTurn({
+            work: ({ abortSignal }) => streamAssistantTurn({
                 ...payload,
                 writeEvent,
+                abortSignal,
             }),
             payload,
             traceLabel: 'assistant.stream',
+            externalAbortSignal: requestAbort.signal,
         });
         if (result?.provider === 'timeout_fallback') {
             const sessionId = safeString(result.sessionId || payload.sessionId || payload.context?.clientSessionId || '');
@@ -267,10 +331,14 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
         }
         res.end();
     } catch (error) {
-        writeEvent('error', {
-            message: error.message || 'Streaming assistant failed',
-        });
-        res.end();
+        if (!requestAbort.signal.aborted) {
+            writeEvent('error', {
+                message: error.message || 'Streaming assistant failed',
+            });
+            res.end();
+        }
+    } finally {
+        requestAbort.cleanup();
     }
 });
 
@@ -306,4 +374,8 @@ module.exports = {
     handleAiChat,
     handleAiChatStream,
     synthesizeAiVoiceReply,
+    __testables: {
+        createRequestAbortContext,
+        runAssistantWithTimeout,
+    },
 };

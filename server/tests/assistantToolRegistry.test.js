@@ -59,4 +59,33 @@ describe('assistantToolRegistry', () => {
             couponCode: 'AURA10',
         })).toMatchObject({ ok: true });
     });
+
+    test('rejects semantically unsafe navigation, quantity, and order identifiers', () => {
+        expect(validateAssistantAction({
+            type: 'navigate_to',
+            page: 'admin',
+        })).toMatchObject({ ok: false, reason: 'invalid_input_value:page' });
+        expect(validateAssistantAction({
+            type: 'add_to_cart',
+            productId: '101',
+            quantity: 21,
+        })).toMatchObject({ ok: false, reason: 'invalid_input_value:quantity' });
+        expect(validateAssistantAction({
+            type: 'cancel_order',
+            orderId: '90ABCDEF',
+        })).toMatchObject({ ok: false, reason: 'invalid_input_value:orderId' });
+    });
+
+    test('requires dynamic navigation context and accepts known manifest pages', () => {
+        expect(validateAssistantAction({
+            type: 'navigate_to',
+            page: 'seller_profile',
+            params: {},
+        })).toMatchObject({ ok: false, reason: 'invalid_input_value:sellerId' });
+        expect(validateAssistantAction({
+            type: 'navigate_to',
+            page: 'price_alerts',
+            params: {},
+        })).toMatchObject({ ok: true });
+    });
 });

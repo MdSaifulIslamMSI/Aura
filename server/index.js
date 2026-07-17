@@ -890,7 +890,7 @@ assertProductionRedisConfig();
             Promise.resolve()
                 .then(() => initRedis())
                 .then(() => attachSocketBackplane())
-                .then(() => ensureSystemState())
+                .then(() => ensureSystemState({ syncIndexes: true }))
                 .then(() => enforceCatalogStartupCheck())
                 .then(() => {
                     Promise.resolve()

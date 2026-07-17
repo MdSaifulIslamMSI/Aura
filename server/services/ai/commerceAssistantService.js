@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const Order = require('../../models/Order');
 const Product = require('../../models/Product');
 const { buildAssistantTurn, buildConfirmationToken, safeString: contractSafeString } = require('./assistantContract');
-const { validateAssistantAction } = require('./assistantToolRegistry');
+const { ASSISTANT_NAVIGATION_PATHS, validateAssistantAction } = require('./assistantToolRegistry');
 const {
     recordFallbackMetric,
     recordLatencyMetric,
@@ -23,7 +23,7 @@ const {
 } = require('./assistantThreadPersistenceService');
 const { checkModelGatewayHealth, generateStructuredJson, getModelGatewayHealth } = require('./modelGatewayService');
 const { getLocalVectorIndexHealth, searchProductVectorIndex } = require('./localProductVectorIndexService');
-const { buildKnowledgeAnswerText, retrieveCommerceKnowledge } = require('./commerceKnowledgeRagService');
+const { buildKnowledgeAnswerText, resolveAppCapabilityAnswer, retrieveCommerceKnowledge } = require('./commerceKnowledgeRagService');
 const { getRecommendationsForAssistant: getHybridRecommendationsForAssistant } = require('../recommendationService');
 
 const ROUTE_GENERAL = 'GENERAL';
@@ -31,7 +31,7 @@ const ROUTE_ECOMMERCE = 'ECOMMERCE_SEARCH';
 const ROUTE_ACTION = 'ACTION';
 const HOSTED_GEMMA_PROVIDER = 'gemini';
 const HOSTED_GEMMA_MODEL_TOKEN = 'gemma';
-const ACTION_ROUTE_PATTERN = /\b(add .* cart|remove .* cart|checkout|track (my )?order|order status|cancel (my )?order|return (my )?order|refund (my )?order|replace (my )?order|apply .*coupon|use .*coupon|support|open cart|show (my )?cart|go to cart|go to checkout|open checkout|open support|go to support|open orders|go to orders)\b/i;
+const ACTION_ROUTE_PATTERN = /\b(add .* cart|remove .* cart|remove (?:the )?(?:(?:first|second|third|fourth|fifth|last|\d+(?:st|nd|rd|th)?) )?(?:item|product)|cart (?:subtotal|total|summary)|(?:subtotal|total|summary) (?:of|for) (?:my )?cart|what(?:'s| is) in (?:my )?cart|checkout|buy now|track (my )?(?:order|package)|order status|where (?:is|are) (?:my )?(?:order|package)|(?:my )?(?:order|package) (?:is )?(?:late|delayed|missing|stuck)|cancel (my )?order|return (my )?order|refund (my )?order|replace (my )?order|apply .*coupon|use .*coupon|support|(?:open|show|view|go to|take me to) (?:my )?(?:cart|checkout|support|orders?|wishlist|account|profile))\b/i;
 const COMMERCE_CONTEXT_INTENTS = new Set(['product_search', 'product_selection']);
 const FOLLOW_UP_REFINEMENT_PATTERN = /^(?:no\b|not\b|only\b|instead\b|more\b|another\b|else\b|different\b|similar\b|cheaper\b|budget\b|premium\b|show\b|in\b|for\b|under\b|above\b|around\b|within\b|prefer\b|want\b)/i;
 const COMMERCE_COMPARISON_PATTERN = /\b(which|best|better|compare|comparison|difference|different|rating|rated|review|reviews|why|worth|spec|specs|feature|features|camera|battery|display|ram|storage|faster|slower|cheapest|highest|lowest|top)\b/i;
@@ -41,7 +41,25 @@ const COMMERCE_KEYWORD_PATTERN = /\b(price|prices|cost|costs|product|products|it
 const KNOWLEDGE_FIRST_COMMERCE_PATTERN = /\b(policy|policies|return|returns|refund|replacement|cancel(?:lation)? rules|warranty|support|delivery|shipping|coupon|promo|payment|size guide|manual|faq)\b/i;
 const PRODUCT_DISCOVERY_VERBS_PATTERN = /\b(show|find|suggest|recommend|best|top|compare|buy|add|under|above|around|within)\b/i;
 const RECOMMENDATION_INTENT_PATTERN = /\b(recommend|suggest|best|top|for me|personal|what should i buy|what to buy|goes with|with this|complete (my )?cart|add-?ons?|accessor(?:y|ies)|frequently bought|similar|related|trending|popular)\b/i;
+const PRODUCT_FACT_QUESTION_PATTERN = /\b(price|cost|how much|stock|available|availability|detail|details|spec|specs|specification|specifications|feature|features|battery|camera|display|ram|storage|rating|reviews?|description|tell me about)\b/i;
 const RETRIEVAL_SORT_VALUES = new Set(['relevance', 'rating_desc', 'price_asc', 'price_desc']);
+const APP_WORKFLOW_CAPABILITY_IDS = new Set([
+    'wishlist',
+    'visual_search',
+    'listing',
+    'seller_profile',
+    'price_alerts',
+    'trade_in',
+    'become_seller',
+    'sell',
+    'my_listings',
+    'mission_control',
+    'contact',
+]);
+const GUEST_CLIENT_CONFIRMATION_ACTION_TYPES = new Set(['add_to_cart', 'remove_from_cart', 'go_to_checkout']);
+const ASSISTANT_CONFIRMATION_MAX_AGE_MS = 15 * 60 * 1000;
+const ORDER_ASSISTANT_SELECT = 'orderStatus totalPrice createdAt paymentState paymentMethod isDelivered refundSummary commandCenter';
+const CURRENCY_AMOUNT_SOURCE = '(?:\\u20B9\\s*|(?:rs\\.?|inr)\\s*)?(\\d[\\d,]*(?:\\.\\d+)?)\\s*(k|thousand|l|lac|lakh|lakhs|cr|crore|crores)?';
 const COMMERCE_CATEGORY_HINTS = [
     'fashion',
     'clothing',
@@ -101,6 +119,13 @@ const COMMERCE_BRAND_HINTS = [
 ];
 
 const safeString = (value, fallback = '') => contractSafeString(value, fallback);
+const throwIfAssistantAborted = (abortSignal = null) => {
+    if (!abortSignal?.aborted) return;
+    const error = new Error('assistant_request_aborted');
+    error.name = 'AssistantAbortError';
+    error.code = 'ASSISTANT_REQUEST_ABORTED';
+    throw error;
+};
 const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
 const SCHEMA_PLACEHOLDER_VALUES = new Set(['string', 'number', 'boolean', 'array', 'object', 'null']);
 const APPROVE_CONFIRMATION_PATTERN = /^\s*(yes|y|ok|okay|confirm|continue|proceed|go ahead|do it|sure)\b/i;
@@ -127,6 +152,10 @@ const isCommerceModelSummaryEnabled = ({ requireHostedGemma = false } = {}) => (
     Boolean(requireHostedGemma)
     || toBooleanFlag(process.env.ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED, false)
 );
+const isCommerceMediaReasoningEnabled = ({ requireHostedGemma = false } = {}) => (
+    Boolean(requireHostedGemma)
+    || toBooleanFlag(process.env.ASSISTANT_COMMERCE_MEDIA_REASONING_ENABLED, false)
+);
 const buildCommerceModelProviderOptions = (requireHostedGemma = false) => (
     requireHostedGemma
         ? { provider: HOSTED_GEMMA_PROVIDER, disableProviderFallback: true }
@@ -139,6 +168,14 @@ const isHostedGemmaGatewayHealthy = (gatewayHealth = {}) => (
     && gatewayHealth?.apiConfigured !== false
     && isGemmaModel(gatewayHealth?.resolvedChatModel || gatewayHealth?.chatModel || '')
 );
+const isModelGatewayDisabled = (gatewayHealth = {}) => (
+    safeString(gatewayHealth?.activeProvider || gatewayHealth?.provider || '').toLowerCase() === 'disabled'
+    || safeString(gatewayHealth?.capabilities?.chat || '').toLowerCase() === 'disabled'
+);
+const canUseModelGateway = (gatewayHealth = {}) => (
+    !isModelGatewayDisabled(gatewayHealth)
+    && gatewayHealth?.healthy === true
+);
 
 const createSecureIdSuffix = () => (typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
@@ -146,7 +183,7 @@ const createSecureIdSuffix = () => (typeof crypto.randomUUID === 'function'
 const createTraceId = () => createSecureIdSuffix();
 const createSessionId = () => `session-${Date.now()}-${createSecureIdSuffix()}`;
 const createMessageId = () => `assistant-${Date.now()}-${createSecureIdSuffix()}`;
-const PRODUCT_CARD_SELECT = 'id title displayTitle brand category price originalPrice discountPercentage image images stock rating ratingCount titleKey description highlights specifications';
+const PRODUCT_CARD_SELECT = 'id title displayTitle brand category price originalPrice discountPercentage image images stock rating ratingCount deliveryTime warranty titleKey description highlights specifications';
 const MEDIA_LOOKUP_QUERY_KEYS = new Set(['q', 'query', 'product', 'productname', 'product_name', 'title', 'slug', 'name']);
 const MEDIA_PRODUCT_ID_QUERY_KEYS = new Set(['pid', 'productid', 'product_id', 'product-id', 'itemid', 'item_id']);
 const URL_PATTERN = /\bhttps?:\/\/[^\s<>"')]+/gi;
@@ -166,6 +203,8 @@ const normalizeProductCard = (product = {}) => ({
     stock: Math.max(0, Number(product?.stock || 0)),
     rating: Number(product?.rating || 0),
     ratingCount: Math.max(0, Number(product?.ratingCount || 0)),
+    deliveryTime: safeString(product?.deliveryTime || ''),
+    warranty: safeString(product?.warranty || ''),
     description: safeString(product?.description || ''),
     highlights: Array.isArray(product?.highlights) ? product.highlights.map((entry) => safeString(entry)).filter(Boolean).slice(0, 8) : [],
     specifications: Array.isArray(product?.specifications)
@@ -182,10 +221,37 @@ const normalizeRetrievalSortBy = (value = '') => {
     const normalized = safeString(value).toLowerCase();
     return RETRIEVAL_SORT_VALUES.has(normalized) ? normalized : '';
 };
-const parsePositiveCurrency = (value = '') => {
-    const normalized = safeString(value).replace(/,/g, '');
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+const parsePositiveCurrency = (value = '', suffix = '') => {
+    const normalized = safeString(value).toLowerCase().replace(/,/g, '').trim();
+    const embeddedMatch = normalized.match(new RegExp(`^${CURRENCY_AMOUNT_SOURCE}$`, 'i'));
+    const numericText = embeddedMatch?.[1] || normalized.replace(/^(?:\u20B9|rs\.?|inr)\s*/i, '').replace(/\s*(?:k|thousand|l|lac|lakh|lakhs|cr|crore|crores)$/i, '');
+    const normalizedSuffix = safeString(suffix || embeddedMatch?.[2] || '').toLowerCase();
+    const parsed = Number(numericText);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    const multiplier = ['k', 'thousand'].includes(normalizedSuffix)
+        ? 1000
+        : (['l', 'lac', 'lakh', 'lakhs'].includes(normalizedSuffix)
+            ? 100000
+            : (['cr', 'crore', 'crores'].includes(normalizedSuffix) ? 10000000 : 1));
+    return parsed * multiplier;
+};
+const parseCurrencyMatch = (match = null, valueIndex = 1, suffixIndex = 2) => (
+    parsePositiveCurrency(match?.[valueIndex] || '', match?.[suffixIndex] || '')
+);
+const extractCurrencyRange = (value = '') => {
+    const normalized = safeString(value).toLowerCase();
+    if (!normalized) return null;
+    const betweenPattern = new RegExp(`\\bbetween\\s+${CURRENCY_AMOUNT_SOURCE}\\s+(?:and|to)\\s+${CURRENCY_AMOUNT_SOURCE}\\b`, 'i');
+    const fromPattern = new RegExp(`(?:\\bfrom\\s+)?${CURRENCY_AMOUNT_SOURCE}\\s*(?:-|\\u2013|\\u2014|to)\\s*${CURRENCY_AMOUNT_SOURCE}\\b`, 'i');
+    const match = normalized.match(betweenPattern) || normalized.match(fromPattern);
+    if (!match) return null;
+    const first = parseCurrencyMatch(match, 1, 2);
+    const second = parseCurrencyMatch(match, 3, 4);
+    if (!first || !second) return null;
+    return {
+        minPrice: Math.min(first, second),
+        maxPrice: Math.max(first, second),
+    };
 };
 const matchesWholeTerm = (normalizedValue = '', term = '') => (
     new RegExp(`\\b${String(term || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(normalizedValue)
@@ -363,14 +429,22 @@ const inferStructuredRetrievalFilters = ({ payload = {}, message = '', assistant
         inferred.brand = inferBrandFromMessage(safeMessage);
     }
 
+    const currencyRange = extractCurrencyRange(normalizedMessage);
+    if (currencyRange) {
+        if (!inferred.minPrice) inferred.minPrice = currencyRange.minPrice;
+        if (!inferred.maxPrice) inferred.maxPrice = currencyRange.maxPrice;
+    }
+
     if (!inferred.maxPrice) {
-        const maxPriceMatch = normalizedMessage.match(/\b(?:under|below|within|less than|up to)\s*(?:rs\.?\s*)?(\d[\d,]*(?:\.\d+)?)\b/i);
-        inferred.maxPrice = parsePositiveCurrency(maxPriceMatch?.[1] || lastEntities?.maxPrice || 0);
+        const maxPriceMatch = normalizedMessage.match(new RegExp(`\\b(?:under|below|within|less than|up to|at most|not more than|max(?:imum)?|around|about|approximately|budget(?: of)?)\\s*${CURRENCY_AMOUNT_SOURCE}\\b`, 'i'));
+        inferred.maxPrice = maxPriceMatch
+            ? parseCurrencyMatch(maxPriceMatch)
+            : parsePositiveCurrency(lastEntities?.maxPrice || 0);
     }
 
     if (!inferred.minPrice) {
-        const minPriceMatch = normalizedMessage.match(/\b(?:above|over|more than)\s*(?:rs\.?\s*)?(\d[\d,]*(?:\.\d+)?)\b/i);
-        inferred.minPrice = parsePositiveCurrency(minPriceMatch?.[1] || 0);
+        const minPriceMatch = normalizedMessage.match(new RegExp(`\\b(?:above|over|more than|at least|min(?:imum)?)\\s*${CURRENCY_AMOUNT_SOURCE}\\b`, 'i'));
+        inferred.minPrice = parseCurrencyMatch(minPriceMatch);
     }
 
     if (!inferred.minRating) {
@@ -790,6 +864,20 @@ const normalizeAssistantSession = (session = {}, sessionId = '') => ({
     lastResults: Array.isArray(session?.lastResults) ? session.lastResults.map((entry) => normalizeProductCard(entry)).filter((entry) => entry.id) : [],
     activeProduct: session?.activeProduct ? normalizeProductCard(session.activeProduct) : null,
 });
+const isPendingActionFresh = (pendingAction = {}, now = Date.now()) => {
+    const createdAt = Number(pendingAction?.createdAt || 0);
+    return createdAt > 0
+        && createdAt <= now + 5000
+        && now - createdAt <= ASSISTANT_CONFIRMATION_MAX_AGE_MS;
+};
+const canRoundTripGuestPendingAction = (pendingAction = {}) => {
+    const action = pendingAction?.action || null;
+    const type = safeString(action?.type || '');
+    if (!GUEST_CLIENT_CONFIRMATION_ACTION_TYPES.has(type) || !isPendingActionFresh(pendingAction)) {
+        return false;
+    }
+    return validateAssistantAction(action).ok;
+};
 
 const buildSessionMemory = (assistantSession = {}) => ({
     lastQuery: safeString(assistantSession?.lastEntities?.query || ''),
@@ -1047,6 +1135,16 @@ const detectRoute = ({
     if (ACTION_ROUTE_PATTERN.test(normalized)) {
         return { route: ROUTE_ACTION, reason: 'keyword_action' };
     }
+    if (context?.currentProductId && PRODUCT_FACT_QUESTION_PATTERN.test(normalized)) {
+        return { route: ROUTE_ACTION, reason: 'current_product_fact' };
+    }
+    const appWorkflowAnswer = resolveAppCapabilityAnswer({
+        query: normalized,
+        contextPath: safeString(context?.contextPath || context?.pathname || context?.originPath || context?.route || '/'),
+    });
+    if (APP_WORKFLOW_CAPABILITY_IDS.has(safeString(appWorkflowAnswer?.capability?.id))) {
+        return { route: ROUTE_GENERAL, reason: 'app_workflow_knowledge' };
+    }
     if (
         RECOMMENDATION_INTENT_PATTERN.test(normalized)
         && (
@@ -1063,7 +1161,7 @@ const detectRoute = ({
     }
     if (
         COMMERCE_KEYWORD_PATTERN.test(normalized)
-        || /\bunder\s+\d+\b/i.test(normalized)
+        || new RegExp(`\\b(?:under|below|within|around|between)\\s+${CURRENCY_AMOUNT_SOURCE}`, 'i').test(normalized)
         || shouldRouteAsCommerceFollowUp({ message: normalized, assistantSession })
     ) {
         return { route: ROUTE_ECOMMERCE, reason: 'commerce_context_or_keyword' };
@@ -1108,7 +1206,13 @@ const resolveStoredAssistantSession = async ({ user = null, sessionId = '', cont
         }
     }
     if (context?.assistantSession) {
-        return normalizeAssistantSession(context.assistantSession, normalizedSessionId);
+        const clientSession = normalizeAssistantSession(context.assistantSession, normalizedSessionId);
+        return {
+            ...clientSession,
+            pendingAction: !Boolean(user?._id) && canRoundTripGuestPendingAction(clientSession.pendingAction)
+                ? clientSession.pendingAction
+                : null,
+        };
     }
     return normalizeAssistantSession({}, normalizedSessionId);
 };
@@ -1205,7 +1309,10 @@ const deriveRetrievalQuery = async ({
     route = ROUTE_ECOMMERCE,
     mediaHints = {},
     requireHostedGemma = false,
+    allowModelPlanning = true,
+    abortSignal = null,
 } = {}) => {
+    throwIfAssistantAborted(abortSignal);
     const safeMessage = safeString(message);
     const hintedQuery = buildMediaHintQuery(mediaHints, safeMessage);
     const categoryHint = extractCommerceCategoryHint(safeMessage);
@@ -1253,6 +1360,16 @@ const deriveRetrievalQuery = async ({
         };
     }
 
+    if (!allowModelPlanning) {
+        return {
+            query: heuristicQuery || hintedQuery || safeMessage || safeString(assistantSession?.lastEntities?.query || '') || 'product',
+            provider: '',
+            providerModel: '',
+            filters: heuristicFilters,
+            validator: { ok: true, reason: 'model_planning_disabled' },
+        };
+    }
+
     try {
         const attempts = [
             {
@@ -1295,6 +1412,7 @@ const deriveRetrievalQuery = async ({
         let parsed = null;
         let response = null;
         for (const attempt of attempts) {
+            throwIfAssistantAborted(abortSignal);
             response = await generateStructuredJson({
                 systemPrompt: attempt.systemPrompt,
                 prompt: attempt.prompt,
@@ -1303,8 +1421,10 @@ const deriveRetrievalQuery = async ({
                 images,
                 audio,
                 responseJsonSchema: RETRIEVAL_QUERY_RESPONSE_SCHEMA,
+                abortSignal,
                 ...buildCommerceModelProviderOptions(requireHostedGemma),
             });
+            throwIfAssistantAborted(abortSignal);
             parsed = validateRetrievalQueryPayload(response.data);
             if (parsed.ok) {
                 break;
@@ -1349,9 +1469,12 @@ const performGeneralTurn = async ({
     sessionId = '',
     traceId = '',
     assistantSession = {},
+    context = {},
     images = [],
     audio = [],
+    abortSignal = null,
 } = {}) => {
+    throwIfAssistantAborted(abortSignal);
     let provider = 'rule';
     let providerModel = '';
     let validator = { ok: true, reason: 'fallback' };
@@ -1397,7 +1520,79 @@ const performGeneralTurn = async ({
         });
     }
 
-    gatewayHealth = await checkModelGatewayHealth().catch(() => getModelGatewayHealth());
+    const contextPath = safeString(context?.contextPath || context?.pathname || context?.originPath || context?.route || '/');
+    const appCapabilityAnswer = resolveAppCapabilityAnswer({ query: message, contextPath });
+    if (appCapabilityAnswer && !hasAudioAttachments(audio) && (!Array.isArray(images) || images.length === 0)) {
+        const citations = (Array.isArray(appCapabilityAnswer.chunks) ? appCapabilityAnswer.chunks : []).map((chunk) => ({
+            id: chunk.id,
+            label: chunk.title,
+            type: chunk.sourceType,
+            title: chunk.title,
+            excerpt: safeString(chunk.text).slice(0, 240),
+            metadata: chunk.metadata || {},
+        }));
+        const actions = (Array.isArray(appCapabilityAnswer.actions) ? appCapabilityAnswer.actions : [])
+            .filter((action) => validateAssistantAction(action).ok);
+        const suggestedActions = (Array.isArray(appCapabilityAnswer.suggestedActions) ? appCapabilityAnswer.suggestedActions : [])
+            .filter((action) => validateAssistantAction(action).ok);
+        const navigationAction = actions.find((action) => action.type === 'navigate_to') || null;
+        const navigationSuggestion = suggestedActions.find((action) => action.type === 'navigate_to') || null;
+        const assistantTurn = buildAssistantTurn({
+            intent: 'navigation',
+            confidence: 0.98,
+            decision: actions.length > 0 ? 'act' : 'respond',
+            response: appCapabilityAnswer.answer,
+            actions,
+            citations,
+            followUps: actions.length > 0 ? [] : [
+                navigationSuggestion ? `Open ${safeString(appCapabilityAnswer.capability?.title)}` : '',
+                'What can I do here?',
+            ].filter(Boolean),
+            ui: {
+                surface: navigationAction ? 'navigation_notice' : 'plain_answer',
+                navigation: navigationAction ? {
+                    page: navigationAction.page,
+                    path: resolveNavigationPath(navigationAction.page, navigationAction.params),
+                    params: navigationAction.params || {},
+                } : null,
+            },
+            verification: {
+                label: 'app_grounded',
+                confidence: 1,
+                summary: 'Answer resolved from the canonical app capability manifest.',
+            },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_GENERAL,
+            provider: 'local_knowledge',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: {
+                ...assistantSession,
+                lastIntent: 'navigation',
+                lastEntities: { ...assistantSession.lastEntities, query: safeString(message) },
+                contextPath,
+                pendingAction: null,
+            },
+            health: { gateway: gatewayHealth },
+            providerCapabilities: gatewayHealth?.capabilities || null,
+            retrievalHitCount: citations.length,
+            validator: { ok: true, reason: 'app_capability_knowledge' },
+            messageId: createMessageId(),
+        });
+    }
+
+    if (!isModelGatewayDisabled(gatewayHealth)) {
+        throwIfAssistantAborted(abortSignal);
+        gatewayHealth = await checkModelGatewayHealth().catch(() => getModelGatewayHealth());
+        throwIfAssistantAborted(abortSignal);
+    }
 
     if (isHostedGemmaAudioUnsupported(gatewayHealth, audio)) {
         const assistantTurn = buildAssistantTurn({
@@ -1444,57 +1639,64 @@ const performGeneralTurn = async ({
         followUps: ['Show product deals', 'Help with my cart'],
     };
 
-    try {
-        const history = trimConversationHistory(conversationHistory).map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`).join('\n');
-        const attempts = [
-            {
-                systemPrompt: [
-                    'You are Aura, a controlled ecommerce assistant.',
-                    'Return valid JSON only.',
-                    'Schema: {"answer":"string","followUps":["string"]}.',
-                    'Do not echo placeholder values like "string". Fill the fields with real content.',
-                    'Keep the answer concise.',
-                ].join('\n'),
-                prompt: [history ? `Conversation:\n${history}` : '', `User: ${message || 'Analyze the provided input.'}`, 'Return JSON only.'].filter(Boolean).join('\n\n'),
-            },
-            {
-                systemPrompt: [
-                    'You are Aura, a controlled ecommerce assistant.',
-                    'Return valid JSON only.',
-                    'Use real values, never schema placeholders.',
-                    'Example valid JSON: {"answer":"I can help you find products, manage your cart, and check orders.","followUps":["Show product deals","Help with my cart"]}.',
-                ].join('\n'),
-                prompt: `User request: ${message || 'Analyze the provided input.'}`,
-            },
-        ];
+    if (canUseModelGateway(gatewayHealth)) {
+        try {
+            const history = trimConversationHistory(conversationHistory).map((entry) => `${entry.role.toUpperCase()}: ${entry.content}`).join('\n');
+            const attempts = [
+                {
+                    systemPrompt: [
+                        'You are Aura, a controlled ecommerce assistant.',
+                        'Return valid JSON only.',
+                        'Schema: {"answer":"string","followUps":["string"]}.',
+                        'Do not echo placeholder values like "string". Fill the fields with real content.',
+                        'Keep the answer concise.',
+                    ].join('\n'),
+                    prompt: [history ? `Conversation:\n${history}` : '', `User: ${message || 'Analyze the provided input.'}`, 'Return JSON only.'].filter(Boolean).join('\n\n'),
+                },
+                {
+                    systemPrompt: [
+                        'You are Aura, a controlled ecommerce assistant.',
+                        'Return valid JSON only.',
+                        'Use real values, never schema placeholders.',
+                        'Example valid JSON: {"answer":"I can help you find products, manage your cart, and check orders.","followUps":["Show product deals","Help with my cart"]}.',
+                    ].join('\n'),
+                    prompt: `User request: ${message || 'Analyze the provided input.'}`,
+                },
+            ];
 
-        let parsed = null;
-        let response = null;
-        for (const attempt of attempts) {
-            response = await generateStructuredJson({
-                systemPrompt: attempt.systemPrompt,
-                prompt: attempt.prompt,
-                route: ROUTE_GENERAL,
-                temperature: 0.25,
-                images,
-                audio,
-                responseJsonSchema: GENERAL_RESPONSE_SCHEMA,
-            });
-            parsed = validateGeneralPayload(response.data);
-            if (parsed.ok) {
-                break;
+            let parsed = null;
+            let response = null;
+            for (const attempt of attempts) {
+                throwIfAssistantAborted(abortSignal);
+                response = await generateStructuredJson({
+                    systemPrompt: attempt.systemPrompt,
+                    prompt: attempt.prompt,
+                    route: ROUTE_GENERAL,
+                    temperature: 0.25,
+                    images,
+                    audio,
+                    responseJsonSchema: GENERAL_RESPONSE_SCHEMA,
+                    abortSignal,
+                });
+                throwIfAssistantAborted(abortSignal);
+                parsed = validateGeneralPayload(response.data);
+                if (parsed.ok) {
+                    break;
+                }
             }
-        }
 
-        if (!parsed?.ok || !response) throw new Error('invalid_general_payload');
-        provider = response.provider;
-        providerModel = response.providerModel;
-        gatewayHealth = await checkModelGatewayHealth({ provider, force: true }).catch(() => getModelGatewayHealth());
-        validator = { ok: true, reason: 'model_json_valid' };
-        payload = parsed.data;
-    } catch (error) {
-        recordFallbackMetric(safeString(error?.message || 'general_fallback'));
-        logger.warn('assistant.general.fallback', { error: error.message, traceId });
+            if (!parsed?.ok || !response) throw new Error('invalid_general_payload');
+            provider = response.provider;
+            providerModel = response.providerModel;
+            gatewayHealth = await checkModelGatewayHealth({ provider, force: true }).catch(() => getModelGatewayHealth());
+            validator = { ok: true, reason: 'model_json_valid' };
+            payload = parsed.data;
+        } catch (error) {
+            recordFallbackMetric(safeString(error?.message || 'general_fallback'));
+            logger.warn('assistant.general.fallback', { error: error.message, traceId });
+        }
+    } else {
+        validator = { ok: false, reason: 'model_gateway_unavailable' };
     }
 
     const assistantTurn = buildAssistantTurn({
@@ -1848,6 +2050,14 @@ const buildCommerceResponseText = ({
         nextStep,
     ].filter(Boolean).join('\n\n');
 };
+const buildGroundedCommerceResponseText = ({ products = [], filters = {}, relaxation = null } = {}) => (
+    buildCommerceResponseText({
+        answer: summarizeProducts(products),
+        products,
+        filters,
+        relaxation,
+    })
+);
 
 const shouldUseRecommendationEngineForAssistant = ({ message = '', context = {} } = {}) => {
     if (context?.forceRecommendations === true || context?.recommendationMode === true) return true;
@@ -2022,12 +2232,23 @@ const performCommerceTurn = async ({
     context = {},
     images = [],
     audio = [],
+    abortSignal = null,
 } = {}) => {
+    throwIfAssistantAborted(abortSignal);
     const requireHostedGemma = isHostedGemmaCommerceRequired();
-    let gatewayHealth = await checkModelGatewayHealth({
-        provider: requireHostedGemma ? HOSTED_GEMMA_PROVIDER : '',
-        disableProviderFallback: requireHostedGemma,
-    }).catch(() => getModelGatewayHealth());
+    const modelSummaryEnabled = isCommerceModelSummaryEnabled({ requireHostedGemma });
+    const mediaReasoningEnabled = isCommerceMediaReasoningEnabled({ requireHostedGemma });
+    const hasMediaInput = (Array.isArray(images) && images.length > 0) || hasAudioAttachments(audio);
+    const allowModelPlanning = Boolean(requireHostedGemma || modelSummaryEnabled || (hasMediaInput && mediaReasoningEnabled));
+    let gatewayHealth = getModelGatewayHealth();
+    if (allowModelPlanning) {
+        throwIfAssistantAborted(abortSignal);
+        gatewayHealth = await checkModelGatewayHealth({
+            provider: requireHostedGemma ? HOSTED_GEMMA_PROVIDER : '',
+            disableProviderFallback: requireHostedGemma,
+        }).catch(() => getModelGatewayHealth());
+        throwIfAssistantAborted(abortSignal);
+    }
     const vectorStoreHealthPromise = getLocalVectorIndexHealth().catch(() => null);
     if (shouldAnswerKnowledgeBeforeCatalog({
         message,
@@ -2035,6 +2256,7 @@ const performCommerceTurn = async ({
         audio,
         assistantSession,
     })) {
+        throwIfAssistantAborted(abortSignal);
         const knowledgeRetrieval = await retrieveCommerceKnowledge({
             query: message,
             products: [],
@@ -2043,6 +2265,7 @@ const performCommerceTurn = async ({
             logger.warn('assistant.knowledge_first.fallback', { error: error.message, traceId });
             return { chunks: [], citations: [], hitCount: 0, toolRun: null };
         });
+        throwIfAssistantAborted(abortSignal);
         if (knowledgeRetrieval.hitCount > 0) {
             const assistantTurn = buildAssistantTurn({
                 intent: 'support',
@@ -2098,11 +2321,13 @@ const performCommerceTurn = async ({
         }
     }
     if (requireHostedGemma && !isHostedGemmaGatewayHealthy(gatewayHealth) && gatewayHealth?.apiConfigured !== false) {
+        throwIfAssistantAborted(abortSignal);
         gatewayHealth = await checkModelGatewayHealth({
             provider: HOSTED_GEMMA_PROVIDER,
             disableProviderFallback: true,
             force: true,
         }).catch(() => getModelGatewayHealth());
+        throwIfAssistantAborted(abortSignal);
     }
     if (isHostedGemmaAudioUnsupported(gatewayHealth, audio)) {
         const assistantTurn = buildAssistantTurn({
@@ -2161,6 +2386,9 @@ const performCommerceTurn = async ({
         && (!Array.isArray(images) || images.length === 0)
         && (!Array.isArray(audio) || audio.length === 0)
     ) {
+        throwIfAssistantAborted(abortSignal);
+        const vectorStoreHealth = await vectorStoreHealthPromise;
+        throwIfAssistantAborted(abortSignal);
         return buildAssistantRecommendationEnvelope({
             message,
             user,
@@ -2170,7 +2398,7 @@ const performCommerceTurn = async ({
             assistantSession,
             context,
             gatewayHealth,
-            vectorStoreHealth: await vectorStoreHealthPromise,
+            vectorStoreHealth,
         });
     }
 
@@ -2199,10 +2427,12 @@ const performCommerceTurn = async ({
                 reason: 'hosted_gemma_gateway_unavailable_catalog_fallback',
             },
         };
+        throwIfAssistantAborted(abortSignal);
         let retrieval = await loadDirectProductsFromMediaHints({
             mediaHints,
             limit: 5,
         });
+        throwIfAssistantAborted(abortSignal);
         if (!retrieval?.retrievalHitCount) {
             retrieval = await searchProductVectorIndex(retrievalQuery.query, {
                 limit: 5,
@@ -2214,6 +2444,7 @@ const performCommerceTurn = async ({
                 fallbackUsed: true,
                 fallbackReason: safeString(error?.message || 'catalog_fallback_failed'),
             }));
+            throwIfAssistantAborted(abortSignal);
         }
         const products = (Array.isArray(retrieval?.results) ? retrieval.results : [])
             .map((entry) => entry?.product)
@@ -2250,7 +2481,10 @@ const performCommerceTurn = async ({
             route: ROUTE_ECOMMERCE,
             mediaHints,
             requireHostedGemma,
+            allowModelPlanning,
+            abortSignal,
         });
+    throwIfAssistantAborted(abortSignal);
     let retrieval = reuseSessionResults
         ? createProductLookupResults(
             assistantSession.lastResults.map((product) => normalizeProductCard(product)),
@@ -2260,11 +2494,13 @@ const performCommerceTurn = async ({
             mediaHints,
             limit: 5,
         });
+    throwIfAssistantAborted(abortSignal);
     if (!retrieval?.retrievalHitCount) {
         retrieval = await searchProductVectorIndex(retrievalQuery.query || buildMediaHintQuery(mediaHints, message), {
             limit: 5,
             filters: retrievalQuery.filters,
         });
+        throwIfAssistantAborted(abortSignal);
     }
     let retrievalRelaxation = null;
     if (hasActiveRetrievalFilters(retrievalQuery.filters)) {
@@ -2278,6 +2514,7 @@ const performCommerceTurn = async ({
     }
     if (!Number(retrieval?.retrievalHitCount || 0)) {
         for (const plan of buildRelaxedRetrievalPlans({ query: retrievalQuery.query, filters: retrievalQuery.filters })) {
+            throwIfAssistantAborted(abortSignal);
             const relaxedRetrieval = await searchProductVectorIndex(plan.query, {
                 limit: 5,
                 filters: plan.filters,
@@ -2288,6 +2525,7 @@ const performCommerceTurn = async ({
                 fallbackUsed: true,
                 fallbackReason: safeString(error?.message || plan.reason),
             }));
+            throwIfAssistantAborted(abortSignal);
             const relaxedEntries = (Array.isArray(relaxedRetrieval?.results) ? relaxedRetrieval.results : [])
                 .filter((entry) => matchesRetrievalFilters(entry?.product || {}, plan.filters));
             if (relaxedEntries.length > 0) {
@@ -2309,6 +2547,7 @@ const performCommerceTurn = async ({
     };
     retrieval.retrievalHitCount = retrieval.results.length;
     const vectorStoreHealth = await vectorStoreHealthPromise;
+    throwIfAssistantAborted(abortSignal);
     recordRetrievalMetric({
         route: ROUTE_ECOMMERCE,
         provider: safeString(retrieval?.provider || 'vector_store'),
@@ -2317,14 +2556,17 @@ const performCommerceTurn = async ({
         hitCount: Number(retrieval?.retrievalHitCount || 0),
     });
     const sourceProducts = retrieval.results.map((entry) => entry.product).filter(Boolean);
+    throwIfAssistantAborted(abortSignal);
     const knowledgeRetrieval = await retrieveCommerceKnowledge({
         query: retrievalQuery.query || message,
         products: sourceProducts,
         limit: 6,
+        contextPath: safeString(context?.contextPath || context?.pathname || context?.originPath || context?.route || ''),
     }).catch((error) => {
         logger.warn('assistant.knowledge_retrieval.fallback', { error: error.message, traceId });
         return { chunks: [], citations: [], hitCount: 0, toolRun: null, contextText: '' };
     });
+    throwIfAssistantAborted(abortSignal);
     if (!sourceProducts.length) {
         if (knowledgeRetrieval.hitCount > 0) {
             const knowledgeFollowUps = ['Track an order', 'Open support', 'Find a product'];
@@ -2443,7 +2685,7 @@ const performCommerceTurn = async ({
     let providerModel = '';
     let validator = { ok: true, reason: 'deterministic_summary' };
     let modelPayload = null;
-    const useModelSummary = isCommerceModelSummaryEnabled({ requireHostedGemma });
+    const useModelSummary = modelSummaryEnabled;
 
     if (useModelSummary) {
         try {
@@ -2518,6 +2760,7 @@ const performCommerceTurn = async ({
         let parsed = null;
         let response = null;
         for (const attempt of attempts) {
+            throwIfAssistantAborted(abortSignal);
             response = await generateStructuredJson({
                 systemPrompt: attempt.systemPrompt,
                 prompt: attempt.prompt,
@@ -2526,8 +2769,10 @@ const performCommerceTurn = async ({
                 images,
                 audio,
                 responseJsonSchema: COMMERCE_RESPONSE_SCHEMA,
+                abortSignal,
                 ...buildCommerceModelProviderOptions(requireHostedGemma),
             });
+            throwIfAssistantAborted(abortSignal);
             parsed = validateCommercePayload(response.data, allowedIds);
             if (parsed.ok) {
                 break;
@@ -2543,11 +2788,13 @@ const performCommerceTurn = async ({
         }
         provider = response.provider;
         providerModel = response.providerModel;
+        throwIfAssistantAborted(abortSignal);
         gatewayHealth = await checkModelGatewayHealth({
             provider: requireHostedGemma ? HOSTED_GEMMA_PROVIDER : provider,
             disableProviderFallback: requireHostedGemma,
             force: true,
         }).catch(() => getModelGatewayHealth());
+        throwIfAssistantAborted(abortSignal);
         validator = parsed.rejectedProductIds.length > 0
             ? { ok: false, reason: 'unknown_product_ids_stripped', rejectedProductIds: parsed.rejectedProductIds }
             : { ok: true, reason: 'model_json_valid' };
@@ -2615,8 +2862,7 @@ const performCommerceTurn = async ({
         intent: selectedProducts.length === 1 ? 'product_selection' : 'product_search',
         confidence: provider !== 'rule' ? 0.92 : 0.74,
         decision: 'respond',
-        response: buildCommerceResponseText({
-            answer: modelPayload?.answer || summarizeProducts(selectedProducts),
+        response: buildGroundedCommerceResponseText({
             products: selectedProducts,
             filters: retrievalQuery.filters,
             relaxation: retrievalRelaxation,
@@ -2686,9 +2932,23 @@ const performCommerceTurn = async ({
     });
 };
 
-const parseOrderId = (message = '') => {
-    const match = safeString(message).match(/\b([a-f0-9]{24})\b/i);
-    return match?.[1] ? safeString(match[1]) : '';
+const normalizeExplicitOrderReference = (value = '') => {
+    const raw = safeString(value);
+    const normalized = raw.replace(/^#/, '');
+    if (!raw) return { explicit: false, kind: 'none', value: '' };
+    if (/^[a-f0-9]{24}$/i.test(normalized)) return { explicit: true, kind: 'full', value: normalized.toLowerCase() };
+    if (/^[a-f0-9]{8}$/i.test(normalized)) return { explicit: true, kind: 'suffix', value: normalized.toLowerCase() };
+    return { explicit: true, kind: 'invalid', value: '' };
+};
+const parseOrderReference = (message = '') => {
+    const normalized = safeString(message);
+    const fullMatch = normalized.match(/\b([a-f0-9]{24})\b/i);
+    if (fullMatch?.[1]) return normalizeExplicitOrderReference(fullMatch[1]);
+    const suffixMatch = normalized.match(/\border(?:\s+(?:id|number|no\.?))?\s*#?\s*([a-f0-9]{8})\b/i)
+        || normalized.match(/#([a-f0-9]{8})\b/i);
+    return suffixMatch?.[1]
+        ? normalizeExplicitOrderReference(suffixMatch[1])
+        : { explicit: false, kind: 'none', value: '' };
 };
 
 const parseCouponCode = (message = '') => {
@@ -2700,8 +2960,75 @@ const parseCouponCode = (message = '') => {
 };
 
 const loadLatestOrder = async (userId) => (userId
-    ? Order.findOne({ user: userId }).sort({ createdAt: -1 }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered refundSummary commandCenter').lean()
+    ? Order.findOne({ user: userId }).sort({ createdAt: -1 }).select(ORDER_ASSISTANT_SELECT).lean()
     : null);
+
+const resolveOrderReference = async ({ userId = null, reference = {}, allowLatest = true } = {}) => {
+    const normalizedReference = reference?.explicit
+        ? reference
+        : { explicit: false, kind: 'none', value: '' };
+    if (!userId) {
+        return { order: null, orderId: '', unresolved: true, resolutionReason: 'sign_in_required', reference: normalizedReference };
+    }
+    if (normalizedReference.explicit) {
+        if (normalizedReference.kind === 'invalid') {
+            return { order: null, orderId: '', unresolved: true, resolutionReason: 'invalid_order_reference', reference: normalizedReference };
+        }
+        if (normalizedReference.kind === 'full') {
+            const order = await Order.findOne({ _id: normalizedReference.value, user: userId }).select(ORDER_ASSISTANT_SELECT).lean();
+            return order
+                ? { order, orderId: safeString(order._id), unresolved: false, resolutionReason: 'full_id_match', reference: normalizedReference }
+                : { order: null, orderId: '', unresolved: true, resolutionReason: 'order_not_found', reference: normalizedReference };
+        }
+        const escapedSuffix = normalizedReference.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const matches = await Order.find({
+            user: userId,
+            $expr: {
+                $regexMatch: {
+                    input: { $toString: '$_id' },
+                    regex: `${escapedSuffix}$`,
+                    options: 'i',
+                },
+            },
+        }).limit(2).select(ORDER_ASSISTANT_SELECT).lean();
+        if (matches.length === 1) {
+            return { order: matches[0], orderId: safeString(matches[0]?._id), unresolved: false, resolutionReason: 'suffix_match', reference: normalizedReference };
+        }
+        return {
+            order: null,
+            orderId: '',
+            unresolved: true,
+            resolutionReason: matches.length > 1 ? 'ambiguous_order_reference' : 'order_not_found',
+            reference: normalizedReference,
+        };
+    }
+    const latestOrder = allowLatest ? await loadLatestOrder(userId) : null;
+    return latestOrder
+        ? { order: latestOrder, orderId: safeString(latestOrder._id), unresolved: false, resolutionReason: 'latest_order', reference: normalizedReference }
+        : { order: null, orderId: '', unresolved: true, resolutionReason: 'order_not_found', reference: normalizedReference };
+};
+
+const resolveNavigationPath = (page = '', params = {}) => {
+    const normalizedPage = safeString(page);
+    if (normalizedPage === 'product' && /^\d+$/.test(safeString(params?.productId))) {
+        return `/product/${encodeURIComponent(safeString(params.productId))}`;
+    }
+    if (normalizedPage === 'category' && safeString(params?.category)) {
+        return `/category/${encodeURIComponent(safeString(params.category))}`;
+    }
+    if (normalizedPage === 'listing' && safeString(params?.listingId)) {
+        return `/listing/${encodeURIComponent(safeString(params.listingId))}`;
+    }
+    if (normalizedPage === 'seller_profile' && safeString(params?.sellerId)) {
+        return `/seller/${encodeURIComponent(safeString(params.sellerId))}`;
+    }
+    return safeString(ASSISTANT_NAVIGATION_PATHS[normalizedPage] || '');
+};
+const parseActionQuantity = (message = '') => {
+    const match = safeString(message).match(/\badd\s+(\d{1,3})\b/i);
+    const quantity = Number(match?.[1] || 1);
+    return Number.isInteger(quantity) && quantity >= 1 ? Math.min(20, quantity) : 1;
+};
 
 const buildActionContext = ({ context = {}, assistantSession = {} } = {}) => ({
     ...context,
@@ -2731,7 +3058,68 @@ const resolveProductForAction = async ({ message = '', context = {} } = {}) => {
     }
     const cleaned = safeString(message).replace(/\b(add|remove|from|to|cart|please|my|the|a|an)\b/gi, ' ').replace(/\s+/g, ' ').trim();
     const retrieval = await searchProductVectorIndex(cleaned || message, { limit: 1 });
-    return retrieval.results?.[0]?.product ? normalizeProductCard(retrieval.results[0].product) : null;
+    const candidate = retrieval.results?.[0]?.product ? normalizeProductCard(retrieval.results[0].product) : null;
+    if (!candidate?.id) return null;
+    const canonical = await Product.findOne({ id: candidate.id, isPublished: true }).select(PRODUCT_CARD_SELECT).lean();
+    return canonical ? normalizeProductCard(canonical) : null;
+};
+const resolveCartProductForRemoval = ({ message = '', context = {} } = {}) => {
+    const cartItems = (Array.isArray(context?.cartItems) ? context.cartItems : [])
+        .map((item) => normalizeProductCard(item))
+        .filter((item) => item.id);
+    if (cartItems.length === 0) return null;
+
+    const currentProductId = safeString(context?.currentProductId || '');
+    if (currentProductId) {
+        const current = cartItems.find((item) => String(item.id) === currentProductId);
+        if (current) return current;
+    }
+
+    const normalized = safeString(message).toLowerCase();
+    const ordinalMap = new Map([
+        ['first', 0], ['1st', 0], ['second', 1], ['2nd', 1], ['third', 2], ['3rd', 2],
+        ['fourth', 3], ['4th', 3], ['fifth', 4], ['5th', 4], ['last', cartItems.length - 1],
+    ]);
+    const ordinal = [...ordinalMap.entries()].find(([token]) => new RegExp(`\\b${token}\\b`, 'i').test(normalized));
+    if (ordinal && cartItems[ordinal[1]]) return cartItems[ordinal[1]];
+
+    const descriptive = normalized
+        .replace(/\b(remove|delete|take|the|this|that|item|product|from|out|of|my|cart|please)\b/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (descriptive) {
+        const matches = cartItems.filter((item) => {
+            const title = safeString(item.title).toLowerCase();
+            const brand = safeString(item.brand).toLowerCase();
+            return title.includes(descriptive) || descriptive.includes(title) || (brand && descriptive.includes(brand));
+        });
+        if (matches.length === 1) return matches[0];
+    }
+    return cartItems.length === 1 ? cartItems[0] : null;
+};
+
+const buildCartSummary = (cartItems = []) => {
+    const items = (Array.isArray(cartItems) ? cartItems : []).map((entry) => {
+        const product = entry?.product && typeof entry.product === 'object' ? entry.product : entry;
+        const id = Number(product?.id || entry?.productId || 0);
+        const title = safeString(product?.displayTitle || product?.title || entry?.title || 'Cart item');
+        const price = Math.max(0, Number(product?.price ?? entry?.price ?? 0));
+        const rawQuantity = Number(entry?.quantity ?? entry?.qty ?? 1);
+        const quantity = Number.isInteger(rawQuantity) && rawQuantity > 0 ? Math.min(99, rawQuantity) : 1;
+        return {
+            id,
+            title,
+            price,
+            quantity,
+            lineTotal: price * quantity,
+        };
+    }).filter((item) => item.id > 0 && item.title);
+    return {
+        items,
+        lineCount: items.length,
+        itemCount: items.reduce((total, item) => total + item.quantity, 0),
+        subtotal: items.reduce((total, item) => total + item.lineTotal, 0),
+    };
 };
 
 const buildConfirmationEnvelope = ({
@@ -2836,7 +3224,7 @@ const getActionIntent = (action = {}) => {
 
 const respondToConfirmation = ({ confirmation = null, assistantSession = {}, sessionId = '', traceId = '', assistantMode = 'chat' } = {}) => {
     const pendingAction = assistantSession?.pendingAction || null;
-    if (!pendingAction || safeString(confirmation?.actionId || '') !== safeString(pendingAction?.actionId || '')) {
+    if (!pendingAction || !isPendingActionFresh(pendingAction) || safeString(confirmation?.actionId || '') !== safeString(pendingAction?.actionId || '')) {
         const assistantTurn = buildAssistantTurn({
             intent: 'navigation',
             confidence: 1,
@@ -2863,7 +3251,9 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
         });
     }
 
-    if (Number(confirmation?.contextVersion || 0) > 0 && Number(confirmation.contextVersion) !== Number(pendingAction.contextVersion || 0)) {
+    const pendingContextVersion = Number(pendingAction.contextVersion || 0);
+    const confirmationContextVersion = Number(confirmation?.contextVersion || 0);
+    if (pendingContextVersion <= 0 || confirmationContextVersion !== pendingContextVersion) {
         const assistantTurn = buildAssistantTurn({
             intent: safeString(pendingAction?.intent || 'navigation'),
             confidence: 1,
@@ -2979,13 +3369,92 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
     });
 };
 
+const resolveOrderForAction = async ({ message = '', orderId = '', user = null, allowLatest = true } = {}) => {
+    const explicitOrderId = safeString(orderId);
+    const reference = explicitOrderId
+        ? normalizeExplicitOrderReference(explicitOrderId)
+        : parseOrderReference(message);
+    return resolveOrderReference({
+        userId: user?._id || null,
+        reference,
+        allowLatest,
+    });
+};
+
+const buildResolvedOrderAction = ({ type, resolution, requiresConfirmation, extra = {} } = {}) => ({
+    type,
+    orderId: safeString(resolution?.orderId || ''),
+    order: resolution?.order || null,
+    unresolved: Boolean(resolution?.unresolved),
+    resolutionReason: safeString(resolution?.resolutionReason || ''),
+    requiresConfirmation: Boolean(requiresConfirmation),
+    ...extra,
+});
+
+const normalizeNavigationPage = (page = '') => {
+    const normalized = safeString(page).toLowerCase().replace(/[\s-]+/g, '_');
+    if (normalized === 'account') return 'profile';
+    if (normalized === 'order' || normalized === 'my_order' || normalized === 'my_orders') return 'orders';
+    return normalized;
+};
+
 const resolveActionPlan = async ({ message = '', actionRequest = null, user = null, context = {} } = {}) => {
     if (actionRequest?.type) {
         const type = safeString(actionRequest.type).toLowerCase();
         if (type === 'checkout') return { type: 'go_to_checkout', requiresConfirmation: true };
-        if (type === 'support') return { type: 'open_support', orderId: safeString(actionRequest?.orderId || ''), prefill: actionRequest?.prefill || {}, requiresConfirmation: false };
-        if (type === 'track_order') return { type: 'track_order', orderId: safeString(actionRequest?.orderId || ''), requiresConfirmation: false };
-        if (type === 'navigate_to') return { type: 'navigate_to', page: safeString(actionRequest?.page || ''), params: actionRequest?.params || {}, requiresConfirmation: false };
+        if (type === 'get_cart_summary') return { type, requiresConfirmation: false };
+        if (type === 'support') {
+            const hasOrderReference = Boolean(safeString(actionRequest?.orderId));
+            const resolution = hasOrderReference
+                ? await resolveOrderForAction({ message, orderId: actionRequest.orderId, user, allowLatest: false })
+                : null;
+            return {
+                type: 'open_support',
+                orderId: safeString(resolution?.orderId || ''),
+                prefill: {
+                    ...(actionRequest?.prefill || {}),
+                    category: resolution?.order ? 'order_help' : safeString(actionRequest?.prefill?.category || 'general_help'),
+                },
+                requiresConfirmation: false,
+            };
+        }
+        if (['track_order', 'cancel_order', 'create_return_request', 'get_payment_status'].includes(type)) {
+            const resolution = await resolveOrderForAction({
+                message,
+                orderId: actionRequest?.orderId,
+                user,
+                allowLatest: true,
+            });
+            if (type === 'cancel_order') {
+                return buildResolvedOrderAction({
+                    type,
+                    resolution,
+                    requiresConfirmation: true,
+                    extra: { reason: safeString(actionRequest?.reason || 'Requested from assistant') },
+                });
+            }
+            if (type === 'create_return_request') {
+                return buildResolvedOrderAction({
+                    type,
+                    resolution,
+                    requiresConfirmation: true,
+                    extra: {
+                        requestType: safeString(actionRequest?.requestType || 'refund').toLowerCase(),
+                        reason: safeString(actionRequest?.reason || message || 'Requested from assistant'),
+                        amount: Math.max(0, Number(actionRequest?.amount || 0)),
+                    },
+                });
+            }
+            return buildResolvedOrderAction({ type, resolution, requiresConfirmation: false });
+        }
+        if (type === 'navigate_to') {
+            return {
+                type: 'navigate_to',
+                page: normalizeNavigationPage(actionRequest?.page),
+                params: actionRequest?.params || {},
+                requiresConfirmation: false,
+            };
+        }
         if (type === 'get_product_details' || type === 'check_inventory' || type === 'get_price') {
             return { type, productId: safeString(actionRequest?.productId || context?.currentProductId || ''), requiresConfirmation: false };
         }
@@ -2998,48 +3467,44 @@ const resolveActionPlan = async ({ message = '', actionRequest = null, user = nu
         if (type === 'apply_coupon') {
             return { type, couponCode: safeString(actionRequest?.couponCode || parseCouponCode(message)), requiresConfirmation: false };
         }
-        if (type === 'cancel_order') {
-            const requestedId = safeString(actionRequest?.orderId || parseOrderId(message));
-            const latestOrder = requestedId
-                ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
-                : await loadLatestOrder(user?._id);
-            return {
-                type,
-                orderId: safeString(latestOrder?._id || requestedId || ''),
-                reason: safeString(actionRequest?.reason || 'Requested from assistant'),
-                order: latestOrder || null,
-                unresolved: !safeString(latestOrder?._id || requestedId || ''),
-                requiresConfirmation: true,
-            };
+        if (type === 'add_to_cart') {
+            const product = await resolveProductForAction({
+                message,
+                context: { ...context, currentProductId: safeString(actionRequest?.productId || context?.currentProductId || '') },
+            });
+            const requestedQuantity = Number(actionRequest?.quantity || 1);
+            const boundedQuantity = Number.isInteger(requestedQuantity) && requestedQuantity > 0 ? Math.min(20, requestedQuantity) : 1;
+            const quantity = product?.stock > 0 ? Math.min(product.stock, boundedQuantity) : 0;
+            return product && quantity > 0
+                ? { type, productId: String(product.id), quantity, product, requiresConfirmation: true }
+                : { type, unresolved: true, unresolvedReason: product ? 'out_of_stock' : 'product_not_resolved', requiresConfirmation: true };
         }
-        if (type === 'create_return_request') {
-            const requestedId = safeString(actionRequest?.orderId || parseOrderId(message));
-            const latestOrder = requestedId
-                ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered refundSummary').lean()
-                : await loadLatestOrder(user?._id);
-            return {
-                type,
-                orderId: safeString(latestOrder?._id || requestedId || ''),
-                requestType: safeString(actionRequest?.requestType || 'refund'),
-                reason: safeString(actionRequest?.reason || message || 'Requested from assistant'),
-                amount: Math.max(0, Number(actionRequest?.amount || 0)),
-                order: latestOrder || null,
-                unresolved: !safeString(latestOrder?._id || requestedId || ''),
-                requiresConfirmation: true,
-            };
-        }
-        if (type === 'get_payment_status') {
-            const requestedId = safeString(actionRequest?.orderId || parseOrderId(message));
-            const latestOrder = requestedId
-                ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
-                : await loadLatestOrder(user?._id);
-            return { type, orderId: safeString(latestOrder?._id || requestedId || ''), order: latestOrder || null, unresolved: !safeString(latestOrder?._id || requestedId || ''), requiresConfirmation: false };
+        if (type === 'remove_from_cart') {
+            const product = resolveCartProductForRemoval({
+                message,
+                context: { ...context, currentProductId: safeString(actionRequest?.productId || context?.currentProductId || '') },
+            });
+            return product
+                ? { type, productId: String(product.id), quantity: 1, product, requiresConfirmation: true }
+                : { type, unresolved: true, unresolvedReason: 'cart_product_not_resolved', requiresConfirmation: true };
         }
     }
 
     const normalized = safeString(message).toLowerCase();
-    if (/\bshow (my )?cart\b/i.test(normalized) || /\bopen cart\b/i.test(normalized)) {
-        return { type: 'navigate_to', page: 'cart', params: {}, requiresConfirmation: false };
+    if (context?.currentProductId && PRODUCT_FACT_QUESTION_PATTERN.test(normalized)) {
+        const type = /\b(stock|available|availability)\b/i.test(normalized)
+            ? 'check_inventory'
+            : (/\b(price|cost|how much)\b/i.test(normalized) ? 'get_price' : 'get_product_details');
+        return {
+            type,
+            productId: safeString(context.currentProductId),
+            requiresConfirmation: false,
+        };
+    }
+    if (/\bcart (?:subtotal|total|summary)\b/i.test(normalized)
+        || /\b(?:subtotal|total|summary) (?:of|for) (?:my )?cart\b/i.test(normalized)
+        || /\bwhat(?:'s| is) in (?:my )?cart\b/i.test(normalized)) {
+        return { type: 'get_cart_summary', requiresConfirmation: false };
     }
     if (/\bcheckout\b/i.test(normalized) || /\bbuy now\b/i.test(normalized)) {
         return { type: 'go_to_checkout', requiresConfirmation: true };
@@ -3047,79 +3512,78 @@ const resolveActionPlan = async ({ message = '', actionRequest = null, user = nu
     if (/\b(apply|use)\b/i.test(normalized) && /\b(coupon|promo|code)\b/i.test(normalized)) {
         return { type: 'apply_coupon', couponCode: parseCouponCode(normalized), requiresConfirmation: false };
     }
-    if (/\btrack (my )?order\b/i.test(normalized) || /\border status\b/i.test(normalized)) {
-        const requestedId = parseOrderId(normalized);
-        const latestOrder = requestedId
-            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
-            : await loadLatestOrder(user?._id);
-        return { type: 'track_order', orderId: safeString(latestOrder?._id || requestedId || ''), order: latestOrder || null, requiresConfirmation: false };
+    if (
+        /\btrack (?:my )?(?:order|package)\b/i.test(normalized)
+        || /\border status\b/i.test(normalized)
+        || /\bwhere (?:is|are) (?:my )?(?:order|package)\b/i.test(normalized)
+        || /\b(?:my )?(?:order|package) (?:is )?(?:late|delayed|missing|stuck)\b/i.test(normalized)
+    ) {
+        const resolution = await resolveOrderForAction({ message, user, allowLatest: true });
+        return buildResolvedOrderAction({ type: 'track_order', resolution, requiresConfirmation: false });
     }
     if (/\bcancel\b/i.test(normalized) && /\border\b/i.test(normalized)) {
-        const requestedId = parseOrderId(normalized);
-        const latestOrder = requestedId
-            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
-            : await loadLatestOrder(user?._id);
-        return {
+        const resolution = await resolveOrderForAction({ message, user, allowLatest: true });
+        return buildResolvedOrderAction({
             type: 'cancel_order',
-            orderId: safeString(latestOrder?._id || requestedId || ''),
-            reason: safeString(message || 'Requested from assistant'),
-            order: latestOrder || null,
-            unresolved: !safeString(latestOrder?._id || requestedId || ''),
+            resolution,
             requiresConfirmation: true,
-        };
+            extra: { reason: safeString(message || 'Requested from assistant') },
+        });
     }
     if (/\b(return|refund|replace|replacement)\b/i.test(normalized) && /\border\b/i.test(normalized)) {
-        const requestedId = parseOrderId(normalized);
-        const latestOrder = requestedId
-            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered refundSummary').lean()
-            : await loadLatestOrder(user?._id);
-        return {
+        const resolution = await resolveOrderForAction({ message, user, allowLatest: true });
+        return buildResolvedOrderAction({
             type: 'create_return_request',
-            orderId: safeString(latestOrder?._id || requestedId || ''),
-            requestType: /\b(replace|replacement)\b/i.test(normalized) ? 'replacement' : 'refund',
-            reason: safeString(message || 'Requested from assistant'),
-            order: latestOrder || null,
-            unresolved: !safeString(latestOrder?._id || requestedId || ''),
+            resolution,
             requiresConfirmation: true,
-        };
+            extra: {
+                requestType: /\b(replace|replacement)\b/i.test(normalized) ? 'replacement' : 'refund',
+                reason: safeString(message || 'Requested from assistant'),
+                amount: 0,
+            },
+        });
     }
     if (/\b(payment|paid|charge|refund status)\b/i.test(normalized) && /\border\b/i.test(normalized)) {
-        const requestedId = parseOrderId(normalized);
-        const latestOrder = requestedId
-            ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean()
-            : await loadLatestOrder(user?._id);
-        return { type: 'get_payment_status', orderId: safeString(latestOrder?._id || requestedId || ''), order: latestOrder || null, unresolved: !safeString(latestOrder?._id || requestedId || ''), requiresConfirmation: false };
+        const resolution = await resolveOrderForAction({ message, user, allowLatest: true });
+        return buildResolvedOrderAction({ type: 'get_payment_status', resolution, requiresConfirmation: false });
     }
-    if (/\bsupport\b/i.test(normalized) || /\bhelp with order\b/i.test(normalized)) {
-        const requestedId = parseOrderId(normalized);
-        const orderScoped = requestedId || /\border\b/i.test(normalized);
-        const latestOrder = orderScoped
-            ? (requestedId
-                ? await Order.findOne({ _id: requestedId, user: user?._id }).select('orderStatus totalPrice createdAt').lean()
-                : await loadLatestOrder(user?._id))
+    if (/\bsupport\b/i.test(normalized) || /\bhelp with (?:an? )?order\b/i.test(normalized)) {
+        const orderScoped = /\b(?:order|package)\b/i.test(normalized) || parseOrderReference(message).explicit;
+        const resolution = orderScoped
+            ? await resolveOrderForAction({ message, user, allowLatest: true })
             : null;
         return {
             type: 'open_support',
-            orderId: safeString(latestOrder?._id || requestedId || ''),
+            orderId: safeString(resolution?.orderId || ''),
             prefill: {
                 subject: orderScoped ? 'Order support request' : 'Customer support request',
-                category: latestOrder || requestedId ? 'order_help' : 'general_help',
+                category: resolution?.order ? 'order_help' : 'general_help',
                 body: safeString(message),
             },
             requiresConfirmation: false,
         };
     }
-    if (/\bremove\b/i.test(normalized) && /\bcart\b/i.test(normalized)) {
-        const product = await resolveProductForAction({ message, context });
+    const navigationMatch = normalized.match(/\b(?:open|show|view|go to|take me to)\s+(?:my\s+)?(cart|orders?|wishlist|account|profile)\b/i);
+    if (navigationMatch?.[1]) {
+        return {
+            type: 'navigate_to',
+            page: normalizeNavigationPage(navigationMatch[1]),
+            params: {},
+            requiresConfirmation: false,
+        };
+    }
+    if (/\bremove\b/i.test(normalized) && (/\bcart\b/i.test(normalized) || /\b(?:item|product)\b/i.test(normalized))) {
+        const product = resolveCartProductForRemoval({ message, context });
         return product
             ? { type: 'remove_from_cart', productId: String(product.id), quantity: 1, product, requiresConfirmation: true }
-            : { type: 'remove_from_cart', unresolved: true, requiresConfirmation: true };
+            : { type: 'remove_from_cart', unresolved: true, unresolvedReason: 'cart_product_not_resolved', requiresConfirmation: true };
     }
     if (/\badd\b/i.test(normalized) && /\bcart\b/i.test(normalized)) {
         const product = await resolveProductForAction({ message, context });
-        return product
-            ? { type: 'add_to_cart', productId: String(product.id), quantity: 1, product, requiresConfirmation: true }
-            : { type: 'add_to_cart', unresolved: true, requiresConfirmation: true };
+        const quantity = product?.stock > 0 ? Math.min(product.stock, parseActionQuantity(message)) : 0;
+        return product && quantity > 0
+            ? { type: 'add_to_cart', productId: String(product.id), quantity, product, requiresConfirmation: true }
+            : { type: 'add_to_cart', unresolved: true, unresolvedReason: product ? 'out_of_stock' : 'product_not_resolved', requiresConfirmation: true };
     }
     return null;
 };
@@ -3134,13 +3598,17 @@ const performActionTurn = async ({
     traceId = '',
     assistantSession = {},
     context = {},
+    abortSignal = null,
 } = {}) => {
+    throwIfAssistantAborted(abortSignal);
     if (confirmation?.actionId) {
         return respondToConfirmation({ confirmation, assistantSession, sessionId, traceId, assistantMode });
     }
 
     const actionContext = buildActionContext({ context, assistantSession });
+    throwIfAssistantAborted(abortSignal);
     const action = await resolveActionPlan({ message, actionRequest, user, context: actionContext });
+    throwIfAssistantAborted(abortSignal);
     if (!action) {
         const assistantTurn = buildAssistantTurn({
             intent: 'navigation',
@@ -3165,6 +3633,54 @@ const performActionTurn = async ({
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: 0,
             validator: { ok: false, reason: 'unresolved_action' },
+            messageId: createMessageId(),
+        });
+    }
+
+    if (action.unresolved) {
+        const isOrderAction = ['track_order', 'cancel_order', 'create_return_request', 'get_payment_status'].includes(action.type);
+        const resolutionReason = safeString(action.resolutionReason || action.unresolvedReason || (isOrderAction ? 'order_not_resolved' : 'product_not_resolved'));
+        const orderResponse = resolutionReason === 'sign_in_required'
+            ? 'Sign in before I look up or change an order.'
+            : (['invalid_order_reference', 'ambiguous_order_reference', 'order_not_found'].includes(resolutionReason)
+                ? 'I could not match that order reference to exactly one order owned by this account. I did not substitute a different or latest order.'
+                : 'I could not find an owned order for that workflow.');
+        const cartResponse = resolutionReason === 'out_of_stock'
+            ? 'That catalog product is currently out of stock, so I did not prepare an add-to-cart action.'
+            : (resolutionReason === 'cart_product_not_resolved'
+                ? 'I could not match that request to exactly one item in your current cart, so I did not remove anything.'
+                : 'I need one published catalog product before I can prepare that cart action.');
+        const assistantTurn = buildAssistantTurn({
+            intent: isOrderAction ? 'support' : 'cart_action',
+            confidence: 0.9,
+            decision: 'respond',
+            response: isOrderAction ? orderResponse : cartResponse,
+            ui: { surface: 'plain_answer' },
+            followUps: isOrderAction ? ['Open orders', 'Open support'] : ['Open my cart', 'Show product deals'],
+            verification: {
+                label: 'app_grounded',
+                confidence: 1,
+                summary: isOrderAction
+                    ? 'Order workflow blocked because no single user-owned order was resolved.'
+                    : 'Cart workflow blocked because no safe cart or catalog target was resolved.',
+            },
+            policy: { actionType: safeString(action.type), risk: 'mutation', decision: 'REJECT', reason: resolutionReason },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: { ...assistantSession, pendingAction: null },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: 0,
+            validator: { ok: false, reason: resolutionReason },
             messageId: createMessageId(),
         });
     }
@@ -3200,21 +3716,80 @@ const performActionTurn = async ({
         });
     }
 
+    if (action.type === 'get_cart_summary') {
+        const cartSummary = buildCartSummary(actionContext?.cartItems || []);
+        const hasItems = cartSummary.lineCount > 0;
+        const itemLines = cartSummary.items.slice(0, 5).map((item) => (
+            `- ${item.title}: ${item.quantity} x ${formatCommercePrice(item.price)} = ${formatCommercePrice(item.lineTotal)}`
+        ));
+        const assistantTurn = buildAssistantTurn({
+            intent: 'cart_action',
+            confidence: hasItems ? 0.98 : 0.8,
+            decision: 'respond',
+            response: hasItems
+                ? [
+                    `Your current cart context has ${cartSummary.itemCount} item${cartSummary.itemCount === 1 ? '' : 's'} across ${cartSummary.lineCount} product line${cartSummary.lineCount === 1 ? '' : 's'}.`,
+                    ...itemLines,
+                    `Item subtotal: ${formatCommercePrice(cartSummary.subtotal)}. Checkout will verify shipping, taxes, coupons, stock, and the final payable total.`,
+                ].join('\n')
+                : 'I do not have any cart items in this assistant request, so I cannot calculate a subtotal. Open the cart or add an item, then ask again.',
+            ui: { surface: 'plain_answer' },
+            followUps: hasItems ? ['Open my cart', 'Go to checkout'] : ['Open my cart', 'Show product deals'],
+            verification: {
+                label: 'app_grounded',
+                confidence: 1,
+                summary: hasItems
+                    ? 'Calculated from the current application cart context; checkout remains authoritative for the final quote.'
+                    : 'No cart context was supplied, so no subtotal was guessed.',
+            },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: {
+                ...assistantSession,
+                lastIntent: 'cart_action',
+                lastEntities: { ...assistantSession.lastEntities, operation: 'get_cart_summary' },
+                pendingAction: null,
+            },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: cartSummary.lineCount,
+            validator: { ok: hasItems, reason: hasItems ? 'cart_context_summary' : 'cart_context_missing' },
+            messageId: createMessageId(),
+        });
+    }
+
     if (['get_product_details', 'check_inventory', 'get_price'].includes(action.type)) {
         const product = await resolveProductForAction({
             message,
             context: { ...actionContext, currentProductId: safeString(action.productId || actionContext.currentProductId || '') },
         });
+        const specificationText = product?.specifications?.slice(0, 5)
+            .map((entry) => `${entry.key}: ${entry.value}`)
+            .join('; ');
+        const highlightText = product?.highlights?.slice(0, 4).join('; ');
+        const factualProductResponse = product?.id ? [
+            `${safeString(product.title || 'That product')} costs ${formatCommercePrice(product.price)}${product.originalPrice > product.price ? ` (listed original price ${formatCommercePrice(product.originalPrice)}, ${Math.round(product.discountPercentage || 0)}% off)` : ''}.`,
+            `Stock: ${Math.max(0, Number(product.stock || 0))}${Number(product.stock || 0) > 0 ? ' available' : ' - currently out of stock'}.`,
+            product.rating ? `Rating: ${Number(product.rating || 0).toFixed(1)}/5 from ${Math.max(0, Number(product.ratingCount || 0))} rating${Number(product.ratingCount || 0) === 1 ? '' : 's'}.` : '',
+            action.type === 'get_product_details' && safeString(product.description) ? `Description: ${safeString(product.description).slice(0, 260)}.` : '',
+            action.type === 'get_product_details' && highlightText ? `Highlights: ${highlightText}.` : '',
+            action.type === 'get_product_details' && specificationText ? `Specifications: ${specificationText}.` : '',
+        ].filter(Boolean).join('\n') : '';
         const assistantTurn = buildAssistantTurn({
             intent: 'product_selection',
             confidence: product?.id ? 0.96 : 0.7,
             decision: 'respond',
             response: product?.id
-                ? [
-                    `${safeString(product.title || 'That product')} is currently Rs. ${Number(product.price || 0)}.`,
-                    `Stock: ${Math.max(0, Number(product.stock || 0))}.`,
-                    product.rating ? `Rating: ${Number(product.rating || 0)} from ${Math.max(0, Number(product.ratingCount || 0))} rating${Number(product.ratingCount || 0) === 1 ? '' : 's'}.` : '',
-                ].filter(Boolean).join(' ')
+                ? factualProductResponse
                 : 'I could not resolve an authoritative product for that live lookup.',
             actions: product?.id ? [{ type: 'select_product', productId: String(product.id) }] : [],
             ui: {
@@ -3346,13 +3921,13 @@ const performActionTurn = async ({
     }
 
     if (action.type === 'get_payment_status') {
-        const order = action.order || (action.orderId ? await Order.findOne({ _id: action.orderId, user: user?._id }).select('orderStatus totalPrice createdAt paymentState paymentMethod isDelivered').lean() : await loadLatestOrder(user?._id));
+        const order = action.order || null;
         const assistantTurn = buildAssistantTurn({
             intent: 'support',
             confidence: order ? 0.96 : 0.7,
             decision: 'respond',
             response: order
-                ? `Order ${String(order._id).slice(-6)} payment is ${safeString(order.paymentState || 'pending')} via ${safeString(order.paymentMethod || 'the selected method')}. Order status is ${safeString(order.orderStatus || 'placed')}.`
+                ? `Order #${String(order._id).slice(-8).toUpperCase()} payment is ${safeString(order.paymentState || 'pending')} via ${safeString(order.paymentMethod || 'the selected method')}. Order status is ${safeString(order.orderStatus || 'placed')}; total ${formatCommercePrice(order.totalPrice)}.`
                 : 'I could not find a recent order for this account to check payment status.',
             ui: { surface: 'plain_answer' },
             followUps: order ? ['Track this order', 'Open support'] : ['Open support'],
@@ -3369,7 +3944,7 @@ const performActionTurn = async ({
             sessionId,
             traceId,
             assistantMode,
-            assistantSession: { ...assistantSession, lastIntent: 'support', lastEntities: { ...assistantSession.lastEntities, orderId: safeString(order?._id || action.orderId || '') }, pendingAction: null },
+            assistantSession: { ...assistantSession, lastIntent: 'support', lastEntities: { ...assistantSession.lastEntities, orderId: safeString(order?._id || '') }, pendingAction: null },
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: order ? 1 : 0,
             validator: { ok: Boolean(order), reason: order ? 'payment_status_lookup' : 'order_not_found' },
@@ -3378,13 +3953,13 @@ const performActionTurn = async ({
     }
 
     if (action.type === 'track_order') {
-        const order = action.order || (action.orderId ? await Order.findOne({ _id: action.orderId, user: user?._id }).select('orderStatus totalPrice createdAt').lean() : await loadLatestOrder(user?._id));
+        const order = action.order || null;
         const assistantTurn = buildAssistantTurn({
             intent: 'navigation',
             confidence: 0.98,
             decision: 'respond',
             response: order
-                ? `Your latest order ${String(order._id).slice(-6)} is currently ${safeString(order.orderStatus || 'processing')} and totals Rs. ${Number(order.totalPrice || 0)}.`
+                ? `Order #${String(order._id).slice(-8).toUpperCase()} is currently ${safeString(order.orderStatus || 'processing')} and totals ${formatCommercePrice(order.totalPrice)}.`
                 : 'I could not find a recent order for this account.',
             ui: { surface: 'plain_answer' },
             followUps: order ? ['Open support', 'Show my cart'] : ['Open support'],
@@ -3401,10 +3976,10 @@ const performActionTurn = async ({
             sessionId,
             traceId,
             assistantMode,
-            assistantSession: { ...assistantSession, lastIntent: 'navigation', lastEntities: { ...assistantSession.lastEntities, orderId: safeString(order?._id || action.orderId || '') }, pendingAction: null },
+            assistantSession: { ...assistantSession, lastIntent: 'navigation', lastEntities: { ...assistantSession.lastEntities, orderId: safeString(order?._id || '') }, pendingAction: null },
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: 0,
-            validator: { ok: true, reason: 'order_lookup' },
+            validator: { ok: Boolean(order), reason: order ? 'order_lookup' : safeString(action.resolutionReason || 'order_not_found') },
             messageId: createMessageId(),
         });
     }
@@ -3446,13 +4021,14 @@ const performActionTurn = async ({
     }
 
     if (action.type === 'navigate_to') {
+        const navigationPath = resolveNavigationPath(action.page, action.params);
         const assistantTurn = buildAssistantTurn({
             intent: 'navigation',
             confidence: 0.99,
             decision: 'act',
             response: action.page === 'cart' ? 'Opening your cart.' : `Opening ${safeString(action.page || 'that page').replace(/_/g, ' ')}.`,
             actions: [action],
-            ui: { surface: 'navigation_notice', navigation: { page: safeString(action.page || ''), path: action.page === 'cart' ? '/cart' : '/', params: action.params || {} } },
+            ui: { surface: 'navigation_notice', navigation: { page: safeString(action.page || ''), path: navigationPath, params: action.params || {} } },
             verification: { label: 'app_grounded', confidence: 1, summary: 'Navigation action validated by the backend router.' },
             answerMode: 'commerce',
         });
@@ -3470,63 +4046,6 @@ const performActionTurn = async ({
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: 0,
             validator: { ok: true, reason: 'navigation' },
-            messageId: createMessageId(),
-        });
-    }
-
-    if (action.unresolved) {
-        if (['cancel_order', 'create_return_request', 'get_payment_status'].includes(action.type)) {
-            const assistantTurn = buildAssistantTurn({
-                intent: 'support',
-                confidence: 0.76,
-                decision: 'respond',
-                response: 'I need a signed-in order or a specific order ID before I can run that order workflow.',
-                ui: { surface: 'plain_answer' },
-                followUps: ['Open orders', 'Open support'],
-                verification: { label: 'app_grounded', confidence: 1, summary: 'Order workflow blocked because no authoritative order was resolved.' },
-                policy: { actionType: safeString(action?.type || ''), risk: validation.definition?.mutation ? 'mutation' : 'low', decision: 'REJECT', reason: 'order_not_resolved' },
-            });
-            return buildResponseEnvelope({
-                assistantTurn,
-                route: ROUTE_ACTION,
-                provider: 'rule',
-                providerModel: '',
-                products: [],
-                followUps: assistantTurn.followUps,
-                sessionId,
-                traceId,
-                assistantMode,
-                assistantSession: { ...assistantSession, pendingAction: null },
-                health: { gateway: getModelGatewayHealth() },
-                retrievalHitCount: 0,
-                validator: { ok: false, reason: 'order_not_resolved' },
-                messageId: createMessageId(),
-            });
-        }
-        const assistantTurn = buildAssistantTurn({
-            intent: 'cart_action',
-            confidence: 0.75,
-            decision: 'respond',
-            response: 'I need the exact product before I can change your cart. Try naming the item again.',
-            ui: { surface: 'plain_answer' },
-            followUps: ['Show me phones', 'Show me shoes', 'Open my cart'],
-            verification: { label: 'app_grounded', confidence: 1, summary: 'Cart mutation blocked because no authoritative product was resolved.' },
-            policy: { actionType: safeString(action?.type || ''), risk: 'mutation', decision: 'REJECT', reason: 'product_not_resolved' },
-        });
-        return buildResponseEnvelope({
-            assistantTurn,
-            route: ROUTE_ACTION,
-            provider: 'rule',
-            providerModel: '',
-            products: [],
-            followUps: assistantTurn.followUps,
-            sessionId,
-            traceId,
-            assistantMode,
-            assistantSession: { ...assistantSession, pendingAction: null },
-            health: { gateway: getModelGatewayHealth() },
-            retrievalHitCount: 0,
-            validator: { ok: false, reason: 'product_not_resolved' },
             messageId: createMessageId(),
         });
     }
@@ -3549,8 +4068,9 @@ const performActionTurn = async ({
     });
 };
 
-const persistSignedInTurn = async ({ response, user, sessionId, assistantMode, context, message } = {}) => {
-    if (!user?._id || !response?.assistantTurn) return null;
+const persistSignedInTurn = async ({ response, user, sessionId, assistantMode, context, message, abortSignal = null } = {}) => {
+    if (!user?._id || !response?.assistantTurn || abortSignal?.aborted) return null;
+    throwIfAssistantAborted(abortSignal);
     return persistAssistantExchange({
         user,
         sessionId,
@@ -3566,7 +4086,10 @@ const persistSignedInTurn = async ({ response, user, sessionId, assistantMode, c
         retrievalHitCount: Number(response?.grounding?.retrievalHitCount || 0),
         grounding: response.grounding,
         assistantSession: response.assistantSession,
-        actionAuditStatus: response?.assistantTurn?.ui?.confirmation?.action ? 'proposed' : 'executed',
+        actionAuditStatus: response?.assistantTurn?.ui?.confirmation?.action
+            ? 'proposed'
+            : (safeString(response?.grounding?.validator?.reason) === 'confirmed' ? 'confirmed' : 'proposed'),
+        abortSignal,
     });
 };
 
@@ -3581,11 +4104,14 @@ const processAssistantTurn = async ({
     context = {},
     images = [],
     audio = [],
+    abortSignal = null,
 } = {}) => {
+    throwIfAssistantAborted(abortSignal);
     const startedAt = Date.now();
     const traceId = createTraceId();
     const resolvedSessionId = safeString(sessionId || context?.clientSessionId || '') || createSessionId();
     const assistantSession = await resolveStoredAssistantSession({ user, sessionId: resolvedSessionId, context });
+    throwIfAssistantAborted(abortSignal);
     const resolvedConfirmation = inferConfirmationFromMessage({ message, confirmation, assistantSession });
     const routeDecision = detectRoute({
         message,
@@ -3610,6 +4136,7 @@ const processAssistantTurn = async ({
             traceId,
             assistantSession,
             context,
+            abortSignal,
         });
     } else if (routeDecision.route === ROUTE_ECOMMERCE) {
         response = await performCommerceTurn({
@@ -3623,6 +4150,7 @@ const processAssistantTurn = async ({
             context,
             images,
             audio,
+            abortSignal,
         });
     } else {
         response = await performGeneralTurn({
@@ -3632,14 +4160,19 @@ const processAssistantTurn = async ({
             sessionId: resolvedSessionId,
             traceId,
             assistantSession,
+            context,
             images,
             audio,
+            abortSignal,
         });
     }
 
+    throwIfAssistantAborted(abortSignal);
     response.latencyMs = Date.now() - startedAt;
     response.grounding = { ...(response.grounding || {}), routeReason: routeDecision.reason, latencyMs: response.latencyMs };
-    await persistSignedInTurn({ response, user, sessionId: resolvedSessionId, assistantMode, context, message });
+    throwIfAssistantAborted(abortSignal);
+    await persistSignedInTurn({ response, user, sessionId: resolvedSessionId, assistantMode, context, message, abortSignal });
+    throwIfAssistantAborted(abortSignal);
     recordLatencyMetric({ route: routeDecision.route, provisional: false, latencyMs: response.latencyMs });
     return response;
 };
@@ -3663,6 +4196,7 @@ const streamAssistantTurn = async ({
     images = [],
     audio = [],
     writeEvent = null,
+    abortSignal = null,
 } = {}) => {
     if (typeof writeEvent !== 'function') {
         throw new Error('writeEvent callback is required for streaming');
@@ -3679,8 +4213,10 @@ const streamAssistantTurn = async ({
         context,
         images,
         audio,
+        abortSignal,
     });
 
+    throwIfAssistantAborted(abortSignal);
     const resolvedSessionId = safeString(response.sessionId || sessionId || context?.clientSessionId || '');
     const resolvedMessageId = safeString(context?.clientMessageId || response.messageId || createMessageId());
     writeEvent('message_meta', {
@@ -3758,6 +4294,7 @@ module.exports = {
     streamAssistantTurn,
     __testables: {
         buildActionContext,
+        buildCartSummary,
         buildCommerceFilterSummary,
         buildCommerceResultInsights,
         buildCommerceResponseText,
@@ -3772,6 +4309,7 @@ module.exports = {
         buildHeuristicRetrievalQueryText,
         inferStructuredRetrievalFilters,
         inferConfirmationFromMessage,
+        parseOrderReference,
         buildCommerceModelProviderOptions,
         isCommerceModelSummaryEnabled,
         isHostedGemmaCommerceRequired,
@@ -3781,6 +4319,8 @@ module.exports = {
         scoreCommerceProduct,
         sortCommerceEntries,
         resolveActionPlan,
+        resolveNavigationPath,
+        resolveOrderReference,
         shouldAnswerKnowledgeBeforeCatalog,
         shouldReuseSessionResultsForCommerce,
         shouldRouteAsCommerceFollowUp,

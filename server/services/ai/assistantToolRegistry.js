@@ -1,4 +1,12 @@
 const { safeString } = require('./assistantContract');
+const assistantCapabilities = require('../../../shared/assistantCapabilities.json');
+
+const ASSISTANT_NAVIGATION_PATHS = Object.freeze(
+    assistantCapabilities.reduce((paths, capability) => ({
+        ...paths,
+        [safeString(capability?.id)]: safeString(capability?.route),
+    }), {}),
+);
 
 const TOOL_REGISTRY = Object.freeze({
     search_products: {
@@ -156,6 +164,25 @@ const TOOL_REGISTRY = Object.freeze({
             required: ['productId'],
             properties: {
                 productId: 'string',
+            },
+        },
+    },
+    get_cart_summary: {
+        name: 'get_cart_summary',
+        timeout_ms: 1200,
+        idempotent: true,
+        mutation: false,
+        requires_confirmation: false,
+        input_schema: {
+            required: [],
+            properties: {},
+        },
+        output_schema: {
+            required: ['itemCount', 'subtotal'],
+            properties: {
+                itemCount: 'number',
+                subtotal: 'number',
+                items: 'array',
             },
         },
     },
@@ -349,6 +376,72 @@ const validatePrimitive = (value, expectedType) => {
     return typeof value === expectedType;
 };
 
+const isPositiveProductId = (value) => /^\d+$/.test(safeString(value));
+const isFullOrderId = (value) => /^[a-f0-9]{24}$/i.test(safeString(value));
+
+const validateSemanticToolInput = ({ toolName = '', payload = {} } = {}) => {
+    const input = payload && typeof payload === 'object' ? payload : {};
+    const productIdTools = new Set([
+        'get_product_details',
+        'check_inventory',
+        'get_price',
+        'select_product',
+        'add_to_cart',
+        'remove_from_cart',
+    ]);
+    if (productIdTools.has(toolName) && !isPositiveProductId(input.productId)) {
+        return 'invalid_input_value:productId';
+    }
+    if (toolName === 'add_to_cart' && input.quantity !== undefined) {
+        const quantity = Number(input.quantity);
+        if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
+            return 'invalid_input_value:quantity';
+        }
+    }
+    if (toolName === 'compare_products') {
+        const productIds = Array.isArray(input.productIds) ? input.productIds : [];
+        if (productIds.length < 2 || productIds.length > 4 || productIds.some((productId) => !isPositiveProductId(productId))) {
+            return 'invalid_input_value:productIds';
+        }
+    }
+    if (toolName === 'navigate_to') {
+        const page = safeString(input.page);
+        if (!Object.prototype.hasOwnProperty.call(ASSISTANT_NAVIGATION_PATHS, page)) {
+            return 'invalid_input_value:page';
+        }
+        if (page === 'product' && !isPositiveProductId(input?.params?.productId || input.productId)) {
+            return 'invalid_input_value:productId';
+        }
+        if (page === 'category' && !safeString(input?.params?.category)) {
+            return 'invalid_input_value:category';
+        }
+        if (page === 'listing' && !safeString(input?.params?.listingId)) {
+            return 'invalid_input_value:listingId';
+        }
+        if (page === 'seller_profile' && !safeString(input?.params?.sellerId)) {
+            return 'invalid_input_value:sellerId';
+        }
+    }
+    if (['track_order', 'cancel_order', 'create_return_request', 'get_payment_status', 'open_support'].includes(toolName)) {
+        if (safeString(input.orderId) && !isFullOrderId(input.orderId)) {
+            return 'invalid_input_value:orderId';
+        }
+    }
+    if (toolName === 'create_return_request') {
+        const requestType = safeString(input.requestType || 'refund').toLowerCase();
+        if (!['refund', 'replacement'].includes(requestType)) {
+            return 'invalid_input_value:requestType';
+        }
+        if (input.amount !== undefined && (!Number.isFinite(Number(input.amount)) || Number(input.amount) < 0)) {
+            return 'invalid_input_value:amount';
+        }
+    }
+    if (toolName === 'apply_coupon' && safeString(input.couponCode) && !/^[a-z0-9_-]{3,30}$/i.test(safeString(input.couponCode))) {
+        return 'invalid_input_value:couponCode';
+    }
+    return '';
+};
+
 const getToolDefinition = (toolName = '') => TOOL_REGISTRY[safeString(toolName)] || null;
 
 const validateToolInput = ({ toolName = '', payload = {} } = {}) => {
@@ -391,6 +484,15 @@ const validateToolInput = ({ toolName = '', payload = {} } = {}) => {
         };
     }
 
+    const semanticError = validateSemanticToolInput({ toolName, payload: input });
+    if (semanticError) {
+        return {
+            ok: false,
+            reason: semanticError,
+            definition,
+        };
+    }
+
     return {
         ok: true,
         reason: '',
@@ -420,6 +522,7 @@ const validateAssistantAction = (action = {}, { disabledTools = [] } = {}) => {
 };
 
 module.exports = {
+    ASSISTANT_NAVIGATION_PATHS,
     TOOL_REGISTRY,
     getToolDefinition,
     validateAssistantAction,

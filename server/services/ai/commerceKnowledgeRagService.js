@@ -1,5 +1,6 @@
 const ProductReview = require('../../models/ProductReview');
 const logger = require('../../utils/logger');
+const assistantCapabilities = require('../../../shared/assistantCapabilities.json');
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
@@ -62,6 +63,148 @@ const STATIC_KNOWLEDGE_CHUNKS = Object.freeze([
         text: 'Reviews are useful for real-world fit, durability, battery, comfort, and quality signals. Treat review snippets as customer experience evidence, not guaranteed product facts. Balance ratings with price, stock, specs, and verified-purchase signals.',
     },
 ]);
+
+const APP_HELP_QUERY_PATTERN = /\b(what can (?:i|you) do(?: here| in (?:this|the) app)?|what is (?:this|the) app|what (?:app )?features are (?:available|supported)|app (?:help|feature|features)|help (?:me )?(?:use|with) (?:this|the) app)\b/i;
+const DIRECT_NAVIGATION_QUERY_PATTERN = /^(?:(?:please\s+)?(?:open|go to|navigate to|take me to|show(?: me)?|view)|(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:open|go to|navigate to|take me to|show(?: me)?|view))\b/i;
+
+const normalizeRoutePath = (value = '') => {
+    const raw = safeString(value || '/').split('?')[0].replace(/\/+$/, '');
+    return raw || '/';
+};
+
+const routeMatchesCapability = (contextPath = '', route = '') => {
+    const normalizedContext = normalizeRoutePath(contextPath);
+    const normalizedRoute = normalizeRoutePath(route);
+    if (!normalizedRoute.includes(':')) return normalizedContext === normalizedRoute;
+    const routePattern = normalizedRoute
+        .split('/')
+        .map((segment) => (segment.startsWith(':') ? '[^/]+' : segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+        .join('/');
+    return new RegExp(`^${routePattern}$`, 'i').test(normalizedContext);
+};
+
+const capabilityAccessText = (capability = {}) => {
+    const requirements = [];
+    if (capability.authRequired) requirements.push('sign-in required');
+    if (safeString(capability.roleRequired)) requirements.push(`${safeString(capability.roleRequired)} role required`);
+    if (Array.isArray(capability.contextRequired) && capability.contextRequired.length > 0) {
+        requirements.push(`needs ${capability.contextRequired.map((entry) => safeString(entry)).filter(Boolean).join(', ')}`);
+    }
+    return requirements.length > 0 ? requirements.join('; ') : 'available without sign-in';
+};
+
+const buildAppCapabilityKnowledgeChunks = ({ contextPath = '' } = {}) => assistantCapabilities.map((capability) => ({
+    id: `app-capability:${safeString(capability.id)}`,
+    sourceType: 'app_capability',
+    title: safeString(capability.title),
+    policyType: 'app_capability',
+    text: `${safeString(capability.description)} Route: ${safeString(capability.route)}. Access: ${capabilityAccessText(capability)}.`,
+    keywords: [
+        ...(Array.isArray(capability.aliases) ? capability.aliases : []),
+        capability.title,
+        capability.id,
+        'app feature',
+    ],
+    metadata: {
+        capabilityId: safeString(capability.id),
+        route: safeString(capability.route),
+        authRequired: Boolean(capability.authRequired),
+        roleRequired: safeString(capability.roleRequired || ''),
+        contextRequired: Array.isArray(capability.contextRequired) ? capability.contextRequired : [],
+        contextMatch: routeMatchesCapability(contextPath, capability.route),
+    },
+}));
+
+const aliasMatchesQuery = (query = '', alias = '') => {
+    const normalizedQuery = safeString(query).toLowerCase();
+    const normalizedAlias = safeString(alias).toLowerCase();
+    if (!normalizedAlias) return false;
+    const escaped = normalizedAlias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(normalizedQuery);
+};
+
+const buildCapabilityNavigationParams = (capability = {}, contextPath = '') => {
+    const path = normalizeRoutePath(contextPath);
+    if (capability.id === 'product') {
+        const productId = path.match(/^\/product\/(\d+)$/i)?.[1] || '';
+        return productId ? { productId } : null;
+    }
+    if (capability.id === 'category') {
+        const category = path.match(/^\/category\/([^/]+)$/i)?.[1] || '';
+        return category ? { category: decodeURIComponent(category) } : null;
+    }
+    if (capability.id === 'listing') {
+        const listingId = path.match(/^\/listing\/([^/]+)$/i)?.[1] || '';
+        return listingId ? { listingId: decodeURIComponent(listingId) } : null;
+    }
+    if (capability.id === 'seller_profile') {
+        const sellerId = path.match(/^\/seller\/([^/]+)$/i)?.[1] || '';
+        return sellerId ? { sellerId: decodeURIComponent(sellerId) } : null;
+    }
+    return {};
+};
+
+const resolveAppCapabilityAnswer = ({ query = '', contextPath = '' } = {}) => {
+    const normalizedQuery = safeString(query).toLowerCase();
+    if (!normalizedQuery) return null;
+    const capabilityMatches = assistantCapabilities
+        .map((capability) => ({
+            capability,
+            aliasLength: (Array.isArray(capability.aliases) ? capability.aliases : [])
+                .filter((alias) => aliasMatchesQuery(normalizedQuery, alias))
+                .reduce((longest, alias) => Math.max(longest, safeString(alias).length), 0),
+        }))
+        .filter((entry) => entry.aliasLength > 0)
+        .sort((left, right) => right.aliasLength - left.aliasLength);
+    const contextualHelp = APP_HELP_QUERY_PATTERN.test(normalizedQuery);
+    const contextualCapability = contextualHelp
+        ? assistantCapabilities.find((capability) => routeMatchesCapability(contextPath, capability.route)) || null
+        : null;
+    const matchedCapability = capabilityMatches[0]?.capability || contextualCapability || null;
+
+    if (!matchedCapability && !contextualHelp) return null;
+    if (!matchedCapability) {
+        const highlights = ['catalog', 'compare', 'cart', 'checkout', 'orders', 'wishlist', 'support', 'price_alerts']
+            .map((id) => assistantCapabilities.find((capability) => capability.id === id))
+            .filter(Boolean);
+        return {
+            answer: [
+                'I can help with these app workflows without relying on a language model:',
+                ...highlights.map((capability) => `- ${capability.title}: ${capability.description} (${capability.route})`),
+                'Tell me the product, order, cart, or page you are working with and I will use that context instead of asking for it again.',
+            ].join('\n'),
+            capability: null,
+            actions: [],
+            chunks: buildAppCapabilityKnowledgeChunks({ contextPath }).filter((chunk) => highlights.some((capability) => chunk.metadata.capabilityId === capability.id)),
+        };
+    }
+
+    const access = capabilityAccessText(matchedCapability);
+    const alreadyHere = routeMatchesCapability(contextPath, matchedCapability.route);
+    const navigationParams = buildCapabilityNavigationParams(matchedCapability, contextPath);
+    const navigationAction = matchedCapability.assistantAction === 'navigate_to'
+        && navigationParams !== null
+        && !alreadyHere
+        ? {
+            type: 'navigate_to',
+            page: safeString(matchedCapability.id),
+            params: navigationParams,
+        }
+        : null;
+    const canNavigate = DIRECT_NAVIGATION_QUERY_PATTERN.test(normalizedQuery)
+        && navigationAction !== null;
+    return {
+        answer: [
+            `${safeString(matchedCapability.title)}: ${safeString(matchedCapability.description)}`,
+            `Route: ${safeString(matchedCapability.route)}. Access: ${access}.`,
+            alreadyHere ? 'You are already on this app surface, so I will use its current context.' : '',
+        ].filter(Boolean).join('\n\n'),
+        capability: matchedCapability,
+        actions: canNavigate ? [navigationAction] : [],
+        suggestedActions: !canNavigate && navigationAction ? [navigationAction] : [],
+        chunks: buildAppCapabilityKnowledgeChunks({ contextPath }).filter((chunk) => chunk.metadata.capabilityId === matchedCapability.id),
+    };
+};
 
 const tokenize = (value = '') => safeString(value)
     .toLowerCase()
@@ -202,6 +345,8 @@ const scoreChunk = (query = '', chunk = {}) => {
     if ((normalizedQuery.includes('warranty') || normalizedQuery.includes('support')) && chunk.policyType === 'warranty_support') score += 1.4;
     if ((normalizedQuery.includes('review') || normalizedQuery.includes('rating')) && chunk.sourceType === 'review') score += 1.1;
     if ((normalizedQuery.includes('spec') || normalizedQuery.includes('manual') || normalizedQuery.includes('feature')) && chunk.sourceType === 'manual') score += 1.1;
+    if (chunk.sourceType === 'app_capability' && APP_HELP_QUERY_PATTERN.test(normalizedQuery)) score += 0.8;
+    if (chunk.sourceType === 'app_capability' && chunk.metadata?.contextMatch && APP_HELP_QUERY_PATTERN.test(normalizedQuery)) score += 2.4;
 
     return Number(score.toFixed(4));
 };
@@ -228,10 +373,12 @@ const retrieveCommerceKnowledge = async ({
     query = '',
     products = [],
     limit = 6,
+    contextPath = '',
 } = {}) => {
     const startedAt = Date.now();
     const candidates = [
         ...STATIC_KNOWLEDGE_CHUNKS,
+        ...buildAppCapabilityKnowledgeChunks({ contextPath }),
         ...buildProductKnowledgeChunks(products),
         ...await loadReviewKnowledgeChunks(products, { limit: Math.max(2, Number(limit || 6)) }),
     ];
@@ -279,9 +426,12 @@ const retrieveCommerceKnowledge = async ({
 module.exports = {
     STATIC_KNOWLEDGE_CHUNKS,
     buildKnowledgeAnswerText,
+    resolveAppCapabilityAnswer,
     retrieveCommerceKnowledge,
     __testables: {
+        buildAppCapabilityKnowledgeChunks,
         buildProductKnowledgeChunks,
+        routeMatchesCapability,
         scoreChunk,
         tokenize,
     },

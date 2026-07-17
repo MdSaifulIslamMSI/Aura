@@ -1,4 +1,5 @@
 const request = require('supertest');
+const { EventEmitter } = require('events');
 const {
     issueInternalAiServiceToken,
 } = require('../services/internalAiTokenService');
@@ -104,6 +105,7 @@ jest.mock('../services/ai/providerRegistry', () => ({
 }));
 
 const app = require('../index');
+const { __testables: aiControllerTestables } = require('../controllers/aiController');
 const { processAssistantTurn, streamAssistantTurn } = require('../services/ai/commerceAssistantService');
 const originalEnv = { ...process.env };
 
@@ -139,9 +141,13 @@ describe('AI Routes', () => {
         });
     });
 
-    test('POST /api/ai/chat returns a structured quick fallback when the assistant exceeds its guard', async () => {
+    test('POST /api/ai/chat returns a structured timeout fallback and aborts unfinished work', async () => {
         process.env.AI_CHAT_TIMEOUT_MS = '5';
-        processAssistantTurn.mockImplementationOnce(() => new Promise(() => {}));
+        let capturedAbortSignal;
+        processAssistantTurn.mockImplementationOnce(({ abortSignal }) => {
+            capturedAbortSignal = abortSignal;
+            return new Promise(() => {});
+        });
 
         const res = await request(app)
             .post('/api/ai/chat')
@@ -153,7 +159,9 @@ describe('AI Routes', () => {
 
         expect(res.statusCode).toBe(200);
         expect(res.body.provider).toBe('timeout_fallback');
-        expect(res.body.answer).toContain('quick catalog mode');
+        expect(res.body.answer).toContain('stopped it');
+        expect(capturedAbortSignal).toBeInstanceOf(AbortSignal);
+        expect(capturedAbortSignal.aborted).toBe(true);
         expect(res.body.assistantTurn).toMatchObject({
             decision: 'respond',
             ui: { surface: 'plain_answer' },
@@ -162,6 +170,40 @@ describe('AI Routes', () => {
             timeout: true,
             reason: 'assistant_timeout',
         });
+    });
+
+    test('request disconnect aborts assistant work without waiting for its dependency promise', async () => {
+        const externalAbortController = new AbortController();
+        let workSignal;
+        const pending = aiControllerTestables.runAssistantWithTimeout({
+            work: ({ abortSignal }) => {
+                workSignal = abortSignal;
+                return new Promise(() => {});
+            },
+            payload: { message: 'disconnect me', sessionId: 'disconnect-session' },
+            externalAbortSignal: externalAbortController.signal,
+        });
+        const assertion = expect(pending).rejects.toThrow('assistant_client_disconnected');
+
+        await Promise.resolve();
+        externalAbortController.abort(new Error('assistant_client_disconnected'));
+
+        await assertion;
+        expect(workSignal).toBeInstanceOf(AbortSignal);
+        expect(workSignal.aborted).toBe(true);
+    });
+
+    test('response close is converted into a request abort signal', () => {
+        const req = new EventEmitter();
+        const res = new EventEmitter();
+        res.writableEnded = false;
+        const requestAbort = aiControllerTestables.createRequestAbortContext(req, res);
+
+        res.emit('close');
+
+        expect(requestAbort.signal.aborted).toBe(true);
+        expect(requestAbort.signal.reason).toBeInstanceOf(Error);
+        requestAbort.cleanup();
     });
 
     test('POST /api/ai/chat accepts backend-owned action requests without a message', async () => {
@@ -222,9 +264,13 @@ describe('AI Routes', () => {
         }));
     });
 
-    test('POST /api/ai/chat/stream emits final fallback when the assistant stream times out', async () => {
+    test('POST /api/ai/chat/stream emits final fallback and aborts unfinished stream work', async () => {
         process.env.AI_CHAT_TIMEOUT_MS = '5';
-        streamAssistantTurn.mockImplementationOnce(() => new Promise(() => {}));
+        let capturedAbortSignal;
+        streamAssistantTurn.mockImplementationOnce(({ abortSignal }) => {
+            capturedAbortSignal = abortSignal;
+            return new Promise(() => {});
+        });
 
         const res = await request(app)
             .post('/api/ai/chat/stream')
@@ -243,6 +289,8 @@ describe('AI Routes', () => {
         expect(res.text).toContain('event: final_turn');
         expect(res.text).toContain('"provider":"timeout_fallback"');
         expect(res.text).toContain('"timeout":true');
+        expect(capturedAbortSignal).toBeInstanceOf(AbortSignal);
+        expect(capturedAbortSignal.aborted).toBe(true);
     });
 
     test('POST /api/ai/voice/session returns voice session config', async () => {

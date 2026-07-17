@@ -1,4 +1,12 @@
 const { __testables, ROUTE_ACTION, ROUTE_ECOMMERCE, ROUTE_GENERAL } = require('../services/ai/commerceAssistantService');
+const Order = require('../models/Order');
+
+const createLeanQuery = (result) => ({
+    limit: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    sort: jest.fn().mockReturnThis(),
+    lean: jest.fn().mockResolvedValue(result),
+});
 
 describe('commerceAssistantService helpers', () => {
     test('detectRoute chooses ACTION for explicit action requests', () => {
@@ -99,6 +107,40 @@ describe('commerceAssistantService helpers', () => {
         expect(__testables.detectRoute({
             message: 'refund my order',
         }).route).toBe(ROUTE_ACTION);
+    });
+
+    test('detectRoute covers offline order, cart summary, and navigation wording', () => {
+        ['where is my order', 'my package is late', 'cart subtotal', 'open wishlist', 'buy now'].forEach((message) => {
+            expect(__testables.detectRoute({ message }).route).toBe(ROUTE_ACTION);
+        });
+    });
+
+    test.each([
+        'how do I become a seller',
+        'list a product',
+        'how do price alerts work',
+        'trade in my phone',
+    ])('detectRoute keeps the app workflow %s out of catalog retrieval', (message) => {
+        expect(__testables.detectRoute({ message })).toMatchObject({
+            route: ROUTE_GENERAL,
+            reason: 'app_workflow_knowledge',
+        });
+    });
+
+    test('detectRoute keeps discovery-page language in catalog search when a product is requested', () => {
+        expect(__testables.detectRoute({ message: 'show trending phones' }).route).toBe(ROUTE_ECOMMERCE);
+        expect(__testables.detectRoute({ message: 'best phone deals under 30k' }).route).toBe(ROUTE_ECOMMERCE);
+        expect(__testables.detectRoute({ message: 'bundle phones under 50k' }).route).toBe(ROUTE_ECOMMERCE);
+    });
+
+    test.each([
+        ['phones below ₹20,000', { maxPrice: 20000 }],
+        ['laptops under 60k', { maxPrice: 60000 }],
+        ['phones at most 1.5 lakh', { maxPrice: 150000 }],
+        ['phones not more than INR 30k', { maxPrice: 30000 }],
+        ['phones between 10k and ₹20,000', { minPrice: 10000, maxPrice: 20000 }],
+    ])('parses Indian budget expression %s without a model', (message, expected) => {
+        expect(__testables.inferStructuredRetrievalFilters({ message })).toMatchObject(expected);
     });
 
     test('hosted Gemma commerce enforcement is opt-in', () => {
@@ -610,5 +652,68 @@ describe('commerceAssistantService helpers', () => {
             },
             requiresConfirmation: false,
         });
+    });
+
+    test('resolveActionPlan fails closed for a full order id not owned by the user', async () => {
+        const findOne = jest.spyOn(Order, 'findOne').mockReturnValue(createLeanQuery(null));
+        const result = await __testables.resolveActionPlan({
+            actionRequest: { type: 'cancel_order', orderId: '507f1f77bcf86cd799439011' },
+            user: { _id: 'user-1' },
+        });
+
+        expect(findOne).toHaveBeenCalledWith({
+            _id: '507f1f77bcf86cd799439011',
+            user: 'user-1',
+        });
+        expect(result).toMatchObject({
+            type: 'cancel_order',
+            orderId: '',
+            unresolved: true,
+            resolutionReason: 'order_not_found',
+        });
+        findOne.mockRestore();
+    });
+
+    test('resolveActionPlan resolves exactly one user-owned displayed order suffix', async () => {
+        const order = { _id: '507f1f77bcf86cd790abcdef', orderStatus: 'Processing', totalPrice: 2499 };
+        const find = jest.spyOn(Order, 'find').mockReturnValue(createLeanQuery([order]));
+        const findOne = jest.spyOn(Order, 'findOne').mockImplementation(() => {
+            throw new Error('latest-order fallback must not run for an explicit suffix');
+        });
+        const result = await __testables.resolveActionPlan({
+            message: 'cancel order #90ABCDEF',
+            user: { _id: 'user-1' },
+        });
+
+        expect(find).toHaveBeenCalledWith(expect.objectContaining({ user: 'user-1' }));
+        expect(findOne).not.toHaveBeenCalled();
+        expect(result).toMatchObject({
+            type: 'cancel_order',
+            orderId: order._id,
+            order,
+            unresolved: false,
+            resolutionReason: 'suffix_match',
+        });
+        find.mockRestore();
+        findOne.mockRestore();
+    });
+
+    test('resolveActionPlan rejects an ambiguous displayed order suffix', async () => {
+        const find = jest.spyOn(Order, 'find').mockReturnValue(createLeanQuery([
+            { _id: '507f1f77bcf86cd790abcdef' },
+            { _id: '607f1f77bcf86cd790abcdef' },
+        ]));
+        const result = await __testables.resolveActionPlan({
+            message: 'refund order #90ABCDEF',
+            user: { _id: 'user-1' },
+        });
+
+        expect(result).toMatchObject({
+            type: 'create_return_request',
+            orderId: '',
+            unresolved: true,
+            resolutionReason: 'ambiguous_order_reference',
+        });
+        find.mockRestore();
     });
 });
