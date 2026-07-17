@@ -28,7 +28,12 @@ if [ -n "$staging_frontend_url" ]; then
 fi
 
 node "$(node_path "$REPO_ROOT/scripts/smoke/assert-staging-contract.mjs")"
-node "$(node_path "$REPO_ROOT/scripts/smoke/staging-route-smoke.mjs")"
+if ! node "$(node_path "$REPO_ROOT/scripts/smoke/staging-route-smoke.mjs")"; then
+  if [ "${SMOKE_REQUIRE_SCANNER_READY:-false}" = "true" ]; then
+    bash "$SCRIPT_DIR/17-diagnose-scanner.sh" || true
+  fi
+  exit 1
+fi
 
 frontend_smoke="not_configured"
 frontend_mode="not_configured"

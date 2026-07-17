@@ -921,6 +921,11 @@ describe('repo environment contract scripts', () => {
 
         const verifyScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '10-verify-staging.sh'), 'utf8');
         expect(verifyScript).toMatch(/STAGING_PREFLIGHT_MODE=verify bash "\$SCRIPT_DIR\/00-preflight\.sh"/);
+        expect(verifyScript).toMatch(/17-diagnose-scanner\.sh/);
+
+        const scannerDiagnostic = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '17-diagnose-scanner.sh'), 'utf8');
+        expect(scannerDiagnostic).toMatch(/docker compose logs --tail=80 scanner/);
+        expect(scannerDiagnostic).toMatch(/backend-to-scanner PING/);
 
         const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
         expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);
@@ -972,7 +977,7 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/STAGING_SSM_PREFIX.*\/aura\/staging/);
         expect(workflow).toMatch(/PROD_SSM_PREFIX.*\/aura\/prod/);
         expect(workflow).toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_BASE_URL\s*\}\}/);
-        expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY/);
+        expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
         expect(workflow).toMatch(/cache-dependency-path:[\s\S]*?package-lock\.json[\s\S]*?app\/package-lock\.json/);
         expect(workflow).toMatch(/npm ci[\s\S]*?npm --prefix app ci/);
         expect(workflow).toMatch(/id:\s*lease-runner-ssh/);
@@ -991,6 +996,12 @@ describe('repo environment contract scripts', () => {
         expect(leaseIndex).toBeGreaterThan(-1);
         expect(deployIndex).toBeGreaterThan(leaseIndex);
         expect(revokeIndex).toBeGreaterThan(deployIndex);
+    });
+
+    test('scheduled staging operations require malware scanner readiness', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
+
+        expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
     });
 
     test('production-on-push requires manual confirmation before production dispatch', () => {
