@@ -69,7 +69,7 @@ Budgets found:
 | Budget | Limit |
 | --- | --- |
 | `aura-backend-monthly-guardrail` | `90 USD` monthly |
-| `aura-staging-monthly-budget` | `5 USD` monthly |
+| `aura-staging-monthly-budget` | `30 USD` monthly |
 
 ## Resources That May Be Paid
 

@@ -15,6 +15,7 @@ const {
 const {
     TRUSTED_DEVICE_SESSION_HEADER,
     extractTrustedDeviceContext,
+    getTrustedDeviceRegistration,
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
 const browserSessionService = require('../services/browserSessionService');
@@ -49,6 +50,9 @@ const {
 const { evaluateSensitiveActionRequest } = require('../security/sensitiveActionPolicy');
 const { recordSensitiveActionDecision } = require('../services/securityAuditService');
 const { hashSecurityValue } = require('../security/redactSecurityMetadata');
+const { hasObservedWebAuthnUserVerification } = require('../services/trustedDeviceAssuranceService');
+const { shadowCompareTrustedDeviceRequest } = require('../services/trustedDeviceV2RuntimeService');
+const { isAdminSubject } = require('../services/mfaPolicyService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -549,12 +553,36 @@ const getTrustedDeviceSessionVerification = (req = {}) => {
     return req._trustedDeviceSessionVerification;
 };
 
+const getRequestTrustedDeviceRegistration = (req = {}) => {
+    const { deviceId } = extractTrustedDeviceContext(req);
+    return getTrustedDeviceRegistration(req.user, deviceId);
+};
+
+const isAdminQualifiedWebAuthnRegistration = (user = {}, registration = null) => {
+    if (!registration) return false;
+    const method = String(
+        registration.method
+        || (registration.webauthnCredentialIdBase64Url ? 'webauthn' : '')
+    ).trim().toLowerCase();
+    if (method !== 'webauthn') return false;
+    if (!hasObservedWebAuthnUserVerification(registration)) return false;
+    if (!isAdminSubject(user)) return true;
+    return String(registration.adminEligibility || '').trim().toLowerCase() === 'verified';
+};
+
 const hasTrustedDeviceSecondFactor = (req = {}) => {
     if (!shouldRequireTrustedDevice({ user: req.user })) {
         return false;
     }
 
-    return getTrustedDeviceSessionVerification(req).success;
+    if (!getTrustedDeviceSessionVerification(req).success) {
+        return false;
+    }
+
+    return isAdminQualifiedWebAuthnRegistration(
+        req.user,
+        getRequestTrustedDeviceRegistration(req)
+    );
 };
 
 const hasSessionSecondFactor = (req = {}) => {
@@ -565,7 +593,6 @@ const hasSessionSecondFactor = (req = {}) => {
     return sessionAmr.some((entry) => (
         entry === 'firebase_mfa'
         || entry === 'webauthn'
-        || entry === 'trusted_device'
     ));
 };
 
@@ -603,17 +630,12 @@ const hasSessionPasskeyAmr = (req = {}) => {
 const hasSessionTrustedDeviceBinding = (req = {}) => {
     const requestDeviceId = String(extractTrustedDeviceContext(req)?.deviceId || '').trim();
     const sessionDeviceId = String(req.authSession?.deviceId || '').trim();
-    const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
 
     if (!requestDeviceId || !sessionDeviceId || requestDeviceId !== sessionDeviceId) {
         return false;
     }
 
-    if (sessionDeviceMethod === 'webauthn' || sessionDeviceMethod === 'browser_key') {
-        return true;
-    }
-
-    return hasSessionSecondFactor(req);
+    return getTrustedDeviceSessionVerification(req).success;
 };
 
 const hasActiveSessionStepUp = (req = {}) => {
@@ -628,7 +650,6 @@ const hasActiveSessionStepUp = (req = {}) => {
     const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
     return sessionAal === 'aal2'
         || sessionDeviceMethod === 'webauthn'
-        || sessionDeviceMethod === 'browser_key'
         || hasSessionSecondFactor(req);
 };
 
@@ -639,7 +660,7 @@ const enforceTrustedDevice = (req) => {
 
     const verification = getTrustedDeviceSessionVerification(req);
 
-    if (!verification.success && !hasSessionTrustedDeviceBinding(req)) {
+    if (!verification.success) {
         recordStepUpRequired(req, verification.reason || 'trusted_device_required');
         throw new AppError('Trusted device verification required for this account', 403);
     }
@@ -673,7 +694,7 @@ const resolveRequestSensitivity = (req = {}) => {
 const resolveRuntimeRiskStateForPosture = (req = {}) => {
     const riskState = String(
         req.authSession?.riskState
-        || (req.user?.isAdmin ? 'privileged' : req.user?.isSeller ? 'heightened' : 'standard')
+        || (isAdminSubject(req.user) ? 'privileged' : req.user?.isSeller ? 'heightened' : 'standard')
     ).trim().toLowerCase() || 'standard';
 
     if (riskState.startsWith('login_risk_') && !getLoginRuntimeEnforcementPolicy().riskEngineEnforced) {
@@ -728,7 +749,11 @@ const hasActivePasskeySessionStepUp = (req = {}) => {
 
     const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
     if (sessionDeviceMethod === 'webauthn') {
-        return hasSessionTrustedDeviceBinding(req);
+        return hasSessionTrustedDeviceBinding(req)
+            && isAdminQualifiedWebAuthnRegistration(
+                req.user,
+                getRequestTrustedDeviceRegistration(req)
+            );
     }
 
     return hasSessionPasskeyAmr(req);
@@ -751,14 +776,29 @@ const hasPasskeySecondFactor = (req = {}) => {
     }
 
     return resolveTrustedDeviceMethod(req) === 'webauthn'
-        && getTrustedDeviceSessionVerification(req).success;
+        && getTrustedDeviceSessionVerification(req).success
+        && isAdminQualifiedWebAuthnRegistration(
+            req.user,
+            getRequestTrustedDeviceRegistration(req)
+        );
 };
 
 const hasRegisteredWebAuthnCredential = (user = {}) => (
     Array.isArray(user?.trustedDevices)
     && user.trustedDevices.some((entry) => (
-        String(entry?.method || '').trim().toLowerCase() === 'webauthn'
-        || Boolean(String(entry?.webauthnCredentialIdBase64Url || '').trim())
+        !entry?.revokedAt
+        && (!entry?.expiresAt || new Date(entry.expiresAt).getTime() > Date.now())
+        && (
+            String(entry?.method || '').trim().toLowerCase() === 'webauthn'
+            || Boolean(String(entry?.webauthnCredentialIdBase64Url || '').trim())
+        )
+        && (
+            !isAdminSubject(user)
+            || (
+                String(entry?.adminEligibility || '').trim().toLowerCase() === 'verified'
+                && hasObservedWebAuthnUserVerification(entry)
+            )
+        )
     ))
 );
 
@@ -881,7 +921,6 @@ const buildRequestPosture = (req = {}, options = {}) => {
         hasOtpAssurance(req)
         || hasSessionSecondFactor(req)
         || hasTokenSecondFactor(req)
-        || trustedDeviceSessionVerified
         || req.authToken?.firebase?.sign_in_second_factor
         || (String(req.authSession?.aal || '').trim().toLowerCase() === 'aal2')
     );
@@ -1224,6 +1263,12 @@ const enforceCookieSessionCsrf = async (req, res) => {
 };
 
 const finalizeProtectedRequest = async (req, res, next) => {
+    const { deviceId } = extractTrustedDeviceContext(req);
+    await shadowCompareTrustedDeviceRequest({
+        user: req.user,
+        deviceId,
+        req,
+    });
     if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
         enforceOtpAssurance(req);
     }

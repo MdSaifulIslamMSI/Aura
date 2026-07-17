@@ -39,6 +39,7 @@ const {
     invalidateUserCacheByEmail,
 } = require('../middleware/authMiddleware');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { revokeTrustedDeviceV2ForUser } = require('../services/trustedDeviceV2RuntimeService');
 const { generatePowChallenge, verifyPowChallenge } = require('../utils/powChallenge');
 const {
     hashSecurityValue,
@@ -173,6 +174,32 @@ const resetPasswordError = (message, code, statusCode = 503) => {
     const error = new AppError(message, statusCode);
     error.code = code;
     return error;
+};
+
+const buildPasswordResetCredentialRevocation = (user, revokedAt) => {
+    const totpRemainsEnabled = Boolean(
+        user?.mfa?.totp?.enabled
+        && user?.mfa?.totp?.confirmedAt
+    );
+    const recoveryCodesRemain = Number(user?.recoveryCodeState?.activeCount || 0) > 0;
+
+    return {
+        set: {
+            'trustedDevices.$[activeDevice].revokedAt': revokedAt,
+            'trustedDevices.$[activeDevice].sessionVersion': crypto.randomBytes(16).toString('hex'),
+            'mfa.passkeys.$[activePasskey].revokedAt': revokedAt,
+            'mfa.enabled': Boolean(totpRemainsEnabled || recoveryCodesRemain),
+            'mfa.defaultMethod': totpRemainsEnabled ? 'totp' : '',
+            'mfa.lastMfaAt': null,
+            'mfa.lastMfaMethod': '',
+        },
+        options: {
+            arrayFilters: [
+                { 'activeDevice.revokedAt': null },
+                { 'activePasskey.revokedAt': null },
+            ],
+        },
+    };
 };
 
 const buildOtpFlowSignalBond = ({ req = {}, session = null, purpose = '' } = {}) => {
@@ -1777,7 +1804,7 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
     const inspectedFlow = inspectOtpFlowToken(flowToken);
 
     const user = await User.findById(inspectedFlow.sub)
-        .select('name email phone avatar gender dob bio isAdmin isVerified trustedDevices +resetOtpVerifiedAt')
+        .select('name email phone avatar gender dob bio isAdmin isVerified trustedDevices recoveryCodeState mfa +resetOtpVerifiedAt +mfa.passkeys.credentialId')
         .lean();
 
     const email = normalizeEmail(user?.email || '');
@@ -1970,19 +1997,42 @@ const resetPasswordWithOtp = asyncHandler(async (req, res, next) => {
 
     let userRevocationMarkerPersisted = false;
     try {
+        const credentialRevocation = buildPasswordResetCredentialRevocation(
+            user,
+            authTokensRevokedAfter
+        );
         await User.updateOne(
             { _id: user._id },
             {
                 $set: {
+                    ...credentialRevocation.set,
                     resetOtpVerifiedAt: null,
                     authAssurance: 'password',
                     authAssuranceAt: authTokensRevokedAfter,
                     authAssuranceAuthTime: null,
                     authTokensRevokedAfter,
                 },
-            }
+            },
+            credentialRevocation.options
         );
+        await revokeTrustedDeviceV2ForUser({
+            user,
+            revokedAt: authTokensRevokedAfter,
+            reasonCode: 'password_reset',
+        });
         userRevocationMarkerPersisted = true;
+        recordAuthSecurityEvent({
+            event: 'trusted_device.recovery_revoked',
+            outcome: 'success',
+            reason: 'password_reset',
+            surface: 'recovery',
+            req,
+            meta: {
+                activeDevices: Array.isArray(user?.trustedDevices)
+                    ? user.trustedDevices.filter((device) => !device?.revokedAt).length
+                    : 0,
+            },
+        });
     } catch (error) {
         sessionCleanupPending = true;
         logger.error('otp.reset_password_user_revocation_marker_failed', {

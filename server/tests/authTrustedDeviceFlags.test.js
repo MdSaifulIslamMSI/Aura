@@ -104,4 +104,16 @@ describe('authTrustedDeviceFlags', () => {
             },
         ]);
     });
+
+    test('requires the admin trusted-device gate for role-only admin subjects', () => {
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
+        const { shouldRequireTrustedDevice } = loadFlags();
+
+        expect(shouldRequireTrustedDevice({
+            user: { isAdmin: false, adminRoles: ['SECURITY_ADMIN'] },
+        })).toBe(true);
+        expect(shouldRequireTrustedDevice({
+            user: { isAdmin: false, adminRoles: [] },
+        })).toBe(false);
+    });
 });

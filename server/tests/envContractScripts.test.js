@@ -1047,6 +1047,18 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('reject_overlapping_lane gateway "${INPUT_DEPLOY_GATEWAY}" "${INPUT_ROLLBACK_GATEWAY}"');
     });
 
+    test('manual production deploys require main and same-SHA release safety gates', () => {
+        const production = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+        const releaseGates = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'giant-release-gates.yml'), 'utf8');
+
+        expect(production).toContain('Production actions must be dispatched from the main branch');
+        expect(production).toContain('uses: ./.github/workflows/giant-release-gates.yml');
+        expect(production).toContain("needs.release-safety-gates.result == 'success'");
+        expect(production).toContain('STAGING_AWS_DEPLOY_ROLE_ARN: ${{ secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}');
+        expect(production).not.toContain('secrets: inherit');
+        expect(releaseGates).toMatch(/workflow_call:\s*\n\s*secrets:/);
+    });
+
     test('multi-host deploy rolls back every provider whose mutation was attempted', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
 
@@ -1614,9 +1626,16 @@ describe('repo environment contract scripts', () => {
         expect(productionGate).toContain('cost-guard');
 
         const costGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'aws', 'assert-free-tier-cost-guard.mjs'), 'utf8');
+        const costGuardConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, 'config', 'aws-free-guard.json'), 'utf8'));
         const observabilityGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'aws', 'assert-observability-guard.mjs'), 'utf8');
         const branchProtectionGuard = fs.readFileSync(path.join(repoRoot, 'scripts', 'github', 'assert-main-protection.mjs'), 'utf8');
         expect(costGuard).toContain("emitEvidence('blocked')");
+        expect(costGuard).toContain("'budgets', 'describe-budget'");
+        expect(costGuard).toContain('forecast is unavailable');
+        expect(costGuardConfig.requiredBudgets).toEqual(expect.arrayContaining([
+            expect.objectContaining({ name: 'aura-staging-monthly-budget', maxMonthlyUsd: 30 }),
+            expect.objectContaining({ name: 'aura-backend-monthly-guardrail', maxMonthlyUsd: 90 }),
+        ]));
         expect(observabilityGuard).toContain("emitEvidence('blocked')");
         expect(branchProtectionGuard).toContain("'aws:observability:guard'");
         expect(branchProtectionGuard).toContain('dismiss_stale_reviews');
@@ -1694,14 +1713,21 @@ describe('repo environment contract scripts', () => {
 
     test('free-tier AWS guard config blocks expensive services by default', () => {
         const guard = JSON.parse(fs.readFileSync(path.join(repoRoot, 'config', 'aws-free-guard.json'), 'utf8'));
+        const budgetScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '01-create-budget.sh'), 'utf8');
 
         expect(guard.region).toBe('ap-south-1');
-        expect(guard.maxMonthlyUsd).toBeLessThanOrEqual(5);
+        expect(guard.maxMonthlyUsd).toBeLessThanOrEqual(30);
+        expect(guard.requiredBudgets).toContainEqual({
+            name: 'aura-staging-monthly-budget',
+            maxMonthlyUsd: 30,
+        });
         expect(guard.allowNatGateway).toBe(false);
         expect(guard.allowLoadBalancer).toBe(false);
         expect(guard.allowPaidRds).toBe(false);
         expect(guard.allowPaidElasticache).toBe(false);
         expect(guard.allowOpenSearch).toBe(false);
         expect(guard.requiredSsmPrefixes).toEqual(expect.arrayContaining(['/aura/staging', '/aura/prod']));
+        expect(budgetScript).toContain('"NotificationType": "FORECASTED"');
+        expect(budgetScript).toContain('--subscribers "$(aws_file_uri "$subscribers_file")"');
     });
 });

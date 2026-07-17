@@ -371,15 +371,16 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
     && status === 'device_challenge_required'
     && Boolean(deviceChallenge)
     && import.meta.env.MODE !== 'test';
+  const shouldLockTrustedGate = shouldRenderTrustedGate && isBlockingRoute;
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
 
-    document.body.classList.toggle('aura-trusted-gate-open', shouldRenderTrustedGate);
+    document.body.classList.toggle('aura-trusted-gate-open', shouldLockTrustedGate);
     return () => {
       document.body.classList.remove('aura-trusted-gate-open');
     };
-  }, [shouldRenderTrustedGate]);
+  }, [shouldLockTrustedGate]);
 
   const activeMethod = normalizeTrustedDeviceMethod(selectedMethod) || defaultSelectedMethod;
   const selectedMethodSupported = activeMethod === 'webauthn'
@@ -491,7 +492,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
   };
 
   useEffect(() => {
-    if (!shouldRenderTrustedGate || typeof document === 'undefined') {
+    if (!shouldLockTrustedGate || typeof document === 'undefined') {
       return undefined;
     }
 
@@ -514,7 +515,6 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
       const dialog = dialogRef.current;
       const focusableElements = getTrustedDeviceFocusableElements(dialog);
       if (!dialog || !focusableElements.length) {
-        event.preventDefault();
         return;
       }
 
@@ -549,7 +549,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
         previouslyFocusedElement.focus({ preventScroll: true });
       }
     };
-  }, [deviceChallenge?.token, shouldRenderTrustedGate]);
+  }, [deviceChallenge?.token, shouldLockTrustedGate]);
 
   if (!shouldRenderTrustedGate) {
     return null;
@@ -576,7 +576,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
           </span>
           <span className="aura-floating-utility__copy min-w-0">
             <span className="aura-floating-utility__eyebrow block text-[11px] font-black uppercase tracking-[0.18em]"><FormattedMessage id="auth.jsx.text.trust.checkpoint" defaultMessage="Trust Checkpoint" /></span>
-            <span className="aura-floating-utility__title block truncate text-sm font-semibold"><FormattedMessage id="auth.jsx.text.verify.once.to.unlock.admin.actions" defaultMessage="Verify once to unlock admin actions" /></span>
+            <span className="aura-floating-utility__title block truncate text-sm font-semibold"><FormattedMessage id="auth.trustedDevice.publicCheckpoint.title" defaultMessage="Verify this browser to continue securely" /></span>
             <span className="aura-floating-utility__detail mt-0.5 block truncate text-xs">
               {selectedMethodLabel}
             </span>
@@ -681,6 +681,36 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
       setIsWorking(false);
     }
   };
+
+  const passwordReauthPrompt = requiresPasswordReauth ? (
+    <div className="rounded-[1.1rem] border border-cyan-300/20 bg-cyan-300/10 p-3">
+      <label htmlFor="trusted-device-reauth-password" className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
+        <FormattedMessage id="auth.trustedDevice.reauth.passwordLabel" defaultMessage="Account password" />
+      </label>
+      <input
+        id="trusted-device-reauth-password"
+        ref={passwordInputRef}
+        type="password"
+        value={reauthPassword}
+        onChange={(event) => {
+          setReauthPassword(event.target.value);
+          if (errorMessage) setErrorMessage('');
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            handleVerify();
+          }
+        }}
+        autoComplete="current-password"
+        disabled={isWorking || isResetting}
+        className="mt-2 w-full rounded-[0.9rem] border border-white/10 bg-slate-950/70 px-3 py-3 text-sm font-semibold text-white outline-none transition-colors placeholder:text-slate-500 focus:border-cyan-300/70"
+      />
+      <p className="mt-2 text-xs leading-5 text-cyan-50/80">
+        <FormattedMessage id="auth.trustedDevice.reauth.passwordHint" defaultMessage="Fresh sign-in is required before this device can register a passkey." />
+      </p>
+    </div>
+  ) : null;
 
   const handleResetBrowserIdentity = async () => {
     setIsResetting(true);
@@ -935,35 +965,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                     </div>
                   ) : null}
 
-                  {requiresPasswordReauth ? (
-                    <div className="rounded-[1.1rem] border border-cyan-300/20 bg-cyan-300/10 p-3">
-                      <label htmlFor="trusted-device-reauth-password" className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
-                        <FormattedMessage id="auth.trustedDevice.reauth.passwordLabel" defaultMessage="Account password" />
-                      </label>
-                      <input
-                        id="trusted-device-reauth-password"
-                        ref={passwordInputRef}
-                        type="password"
-                        value={reauthPassword}
-                        onChange={(event) => {
-                          setReauthPassword(event.target.value);
-                          if (errorMessage) setErrorMessage('');
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault();
-                            handleVerify();
-                          }
-                        }}
-                        autoComplete="current-password"
-                        disabled={isWorking || isResetting}
-                        className="mt-2 w-full rounded-[0.9rem] border border-white/10 bg-slate-950/70 px-3 py-3 text-sm font-semibold text-white outline-none transition-colors placeholder:text-slate-500 focus:border-cyan-300/70"
-                      />
-                      <p className="mt-2 text-xs leading-5 text-cyan-50/80">
-                        <FormattedMessage id="auth.trustedDevice.reauth.passwordHint" defaultMessage="Fresh sign-in is required before this device can register a passkey." />
-                      </p>
-                    </div>
-                  ) : null}
+                  {passwordReauthPrompt}
 
                   {errorMessage ? (
                     <div className="rounded-[1.1rem] border border-rose-300/20 bg-rose-300/10 p-3 text-sm leading-6 text-rose-100" role="alert">
@@ -1222,6 +1224,8 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
                       )}
                   </div>
                 ) : null}
+
+                {passwordReauthPrompt}
 
                 {errorMessage ? (
                   <div className="rounded-[1.5rem] border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100" role="alert">

@@ -124,3 +124,10 @@ set `parent_holds_production_lock=true` only when the command center or the
 multi-host parent already owns the lock; standalone calls leave it false.
 Preview runs retain cancel-on-new-run behavior and never share the production
 lock.
+
+Deploy and release targets must be dispatched from `main`. Before the
+production environment approval can open, the command center calls
+`giant-release-gates.yml` for the exact caller SHA and requires its staging
+smoke, environment contract, cost, observability, rollback-readiness,
+reliability, and SRE jobs to pass. Rollback-only dispatches remain available
+without deploy-only staging gates so incident recovery is not blocked.

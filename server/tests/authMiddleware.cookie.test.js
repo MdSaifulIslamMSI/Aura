@@ -656,7 +656,7 @@ describe('authMiddleware cookie session authentication', () => {
         expect(touchBrowserSession).toHaveBeenCalledTimes(1);
     }, 30000);
 
-    test('protect accepts a stepped-up browser session for the same device when trusted device mode is always', async () => {
+    test('protect requires signed trusted-device proof for a same-device browser session when mode is always', async () => {
         let protect;
         const nowSeconds = Math.floor(Date.now() / 1000);
         const touchedSession = {
@@ -718,7 +718,11 @@ describe('authMiddleware cookie session authentication', () => {
             jest.doMock('../services/trustedDeviceChallengeService', () => ({
                 TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
                 extractTrustedDeviceContext: jest.fn().mockReturnValue({ deviceId: 'device-cookie-2', deviceLabel: 'Cookie Browser' }),
-                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+                verifyTrustedDeviceSession: jest.fn(({ deviceId = '', deviceSessionToken = '' } = {}) => (
+                    deviceId === 'device-cookie-2' && deviceSessionToken === 'signed-device-session-2'
+                        ? { success: true }
+                        : { success: false, reason: 'Trusted device verification invalid' }
+                )),
             }));
             jest.doMock('../config/authTrustedDeviceFlags', () => ({
                 flags: { authDeviceChallengeMode: 'always' },
@@ -728,22 +732,38 @@ describe('authMiddleware cookie session authentication', () => {
             protect = require('../middleware/authMiddleware').protect;
         });
 
-        const req = {
+        const unprovedReq = {
             headers: {
                 cookie: 'aura_sid=session-cookie-2',
             },
             get: () => '',
         };
-        const next = jest.fn();
+        const unprovedNext = jest.fn();
 
-        await protect(req, {}, next);
+        await protect(unprovedReq, {}, unprovedNext);
 
-        expect(req.authSession).toMatchObject({
+        expect(unprovedNext).toHaveBeenCalledWith(expect.objectContaining({
+            statusCode: 403,
+            message: 'Trusted device verification required for this account',
+        }));
+
+        const provedReq = {
+            headers: {
+                cookie: 'aura_sid=session-cookie-2',
+                'x-aura-device-session': 'signed-device-session-2',
+            },
+            get: (name) => name === 'x-aura-device-session' ? 'signed-device-session-2' : '',
+        };
+        const provedNext = jest.fn();
+
+        await protect(provedReq, {}, provedNext);
+
+        expect(provedReq.authSession).toMatchObject({
             sessionId: 'session-cookie-2',
             deviceId: 'device-cookie-2',
             deviceMethod: 'browser_key',
         });
-        expect(next).toHaveBeenCalledWith();
+        expect(provedNext).toHaveBeenCalledWith();
     });
 
     test('protect ignores a mismatched browser session cookie when bearer auth is fresh', async () => {

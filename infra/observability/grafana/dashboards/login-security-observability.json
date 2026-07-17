@@ -908,6 +908,94 @@
       ],
       "title": "Upload Malware And Scan Failures",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull", "min"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "asc" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (audience, method) (rate(aura_auth_security_events_total{event=\"trusted_device_verify\",outcome=\"success\"}[$__rate_interval])) / clamp_min(sum by (audience, method) (rate(aura_auth_security_events_total{event=\"trusted_device_verify\"}[$__rate_interval])), 0.001)",
+          "legendFormat": "{{audience}} / {{method}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Trusted Device Verification Success Ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (event, audience, outcome) (increase(aura_auth_security_events_total{event=~\"trusted_device[.]renamed|trusted_device[.]revoked|trusted_device[.]others_revoked|trusted_device_v2_shadow_compare|trusted_device_v2_dual_write|trusted_device_v2_metadata_write|trusted_device_v2_bulk_revoke\"}[$__range]))",
+          "legendFormat": "{{event}} / {{audience}} / {{outcome}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Trusted Device Lifecycle And V2 Drift",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",

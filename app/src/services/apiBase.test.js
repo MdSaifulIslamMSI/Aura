@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiFetch, requestWithTrace } from './apiBase';
+import { apiFetch, createResponseError, requestWithTrace } from './apiBase';
 import { resetActiveMarketHeaders, setActiveMarketHeaders } from './marketRuntime';
 import { ADMIN_ACCESS_LOCK_EVENT } from '../utils/adminAccessLock';
 
@@ -85,6 +85,101 @@ describe('apiFetch observability', () => {
             serverRequestId: 'srv-failure',
             requestId: expect.stringMatching(/^req-/),
         });
+    });
+
+    it('preserves bounded auth and device challenge fields on response errors', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(JSON.stringify({
+                code: 'STEP_UP_REQUIRED',
+                feature: 'trusted-device',
+                requiresMfa: true,
+                requiresStepUpMfa: true,
+                requiresPasswordReauth: true,
+                step_up_required: true,
+                deviceChallenge: { mode: 'assert', availableMethods: ['webauthn'] },
+                mfaChallenge: { challengeId: 'challenge-id', allowedMethods: ['totp'] },
+                mfaPolicy: { required: true },
+                policy: { action: 'admin-sensitive' },
+                internalDetail: 'remains available only through data',
+            }), {
+                status: 403,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        );
+
+        const error = await apiFetch('/admin/sensitive-action', { retries: 0 }).catch((caught) => caught);
+
+        expect(error).toMatchObject({
+            status: 403,
+            code: 'STEP_UP_REQUIRED',
+            feature: 'trusted-device',
+            requiresMfa: true,
+            requiresStepUpMfa: true,
+            requiresPasswordReauth: true,
+            step_up_required: true,
+            deviceChallenge: { mode: 'assert', availableMethods: ['webauthn'] },
+            mfaChallenge: { challengeId: 'challenge-id', allowedMethods: ['totp'] },
+            mfaPolicy: { required: true },
+            policy: { action: 'admin-sensitive' },
+        });
+        expect(error).not.toHaveProperty('internalDetail');
+        expect(error.data.internalDetail).toBe('remains available only through data');
+    });
+
+    it('normalizes Retry-After delta seconds and prefers the response header', async () => {
+        const error = await createResponseError(
+            new Response(JSON.stringify({ retryAfter: 30 }), {
+                status: 429,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Retry-After': '120',
+                },
+            })
+        );
+
+        expect(error.retryAfterSeconds).toBe(120);
+    });
+
+    it('safely handles Retry-After dates, body fallback, caps, and malformed values', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-07-17T12:00:00.000Z'));
+
+        try {
+            const datedError = await createResponseError(
+                new Response('', {
+                    status: 429,
+                    headers: { 'Retry-After': 'Fri, 17 Jul 2026 12:01:30 GMT' },
+                })
+            );
+            const fallbackError = await createResponseError(
+                new Response(JSON.stringify({ retryAfter: 45 }), {
+                    status: 429,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Retry-After': 'not-a-retry-date',
+                    },
+                })
+            );
+            const cappedError = await createResponseError(
+                new Response('', {
+                    status: 429,
+                    headers: { 'Retry-After': '999999999999' },
+                })
+            );
+            const malformedError = await createResponseError(
+                new Response('', {
+                    status: 429,
+                    headers: { 'Retry-After': '-10' },
+                })
+            );
+
+            expect(datedError.retryAfterSeconds).toBe(90);
+            expect(fallbackError.retryAfterSeconds).toBe(45);
+            expect(cappedError.retryAfterSeconds).toBe(86400);
+            expect(malformedError).not.toHaveProperty('retryAfterSeconds');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('emits one admin access lock event for allowlist lock responses', async () => {

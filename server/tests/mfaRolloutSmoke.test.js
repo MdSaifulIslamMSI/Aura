@@ -89,6 +89,9 @@ const buildAdminStepUpApp = () => {
             trustedDevices: [{
                 method: 'webauthn',
                 webauthnCredentialIdBase64Url: 'credential-admin-1',
+                webauthnUserVerified: true,
+                credentialScope: 'admin',
+                adminEligibility: 'verified',
             }],
             mfa: {
                 enabled: true,

@@ -16,6 +16,8 @@ const {
     verifyWebAuthnAssertion,
     verifyWebAuthnRegistration,
 } = require('./webauthnTrustedDeviceService');
+const { mirrorVerifiedTrustedDevice } = require('./trustedDeviceV2RuntimeService');
+const { isAdminSubject } = require('./mfaPolicyService');
 
 const TRUSTED_DEVICE_ID_HEADER = 'x-aura-device-id';
 const TRUSTED_DEVICE_LABEL_HEADER = 'x-aura-device-label';
@@ -26,6 +28,15 @@ const DEVICE_SESSION_TTL_MS = Math.max(Number(process.env.AUTH_DEVICE_SESSION_TT
 
 const TOKEN_KEY_DERIVATION_SALT = 'aura-trusted-device-token';
 const BROWSER_KEY_METHOD = 'browser_key';
+const TRUSTED_DEVICE_CREDENTIAL_SCOPES = Object.freeze(['recognition', 'mfa', 'admin']);
+const TRUSTED_DEVICE_ENROLLMENT_CONTEXTS = Object.freeze([
+    'device_recognition',
+    'mfa_registration',
+    'legacy_admin_snapshot',
+    'admin_step_up',
+    'operator_bootstrap',
+]);
+const TRUSTED_DEVICE_ADMIN_ELIGIBILITY = Object.freeze(['none', 'legacy_candidate', 'verified']);
 const CHALLENGE_REPLAY_PREFIX = `${redisFlags.redisPrefix}:trusted-device:challenge-used:`;
 
 const consumedChallengeMemoryStore = new Map();
@@ -303,11 +314,58 @@ const normalizeChallengeMethod = (value) => {
     return BROWSER_KEY_METHOD;
 };
 
+const normalizeCredentialScope = (value, fallback = 'recognition') => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return TRUSTED_DEVICE_CREDENTIAL_SCOPES.includes(normalized) ? normalized : fallback;
+};
+
+const normalizeEnrollmentContext = (value, fallback = 'device_recognition') => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return TRUSTED_DEVICE_ENROLLMENT_CONTEXTS.includes(normalized) ? normalized : fallback;
+};
+
+const normalizeAdminEligibility = (value, fallback = 'none') => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return TRUSTED_DEVICE_ADMIN_ELIGIBILITY.includes(normalized) ? normalized : fallback;
+};
+
+const resolveHigherCredentialScope = (left = 'recognition', right = 'recognition') => {
+    const scopeRank = { recognition: 0, mfa: 1, admin: 2 };
+    const normalizedLeft = normalizeCredentialScope(left);
+    const normalizedRight = normalizeCredentialScope(right);
+    return scopeRank[normalizedRight] > scopeRank[normalizedLeft] ? normalizedRight : normalizedLeft;
+};
+
+const resolveHigherAdminEligibility = (left = 'none', right = 'none') => {
+    const eligibilityRank = { none: 0, legacy_candidate: 1, verified: 2 };
+    const normalizedLeft = normalizeAdminEligibility(left);
+    const normalizedRight = normalizeAdminEligibility(right);
+    return eligibilityRank[normalizedRight] > eligibilityRank[normalizedLeft]
+        ? normalizedRight
+        : normalizedLeft;
+};
+
+const resolveHigherEnrollmentContext = (left = 'device_recognition', right = 'device_recognition') => {
+    const contextRank = {
+        device_recognition: 0,
+        mfa_registration: 1,
+        legacy_admin_snapshot: 2,
+        admin_step_up: 3,
+        operator_bootstrap: 4,
+    };
+    const normalizedLeft = normalizeEnrollmentContext(left);
+    const normalizedRight = normalizeEnrollmentContext(right);
+    return contextRank[normalizedRight] > contextRank[normalizedLeft]
+        ? normalizedRight
+        : normalizedLeft;
+};
+
 const issueTrustedDeviceSession = ({
     user,
     authUid = '',
     authToken = null,
     deviceId = '',
+    sessionVersion = '',
 } = {}) => {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     const expiresAt = Date.now() + DEVICE_SESSION_TTL_MS;
@@ -317,6 +375,7 @@ const issueTrustedDeviceSession = ({
             typ: 'trusted_device_session',
             sub: String(user?._id || ''),
             deviceId: normalizedDeviceId,
+            sessionVersion: String(sessionVersion || '').trim(),
             sessionBinding: buildSessionBinding({ authUid, authToken }),
             exp: expiresAt,
         }),
@@ -351,6 +410,26 @@ const verifyTrustedDeviceSession = ({
             return { success: false, reason: 'Trusted device session binding mismatch' };
         }
 
+        const registration = getTrustedDeviceRegistration(user, normalizedDeviceId, { includeInactive: true });
+        if (!registration) {
+            return { success: false, reason: 'Trusted device registration missing' };
+        }
+        if (registration.revokedAt) {
+            return { success: false, reason: 'Trusted device registration revoked' };
+        }
+        const registrationExpiry = registration.expiresAt ? new Date(registration.expiresAt).getTime() : 0;
+        if (Number.isFinite(registrationExpiry) && registrationExpiry > 0 && registrationExpiry <= Date.now()) {
+            return { success: false, reason: 'Trusted device registration expired' };
+        }
+        const payloadSessionVersion = String(payload?.sessionVersion || '').trim();
+        const registrationSessionVersion = String(registration?.sessionVersion || '').trim();
+        if (
+            (payloadSessionVersion || registrationSessionVersion)
+            && payloadSessionVersion !== registrationSessionVersion
+        ) {
+            return { success: false, reason: 'Trusted device session superseded' };
+        }
+
         return { success: true };
     } catch {
         return { success: false, reason: 'Trusted device session invalid' };
@@ -377,6 +456,26 @@ const verifyTrustedDeviceBootstrapSession = ({
         }
         if (Date.now() > Number(payload?.exp || 0)) {
             return { success: false, reason: 'Trusted device session expired' };
+        }
+
+        const registration = getTrustedDeviceRegistration(user, normalizedDeviceId, { includeInactive: true });
+        if (!registration) {
+            return { success: false, reason: 'Trusted device registration missing' };
+        }
+        if (registration.revokedAt) {
+            return { success: false, reason: 'Trusted device registration revoked' };
+        }
+        const registrationExpiry = registration.expiresAt ? new Date(registration.expiresAt).getTime() : 0;
+        if (Number.isFinite(registrationExpiry) && registrationExpiry > 0 && registrationExpiry <= Date.now()) {
+            return { success: false, reason: 'Trusted device registration expired' };
+        }
+        const payloadSessionVersion = String(payload?.sessionVersion || '').trim();
+        const registrationSessionVersion = String(registration?.sessionVersion || '').trim();
+        if (
+            (payloadSessionVersion || registrationSessionVersion)
+            && payloadSessionVersion !== registrationSessionVersion
+        ) {
+            return { success: false, reason: 'Trusted device session superseded' };
         }
 
         return {
@@ -587,24 +686,49 @@ const sanitizeTrustedDevice = (device = {}) => ({
     webauthnTransports: normalizeTransports(device.webauthnTransports),
     webauthnCounter: Number(device.webauthnCounter || 0),
     webauthnUserVerification: String(device.webauthnUserVerification || ''),
+    webauthnUserVerified: device.webauthnUserVerified === true,
+    webauthnUserVerifiedAt: device.webauthnUserVerifiedAt
+        ? new Date(device.webauthnUserVerifiedAt).toISOString()
+        : null,
     webauthnAaguid: String(device.webauthnAaguid || ''),
+    webauthnBackupEligible: Boolean(device.webauthnBackupEligible),
+    webauthnBackedUp: Boolean(device.webauthnBackedUp),
+    webauthnBackupStateObservedAt: device.webauthnBackupStateObservedAt
+        ? new Date(device.webauthnBackupStateObservedAt).toISOString()
+        : null,
+    credentialScope: normalizeCredentialScope(device.credentialScope),
+    enrollmentContext: normalizeEnrollmentContext(device.enrollmentContext),
+    adminEligibility: normalizeAdminEligibility(device.adminEligibility),
+    adminEligibleAt: device.adminEligibleAt ? new Date(device.adminEligibleAt).toISOString() : null,
     createdAt: device.createdAt ? new Date(device.createdAt).toISOString() : null,
     lastSeenAt: device.lastSeenAt ? new Date(device.lastSeenAt).toISOString() : null,
     lastVerifiedAt: device.lastVerifiedAt ? new Date(device.lastVerifiedAt).toISOString() : null,
 });
 
-const getTrustedDeviceRegistration = (user = null, deviceId = '') => {
+function isTrustedDeviceRegistrationActive(device = null, now = Date.now()) {
+    if (!device || device.revokedAt) return false;
+    const expiresAt = device.expiresAt ? new Date(device.expiresAt).getTime() : 0;
+    return !Number.isFinite(expiresAt) || expiresAt <= 0 || expiresAt > now;
+}
+
+function getTrustedDeviceRegistration(user = null, deviceId = '', { includeInactive = false } = {}) {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     if (!user || !normalizedDeviceId || !Array.isArray(user.trustedDevices)) {
         return null;
     }
 
-    return user.trustedDevices.find((entry) => normalizeDeviceId(entry?.deviceId) === normalizedDeviceId) || null;
-};
+    return user.trustedDevices.find((entry) => (
+        normalizeDeviceId(entry?.deviceId) === normalizedDeviceId
+        && (includeInactive || isTrustedDeviceRegistrationActive(entry))
+    )) || null;
+}
 
 const hasPasskeyTrustedDevice = (user = null) => (
     Array.isArray(user?.trustedDevices)
-    && user.trustedDevices.some((entry) => getTrustedDeviceMethod(entry) === PASSKEY_METHOD)
+    && user.trustedDevices.some((entry) => (
+        isTrustedDeviceRegistrationActive(entry)
+        && getTrustedDeviceMethod(entry) === PASSKEY_METHOD
+    ))
 );
 
 const isTrustedDeviceRegisteredForUser = (user = null, deviceId = '') => Boolean(
@@ -623,8 +747,16 @@ const upsertTrustedDevice = async ({
     webauthnTransports = [],
     webauthnCounter = 0,
     webauthnUserVerification = '',
+    webauthnUserVerified = false,
+    webauthnUserVerifiedAt = null,
     webauthnAaguid = '',
+    webauthnBackupEligible = false,
+    webauthnBackedUp = false,
+    webauthnBackupStateObservedAt = null,
     authenticatorAttachment = '',
+    credentialScope = 'recognition',
+    enrollmentContext = 'device_recognition',
+    adminEligibility = 'none',
 }) => {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     const normalizedLabel = normalizeDeviceLabel(deviceLabel) || 'Trusted browser';
@@ -632,19 +764,92 @@ const upsertTrustedDevice = async ({
     const normalizedMethod = normalizeChallengeMethod(method);
     const now = new Date();
 
-    const user = await User.findById(userId, 'trustedDevices').lean();
+    const user = await User.findById(
+        userId,
+        'trustedDevices isAdmin adminRoles authUid email __v'
+    ).lean();
+    if (!user) {
+        throw new Error('Trusted device user not found');
+    }
     const currentDevices = Array.isArray(user?.trustedDevices) ? [...user.trustedDevices] : [];
     const existingIndex = currentDevices.findIndex((entry) => normalizeDeviceId(entry?.deviceId) === normalizedDeviceId);
     const existingDevice = existingIndex >= 0 ? currentDevices[existingIndex] : null;
+    const replacingRegistration = replaceExistingKey || !isTrustedDeviceRegistrationActive(existingDevice);
+    const requestedCredentialScope = normalizedMethod === PASSKEY_METHOD
+        ? normalizeCredentialScope(credentialScope)
+        : 'recognition';
+    const requestedAdminEligibility = normalizedMethod === PASSKEY_METHOD
+        ? normalizeAdminEligibility(adminEligibility)
+        : 'none';
+    const observedUserVerification = normalizedMethod === PASSKEY_METHOD
+        && webauthnUserVerified === true;
+    if (
+        normalizedMethod === PASSKEY_METHOD
+        && !observedUserVerification
+        && (requestedCredentialScope !== 'recognition' || requestedAdminEligibility !== 'none')
+    ) {
+        throw new Error('Observed WebAuthn user verification is required for MFA or admin enrollment');
+    }
+    if (
+        requestedAdminEligibility === 'verified'
+        && (
+            requestedCredentialScope !== 'admin'
+            || !observedUserVerification
+            || String(webauthnUserVerification || '').trim().toLowerCase() !== 'required'
+        )
+    ) {
+        throw new Error('Admin passkeys require observed WebAuthn user verification');
+    }
+    const nextCredentialScope = replacingRegistration
+        ? requestedCredentialScope
+        : resolveHigherCredentialScope(existingDevice?.credentialScope, requestedCredentialScope);
+    const nextAdminEligibility = replacingRegistration
+        ? requestedAdminEligibility
+        : resolveHigherAdminEligibility(existingDevice?.adminEligibility, requestedAdminEligibility);
+    const nextEnrollmentContext = replacingRegistration
+        ? normalizeEnrollmentContext(enrollmentContext)
+        : resolveHigherEnrollmentContext(existingDevice?.enrollmentContext, enrollmentContext);
+    if (
+        normalizedMethod === PASSKEY_METHOD
+        && !observedUserVerification
+        && (nextCredentialScope !== 'recognition' || nextAdminEligibility !== 'none')
+    ) {
+        throw new Error('Observed WebAuthn user verification is required to retain MFA or admin assurance');
+    }
+    if (
+        nextAdminEligibility === 'verified'
+        && (
+            nextCredentialScope !== 'admin'
+            || !observedUserVerification
+            || String(webauthnUserVerification || '').trim().toLowerCase() !== 'required'
+        )
+    ) {
+        throw new Error('Admin passkeys require observed WebAuthn user verification');
+    }
+    const assuranceUpgraded = Boolean(
+        existingDevice
+        && (
+            nextCredentialScope !== normalizeCredentialScope(existingDevice.credentialScope)
+            || nextAdminEligibility !== normalizeAdminEligibility(existingDevice.adminEligibility)
+        )
+    );
+    const sessionVersion = !replacingRegistration && !assuranceUpgraded && existingDevice?.sessionVersion
+        ? String(existingDevice.sessionVersion)
+        : crypto.randomBytes(16).toString('hex');
 
     const nextRecord = {
         deviceId: normalizedDeviceId,
+        deviceIdHash: String(existingDevice?.deviceIdHash || ''),
+        userAgentHash: String(existingDevice?.userAgentHash || ''),
         label: normalizedLabel,
         method: normalizedMethod,
         algorithm,
-        createdAt: existingDevice?.createdAt || now,
+        createdAt: replacingRegistration ? now : (existingDevice?.createdAt || now),
         lastSeenAt: now,
         lastVerifiedAt: now,
+        sessionVersion,
+        expiresAt: replacingRegistration ? null : (existingDevice?.expiresAt || null),
+        revokedAt: null,
         publicKeySpkiBase64: replaceExistingKey || existingIndex < 0
             ? normalizedPublicKey
             : String(existingDevice?.publicKeySpkiBase64 || normalizedPublicKey),
@@ -660,12 +865,40 @@ const upsertTrustedDevice = async ({
         webauthnUserVerification: normalizedMethod === PASSKEY_METHOD
             ? String(webauthnUserVerification || existingDevice?.webauthnUserVerification || 'required')
             : '',
+        webauthnUserVerified: normalizedMethod === PASSKEY_METHOD
+            ? observedUserVerification
+            : null,
+        webauthnUserVerifiedAt: normalizedMethod === PASSKEY_METHOD && observedUserVerification
+            ? (webauthnUserVerifiedAt || now)
+            : null,
         webauthnAaguid: normalizedMethod === PASSKEY_METHOD
             ? String(webauthnAaguid || existingDevice?.webauthnAaguid || '')
             : '',
+        webauthnBackupEligible: normalizedMethod === PASSKEY_METHOD
+            ? (webauthnBackupStateObservedAt
+                ? Boolean(webauthnBackupEligible)
+                : Boolean(existingDevice?.webauthnBackupEligible))
+            : false,
+        webauthnBackedUp: normalizedMethod === PASSKEY_METHOD
+            ? (webauthnBackupStateObservedAt
+                ? Boolean(webauthnBackedUp)
+                : Boolean(existingDevice?.webauthnBackedUp))
+            : false,
+        webauthnBackupStateObservedAt: normalizedMethod === PASSKEY_METHOD
+            ? (webauthnBackupStateObservedAt || existingDevice?.webauthnBackupStateObservedAt || null)
+            : null,
         authenticatorAttachment: normalizedMethod === PASSKEY_METHOD
             ? String(authenticatorAttachment || existingDevice?.authenticatorAttachment || '')
             : '',
+        credentialScope: nextCredentialScope,
+        enrollmentContext: nextEnrollmentContext,
+        adminEligibility: nextAdminEligibility,
+        adminEligibleAt: nextAdminEligibility === 'verified'
+            ? (existingDevice?.adminEligibleAt || now)
+            : null,
+        legacyAdminCandidateAt: nextAdminEligibility === 'legacy_candidate'
+            ? (existingDevice?.legacyAdminCandidateAt || now)
+            : (existingDevice?.legacyAdminCandidateAt || null),
     };
 
     if (existingIndex >= 0) {
@@ -674,18 +907,46 @@ const upsertTrustedDevice = async ({
         currentDevices.push(nextRecord);
     }
 
-    currentDevices.sort((left, right) => (
+    const sortByRecentVerification = (left, right) => (
         new Date(right?.lastVerifiedAt || 0).getTime() - new Date(left?.lastVerifiedAt || 0).getTime()
-    ));
-
-    const trimmedDevices = currentDevices.slice(0, MAX_TRUSTED_DEVICES);
-
-    await User.updateOne(
-        { _id: userId },
-        { $set: { trustedDevices: trimmedDevices } }
     );
+    const activeDevices = currentDevices
+        .filter((entry) => isTrustedDeviceRegistrationActive(entry))
+        .sort(sortByRecentVerification)
+        .slice(0, MAX_TRUSTED_DEVICES);
+    const inactiveDevices = currentDevices
+        .filter((entry) => !isTrustedDeviceRegistrationActive(entry))
+        .sort((left, right) => (
+            new Date(right?.revokedAt || right?.expiresAt || 0).getTime()
+            - new Date(left?.revokedAt || left?.expiresAt || 0).getTime()
+        ))
+        .slice(0, MAX_TRUSTED_DEVICES);
+    const trimmedDevices = activeDevices.concat(inactiveDevices);
 
-    return sanitizeTrustedDevice(nextRecord);
+    const persistence = await User.updateOne(
+        { _id: userId, __v: Number(user.__v || 0) },
+        {
+            $set: { trustedDevices: trimmedDevices },
+            $inc: { __v: 1 },
+        }
+    );
+    const writeConfirmed = Number(persistence?.modifiedCount || persistence?.nModified || 0) > 0;
+    if (!writeConfirmed) {
+        const error = new Error('Trusted device state changed. Request a new challenge and try again.');
+        error.code = 'TRUSTED_DEVICE_STATE_CHANGED';
+        throw error;
+    }
+
+    await mirrorVerifiedTrustedDevice({
+        user,
+        device: nextRecord,
+        provenance: replacingRegistration ? 'v2_enrollment' : 'v2_reverification',
+    });
+
+    return {
+        trustedDevice: sanitizeTrustedDevice(nextRecord),
+        sessionVersion,
+    };
 };
 
 const issueTrustedDeviceChallenge = async ({
@@ -698,6 +959,11 @@ const issueTrustedDeviceChallenge = async ({
     allowEnrollment = true,
     expectedDeviceSessionHash = '',
     challengeScope = '',
+    credentialScope = 'recognition',
+    enrollmentContext = 'device_recognition',
+    adminEligibility = 'none',
+    postDeviceMfaRequired = false,
+    postDeviceMfaReason = '',
 }) => {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     if (!user?._id || !normalizedDeviceId) {
@@ -744,6 +1010,11 @@ const issueTrustedDeviceChallenge = async ({
         sessionBinding: buildSessionBinding({ authUid, authToken }),
         expectedDeviceSessionHash: String(expectedDeviceSessionHash || '').trim(),
         scope: normalizeChallengeScope(challengeScope),
+        credentialScope: normalizeCredentialScope(credentialScope),
+        enrollmentContext: normalizeEnrollmentContext(enrollmentContext),
+        adminEligibility: normalizeAdminEligibility(adminEligibility),
+        postDeviceMfaRequired: postDeviceMfaRequired === true,
+        postDeviceMfaReason: normalizeChallengeScope(postDeviceMfaReason),
         exp: expiresAt,
     });
 
@@ -829,6 +1100,8 @@ const verifyTrustedDeviceChallenge = async ({
     if (challengeScope && challengeScope !== requestedScope) {
         return { success: false, reason: 'Device challenge scope mismatch' };
     }
+    const postDeviceMfaRequired = payload?.postDeviceMfaRequired === true;
+    const postDeviceMfaReason = normalizeChallengeScope(payload?.postDeviceMfaReason || '');
 
     const replayProtection = await consumeChallengeOnce({
         challengeId: payload?.jti,
@@ -874,9 +1147,20 @@ const verifyTrustedDeviceChallenge = async ({
                     storedPublicKeySpkiBase64: registeredDevice.publicKeySpkiBase64,
                     storedCredentialIdBase64Url: registeredDevice.webauthnCredentialIdBase64Url,
                     storedCounter: registeredDevice.webauthnCounter,
+                    expectedUserHandleBase64Url: Buffer.from(String(user._id), 'utf8').toString('base64url'),
                 });
+                if (
+                    registeredDevice.webauthnBackupStateObservedAt
+                    && Boolean(registeredDevice.webauthnBackupEligible) !== Boolean(assertion.backupEligible)
+                ) {
+                    throw new Error('WebAuthn backup eligibility changed for an existing credential');
+                }
 
-                const trustedDevice = await upsertTrustedDevice({
+                const shouldUpgradeLegacyAdminCandidate = Boolean(
+                    isAdminSubject(user)
+                    && normalizeAdminEligibility(registeredDevice?.adminEligibility) === 'legacy_candidate'
+                );
+                const { trustedDevice, sessionVersion } = await upsertTrustedDevice({
                     userId: user._id,
                     deviceId: normalizedDeviceId,
                     deviceLabel: deviceLabel || registeredDevice.label || payload.deviceLabel || '',
@@ -888,8 +1172,22 @@ const verifyTrustedDeviceChallenge = async ({
                     webauthnTransports: registeredDevice.webauthnTransports || [],
                     webauthnCounter: assertion.counter,
                     webauthnUserVerification: assertion.userVerification,
+                    webauthnUserVerified: assertion.userVerified,
+                    webauthnUserVerifiedAt: assertion.userVerified ? new Date() : null,
                     webauthnAaguid: registeredDevice.webauthnAaguid || '',
+                    webauthnBackupEligible: assertion.backupEligible,
+                    webauthnBackedUp: assertion.backedUp,
+                    webauthnBackupStateObservedAt: new Date(),
                     authenticatorAttachment: registeredDevice.authenticatorAttachment || '',
+                    credentialScope: shouldUpgradeLegacyAdminCandidate
+                        ? 'admin'
+                        : (payload.credentialScope || registeredDevice.credentialScope || 'recognition'),
+                    enrollmentContext: shouldUpgradeLegacyAdminCandidate
+                        ? 'admin_step_up'
+                        : (payload.enrollmentContext || registeredDevice.enrollmentContext || 'device_recognition'),
+                    adminEligibility: shouldUpgradeLegacyAdminCandidate
+                        ? 'verified'
+                        : (payload.adminEligibility || registeredDevice.adminEligibility || 'none'),
                 });
 
                 return {
@@ -897,11 +1195,14 @@ const verifyTrustedDeviceChallenge = async ({
                     mode: 'assert',
                     method: PASSKEY_METHOD,
                     trustedDevice,
+                    postDeviceMfaRequired,
+                    postDeviceMfaReason,
                     ...issueTrustedDeviceSession({
                         user,
                         authUid,
                         authToken,
                         deviceId: normalizedDeviceId,
+                        sessionVersion,
                     }),
                 };
             }
@@ -914,7 +1215,7 @@ const verifyTrustedDeviceChallenge = async ({
                 userVerification: payload.webauthnContext.userVerification,
             });
 
-            const trustedDevice = await upsertTrustedDevice({
+            const { trustedDevice, sessionVersion } = await upsertTrustedDevice({
                 userId: user._id,
                 deviceId: normalizedDeviceId,
                 deviceLabel: deviceLabel || payload.deviceLabel || 'Trusted passkey device',
@@ -926,8 +1227,16 @@ const verifyTrustedDeviceChallenge = async ({
                 webauthnTransports: registration.transports,
                 webauthnCounter: registration.counter,
                 webauthnUserVerification: registration.userVerification,
+                webauthnUserVerified: registration.userVerified,
+                webauthnUserVerifiedAt: registration.userVerified ? new Date() : null,
                 webauthnAaguid: registration.aaguid,
+                webauthnBackupEligible: registration.backupEligible,
+                webauthnBackedUp: registration.backedUp,
+                webauthnBackupStateObservedAt: new Date(),
                 authenticatorAttachment: registration.authenticatorAttachment,
+                credentialScope: payload.credentialScope || 'recognition',
+                enrollmentContext: payload.enrollmentContext || 'device_recognition',
+                adminEligibility: payload.adminEligibility || 'none',
             });
 
             return {
@@ -935,11 +1244,14 @@ const verifyTrustedDeviceChallenge = async ({
                 mode: 'enroll',
                 method: PASSKEY_METHOD,
                 trustedDevice,
+                postDeviceMfaRequired,
+                postDeviceMfaReason,
                 ...issueTrustedDeviceSession({
                     user,
                     authUid,
                     authToken,
                     deviceId: normalizedDeviceId,
+                    sessionVersion,
                 }),
             };
         } catch (error) {
@@ -967,7 +1279,7 @@ const verifyTrustedDeviceChallenge = async ({
             return { success: false, reason: 'Trusted device signature invalid' };
         }
 
-        const trustedDevice = await upsertTrustedDevice({
+        const { trustedDevice, sessionVersion } = await upsertTrustedDevice({
             userId: user._id,
             deviceId: normalizedDeviceId,
             deviceLabel: deviceLabel || registeredDevice.label || payload.deviceLabel || '',
@@ -975,6 +1287,9 @@ const verifyTrustedDeviceChallenge = async ({
             algorithm: 'RSA-PSS-SHA256',
             publicKeySpkiBase64: registeredDevice.publicKeySpkiBase64,
             replaceExistingKey: false,
+            credentialScope: 'recognition',
+            enrollmentContext: 'device_recognition',
+            adminEligibility: 'none',
         });
 
         return {
@@ -982,11 +1297,14 @@ const verifyTrustedDeviceChallenge = async ({
             mode: 'assert',
             method: BROWSER_KEY_METHOD,
             trustedDevice,
+            postDeviceMfaRequired,
+            postDeviceMfaReason,
             ...issueTrustedDeviceSession({
                 user,
                 authUid,
                 authToken,
                 deviceId: normalizedDeviceId,
+                sessionVersion,
             }),
         };
     }
@@ -1006,7 +1324,7 @@ const verifyTrustedDeviceChallenge = async ({
         return { success: false, reason: 'Trusted device enrollment signature invalid' };
     }
 
-    const trustedDevice = await upsertTrustedDevice({
+    const { trustedDevice, sessionVersion } = await upsertTrustedDevice({
         userId: user._id,
         deviceId: normalizedDeviceId,
         deviceLabel: deviceLabel || payload.deviceLabel || 'Trusted browser',
@@ -1014,6 +1332,9 @@ const verifyTrustedDeviceChallenge = async ({
         algorithm: 'RSA-PSS-SHA256',
         publicKeySpkiBase64: normalizedPublicKey,
         replaceExistingKey: true,
+        credentialScope: 'recognition',
+        enrollmentContext: 'device_recognition',
+        adminEligibility: 'none',
     });
 
     return {
@@ -1021,11 +1342,14 @@ const verifyTrustedDeviceChallenge = async ({
         mode: 'enroll',
         method: BROWSER_KEY_METHOD,
         trustedDevice,
+        postDeviceMfaRequired,
+        postDeviceMfaReason,
         ...issueTrustedDeviceSession({
             user,
             authUid,
             authToken,
             deviceId: normalizedDeviceId,
+            sessionVersion,
         }),
     };
 };

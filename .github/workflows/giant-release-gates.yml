@@ -1,6 +1,10 @@
 name: Giant Release Gates
 
 on:
+  workflow_call:
+    secrets:
+      STAGING_AWS_DEPLOY_ROLE_ARN:
+        required: false
   pull_request:
     branches: [main]
   workflow_dispatch:

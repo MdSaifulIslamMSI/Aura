@@ -41,8 +41,11 @@ The repo now uses a real trusted-device checkpoint for privileged access.
 ## Enforcement model
 
 - Session establishment routes (`/api/auth/session`, `/api/auth/sync`) can return `device_challenge_required`.
+- When trusted-device and MFA policy both apply, the server enforces a strict sequence: trusted-device proof first, then `mfa_challenge_required`, then `authenticated`. Device verification cannot finalize the login early.
+- A risk-driven MFA requirement is sealed into the device challenge and restored after verification, so it cannot disappear between requests.
 - The frontend mounts a real checkpoint overlay through `AuraTrustedDeviceChallenge`.
 - Seller and admin access paths enforce the trusted-device session token on the server.
+- Admin treatment is consistent for both the legacy `isAdmin` flag and non-empty `adminRoles`; role-only admins do not fall through to public policy.
 - Admin access can require passkey-backed assurance with `ADMIN_REQUIRE_PASSKEY`.
   In production this defaults on, and the AWS runtime contract pins it to `true`.
   Browser-key trusted devices remain usable for lower-risk trusted-device checks,
@@ -58,3 +61,37 @@ This is now a passkey-first trusted-device proof with a browser-key fallback, no
 - It is materially stronger than the removed fake LWE flow because the private signing material never leaves the authenticator or browser.
 - The WebAuthn branch is genuinely passkey-backed, but the fallback branch is still browser-resident and should be described honestly.
 - If hardware-bound attestation policy is needed later, the next step is stronger WebAuthn attestation and device-management policy, not synthetic cryptography claims.
+
+## Public and admin semantics
+
+The product now separates device recognition from authentication assurance:
+
+| Proof | Public account | Admin account |
+| --- | --- | --- |
+| Browser key | Remember this browser; AAL1 recognition only | Never satisfies admin MFA or passkey policy |
+| WebAuthn with user presence only | Phishing-resistant credential recognition, but not MFA | Rejected for admin MFA and admin enrollment |
+| WebAuthn with an observed UV flag | May satisfy passkey MFA when registered with MFA scope | Satisfies admin policy only when admin-scoped and freshly verified |
+| Legacy admin passkey snapshot | Recognition-only migration candidate | Must complete a fresh UV assertion before promotion |
+
+The requested WebAuthn `userVerification` preference is not treated as proof by itself. New records persist the authenticator's observed UV bit and time. Historical records that successfully used a `required` ceremony remain compatible, while V2 backfills are deliberately unverified until a fresh assertion.
+
+The security center exposes remembered browsers and passkeys separately, identifies the current browser, shows backup/sync state when observed, and supports rename, individual revoke, and revoke-all-others. Revoking the current browser signs it out. Password reset revokes all active trusted devices, passkeys, and browser sessions.
+
+## V2 storage and rollout boundary
+
+`TrustedDeviceCredential` is the normalized V2 credential store. Migration is source-bound, resumable, auditable, and secretless in its evidence. Apply mode requires a completed error-free audit, an approval hash, an explicit operator, and two mutation gates. It performs a full source fingerprint preflight before any credential write and checks the fingerprint again after apply.
+
+V2 is intentionally non-authoritative in this release:
+
+- `legacy` is the only serving read mode.
+- `dual_write` is cohort-scoped and mirrors fresh verified credentials plus lifecycle changes.
+- `shadow_compare` observes drift but never changes an allow/deny decision.
+- V2-first modes are reserved and make startup fail until an atomic cutover path is released.
+
+This prevents a partial cross-collection write from turning a stale V2 credential into an authorization source. See [the V2 rollout runbook](runbooks/trusted-device-v2-rollout.md).
+
+The policy follows the current WebAuthn backup-state and UV verification rules, and the distinction in NIST SP 800-63B between syncable authenticators, phishing resistance, and non-exportable AAL3 credentials:
+
+- https://www.w3.org/TR/webauthn-3/
+- https://pages.nist.gov/800-63-4/sp800-63b.html
+- https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html

@@ -67,6 +67,66 @@ const createApiError = (message, status = 0, data = null, meta = {}) => {
     return error;
 };
 
+const MAX_RETRY_AFTER_SECONDS = 24 * 60 * 60;
+
+const normalizeRetryAfterSeconds = (value) => {
+    const normalizedValue = typeof value === 'number'
+        ? value
+        : /^\d+$/.test(String(value || '').trim())
+            ? Number(String(value).trim())
+            : Number.NaN;
+
+    if (!Number.isFinite(normalizedValue) || normalizedValue < 0) return null;
+    return Math.min(Math.ceil(normalizedValue), MAX_RETRY_AFTER_SECONDS);
+};
+
+const parseRetryAfterSeconds = (response, data) => {
+    const rawHeader = String(response?.headers?.get?.('retry-after') || '').trim();
+    if (rawHeader) {
+        const deltaSeconds = normalizeRetryAfterSeconds(rawHeader);
+        if (deltaSeconds !== null) return deltaSeconds;
+
+        if (!/^[+-]?\d+(?:\.\d+)?$/.test(rawHeader)) {
+            const retryAt = Date.parse(rawHeader);
+            if (Number.isFinite(retryAt)) {
+                return normalizeRetryAfterSeconds(Math.max((retryAt - Date.now()) / 1000, 0));
+            }
+        }
+    }
+
+    if (!data || typeof data !== 'object') return null;
+    return normalizeRetryAfterSeconds(data.retryAfterSeconds ?? data.retryAfter);
+};
+
+const extractAuthChallengeErrorMeta = (data, response) => {
+    const meta = {};
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+        ['code', 'feature'].forEach((field) => {
+            if (typeof data[field] === 'string' && data[field].trim()) {
+                meta[field] = data[field].trim();
+            }
+        });
+
+        ['requiresMfa', 'requiresStepUpMfa', 'requiresPasswordReauth', 'step_up_required'].forEach((field) => {
+            if (typeof data[field] === 'boolean') {
+                meta[field] = data[field];
+            }
+        });
+
+        ['deviceChallenge', 'mfaChallenge', 'mfaPolicy', 'policy'].forEach((field) => {
+            if (data[field] === null || (data[field] && typeof data[field] === 'object')) {
+                meta[field] = data[field];
+            }
+        });
+    }
+
+    const retryAfterSeconds = parseRetryAfterSeconds(response, data);
+    if (retryAfterSeconds !== null) {
+        meta.retryAfterSeconds = retryAfterSeconds;
+    }
+    return meta;
+};
+
 const EMERGENCY_RESPONSE_CODES = new Set([
     'FEATURE_TEMPORARILY_DISABLED',
     'MAINTENANCE_MODE',
@@ -183,6 +243,7 @@ export const createResponseError = async (response, fallbackMessage = 'Request f
         response.status,
         data,
         {
+            ...extractAuthChallengeErrorMeta(data, response),
             method: meta.method || 'GET',
             requestId: meta.requestId || serverRequestId,
             serverRequestId,

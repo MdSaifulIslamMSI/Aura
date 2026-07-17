@@ -2,6 +2,7 @@
 import path from 'node:path';
 import process from 'node:process';
 import {
+  currentForecastWindow,
   currentMonthWindow,
   loadLocalAwsEnv,
   normalize,
@@ -51,6 +52,7 @@ const emitEvidence = (status) => writeEvidence('cost-guard', {
   passes,
   region,
   maxMonthlyUsd: config.maxMonthlyUsd,
+  requiredBudgets: config.requiredBudgets || [],
 });
 
 const ec2Instances = aws([
@@ -183,31 +185,77 @@ if (logGroups) {
   }
 }
 
-const { start, end } = currentMonthWindow();
-const forecast = aws([
-  'ce', 'get-cost-forecast',
-  '--time-period', `Start=${start},End=${end}`,
-  '--metric', 'UNBLENDED_COST',
-  '--granularity', 'MONTHLY',
-  '--query', 'Total.Amount',
-], 'Cost Explorer monthly forecast', { critical: false });
-const forecastValue = forecast === null ? Number.NaN : Number(Array.isArray(forecast) ? forecast[0] : forecast);
-if (Number.isFinite(forecastValue)) {
-  if (forecastValue > Number(config.maxMonthlyUsd)) record('FAIL', `monthly forecast ${forecastValue.toFixed(2)} USD exceeds ${config.maxMonthlyUsd} USD.`);
-  else record('PASS', `monthly forecast ${forecastValue.toFixed(2)} USD is within ${config.maxMonthlyUsd} USD.`);
+const requiredBudgets = Array.isArray(config.requiredBudgets) ? config.requiredBudgets : [];
+if (requiredBudgets.length > 0) {
+  const account = aws([
+    'sts', 'get-caller-identity',
+    '--query', 'Account',
+  ], 'AWS account identity');
+  const accountId = normalize(Array.isArray(account) ? account[0] : account);
+
+  if (accountId) {
+    for (const rule of requiredBudgets) {
+      const name = normalize(rule?.name);
+      const maxMonthlyUsd = Number(rule?.maxMonthlyUsd);
+      if (!name || !Number.isFinite(maxMonthlyUsd) || maxMonthlyUsd <= 0) {
+        record('FAIL', 'required budget rules need a name and a positive maxMonthlyUsd.');
+        continue;
+      }
+
+      const budget = aws([
+        'budgets', 'describe-budget',
+        '--account-id', accountId,
+        '--budget-name', name,
+        '--query', 'Budget',
+      ], `AWS budget ${name}`);
+      if (!budget) continue;
+
+      const unit = normalize(budget.BudgetLimit?.Unit).toUpperCase();
+      const configuredLimit = Number(budget.BudgetLimit?.Amount);
+      const actual = Number(budget.CalculatedSpend?.ActualSpend?.Amount);
+      const forecast = Number(budget.CalculatedSpend?.ForecastedSpend?.Amount);
+
+      if (unit !== 'USD') record('FAIL', `${name} must use USD, found ${unit || 'unknown'}.`);
+      if (!Number.isFinite(configuredLimit)) record('FAIL', `${name} configured limit is unavailable.`);
+      else if (configuredLimit > maxMonthlyUsd) record('FAIL', `${name} configured limit ${configuredLimit.toFixed(2)} USD exceeds policy ${maxMonthlyUsd} USD.`);
+      else record('PASS', `${name} configured limit ${configuredLimit.toFixed(2)} USD is within policy ${maxMonthlyUsd} USD.`);
+
+      if (!Number.isFinite(actual)) record('FAIL', `${name} actual spend is unavailable.`);
+      else if (actual > maxMonthlyUsd) record('FAIL', `${name} actual spend ${actual.toFixed(2)} USD exceeds policy ${maxMonthlyUsd} USD.`);
+      else record('PASS', `${name} actual spend ${actual.toFixed(2)} USD is within policy ${maxMonthlyUsd} USD.`);
+
+      if (!Number.isFinite(forecast)) record('FAIL', `${name} forecast is unavailable.`);
+      else if (forecast > maxMonthlyUsd) record('FAIL', `${name} forecast ${forecast.toFixed(2)} USD exceeds policy ${maxMonthlyUsd} USD.`);
+      else record('PASS', `${name} forecast ${forecast.toFixed(2)} USD is within policy ${maxMonthlyUsd} USD.`);
+    }
+  }
 } else {
+  const usageWindow = currentMonthWindow();
   const usage = aws([
     'ce', 'get-cost-and-usage',
-    '--time-period', `Start=${start},End=${end}`,
+    '--time-period', `Start=${usageWindow.start},End=${usageWindow.end}`,
     '--granularity', 'MONTHLY',
     '--metrics', 'UnblendedCost',
     '--query', 'ResultsByTime[].Total.UnblendedCost.Amount',
-  ], 'Cost Explorer month-to-date spend', { critical: false });
-  if (usage !== null) {
-    const amount = Number(Array.isArray(usage) ? usage[0] : usage);
-    if (Number.isFinite(amount)) {
-      record(amount > Number(config.maxMonthlyUsd) ? 'FAIL' : 'PASS', `month-to-date spend ${amount.toFixed(4)} USD checked against ${config.maxMonthlyUsd} USD.`);
-    }
+  ], 'Cost Explorer month-to-date spend');
+  const actual = usage === null ? Number.NaN : Number(Array.isArray(usage) ? usage[0] : usage);
+
+  const forecastWindow = currentForecastWindow();
+  const forecast = aws([
+    'ce', 'get-cost-forecast',
+    '--time-period', `Start=${forecastWindow.start},End=${forecastWindow.end}`,
+    '--metric', 'UNBLENDED_COST',
+    '--granularity', 'MONTHLY',
+    '--query', 'Total.Amount',
+  ], 'Cost Explorer remaining-month forecast');
+  const remaining = forecast === null ? Number.NaN : Number(Array.isArray(forecast) ? forecast[0] : forecast);
+
+  if (!Number.isFinite(actual)) record('FAIL', 'month-to-date spend is unavailable.');
+  if (!Number.isFinite(remaining)) record('FAIL', 'remaining-month forecast is unavailable.');
+  if (Number.isFinite(actual) && Number.isFinite(remaining)) {
+    const projectedTotal = actual + remaining;
+    if (projectedTotal > Number(config.maxMonthlyUsd)) record('FAIL', `projected monthly spend ${projectedTotal.toFixed(2)} USD exceeds ${config.maxMonthlyUsd} USD.`);
+    else record('PASS', `projected monthly spend ${projectedTotal.toFixed(2)} USD is within ${config.maxMonthlyUsd} USD.`);
   }
 }
 

@@ -33,7 +33,7 @@ const hasFreshSessionStepUp = (req = {}) => {
     const amr = Array.isArray(req.authSession?.amr)
         ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
         : [];
-    return amr.some((entry) => ['mfa', 'otp', 'totp', 'webauthn', 'passkey', 'trusted_device', 'duo', 'duo_oidc'].includes(entry));
+    return amr.some((entry) => ['mfa', 'otp', 'totp', 'webauthn', 'passkey', 'duo', 'duo_oidc'].includes(entry));
 };
 
 const getStoredFreshStepUp = async ({ req = {}, action = '' } = {}) => {

@@ -69,7 +69,10 @@ export const isAuthenticatedSessionStatus = (value) => (
 );
 
 export const buildRoleState = (profile = null, fallbackVerified = false) => ({
-    isAdmin: Boolean(profile?.isAdmin),
+    isAdmin: Boolean(
+        profile?.isAdmin
+        || (Array.isArray(profile?.adminRoles) && profile.adminRoles.some((entry) => normalizeText(entry)))
+    ),
     adminRoles: Array.isArray(profile?.adminRoles) ? profile.adminRoles : [],
     isSeller: Boolean(profile?.isSeller),
     isVerified: Boolean(profile?.isVerified ?? fallbackVerified),

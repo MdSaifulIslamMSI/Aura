@@ -4,6 +4,7 @@ const AppError = require('../utils/AppError');
 const { buildSessionPayload } = require('../services/authSessionService');
 const {
     SESSION_STEP_UP_TTL_MS,
+    clearBrowserSessionCookie,
     refreshBrowserSession,
 } = require('../services/browserSessionService');
 const {
@@ -12,6 +13,11 @@ const {
     issueTrustedDeviceChallenge,
     verifyTrustedDeviceChallenge,
 } = require('../services/trustedDeviceChallengeService');
+const {
+    isActiveTrustedDevice,
+    renameTrustedDevice: renameTrustedDeviceRegistration,
+    revokeTrustedDevices,
+} = require('../services/trustedDeviceManagementService');
 const {
     beginTotpSetup,
     disableTotpAfterFreshMfa,
@@ -31,6 +37,7 @@ const {
     evaluateLogin,
     hasPasskey,
     hasTotp,
+    isAdminSubject,
 } = require('../services/mfaPolicyService');
 const {
     generateRecoveryCodes,
@@ -38,23 +45,157 @@ const {
 } = require('../services/recoveryCodeService');
 const { resolveMfaConfig } = require('../config/mfaConfig');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { hasObservedWebAuthnUserVerification } = require('../services/trustedDeviceAssuranceService');
 const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
 
 const MFA_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa loyalty createdAt';
 
 const normalizeText = (value) => String(value || '').trim();
 const normalizeMethod = (value) => normalizeText(value).toLowerCase();
+const ADMIN_ENROLLMENT_FACTOR_AMR = new Set([
+    'firebase_mfa',
+    'mfa',
+    'otp',
+    'totp',
+    'duo',
+    'duo_oidc',
+    'recovery_code',
+]);
 
 const getStepUpExpiry = () => new Date(Date.now() + SESSION_STEP_UP_TTL_MS).toISOString();
 
 const getFreshUser = async (userId) => User.findById(userId, MFA_PROFILE_PROJECTION).lean();
 
-const buildMfaState = (user = null) => {
+const hasFreshIndependentAdminEnrollmentFactor = (req = {}) => {
+    if (!isAdminSubject(req.user)) return true;
+
+    const now = Date.now();
+    const authTimeSeconds = Number(req.authToken?.auth_time || 0);
+    const tokenFresh = Number.isFinite(authTimeSeconds)
+        && authTimeSeconds > 0
+        && (now - (authTimeSeconds * 1000)) <= SESSION_STEP_UP_TTL_MS;
+    const tokenSecondFactor = normalizeText(req.authToken?.firebase?.sign_in_second_factor);
+    const tokenAmr = Array.isArray(req.authToken?.amr)
+        ? req.authToken.amr.map(normalizeMethod)
+        : [];
+    if (
+        tokenFresh
+        && (tokenSecondFactor || tokenAmr.some((entry) => ADMIN_ENROLLMENT_FACTOR_AMR.has(entry)))
+    ) {
+        return true;
+    }
+
+    const stepUpUntil = req.authSession?.stepUpUntil
+        ? new Date(req.authSession.stepUpUntil).getTime()
+        : 0;
+    if (!Number.isFinite(stepUpUntil) || stepUpUntil <= now) return false;
+    const sessionAmr = Array.isArray(req.authSession?.amr)
+        ? req.authSession.amr.map(normalizeMethod)
+        : [];
+    return sessionAmr.some((entry) => ADMIN_ENROLLMENT_FACTOR_AMR.has(entry));
+};
+
+const assertAdminPasskeyEnrollmentAssurance = (req = {}) => {
+    if (hasFreshIndependentAdminEnrollmentFactor(req)) return;
+
+    const error = new AppError(
+        'Admin passkey enrollment requires a fresh independent MFA or supervised bootstrap.',
+        403
+    );
+    error.code = 'ADMIN_PASSKEY_ENROLLMENT_ASSURANCE_REQUIRED';
+    error.requiresMfa = true;
+    throw error;
+};
+
+const buildMfaState = (user = null, { currentDeviceId = '' } = {}) => {
     const trustedDevices = Array.isArray(user?.trustedDevices) ? user.trustedDevices : [];
+    const normalizedCurrentDeviceId = normalizeText(currentDeviceId);
+    const activeMfaCredentialIds = new Set(
+        (Array.isArray(user?.mfa?.passkeys) ? user.mfa.passkeys : [])
+            .filter((passkey) => !passkey?.revokedAt)
+            .map((passkey) => normalizeText(passkey?.credentialId))
+            .filter(Boolean)
+    );
     const passkeys = trustedDevices.filter((device) => (
-        normalizeMethod(device?.method) === 'webauthn'
-        || Boolean(normalizeText(device?.webauthnCredentialIdBase64Url))
+        isActiveTrustedDevice(device)
+        && (
+            normalizeMethod(device?.method) === 'webauthn'
+            || Boolean(normalizeText(device?.webauthnCredentialIdBase64Url))
+        )
+        && hasObservedWebAuthnUserVerification(device)
+        && (
+            ['mfa', 'admin'].includes(normalizeMethod(device?.credentialScope))
+            || activeMfaCredentialIds.has(normalizeText(device?.webauthnCredentialIdBase64Url))
+        )
     ));
+    const trustedDeviceViews = trustedDevices.map((device) => {
+        const method = normalizeMethod(device.method)
+            || (device.webauthnCredentialIdBase64Url ? 'webauthn' : 'browser_key');
+        const isPasskey = method === 'webauthn';
+        const active = isActiveTrustedDevice(device);
+        const expiresAt = device.expiresAt ? new Date(device.expiresAt).getTime() : 0;
+        const status = device.revokedAt
+            ? 'revoked'
+            : (Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt <= Date.now() ? 'expired' : 'active');
+        const credentialScope = isPasskey
+            ? (normalizeMethod(device.credentialScope) || 'recognition')
+            : 'recognition';
+        const adminEligibility = isPasskey
+            ? (normalizeMethod(device.adminEligibility) || 'none')
+            : 'none';
+        const isMfaFactor = Boolean(
+            active
+            && isPasskey
+            && hasObservedWebAuthnUserVerification(device)
+            && (
+                ['mfa', 'admin'].includes(credentialScope)
+                || activeMfaCredentialIds.has(normalizeText(device.webauthnCredentialIdBase64Url))
+            )
+        );
+        const backupEligible = Boolean(device.webauthnBackupEligible);
+        const backedUp = Boolean(device.webauthnBackedUp);
+
+        return {
+            deviceId: normalizeText(device.deviceId),
+            label: normalizeText(device.label) || (isPasskey ? 'Passkey device' : 'Remembered browser'),
+            method,
+            status,
+            active,
+            isCurrent: Boolean(
+                normalizedCurrentDeviceId
+                && normalizeText(device.deviceId) === normalizedCurrentDeviceId
+            ),
+            isMfaFactor,
+            credentialScope,
+            adminEligibility,
+            adminEligible: Boolean(
+                active
+                && isPasskey
+                && credentialScope === 'admin'
+                && adminEligibility === 'verified'
+                && hasObservedWebAuthnUserVerification(device)
+            ),
+            userVerification: isPasskey ? normalizeMethod(device.webauthnUserVerification) : '',
+            userVerified: isPasskey ? hasObservedWebAuthnUserVerification(device) : false,
+            authenticatorAttachment: isPasskey ? normalizeMethod(device.authenticatorAttachment) : '',
+            backupEligible,
+            backedUp,
+            syncState: backedUp ? 'synced' : (backupEligible ? 'eligible_not_synced' : 'device_bound_or_unknown'),
+            createdAt: device.createdAt || null,
+            lastSeenAt: device.lastSeenAt || null,
+            lastVerifiedAt: device.lastVerifiedAt || null,
+            expiresAt: device.expiresAt || null,
+            revokedAt: device.revokedAt || null,
+            canRename: active,
+            canRevoke: active,
+        };
+    }).sort((left, right) => {
+        if (left.isCurrent !== right.isCurrent) return left.isCurrent ? -1 : 1;
+        if (left.active !== right.active) return left.active ? -1 : 1;
+        return new Date(right.lastVerifiedAt || right.lastSeenAt || right.createdAt || 0).getTime()
+            - new Date(left.lastVerifiedAt || left.lastSeenAt || left.createdAt || 0).getTime();
+    });
+    const activeTrustedDevices = trustedDeviceViews.filter((device) => device.active);
 
     return {
         enabled: Boolean(user?.mfa?.enabled),
@@ -69,9 +210,15 @@ const buildMfaState = (user = null) => {
                 devices: passkeys.map((device) => ({
                     deviceId: normalizeText(device.deviceId),
                     label: normalizeText(device.label),
+                    isCurrent: Boolean(
+                        normalizedCurrentDeviceId
+                        && normalizeText(device.deviceId) === normalizedCurrentDeviceId
+                    ),
                     createdAt: device.createdAt || null,
                     lastUsedAt: device.lastVerifiedAt || device.lastSeenAt || null,
                     transports: Array.isArray(device.webauthnTransports) ? device.webauthnTransports : [],
+                    backupEligible: Boolean(device.webauthnBackupEligible),
+                    backedUp: Boolean(device.webauthnBackedUp),
                 })),
             },
             totp: {
@@ -87,16 +234,15 @@ const buildMfaState = (user = null) => {
                 lastUsedAt: user?.recoveryCodeState?.lastUsedAt || null,
             },
         },
-        trustedDevices: trustedDevices.map((device) => ({
-            deviceId: normalizeText(device.deviceId),
-            label: normalizeText(device.label),
-            method: normalizeMethod(device.method) || (device.webauthnCredentialIdBase64Url ? 'webauthn' : 'browser_key'),
-            createdAt: device.createdAt || null,
-            lastSeenAt: device.lastSeenAt || null,
-            lastVerifiedAt: device.lastVerifiedAt || null,
-            expiresAt: device.expiresAt || null,
-            revokedAt: device.revokedAt || null,
-        })),
+        devicePolicy: {
+            audience: isAdminSubject(user) ? 'admin' : 'public',
+            currentDeviceBound: activeTrustedDevices.some((device) => device.isCurrent),
+            activeCount: activeTrustedDevices.length,
+            rememberedBrowserCount: activeTrustedDevices.filter((device) => device.method === 'browser_key').length,
+            passkeyCount: activeTrustedDevices.filter((device) => device.method === 'webauthn').length,
+            revokedOrExpiredCount: trustedDeviceViews.length - activeTrustedDevices.length,
+        },
+        trustedDevices: trustedDeviceViews,
     };
 };
 
@@ -155,7 +301,7 @@ const respondWithAuthenticatedSession = ({ req, res, user, method, message = 'MF
             status: 'authenticated',
             deviceChallenge: null,
         }),
-        mfa: buildMfaState(user),
+        mfa: buildMfaState(user, { currentDeviceId: req.authSession?.deviceId }),
     });
 };
 
@@ -186,7 +332,7 @@ const getMfaSecurityCenter = asyncHandler(async (req, res) => {
             passkeyEnabled: resolveMfaConfig().passkeyEnabled,
             recoveryCodesEnabled: resolveMfaConfig().recoveryCodesEnabled,
         },
-        mfa: buildMfaState(user),
+        mfa: buildMfaState(user, { currentDeviceId: req.authSession?.deviceId }),
         policy: buildPublicMfaPolicy(loginPolicy),
     });
 });
@@ -307,6 +453,7 @@ const disableTotp = asyncHandler(async (req, res) => {
 
 const passkeyRegisterOptions = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.PASSKEY });
+    assertAdminPasskeyEnrollmentAssurance(req);
     const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
     if (!deviceId) throw new AppError('Trusted device identity is missing.', 400);
     const challenge = await issueTrustedDeviceChallenge({
@@ -318,6 +465,9 @@ const passkeyRegisterOptions = asyncHandler(async (req, res) => {
         req,
         allowEnrollment: true,
         challengeScope: 'mfa-passkey-register',
+        credentialScope: isAdminSubject(req.user) ? 'admin' : 'mfa',
+        enrollmentContext: isAdminSubject(req.user) ? 'admin_step_up' : 'mfa_registration',
+        adminEligibility: isAdminSubject(req.user) ? 'verified' : 'none',
     });
     res.status(201).json({ success: true, deviceChallenge: challenge });
 });
@@ -325,9 +475,15 @@ const passkeyRegisterOptions = asyncHandler(async (req, res) => {
 const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
     const credentialId = normalizeText(trustedDevice?.webauthnCredentialIdBase64Url);
     if (!credentialId) return getFreshUser(userId);
+    if (!hasObservedWebAuthnUserVerification(trustedDevice)) {
+        const error = new AppError('Passkey MFA requires authenticator user verification.', 403);
+        error.code = 'PASSKEY_USER_VERIFICATION_REQUIRED';
+        throw error;
+    }
     const user = await User.findById(userId)
         .select('+mfa.passkeys.credentialId')
         .lean();
+    if (!user?._id) throw new AppError('User not found.', 404);
     const now = new Date();
     const passkeyRecord = {
         credentialId,
@@ -335,7 +491,8 @@ const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
         counter: Number(trustedDevice?.webauthnCounter || 0),
         transports: Array.isArray(trustedDevice?.webauthnTransports) ? trustedDevice.webauthnTransports : [],
         deviceType: normalizeText(trustedDevice?.authenticatorAttachment),
-        backedUp: false,
+        backupEligible: Boolean(trustedDevice?.webauthnBackupEligible),
+        backedUp: Boolean(trustedDevice?.webauthnBackedUp),
         name: normalizeText(trustedDevice?.label) || 'Passkey',
         createdAt: trustedDevice?.createdAt || now,
         lastUsedAt: now,
@@ -354,8 +511,8 @@ const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
         ))
         : [...existingPasskeys, passkeyRecord];
 
-    return User.findByIdAndUpdate(
-        userId,
+    const updatedUser = await User.findOneAndUpdate(
+        { _id: userId, __v: Number(user.__v || 0) },
         {
             $set: {
                 'mfa.enabled': true,
@@ -364,6 +521,7 @@ const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
                 'mfa.lastMfaMethod': 'passkey',
                 'mfa.passkeys': nextPasskeys,
             },
+            $inc: { __v: 1 },
         },
         {
             returnDocument: 'after',
@@ -371,6 +529,12 @@ const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
             lean: true,
         }
     );
+    if (!updatedUser) {
+        const error = new AppError('Passkey state changed. Refresh and try again.', 409);
+        error.code = 'TRUSTED_DEVICE_STATE_CHANGED';
+        throw error;
+    }
+    return updatedUser;
 };
 
 const verifyPasskeyChallenge = async ({ req, expectedScope = '' } = {}) => {
@@ -409,6 +573,7 @@ const verifyPasskeyChallenge = async ({ req, expectedScope = '' } = {}) => {
 
 const passkeyRegisterVerify = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.PASSKEY });
+    assertAdminPasskeyEnrollmentAssurance(req);
     const verification = await verifyPasskeyChallenge({ req, expectedScope: 'mfa-passkey-register' });
     const user = await syncPasskeyMfaState({
         userId: req.user?._id,
@@ -491,37 +656,15 @@ const passkeyLoginVerify = asyncHandler(async (req, res) => {
 });
 
 const passkeyRemove = asyncHandler(async (req, res) => {
-    assertMfaFeature({ method: MFA_METHODS.PASSKEY });
     const deviceId = normalizeText(req.body?.deviceId);
     const credentialId = normalizeText(req.body?.credentialId);
-    if (!deviceId && !credentialId) throw new AppError('Passkey device ID or credential ID is required.', 400);
-
-    const user = await User.findById(req.user?._id)
-        .select('+mfa.passkeys.credentialId')
-        .lean();
-    const nextTrustedDevices = (user?.trustedDevices || []).filter((device) => (
-        !(deviceId && normalizeText(device.deviceId) === deviceId)
-        && !(credentialId && normalizeText(device.webauthnCredentialIdBase64Url) === credentialId)
-    ));
-    const nextPasskeys = (user?.mfa?.passkeys || []).filter((passkey) => (
-        !(credentialId && normalizeText(passkey.credentialId) === credentialId)
-    ));
-
-    const updated = await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: {
-                trustedDevices: nextTrustedDevices,
-                'mfa.passkeys': nextPasskeys,
-                'mfa.defaultMethod': nextPasskeys.length > 0 ? 'passkey' : (hasTotp(user) ? 'totp' : ''),
-            },
-        },
-        {
-            returnDocument: 'after',
-            projection: MFA_PROFILE_PROJECTION,
-            lean: true,
-        }
-    );
+    const result = await revokeTrustedDevices({
+        userId: req.user?._id,
+        deviceId,
+        credentialId,
+    });
+    const revokedCurrentDevice = result.revokedDeviceIds.includes(normalizeText(req.authSession?.deviceId));
+    if (revokedCurrentDevice) clearBrowserSessionCookie(res, req);
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(req.user?.email || '');
     recordAuthSecurityEvent({
@@ -530,8 +673,99 @@ const passkeyRemove = asyncHandler(async (req, res) => {
         reason: 'none',
         surface: 'mfa',
         req,
+        meta: {
+            revokedSessions: result.revokedSessions,
+            currentDevice: revokedCurrentDevice,
+        },
     });
-    res.json({ success: true, mfa: buildMfaState(updated) });
+    res.json({
+        success: true,
+        revokedCurrentDevice,
+        revokedDeviceIds: result.revokedDeviceIds,
+        revokedSessions: result.revokedSessions,
+        mfa: buildMfaState(result.user, { currentDeviceId: req.authSession?.deviceId }),
+    });
+});
+
+const renameTrustedDevice = asyncHandler(async (req, res) => {
+    const result = await renameTrustedDeviceRegistration({
+        userId: req.user?._id,
+        deviceId: req.params?.deviceId,
+        label: req.body?.label,
+    });
+    await invalidateUserCache(req.authUid || '');
+    await invalidateUserCacheByEmail(req.user?.email || '');
+    recordAuthSecurityEvent({
+        event: 'trusted_device.renamed',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'mfa',
+        req,
+    });
+    res.json({
+        success: true,
+        trustedDevice: {
+            deviceId: result.deviceId,
+            label: result.label,
+        },
+        mfa: buildMfaState(result.user, { currentDeviceId: req.authSession?.deviceId }),
+    });
+});
+
+const revokeTrustedDevice = asyncHandler(async (req, res) => {
+    const result = await revokeTrustedDevices({
+        userId: req.user?._id,
+        deviceId: req.params?.deviceId,
+    });
+    const revokedCurrentDevice = result.revokedDeviceIds.includes(normalizeText(req.authSession?.deviceId));
+    if (revokedCurrentDevice) clearBrowserSessionCookie(res, req);
+    await invalidateUserCache(req.authUid || '');
+    await invalidateUserCacheByEmail(req.user?.email || '');
+    recordAuthSecurityEvent({
+        event: 'trusted_device.revoked',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'mfa',
+        req,
+        meta: {
+            revokedSessions: result.revokedSessions,
+            currentDevice: revokedCurrentDevice,
+        },
+    });
+    res.json({
+        success: true,
+        revokedCurrentDevice,
+        revokedDeviceIds: result.revokedDeviceIds,
+        revokedSessions: result.revokedSessions,
+        mfa: buildMfaState(result.user, { currentDeviceId: req.authSession?.deviceId }),
+    });
+});
+
+const revokeOtherTrustedDevices = asyncHandler(async (req, res) => {
+    const result = await revokeTrustedDevices({
+        userId: req.user?._id,
+        currentDeviceId: req.authSession?.deviceId,
+        revokeAllOthers: true,
+    });
+    await invalidateUserCache(req.authUid || '');
+    await invalidateUserCacheByEmail(req.user?.email || '');
+    recordAuthSecurityEvent({
+        event: 'trusted_device.others_revoked',
+        outcome: 'success',
+        reason: 'none',
+        surface: 'mfa',
+        req,
+        meta: {
+            revokedDevices: result.revokedDeviceIds.length,
+            revokedSessions: result.revokedSessions,
+        },
+    });
+    res.json({
+        success: true,
+        revokedDeviceIds: result.revokedDeviceIds,
+        revokedSessions: result.revokedSessions,
+        mfa: buildMfaState(result.user, { currentDeviceId: req.authSession?.deviceId }),
+    });
 });
 
 const recoveryRegenerate = asyncHandler(async (req, res) => {
@@ -656,19 +890,25 @@ const createStepUpChallenge = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+    assertAdminPasskeyEnrollmentAssurance,
     buildMfaState,
     createStepUpChallenge,
     disableTotp,
     getMfaSecurityCenter,
     getTotpQr,
+    hasFreshIndependentAdminEnrollmentFactor,
     passkeyLoginOptions,
     passkeyLoginVerify,
     passkeyRegisterOptions,
     passkeyRegisterVerify,
     passkeyRemove,
+    renameTrustedDevice,
     recoveryRegenerate,
     recoveryVerify,
+    revokeOtherTrustedDevices,
+    revokeTrustedDevice,
     setupTotp,
+    syncPasskeyMfaState,
     verifyTotpLogin,
     verifyTotpSetup,
 };

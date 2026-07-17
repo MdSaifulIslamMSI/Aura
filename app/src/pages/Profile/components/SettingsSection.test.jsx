@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import SettingsSection from './SettingsSection';
@@ -162,6 +162,108 @@ describe('SettingsSection recovery codes', () => {
 
         expect(setTotpSetupCode).toHaveBeenCalledWith('654321');
         expect(handleVerifyTotpSetup).toHaveBeenCalledTimes(1);
+    });
+
+    it('separates remembered-browser recognition from passkey MFA and manages devices explicitly', async () => {
+        const handleRenameTrustedDevice = vi.fn().mockResolvedValue({ success: true });
+        const handleRevokeTrustedDevice = vi.fn().mockResolvedValue({ success: true });
+        const handleRevokeOtherTrustedDevices = vi.fn().mockResolvedValue({ success: true });
+
+        renderSettings({
+            mfaStatus: {
+                enabled: true,
+                methods: {
+                    passkey: { enabled: true, count: 1 },
+                    totp: { enabled: false },
+                    recoveryCodes: { activeCount: 2 },
+                },
+                devicePolicy: { audience: 'public', currentDeviceBound: true },
+                trustedDevices: [
+                    {
+                        deviceId: 'device-current',
+                        label: 'Home browser',
+                        method: 'browser_key',
+                        status: 'active',
+                        active: true,
+                        isCurrent: true,
+                        isMfaFactor: false,
+                        canRename: true,
+                        canRevoke: true,
+                        lastVerifiedAt: '2026-07-17T10:00:00.000Z',
+                    },
+                    {
+                        deviceId: 'device-passkey',
+                        label: 'Work laptop',
+                        method: 'webauthn',
+                        status: 'active',
+                        active: true,
+                        isCurrent: false,
+                        isMfaFactor: true,
+                        backedUp: true,
+                        backupEligible: true,
+                        canRename: true,
+                        canRevoke: true,
+                        lastVerifiedAt: '2026-07-16T10:00:00.000Z',
+                    },
+                ],
+            },
+            handleRenameTrustedDevice,
+            handleRevokeTrustedDevice,
+            handleRevokeOtherTrustedDevices,
+        });
+
+        expect(screen.getByText(/remembered browser can reduce recognition prompts, but it is not MFA/i)).toBeInTheDocument();
+        expect(screen.getByText('Remembered browser · not MFA')).toBeInTheDocument();
+        expect(screen.getByText('Synced passkey')).toBeInTheDocument();
+        expect(screen.getByText('Current')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Rename Work laptop' }));
+        fireEvent.change(screen.getByRole('textbox', { name: 'Name for Work laptop' }), {
+            target: { value: 'Office security key' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        await waitFor(() => {
+            expect(handleRenameTrustedDevice).toHaveBeenCalledWith('device-passkey', 'Office security key');
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Revoke Work laptop' }));
+        expect(handleRevokeTrustedDevice).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'Confirm revoke Work laptop' }));
+        await waitFor(() => {
+            expect(handleRevokeTrustedDevice).toHaveBeenCalledWith('device-passkey', { isCurrent: false });
+        });
+    });
+
+    it('shows the stricter admin device policy and legacy credential warning', () => {
+        renderSettings({
+            mfaStatus: {
+                enabled: true,
+                methods: {
+                    passkey: { enabled: true, count: 1 },
+                    totp: { enabled: false },
+                    recoveryCodes: { activeCount: 2 },
+                },
+                devicePolicy: { audience: 'admin', currentDeviceBound: true },
+                trustedDevices: [{
+                    deviceId: 'legacy-admin-passkey',
+                    label: 'Previous admin key',
+                    method: 'webauthn',
+                    status: 'active',
+                    active: true,
+                    isCurrent: true,
+                    isMfaFactor: true,
+                    adminEligibility: 'legacy_candidate',
+                    canRename: true,
+                    canRevoke: true,
+                }],
+            },
+            handleRenameTrustedDevice: vi.fn(),
+            handleRevokeTrustedDevice: vi.fn(),
+        });
+
+        expect(screen.getByText(/Admin access accepts only verified, user-verified passkeys/i)).toBeInTheDocument();
+        expect(screen.getByText(/Keep at least one independent admin passkey/i)).toBeInTheDocument();
+        expect(screen.getByText(/Fresh passkey verification is required before this credential can protect admin actions/i)).toBeInTheDocument();
     });
 
     it('offers Microsoft linking when the provider is enabled and not linked', () => {

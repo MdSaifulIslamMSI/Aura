@@ -76,6 +76,7 @@ const exchangeSessionWithFirebase = async (firebaseUser, options = {}) => {
 const postWithFreshCsrf = async (path, body, options = {}) => {
     const firebaseUser = options.firebaseUser || {};
     const shouldUseFirebaseBearer = options.useFirebaseBearer === true;
+    const requestMethod = String(options.method || 'POST').trim().toUpperCase() || 'POST';
 
     const execute = async ({ forceFreshCsrf = false, forceRefreshAuth = false } = {}) => {
         const headers = await getAuthHeader(firebaseUser, {
@@ -103,9 +104,9 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
             throw wrappedError;
         }
 
-        const headersWithCsrf = addCsrfTokenToHeaders(headers, 'POST', csrfToken);
+        const headersWithCsrf = addCsrfTokenToHeaders(headers, requestMethod, csrfToken);
         const { data } = await apiFetch(path, {
-            method: 'POST',
+            method: requestMethod,
             headers: headersWithCsrf,
             body: JSON.stringify(body),
         });
@@ -151,7 +152,7 @@ const postWithFirebaseBearer = async (path, body, options = {}) => {
 
     const headers = await getAuthHeader(options.firebaseUser, bearerOptions);
     const { data } = await apiFetch(path, {
-        method: 'POST',
+        method: String(options.method || 'POST').trim().toUpperCase() || 'POST',
         headers,
         body: JSON.stringify(body),
     });
@@ -432,6 +433,37 @@ export const authApi = {
     },
     removeMfaPasskey: async ({ deviceId = '', credentialId = '' } = {}, options = {}) => (
         postAuthBootstrap('/auth/mfa/passkey/remove', { deviceId, credentialId }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    renameTrustedDevice: async ({ deviceId = '', label = '' } = {}, options = {}) => {
+        const normalizedDeviceId = String(deviceId || '').trim();
+        if (!normalizedDeviceId) throw new Error('Trusted device ID is required.');
+        return postAuthBootstrap(
+            `/auth/mfa/trusted-devices/${encodeURIComponent(normalizedDeviceId)}`,
+            { label },
+            {
+                ...options,
+                method: 'PATCH',
+                useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+            }
+        );
+    },
+    revokeTrustedDevice: async ({ deviceId = '' } = {}, options = {}) => {
+        const normalizedDeviceId = String(deviceId || '').trim();
+        if (!normalizedDeviceId) throw new Error('Trusted device ID is required.');
+        return postAuthBootstrap(
+            `/auth/mfa/trusted-devices/${encodeURIComponent(normalizedDeviceId)}/revoke`,
+            {},
+            {
+                ...options,
+                useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+            }
+        );
+    },
+    revokeOtherTrustedDevices: async (options = {}) => (
+        postAuthBootstrap('/auth/mfa/trusted-devices/revoke-others', {}, {
             ...options,
             useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
         })

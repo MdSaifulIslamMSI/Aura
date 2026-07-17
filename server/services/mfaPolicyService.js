@@ -1,4 +1,5 @@
 const { resolveMfaConfig } = require('../config/mfaConfig');
+const { hasObservedWebAuthnUserVerification } = require('./trustedDeviceAssuranceService');
 
 const MFA_METHODS = Object.freeze({
     PASSKEY: 'passkey',
@@ -21,22 +22,53 @@ const hasAdminRole = (user = null, role = '') => (
     && user.adminRoles.map((entry) => normalizeText(entry)).includes(normalizeText(role))
 );
 
+const isAdminSubject = (user = null) => Boolean(
+    user?.isAdmin
+    || (Array.isArray(user?.adminRoles) && user.adminRoles.some((entry) => normalizeText(entry)))
+);
+
 const resolveRole = (user = null) => {
     if (hasAdminRole(user, 'SUPER_ADMIN')) return 'super_admin';
-    if (user?.isAdmin) return 'admin';
+    if (isAdminSubject(user)) return 'admin';
     if (user?.isSeller) return 'seller';
     return 'buyer';
 };
 
 const hasPasskey = (user = null) => {
-    const trustedDevicePasskey = Array.isArray(user?.trustedDevices)
-        && user.trustedDevices.some((device) => (
-            normalizeText(device?.method) === 'webauthn'
-            || Boolean(String(device?.webauthnCredentialIdBase64Url || '').trim())
-        ));
-    const mfaPasskey = Array.isArray(user?.mfa?.passkeys)
-        && user.mfa.passkeys.some((passkey) => !passkey?.revokedAt && String(passkey?.credentialId || '').trim());
-    return Boolean(trustedDevicePasskey || mfaPasskey);
+    const adminSubject = isAdminSubject(user);
+    const activeMfaCredentialIds = new Set(
+        (Array.isArray(user?.mfa?.passkeys) ? user.mfa.passkeys : [])
+            .filter((passkey) => !passkey?.revokedAt)
+            .map((passkey) => String(passkey?.credentialId || '').trim())
+            .filter(Boolean)
+    );
+
+    return Boolean(
+        Array.isArray(user?.trustedDevices)
+        && user.trustedDevices.some((device) => {
+            if (device?.revokedAt) return false;
+            const expiresAt = device?.expiresAt ? new Date(device.expiresAt).getTime() : 0;
+            if (Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt <= Date.now()) return false;
+            if (
+                normalizeText(device?.method) !== 'webauthn'
+                && !String(device?.webauthnCredentialIdBase64Url || '').trim()
+            ) {
+                return false;
+            }
+            if (!hasObservedWebAuthnUserVerification(device)) return false;
+
+            const credentialScope = normalizeText(device?.credentialScope);
+            if (adminSubject) {
+                return credentialScope === 'admin'
+                    && normalizeText(device?.adminEligibility) === 'verified';
+            }
+
+            const credentialId = String(device?.webauthnCredentialIdBase64Url || '').trim();
+            return credentialScope === 'mfa'
+                || credentialScope === 'admin'
+                || (credentialId && activeMfaCredentialIds.has(credentialId));
+        })
+    );
 };
 
 const hasTotp = (user = null) => Boolean(user?.mfa?.totp?.enabled && user?.mfa?.totp?.confirmedAt);
@@ -55,6 +87,18 @@ const isHighRiskLogin = (context = {}) => {
         || riskLevel === 'critical'
         || riskState === 'login_risk_high'
     );
+};
+
+const isLoginMfaSatisfied = ({ session = null, highRisk = false } = {}) => {
+    const amr = Array.isArray(session?.amr)
+        ? session.amr.map((entry) => normalizeText(entry))
+        : [];
+    const completedMfa = amr.includes('mfa') || amr.includes('firebase_mfa');
+    if (!completedMfa) return false;
+    if (!highRisk) return true;
+
+    const stepUpUntil = session?.stepUpUntil ? new Date(session.stepUpUntil).getTime() : 0;
+    return Number.isFinite(stepUpUntil) && stepUpUntil > Date.now();
 };
 
 const buildAllowedMethods = ({ user = null, config = resolveMfaConfig(), role = resolveRole(user), lowRiskBuyer = false } = {}) => {
@@ -82,7 +126,12 @@ const evaluateLogin = ({ user = null, context = {}, env = process.env } = {}) =>
     const userEnabled = Boolean(user?.mfa?.enabled);
     const adminRequired = Boolean(config.requiredForAdmins && (role === 'admin' || role === 'super_admin'));
     const sellerRequired = Boolean(config.requiredForSellers && role === 'seller');
-    const mfaRequired = Boolean(config.enabled && (userEnabled || adminRequired || sellerRequired || highRisk));
+    const policyRequired = Boolean(config.enabled && (userEnabled || adminRequired || sellerRequired || highRisk));
+    const satisfied = Boolean(
+        policyRequired
+        && isLoginMfaSatisfied({ session: context.session, highRisk })
+    );
+    const mfaRequired = Boolean(policyRequired && !satisfied);
     const allowedMethods = mfaRequired
         ? buildAllowedMethods({ user, config, role, lowRiskBuyer: !highRisk && role === 'buyer' })
         : [];
@@ -91,18 +140,22 @@ const evaluateLogin = ({ user = null, context = {}, env = process.env } = {}) =>
         passkeyAvailable: hasPasskey(user),
     });
 
-    const reason = !mfaRequired
+    const reason = !policyRequired
         ? 'not_required'
-        : highRisk
-            ? 'suspicious_login'
-            : adminRequired
-                ? 'admin_policy'
-                : sellerRequired
-                    ? 'seller_policy'
-                    : 'user_enabled';
+        : satisfied
+            ? 'satisfied'
+            : highRisk
+                ? 'suspicious_login'
+                : adminRequired
+                    ? 'admin_policy'
+                    : sellerRequired
+                        ? 'seller_policy'
+                        : 'user_enabled';
 
     return {
         mfaRequired,
+        policyRequired,
+        satisfied,
         freshMfaRequired: false,
         allowedMethods,
         preferredMethod,
@@ -112,28 +165,30 @@ const evaluateLogin = ({ user = null, context = {}, env = process.env } = {}) =>
     };
 };
 
-const isFreshMfaSatisfied = ({ user = null, session = null, policy = {}, env = process.env } = {}) => {
+const isFreshMfaSatisfied = ({ session = null, policy = {} } = {}) => {
     if (!policy?.freshMfaRequired) return true;
-    const config = resolveMfaConfig(env);
-    const lastMfaAt = user?.mfa?.lastMfaAt ? new Date(user.mfa.lastMfaAt).getTime() : 0;
     const stepUpUntil = session?.stepUpUntil ? new Date(session.stepUpUntil).getTime() : 0;
     const now = Date.now();
-    const freshWindowMs = config.freshWindowSeconds * 1000;
-    const recentUserMfa = Number.isFinite(lastMfaAt) && lastMfaAt > 0 && (now - lastMfaAt) <= freshWindowMs;
     const activeSessionStepUp = Number.isFinite(stepUpUntil) && stepUpUntil > now;
     const sessionAmr = Array.isArray(session?.amr)
         ? session.amr.map((entry) => normalizeText(entry))
         : [];
-    const method = normalizeText(user?.mfa?.lastMfaMethod || '');
-
-    if (policy.preferredMethod === MFA_METHODS.PASSKEY) {
-        return Boolean(activeSessionStepUp && (sessionAmr.includes('webauthn') || sessionAmr.includes('passkey')));
+    if (!activeSessionStepUp) return false;
+    const allowedMethods = Array.isArray(policy.allowedMethods) ? policy.allowedMethods : [];
+    if (sessionAmr.includes('firebase_mfa')) {
+        return allowedMethods.length === 0
+            || allowedMethods.some((method) => method !== MFA_METHODS.PASSKEY);
     }
-
-    return Boolean(
-        activeSessionStepUp
-        || (recentUserMfa && (!policy.allowedMethods?.length || policy.allowedMethods.includes(method)))
-    );
+    if (!sessionAmr.includes('mfa')) return false;
+    const methodEvidence = {
+        [MFA_METHODS.PASSKEY]: sessionAmr.includes('webauthn') || sessionAmr.includes('passkey'),
+        [MFA_METHODS.TOTP]: sessionAmr.includes('totp'),
+        [MFA_METHODS.RECOVERY_CODE]: sessionAmr.includes('recovery_code'),
+        [MFA_METHODS.EMAIL_OTP]: sessionAmr.includes('email_otp'),
+    };
+    return allowedMethods.length === 0
+        ? Object.values(methodEvidence).some(Boolean)
+        : allowedMethods.some((method) => methodEvidence[method] === true);
 };
 
 const evaluateAction = ({ user = null, session = null, action = '', route = '', category = '', env = process.env } = {}) => {
@@ -197,5 +252,7 @@ module.exports = {
     hasRecoveryCodes,
     hasTotp,
     isFreshMfaSatisfied,
+    isAdminSubject,
+    isLoginMfaSatisfied,
     resolveRole,
 };

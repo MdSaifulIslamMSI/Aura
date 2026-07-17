@@ -287,6 +287,8 @@ describe('trustedDeviceChallengeService', () => {
             user: { _id: userId, trustedDevices: [] },
             deviceId,
             deviceLabel: 'Admin laptop',
+            postDeviceMfaRequired: true,
+            postDeviceMfaReason: 'login_risk_high',
             ...authContext,
         });
 
@@ -309,6 +311,10 @@ describe('trustedDeviceChallengeService', () => {
 
         expect(enrollResult.success).toBe(true);
         expect(enrollResult.mode).toBe('enroll');
+        expect(enrollResult).toMatchObject({
+            postDeviceMfaRequired: true,
+            postDeviceMfaReason: 'login_risk_high',
+        });
         expect(enrollResult.deviceSessionToken).toBeTruthy();
         expect(dbState.trustedDevices).toHaveLength(1);
 
@@ -339,7 +345,7 @@ describe('trustedDeviceChallengeService', () => {
         expect(assertResult.mode).toBe('assert');
 
         const trustedSession = service.verifyTrustedDeviceSession({
-            user: { _id: userId },
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
             deviceId,
             deviceSessionToken: assertResult.deviceSessionToken,
             ...authContext,
@@ -348,7 +354,7 @@ describe('trustedDeviceChallengeService', () => {
         expect(trustedSession).toEqual({ success: true });
 
         const bootstrapVerification = service.verifyTrustedDeviceBootstrapSession({
-            user: { _id: userId },
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
             deviceId,
             deviceSessionToken: assertResult.deviceSessionToken,
         });
@@ -356,6 +362,48 @@ describe('trustedDeviceChallengeService', () => {
         expect(bootstrapVerification).toMatchObject({
             success: true,
             deviceSessionHash: service.hashTrustedDeviceSessionToken(assertResult.deviceSessionToken),
+        });
+
+        const supersededSession = service.verifyTrustedDeviceSession({
+            user: {
+                _id: userId,
+                trustedDevices: dbState.trustedDevices.map((device) => ({
+                    ...device,
+                    sessionVersion: 'superseded-device-session-version',
+                })),
+            },
+            deviceId,
+            deviceSessionToken: assertResult.deviceSessionToken,
+            ...authContext,
+        });
+        expect(supersededSession).toEqual({
+            success: false,
+            reason: 'Trusted device session superseded',
+        });
+
+        const revokedDevices = dbState.trustedDevices.map((device) => ({
+            ...device,
+            revokedAt: new Date(),
+        }));
+        const revokedSession = service.verifyTrustedDeviceSession({
+            user: { _id: userId, trustedDevices: revokedDevices },
+            deviceId,
+            deviceSessionToken: assertResult.deviceSessionToken,
+            ...authContext,
+        });
+        expect(revokedSession).toEqual({
+            success: false,
+            reason: 'Trusted device registration revoked',
+        });
+
+        const revokedBootstrapSession = service.verifyTrustedDeviceBootstrapSession({
+            user: { _id: userId, trustedDevices: revokedDevices },
+            deviceId,
+            deviceSessionToken: assertResult.deviceSessionToken,
+        });
+        expect(revokedBootstrapSession).toEqual({
+            success: false,
+            reason: 'Trusted device registration revoked',
         });
     });
 
@@ -499,7 +547,7 @@ describe('trustedDeviceChallengeService', () => {
         expect(enrollResult.mode).toBe('enroll');
 
         const trustedSession = service.verifyTrustedDeviceSession({
-            user: { _id: userId },
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
             deviceId,
             deviceSessionToken: enrollResult.deviceSessionToken,
             ...verifiedWithBrowserSession,
@@ -632,7 +680,7 @@ describe('trustedDeviceChallengeService', () => {
         });
 
         const trustedSession = serviceV2.verifyTrustedDeviceSession({
-            user: { _id: userId },
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
             deviceId,
             deviceSessionToken: enrollResult.deviceSessionToken,
             ...authContext,
@@ -1034,6 +1082,8 @@ describe('trustedDeviceChallengeService', () => {
             label: 'Passkey laptop',
             method: 'webauthn',
             algorithm: 'WEBAUTHN-ES256',
+            credentialScope: 'recognition',
+            adminEligibility: 'none',
         });
         expect(dbState.trustedDevices).toHaveLength(1);
         expect(dbState.trustedDevices[0]).toMatchObject({
@@ -1044,6 +1094,8 @@ describe('trustedDeviceChallengeService', () => {
             webauthnCredentialIdBase64Url: registrationCredential.rawIdBase64Url,
             webauthnUserVerification: 'required',
             authenticatorAttachment: 'platform',
+            credentialScope: 'recognition',
+            adminEligibility: 'none',
         });
 
         const assertChallenge = await service.issueTrustedDeviceChallenge({
@@ -1096,12 +1148,81 @@ describe('trustedDeviceChallengeService', () => {
         expect(dbState.trustedDevices[0].webauthnCounter).toBe(5);
 
         const trustedSession = service.verifyTrustedDeviceSession({
-            user: { _id: userId },
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
             deviceId,
             deviceSessionToken: assertResult.deviceSessionToken,
             ...authContext,
         });
 
         expect(trustedSession).toEqual({ success: true });
+
+        const publicSessionToken = assertResult.deviceSessionToken;
+        dbState.trustedDevices = dbState.trustedDevices.map((device) => ({
+            ...device,
+            credentialScope: 'recognition',
+            enrollmentContext: 'legacy_admin_snapshot',
+            adminEligibility: 'legacy_candidate',
+            legacyAdminCandidateAt: new Date(),
+        }));
+        const adminUser = {
+            ...baseUser,
+            isAdmin: true,
+            trustedDevices: dbState.trustedDevices,
+        };
+        const adminUpgradeChallenge = await service.issueTrustedDeviceChallenge({
+            user: adminUser,
+            deviceId,
+            deviceLabel: 'Passkey laptop',
+            req,
+            ...authContext,
+        });
+        const adminUpgradeCredential = buildWebAuthnAssertionCredential({
+            challenge: adminUpgradeChallenge.challenge,
+            origin,
+            rpId,
+            credentialIdBuffer,
+            privateKey: webauthnKeyPair.privateKey,
+            signCount: 6,
+        });
+        const adminUpgradeResult = await service.verifyTrustedDeviceChallenge({
+            user: adminUser,
+            token: adminUpgradeChallenge.token,
+            method: 'webauthn',
+            credential: adminUpgradeCredential,
+            deviceId,
+            deviceLabel: 'Passkey laptop',
+            ...authContext,
+        });
+
+        expect(adminUpgradeResult).toMatchObject({
+            success: true,
+            method: 'webauthn',
+            trustedDevice: {
+                credentialScope: 'admin',
+                enrollmentContext: 'admin_step_up',
+                adminEligibility: 'verified',
+            },
+        });
+        expect(dbState.trustedDevices[0]).toMatchObject({
+            credentialScope: 'admin',
+            enrollmentContext: 'admin_step_up',
+            adminEligibility: 'verified',
+        });
+
+        expect(service.verifyTrustedDeviceSession({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            deviceId,
+            deviceSessionToken: publicSessionToken,
+            ...authContext,
+        })).toEqual({
+            success: false,
+            reason: 'Trusted device session superseded',
+        });
+        expect(service.verifyTrustedDeviceSession({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            deviceId,
+            deviceSessionToken: adminUpgradeResult.deviceSessionToken,
+            ...authContext,
+        })).toEqual({ success: true });
     });
 });

@@ -49,7 +49,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         jest.resetModules();
     });
 
-    test('accepts a verified trusted device as the admin second factor when the policy requires it', async () => {
+    test('rejects browser recognition as the admin second factor when the policy requires MFA', async () => {
         process.env.NODE_ENV = 'test';
         process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
         process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
@@ -75,6 +75,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
             _id: 'user-1',
             isAdmin: true,
             email: 'admin@example.com',
+            trustedDevices: [{ deviceId, method: 'browser_key' }],
         };
         const authToken = {
             email: 'admin@example.com',
@@ -105,7 +106,10 @@ describe('authMiddleware admin second-factor enforcement', () => {
         await admin(req, {}, next);
 
         expect(next).toHaveBeenCalledTimes(1);
-        expect(next).toHaveBeenCalledWith();
+        expect(next).toHaveBeenCalledWith(expect.objectContaining({
+            message: 'Admin access requires a verified second factor',
+            statusCode: 403,
+        }));
     });
 
     test('blocks browser-key trusted devices when the admin passkey policy requires WebAuthn', async () => {
@@ -141,6 +145,9 @@ describe('authMiddleware admin second-factor enforcement', () => {
             email_verified: true,
             auth_time: nowSeconds - 60,
             iat: nowSeconds - 60,
+            firebase: {
+                sign_in_second_factor: 'totp',
+            },
         };
         const { deviceSessionToken } = issueTrustedDeviceSession({
             user,
@@ -201,6 +208,9 @@ describe('authMiddleware admin second-factor enforcement', () => {
                 deviceId,
                 method: 'webauthn',
                 webauthnCredentialIdBase64Url: 'credential-id',
+                webauthnUserVerification: 'required',
+                webauthnUserVerified: true,
+                adminEligibility: 'verified',
             }],
         };
         const authToken = {

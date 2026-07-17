@@ -6,13 +6,9 @@ const request = require('supertest');
 const app = require('../index');
 const User = require('../models/User');
 const { generateRecoveryCodesForUser } = require('../services/authRecoveryCodeService');
-const {
-    issueTrustedDeviceSession,
-    TRUSTED_DEVICE_SESSION_HEADER,
-} = require('../services/trustedDeviceChallengeService');
+const { inspectOtpFlowToken } = require('../utils/otpFlowToken');
 
 const buildRuntimeValue = (label = 'attack') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-const buildStrongPassword = () => String.fromCharCode(79, 114, 99, 104, 105, 100, 33, 56, 118, 82, 50, 80);
 const buildPhone = () => `+91${String(Math.floor(Math.random() * 10_000_000_000)).padStart(10, '0')}`;
 
 const createRsaProof = ({ challenge, mode, deviceId, privateKeyPem }) => {
@@ -173,7 +169,7 @@ describe('login attack smoke: route-level browser attacks', () => {
 });
 
 describe('login attack smoke: recovery-token attacks', () => {
-    test('rejects recovery-code replay and reset flow token use from a different device', async () => {
+    test('rejects recovery-code replay while keeping the lost-device reset token device-independent', async () => {
         const deviceId = 'attack-device-a';
         const user = await User.create({
             name: 'Attack Recovery User',
@@ -189,12 +185,9 @@ describe('login attack smoke: recovery-token attacks', () => {
             }],
         });
         const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
-        const { deviceSessionToken } = issueTrustedDeviceSession({ user, deviceId });
 
         const verified = await request(app)
             .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', deviceId)
-            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
             .send({
                 email: user.email,
                 code: codes[0],
@@ -202,11 +195,15 @@ describe('login attack smoke: recovery-token attacks', () => {
 
         expect(verified.statusCode).toBe(200);
         expect(verified.body.flowToken).toEqual(expect.any(String));
+        expect(inspectOtpFlowToken(verified.body.flowToken)).toMatchObject({
+            purpose: 'forgot-password',
+            factor: 'recovery-code',
+            nextStep: 'reset-password',
+            signalBond: {},
+        });
 
         const replay = await request(app)
             .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', deviceId)
-            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
             .send({
                 email: user.email,
                 code: codes[0],
@@ -214,18 +211,6 @@ describe('login attack smoke: recovery-token attacks', () => {
 
         expect(replay.statusCode).toBe(401);
         expect(replay.body.message).toContain('invalid or already used');
-
-        const nextPassword = buildStrongPassword();
-        const wrongDeviceReset = await request(app)
-            .post('/api/otp/reset-password')
-            .set('X-Aura-Device-Id', 'attack-device-b')
-            .send({
-                flowToken: verified.body.flowToken,
-                password: nextPassword,
-            });
-
-        expect(wrongDeviceReset.statusCode).toBe(403);
-        expect(wrongDeviceReset.body.message).toMatch(/fresh trusted device verification/i);
     });
 });
 

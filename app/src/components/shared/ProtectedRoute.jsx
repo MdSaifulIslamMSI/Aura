@@ -13,6 +13,7 @@ import {
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 import { StableText } from '@/i18n/StableText';
+import MfaChallengePanel from '@/components/features/auth/MfaChallengePanel';
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 
 const AuthPendingState = ({ message = 'Resolving your session...', title = 'Session checkpoint' }) => (
@@ -162,6 +163,7 @@ const useAuthGate = () => {
 };
 
 const renderResolvedGate = ({
+    auth,
     status,
     currentUser,
     sessionError,
@@ -190,9 +192,23 @@ const renderResolvedGate = ({
 
     if (status === 'mfa_challenge_required' && currentUser) {
         return (
-            <AuthPendingState
-                title={t('auth.mfaChallenge.title', {}, 'MFA checkpoint')}
-                message={t('auth.mfaChallenge.message', {}, 'Complete the second-factor challenge to finish this session.')}
+            <MfaChallengePanel
+                challenge={auth?.mfaChallenge}
+                policy={auth?.mfaPolicy}
+                isAdmin={Boolean(auth?.roles?.isAdmin)}
+                onVerifyTotp={auth?.verifyMfaTotpChallenge}
+                onVerifyPasskey={auth?.verifyMfaPasskeyChallenge}
+                onVerifyRecoveryCode={auth?.verifyMfaRecoveryCodeChallenge}
+                onCancel={() => navigate('/', { replace: true })}
+                onSignOut={async () => {
+                    await logout?.();
+                    navigate('/login', {
+                        replace: true,
+                        state: {
+                            from: toRouteState(location),
+                        },
+                    });
+                }}
             />
         );
     }
@@ -242,6 +258,7 @@ export const ProtectedRoute = ({ children }) => {
     const { status, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
+        auth,
         status,
         currentUser,
         sessionError,
@@ -271,8 +288,17 @@ export const AdminRoute = ({ children }) => {
     const { auth, intl, location, navigate, t } = useAuthGate();
     const { status, roles, sessionError, sessionIntelligence, refreshSession, currentUser, logout } = auth;
     const adminAccessLock = currentUser ? getAdminAccessLockFromIntelligence(sessionIntelligence) : null;
+    const isBootstrapping = AUTH_BOOTSTRAP_STATES.has(status);
 
-    if (!AUTH_BOOTSTRAP_STATES.has(status) && adminAccessLock) {
+    if (!isBootstrapping && !currentUser) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (!isBootstrapping && !roles?.isAdmin) {
+        return <Navigate to="/" state={{ from: location }} replace />;
+    }
+
+    if (!isBootstrapping && adminAccessLock) {
         return (
             <AdminAccessLockedState
                 adminAccessLock={adminAccessLock}
@@ -282,6 +308,7 @@ export const AdminRoute = ({ children }) => {
     }
 
     const resolved = renderResolvedGate({
+        auth,
         status,
         currentUser,
         sessionError,
@@ -300,14 +327,6 @@ export const AdminRoute = ({ children }) => {
         return resolved;
     }
 
-    if (!currentUser) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
-    }
-
-    if (!roles?.isAdmin) {
-        return <Navigate to="/" state={{ from: location }} replace />;
-    }
-
     return children;
 };
 
@@ -316,6 +335,7 @@ export const SellerRoute = ({ children }) => {
     const { status, roles, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
+        auth,
         status,
         currentUser,
         sessionError,

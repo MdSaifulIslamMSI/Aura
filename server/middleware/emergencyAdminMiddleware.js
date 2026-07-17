@@ -25,16 +25,21 @@ const hasEmergencyBootstrapAccess = (user = {}) => {
 };
 
 const hasSecondFactorPosture = (req = {}) => {
-    const sessionAal = String(req.authSession?.aal || '').trim().toLowerCase();
     const sessionAmr = Array.isArray(req.authSession?.amr)
         ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
         : [];
     const firebaseSecondFactor = String(req.authToken?.firebase?.sign_in_second_factor || '').trim();
-    const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
-    return sessionAal === 'aal2'
-        || Boolean(firebaseSecondFactor)
-        || ['webauthn', 'browser_key'].includes(sessionDeviceMethod)
-        || sessionAmr.some((entry) => ['firebase_mfa', 'webauthn', 'trusted_device', 'otp'].includes(entry));
+    return Boolean(firebaseSecondFactor)
+        || sessionAmr.some((entry) => [
+            'firebase_mfa',
+            'webauthn',
+            'passkey',
+            'mfa',
+            'otp',
+            'totp',
+            'duo',
+            'duo_oidc',
+        ].includes(entry));
 };
 
 const requireEmergencyControlRole = async (req, res, next) => {

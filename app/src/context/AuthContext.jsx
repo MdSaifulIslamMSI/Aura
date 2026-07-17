@@ -42,7 +42,11 @@ import {
 import { authApi, userApi } from '../services/api';
 import { resetBrowserSessionState } from '../services/browserSessionReset';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
-import { cacheTrustedDeviceSessionToken, clearTrustedDeviceSessionToken } from '../services/deviceTrustClient';
+import {
+  cacheTrustedDeviceSessionToken,
+  clearTrustedDeviceSessionToken,
+  resetTrustedDeviceIdentity,
+} from '../services/deviceTrustClient';
 import {
   shouldUseNativeSocialAuth,
   signInWithNativeSocialProvider,
@@ -1470,6 +1474,7 @@ export const AuthProvider = ({ children }) => {
       cacheTrustedDeviceSessionToken(response.deviceSessionToken, response.expiresAt);
     }
     if (response.success) {
+      const nextStatus = response?.status || SESSION_STATUS.AUTHENTICATED;
       if (currentUser && response?.session && response?.profile && response?.roles) {
         const identity = getIdentityKey(
           currentUser,
@@ -1477,19 +1482,17 @@ export const AuthProvider = ({ children }) => {
         );
         applyResolvedSession({
           ...response,
-          status: SESSION_STATUS.AUTHENTICATED,
+          status: nextStatus,
           deviceChallenge: null,
-          mfaChallenge: null,
-          mfaPolicy: null,
           error: null,
         }, currentUser, identity);
       } else {
         setSessionState((prev) => ({
           ...prev,
-          status: SESSION_STATUS.AUTHENTICATED,
+          status: nextStatus,
           deviceChallenge: null,
-          mfaChallenge: null,
-          mfaPolicy: null,
+          mfaChallenge: response?.mfaChallenge || null,
+          mfaPolicy: response?.mfaPolicy || null,
           error: null,
         }));
       }
@@ -1573,6 +1576,50 @@ export const AuthProvider = ({ children }) => {
       await refreshSession(currentUser, { force: true, silent: true }).catch(() => {});
     }
     return response;
+  };
+
+  const renameTrustedDevice = async ({ deviceId = '', label = '' } = {}) => {
+    if (!currentUser) {
+      throw new Error('Sign in before renaming a trusted device.');
+    }
+
+    return runWithFreshSensitiveActionAuth((authOptions) => (
+      authApi.renameTrustedDevice({ deviceId, label }, {
+        firebaseUser: currentUser,
+        ...authOptions,
+      })
+    ));
+  };
+
+  const revokeTrustedDevice = async ({ deviceId = '' } = {}) => {
+    if (!currentUser) {
+      throw new Error('Sign in before revoking a trusted device.');
+    }
+
+    const response = await runWithFreshSensitiveActionAuth((authOptions) => (
+      authApi.revokeTrustedDevice({ deviceId }, {
+        firebaseUser: currentUser,
+        ...authOptions,
+      })
+    ));
+    if (response?.revokedCurrentDevice) {
+      await resetTrustedDeviceIdentity();
+      await logout();
+    }
+    return response;
+  };
+
+  const revokeOtherTrustedDevices = async () => {
+    if (!currentUser) {
+      throw new Error('Sign in before revoking trusted devices.');
+    }
+
+    return runWithFreshSensitiveActionAuth((authOptions) => (
+      authApi.revokeOtherTrustedDevices({
+        firebaseUser: currentUser,
+        ...authOptions,
+      })
+    ));
   };
 
   const regenerateMfaRecoveryCodes = async () => {
@@ -1672,6 +1719,9 @@ export const AuthProvider = ({ children }) => {
     startTotpSetup,
     verifyTotpSetup,
     registerMfaPasskey,
+    renameTrustedDevice,
+    revokeTrustedDevice,
+    revokeOtherTrustedDevices,
     regenerateMfaRecoveryCodes,
     verifyMfaTotpChallenge,
     verifyMfaPasskeyChallenge,

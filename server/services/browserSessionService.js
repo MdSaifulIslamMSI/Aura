@@ -8,6 +8,7 @@ const {
 } = require('../utils/authIdentity');
 const { extractTrustedDeviceContext } = require('./trustedDeviceChallengeService');
 const { verifyDpopProof } = require('../utils/dpop');
+const { isAdminSubject } = require('./mfaPolicyService');
 
 const SESSION_COOKIE_NAME = String(process.env.AUTH_SESSION_COOKIE_NAME || 'aura_sid').trim() || 'aura_sid';
 const SESSION_PREFIX = `{${redisFlags.redisPrefix}:auth}:session:`;
@@ -110,7 +111,7 @@ const epochSecondsToIso = (value) => {
 };
 
 const getScopeForUser = (user = null) => {
-    if (user?.isAdmin) return 'admin';
+    if (isAdminSubject(user)) return 'admin';
     if (user?.isSeller) return 'seller';
     return 'consumer';
 };
@@ -172,17 +173,19 @@ const resolveSyntheticAssurance = ({
     if (String(user?.authAssurance || '').trim() === 'password+otp') {
         nextAmr.push('otp');
     }
-    if (deviceMethod === 'webauthn') {
-        nextAmr.push('webauthn');
-    } else if (deviceMethod === 'browser_key') {
-        nextAmr.push('trusted_device');
-    } else if (getStoredTrustedDeviceMethod(previousSession) === 'webauthn') {
-        nextAmr.push('webauthn');
+    // A WebAuthn transport identifies the proof mechanism, not whether the
+    // authenticator actually set UV. Callers add the `webauthn` AMR only for
+    // an observed UV ceremony; otherwise the passkey is device recognition.
+    if (deviceMethod === 'browser_key') {
+        nextAmr.push('device_binding');
     } else if (getStoredTrustedDeviceMethod(previousSession) === 'browser_key') {
-        nextAmr.push('trusted_device');
+        nextAmr.push('device_binding');
     }
 
-    const normalizedAmr = normalizeAmr(nextAmr);
+    const effectiveDeviceMethod = deviceMethod || getStoredTrustedDeviceMethod(previousSession);
+    const normalizedAmr = normalizeAmr(nextAmr).filter((entry) => (
+        effectiveDeviceMethod !== 'browser_key' || entry !== 'trusted_device'
+    ));
     const stepUpExpiry = toIsoOrNull(stepUpUntil)
         || resolveStepUpExpiry(user)
         || toIsoOrNull(previousSession?.stepUpUntil);
@@ -192,7 +195,12 @@ const resolveSyntheticAssurance = ({
     const hasStrongFactor = normalizedAmr.some((entry) => (
         entry === 'firebase_mfa'
         || entry === 'webauthn'
-        || entry === 'trusted_device'
+        || entry === 'passkey'
+        || entry === 'mfa'
+        || entry === 'otp'
+        || entry === 'totp'
+        || entry === 'duo'
+        || entry === 'duo_oidc'
     ));
 
     return {
@@ -206,7 +214,7 @@ const resolveSyntheticAssurance = ({
 const resolveRiskState = ({ user = null, previousSession = null, riskState = '' } = {}) => {
     const explicitRiskState = normalizeText(riskState).toLowerCase();
     if (explicitRiskState) return explicitRiskState;
-    if (user?.isAdmin) return 'privileged';
+    if (isAdminSubject(user)) return 'privileged';
     if (user?.isSeller) return 'heightened';
     return String(previousSession?.riskState || 'standard').trim() || 'standard';
 };
@@ -398,6 +406,29 @@ const deleteMemorySessionRecordsForUser = (userId = '') => {
     let revoked = 0;
     for (const [sessionId, entry] of inMemorySessionStore.entries()) {
         if (normalizeUserId(entry?.record?.userId) === normalizedUserId) {
+            inMemorySessionStore.delete(sessionId);
+            revoked += 1;
+        }
+    }
+    return revoked;
+};
+
+const deleteMemorySessionRecordsForDevices = (userId = '', deviceIds = []) => {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedDeviceIds = new Set(
+        (Array.isArray(deviceIds) ? deviceIds : [deviceIds])
+            .map(normalizeText)
+            .filter(Boolean)
+    );
+    if (!normalizedUserId || normalizedDeviceIds.size === 0) return 0;
+
+    let revoked = 0;
+    for (const [sessionId, entry] of inMemorySessionStore.entries()) {
+        const record = entry?.record || {};
+        if (
+            normalizeUserId(record.userId) === normalizedUserId
+            && normalizedDeviceIds.has(normalizeText(record.deviceId))
+        ) {
             inMemorySessionStore.delete(sessionId);
             revoked += 1;
         }
@@ -793,6 +824,89 @@ async function revokeBrowserSessionsForUser(userId = '') {
     }
 }
 
+async function revokeBrowserSessionsForDevices(userId = '', deviceIds = []) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedDeviceIds = new Set(
+        (Array.isArray(deviceIds) ? deviceIds : [deviceIds])
+            .map(normalizeText)
+            .filter(Boolean)
+    );
+    if (!normalizedUserId || normalizedDeviceIds.size === 0) return { revoked: 0 };
+
+    let revoked = deleteMemorySessionRecordsForDevices(normalizedUserId, [...normalizedDeviceIds]);
+    const storageMode = getStorageMode();
+    if (storageMode === 'memory') {
+        return { revoked };
+    }
+    if (storageMode === 'unavailable') {
+        const error = new Error('Browser session store unavailable');
+        error.code = 'AUTH_SESSION_STORE_UNAVAILABLE';
+        logger.error('browser_session.revoke_devices_unavailable', {
+            userId: normalizedUserId,
+            deviceCount: normalizedDeviceIds.size,
+        });
+        throw error;
+    }
+
+    const redisClient = getRedisClient();
+    const userSessionsKey = getUserSessionsKey(normalizedUserId);
+    const sessionIdsToRemove = [];
+    const keysToDelete = [];
+
+    const collectMatchingSession = async (sessionId, key) => {
+        const raw = await redisClient.get(key);
+        if (!raw) return;
+        let record = null;
+        try {
+            record = JSON.parse(raw);
+        } catch {
+            return;
+        }
+        if (
+            normalizeUserId(record?.userId) === normalizedUserId
+            && normalizedDeviceIds.has(normalizeText(record?.deviceId))
+        ) {
+            keysToDelete.push(key);
+            if (sessionId) sessionIdsToRemove.push(sessionId);
+        }
+    };
+
+    try {
+        const sessionIds = await redisClient.sMembers(userSessionsKey);
+        if (sessionIds && sessionIds.length > 0) {
+            for (const sessionId of sessionIds) {
+                await collectMatchingSession(sessionId, getRedisKey(sessionId));
+            }
+        } else if (typeof redisClient.scanIterator === 'function') {
+            for await (const key of scanRedisKeys(redisClient, `${SESSION_PREFIX}*`)) {
+                const sessionId = key.startsWith(SESSION_PREFIX) ? key.slice(SESSION_PREFIX.length) : '';
+                await collectMatchingSession(sessionId, key);
+            }
+        }
+
+        if (keysToDelete.length > 0) {
+            await deleteRedisKeys(redisClient, keysToDelete);
+            revoked += keysToDelete.length;
+        }
+        if (sessionIdsToRemove.length > 0 && typeof redisClient.sRem === 'function') {
+            await redisClient.sRem(userSessionsKey, sessionIdsToRemove);
+        }
+        return { revoked };
+    } catch (error) {
+        const logPayload = {
+            userId: normalizedUserId,
+            deviceCount: normalizedDeviceIds.size,
+            error: error?.message || 'unknown',
+        };
+        if (!isMemorySessionFallbackAllowed()) {
+            logger.error('browser_session.revoke_devices_failed_no_fallback', logPayload);
+            throw error;
+        }
+        logger.warn('browser_session.revoke_devices_failed', logPayload);
+        return { revoked };
+    }
+}
+
 async function setGlobalSessionRevokedAfter(value = new Date()) {
     const revokedAfterMs = normalizeRevocationMs(value) || Date.now();
     inMemoryGlobalSessionRevokedAfter = revokedAfterMs;
@@ -1100,6 +1214,7 @@ module.exports = {
     resolveSessionIdFromRequest,
     revokeAllBrowserSessions,
     revokeBrowserSession,
+    revokeBrowserSessionsForDevices,
     revokeBrowserSessionsForUser,
     rotateBrowserSession,
     setBrowserSessionCookie,

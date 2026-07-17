@@ -75,7 +75,7 @@ describe('browserSessionService', () => {
             },
             deviceMethod: 'webauthn',
             stepUpUntil: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-            additionalAmr: ['otp'],
+            additionalAmr: ['otp', 'webauthn'],
         });
 
         const storedSession = await browserSessionService.getBrowserSession(session.sessionId);
@@ -99,6 +99,50 @@ describe('browserSessionService', () => {
         expect(setCookieHeader[0]).toContain('HttpOnly');
         expect(setCookieHeader[0]).toContain('Secure');
         expect(setCookieHeader[0]).toContain('SameSite=Strict');
+    });
+
+    test('does not infer AAL2 from a WebAuthn transport when UV was not observed', async () => {
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-public-no-uv',
+                    deviceLabel: 'Public passkey',
+                }),
+            }));
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const session = await browserSessionService.createBrowserSession({
+            req: { headers: { host: 'app.aura.local' } },
+            res: createResponseStub(),
+            user: {
+                _id: '507f1f77bcf86cd799439012',
+                email: 'public@example.com',
+                authAssurance: 'password',
+            },
+            authUid: 'firebase-public-1',
+            authToken: {
+                auth_time: nowSeconds,
+                iat: nowSeconds,
+                exp: nowSeconds + 3600,
+                firebase: { sign_in_provider: 'password' },
+            },
+            deviceMethod: 'webauthn',
+            stepUpUntil: new Date(0),
+            additionalAmr: ['device_binding'],
+        });
+
+        expect(session.deviceMethod).toBe('webauthn');
+        expect(session.aal).toBe('aal1');
+        expect(session.amr).toContain('device_binding');
+        expect(session.amr).not.toContain('webauthn');
     });
 
     test('rotates and revokes opaque browser sessions', async () => {
@@ -187,8 +231,9 @@ describe('browserSessionService', () => {
         expect(rotatedSession.sessionId).not.toBe(firstSession.sessionId);
         expect(rotatedSession.scope).toBe('seller');
         expect(rotatedSession.deviceMethod).toBe('browser_key');
-        expect(rotatedSession.aal).toBe('aal2');
-        expect(rotatedSession.amr).toEqual(expect.arrayContaining(['social_google', 'trusted_device']));
+        expect(rotatedSession.aal).toBe('aal1');
+        expect(rotatedSession.amr).toEqual(expect.arrayContaining(['social_google', 'device_binding']));
+        expect(rotatedSession.amr).not.toContain('trusted_device');
         await expect(browserSessionService.getBrowserSession(firstSession.sessionId)).resolves.toBeNull();
 
         await browserSessionService.revokeBrowserSession(rotatedSession.sessionId);
