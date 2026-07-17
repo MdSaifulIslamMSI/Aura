@@ -966,6 +966,8 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/PROD_SSM_PREFIX.*\/aura\/prod/);
         expect(workflow).toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_BASE_URL\s*\}\}/);
         expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY/);
+        expect(workflow).toMatch(/cache-dependency-path:[\s\S]*?package-lock\.json[\s\S]*?app\/package-lock\.json/);
+        expect(workflow).toMatch(/npm ci[\s\S]*?npm --prefix app ci/);
         expect(workflow).toMatch(/id:\s*lease-runner-ssh/);
         expect(workflow).toContain('https://checkip.amazonaws.com');
         expect(workflow).toMatch(/RUNNER_CIDR="\$\{RUNNER_IP\}\/32"/);
