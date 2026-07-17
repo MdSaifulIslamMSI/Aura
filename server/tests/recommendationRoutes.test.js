@@ -142,4 +142,37 @@ describe('recommendation routes', () => {
         expect(response.body.recommendations[0]).toHaveProperty('reason');
         expect(response.body.recommendations[0]).not.toHaveProperty('debug');
     });
+
+    test('assistant catalog retrieval applies category and budget before limiting candidates', async () => {
+        await Promise.all(Array.from({ length: 14 }, (_, index) => createProduct({
+            id: 4100 + index,
+            title: `Premium Phone ${index + 1}`,
+            category: 'Mobiles',
+            price: 60000 + index,
+            rating: 4.9,
+            ratingCount: 1000 + index,
+        })));
+        await createProduct({
+            id: 4199,
+            title: 'Budget Phone Match',
+            category: 'Mobiles',
+            price: 19999,
+            rating: 3.8,
+            ratingCount: 1,
+        });
+
+        const response = await request(app)
+            .post('/api/recommendations/assistant?sessionId=assistant-budget-window')
+            .send({
+                message: 'recommend phones under ₹30k',
+                context: { page: 'assistant' },
+                limit: 5,
+            });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.recommendations.map((entry) => entry.product.id)).toContain(4199);
+        expect(response.body.recommendations.every((entry) => (
+            entry.product.category === 'Mobiles' && Number(entry.product.price) <= 30000
+        ))).toBe(true);
+    });
 });

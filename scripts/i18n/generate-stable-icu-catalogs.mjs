@@ -9,6 +9,13 @@ import {
     repoDir,
     sourceDir,
 } from './legacy-migration-lib.mjs';
+import stableCatalogPolicy from './stable-catalog-policy.cjs';
+
+const {
+    getPromotionReviewReason,
+    isStaleEnglishFallback,
+    shouldCollectFormatJsSourceFile,
+} = stableCatalogPolicy;
 
 const appRequire = createRequire(path.join(appDir, 'package.json'));
 const { isStructurallySame, parse } = appRequire('@formatjs/icu-messageformat-parser');
@@ -127,6 +134,8 @@ const collectFormatJsSourceMessages = () => {
     const messages = {};
 
     walkSourceFiles(sourceDir).forEach((filePath) => {
+        if (!shouldCollectFormatJsSourceFile({ filePath, generatedDescriptorPath })) return;
+
         const source = fs.readFileSync(filePath, 'utf8');
         let ast;
         try {
@@ -301,14 +310,32 @@ const placeholderMismatchReasonForId = (id) => (
         : 'legacy-placeholder-mismatch-uses-english-fallback'
 );
 
-const promotionReasonForId = (id) => (
-    reviewedFoundationIds.has(id)
-        ? 'foundation-pack-promotion-needs-human-review'
-        : 'legacy-pack-promotion-needs-human-review'
-);
+const promotionReasonForId = (id) => getPromotionReviewReason({
+    isStableMessage: stableIdSet.has(id),
+});
 
 const resolveLocaleMessage = ({ id, locale, risk, sourceAst, sourceMessage }) => {
     const existingMessage = existingCatalogs[locale][id];
+    const previousSourceMessage = existingCatalogs.en[id];
+
+    // A translation reviewed against older English copy is not automatically
+    // valid for a changed meaning. Fall back to the new source and require a
+    // fresh review instead of silently treating stale copy as confirmed.
+    if (isStaleEnglishFallback({
+        existingMessage,
+        previousSourceMessage,
+        sourceMessage,
+    })) {
+        enqueue({
+            id,
+            locale,
+            message: sourceMessage,
+            reason: missingLocaleReasonForId(id),
+            risk,
+        });
+        return sourceMessage;
+    }
+
     if (existingMessage) {
         try {
             const existingAst = parse(existingMessage);

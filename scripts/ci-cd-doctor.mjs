@@ -13,6 +13,7 @@ const requiredWorkflows = [
   'rollback-backend-aws.yml',
   'rollback-netlify.yml',
   'rollback-frontend-aws.yml',
+  'rollback-storefront-vercel.yml',
   'rollback-gateway-vercel.yml',
   'desktop-release.yml',
   'mobile-release.yml',
@@ -43,6 +44,15 @@ const gateway = read('.github/workflows/deploy-gateway-vercel.yml');
 const deployBackend = read('.github/workflows/deploy-backend-aws.yml');
 const deployFrontendNetlify = read('.github/workflows/deploy-netlify.yml');
 const deployFrontendAws = read('.github/workflows/deploy-frontend-aws.yml');
+const rollbackNetlify = read('.github/workflows/rollback-netlify.yml');
+const rollbackFrontendAws = read('.github/workflows/rollback-frontend-aws.yml');
+const rollbackFrontendAwsScript = read('infra/aws/rollback-frontend-s3.sh');
+const rollbackStorefrontVercel = read('.github/workflows/rollback-storefront-vercel.yml');
+const rollbackGateway = read('.github/workflows/rollback-gateway-vercel.yml');
+const rollbackStorefrontVercelScript = read('scripts/rollback-storefront-vercel.sh');
+const ciCdDocs = read('docs/ci-cd.md');
+const productionInstallDocs = read('docs/production-cicd-install.md');
+const rootDockerignore = read('.dockerignore');
 const backendOidcBootstrap = read('infra/aws/bootstrap-github-oidc.ps1');
 const frontendOidcBootstrap = read('infra/aws/bootstrap-frontend-github-oidc.ps1');
 const packageJson = JSON.parse(read('package.json') || '{}');
@@ -153,6 +163,162 @@ addCheck(
       productionDispatchInputs.includes(input)
     ),
   `inputs=${productionDispatchInputs.length}/10; target inputs collapse selected deploy/release/rollback lanes`
+);
+
+addCheck(
+  'root backend build context excludes local student credentials',
+  rootDockerignore.split(/\r?\n/).includes('.student-pack.local.env') &&
+    ciWorkflow.includes('- ".dockerignore"') &&
+    ciWorkflow.includes('Dockerfile|.dockerignore|Makefile'),
+  '.dockerignore is secret-safe and routes root context policy changes through backend CI'
+);
+
+addCheck(
+  'production storefront target is one non-overlapping multi-host lane',
+  production.includes('backend, frontend-multihost, gateway') &&
+    production.includes('INPUT_DEPLOY_FRONTEND_NETLIFY="$(target_selected "${INPUT_DEPLOY_TARGETS}" frontend-multihost storefront)"') &&
+    production.includes('INPUT_DEPLOY_FRONTEND_AWS="false"') &&
+    !production.includes('frontend-netlify netlify storefront') &&
+    !production.includes('frontend-aws aws-frontend'),
+  'the command center cannot concurrently dispatch two writers to the AWS storefront bucket'
+);
+
+addCheck(
+  'production command center rejects deploy and rollback overlap',
+  production.includes('reject_overlapping_lane backend "${INPUT_DEPLOY_BACKEND}" "${INPUT_ROLLBACK_BACKEND}"') &&
+    production.includes('reject_overlapping_lane frontend-multihost "${INPUT_DEPLOY_FRONTEND_NETLIFY}" "${INPUT_ROLLBACK_FRONTEND_NETLIFY}"') &&
+    production.includes('reject_overlapping_lane gateway "${INPUT_DEPLOY_GATEWAY}" "${INPUT_ROLLBACK_GATEWAY}"'),
+  'a provider lane cannot deploy and roll back in the same workflow run'
+);
+
+addCheck(
+  'production mutations share one non-canceling parent lock',
+  production.includes('group: aura-production-mutation') &&
+    production.includes('cancel-in-progress: false') &&
+    (production.match(/parent_holds_production_lock: true/g) || []).length === 7 &&
+    [deployFrontendAws, rollbackNetlify, rollbackFrontendAws, rollbackStorefrontVercel, rollbackGateway]
+      .every((workflow) =>
+        workflow.includes('parent_holds_production_lock:') &&
+        workflow.includes("|| 'aura-production-mutation'") &&
+        workflow.includes('cancel-in-progress: false')
+      ) &&
+    (deployFrontendNetlify.match(/parent_holds_production_lock: true/g) || []).length === 3,
+  'command-center and standalone frontend/gateway operations serialize without child reusable-workflow deadlock'
+);
+
+addCheck(
+  'production deploys queue while previews retain cancellation',
+  [deployFrontendNetlify, gateway].every((workflow) =>
+    workflow.includes("inputs.target == 'production' && 'aura-production-mutation'") &&
+    workflow.includes("cancel-in-progress: ${{ inputs.target != 'production' }}")
+  ) &&
+    deployFrontendNetlify.includes("format('frontend-{0}'") &&
+    gateway.includes("format('gateway-vercel-{0}'"),
+  'production multi-host and gateway runs never cancel in-flight; preview runs still supersede stale work'
+);
+
+addCheck(
+  'production command-center docs use canonical lanes and rollback refs',
+  [ciCdDocs, productionInstallDocs].every((document) =>
+    document.includes('deploy_targets=backend,frontend-multihost,gateway') &&
+    document.includes('rollback_targets=backend,frontend-multihost,gateway') &&
+    document.includes('rollback_refs_json={"backend":"sha"') &&
+    document.includes('parent_holds_production_lock') &&
+    !document.includes('deploy_targets=backend,frontend-netlify,gateway') &&
+    !document.includes('rollback_targets=backend,frontend-netlify,frontend-aws,gateway')
+  ),
+  'operator docs match the accepted target vocabulary, per-provider refs, and same-lane rejection policy'
+);
+
+addCheck(
+  'production rollback refs are provider-specific',
+  productionDispatchInputs.includes('rollback_refs_json') &&
+    !productionDispatchInputs.includes('rollback_ref') &&
+    ['rollback_backend_ref', 'rollback_netlify_ref', 'rollback_vercel_storefront_ref', 'rollback_aws_frontend_ref', 'rollback_gateway_ref']
+      .every((name) => production.includes(`${name}: \${{ steps.plan.outputs.${name} }}`)),
+  'one JSON object carries independently keyed backend and provider rollback identifiers'
+);
+
+addCheck(
+  'multi-host storefront auto rollback covers every mutated provider',
+  deployFrontendNetlify.includes('Capture provider-specific production rollback targets') &&
+    deployFrontendNetlify.includes('rollback-netlify-on-production-failure:') &&
+    deployFrontendNetlify.includes('rollback-vercel-storefront-on-production-failure:') &&
+    deployFrontendNetlify.includes('rollback-aws-storefront-on-production-failure:') &&
+    production.includes('rollback-frontend-netlify:') &&
+    production.includes('rollback-frontend-vercel-storefront:') &&
+    production.includes('rollback-frontend-aws:') &&
+    rollbackStorefrontVercel.includes('scripts/rollback-storefront-vercel.sh') &&
+    rollbackStorefrontVercelScript.includes('npx vercel rollback') &&
+    (deployFrontendNetlify.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g) || []).length === 3 &&
+    deployFrontendNetlify.includes("needs.deploy-production.outputs.deployment_attempted == 'true'") &&
+    deployFrontendNetlify.includes("needs.deploy-vercel-production.outputs.deployment_attempted == 'true'") &&
+    deployFrontendNetlify.includes("needs.deploy-aws-production.outputs.deployment_attempted == 'true'"),
+  'partial deploy failures and post-deploy smoke failures restore Netlify, Vercel, and AWS independently'
+);
+
+addCheck(
+  'storefront rollback targets are captured and bound immutably',
+  deployFrontendNetlify.includes('https://api.vercel.com/v4/aliases/${vercel_production_host}') &&
+    deployFrontendNetlify.includes(".deploymentId // .deployment.id // empty") &&
+    deployFrontendNetlify.includes('test "${vercel_project_id}" = "${VERCEL_PROJECT_ID}"') &&
+    !deployFrontendNetlify.includes('api.vercel.com/v6/deployments') &&
+    rollbackStorefrontVercelScript.includes('require_env VERCEL_ORG_ID') &&
+    rollbackStorefrontVercelScript.includes('require_env VERCEL_PROJECT_ID') &&
+    rollbackStorefrontVercelScript.includes('--project "${VERCEL_PROJECT_ID}"') &&
+    rollbackStorefrontVercelScript.includes('VERCEL_LINK_FILE="${vercel_link_file}" node') &&
+    rollbackStorefrontVercelScript.includes('npx vercel rollback status "${VERCEL_PROJECT_ID}"') &&
+    !rollbackStorefrontVercelScript.includes('--scope'),
+  'Vercel restores the deployment currently bound to production and verifies immutable org/project ids'
+);
+
+addCheck(
+  'AWS storefront snapshot fails closed and cleans partial state',
+  deployFrontendNetlify.includes('id: snapshot') &&
+    deployFrontendNetlify.includes('cleanup_partial_snapshot()') &&
+    deployFrontendNetlify.includes('AWS frontend rollback snapshot failed; removing the partial snapshot.') &&
+    deployFrontendNetlify.includes('echo "rollback_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"') &&
+    !deployFrontendNetlify.includes('continuing with the new production deploy') &&
+    rollbackFrontendAwsScript.includes('No completed AWS frontend rollback snapshot matched') &&
+    rollbackFrontendAwsScript.includes('Refusing to execute target code in the credentialed restore job.') &&
+    !rollbackFrontendAws.includes('Checkout rebuild rollback source') &&
+    !rollbackFrontendAwsScript.includes('npm --prefix'),
+  'the S3 publish and restore paths require a complete manifest-backed snapshot and never execute historical app code'
+);
+
+addCheck(
+  'gateway production mutation captures and restores its previous deployment',
+  gateway.includes('Capture current production gateway deployment') &&
+    gateway.includes('Mark gateway production mutation attempt') &&
+    gateway.includes('Restore previous gateway after a failed production mutation') &&
+    gateway.includes('timeout-minutes: 60') &&
+    gateway.includes('timeout --signal=TERM --kill-after=30s 30m npx vercel deploy') &&
+    gateway.includes('https://api.vercel.com/v4/aliases/${VERCEL_GATEWAY_ALIAS}') &&
+    gateway.indexOf('Capture current production gateway deployment') < gateway.indexOf('Mark gateway production mutation attempt') &&
+    gateway.indexOf('Mark gateway production mutation attempt') < gateway.lastIndexOf('npx vercel deploy'),
+  'gateway publish failures restore the exact deployment that owned the production alias before mutation'
+);
+
+addCheck(
+  'backend rollback target is captured explicitly and never inferred by mtime',
+    deployBackend.includes('Capture current backend rollback release') &&
+    deployBackend.includes('backend_rollback_ref:') &&
+    deployBackend.includes('timeout-minutes: 120') &&
+    deployBackend.includes('Configure fresh AWS credentials for deployment') &&
+    deployBackend.includes('Refresh AWS credentials for failure restoration') &&
+    deployBackend.includes("steps.rollback_credentials.outcome == 'success'") &&
+    (deployBackend.match(/InvocationDoesNotExist/g) || []).length >= 2 &&
+    read('infra/aws/rollback-backend.sh').includes('InvocationDoesNotExist') &&
+    deployBackend.includes('refusing a same-SHA redeploy that would overwrite rollback artifacts') &&
+    deployBackend.indexOf('Capture current backend rollback release') < deployBackend.indexOf('Upload deployment artifacts to S3') &&
+    read('infra/aws/deploy-release.sh').includes('same-SHA redeploys cannot preserve an immutable rollback target') &&
+    deployBackend.includes('Restore previous backend after post-activation verification failure') &&
+    deployBackend.indexOf('Build backend container image') < deployBackend.indexOf('Configure fresh AWS credentials for deployment') &&
+    deployBackend.indexOf('Configure fresh AWS credentials for deployment') < deployBackend.indexOf('Upload deployment artifacts to S3') &&
+    production.includes('needs.deploy-backend.outputs.backend_rollback_ref') &&
+    production.includes('backend rollback requires rollback_refs_json.backend as a full known-good commit SHA.') &&
+    !read('infra/aws/rollback-backend.sh').includes("find \"${releases_dir}\" -mindepth 1 -maxdepth 1 -type d ! -name \"${current_sha}\" -printf '%T@ %f\\n'"),
+  'manual rollback requires a known-good SHA and automatic rollback uses the pre-mutation active SHA'
 );
 
 addCheck(

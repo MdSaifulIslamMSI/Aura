@@ -103,6 +103,7 @@ describe('catalogService public read policy', () => {
 
         const result = await catalogService.queryProducts({ includeSponsored: 'false' });
 
+        expect(Product.syncProductIndexes).not.toHaveBeenCalled();
         expect(Product.findOne).toHaveBeenCalledTimes(1);
         expect(capturedFilter).toMatchObject({
             catalogVersion: 'live-v2',
@@ -162,5 +163,15 @@ describe('catalogService public read policy', () => {
             id: 123,
         });
         expect(Product.findOne).toHaveBeenCalledTimes(4);
+    });
+
+    test('synchronizes product indexes only when startup explicitly requests it', async () => {
+        const { catalogService, Product, SystemState } = loadCatalogService();
+
+        SystemState.findOne.mockResolvedValue({ activeCatalogVersion: 'live-v2' });
+
+        await catalogService.ensureSystemState({ syncIndexes: true });
+
+        expect(Product.syncProductIndexes).toHaveBeenCalledTimes(1);
     });
 });

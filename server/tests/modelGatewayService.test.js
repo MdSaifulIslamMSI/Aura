@@ -79,6 +79,7 @@ describe('modelGatewayService', () => {
             checkModelGatewayHealth,
             generateStructuredJson,
             getGatewayConfig,
+            getModelGatewayHealth,
             resolveGatewayProviders,
         } = require('../services/ai/modelGatewayService');
 
@@ -86,13 +87,36 @@ describe('modelGatewayService', () => {
         expect(getGatewayConfig()).toMatchObject({
             provider: 'disabled',
             healthy: false,
+            apiConfigured: false,
             error: 'model_gateway_disabled',
+            capabilities: {
+                textInput: false,
+                imageInput: false,
+                audioInput: false,
+                chat: false,
+                embeddings: false,
+            },
         });
         await expect(generateStructuredJson({ prompt: 'hello' })).rejects.toThrow('model_gateway_disabled');
         await expect(checkModelGatewayHealth()).resolves.toMatchObject({
             provider: 'disabled',
             healthy: false,
+            apiConfigured: false,
             error: 'model_gateway_disabled',
+            capabilities: {
+                textInput: false,
+                imageInput: false,
+                audioInput: false,
+                chat: false,
+                embeddings: false,
+            },
+        });
+        expect(getModelGatewayHealth().capabilities).toEqual({
+            textInput: false,
+            imageInput: false,
+            audioInput: false,
+            chat: false,
+            embeddings: false,
         });
         expect(geminiGateway.generateStructuredJson).not.toHaveBeenCalled();
         expect(ollamaGateway.generateStructuredJson).not.toHaveBeenCalled();

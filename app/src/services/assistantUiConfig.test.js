@@ -4,6 +4,7 @@ import {
     isDesktopLoginPath,
     isFrontendLaunchHubPath,
     isAssistantWorkspacePath,
+    resolveAssistantOriginLocation,
     shouldShowAmbientChrome,
     shouldShowAssistantLauncher,
     shouldShowBackendStatusBanner,
@@ -50,6 +51,25 @@ describe('assistantUiConfig', () => {
         expect(shouldShowSiteChrome('/launch')).toBe(false);
         expect(shouldShowSiteChrome('/assistant')).toBe(false);
         expect(shouldShowSiteChrome('/products')).toBe(true);
+    });
+
+    it('resolves the original listing route inside the assistant workspace', () => {
+        expect(resolveAssistantOriginLocation({
+            pathname: '/assistant',
+            search: '?from=%2Flisting%2Fabc%3Fref%3Dsearch',
+        })).toEqual({
+            pathname: '/listing/abc',
+            search: '?ref=search',
+            hash: '',
+            path: '/listing/abc?ref=search',
+        });
+    });
+
+    it('rejects protocol-relative assistant origins', () => {
+        expect(resolveAssistantOriginLocation({
+            pathname: '/assistant',
+            search: '?from=%2F%2Fevil.example%2Flisting%2Fabc',
+        }).path).toBe('/');
     });
 
     it('treats desktop login as a dedicated auth surface', () => {

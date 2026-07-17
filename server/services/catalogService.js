@@ -352,8 +352,10 @@ async function* streamRowsFromSource(sourceType, sourceRef) {
     throw new AppError(`Unsupported sourceType: ${effectiveType}`, 400);
 }
 
-const ensureSystemState = async () => {
-    await Product.syncProductIndexes();
+const ensureSystemState = async ({ syncIndexes = false } = {}) => {
+    if (syncIndexes) {
+        await Product.syncProductIndexes();
+    }
     if (systemStateWriteBlocked && systemStateFallbackDoc) {
         return systemStateFallbackDoc;
     }

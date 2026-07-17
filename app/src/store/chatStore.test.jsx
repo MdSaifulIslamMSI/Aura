@@ -194,7 +194,7 @@ describe('chatStore', () => {
         expect(state.messages.some((message) => message.text === 'history for user b')).toBe(false);
     });
 
-    it('treats signed-in session history from the server as authoritative', () => {
+    it('preserves locally unsynced threads during authoritative server history sync', () => {
         useChatStore.getState().switchViewerScope({
             viewerScope: 'user:user-a',
             preservedContext: {
@@ -218,8 +218,258 @@ describe('chatStore', () => {
         ], { authoritative: true });
 
         const state = useChatStore.getState();
-        expect(state.sessions.map((session) => session.id)).toEqual(['server-session-1']);
-        expect(state.sessions.some((session) => session.id === staleLocalSessionId)).toBe(false);
+        expect(state.sessions.map((session) => session.id).sort()).toEqual([
+            'server-session-1',
+            staleLocalSessionId,
+        ].sort());
+        expect(state.sessions.some((session) => session.id === staleLocalSessionId)).toBe(true);
+        expect(state.sessions.find((session) => session.id === staleLocalSessionId)?.serverSynced).toBe(false);
+        expect(state.sessions.find((session) => session.id === 'server-session-1')?.serverSynced).toBe(true);
+    });
+
+    it('preserves a matching server-backed thread when local work changes during history sync', () => {
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-a',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+        const sessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().hydrateSessionFromServer({
+            session: {
+                id: sessionId,
+                title: 'Server-backed thread',
+                preview: 'Earlier server turn',
+                originPath: '/assistant',
+            },
+            messages: [{
+                id: 'server-message',
+                role: 'assistant',
+                text: 'Earlier server turn',
+            }],
+        }, {
+            sessionId,
+        });
+
+        const expectedRevisions = {
+            [sessionId]: useChatStore.getState().getSessionConversationRevision(sessionId),
+        };
+        useChatStore.getState().appendUserMessage('keep this in-flight question', { sessionId });
+        const streamMessageId = useChatStore.getState().beginAssistantStream({ sessionId });
+
+        useChatStore.getState().replaceSessionsFromServer([{
+            id: sessionId,
+            title: 'Stale server title',
+            preview: 'Stale server preview',
+            originPath: '/assistant',
+        }], {
+            authoritative: true,
+            expectedViewerScope: 'user:user-a',
+            expectedRevisions,
+        });
+
+        const state = useChatStore.getState();
+        expect(state.messages.some((message) => message.text === 'keep this in-flight question')).toBe(true);
+        expect(state.messages.some((message) => message.id === streamMessageId && message.isStreaming)).toBe(true);
+        expect(state.activeSession).toMatchObject({
+            id: sessionId,
+            title: 'keep this in-flight question',
+            serverSynced: true,
+        });
+
+        useChatStore.getState().replaceSessionsFromServer([], {
+            authoritative: true,
+            expectedViewerScope: 'user:user-a',
+            expectedRevisions,
+        });
+        expect(useChatStore.getState().messages.some((message) => message.text === 'keep this in-flight question')).toBe(true);
+    });
+
+    it('rejects stale list and detail hydration from a previous viewer scope', () => {
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-a',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+        useChatStore.getState().switchViewerScope({
+            viewerScope: 'user:user-b',
+            preservedContext: {
+                route: '/assistant',
+                isAuthenticated: true,
+            },
+        });
+        const userBSessionId = useChatStore.getState().activeSessionId;
+
+        useChatStore.getState().replaceSessionsFromServer([{
+            id: 'user-a-session',
+            title: 'User A private thread',
+            preview: 'User A private preview',
+        }], {
+            authoritative: true,
+            expectedViewerScope: 'user:user-a',
+        });
+        useChatStore.getState().hydrateSessionFromServer({
+            session: {
+                id: userBSessionId,
+                title: 'User A stale detail',
+            },
+            messages: [{
+                id: 'user-a-private-message',
+                role: 'assistant',
+                text: 'User A private detail',
+            }],
+        }, {
+            expectedViewerScope: 'user:user-a',
+            sessionId: userBSessionId,
+        });
+
+        const state = useChatStore.getState();
+        expect(state.viewerScope).toBe('user:user-b');
+        expect(state.activeSessionId).toBe(userBSessionId);
+        expect(state.sessions.some((session) => session.id === 'user-a-session')).toBe(false);
+        expect(state.messages.some((message) => message.id === 'user-a-private-message')).toBe(false);
+    });
+
+    it('drops a previously server-synced thread omitted by authoritative history', () => {
+        const sessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().appendUserMessage('this thread has reached the server');
+        useChatStore.getState().replaceSessionsFromServer([{
+            id: sessionId,
+            title: 'Server-backed thread',
+            preview: 'Synced from backend',
+            originPath: '/assistant',
+        }], { authoritative: true });
+
+        expect(useChatStore.getState().sessions.find((session) => session.id === sessionId)?.serverSynced).toBe(true);
+
+        useChatStore.getState().replaceSessionsFromServer([], { authoritative: true });
+
+        expect(useChatStore.getState().sessions.some((session) => session.id === sessionId)).toBe(false);
+    });
+
+    it('guards late server hydration when the local conversation changed', () => {
+        const sessionId = useChatStore.getState().activeSessionId;
+        const expectedRevision = useChatStore.getState().getSessionConversationRevision(sessionId);
+        useChatStore.getState().appendUserMessage('keep this newer local message');
+
+        useChatStore.getState().hydrateSessionFromServer({
+            session: {
+                id: sessionId,
+                title: 'Stale server title',
+            },
+            messages: [
+                {
+                    id: 'stale-server-message',
+                    role: 'assistant',
+                    text: 'stale server response',
+                },
+            ],
+        }, {
+            expectedRevision,
+            sessionId,
+        });
+
+        expect(useChatStore.getState().messages.some((message) => message.text === 'keep this newer local message')).toBe(true);
+        expect(useChatStore.getState().messages.some((message) => message.id === 'stale-server-message')).toBe(false);
+    });
+
+    it('hydrates a background session without stealing active-session focus', () => {
+        const originalSessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().hydrateSessionFromServer({
+            session: {
+                id: 'server-session-background',
+                title: 'Background thread',
+            },
+            messages: [{
+                id: 'background-message',
+                role: 'assistant',
+                text: 'background history',
+            }],
+        }, {
+            activate: false,
+            sessionId: 'server-session-background',
+        });
+
+        expect(useChatStore.getState().activeSessionId).toBe(originalSessionId);
+        expect(useChatStore.getState().sessions.find((session) => session.id === 'server-session-background')?.serverSynced).toBe(true);
+
+        useChatStore.getState().hydrateSessionFromServer({
+            session: {
+                id: 'server-session-active',
+                title: 'New active thread',
+            },
+            messages: [],
+        });
+
+        expect(useChatStore.getState().activeSessionId).toBe('server-session-active');
+    });
+
+    it('clears stale turn actions when a new user turn starts', () => {
+        const sessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().setSurface({
+            mode: 'product',
+            primaryAction: { id: 'old-primary', kind: 'add-to-cart' },
+            secondaryActions: [{ id: 'old-secondary', kind: 'view-details' }],
+            supportPrefill: { subject: 'old context' },
+        });
+        useChatStore.getState().setPendingAction({ type: 'add_to_cart' }, sessionId);
+        useChatStore.getState().setPendingConfirmation({ token: 'old-confirmation' });
+
+        useChatStore.getState().appendUserMessage('start a different request');
+
+        expect(useChatStore.getState()).toMatchObject({
+            primaryAction: null,
+            secondaryActions: [],
+            supportPrefill: null,
+            pendingAction: null,
+            pendingConfirmation: null,
+        });
+    });
+
+    it('clears the requested thread even if another thread becomes active', () => {
+        const firstSessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().appendUserMessage('clear only this thread');
+        useChatStore.getState().resetConversation();
+        const secondSessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().appendUserMessage('keep this active thread');
+
+        useChatStore.getState().clearActiveSessionConversation(firstSessionId);
+
+        expect(useChatStore.getState().activeSessionId).toBe(secondSessionId);
+        expect(useChatStore.getState().messages.some((message) => message.text === 'keep this active thread')).toBe(true);
+        expect(useChatStore.getState().sessionStateById[firstSessionId].messages.some((message) => message.role === 'user')).toBe(false);
+    });
+
+    it('strips raw media and transient request state before persistence and rehydrate', async () => {
+        const sessionId = useChatStore.getState().activeSessionId;
+        useChatStore.getState().appendUserMessage('inspect attachment', {
+            images: [{ id: 'image-1', fileName: 'sample.png', dataUrl: 'data:image/png;base64,secret-image' }],
+            audio: [{ id: 'audio-1', fileName: 'sample.webm', dataUrl: 'data:audio/webm;base64,secret-audio' }],
+        });
+        useChatStore.getState().setPendingAction({ type: 'add_to_cart' }, sessionId);
+        useChatStore.getState().setPendingConfirmation({ token: 'stale-token' });
+        useChatStore.getState().beginAssistantStream({ sessionId });
+
+        const persistedRaw = localStorage.getItem('aura-shopper-chat-v4');
+        expect(persistedRaw).not.toContain('secret-image');
+        expect(persistedRaw).not.toContain('secret-audio');
+
+        await useChatStore.persist.rehydrate();
+
+        const rehydratedSession = useChatStore.getState().sessionStateById[sessionId];
+        const userMessage = rehydratedSession.messages.find((message) => message.role === 'user');
+        expect(userMessage.images[0]).not.toHaveProperty('dataUrl');
+        expect(userMessage.audio[0]).not.toHaveProperty('dataUrl');
+        expect(rehydratedSession).toMatchObject({
+            status: 'idle',
+            isLoading: false,
+            pendingAction: null,
+            pendingConfirmation: null,
+        });
+        expect(rehydratedSession.messages.some((message) => message.isStreaming)).toBe(false);
     });
 
     it('tracks streaming metadata and finalizes a fast reply in place', () => {

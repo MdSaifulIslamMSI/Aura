@@ -12,7 +12,7 @@ const buildBaseHeaders = () => ({
     'Content-Type': 'application/json',
 });
 
-const getAiRequestConfig = async () => {
+const getAiRequestConfig = async ({ forceRefresh = false } = {}) => {
     const headers = buildBaseHeaders();
     if (!isFirebaseReady || !auth) {
         return { headers, usedAuth: false };
@@ -23,22 +23,23 @@ const getAiRequestConfig = async () => {
         return { headers, usedAuth: false };
     }
 
-    try {
-        const token = await user.getIdToken();
-        return {
-            headers: {
-                ...headers,
-                Authorization: `Bearer ${token}`,
-            },
-            usedAuth: true,
-        };
-    } catch {
-        return { headers, usedAuth: false };
-    }
+    const token = await user.getIdToken(forceRefresh);
+    return {
+        headers: {
+            ...headers,
+            Authorization: `Bearer ${token}`,
+        },
+        usedAuth: true,
+    };
+};
+
+const refreshAuthenticatedConfig = async () => {
+    const refreshedConfig = await getAiRequestConfig({ forceRefresh: true });
+    return refreshedConfig.usedAuth ? refreshedConfig : null;
 };
 
 const requestAiJson = async (path, payload = {}, options = {}) => {
-    const { method = 'POST', fallbackMessage = 'AI request failed' } = options;
+    const { method = 'POST', fallbackMessage = 'AI request failed', signal } = options;
     const { headers, usedAuth } = await getAiRequestConfig();
 
     let response = await requestWithTrace(`${API_URL}${path}`, {
@@ -47,16 +48,21 @@ const requestAiJson = async (path, payload = {}, options = {}) => {
         body: method === 'GET' ? undefined : JSON.stringify(payload),
         throwOnHttpError: false,
         fallbackMessage,
+        signal,
     });
 
-    if (usedAuth && (response.status === 401 || response.status === 403)) {
-        response = await requestWithTrace(`${API_URL}${path}`, {
-            method,
-            headers: buildBaseHeaders(),
-            body: method === 'GET' ? undefined : JSON.stringify(payload),
-            throwOnHttpError: false,
-            fallbackMessage,
-        });
+    if (usedAuth && response.status === 401) {
+        const refreshedConfig = await refreshAuthenticatedConfig();
+        if (refreshedConfig) {
+            response = await requestWithTrace(`${API_URL}${path}`, {
+                method,
+                headers: refreshedConfig.headers,
+                body: method === 'GET' ? undefined : JSON.stringify(payload),
+                throwOnHttpError: false,
+                fallbackMessage,
+                signal,
+            });
+        }
     }
 
     if (!response.ok) {
@@ -78,38 +84,48 @@ const consumeEventStream = async (response, onEvent) => {
     const decoder = new TextDecoder();
     let buffer = '';
 
+    const emitFrame = (frame = '') => {
+        const lines = String(frame || '').replace(/\r\n/g, '\n').split('\n');
+        const eventLine = lines.find((line) => line.startsWith('event:'));
+        const dataLines = lines
+            .filter((line) => line === 'data' || line.startsWith('data:'))
+            .map((line) => line.replace(/^data:\s?/, ''));
+        const eventName = String(eventLine || '').replace(/^event:\s*/, '').trim() || 'message';
+        const rawData = dataLines.join('\n').trim();
+
+        if (!rawData || typeof onEvent !== 'function') {
+            return;
+        }
+
+        try {
+            onEvent(eventName, JSON.parse(rawData));
+        } catch {
+            onEvent(eventName, { raw: rawData });
+        }
+    };
+
     while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+            buffer += decoder.decode();
+            break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
-        const frames = buffer.split('\n\n');
+        const frames = buffer.split(/\r?\n\r?\n/);
         buffer = frames.pop() || '';
-
-        frames.forEach((frame) => {
-            const eventLine = frame.split('\n').find((line) => line.startsWith('event:'));
-            const dataLine = frame.split('\n').find((line) => line.startsWith('data:'));
-            const eventName = String(eventLine || '').replace(/^event:\s*/, '').trim() || 'message';
-            const rawData = String(dataLine || '').replace(/^data:\s*/, '').trim();
-
-            if (!rawData || typeof onEvent !== 'function') {
-                return;
-            }
-
-            try {
-                onEvent(eventName, JSON.parse(rawData));
-            } catch {
-                onEvent(eventName, { raw: rawData });
-            }
-        });
+        frames.forEach(emitFrame);
     }
+
+    emitFrame(buffer);
 };
 
 export const aiApi = {
-    chat: async (payload = {}) => requestAiJson('/ai/chat', payload, {
+    chat: async (payload = {}, options = {}) => requestAiJson('/ai/chat', payload, {
         fallbackMessage: 'Aura AI is unavailable right now',
+        signal: options?.signal,
     }),
-    chatStream: async (payload = {}, onEvent = () => undefined) => {
+    chatStream: async (payload = {}, onEvent = () => undefined, options = {}) => {
         const { headers, usedAuth } = await getAiRequestConfig();
         const url = buildApiUrl('/ai/chat/stream');
 
@@ -119,11 +135,15 @@ export const aiApi = {
             body: JSON.stringify(payload),
             throwOnHttpError: false,
             fallbackMessage: 'Aura AI stream is unavailable right now',
+            signal: options?.signal,
         });
 
         let response = await execute(headers);
-        if (usedAuth && (response.status === 401 || response.status === 403)) {
-            response = await execute(buildBaseHeaders());
+        if (usedAuth && response.status === 401) {
+            const refreshedConfig = await refreshAuthenticatedConfig();
+            if (refreshedConfig) {
+                response = await execute(refreshedConfig.headers);
+            }
         }
 
         if (!response.ok) {
@@ -167,14 +187,17 @@ export const aiApi = {
             fallbackMessage: 'Voice synthesis failed',
         });
 
-        if (usedAuth && (response.status === 401 || response.status === 403)) {
-            response = await requestWithTrace(url, {
-                method: 'POST',
-                headers: buildBaseHeaders(),
-                body: JSON.stringify(payload),
-                throwOnHttpError: false,
-                fallbackMessage: 'Voice synthesis failed',
-            });
+        if (usedAuth && response.status === 401) {
+            const refreshedConfig = await refreshAuthenticatedConfig();
+            if (refreshedConfig) {
+                response = await requestWithTrace(url, {
+                    method: 'POST',
+                    headers: refreshedConfig.headers,
+                    body: JSON.stringify(payload),
+                    throwOnHttpError: false,
+                    fallbackMessage: 'Voice synthesis failed',
+                });
+            }
         }
 
         if (!response.ok) {

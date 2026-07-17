@@ -26,19 +26,22 @@ trim_trailing_slash() {
 }
 
 require_command aws
-require_command npm
-require_command node
 
 aws_region="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-south-1}}"
 rollback_ref="${ROLLBACK_REF:-}"
-backup_root="${AWS_FRONTEND_ROLLBACK_PREFIX:-_aura-rollback}"
+backup_root="_aura-rollback"
 
 require_env AWS_FRONTEND_BUCKET
 require_env AWS_FRONTEND_DISTRIBUTION_ID
 
 backup_prefix=""
 if [[ -n "${rollback_ref}" ]]; then
-  if aws s3 ls "s3://${AWS_FRONTEND_BUCKET}/${backup_root}/${rollback_ref}/" --region "${aws_region}" >/dev/null 2>&1; then
+  snapshot_manifest_key="${backup_root}/${rollback_ref}/.aura-rollback-manifest.json"
+  if aws s3api head-object \
+    --region "${aws_region}" \
+    --bucket "${AWS_FRONTEND_BUCKET}" \
+    --key "${snapshot_manifest_key}" \
+    >/dev/null 2>&1; then
     backup_prefix="${backup_root}/${rollback_ref}"
   fi
 else
@@ -62,52 +65,11 @@ if [[ -n "${backup_prefix}" ]]; then
   aws s3 sync "s3://${AWS_FRONTEND_BUCKET}/${backup_prefix}" "s3://${AWS_FRONTEND_BUCKET}" \
     --region "${aws_region}" \
     --delete \
-    --exclude "_aura-rollback/*" \
+    --exclude "${backup_root}/*" \
     --exclude ".aura-rollback-manifest.json"
 else
-  if [[ -z "${rollback_ref}" ]]; then
-    echo "No AWS frontend rollback snapshot was found. Provide ROLLBACK_REF to rebuild and publish a specific git ref." >&2
-    exit 1
-  fi
-
-  require_env AURA_BACKEND_ORIGIN
-
-  backend_origin="$(trim_trailing_slash "${AURA_BACKEND_ORIGIN}")"
-  if [[ ! "${backend_origin}" =~ ^https:// ]]; then
-    echo "AURA_BACKEND_ORIGIN must be an absolute HTTPS URL for rebuild rollback. Received '${backend_origin}'." >&2
-    exit 1
-  fi
-
-  echo "No snapshot matched '${rollback_ref}'. Rebuilding checked-out frontend ref for AWS rollback."
-  npm --prefix app ci
-
-  built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  VITE_DEPLOY_TARGET=multi-host \
-  VITE_API_URL="${backend_origin}/api" \
-  VITE_RELEASE_ID="${rollback_ref}" \
-  VITE_RELEASE_SHA="${rollback_ref}" \
-  VITE_RELEASE_CHANNEL=production \
-  VITE_RELEASE_SOURCE=github-actions-rollback \
-  VITE_RELEASE_TIME="${built_at}" \
-    npm --prefix app run build
-
-  aws s3 sync app/dist "s3://${AWS_FRONTEND_BUCKET}" \
-    --region "${aws_region}" \
-    --delete \
-    --exclude "_aura-rollback/*" \
-    --cache-control "public,max-age=300"
-
-  if [[ -d app/dist/assets ]]; then
-    aws s3 sync app/dist/assets "s3://${AWS_FRONTEND_BUCKET}/assets" \
-      --region "${aws_region}" \
-      --delete \
-      --cache-control "public,max-age=31536000,immutable"
-  fi
-
-  aws s3 cp app/dist/index.html "s3://${AWS_FRONTEND_BUCKET}/index.html" \
-    --region "${aws_region}" \
-    --cache-control "no-cache,no-store,must-revalidate" \
-    --content-type "text/html"
+  echo "No completed AWS frontend rollback snapshot matched '${rollback_ref:-latest}'. Refusing to execute target code in the credentialed restore job." >&2
+  exit 1
 fi
 
 aws cloudfront create-invalidation \

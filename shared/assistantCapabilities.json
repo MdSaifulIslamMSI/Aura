@@ -1,0 +1,284 @@
+[
+  {
+    "id": "home",
+    "title": "Store home",
+    "aliases": ["home", "store home", "start page"],
+    "route": "/",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Browse departments, promotions, and entry points into the product catalog.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "assistant",
+    "title": "Shopping assistant",
+    "aliases": ["assistant", "shopping assistant", "aura"],
+    "route": "/assistant",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Search and compare catalog products, inspect product facts, review cart context, and prepare supported shopping actions.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "catalog",
+    "title": "Product catalog",
+    "aliases": ["catalog", "products", "browse products", "shop products"],
+    "route": "/products",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Browse published products and refine the listing by category, price, rating, brand, and availability.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "deals",
+    "title": "Deals",
+    "aliases": ["deals", "offers", "discounts", "sale"],
+    "route": "/deals",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Browse the catalog's current deal-focused listing; final price and coupon eligibility are verified by cart and checkout APIs.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "trending",
+    "title": "Trending products",
+    "aliases": ["trending", "popular products", "what is popular"],
+    "route": "/trending",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Browse the storefront's trending product listing.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "new_arrivals",
+    "title": "New arrivals",
+    "aliases": ["new arrivals", "new products", "latest products"],
+    "route": "/new-arrivals",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Browse newly listed catalog products.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "category",
+    "title": "Category listing",
+    "aliases": ["category", "department", "product category"],
+    "route": "/category/:category",
+    "authRequired": false,
+    "contextRequired": ["category"],
+    "description": "Browse products within a named category or department.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "product",
+    "title": "Product details",
+    "aliases": ["product details", "item details", "specifications", "product page"],
+    "route": "/product/:id",
+    "authRequired": false,
+    "contextRequired": ["productId"],
+    "description": "Inspect canonical price, stock, rating, description, highlights, and specifications for one published product.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "search",
+    "title": "Catalog search",
+    "aliases": ["search", "catalog search", "search results"],
+    "route": "/search",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Open the product search results surface for a catalog query.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "cart",
+    "title": "Cart",
+    "aliases": ["cart", "shopping cart", "basket", "cart subtotal"],
+    "route": "/cart",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Review selected items, quantities, stock warnings, and the current item subtotal before checkout recalculates the final quote.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "wishlist",
+    "title": "Wishlist",
+    "aliases": ["wishlist", "saved products", "saved items", "favorites"],
+    "route": "/wishlist",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Review products saved for later and move eligible items into the cart.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "checkout",
+    "title": "Checkout",
+    "aliases": ["checkout", "place order", "buy now", "payment quote"],
+    "route": "/checkout",
+    "authRequired": true,
+    "contextRequired": ["non-empty cart"],
+    "description": "Validate the live cart quote, address, shipping, taxes, coupon eligibility, and payment choice before placing an order.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "orders",
+    "title": "Orders",
+    "aliases": ["orders", "my orders", "order history", "track order", "order status"],
+    "route": "/orders",
+    "authRequired": true,
+    "contextRequired": [],
+    "description": "View user-owned orders, live status, totals, payment state, and eligible order command-center actions.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "support",
+    "title": "Customer support",
+    "aliases": ["support", "customer support", "help desk", "complaint"],
+    "route": "/contact",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Open the public support handoff for account, product, order, delivery, return, refund, or warranty issues without inventing an outcome.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "compare",
+    "title": "Product comparison",
+    "aliases": ["compare", "comparison", "compare products", "side by side"],
+    "route": "/compare",
+    "authRequired": false,
+    "contextRequired": ["at least two product ids"],
+    "description": "Compare two or more selected catalog products side by side using their canonical product facts.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "visual_search",
+    "title": "Visual search",
+    "aliases": ["visual search", "image search", "search by image", "photo search"],
+    "route": "/visual-search",
+    "authRequired": false,
+    "contextRequired": ["product image"],
+    "description": "Use a product image or image URL to find catalog candidates; results still require catalog verification.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "bundles",
+    "title": "Product bundles",
+    "aliases": ["bundles", "product bundles", "frequently bought together", "complete my cart"],
+    "route": "/bundles",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Explore related-product and bundle suggestions grounded in catalog and cart context.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "marketplace",
+    "title": "Marketplace",
+    "aliases": ["marketplace", "seller marketplace", "community listings"],
+    "route": "/marketplace",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Browse marketplace listings and seller profiles separately from the main product catalog.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "listing",
+    "title": "Marketplace listing",
+    "aliases": ["marketplace listing", "listing details", "listing page"],
+    "route": "/listing/:id",
+    "authRequired": false,
+    "contextRequired": ["listingId"],
+    "description": "Inspect one marketplace listing and its seller-provided details.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "seller_profile",
+    "title": "Seller profile",
+    "aliases": ["seller profile", "seller page", "view seller"],
+    "route": "/seller/:id",
+    "authRequired": false,
+    "contextRequired": ["sellerId"],
+    "description": "Inspect a marketplace seller profile and that seller's visible listings.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "profile",
+    "title": "Account profile",
+    "aliases": ["profile", "account", "my account", "account settings"],
+    "route": "/profile",
+    "authRequired": true,
+    "contextRequired": [],
+    "description": "Manage signed-in account details and reach account support surfaces.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "price_alerts",
+    "title": "Price alerts",
+    "aliases": ["price alerts", "price alert", "price watch", "notify price drop"],
+    "route": "/price-alerts",
+    "authRequired": true,
+    "contextRequired": [],
+    "description": "Review signed-in price alerts for watched products and their configured thresholds.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "mission_control",
+    "title": "Mission control",
+    "aliases": ["mission control", "shopping mission", "shopping workspace"],
+    "route": "/mission-control",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Open the shopping mission workspace for organizing a guided product-discovery task.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "contact",
+    "title": "Contact",
+    "aliases": ["contact", "contact page", "contact us"],
+    "route": "/contact",
+    "authRequired": false,
+    "contextRequired": [],
+    "description": "Open the public contact surface; account-specific support remains in the signed-in support desk.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "trade_in",
+    "title": "Trade-in",
+    "aliases": ["trade in", "trade-in", "exchange device", "old device value"],
+    "route": "/trade-in",
+    "authRequired": true,
+    "contextRequired": [],
+    "description": "Start the signed-in trade-in flow; eligibility and value must come from the trade-in workflow rather than assistant estimates.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "become_seller",
+    "title": "Become a seller",
+    "aliases": ["become a seller", "seller signup", "start selling"],
+    "route": "/become-seller",
+    "authRequired": true,
+    "contextRequired": [],
+    "description": "Apply for seller access from a signed-in account.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "sell",
+    "title": "Create a listing",
+    "aliases": ["sell", "create listing", "list a product"],
+    "route": "/sell",
+    "authRequired": true,
+    "roleRequired": "seller",
+    "contextRequired": [],
+    "description": "Create a marketplace listing after the account has seller access.",
+    "assistantAction": "navigate_to"
+  },
+  {
+    "id": "my_listings",
+    "title": "My listings",
+    "aliases": ["my listings", "seller listings", "manage listings"],
+    "route": "/my-listings",
+    "authRequired": true,
+    "roleRequired": "seller",
+    "contextRequired": [],
+    "description": "Review and manage marketplace listings owned by the signed-in seller.",
+    "assistantAction": "navigate_to"
+  }
+]

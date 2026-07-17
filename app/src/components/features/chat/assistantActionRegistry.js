@@ -2,7 +2,11 @@ import { defineMessages } from 'react-intl';
 import { orderApi, productApi } from '@/services/api';
 import { useCommerceStore, selectCartItems, selectCartSummary } from '@/store/commerceStore';
 import { useChatStore } from '@/store/chatStore';
-import { buildSupportHandoffPath, normalizeProductSummary } from '@/utils/assistantCommands';
+import {
+    APP_ASSISTANT_CAPABILITIES,
+    buildSupportHandoffPath,
+    normalizeProductSummary,
+} from '@/utils/assistantCommands';
 
 const safeString = (value = '') => String(value ?? '').trim();
 const ACTION_DEDUPE_WINDOW_MS = 2000;
@@ -17,6 +21,7 @@ const assistantActionMessages = defineMessages({
     openedProduct: { id: 'assistant.action.product.opened', defaultMessage: 'Opened {title}.' },
     openedSelectedProduct: { id: 'assistant.action.product.openedSelected', defaultMessage: 'Opened the selected product.' },
     addToCartMissingProduct: { id: 'assistant.action.cart.addMissingProduct', defaultMessage: 'I could not find that product to add it to your cart.' },
+    addToCartUnavailableProduct: { id: 'assistant.action.cart.addUnavailableProduct', defaultMessage: 'That product is unavailable or out of stock, so I did not add it to your cart.' },
     addedToCart: { id: 'assistant.action.cart.added', defaultMessage: 'Added {title} to your cart.' },
     removedFromCart: { id: 'assistant.action.cart.removed', defaultMessage: 'Removed {title} from your cart.' },
     removedCartItem: { id: 'assistant.action.cart.removedItem', defaultMessage: 'Removed that item from your cart.' },
@@ -48,29 +53,17 @@ const formatAssistantActionMessage = (formatMessage, descriptor, values = {}) =>
 );
 
 const DEFAULT_PAGE_PATHS = {
-    home: '/',
-    assistant: '/assistant',
+    ...Object.fromEntries(APP_ASSISTANT_CAPABILITIES
+        .filter((capability) => safeString(capability?.id) && safeString(capability?.route) && !safeString(capability.route).includes(':'))
+        .map((capability) => [safeString(capability.id), safeString(capability.route)])),
     login: '/login',
-    cart: '/cart',
-    checkout: '/checkout',
-    orders: '/orders',
-    profile: '/profile',
-    support: '/profile?tab=support',
-    wishlist: '/wishlist',
-    marketplace: '/marketplace',
-    deals: '/deals',
-    trending: '/trending',
-    new_arrivals: '/new-arrivals',
-    compare: '/compare',
-    bundles: '/bundles',
-    visual_search: '/visual-search',
+    search: '/search',
     mission_control: '/mission-control',
-    sell: '/sell',
-    become_seller: '/become-seller',
-    my_listings: '/my-listings',
-    price_alerts: '/price-alerts',
-    trade_in: '/trade-in',
 };
+
+const CAPABILITY_ROUTE_BY_ID = new Map(APP_ASSISTANT_CAPABILITIES
+    .filter((capability) => safeString(capability?.id) && safeString(capability?.route))
+    .map((capability) => [safeString(capability.id), safeString(capability.route)]));
 
 const titleCase = (value = '') => safeString(value)
     .replace(/_/g, ' ')
@@ -78,18 +71,33 @@ const titleCase = (value = '') => safeString(value)
 
 const buildPathFromNavigation = (page = '', params = {}) => {
     const normalizedPage = safeString(page);
-    if (normalizedPage === 'category' && safeString(params?.category)) {
-        return `/category/${safeString(params.category)}`;
-    }
+    const declaredRoute = CAPABILITY_ROUTE_BY_ID.get(normalizedPage) || DEFAULT_PAGE_PATHS[normalizedPage] || '';
+    if (!declaredRoute) return '';
 
-    if (normalizedPage === 'product' && safeString(params?.productId)) {
-        return `/product/${safeString(params.productId)}`;
-    }
-
-    const basePath = DEFAULT_PAGE_PATHS[normalizedPage] || '/';
+    const consumedParams = new Set();
+    let missingRouteParam = false;
+    const basePath = declaredRoute.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, (_match, token) => {
+        const contextKey = token === 'id'
+            ? {
+                product: 'productId',
+                listing: 'listingId',
+                seller_profile: 'sellerId',
+            }[normalizedPage] || 'id'
+            : token;
+        const value = safeString(params?.[token] ?? params?.[contextKey] ?? '');
+        if (!value) {
+            missingRouteParam = true;
+            return '';
+        }
+        consumedParams.add(token);
+        consumedParams.add(contextKey);
+        return encodeURIComponent(value);
+    });
+    if (!basePath || missingRouteParam) return '';
     const searchParams = new URLSearchParams();
 
     Object.entries(params || {}).forEach(([key, value]) => {
+        if (consumedParams.has(key)) return;
         if (value === undefined || value === null || value === '') return;
         searchParams.set(key, String(value));
     });
@@ -167,6 +175,18 @@ const resolveProductFromCandidates = async (productId = '', candidates = []) => 
     }
 };
 
+const resolveCanonicalProduct = async (productId = '') => {
+    const normalizedId = safeString(productId);
+    if (!normalizedId) return null;
+
+    try {
+        const product = normalizeProductSummary(await productApi.getProductById(normalizedId, { force: true }) || {});
+        return String(product.id) === normalizedId ? product : null;
+    } catch {
+        return null;
+    }
+};
+
 const buildOrderSupportPath = (orderId = '', prefill = {}) => {
     const params = new URLSearchParams();
     params.set('focus', safeString(orderId));
@@ -211,8 +231,15 @@ export const createAssistantActionRegistry = ({
         filters,
     });
 
-    const selectProduct = async (productId = '') => {
+    const selectProduct = async (productId = '', canExecute = () => true) => {
         const product = await resolveProductFromCandidates(productId, candidates);
+        if (!canExecute()) {
+            return {
+                success: false,
+                ownershipLost: true,
+                message: '',
+            };
+        }
         const normalizedId = safeString(product?.id || productId);
         if (normalizedId) {
             navigate(`/product/${normalizedId}`);
@@ -228,8 +255,8 @@ export const createAssistantActionRegistry = ({
         };
     };
 
-    const addToCart = async (productId = '', quantity = 1) => {
-        const product = await resolveProductFromCandidates(productId, candidates);
+    const addToCart = async (productId = '', quantity = 1, canExecute = () => true) => {
+        const product = await resolveCanonicalProduct(productId);
         if (!product?.id) {
             return {
                 success: false,
@@ -237,10 +264,48 @@ export const createAssistantActionRegistry = ({
             };
         }
 
+
+        const canonicalStock = Math.floor(Number(product.stock));
+        if (!Number.isFinite(canonicalStock) || canonicalStock <= 0) {
+            return {
+                success: false,
+                message: formatAssistantActionMessage(formatMessage, assistantActionMessages.addToCartUnavailableProduct),
+            };
+        }
+
+        const requestedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
+        const existingQuantity = selectCartItems(useCommerceStore.getState())
+            .filter((item) => safeString(item?.id || item?._id) === safeString(product.id))
+            .reduce((total, item) => total + Math.max(0, Number(item?.quantity) || 0), 0);
+        const remainingStock = Math.max(0, canonicalStock - existingQuantity);
+        if (remainingStock <= 0) {
+            return {
+                success: false,
+                message: formatAssistantActionMessage(formatMessage, assistantActionMessages.addToCartUnavailableProduct),
+            };
+        }
+        const allowedQuantity = Math.min(requestedQuantity, remainingStock);
+
+        if (!canExecute()) {
+            return {
+                success: false,
+                ownershipLost: true,
+                message: '',
+            };
+        }
+
         await useCommerceStore.getState().addItem({
             ...product,
-            stock: Number(product.stock || 10),
-        }, Math.max(1, Number(quantity || 1)));
+            stock: canonicalStock,
+        }, allowedQuantity);
+
+        if (!canExecute()) {
+            return {
+                success: false,
+                ownershipLost: true,
+                message: '',
+            };
+        }
 
         return {
             success: true,
@@ -251,8 +316,15 @@ export const createAssistantActionRegistry = ({
         };
     };
 
-    const removeFromCart = async (productId = '') => {
+    const removeFromCart = async (productId = '', canExecute = () => true) => {
         const product = await resolveProductFromCandidates(productId, candidates);
+        if (!canExecute()) {
+            return {
+                success: false,
+                ownershipLost: true,
+                message: '',
+            };
+        }
         await useCommerceStore.getState().removeItem(productId);
 
         return {
@@ -455,6 +527,12 @@ export const createAssistantActionRegistry = ({
 
     const navigateTo = async (page = '', params = {}) => {
         const path = buildPathFromNavigation(page, params);
+        if (!path) {
+            return {
+                success: false,
+                message: formatAssistantActionMessage(formatMessage, assistantActionMessages.unsupportedAction),
+            };
+        }
         navigate(path);
 
         return {
@@ -511,6 +589,7 @@ export const createAssistantActionRegistry = ({
     const executeAssistantAction = async (action = {}, options = {}) => {
         const type = safeString(action?.type || '');
         const uiProducts = Array.isArray(options?.uiProducts) ? options.uiProducts : [];
+        const canExecute = typeof options?.canExecute === 'function' ? options.canExecute : () => true;
         const fingerprint = buildActionFingerprint(action);
         const now = Date.now();
 
@@ -540,24 +619,32 @@ export const createAssistantActionRegistry = ({
             };
         };
 
+        if (!canExecute()) {
+            return finalize({
+                success: false,
+                ownershipLost: true,
+                message: '',
+            });
+        }
+
         if (type === 'search_products') {
             return finalize(await searchProducts(action.query, action.filters, uiProducts));
         }
 
         if (type === 'select_product') {
-            return finalize(await selectProduct(action.productId));
+            return finalize(await selectProduct(action.productId, canExecute));
         }
 
         if (type === 'get_product_details' || type === 'check_inventory' || type === 'get_price') {
-            return finalize(await selectProduct(action.productId));
+            return finalize(await selectProduct(action.productId, canExecute));
         }
 
         if (type === 'add_to_cart') {
-            return finalize(await addToCart(action.productId, action.quantity));
+            return finalize(await addToCart(action.productId, action.quantity, canExecute));
         }
 
         if (type === 'remove_from_cart') {
-            return finalize(await removeFromCart(action.productId));
+            return finalize(await removeFromCart(action.productId, canExecute));
         }
 
         if (type === 'go_to_checkout') {

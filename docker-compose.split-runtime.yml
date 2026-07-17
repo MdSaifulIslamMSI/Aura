@@ -54,7 +54,8 @@ services:
 
   backend:
     build:
-      context: ./server
+      context: .
+      dockerfile: server/Dockerfile
     env_file:
       - ./server/.env
       - path: ./.student-pack.local.env
@@ -106,7 +107,8 @@ services:
 
   worker:
     build:
-      context: ./server
+      context: .
+      dockerfile: server/Dockerfile
     env_file:
       - ./server/.env
       - path: ./.student-pack.local.env

@@ -66,6 +66,29 @@ describe('localProductVectorIndexService helpers', () => {
             title: 'Android Phone',
             category: 'Mobiles',
         })).toBeGreaterThan(0);
+
+        expect(__testables.keywordScore('gaming laptop 8 gb', {
+            title: 'Gaming Laptop',
+            specifications: [{ key: 'Memory', value: '8GB' }],
+        })).toBe(1);
+    });
+
+    test('buildMongoFilterQuery searches rich catalog fields and normalizes compact specification units', () => {
+        const query = __testables.buildMongoFilterQuery({
+            requiredTerms: ['8 gb'],
+        });
+        const requiredTermClause = query.$and.find((clause) => Array.isArray(clause.$or));
+        const fields = requiredTermClause.$or.map((clause) => Object.keys(clause)[0]);
+
+        expect(fields).toEqual(expect.arrayContaining([
+            'title',
+            'displayTitle',
+            'subCategory',
+            'highlights',
+            'specifications.key',
+            'specifications.value',
+        ]));
+        expect(requiredTermClause.$or.find((clause) => clause['specifications.value'])['specifications.value'].test('8GB')).toBe(true);
     });
 
     test('sortRetrievedResults honors explicit sort preferences over raw score order', () => {

@@ -125,7 +125,7 @@ const startup = async () => {
     await initRedis();
     logger.info('worker_process.redis_ready');
 
-    await ensureSystemState();
+    await ensureSystemState({ syncIndexes: true });
     await enforceCatalogStartupCheck();
 
     // Start all background workers

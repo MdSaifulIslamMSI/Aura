@@ -12,6 +12,18 @@ delete process.env.CLOUDFRONT_ORIGIN_VERIFY_SECRET;
 delete process.env.HEALTH_READY_TOKEN;
 
 process.env.ORDER_EMAIL_PROVIDER = 'null';
+process.env.OTP_EMAIL_SEND_IN_TEST = 'false';
+process.env.AI_MODEL_PROVIDER = 'disabled';
+process.env.AI_MODEL_PROVIDER_FALLBACKS = '';
+
+// Tests must never auto-select outbound providers from developer credentials.
+for (const key of [
+    'GMAIL_USER',
+    'GMAIL_APP_PASSWORD',
+    'RESEND_API_KEY',
+]) {
+    delete process.env[key];
+}
 
 // Ensure critical environment variables have safe defaults for testing
 // especially when running in CI environments without a .env file.
@@ -21,7 +33,7 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-aura-mar
 process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'test-project-dev';
 process.env.OTP_EMAIL_FAIL_CLOSED = process.env.OTP_EMAIL_FAIL_CLOSED || 'false';
 process.env.AUTH_REQUIRE_INTERNATIONAL_PHONE_FORMAT = 'false';
-process.env.OTP_SMS_PROVIDER = process.env.OTP_SMS_PROVIDER || 'mock';
+process.env.OTP_SMS_PROVIDER = 'mock';
 process.env.OTP_SMS_ENABLED = process.env.OTP_SMS_ENABLED || 'true';
 process.env.OTP_SMS_FAIL_CLOSED = process.env.OTP_SMS_FAIL_CLOSED || 'true';
 process.env.OTP_SMS_SEND_IN_TEST = process.env.OTP_SMS_SEND_IN_TEST || 'true';

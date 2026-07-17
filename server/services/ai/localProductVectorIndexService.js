@@ -139,6 +139,8 @@ const productProjection = {
     stock: 1,
     rating: 1,
     ratingCount: 1,
+    deliveryTime: 1,
+    warranty: 1,
     isPublished: 1,
     updatedAt: 1,
 };
@@ -147,8 +149,20 @@ const toProductSummary = (product = {}) => ({
     id: Number(product?.id || 0),
     mongoId: safeString(product?._id || ''),
     title: safeString(product?.displayTitle || product?.title || ''),
+    displayTitle: safeString(product?.displayTitle || ''),
     brand: safeString(product?.brand || ''),
     category: safeString(product?.category || ''),
+    subCategory: safeString(product?.subCategory || ''),
+    description: safeString(product?.description || ''),
+    highlights: (Array.isArray(product?.highlights) ? product.highlights : [])
+        .map((entry) => safeString(entry))
+        .filter(Boolean),
+    specifications: (Array.isArray(product?.specifications) ? product.specifications : [])
+        .map((entry) => ({
+            key: safeString(entry?.key || ''),
+            value: safeString(entry?.value || ''),
+        }))
+        .filter((entry) => entry.key || entry.value),
     price: Number(product?.price || 0),
     originalPrice: Number(product?.originalPrice || product?.price || 0),
     discountPercentage: Number(product?.discountPercentage || 0),
@@ -156,6 +170,8 @@ const toProductSummary = (product = {}) => ({
     stock: Math.max(0, Number(product?.stock || 0)),
     rating: Number(product?.rating || 0),
     ratingCount: Math.max(0, Number(product?.ratingCount || 0)),
+    deliveryTime: safeString(product?.deliveryTime || ''),
+    warranty: safeString(product?.warranty || ''),
 });
 
 const normalizeSortBy = (value = '') => {
@@ -210,11 +226,30 @@ const hasActiveRetrievalFilters = (filters = {}) => {
     );
 };
 
+const tokenize = (value = '') => safeString(value)
+    .toLowerCase()
+    .replace(/([a-z])([0-9])/gi, '$1 $2')
+    .replace(/([0-9])([a-z])/gi, '$1 $2')
+    .split(/[^a-z0-9]+/i)
+    .map((entry) => safeString(entry))
+    .filter(Boolean);
+
+const LEXICAL_QUERY_STOPWORDS = new Set([
+    'a', 'an', 'and', 'can', 'could', 'find', 'for', 'give', 'i', 'in', 'is',
+    'me', 'my', 'of', 'on', 'please', 'recommend', 'show', 'suggest', 'the',
+    'to', 'under', 'up', 'want', 'with', 'you',
+]);
+
+const tokenizeLexicalQuery = (value = '') => tokenize(value)
+    .filter((token) => !LEXICAL_QUERY_STOPWORDS.has(token))
+    .filter((token) => token.length > 1 || /^\d+$/.test(token));
+
 const buildSearchableText = (product = {}) => [
     product?.title,
     product?.displayTitle,
     product?.brand,
     product?.category,
+    product?.subCategory,
     product?.description,
     ...(Array.isArray(product?.highlights) ? product.highlights : []),
     ...(Array.isArray(product?.specifications) ? product.specifications.map((entry) => `${entry?.key || ''} ${entry?.value || ''}`) : []),
@@ -324,6 +359,33 @@ const sortRetrievedResults = (results = [], filters = {}) => {
     return cloned.sort((left, right) => Number(right?.score || 0) - Number(left?.score || 0));
 };
 
+const escapeRegExp = (value = '') => safeString(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const buildFlexibleTermRegex = (value = '') => {
+    const tokens = tokenize(value);
+    const pattern = tokens.length > 0
+        ? tokens.map((token) => escapeRegExp(token)).join('[^a-z0-9]*')
+        : '(?!)';
+    return new RegExp(pattern, 'i');
+};
+const buildLexicalTokenRegex = (token = '') => {
+    const escaped = escapeRegExp(token);
+    if (!escaped) return /(?!)!/;
+    return /^\d+$/.test(token)
+        ? new RegExp(`(?:^|[^0-9])${escaped}(?=$|[^0-9])`, 'i')
+        : new RegExp(`(?:^|[^a-z])${escaped}(?=$|[^a-z])`, 'i');
+};
+const buildMongoLexicalFieldClauses = (regex) => ([
+    { title: regex },
+    { displayTitle: regex },
+    { brand: regex },
+    { category: regex },
+    { subCategory: regex },
+    { description: regex },
+    { highlights: regex },
+    { 'specifications.key': regex },
+    { 'specifications.value': regex },
+]);
+
 const buildMongoFilterQuery = (filters = {}) => {
     const normalized = normalizeRetrievalFilters(filters);
     const andClauses = [{ isPublished: true }];
@@ -350,14 +412,9 @@ const buildMongoFilterQuery = (filters = {}) => {
         andClauses.push({ stock: { $lte: 0 } });
     }
     normalized.requiredTerms.forEach((term) => {
-        const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'i');
+        const regex = buildFlexibleTermRegex(term);
         andClauses.push({
-            $or: [
-                { title: regex },
-                { brand: regex },
-                { category: regex },
-                { description: regex },
-            ],
+            $or: buildMongoLexicalFieldClauses(regex),
         });
     });
 
@@ -387,24 +444,19 @@ const cosineSimilarity = (left = [], right = []) => {
     return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
 };
 
-const tokenize = (value = '') => safeString(value)
-    .toLowerCase()
-    .split(/[^a-z0-9]+/i)
-    .map((entry) => safeString(entry))
-    .filter(Boolean);
-
 const keywordScore = (query = '', product = {}) => {
     const haystackTokens = new Set(tokenize([
         product?.title,
         product?.displayTitle,
         product?.brand,
         product?.category,
+        product?.subCategory,
         product?.description,
         ...(Array.isArray(product?.highlights) ? product.highlights : []),
         ...(Array.isArray(product?.specifications) ? product.specifications.map((entry) => `${entry?.key || ''} ${entry?.value || ''}`) : []),
     ].join(' ')));
 
-    const queryTokens = tokenize(query);
+    const queryTokens = tokenizeLexicalQuery(query);
     if (queryTokens.length === 0) return 0;
 
     let score = 0;
@@ -458,13 +510,22 @@ const cacheQueryEmbedding = (query = '', embedding = []) => {
 
 const shouldSkipQueryEmbedding = () => {
     const gatewayHealth = getModelGatewayHealth();
+    const provider = safeString(gatewayHealth?.activeProvider || gatewayHealth?.provider || '').toLowerCase();
     const breakerState = safeString(gatewayHealth?.breaker?.state || '');
     const errorMessage = safeString(gatewayHealth?.error || '').toLowerCase();
+    const embeddingCapability = gatewayHealth?.capabilities?.embeddings;
+    if (
+        provider === 'disabled'
+        || embeddingCapability === false
+        || safeString(embeddingCapability).toLowerCase() === 'disabled'
+        || errorMessage.includes('model_gateway_disabled')
+    ) return true;
     if (breakerState === 'open') return true;
     return errorMessage.includes('quota exceeded') || errorMessage.includes('embed_content');
 };
 
 const scheduleForcedIndexRebuild = () => {
+    if (shouldSkipQueryEmbedding()) return null;
     if (rebuildPromise) return rebuildPromise;
     rebuildPromise = backfillProductVectorIndex({ force: true })
         .catch((error) => {
@@ -572,6 +633,10 @@ const refreshProductVectorEntryById = async (identifier) => {
 };
 
 const scheduleProductIndexRefreshById = (identifier) => {
+    // Product writes must remain cheap and quiet when the model gateway is
+    // explicitly disabled. Lexical retrieval reads canonical product fields
+    // directly and does not require an embedding index refresh.
+    if (shouldSkipQueryEmbedding()) return;
     const key = safeString(identifier);
     if (!key || scheduledRefreshes.has(key)) return;
 
@@ -663,35 +728,56 @@ const backfillProductVectorIndex = async ({ limit = 0, force = false } = {}) => 
 };
 
 const hydrateLexicalCandidates = async (query = '', { limit = 10, filters = {} } = {}) => {
-    const tokens = tokenize(query);
+    const tokens = tokenizeLexicalQuery(query);
     const normalizedFilters = normalizeRetrievalFilters(filters);
     const hasFilters = hasActiveRetrievalFilters(normalizedFilters);
     if (tokens.length === 0 && !hasFilters) return [];
 
-    const regexes = tokens.slice(0, 6).map((token) => new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+    const regexes = tokens.slice(0, 6).map(buildLexicalTokenRegex);
     const mongoQuery = buildMongoFilterQuery(normalizedFilters);
-    const queryObject = regexes.length > 0
+    const broadQuery = regexes.length > 0
         ? {
             ...mongoQuery,
-            $or: regexes.flatMap((regex) => ([
-                { title: regex },
-                { brand: regex },
-                { category: regex },
-                { description: regex },
-            ])),
+            $or: regexes.flatMap((regex) => buildMongoLexicalFieldClauses(regex)),
         }
         : mongoQuery;
-
-    const candidates = await Product.find(queryObject)
-        .limit(Math.max(5, limit * 2))
+    const strictQuery = regexes.length > 1
+        ? {
+            $and: [
+                ...(Array.isArray(mongoQuery.$and) ? mongoQuery.$and : [mongoQuery]),
+                ...regexes.map((regex) => ({ $or: buildMongoLexicalFieldClauses(regex) })),
+            ],
+        }
+        : null;
+    const totalCandidateLimit = Math.min(72, Math.max(18, limit * 8));
+    const strictCandidateLimit = strictQuery
+        ? Math.min(32, Math.max(8, limit * 3))
+        : 0;
+    const broadCandidateLimit = Math.max(10, totalCandidateLimit - strictCandidateLimit);
+    const loadCandidateLane = (queryObject, laneLimit) => Product.find(queryObject)
+        .sort({ rating: -1, ratingCount: -1, id: 1 })
+        .limit(laneLimit)
         .select(productProjection)
         .lean();
 
-    for (const candidate of candidates) {
-        try {
-            await upsertProductVectorEntry(candidate, { force: false });
-        } catch {
-            // Keep lexical fallback available even when embedding refresh fails.
+    const strictCandidates = strictQuery
+        ? await loadCandidateLane(strictQuery, strictCandidateLimit)
+        : [];
+    const broadCandidates = await loadCandidateLane(broadQuery, broadCandidateLimit);
+    const candidatesById = new Map();
+    [...strictCandidates, ...broadCandidates].forEach((candidate) => {
+        const key = safeString(candidate?.id || candidate?._id || '');
+        if (key && !candidatesById.has(key)) candidatesById.set(key, candidate);
+    });
+    const candidates = [...candidatesById.values()].slice(0, totalCandidateLimit);
+
+    if (!shouldSkipQueryEmbedding()) {
+        for (const candidate of candidates) {
+            try {
+                await upsertProductVectorEntry(candidate, { force: false });
+            } catch {
+                // Keep lexical fallback available even when embedding refresh fails.
+            }
         }
     }
 
@@ -807,7 +893,7 @@ const searchProductVectorIndex = async (query = '', {
             product: productMap.get(Number(entry.productId)) || null,
             score: Number(entry.score || 0),
         }))
-        .filter((entry) => entry.product), normalizedFilters);
+        .filter((entry) => entry.product && matchesProductFilters(entry.product, normalizedFilters)), normalizedFilters);
 
     return {
         results,
@@ -837,6 +923,14 @@ const getLocalVectorIndexHealth = async () => {
     };
 };
 
+const resetIndexCacheForTests = () => {
+    indexCache = null;
+    loadPromise = null;
+    writePromise = Promise.resolve();
+    rebuildPromise = null;
+    queryEmbeddingCache.clear();
+};
+
 module.exports = {
     backfillProductVectorIndex,
     buildProductIndexText,
@@ -853,6 +947,7 @@ module.exports = {
         matchesProductFilters,
         normalizeRetrievalFilters,
         removeProductVectorEntryById,
+        resetIndexCacheForTests,
         sortRetrievedResults,
     },
 };

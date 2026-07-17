@@ -10,7 +10,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 185,
+      "line": 202,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -23,11 +23,11 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 263,
+      "line": 308,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
-      "column": 80,
+      "column": 84,
       "defaultMessageSource": "message-id",
       "fallback": "",
       "file": "app/src/components/features/chat/MessageItem.jsx",
@@ -36,7 +36,20 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 264,
+      "line": 310,
+      "reason": "First t() argument is computed or interpolated and requires manual review."
+    },
+    {
+      "column": 86,
+      "defaultMessageSource": "message-id",
+      "fallback": "",
+      "file": "app/src/components/features/chat/MessageItem.jsx",
+      "icuDefaultMessage": "",
+      "id": "",
+      "interpolationTokens": [],
+      "kind": "dynamic-lookup",
+      "legacyEnglishTemplate": "",
+      "line": 311,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -49,7 +62,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 446,
+      "line": 491,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -114,7 +127,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 346,
+      "line": 478,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -140,7 +153,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 403,
+      "line": 491,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -153,7 +166,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 2065,
+      "line": 2147,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -177,7 +190,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 152,
+      "messageIdCount": 153,
       "messageIds": [
         "login.acceleration.identity",
         "login.acceleration.identityBody",
@@ -190,14 +203,15 @@
         "login.acceleration.resumeTitle",
         "login.acceleration.savedAt",
         "login.acceleration.useIdentity",
-        "login.desktopBrowser.completeDetail",
-        "login.desktopBrowser.completeTitle",
         "login.desktopBrowser.completingDetail",
         "login.desktopBrowser.completingTitle",
         "login.desktopBrowser.startedDetail",
         "login.desktopBrowser.startedTitle",
         "login.desktopBrowser.storageUnavailable",
         "login.desktopBrowser.unavailable",
+        "login.desktopOwnerAccess.startedDetail",
+        "login.desktopOwnerAccess.startedTitle",
+        "login.desktopOwnerAccess.unavailable",
         "login.error.alreadySignedIn",
         "login.error.emailRequired",
         "login.error.emailValid",
@@ -333,7 +347,7 @@
         "login.trust.signup.3"
       ],
       "risk": "high",
-      "stableLiteralCount": 160,
+      "stableLiteralCount": 164,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1086,12 +1100,16 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 63,
+      "messageIdCount": 67,
       "messageIds": [
         "login.action.backToForm",
         "login.action.forgotPassword",
         "login.actionTemporarilyUnavailable",
         "login.desktopBrowser.button",
+        "login.desktopBrowser.cancel",
+        "login.desktopBrowser.startedDetail",
+        "login.desktopBrowser.startedTitle",
+        "login.desktopOwnerAccess.button",
         "login.field.confirmPassword",
         "login.field.email",
         "login.field.fullName",
@@ -1153,7 +1171,7 @@
         "login.terms.use"
       ],
       "risk": "high",
-      "stableLiteralCount": 69,
+      "stableLiteralCount": 77,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1163,7 +1181,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 57,
+      "messageIdCount": 60,
       "messageIds": [
         "auth.jsx.expression.create.account.2428c1b6",
         "auth.jsx.expression.email.address.cef5d897",
@@ -1191,6 +1209,7 @@
         "common.action.back",
         "common.choice.or",
         "desktopLogin.action.temporarilyUnavailable",
+        "desktopLogin.action.waitingForBrowser",
         "desktopLogin.bridge.api",
         "desktopLogin.bridge.callback",
         "desktopLogin.bridge.delivery",
@@ -1205,6 +1224,8 @@
         "desktopLogin.capability.verifiedProof",
         "desktopLogin.field.fullName",
         "desktopLogin.field.phoneNumber",
+        "desktopLogin.handoff.stepsDetail",
+        "desktopLogin.handoff.stepsTitle",
         "desktopLogin.otp.emailSent",
         "desktopLogin.otp.phoneSent",
         "desktopLogin.password.hide",
@@ -1224,7 +1245,7 @@
         "desktopLogin.step.recoveryLane"
       ],
       "risk": "high",
-      "stableLiteralCount": 58,
+      "stableLiteralCount": 61,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1928,23 +1949,21 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 12,
+      "messageIdCount": 10,
       "messageIds": [
         "common.jsx.expression.audio.ready.for.processing.68d50ec5",
         "common.jsx.expression.guest.c539652f",
         "common.jsx.expression.image.ready.for.grounding.152acb95",
         "common.jsx.expression.signed.in.4347f904",
-        "common.jsx.text.active.route.adea24bd",
         "common.jsx.text.aura.terminal.2fded973",
         "common.jsx.text.clear.context.e550a0f3",
         "common.jsx.text.commerce.copilot.e872e317",
         "common.jsx.text.controlled.commerce.intelligence.ac057065",
-        "common.jsx.text.model.surface.dae6758e",
         "common.jsx.text.surface.35807d37",
         "order.jsx.text.ask.for.product.picks.cart.review.order.db04ca3e"
       ],
       "risk": "high",
-      "stableLiteralCount": 12,
+      "stableLiteralCount": 10,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -2955,12 +2974,12 @@
       "usesDynamicRuntimeTranslation": false
     },
     {
-      "dynamicLookupCount": 4,
+      "dynamicLookupCount": 5,
       "file": "app/src/components/features/chat/MessageItem.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 27,
+      "messageIdCount": 29,
       "messageIds": [
         "assistant.attachment.audioNote",
         "assistant.attachment.audioUpload",
@@ -2968,7 +2987,12 @@
         "assistant.attachment.number",
         "assistant.capability.gated",
         "assistant.capability.ready",
+        "assistant.capability.unknown",
+        "assistant.cart.checkoutVerification",
+        "assistant.cart.itemSavings",
+        "assistant.cart.itemSubtotal",
         "assistant.grounding.providerModel",
+        "assistant.grounding.whyThisAnswer",
         "assistant.tool.status.done",
         "common.jsx.text.bundle.state.stale.89ba8d68",
         "common.jsx.text.evidence.state.missing.9db870cd",
@@ -2981,17 +3005,14 @@
         "common.jsx.text.sources.8575bd92",
         "common.jsx.text.status.ff570aa3",
         "common.jsx.text.tool.timeline.375e9234",
-        "common.jsx.text.trace.details.af1f8b27",
         "common.jsx.text.trace.id.000d6b80",
         "common.jsx.text.working.through.live.evidence.856c66cc",
         "product.cartSummary",
         "product.closestMatches",
-        "product.items",
-        "product.saved",
-        "product.total"
+        "product.items"
       ],
       "risk": "medium",
-      "stableLiteralCount": 27,
+      "stableLiteralCount": 29,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -3064,6 +3085,33 @@
     },
     {
       "dynamicLookupCount": 0,
+      "file": "app/src/components/features/chat/ProductCardInline.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 13,
+      "messageIds": [
+        "assistant.product.confirmMissingDetails",
+        "assistant.product.delivery",
+        "assistant.product.deliveryLabel",
+        "assistant.product.warranty",
+        "assistant.product.warrantyLabel",
+        "assistant.product.whyItFits",
+        "product.brand.auraCatalog",
+        "product.discount.savePercent",
+        "product.jsx.text.watch.3139f8c4",
+        "product.select",
+        "product.stock.inStockCount",
+        "product.stock.outOfStock",
+        "product.viewDetails"
+      ],
+      "risk": "medium",
+      "stableLiteralCount": 14,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": true
+    },
+    {
+      "dynamicLookupCount": 0,
       "file": "app/src/pages/TradeIn/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -3084,27 +3132,6 @@
       ],
       "risk": "medium",
       "stableLiteralCount": 12,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": true
-    },
-    {
-      "dynamicLookupCount": 0,
-      "file": "app/src/components/features/chat/ProductCardInline.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 7,
-      "messageIds": [
-        "product.brand.auraCatalog",
-        "product.discount.savePercent",
-        "product.jsx.text.watch.3139f8c4",
-        "product.select",
-        "product.stock.inStockCount",
-        "product.stock.outOfStock",
-        "product.viewDetails"
-      ],
-      "risk": "medium",
-      "stableLiteralCount": 7,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": true
     },
@@ -4570,6 +4597,29 @@
     },
     {
       "dynamicLookupCount": 0,
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 9,
+      "messageIds": [
+        "welcomeCurtain.action.skip",
+        "welcomeCurtain.ariaLabel",
+        "welcomeCurtain.kicker",
+        "welcomeCurtain.message.ready",
+        "welcomeCurtain.message.thanks",
+        "welcomeCurtain.message.welcome",
+        "welcomeCurtain.soundOff",
+        "welcomeCurtain.soundOn",
+        "welcomeCurtain.subcopy"
+      ],
+      "risk": "low",
+      "stableLiteralCount": 9,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
       "file": "app/src/pages/Profile/components/AccountStatusBanner.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -5059,7 +5109,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-06-04T08:54:51.693Z",
+  "generatedAt": "2026-07-17T06:56:07.137Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -5096,7 +5146,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 126,
+      "line": 128,
       "reason": ""
     },
     {
@@ -5109,7 +5159,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 127,
+      "line": 129,
       "reason": ""
     },
     {
@@ -5122,7 +5172,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 129,
+      "line": 131,
       "reason": ""
     },
     {
@@ -5135,7 +5185,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 243,
+      "line": 246,
       "reason": ""
     },
     {
@@ -5187,7 +5237,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart summary",
-      "line": 115,
+      "line": 122,
       "reason": ""
     },
     {
@@ -5200,33 +5250,46 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Items",
-      "line": 120,
+      "line": 127,
       "reason": ""
     },
     {
       "column": 55,
       "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Total",
+      "fallback": "Item subtotal",
       "file": "app/src/components/features/chat/MessageItem.jsx",
-      "icuDefaultMessage": "Total",
-      "id": "product.total",
+      "icuDefaultMessage": "Item subtotal",
+      "id": "assistant.cart.itemSubtotal",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Total",
-      "line": 124,
+      "legacyEnglishTemplate": "Item subtotal",
+      "line": 131,
       "reason": ""
     },
     {
-      "column": 55,
+      "column": 59,
       "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Saved",
+      "fallback": "Item savings",
       "file": "app/src/components/features/chat/MessageItem.jsx",
-      "icuDefaultMessage": "Saved",
-      "id": "product.saved",
+      "icuDefaultMessage": "Item savings",
+      "id": "assistant.cart.itemSavings",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Saved",
-      "line": 128,
+      "legacyEnglishTemplate": "Item savings",
+      "line": 136,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Shipping, tax, stock, and final discounts are verified at checkout.",
+      "file": "app/src/components/features/chat/MessageItem.jsx",
+      "icuDefaultMessage": "Shipping, tax, stock, and final discounts are verified at checkout.",
+      "id": "assistant.cart.checkoutVerification",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Shipping, tax, stock, and final discounts are verified at checkout.",
+      "line": 143,
       "reason": ""
     },
     {
@@ -5242,7 +5305,20 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No exact match for \"{{query}}\". Showing closest matches{{confidence}}",
-      "line": 148,
+      "line": 165,
+      "reason": ""
+    },
+    {
+      "column": 26,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Why this answer",
+      "file": "app/src/components/features/chat/MessageItem.jsx",
+      "icuDefaultMessage": "Why this answer",
+      "id": "assistant.grounding.whyThisAnswer",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Why this answer",
+      "line": 264,
       "reason": ""
     },
     {
@@ -5255,7 +5331,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 230,
+      "line": 271,
       "reason": ""
     },
     {
@@ -5268,7 +5344,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 235,
+      "line": 276,
       "reason": ""
     },
     {
@@ -5284,7 +5360,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 240,
+      "line": 281,
       "reason": ""
     },
     {
@@ -5297,7 +5373,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 248,
+      "line": 289,
       "reason": ""
     },
     {
@@ -5312,11 +5388,11 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 263,
+      "line": 308,
       "reason": ""
     },
     {
-      "column": 39,
+      "column": 43,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "{{label}} gated",
       "file": "app/src/components/features/chat/MessageItem.jsx",
@@ -5327,7 +5403,22 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 264,
+      "line": 310,
+      "reason": ""
+    },
+    {
+      "column": 43,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "{{label}} unknown",
+      "file": "app/src/components/features/chat/MessageItem.jsx",
+      "icuDefaultMessage": "{label} unknown",
+      "id": "assistant.capability.unknown",
+      "interpolationTokens": [
+        "label"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "{{label}} unknown",
+      "line": 311,
       "reason": ""
     },
     {
@@ -5340,7 +5431,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 273,
+      "line": 320,
       "reason": ""
     },
     {
@@ -5353,7 +5444,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 286,
+      "line": 333,
       "reason": ""
     },
     {
@@ -5366,20 +5457,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 297,
-      "reason": ""
-    },
-    {
-      "column": 25,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Trace details",
-      "file": "app/src/components/features/chat/MessageItem.jsx",
-      "icuDefaultMessage": "Trace details",
-      "id": "common.jsx.text.trace.details.af1f8b27",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 308,
+      "line": 344,
       "reason": ""
     },
     {
@@ -5392,7 +5470,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 311,
+      "line": 354,
       "reason": ""
     },
     {
@@ -5405,7 +5483,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 312,
+      "line": 355,
       "reason": ""
     },
     {
@@ -5418,7 +5496,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 313,
+      "line": 356,
       "reason": ""
     },
     {
@@ -5431,7 +5509,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 314,
+      "line": 357,
       "reason": ""
     },
     {
@@ -5444,7 +5522,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 315,
+      "line": 358,
       "reason": ""
     },
     {
@@ -5457,11 +5535,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 316,
+      "line": 359,
       "reason": ""
     },
     {
-      "column": 51,
+      "column": 45,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Model:",
       "file": "app/src/components/features/chat/MessageItem.jsx",
@@ -5470,7 +5548,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 317,
+      "line": 360,
       "reason": ""
     },
     {
@@ -5485,7 +5563,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 346,
+      "line": 391,
       "reason": ""
     },
     {
@@ -5500,7 +5578,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 350,
+      "line": 395,
       "reason": ""
     },
     {
@@ -5513,7 +5591,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 369,
+      "line": 414,
       "reason": ""
     },
     {
@@ -5526,7 +5604,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 370,
+      "line": 415,
       "reason": ""
     },
     {
@@ -5539,7 +5617,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 455,
+      "line": 500,
       "reason": ""
     },
     {
@@ -5972,6 +6050,32 @@
       "reason": ""
     },
     {
+      "column": 25,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "delivery",
+      "file": "app/src/components/features/chat/ProductCardInline.jsx",
+      "icuDefaultMessage": "delivery",
+      "id": "assistant.product.delivery",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "delivery",
+      "line": 48,
+      "reason": ""
+    },
+    {
+      "column": 21,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "warranty",
+      "file": "app/src/components/features/chat/ProductCardInline.jsx",
+      "icuDefaultMessage": "warranty",
+      "id": "assistant.product.warranty",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "warranty",
+      "line": 49,
+      "reason": ""
+    },
+    {
       "column": 79,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Aura catalog",
@@ -5981,7 +6085,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 67,
+      "line": 79,
       "reason": ""
     },
     {
@@ -5996,7 +6100,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 94,
+      "line": 118,
       "reason": ""
     },
     {
@@ -6011,7 +6115,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 104,
+      "line": 128,
       "reason": ""
     },
     {
@@ -6024,7 +6128,61 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 105,
+      "line": 129,
+      "reason": ""
+    },
+    {
+      "column": 87,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delivery:",
+      "file": "app/src/components/features/chat/ProductCardInline.jsx",
+      "icuDefaultMessage": "Delivery:",
+      "id": "assistant.product.deliveryLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delivery:",
+      "line": 138,
+      "reason": ""
+    },
+    {
+      "column": 87,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Warranty:",
+      "file": "app/src/components/features/chat/ProductCardInline.jsx",
+      "icuDefaultMessage": "Warranty:",
+      "id": "assistant.product.warrantyLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Warranty:",
+      "line": 144,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Open details to confirm {{details}}.",
+      "file": "app/src/components/features/chat/ProductCardInline.jsx",
+      "icuDefaultMessage": "Open details to confirm {details}.",
+      "id": "assistant.product.confirmMissingDetails",
+      "interpolationTokens": [
+        "details"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Open details to confirm {{details}}.",
+      "line": 152,
+      "reason": ""
+    },
+    {
+      "column": 79,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Why it fits:",
+      "file": "app/src/components/features/chat/ProductCardInline.jsx",
+      "icuDefaultMessage": "Why it fits:",
+      "id": "assistant.product.whyItFits",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Why it fits:",
+      "line": 164,
       "reason": ""
     },
     {
@@ -6037,7 +6195,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 112,
+      "line": 168,
+      "reason": ""
+    },
+    {
+      "column": 35,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Out of stock",
+      "file": "app/src/components/features/chat/ProductCardInline.jsx",
+      "icuDefaultMessage": "Out of stock",
+      "id": "product.stock.outOfStock",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 190,
       "reason": ""
     },
     {
@@ -6050,7 +6221,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "View details",
-      "line": 134,
+      "line": 197,
       "reason": ""
     },
     {
@@ -6063,7 +6234,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Select",
-      "line": 144,
+      "line": 207,
       "reason": ""
     },
     {
@@ -10219,6 +10390,123 @@
       "reason": ""
     },
     {
+      "column": 28,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Welcome to Aura",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Welcome to Aura",
+      "id": "welcomeCurtain.ariaLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 416,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Sound off",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Sound off",
+      "id": "welcomeCurtain.soundOff",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 418,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Sound on",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Sound on",
+      "id": "welcomeCurtain.soundOn",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 419,
+      "reason": ""
+    },
+    {
+      "column": 5,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Welcome to Aura",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Welcome to Aura",
+      "id": "welcomeCurtain.message.welcome",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 422,
+      "reason": ""
+    },
+    {
+      "column": 5,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Thanks for visiting",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Thanks for visiting",
+      "id": "welcomeCurtain.message.thanks",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 423,
+      "reason": ""
+    },
+    {
+      "column": 5,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Your premium experience is ready",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Your premium experience is ready",
+      "id": "welcomeCurtain.message.ready",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 424,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Skip",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Skip",
+      "id": "welcomeCurtain.action.skip",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 487,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Secured. Fast. Premium.",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Secured. Fast. Premium.",
+      "id": "welcomeCurtain.kicker",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 551,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "A polished marketplace session is ready for you.",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "A polished marketplace session is ready for you.",
+      "id": "welcomeCurtain.subcopy",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 578,
+      "reason": ""
+    },
+    {
       "column": 50,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "New notification",
@@ -14283,7 +14571,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 55,
+      "line": 60,
       "reason": ""
     },
     {
@@ -14296,7 +14584,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 84,
+      "line": 89,
       "reason": ""
     },
     {
@@ -14309,7 +14597,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 92,
+      "line": 97,
       "reason": ""
     },
     {
@@ -14322,7 +14610,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 102,
+      "line": 107,
       "reason": ""
     },
     {
@@ -14335,7 +14623,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 104,
+      "line": 109,
       "reason": ""
     },
     {
@@ -14348,7 +14636,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 111,
+      "line": 116,
       "reason": ""
     },
     {
@@ -14361,7 +14649,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 124,
+      "line": 129,
       "reason": ""
     },
     {
@@ -14374,7 +14662,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 126,
+      "line": 131,
       "reason": ""
     },
     {
@@ -14389,7 +14677,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 137,
+      "line": 142,
       "reason": ""
     },
     {
@@ -14402,7 +14690,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 139,
+      "line": 144,
       "reason": ""
     },
     {
@@ -14415,7 +14703,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 142,
+      "line": 147,
       "reason": ""
     },
     {
@@ -14430,7 +14718,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 154,
+      "line": 159,
       "reason": ""
     },
     {
@@ -14443,7 +14731,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 156,
+      "line": 161,
       "reason": ""
     },
     {
@@ -14456,7 +14744,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 159,
+      "line": 164,
       "reason": ""
     },
     {
@@ -14471,7 +14759,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 170,
+      "line": 175,
       "reason": ""
     },
     {
@@ -14484,7 +14772,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 172,
+      "line": 177,
       "reason": ""
     },
     {
@@ -14497,7 +14785,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 175,
+      "line": 180,
       "reason": ""
     },
     {
@@ -14510,7 +14798,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 184,
+      "line": 189,
       "reason": ""
     },
     {
@@ -14523,7 +14811,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 191,
+      "line": 196,
       "reason": ""
     },
     {
@@ -14536,7 +14824,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 195,
+      "line": 200,
       "reason": ""
     },
     {
@@ -14549,7 +14837,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 204,
+      "line": 209,
       "reason": ""
     },
     {
@@ -14562,7 +14850,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 205,
+      "line": 210,
       "reason": ""
     },
     {
@@ -14575,7 +14863,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 206,
+      "line": 211,
       "reason": ""
     },
     {
@@ -14588,7 +14876,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 210,
+      "line": 215,
       "reason": ""
     },
     {
@@ -14601,7 +14889,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 218,
+      "line": 223,
       "reason": ""
     },
     {
@@ -14614,7 +14902,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 219,
+      "line": 224,
       "reason": ""
     },
     {
@@ -14627,7 +14915,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 220,
+      "line": 225,
       "reason": ""
     },
     {
@@ -14640,7 +14928,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 224,
+      "line": 229,
       "reason": ""
     },
     {
@@ -14653,7 +14941,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 228,
+      "line": 233,
       "reason": ""
     },
     {
@@ -14666,7 +14954,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 228,
+      "line": 233,
       "reason": ""
     },
     {
@@ -14679,7 +14967,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 229,
+      "line": 234,
       "reason": ""
     },
     {
@@ -14692,7 +14980,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 229,
+      "line": 234,
       "reason": ""
     },
     {
@@ -14705,7 +14993,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 230,
+      "line": 235,
       "reason": ""
     },
     {
@@ -14718,7 +15006,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 230,
+      "line": 235,
       "reason": ""
     },
     {
@@ -14731,7 +15019,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 239,
+      "line": 244,
       "reason": ""
     },
     {
@@ -14744,7 +15032,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 240,
+      "line": 245,
       "reason": ""
     },
     {
@@ -14757,7 +15045,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 241,
+      "line": 246,
       "reason": ""
     },
     {
@@ -14770,7 +15058,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 242,
+      "line": 247,
       "reason": ""
     },
     {
@@ -14783,7 +15071,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 243,
+      "line": 248,
       "reason": ""
     },
     {
@@ -14796,7 +15084,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 244,
+      "line": 249,
       "reason": ""
     },
     {
@@ -14809,7 +15097,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 245,
+      "line": 250,
       "reason": ""
     },
     {
@@ -14822,7 +15110,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 270,
+      "line": 275,
       "reason": ""
     },
     {
@@ -14837,7 +15125,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 279,
+      "line": 284,
       "reason": ""
     },
     {
@@ -14850,7 +15138,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 285,
+      "line": 290,
       "reason": ""
     },
     {
@@ -14863,7 +15151,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 289,
+      "line": 294,
       "reason": ""
     },
     {
@@ -14876,7 +15164,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 292,
+      "line": 297,
       "reason": ""
     },
     {
@@ -14889,7 +15177,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 292,
+      "line": 297,
       "reason": ""
     },
     {
@@ -14902,7 +15190,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 317,
+      "line": 322,
       "reason": ""
     },
     {
@@ -14915,7 +15203,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 317,
+      "line": 322,
       "reason": ""
     },
     {
@@ -14928,7 +15216,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 325,
+      "line": 330,
       "reason": ""
     },
     {
@@ -14941,7 +15229,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 331,
+      "line": 336,
       "reason": ""
     },
     {
@@ -14954,7 +15242,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 353,
+      "line": 358,
       "reason": ""
     },
     {
@@ -14967,7 +15255,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 366,
+      "line": 371,
       "reason": ""
     },
     {
@@ -14980,7 +15268,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 366,
+      "line": 371,
       "reason": ""
     },
     {
@@ -14993,7 +15281,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 374,
+      "line": 379,
       "reason": ""
     },
     {
@@ -15006,7 +15294,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 381,
+      "line": 386,
       "reason": ""
     },
     {
@@ -15021,7 +15309,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 387,
+      "line": 392,
       "reason": ""
     },
     {
@@ -15034,7 +15322,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 406,
+      "line": 411,
       "reason": ""
     },
     {
@@ -15047,7 +15335,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 406,
+      "line": 411,
       "reason": ""
     },
     {
@@ -15060,7 +15348,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 411,
+      "line": 416,
       "reason": ""
     },
     {
@@ -15073,7 +15361,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 424,
+      "line": 429,
       "reason": ""
     },
     {
@@ -15086,7 +15374,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 426,
+      "line": 431,
       "reason": ""
     },
     {
@@ -15099,7 +15387,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 427,
+      "line": 432,
       "reason": ""
     },
     {
@@ -15112,7 +15400,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 432,
+      "line": 437,
       "reason": ""
     },
     {
@@ -15125,7 +15413,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 457,
+      "line": 462,
       "reason": ""
     },
     {
@@ -15138,7 +15426,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 457,
+      "line": 462,
       "reason": ""
     },
     {
@@ -15151,7 +15439,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 465,
+      "line": 470,
       "reason": ""
     },
     {
@@ -15164,7 +15452,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 471,
+      "line": 476,
       "reason": ""
     },
     {
@@ -15177,7 +15465,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 477,
+      "line": 482,
       "reason": ""
     },
     {
@@ -15190,7 +15478,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 481,
+      "line": 486,
       "reason": ""
     },
     {
@@ -15203,7 +15491,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 493,
+      "line": 498,
       "reason": ""
     },
     {
@@ -15216,7 +15504,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 493,
+      "line": 498,
       "reason": ""
     },
     {
@@ -22633,7 +22921,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 575,
+      "line": 637,
       "reason": ""
     },
     {
@@ -22646,7 +22934,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 576,
+      "line": 638,
       "reason": ""
     },
     {
@@ -22659,7 +22947,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 581,
+      "line": 643,
       "reason": ""
     },
     {
@@ -22672,7 +22960,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 581,
+      "line": 643,
       "reason": ""
     },
     {
@@ -22685,33 +22973,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 600,
-      "reason": ""
-    },
-    {
-      "column": 37,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Model surface",
-      "file": "app/src/pages/Assistant/index.jsx",
-      "icuDefaultMessage": "Model surface",
-      "id": "common.jsx.text.model.surface.dae6758e",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 696,
-      "reason": ""
-    },
-    {
-      "column": 41,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Active route",
-      "file": "app/src/pages/Assistant/index.jsx",
-      "icuDefaultMessage": "Active route",
-      "id": "common.jsx.text.active.route.adea24bd",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 714,
+      "line": 662,
       "reason": ""
     },
     {
@@ -22724,7 +22986,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 748,
+      "line": 806,
       "reason": ""
     },
     {
@@ -22737,7 +22999,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 754,
+      "line": 812,
       "reason": ""
     },
     {
@@ -22750,7 +23012,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 778,
+      "line": 836,
       "reason": ""
     },
     {
@@ -22763,7 +23025,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 905,
+      "line": 960,
       "reason": ""
     },
     {
@@ -22776,7 +23038,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 905,
+      "line": 960,
       "reason": ""
     },
     {
@@ -28991,6 +29253,32 @@
       "reason": ""
     },
     {
+      "column": 21,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Complete all three browser steps",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Complete all three browser steps",
+      "id": "desktopLogin.handoff.stepsTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 226,
+      "reason": ""
+    },
+    {
+      "column": 21,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes.",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes.",
+      "id": "desktopLogin.handoff.stepsDetail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 229,
+      "reason": ""
+    },
+    {
       "column": 39,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Full Name *",
@@ -29000,7 +29288,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 250,
+      "line": 262,
       "reason": ""
     },
     {
@@ -29013,7 +29301,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 252,
+      "line": 264,
       "reason": ""
     },
     {
@@ -29026,7 +29314,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 258,
+      "line": 270,
       "reason": ""
     },
     {
@@ -29039,7 +29327,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 258,
+      "line": 270,
       "reason": ""
     },
     {
@@ -29052,7 +29340,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 265,
+      "line": 277,
       "reason": ""
     },
     {
@@ -29065,7 +29353,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 268,
+      "line": 280,
       "reason": ""
     },
     {
@@ -29078,7 +29366,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 285,
+      "line": 297,
       "reason": ""
     },
     {
@@ -29091,7 +29379,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 289,
+      "line": 301,
       "reason": ""
     },
     {
@@ -29104,7 +29392,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 292,
+      "line": 304,
       "reason": ""
     },
     {
@@ -29117,7 +29405,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 293,
+      "line": 305,
       "reason": ""
     },
     {
@@ -29130,7 +29418,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 293,
+      "line": 305,
       "reason": ""
     },
     {
@@ -29143,7 +29431,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 302,
+      "line": 314,
       "reason": ""
     },
     {
@@ -29156,7 +29444,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 304,
+      "line": 316,
       "reason": ""
     },
     {
@@ -29169,7 +29457,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 314,
+      "line": 326,
       "reason": ""
     },
     {
@@ -29182,7 +29470,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 317,
+      "line": 329,
       "reason": ""
     },
     {
@@ -29195,7 +29483,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 317,
+      "line": 329,
       "reason": ""
     },
     {
@@ -29208,7 +29496,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 317,
+      "line": 329,
       "reason": ""
     },
     {
@@ -29221,7 +29509,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 318,
+      "line": 330,
       "reason": ""
     },
     {
@@ -29234,7 +29522,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 318,
+      "line": 330,
       "reason": ""
     },
     {
@@ -29247,7 +29535,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 340,
+      "line": 352,
       "reason": ""
     },
     {
@@ -29260,7 +29548,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 351,
+      "line": 363,
       "reason": ""
     },
     {
@@ -29273,7 +29561,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 354,
+      "line": 366,
       "reason": ""
     },
     {
@@ -29286,11 +29574,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 357,
+      "line": 369,
       "reason": ""
     },
     {
-      "column": 48,
+      "column": 25,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Temporarily Unavailable",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29299,7 +29587,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 368,
+      "line": 381,
+      "reason": ""
+    },
+    {
+      "column": 27,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Waiting for Browser",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Waiting for Browser",
+      "id": "desktopLogin.action.waitingForBrowser",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 383,
       "reason": ""
     },
     {
@@ -29312,7 +29613,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 376,
+      "line": 392,
       "reason": ""
     },
     {
@@ -29325,7 +29626,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 384,
+      "line": 400,
       "reason": ""
     },
     {
@@ -29338,7 +29639,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 416,
+      "line": 432,
       "reason": ""
     },
     {
@@ -29351,7 +29652,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 424,
+      "line": 440,
       "reason": ""
     },
     {
@@ -29364,7 +29665,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 424,
+      "line": 440,
       "reason": ""
     },
     {
@@ -29377,7 +29678,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 426,
+      "line": 442,
       "reason": ""
     },
     {
@@ -29390,7 +29691,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 435,
+      "line": 451,
       "reason": ""
     },
     {
@@ -32682,7 +32983,72 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 142,
+      "line": 147,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue in Your Browser",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Continue in Your Browser",
+      "id": "login.desktopBrowser.startedTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 194,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
+      "id": "login.desktopBrowser.startedDetail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 197,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue in Browser",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Continue in Browser",
+      "id": "login.desktopBrowser.button",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 213,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Cancel Browser Sign-In",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Cancel Browser Sign-In",
+      "id": "login.desktopBrowser.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 223,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Owner Access",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Owner Access",
+      "id": "login.desktopOwnerAccess.button",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 235,
       "reason": ""
     },
     {
@@ -32695,7 +33061,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 191,
+      "line": 247,
       "reason": ""
     },
     {
@@ -32708,7 +33074,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 194,
+      "line": 250,
       "reason": ""
     },
     {
@@ -32721,7 +33087,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 202,
+      "line": 258,
       "reason": ""
     },
     {
@@ -32734,7 +33100,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 205,
+      "line": 261,
       "reason": ""
     },
     {
@@ -32747,7 +33113,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 212,
+      "line": 268,
       "reason": ""
     },
     {
@@ -32760,7 +33126,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 216,
+      "line": 272,
       "reason": ""
     },
     {
@@ -32773,7 +33139,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 224,
+      "line": 280,
       "reason": ""
     },
     {
@@ -32786,7 +33152,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 239,
+      "line": 295,
       "reason": ""
     },
     {
@@ -32802,7 +33168,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 242,
+      "line": 298,
       "reason": ""
     },
     {
@@ -32815,7 +33181,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 243,
+      "line": 299,
       "reason": ""
     },
     {
@@ -32828,7 +33194,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 251,
+      "line": 307,
       "reason": ""
     },
     {
@@ -32841,7 +33207,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 254,
+      "line": 310,
       "reason": ""
     },
     {
@@ -32854,7 +33220,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 256,
+      "line": 312,
       "reason": ""
     },
     {
@@ -32867,7 +33233,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 257,
+      "line": 313,
       "reason": ""
     },
     {
@@ -32880,7 +33246,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 258,
+      "line": 314,
       "reason": ""
     },
     {
@@ -32893,7 +33259,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 265,
+      "line": 321,
       "reason": ""
     },
     {
@@ -32906,7 +33272,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 270,
+      "line": 326,
       "reason": ""
     },
     {
@@ -32919,7 +33285,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 289,
+      "line": 345,
       "reason": ""
     },
     {
@@ -32932,7 +33298,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 300,
+      "line": 356,
       "reason": ""
     },
     {
@@ -32945,7 +33311,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 303,
+      "line": 359,
       "reason": ""
     },
     {
@@ -32958,7 +33324,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 315,
+      "line": 371,
       "reason": ""
     },
     {
@@ -32971,7 +33337,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 322,
+      "line": 378,
       "reason": ""
     },
     {
@@ -32984,7 +33350,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 325,
+      "line": 381,
       "reason": ""
     },
     {
@@ -32997,7 +33363,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 328,
+      "line": 384,
       "reason": ""
     },
     {
@@ -33010,7 +33376,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 328,
+      "line": 384,
       "reason": ""
     },
     {
@@ -33023,7 +33389,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 330,
+      "line": 386,
       "reason": ""
     },
     {
@@ -33036,7 +33402,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 330,
+      "line": 386,
       "reason": ""
     },
     {
@@ -33049,7 +33415,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 331,
+      "line": 387,
       "reason": ""
     },
     {
@@ -33062,7 +33428,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 331,
+      "line": 387,
       "reason": ""
     },
     {
@@ -33075,7 +33441,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 335,
+      "line": 391,
       "reason": ""
     },
     {
@@ -33088,7 +33454,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 337,
+      "line": 393,
       "reason": ""
     },
     {
@@ -33101,7 +33467,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 339,
+      "line": 395,
       "reason": ""
     },
     {
@@ -33114,7 +33480,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 340,
+      "line": 396,
       "reason": ""
     },
     {
@@ -33127,7 +33493,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 344,
+      "line": 400,
       "reason": ""
     },
     {
@@ -33140,7 +33506,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 348,
+      "line": 404,
       "reason": ""
     },
     {
@@ -33153,7 +33519,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 349,
+      "line": 405,
       "reason": ""
     },
     {
@@ -33168,7 +33534,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 381,
+      "line": 437,
       "reason": ""
     },
     {
@@ -33181,7 +33547,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 386,
+      "line": 442,
       "reason": ""
     },
     {
@@ -33194,7 +33560,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 397,
+      "line": 453,
       "reason": ""
     },
     {
@@ -33207,7 +33573,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 404,
+      "line": 460,
       "reason": ""
     },
     {
@@ -33220,7 +33586,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 406,
+      "line": 462,
       "reason": ""
     },
     {
@@ -33233,7 +33599,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 408,
+      "line": 464,
       "reason": ""
     },
     {
@@ -33246,7 +33612,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 414,
+      "line": 470,
       "reason": ""
     },
     {
@@ -33259,46 +33625,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 435,
-      "reason": ""
-    },
-    {
-      "column": 22,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "PROCESSING...",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "PROCESSING...",
-      "id": "login.processing",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 475,
-      "reason": ""
-    },
-    {
-      "column": 25,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Temporarily Unavailable",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Temporarily Unavailable",
-      "id": "login.actionTemporarilyUnavailable",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Temporarily Unavailable",
-      "line": 480,
-      "reason": ""
-    },
-    {
-      "column": 102,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "or",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "or",
-      "id": "login.or",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 493,
+      "line": 491,
       "reason": ""
     },
     {
@@ -33311,7 +33638,85 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 504,
+      "line": 532,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "PROCESSING...",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "PROCESSING...",
+      "id": "login.processing",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 537,
+      "reason": ""
+    },
+    {
+      "column": 25,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Temporarily Unavailable",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Temporarily Unavailable",
+      "id": "login.actionTemporarilyUnavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Temporarily Unavailable",
+      "line": 542,
+      "reason": ""
+    },
+    {
+      "column": 20,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Cancel Browser Sign-In",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Cancel Browser Sign-In",
+      "id": "login.desktopBrowser.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 555,
+      "reason": ""
+    },
+    {
+      "column": 102,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "or",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "or",
+      "id": "login.or",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 565,
+      "reason": ""
+    },
+    {
+      "column": 24,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue in Browser",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Continue in Browser",
+      "id": "login.desktopBrowser.button",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 576,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Owner Access",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Owner Access",
+      "id": "login.desktopOwnerAccess.button",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 587,
       "reason": ""
     },
     {
@@ -33324,7 +33729,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 590,
+      "line": 673,
       "reason": ""
     },
     {
@@ -33337,7 +33742,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 592,
+      "line": 675,
       "reason": ""
     },
     {
@@ -33350,7 +33755,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 593,
+      "line": 676,
       "reason": ""
     },
     {
@@ -33363,7 +33768,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 598,
+      "line": 681,
       "reason": ""
     },
     {
@@ -33376,7 +33781,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 599,
+      "line": 682,
       "reason": ""
     },
     {
@@ -33389,7 +33794,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 600,
+      "line": 683,
       "reason": ""
     },
     {
@@ -33402,7 +33807,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 604,
+      "line": 687,
       "reason": ""
     },
     {
@@ -33415,7 +33820,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 608,
+      "line": 691,
       "reason": ""
     },
     {
@@ -33428,7 +33833,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 609,
+      "line": 692,
       "reason": ""
     },
     {
@@ -33441,7 +33846,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 610,
+      "line": 693,
       "reason": ""
     },
     {
@@ -33454,7 +33859,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 618,
+      "line": 701,
       "reason": ""
     },
     {
@@ -33467,7 +33872,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 621,
+      "line": 704,
       "reason": ""
     },
     {
@@ -33480,7 +33885,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 625,
+      "line": 708,
       "reason": ""
     },
     {
@@ -33493,7 +33898,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 636,
+      "line": 719,
       "reason": ""
     },
     {
@@ -33506,7 +33911,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 646,
+      "line": 729,
       "reason": ""
     },
     {
@@ -33519,7 +33924,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 647,
+      "line": 730,
       "reason": ""
     },
     {
@@ -33532,7 +33937,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 658,
+      "line": 741,
       "reason": ""
     },
     {
@@ -33545,7 +33950,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 659,
+      "line": 742,
       "reason": ""
     },
     {
@@ -33558,7 +33963,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 660,
+      "line": 743,
       "reason": ""
     },
     {
@@ -33571,7 +33976,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 661,
+      "line": 744,
       "reason": ""
     },
     {
@@ -33584,7 +33989,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 465,
+      "line": 648,
       "reason": ""
     },
     {
@@ -33597,33 +34002,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 466,
-      "reason": ""
-    },
-    {
-      "column": 18,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Desktop Sign-In Complete",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Desktop Sign-In Complete",
-      "id": "login.desktopBrowser.completeTitle",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 511,
-      "reason": ""
-    },
-    {
-      "column": 19,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Return to Aura Marketplace Desktop. You can close this browser tab.",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Return to Aura Marketplace Desktop. You can close this browser tab.",
-      "id": "login.desktopBrowser.completeDetail",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 512,
+      "line": 649,
       "reason": ""
     },
     {
@@ -33636,7 +34015,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 556,
+      "line": 722,
       "reason": ""
     },
     {
@@ -33649,7 +34028,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 614,
+      "line": 780,
       "reason": ""
     },
     {
@@ -33662,7 +34041,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 900,
+      "line": 1091,
       "reason": ""
     },
     {
@@ -33675,7 +34054,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 902,
+      "line": 1093,
       "reason": ""
     },
     {
@@ -33688,7 +34067,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 903,
+      "line": 1094,
       "reason": ""
     },
     {
@@ -33701,7 +34080,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 905,
+      "line": 1096,
       "reason": ""
     },
     {
@@ -33714,7 +34093,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 907,
+      "line": 1098,
       "reason": ""
     },
     {
@@ -33727,7 +34106,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 908,
+      "line": 1099,
       "reason": ""
     },
     {
@@ -33740,7 +34119,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 917,
+      "line": 1108,
       "reason": ""
     },
     {
@@ -33753,7 +34132,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 918,
+      "line": 1109,
       "reason": ""
     },
     {
@@ -33768,7 +34147,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 920,
+      "line": 1111,
       "reason": ""
     },
     {
@@ -33783,7 +34162,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 921,
+      "line": 1112,
       "reason": ""
     },
     {
@@ -33796,7 +34175,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 927,
+      "line": 1118,
       "reason": ""
     },
     {
@@ -33811,7 +34190,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 928,
+      "line": 1119,
       "reason": ""
     },
     {
@@ -33824,7 +34203,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 935,
+      "line": 1126,
       "reason": ""
     },
     {
@@ -33837,7 +34216,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 936,
+      "line": 1127,
       "reason": ""
     },
     {
@@ -33850,7 +34229,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 938,
+      "line": 1129,
       "reason": ""
     },
     {
@@ -33863,7 +34242,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 939,
+      "line": 1130,
       "reason": ""
     },
     {
@@ -33876,7 +34255,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 944,
+      "line": 1135,
       "reason": ""
     },
     {
@@ -33889,7 +34268,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 946,
+      "line": 1137,
       "reason": ""
     },
     {
@@ -33902,7 +34281,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 947,
+      "line": 1138,
       "reason": ""
     },
     {
@@ -33915,7 +34294,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1067,
+      "line": 1258,
       "reason": ""
     },
     {
@@ -33928,7 +34307,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1068,
+      "line": 1259,
       "reason": ""
     },
     {
@@ -33941,7 +34320,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1069,
+      "line": 1260,
       "reason": ""
     },
     {
@@ -33954,7 +34333,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1070,
+      "line": 1261,
       "reason": ""
     },
     {
@@ -33967,7 +34346,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1071,
+      "line": 1262,
       "reason": ""
     },
     {
@@ -33980,7 +34359,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1072,
+      "line": 1263,
       "reason": ""
     },
     {
@@ -33993,7 +34372,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1073,
+      "line": 1264,
       "reason": ""
     },
     {
@@ -34006,7 +34385,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1079,
+      "line": 1270,
       "reason": ""
     },
     {
@@ -34019,7 +34398,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1083,
+      "line": 1274,
       "reason": ""
     },
     {
@@ -34032,7 +34411,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1087,
+      "line": 1278,
       "reason": ""
     },
     {
@@ -34045,7 +34424,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1088,
+      "line": 1279,
       "reason": ""
     },
     {
@@ -34058,7 +34437,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1089,
+      "line": 1280,
       "reason": ""
     },
     {
@@ -34071,7 +34450,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1098,
+      "line": 1289,
       "reason": ""
     },
     {
@@ -34084,7 +34463,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1099,
+      "line": 1290,
       "reason": ""
     },
     {
@@ -34097,7 +34476,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1100,
+      "line": 1291,
       "reason": ""
     },
     {
@@ -34110,7 +34489,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1103,
+      "line": 1294,
       "reason": ""
     },
     {
@@ -34123,7 +34502,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1104,
+      "line": 1295,
       "reason": ""
     },
     {
@@ -34136,7 +34515,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1112,
+      "line": 1303,
       "reason": ""
     },
     {
@@ -34149,7 +34528,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1175,
+      "line": 1366,
       "reason": ""
     },
     {
@@ -34162,7 +34541,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1214,
+      "line": 1405,
       "reason": ""
     },
     {
@@ -34175,7 +34554,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1251,
+      "line": 1442,
       "reason": ""
     },
     {
@@ -34188,7 +34567,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1285,
+      "line": 1476,
       "reason": ""
     },
     {
@@ -34201,7 +34580,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1346,
+      "line": 1537,
       "reason": ""
     },
     {
@@ -34214,7 +34593,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1443,
+      "line": 1671,
       "reason": ""
     },
     {
@@ -34227,7 +34606,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1444,
+      "line": 1672,
       "reason": ""
     },
     {
@@ -34240,7 +34619,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1451,
+      "line": 1679,
       "reason": ""
     },
     {
@@ -34253,7 +34632,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1453,
+      "line": 1681,
       "reason": ""
     },
     {
@@ -34266,7 +34645,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1455,
+      "line": 1683,
       "reason": ""
     },
     {
@@ -34279,7 +34658,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1456,
+      "line": 1684,
       "reason": ""
     },
     {
@@ -34292,7 +34671,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1462,
+      "line": 1690,
       "reason": ""
     },
     {
@@ -34305,7 +34684,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1464,
+      "line": 1692,
       "reason": ""
     },
     {
@@ -34318,7 +34697,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1466,
+      "line": 1694,
       "reason": ""
     },
     {
@@ -34331,7 +34710,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1467,
+      "line": 1695,
       "reason": ""
     },
     {
@@ -34344,7 +34723,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1472,
+      "line": 1700,
       "reason": ""
     },
     {
@@ -34357,7 +34736,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1474,
+      "line": 1702,
       "reason": ""
     },
     {
@@ -34372,7 +34751,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1475,
+      "line": 1703,
       "reason": ""
     },
     {
@@ -34385,7 +34764,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1475,
+      "line": 1703,
       "reason": ""
     },
     {
@@ -34398,7 +34777,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1482,
+      "line": 1710,
       "reason": ""
     },
     {
@@ -34411,7 +34790,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1484,
+      "line": 1712,
       "reason": ""
     },
     {
@@ -34424,7 +34803,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1486,
+      "line": 1714,
       "reason": ""
     },
     {
@@ -34437,7 +34816,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1487,
+      "line": 1715,
       "reason": ""
     },
     {
@@ -34450,7 +34829,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1491,
+      "line": 1719,
       "reason": ""
     },
     {
@@ -34463,7 +34842,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1493,
+      "line": 1721,
       "reason": ""
     },
     {
@@ -34476,7 +34855,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1495,
+      "line": 1723,
       "reason": ""
     },
     {
@@ -34489,7 +34868,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1496,
+      "line": 1724,
       "reason": ""
     },
     {
@@ -34502,7 +34881,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1500,
+      "line": 1728,
       "reason": ""
     },
     {
@@ -34515,7 +34894,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1502,
+      "line": 1730,
       "reason": ""
     },
     {
@@ -34528,7 +34907,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1504,
+      "line": 1732,
       "reason": ""
     },
     {
@@ -34541,7 +34920,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1505,
+      "line": 1733,
       "reason": ""
     },
     {
@@ -34554,7 +34933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1513,
+      "line": 1741,
       "reason": ""
     },
     {
@@ -34567,7 +34946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1514,
+      "line": 1742,
       "reason": ""
     },
     {
@@ -34580,7 +34959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1515,
+      "line": 1743,
       "reason": ""
     },
     {
@@ -34593,7 +34972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1523,
+      "line": 1751,
       "reason": ""
     },
     {
@@ -34606,7 +34985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1525,
+      "line": 1753,
       "reason": ""
     },
     {
@@ -34619,7 +34998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1526,
+      "line": 1754,
       "reason": ""
     },
     {
@@ -34632,7 +35011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1527,
+      "line": 1755,
       "reason": ""
     },
     {
@@ -34645,7 +35024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1528,
+      "line": 1756,
       "reason": ""
     },
     {
@@ -34658,7 +35037,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1535,
+      "line": 1763,
       "reason": ""
     },
     {
@@ -34671,7 +35050,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1537,
+      "line": 1765,
       "reason": ""
     },
     {
@@ -34684,7 +35063,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1538,
+      "line": 1766,
       "reason": ""
     },
     {
@@ -34697,7 +35076,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1539,
+      "line": 1767,
       "reason": ""
     },
     {
@@ -34710,7 +35089,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1540,
+      "line": 1768,
       "reason": ""
     },
     {
@@ -34723,7 +35102,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1545,
+      "line": 1773,
       "reason": ""
     },
     {
@@ -34736,7 +35115,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1546,
+      "line": 1774,
       "reason": ""
     },
     {
@@ -34749,7 +35128,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1547,
+      "line": 1775,
       "reason": ""
     },
     {
@@ -34762,7 +35141,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1554,
+      "line": 1782,
       "reason": ""
     },
     {
@@ -34775,7 +35154,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1556,
+      "line": 1784,
       "reason": ""
     },
     {
@@ -34788,7 +35167,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1557,
+      "line": 1785,
       "reason": ""
     },
     {
@@ -34801,7 +35180,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1558,
+      "line": 1786,
       "reason": ""
     },
     {
@@ -34814,7 +35193,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1559,
+      "line": 1787,
       "reason": ""
     },
     {
@@ -34827,7 +35206,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1566,
+      "line": 1794,
       "reason": ""
     },
     {
@@ -34840,7 +35219,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1568,
+      "line": 1796,
       "reason": ""
     },
     {
@@ -34853,7 +35232,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1569,
+      "line": 1797,
       "reason": ""
     },
     {
@@ -34866,7 +35245,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1570,
+      "line": 1798,
       "reason": ""
     },
     {
@@ -34879,7 +35258,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1571,
+      "line": 1799,
       "reason": ""
     },
     {
@@ -34892,7 +35271,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1577,
+      "line": 1805,
       "reason": ""
     },
     {
@@ -34905,7 +35284,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1579,
+      "line": 1807,
       "reason": ""
     },
     {
@@ -34918,7 +35297,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1580,
+      "line": 1808,
       "reason": ""
     },
     {
@@ -34931,7 +35310,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1581,
+      "line": 1809,
       "reason": ""
     },
     {
@@ -34944,7 +35323,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1582,
+      "line": 1810,
       "reason": ""
     },
     {
@@ -34957,7 +35336,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1594,
+      "line": 1822,
       "reason": ""
     },
     {
@@ -34970,7 +35349,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1594,
+      "line": 1822,
       "reason": ""
     },
     {
@@ -34983,7 +35362,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1594,
+      "line": 1822,
       "reason": ""
     },
     {
@@ -34996,7 +35375,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1596,
+      "line": 1824,
       "reason": ""
     },
     {
@@ -35009,7 +35388,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1598,
+      "line": 1826,
       "reason": ""
     },
     {
@@ -35022,7 +35401,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1599,
+      "line": 1827,
       "reason": ""
     },
     {
@@ -35035,7 +35414,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1602,
+      "line": 1830,
       "reason": ""
     },
     {
@@ -35048,7 +35427,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1604,
+      "line": 1832,
       "reason": ""
     },
     {
@@ -35061,7 +35440,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1606,
+      "line": 1834,
       "reason": ""
     },
     {
@@ -35074,7 +35453,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1608,
+      "line": 1836,
       "reason": ""
     },
     {
@@ -35087,7 +35466,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1610,
+      "line": 1838,
       "reason": ""
     },
     {
@@ -35100,7 +35479,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1611,
+      "line": 1839,
       "reason": ""
     },
     {
@@ -35113,7 +35492,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1611,
+      "line": 1839,
       "reason": ""
     },
     {
@@ -35126,7 +35505,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1614,
+      "line": 1842,
       "reason": ""
     },
     {
@@ -35139,7 +35518,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1616,
+      "line": 1844,
       "reason": ""
     },
     {
@@ -35152,7 +35531,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1619,
+      "line": 1847,
       "reason": ""
     },
     {
@@ -35165,7 +35544,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1620,
+      "line": 1848,
       "reason": ""
     },
     {
@@ -35178,7 +35557,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1621,
+      "line": 1849,
       "reason": ""
     },
     {
@@ -35191,7 +35570,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1624,
+      "line": 1852,
       "reason": ""
     },
     {
@@ -35206,7 +35585,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{providers}} ready",
-      "line": 1627,
+      "line": 1855,
       "reason": ""
     },
     {
@@ -35219,7 +35598,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1628,
+      "line": 1856,
       "reason": ""
     },
     {
@@ -35232,7 +35611,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1630,
+      "line": 1858,
       "reason": ""
     },
     {
@@ -35245,7 +35624,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1632,
+      "line": 1860,
       "reason": ""
     },
     {
@@ -35260,7 +35639,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1633,
+      "line": 1861,
       "reason": ""
     },
     {
@@ -35273,7 +35652,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1633,
+      "line": 1861,
       "reason": ""
     },
     {
@@ -35286,7 +35665,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1660,
+      "line": 1888,
       "reason": ""
     },
     {
@@ -35299,7 +35678,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1661,
+      "line": 1889,
       "reason": ""
     },
     {
@@ -35312,7 +35691,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1662,
+      "line": 1890,
       "reason": ""
     },
     {
@@ -35327,7 +35706,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1664,
+      "line": 1892,
       "reason": ""
     },
     {
@@ -35340,7 +35719,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1670,
+      "line": 1898,
       "reason": ""
     },
     {
@@ -35357,7 +35736,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1672,
+      "line": 1900,
       "reason": ""
     },
     {
@@ -35370,7 +35749,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1677,
+      "line": 1905,
       "reason": ""
     },
     {
@@ -35386,7 +35765,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1681,
+      "line": 1909,
       "reason": ""
     },
     {
@@ -35399,7 +35778,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1685,
+      "line": 1913,
       "reason": ""
     },
     {
@@ -35412,7 +35791,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1693,
+      "line": 1921,
       "reason": ""
     },
     {
@@ -35425,7 +35804,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1697,
+      "line": 1925,
       "reason": ""
     },
     {
@@ -35438,7 +35817,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1713,
+      "line": 1941,
       "reason": ""
     },
     {
@@ -35451,7 +35830,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1773,
+      "line": 2011,
       "reason": ""
     },
     {
@@ -35464,20 +35843,98 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1780,
+      "line": 2023,
       "reason": ""
     },
     {
       "column": 15,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.",
+      "fallback": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
       "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.",
+      "icuDefaultMessage": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
       "id": "login.desktopBrowser.startedDetail",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1781,
+      "line": 2024,
+      "reason": ""
+    },
+    {
+      "column": 25,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Desktop browser sign-in is available only in the Aura desktop app.",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Desktop browser sign-in is available only in the Aura desktop app.",
+      "id": "login.desktopBrowser.unavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 2053,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue in Your Browser",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Continue in Your Browser",
+      "id": "login.desktopBrowser.startedTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 2061,
+      "reason": ""
+    },
+    {
+      "column": 17,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
+      "id": "login.desktopBrowser.startedDetail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 2062,
+      "reason": ""
+    },
+    {
+      "column": 25,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Desktop owner access is not configured for this app.",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Desktop owner access is not configured for this app.",
+      "id": "login.desktopOwnerAccess.unavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 2075,
+      "reason": ""
+    },
+    {
+      "column": 14,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Owner Access",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Owner Access",
+      "id": "login.desktopOwnerAccess.startedTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 2082,
+      "reason": ""
+    },
+    {
+      "column": 15,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Aura Desktop is verifying the local owner access key.",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Aura Desktop is verifying the local owner access key.",
+      "id": "login.desktopOwnerAccess.startedDetail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 2083,
       "reason": ""
     },
     {
@@ -35490,7 +35947,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1807,
+      "line": 2110,
       "reason": ""
     },
     {
@@ -35503,7 +35960,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1822,
+      "line": 2124,
       "reason": ""
     },
     {
@@ -35516,7 +35973,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1825,
+      "line": 2127,
       "reason": ""
     },
     {
@@ -35529,7 +35986,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1827,
+      "line": 2129,
       "reason": ""
     },
     {
@@ -35542,7 +35999,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1828,
+      "line": 2130,
       "reason": ""
     },
     {
@@ -35555,7 +36012,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1829,
+      "line": 2131,
       "reason": ""
     },
     {
@@ -35568,7 +36025,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1831,
+      "line": 2133,
       "reason": ""
     },
     {
@@ -35581,7 +36038,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1831,
+      "line": 2133,
       "reason": ""
     },
     {
@@ -35594,7 +36051,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1834,
+      "line": 2136,
       "reason": ""
     },
     {
@@ -35607,7 +36064,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1835,
+      "line": 2137,
       "reason": ""
     },
     {
@@ -35620,7 +36077,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1835,
+      "line": 2137,
       "reason": ""
     },
     {
@@ -35633,7 +36090,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1836,
+      "line": 2138,
       "reason": ""
     },
     {
@@ -35646,7 +36103,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1836,
+      "line": 2138,
       "reason": ""
     },
     {
@@ -35659,7 +36116,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1837,
+      "line": 2139,
       "reason": ""
     },
     {
@@ -35672,7 +36129,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1837,
+      "line": 2139,
       "reason": ""
     },
     {
@@ -38422,7 +38879,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 140,
+      "line": 144,
       "reason": ""
     },
     {
@@ -38435,7 +38892,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 142,
+      "line": 146,
       "reason": ""
     },
     {
@@ -38448,7 +38905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 147,
+      "line": 151,
       "reason": ""
     },
     {
@@ -38461,7 +38918,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 149,
+      "line": 153,
       "reason": ""
     },
     {
@@ -38474,7 +38931,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 154,
+      "line": 158,
       "reason": ""
     },
     {
@@ -38487,7 +38944,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 156,
+      "line": 160,
       "reason": ""
     },
     {
@@ -38500,7 +38957,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 161,
+      "line": 165,
       "reason": ""
     },
     {
@@ -38513,7 +38970,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 163,
+      "line": 167,
       "reason": ""
     },
     {
@@ -38526,7 +38983,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 190,
+      "line": 194,
       "reason": ""
     },
     {
@@ -38539,7 +38996,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 191,
+      "line": 195,
       "reason": ""
     },
     {
@@ -38552,7 +39009,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 210,
+      "line": 214,
       "reason": ""
     },
     {
@@ -38565,7 +39022,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 228,
+      "line": 232,
       "reason": ""
     },
     {
@@ -38578,7 +39035,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 229,
+      "line": 233,
       "reason": ""
     },
     {
@@ -38591,7 +39048,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 231,
+      "line": 235,
       "reason": ""
     },
     {
@@ -38604,7 +39061,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 247,
+      "line": 251,
       "reason": ""
     },
     {
@@ -38617,7 +39074,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 248,
+      "line": 252,
       "reason": ""
     },
     {
@@ -38630,7 +39087,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 271,
+      "line": 275,
       "reason": ""
     },
     {
@@ -38643,7 +39100,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 276,
+      "line": 280,
       "reason": ""
     },
     {
@@ -38656,7 +39113,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 280,
+      "line": 284,
       "reason": ""
     },
     {
@@ -38669,7 +39126,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 284,
+      "line": 288,
       "reason": ""
     },
     {
@@ -38682,7 +39139,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 340,
+      "line": 344,
       "reason": ""
     },
     {
@@ -38695,7 +39152,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 357,
+      "line": 361,
       "reason": ""
     },
     {
@@ -38708,7 +39165,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 372,
+      "line": 376,
       "reason": ""
     },
     {
@@ -38721,7 +39178,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 411,
+      "line": 415,
       "reason": ""
     },
     {
@@ -38734,7 +39191,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 440,
+      "line": 444,
       "reason": ""
     },
     {
@@ -38747,7 +39204,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 442,
+      "line": 446,
       "reason": ""
     },
     {
@@ -38760,7 +39217,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 450,
+      "line": 454,
       "reason": ""
     },
     {
@@ -38773,7 +39230,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 452,
+      "line": 456,
       "reason": ""
     },
     {
@@ -38786,7 +39243,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 453,
+      "line": 457,
       "reason": ""
     },
     {
@@ -38799,7 +39256,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 462,
+      "line": 466,
       "reason": ""
     },
     {
@@ -38812,7 +39269,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 463,
+      "line": 467,
       "reason": ""
     },
     {
@@ -38825,7 +39282,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 471,
+      "line": 475,
       "reason": ""
     },
     {
@@ -38838,7 +39295,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 475,
+      "line": 479,
       "reason": ""
     },
     {
@@ -38851,7 +39308,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 476,
+      "line": 480,
       "reason": ""
     },
     {
@@ -38864,7 +39321,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 483,
+      "line": 487,
       "reason": ""
     },
     {
@@ -38877,7 +39334,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 485,
+      "line": 489,
       "reason": ""
     },
     {
@@ -38890,7 +39347,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 489,
+      "line": 493,
       "reason": ""
     },
     {
@@ -38903,7 +39360,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 490,
+      "line": 494,
       "reason": ""
     },
     {
@@ -38916,7 +39373,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 499,
+      "line": 503,
       "reason": ""
     },
     {
@@ -38929,7 +39386,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 554,
+      "line": 558,
       "reason": ""
     },
     {
@@ -38942,7 +39399,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 569,
+      "line": 573,
       "reason": ""
     },
     {
@@ -38955,7 +39412,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 576,
+      "line": 580,
       "reason": ""
     },
     {
@@ -38968,7 +39425,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 583,
+      "line": 587,
       "reason": ""
     },
     {
@@ -38981,7 +39438,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 589,
+      "line": 593,
       "reason": ""
     },
     {
@@ -38994,7 +39451,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 597,
+      "line": 601,
       "reason": ""
     },
     {
@@ -39007,7 +39464,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 616,
+      "line": 620,
       "reason": ""
     },
     {
@@ -39020,7 +39477,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 623,
+      "line": 627,
       "reason": ""
     },
     {
@@ -39033,7 +39490,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 649,
+      "line": 653,
       "reason": ""
     },
     {
@@ -39046,7 +39503,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 657,
+      "line": 661,
       "reason": ""
     },
     {
@@ -39059,7 +39516,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 668,
+      "line": 672,
       "reason": ""
     },
     {
@@ -39072,7 +39529,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 679,
+      "line": 683,
       "reason": ""
     },
     {
@@ -39085,7 +39542,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 682,
+      "line": 686,
       "reason": ""
     },
     {
@@ -39098,7 +39555,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 686,
+      "line": 690,
       "reason": ""
     },
     {
@@ -39111,7 +39568,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 692,
+      "line": 696,
       "reason": ""
     },
     {
@@ -39124,7 +39581,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 692,
+      "line": 696,
       "reason": ""
     },
     {
@@ -39137,7 +39594,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 702,
+      "line": 706,
       "reason": ""
     },
     {
@@ -39150,7 +39607,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 741,
+      "line": 745,
       "reason": ""
     },
     {
@@ -39163,7 +39620,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 747,
+      "line": 751,
       "reason": ""
     },
     {
@@ -39176,7 +39633,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 759,
+      "line": 763,
       "reason": ""
     },
     {
@@ -39189,7 +39646,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 790,
+      "line": 794,
       "reason": ""
     },
     {
@@ -39202,7 +39659,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 798,
+      "line": 802,
       "reason": ""
     },
     {
@@ -39215,7 +39672,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 805,
+      "line": 809,
       "reason": ""
     },
     {
@@ -39228,7 +39685,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 820,
+      "line": 824,
       "reason": ""
     },
     {
@@ -39241,7 +39698,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 824,
+      "line": 828,
       "reason": ""
     },
     {
@@ -39254,7 +39711,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 828,
+      "line": 832,
       "reason": ""
     },
     {
@@ -39267,7 +39724,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 832,
+      "line": 836,
       "reason": ""
     },
     {
@@ -39280,7 +39737,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 841,
+      "line": 845,
       "reason": ""
     },
     {
@@ -39293,7 +39750,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 845,
+      "line": 849,
       "reason": ""
     },
     {
@@ -39306,7 +39763,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 857,
+      "line": 861,
       "reason": ""
     },
     {
@@ -39319,7 +39776,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 859,
+      "line": 863,
       "reason": ""
     },
     {
@@ -39332,7 +39789,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 860,
+      "line": 864,
       "reason": ""
     },
     {
@@ -39345,7 +39802,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 867,
+      "line": 871,
       "reason": ""
     },
     {
@@ -39358,7 +39815,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 871,
+      "line": 875,
       "reason": ""
     },
     {
@@ -39371,7 +39828,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 878,
+      "line": 882,
       "reason": ""
     },
     {
@@ -39384,7 +39841,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 889,
+      "line": 893,
       "reason": ""
     },
     {
@@ -39397,7 +39854,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 889,
+      "line": 893,
       "reason": ""
     },
     {
@@ -39410,7 +39867,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 896,
+      "line": 900,
       "reason": ""
     },
     {
@@ -39423,7 +39880,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 900,
+      "line": 904,
       "reason": ""
     },
     {
@@ -39436,7 +39893,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 911,
+      "line": 915,
       "reason": ""
     },
     {
@@ -39449,7 +39906,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 911,
+      "line": 915,
       "reason": ""
     },
     {
@@ -39462,7 +39919,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 918,
+      "line": 922,
       "reason": ""
     },
     {
@@ -39475,7 +39932,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 921,
+      "line": 925,
       "reason": ""
     },
     {
@@ -39488,7 +39945,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 933,
+      "line": 937,
       "reason": ""
     },
     {
@@ -39501,7 +39958,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 933,
+      "line": 937,
       "reason": ""
     },
     {
@@ -39514,7 +39971,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 940,
+      "line": 944,
       "reason": ""
     },
     {
@@ -39527,7 +39984,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 943,
+      "line": 947,
       "reason": ""
     },
     {
@@ -39540,7 +39997,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 955,
+      "line": 959,
       "reason": ""
     },
     {
@@ -39553,7 +40010,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 955,
+      "line": 959,
       "reason": ""
     },
     {
@@ -39566,7 +40023,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 962,
+      "line": 966,
       "reason": ""
     },
     {
@@ -39579,7 +40036,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 964,
+      "line": 968,
       "reason": ""
     },
     {
@@ -39592,7 +40049,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 982,
+      "line": 986,
       "reason": ""
     },
     {
@@ -39605,7 +40062,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 983,
+      "line": 987,
       "reason": ""
     },
     {
@@ -39618,7 +40075,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 985,
+      "line": 989,
       "reason": ""
     },
     {
@@ -39631,7 +40088,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 997,
+      "line": 1001,
       "reason": ""
     },
     {
@@ -39644,7 +40101,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 999,
+      "line": 1003,
       "reason": ""
     },
     {
@@ -39657,7 +40114,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1017,
+      "line": 1021,
       "reason": ""
     },
     {
@@ -39670,7 +40127,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1018,
+      "line": 1022,
       "reason": ""
     },
     {
@@ -39683,7 +40140,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1020,
+      "line": 1024,
       "reason": ""
     },
     {
@@ -39962,7 +40419,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to build compatibility map",
-      "line": 209,
+      "line": 220,
       "reason": ""
     },
     {
@@ -39975,7 +40432,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to load customer reviews",
-      "line": 241,
+      "line": 252,
       "reason": ""
     },
     {
@@ -39990,7 +40447,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Price alert armed at {{price}}.",
-      "line": 361,
+      "line": 372,
       "reason": ""
     },
     {
@@ -40003,7 +40460,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to create price alert right now.",
-      "line": 365,
+      "line": 376,
       "reason": ""
     },
     {
@@ -40016,7 +40473,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login is required before media upload.",
-      "line": 384,
+      "line": 395,
       "reason": ""
     },
     {
@@ -40031,7 +40488,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Uploading {{count}} file(s)...",
-      "line": 396,
+      "line": 407,
       "reason": ""
     },
     {
@@ -40046,7 +40503,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} media file(s) uploaded.",
-      "line": 428,
+      "line": 439,
       "reason": ""
     },
     {
@@ -40059,7 +40516,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Media upload failed.",
-      "line": 430,
+      "line": 441,
       "reason": ""
     },
     {
@@ -40072,7 +40529,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Media URL must be an http(s) link or /uploads path.",
-      "line": 445,
+      "line": 456,
       "reason": ""
     },
     {
@@ -40085,7 +40542,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review comment must be at least 8 characters.",
-      "line": 485,
+      "line": 496,
       "reason": ""
     },
     {
@@ -40098,7 +40555,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Invalid product for review submission.",
-      "line": 491,
+      "line": 502,
       "reason": ""
     },
     {
@@ -40111,7 +40568,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review submitted successfully.",
-      "line": 502,
+      "line": 513,
       "reason": ""
     },
     {
@@ -40124,7 +40581,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review submission failed.",
-      "line": 511,
+      "line": 522,
       "reason": ""
     },
     {
@@ -40137,7 +40594,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No warranty specified",
-      "line": 547,
+      "line": 558,
       "reason": ""
     },
     {
@@ -40150,7 +40607,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Description",
-      "line": 572,
+      "line": 583,
       "reason": ""
     },
     {
@@ -40163,7 +40620,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Specifications",
-      "line": 573,
+      "line": 584,
       "reason": ""
     },
     {
@@ -40176,7 +40633,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deal DNA",
-      "line": 574,
+      "line": 585,
       "reason": ""
     },
     {
@@ -40189,7 +40646,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Compatibility",
-      "line": 575,
+      "line": 586,
       "reason": ""
     },
     {
@@ -40202,7 +40659,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reviews",
-      "line": 576,
+      "line": 587,
       "reason": ""
     },
     {
@@ -40215,7 +40672,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Good Deal",
-      "line": 715,
+      "line": 726,
       "reason": ""
     },
     {
@@ -40228,7 +40685,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 717,
+      "line": 728,
       "reason": ""
     },
     {
@@ -40241,7 +40698,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 719,
+      "line": 730,
       "reason": ""
     },
     {
@@ -40254,7 +40711,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 720,
+      "line": 731,
       "reason": ""
     },
     {
@@ -40267,7 +40724,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Product Not Found",
-      "line": 782,
+      "line": 793,
       "reason": ""
     },
     {
@@ -40280,11 +40737,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The item you are looking for could not be found.",
-      "line": 783,
+      "line": 794,
       "reason": ""
     },
     {
-      "column": 73,
+      "column": 81,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Continue Shopping",
       "file": "app/src/pages/ProductDetails/index.jsx",
@@ -40293,7 +40750,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue Shopping",
-      "line": 784,
+      "line": 795,
       "reason": ""
     },
     {
@@ -40306,7 +40763,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 830,
+      "line": 841,
       "reason": ""
     },
     {
@@ -40319,7 +40776,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Remove from wishlist",
-      "line": 850,
+      "line": 861,
       "reason": ""
     },
     {
@@ -40332,7 +40789,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add to wishlist",
-      "line": 851,
+      "line": 862,
       "reason": ""
     },
     {
@@ -40345,7 +40802,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 863,
+      "line": 874,
       "reason": ""
     },
     {
@@ -40360,7 +40817,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 881,
+      "line": 892,
       "reason": ""
     },
     {
@@ -40373,7 +40830,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 901,
+      "line": 912,
       "reason": ""
     },
     {
@@ -40386,7 +40843,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 908,
+      "line": 919,
       "reason": ""
     },
     {
@@ -40399,7 +40856,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 915,
+      "line": 926,
       "reason": ""
     },
     {
@@ -40414,7 +40871,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In Stock ({{count}} Available)",
-      "line": 922,
+      "line": 933,
       "reason": ""
     },
     {
@@ -40427,7 +40884,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Out of Stock",
-      "line": 923,
+      "line": 934,
       "reason": ""
     },
     {
@@ -40440,7 +40897,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 926,
+      "line": 937,
       "reason": ""
     },
     {
@@ -40453,7 +40910,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 933,
+      "line": 944,
       "reason": ""
     },
     {
@@ -40466,7 +40923,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 940,
+      "line": 951,
       "reason": ""
     },
     {
@@ -40481,7 +40938,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 964,
+      "line": 975,
       "reason": ""
     },
     {
@@ -40496,7 +40953,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 974,
+      "line": 985,
       "reason": ""
     },
     {
@@ -40509,7 +40966,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add to Bag",
-      "line": 988,
+      "line": 999,
       "reason": ""
     },
     {
@@ -40522,7 +40979,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checkout Paused",
-      "line": 1000,
+      "line": 1011,
       "reason": ""
     },
     {
@@ -40535,7 +40992,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Buy Now",
-      "line": 1000,
+      "line": 1011,
       "reason": ""
     },
     {
@@ -40550,7 +41007,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} Reviews",
-      "line": 1035,
+      "line": 1046,
       "reason": ""
     },
     {
@@ -40566,7 +41023,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deal DNA {{score}} • {{label}}",
-      "line": 1040,
+      "line": 1051,
       "reason": ""
     },
     {
@@ -40579,7 +41036,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1050,
+      "line": 1061,
       "reason": ""
     },
     {
@@ -40592,7 +41049,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "% off",
-      "line": 1064,
+      "line": 1075,
       "reason": ""
     },
     {
@@ -40607,7 +41064,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In Stock ({{count}} Available)",
-      "line": 1078,
+      "line": 1089,
       "reason": ""
     },
     {
@@ -40620,7 +41077,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Out of Stock",
-      "line": 1079,
+      "line": 1090,
       "reason": ""
     },
     {
@@ -40635,7 +41092,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1095,
+      "line": 1106,
       "reason": ""
     },
     {
@@ -40650,7 +41107,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1105,
+      "line": 1116,
       "reason": ""
     },
     {
@@ -40663,7 +41120,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add to Bag",
-      "line": 1119,
+      "line": 1130,
       "reason": ""
     },
     {
@@ -40676,7 +41133,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Buy Now",
-      "line": 1129,
+      "line": 1140,
       "reason": ""
     },
     {
@@ -40689,7 +41146,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "AI Compare",
-      "line": 1141,
+      "line": 1152,
       "reason": ""
     },
     {
@@ -40702,7 +41159,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Visual Search",
-      "line": 1148,
+      "line": 1159,
       "reason": ""
     },
     {
@@ -40715,7 +41172,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Set price alert",
-      "line": 1156,
+      "line": 1167,
       "reason": ""
     },
     {
@@ -40728,7 +41185,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1164,
+      "line": 1175,
       "reason": ""
     },
     {
@@ -40743,7 +41200,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1170,
+      "line": 1181,
       "reason": ""
     },
     {
@@ -40756,7 +41213,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1176,
+      "line": 1187,
       "reason": ""
     },
     {
@@ -40769,7 +41226,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery Time",
-      "line": 1182,
+      "line": 1193,
       "reason": ""
     },
     {
@@ -40782,7 +41239,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty",
-      "line": 1188,
+      "line": 1199,
       "reason": ""
     },
     {
@@ -40795,7 +41252,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Compatibility",
-      "line": 1209,
+      "line": 1220,
       "reason": ""
     },
     {
@@ -40808,7 +41265,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trade-in path",
-      "line": 1215,
+      "line": 1226,
       "reason": ""
     },
     {
@@ -40821,7 +41278,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Core Specs:",
-      "line": 1242,
+      "line": 1253,
       "reason": ""
     },
     {
@@ -40834,7 +41291,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Manufacturer",
-      "line": 1259,
+      "line": 1270,
       "reason": ""
     },
     {
@@ -40847,7 +41304,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warranty",
-      "line": 1263,
+      "line": 1274,
       "reason": ""
     },
     {
@@ -40860,7 +41317,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery Time",
-      "line": 1267,
+      "line": 1278,
       "reason": ""
     },
     {
@@ -40873,7 +41330,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deal DNA is not available for this product yet.",
-      "line": 1276,
+      "line": 1287,
       "reason": ""
     },
     {
@@ -40886,7 +41343,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust Verdict",
-      "line": 1280,
+      "line": 1291,
       "reason": ""
     },
     {
@@ -40899,7 +41356,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1281,
+      "line": 1292,
       "reason": ""
     },
     {
@@ -40912,7 +41369,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Return Risk Drivers",
-      "line": 1294,
+      "line": 1305,
       "reason": ""
     },
     {
@@ -40925,7 +41382,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Building compatibility graph...",
-      "line": 1310,
+      "line": 1321,
       "reason": ""
     },
     {
@@ -40938,7 +41395,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No compatibility data available for this category yet.",
-      "line": 1316,
+      "line": 1327,
       "reason": ""
     },
     {
@@ -40953,7 +41410,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1338,
+      "line": 1349,
       "reason": ""
     },
     {
@@ -40966,7 +41423,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Community Score",
-      "line": 1356,
+      "line": 1367,
       "reason": ""
     },
     {
@@ -40981,7 +41438,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} verified reviews",
-      "line": 1359,
+      "line": 1370,
       "reason": ""
     },
     {
@@ -40996,7 +41453,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} with photo/video proof",
-      "line": 1362,
+      "line": 1373,
       "reason": ""
     },
     {
@@ -41009,7 +41466,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified Customer Feedback",
-      "line": 1388,
+      "line": 1399,
       "reason": ""
     },
     {
@@ -41022,7 +41479,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Newest",
-      "line": 1394,
+      "line": 1405,
       "reason": ""
     },
     {
@@ -41035,7 +41492,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Top Rated",
-      "line": 1395,
+      "line": 1406,
       "reason": ""
     },
     {
@@ -41048,7 +41505,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Oldest",
-      "line": 1396,
+      "line": 1407,
       "reason": ""
     },
     {
@@ -41061,7 +41518,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Most Helpful",
-      "line": 1397,
+      "line": 1408,
       "reason": ""
     },
     {
@@ -41074,7 +41531,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No verified reviews yet for this product.",
-      "line": 1412,
+      "line": 1423,
       "reason": ""
     },
     {
@@ -41087,7 +41544,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified Buyer",
-      "line": 1420,
+      "line": 1431,
       "reason": ""
     },
     {
@@ -41100,7 +41557,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified Purchase",
-      "line": 1433,
+      "line": 1444,
       "reason": ""
     },
     {
@@ -41113,7 +41570,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1446,
+      "line": 1457,
       "reason": ""
     },
     {
@@ -41126,7 +41583,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Post Your Verified Review",
-      "line": 1460,
+      "line": 1471,
       "reason": ""
     },
     {
@@ -41139,7 +41596,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login is required to post a review. Only real customers with a valid purchase can submit feedback.",
-      "line": 1463,
+      "line": 1474,
       "reason": ""
     },
     {
@@ -41152,7 +41609,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rating",
-      "line": 1480,
+      "line": 1491,
       "reason": ""
     },
     {
@@ -41165,7 +41622,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "5 - Excellent",
-      "line": 1486,
+      "line": 1497,
       "reason": ""
     },
     {
@@ -41178,7 +41635,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "4 - Good",
-      "line": 1487,
+      "line": 1498,
       "reason": ""
     },
     {
@@ -41191,7 +41648,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "3 - Average",
-      "line": 1488,
+      "line": 1499,
       "reason": ""
     },
     {
@@ -41204,7 +41661,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "2 - Poor",
-      "line": 1489,
+      "line": 1500,
       "reason": ""
     },
     {
@@ -41217,7 +41674,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "1 - Bad",
-      "line": 1490,
+      "line": 1501,
       "reason": ""
     },
     {
@@ -41230,7 +41687,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Comment",
-      "line": 1494,
+      "line": 1505,
       "reason": ""
     },
     {
@@ -41243,7 +41700,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Share real usage experience, quality, delivery, and value details...",
-      "line": 1498,
+      "line": 1509,
       "reason": ""
     },
     {
@@ -41256,7 +41713,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add Proof Media (Direct Upload + URL)",
-      "line": 1508,
+      "line": 1519,
       "reason": ""
     },
     {
@@ -41269,7 +41726,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Uploading...",
-      "line": 1517,
+      "line": 1528,
       "reason": ""
     },
     {
@@ -41282,7 +41739,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Upload From Device",
-      "line": 1517,
+      "line": 1528,
       "reason": ""
     },
     {
@@ -41295,7 +41752,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Image",
-      "line": 1537,
+      "line": 1548,
       "reason": ""
     },
     {
@@ -41308,7 +41765,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Video",
-      "line": 1538,
+      "line": 1549,
       "reason": ""
     },
     {
@@ -41321,7 +41778,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add Media",
-      "line": 1552,
+      "line": 1563,
       "reason": ""
     },
     {
@@ -41334,7 +41791,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Optional caption",
-      "line": 1559,
+      "line": 1570,
       "reason": ""
     },
     {
@@ -41347,7 +41804,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Submitting...",
-      "line": 1583,
+      "line": 1594,
       "reason": ""
     },
     {
@@ -41360,7 +41817,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Submit Verified Review",
-      "line": 1583,
+      "line": 1594,
       "reason": ""
     },
     {
@@ -41373,7 +41830,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1597,
+      "line": 1608,
       "reason": ""
     },
     {
@@ -41386,7 +41843,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1600,
+      "line": 1611,
       "reason": ""
     },
     {
@@ -41479,7 +41936,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 218,
+      "line": 306,
       "reason": ""
     },
     {
@@ -41494,7 +41951,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 220,
+      "line": 308,
       "reason": ""
     },
     {
@@ -41509,7 +41966,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 223,
+      "line": 311,
       "reason": ""
     },
     {
@@ -41524,7 +41981,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 225,
+      "line": 313,
       "reason": ""
     },
     {
@@ -41537,7 +41994,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 226,
+      "line": 314,
       "reason": ""
     },
     {
@@ -41550,7 +42007,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 227,
+      "line": 315,
       "reason": ""
     },
     {
@@ -41565,7 +42022,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 228,
+      "line": 316,
       "reason": ""
     },
     {
@@ -41580,7 +42037,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 230,
+      "line": 318,
       "reason": ""
     },
     {
@@ -41596,7 +42053,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 236,
+      "line": 324,
       "reason": ""
     },
     {
@@ -41609,7 +42066,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 252,
+      "line": 340,
       "reason": ""
     },
     {
@@ -41624,7 +42081,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 253,
+      "line": 341,
       "reason": ""
     },
     {
@@ -41637,7 +42094,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 254,
+      "line": 342,
       "reason": ""
     },
     {
@@ -41650,7 +42107,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 260,
+      "line": 348,
       "reason": ""
     },
     {
@@ -41665,7 +42122,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 262,
+      "line": 350,
       "reason": ""
     },
     {
@@ -41678,7 +42135,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 267,
+      "line": 355,
       "reason": ""
     },
     {
@@ -41691,7 +42148,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 268,
+      "line": 356,
       "reason": ""
     },
     {
@@ -41704,7 +42161,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 269,
+      "line": 357,
       "reason": ""
     },
     {
@@ -41717,7 +42174,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 275,
+      "line": 363,
       "reason": ""
     },
     {
@@ -41730,7 +42187,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 276,
+      "line": 364,
       "reason": ""
     },
     {
@@ -41745,7 +42202,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 277,
+      "line": 365,
       "reason": ""
     },
     {
@@ -41758,7 +42215,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 281,
+      "line": 369,
       "reason": ""
     },
     {
@@ -41771,7 +42228,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 283,
+      "line": 371,
       "reason": ""
     },
     {
@@ -41784,7 +42241,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 287,
+      "line": 375,
       "reason": ""
     },
     {
@@ -41797,7 +42254,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 288,
+      "line": 376,
       "reason": ""
     },
     {
@@ -41810,7 +42267,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 289,
+      "line": 377,
       "reason": ""
     },
     {
@@ -41823,7 +42280,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 381,
+      "line": 469,
       "reason": ""
     },
     {
@@ -41836,7 +42293,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 535,
+      "line": 636,
       "reason": ""
     },
     {
@@ -41849,7 +42306,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 538,
+      "line": 639,
       "reason": ""
     },
     {
@@ -41862,7 +42319,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 545,
+      "line": 646,
       "reason": ""
     },
     {
@@ -41875,7 +42332,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 583,
+      "line": 684,
       "reason": ""
     },
     {
@@ -41888,7 +42345,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 583,
+      "line": 684,
       "reason": ""
     },
     {
@@ -41901,7 +42358,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 583,
+      "line": 684,
       "reason": ""
     },
     {
@@ -41914,7 +42371,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 608,
+      "line": 709,
       "reason": ""
     },
     {
@@ -41927,7 +42384,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 619,
+      "line": 720,
       "reason": ""
     },
     {
@@ -41940,7 +42397,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 647,
+      "line": 748,
       "reason": ""
     },
     {
@@ -41953,7 +42410,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 656,
+      "line": 757,
       "reason": ""
     },
     {
@@ -41969,7 +42426,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 659,
+      "line": 760,
       "reason": ""
     },
     {
@@ -41982,7 +42439,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 692,
+      "line": 793,
       "reason": ""
     },
     {
@@ -41995,7 +42452,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 697,
+      "line": 798,
       "reason": ""
     },
     {
@@ -42008,7 +42465,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 700,
+      "line": 801,
       "reason": ""
     },
     {
@@ -42021,7 +42478,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 713,
+      "line": 814,
       "reason": ""
     },
     {
@@ -42034,7 +42491,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 716,
+      "line": 817,
       "reason": ""
     },
     {
@@ -42047,7 +42504,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 732,
+      "line": 833,
       "reason": ""
     },
     {
@@ -42060,7 +42517,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 735,
+      "line": 836,
       "reason": ""
     },
     {
@@ -42073,7 +42530,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 778,
+      "line": 879,
       "reason": ""
     },
     {
@@ -42086,7 +42543,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 783,
+      "line": 884,
       "reason": ""
     },
     {
@@ -42099,7 +42556,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 793,
+      "line": 894,
       "reason": ""
     },
     {
@@ -53054,18 +53511,18 @@
     "app/src/services/runtimeTranslation.test.js"
   ],
   "summary": {
-    "dynamicLookupReferences": 13,
+    "dynamicLookupReferences": 14,
     "legacyPackInternalFiles": 21,
     "parseErrors": 0,
-    "productionFiles": 78,
-    "productionStableReferences": 3631,
+    "productionFiles": 79,
+    "productionStableReferences": 3662,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 339,
+    "sourceFilesScanned": 355,
     "testHarnessReferences": 4,
-    "totalTrackedFiles": 110,
-    "uniqueProductionStableIds": 3303,
+    "totalTrackedFiles": 111,
+    "uniqueProductionStableIds": 3324,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -53882,7 +54339,18 @@
     "assistant.attachment.number",
     "assistant.capability.gated",
     "assistant.capability.ready",
+    "assistant.capability.unknown",
+    "assistant.cart.checkoutVerification",
+    "assistant.cart.itemSavings",
+    "assistant.cart.itemSubtotal",
     "assistant.grounding.providerModel",
+    "assistant.grounding.whyThisAnswer",
+    "assistant.product.confirmMissingDetails",
+    "assistant.product.delivery",
+    "assistant.product.deliveryLabel",
+    "assistant.product.warranty",
+    "assistant.product.warrantyLabel",
+    "assistant.product.whyItFits",
     "assistant.tool.status.done",
     "auth.jsx.expression.create.account.2428c1b6",
     "auth.jsx.expression.email.address.cef5d897",
@@ -54356,7 +54824,6 @@
     "common.jsx.text.a.sharper.front.door.for.aura.s.45afdbee",
     "common.jsx.text.a.startup.module.crashed.before.the.interface.99c3d53c",
     "common.jsx.text.active.lane.de283afd",
-    "common.jsx.text.active.route.adea24bd",
     "common.jsx.text.advanced.controls.037c1ff0",
     "common.jsx.text.ai.compare.lab.8b1b5855",
     "common.jsx.text.ai.score.0eea053d",
@@ -54446,7 +54913,6 @@
     "common.jsx.text.mode.5bbe3bb2",
     "common.jsx.text.mode.f5737ed1",
     "common.jsx.text.model.23184662",
-    "common.jsx.text.model.surface.dae6758e",
     "common.jsx.text.modify.b63f7e1f",
     "common.jsx.text.monitoring.started.5d1383ef",
     "common.jsx.text.multimodal.fast.lane.2253a5d9",
@@ -54502,7 +54968,6 @@
     "common.jsx.text.this.link.can.remove.the.matching.subscription.0dd2716d",
     "common.jsx.text.tool.timeline.375e9234",
     "common.jsx.text.tower.7.innovation.district.9a662aca",
-    "common.jsx.text.trace.details.af1f8b27",
     "common.jsx.text.trace.id.000d6b80",
     "common.jsx.text.trying.to.restore.the.call.161003b5",
     "common.jsx.text.unsubscribe.ad8525fd",
@@ -54552,6 +55017,7 @@
     "deliveryWindow.5to7Days",
     "deliveryWindow.7PlusDays",
     "desktopLogin.action.temporarilyUnavailable",
+    "desktopLogin.action.waitingForBrowser",
     "desktopLogin.bridge.api",
     "desktopLogin.bridge.callback",
     "desktopLogin.bridge.delivery",
@@ -54566,6 +55032,8 @@
     "desktopLogin.capability.verifiedProof",
     "desktopLogin.field.fullName",
     "desktopLogin.field.phoneNumber",
+    "desktopLogin.handoff.stepsDetail",
+    "desktopLogin.handoff.stepsTitle",
     "desktopLogin.otp.emailSent",
     "desktopLogin.otp.phoneSent",
     "desktopLogin.password.hide",
@@ -54876,14 +55344,17 @@
     "login.action.forgotPassword",
     "login.actionTemporarilyUnavailable",
     "login.desktopBrowser.button",
-    "login.desktopBrowser.completeDetail",
-    "login.desktopBrowser.completeTitle",
+    "login.desktopBrowser.cancel",
     "login.desktopBrowser.completingDetail",
     "login.desktopBrowser.completingTitle",
     "login.desktopBrowser.startedDetail",
     "login.desktopBrowser.startedTitle",
     "login.desktopBrowser.storageUnavailable",
     "login.desktopBrowser.unavailable",
+    "login.desktopOwnerAccess.button",
+    "login.desktopOwnerAccess.startedDetail",
+    "login.desktopOwnerAccess.startedTitle",
+    "login.desktopOwnerAccess.unavailable",
     "login.error.alreadySignedIn",
     "login.error.emailRequired",
     "login.error.emailValid",
@@ -55438,7 +55909,6 @@
     "product.review",
     "product.reviewSignal",
     "product.reviews",
-    "product.saved",
     "product.score",
     "product.select",
     "product.share",
@@ -55447,7 +55917,6 @@
     "product.sponsored",
     "product.stock.inStockCount",
     "product.stock.outOfStock",
-    "product.total",
     "product.unavailable",
     "product.viewDetails",
     "product.wait",
@@ -56418,6 +56887,15 @@
     "voice.title",
     "voice.typeCommand",
     "voice.waiting",
+    "welcomeCurtain.action.skip",
+    "welcomeCurtain.ariaLabel",
+    "welcomeCurtain.kicker",
+    "welcomeCurtain.message.ready",
+    "welcomeCurtain.message.thanks",
+    "welcomeCurtain.message.welcome",
+    "welcomeCurtain.soundOff",
+    "welcomeCurtain.soundOn",
+    "welcomeCurtain.subcopy",
     "wishlist.addToBag",
     "wishlist.breadcrumb",
     "wishlist.emptyBody",

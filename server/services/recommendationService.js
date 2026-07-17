@@ -25,6 +25,25 @@ const { buildUserPreferenceProfile } = require('./userPreferenceService');
 const safeString = (value = '') => String(value === undefined || value === null ? '' : value).trim();
 const safeLower = (value = '') => safeString(value).toLowerCase();
 
+const parseAssistantBudgetAmount = (value = '', suffix = '') => {
+    const amount = Number(safeString(value).replace(/,/g, ''));
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    const normalizedSuffix = safeLower(suffix);
+    if (['k', 'thousand'].includes(normalizedSuffix)) return amount * 1000;
+    if (['l', 'lac', 'lakh', 'lakhs'].includes(normalizedSuffix)) return amount * 100000;
+    if (['cr', 'crore', 'crores'].includes(normalizedSuffix)) return amount * 10000000;
+    return amount;
+};
+
+const extractAssistantBudget = (message = '') => {
+    const normalized = safeLower(message);
+    const amountPattern = '(?:₹\\s*|(?:rs\\.?|inr)\\s*)?([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*(k|thousand|l|lac|lakh|lakhs|cr|crore|crores)?';
+    const constrainedMatch = normalized.match(new RegExp(`\\b(?:under|below|less than|within|upto|up to|at most|not more than|max(?:imum)?|budget(?:\\s+(?:of|is|around))?)\\s*${amountPattern}\\b`, 'i'));
+    const currencyMatch = normalized.match(new RegExp(`(?:₹\\s*|\\b(?:rs\\.?|inr)\\s*)([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*(k|thousand|l|lac|lakh|lakhs|cr|crore|crores)?\\b`, 'i'));
+    const match = constrainedMatch || currencyMatch;
+    return parseAssistantBudgetAmount(match?.[1] || '', match?.[2] || '');
+};
+
 const CATEGORY_HINTS = [
     { category: 'Mobiles', terms: ['phone', 'phones', 'mobile', 'mobiles', 'smartphone', 'smartphones'] },
     { category: 'Laptops', terms: ['laptop', 'laptops', 'notebook', 'notebooks'] },
@@ -35,6 +54,40 @@ const CATEGORY_HINTS = [
     { category: 'Books', terms: ['book', 'books', 'novel', 'novels'] },
     { category: 'Home & Kitchen', terms: ['home', 'kitchen', 'furniture', 'appliance'] },
 ];
+
+const ASSISTANT_ADD_ON_STOPWORDS = new Set([
+    'a', 'an', 'and', 'best', 'find', 'for', 'give', 'i', 'in', 'me', 'my',
+    'of', 'on', 'please', 'recommend', 'show', 'suggest', 'the', 'to', 'want',
+    'with', 'you',
+]);
+
+const normalizeAssistantAddOnSearchQuery = (message = '', intent = {}) => {
+    if (!intent?.wantsAddOns) return safeString(message);
+    let normalized = safeLower(message)
+        .replace(/\b(?:frequently\s+bought\s+together|go(?:es)?\s+with|pair(?:ed)?\s+with|complete\s+(?:my\s+)?(?:setup|cart))\b/gi, ' accessories ')
+        .replace(/\b(?:add[\s-]?ons?|accessory|accessories|bundle)\b/gi, ' accessories ')
+        .replace(/\b(?:under|below|less than|within|upto|up to|at most|not more than|max(?:imum)?|budget(?:\s+(?:of|is|around))?)\s*(?:₹\s*|(?:rs\.?|inr)\s*)?[0-9][0-9,]*(?:\.[0-9]+)?\s*(?:k|thousand|l|lac|lakh|lakhs|cr|crore|crores)?\b/gi, ' ')
+        .replace(/(?:₹\s*|\b(?:rs\.?|inr)\s*)[0-9][0-9,]*(?:\.[0-9]+)?\s*(?:k|thousand|l|lac|lakh|lakhs|cr|crore|crores)?\b/gi, ' ');
+    const seedHint = CATEGORY_HINTS.find((entry) => entry.category === intent.seedCategory);
+    (seedHint?.terms || []).forEach((term) => {
+        normalized = normalized.replace(new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), ' ');
+    });
+    const terms = normalized
+        .split(/[^a-z0-9]+/i)
+        .map((entry) => safeLower(entry))
+        .filter((entry) => entry.length > 1 && !ASSISTANT_ADD_ON_STOPWORDS.has(entry));
+    const normalizedTerms = [...new Set(terms)];
+    return normalizedTerms.length > 0 ? normalizedTerms.join(' ') : 'accessories';
+};
+
+const buildAssistantSearchCandidateRequest = ({ message = '', intent = {}, limit = 10 } = {}) => ({
+    query: intent.wantsAddOns
+        ? normalizeAssistantAddOnSearchQuery(message, intent)
+        : (intent.category || (!intent.seedCategory && intent.maxPrice) ? '' : safeString(message)),
+    category: safeString(intent.category || ''),
+    maxPrice: Number(intent.maxPrice || 0),
+    limit,
+});
 
 const buildIdentity = ({ userId = null, sessionId = '' } = {}) => ({
     userId: userId || null,
@@ -54,16 +107,17 @@ const buildPurchasedIdSet = (profile = {}) => new Set((profile.purchasedProductI
 
 const getRecommendationIntent = (message = '') => {
     const normalized = safeLower(message);
-    const budgetMatch = normalized.match(/\b(?:under|below|less than|within|upto|up to)\s*(?:rs\.?|inr|₹)?\s*([0-9][0-9,]*)\b/i)
-        || normalized.match(/\b(?:rs\.?|inr|₹)\s*([0-9][0-9,]*)\b/i);
-    const maxPrice = budgetMatch ? Number(String(budgetMatch[1] || '').replace(/,/g, '')) || 0 : 0;
+    const maxPrice = extractAssistantBudget(normalized);
     const categoryHint = CATEGORY_HINTS.find((entry) => entry.terms.some((term) => new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(normalized)));
-    const wantsAddOns = /\b(with|accessor(?:y|ies)|addon|add-on|complete|bundle|together|cart)\b/i.test(normalized);
+    const wantsAddOns = /\b(?:accessor(?:y|ies)|add[\s-]?ons?|bundle|complete\s+(?:my\s+)?(?:setup|cart)|go(?:es)?\s+with|pair(?:ed)?\s+with|frequently\s+bought\s+together)\b/i.test(normalized);
     const wantsSimilar = /\b(similar|like this|related|alternative|alternatives)\b/i.test(normalized);
     const wantsPersonal = /\b(for me|my|personal|recommend|suggest)\b/i.test(normalized);
 
     return {
-        category: safeString(categoryHint?.category || ''),
+        // In "laptop accessories", Laptops is the seed product category, not
+        // a hard category constraint on the accessory we need to return.
+        category: wantsAddOns ? '' : safeString(categoryHint?.category || ''),
+        seedCategory: safeString(categoryHint?.category || ''),
         maxPrice,
         wantsAddOns,
         wantsSimilar,
@@ -74,13 +128,15 @@ const getRecommendationIntent = (message = '') => {
 const matchesIntent = (recommendation = {}, intent = {}) => {
     const product = recommendation.product || {};
     const maxPrice = Number(intent.maxPrice || 0);
-    if (maxPrice > 0 && Number(product.price || 0) > maxPrice) return false;
+    const productPrice = Number(product.price);
+    if (maxPrice > 0 && (!Number.isFinite(productPrice) || productPrice <= 0 || productPrice > maxPrice)) return false;
     if (intent.category) {
         const requested = safeLower(intent.category).replace(/&/g, 'and');
         const category = safeLower(product.category).replace(/&/g, 'and');
         const subCategory = safeLower(product.subCategory).replace(/&/g, 'and');
         const tags = (Array.isArray(product.tags) ? product.tags : []).map(safeLower);
-        if (!category.includes(requested) && !requested.includes(category) && !subCategory.includes(requested) && !tags.some((tag) => tag.includes(requested))) {
+        const categoryMatches = Boolean(category) && (category.includes(requested) || requested.includes(category));
+        if (!categoryMatches && !subCategory.includes(requested) && !tags.some((tag) => tag.includes(requested))) {
             return false;
         }
     }
@@ -89,7 +145,8 @@ const matchesIntent = (recommendation = {}, intent = {}) => {
 
 const filterByAssistantIntent = (recommendations = [], intent = {}, limit = 5) => {
     const filtered = recommendations.filter((item) => matchesIntent(item, intent));
-    return (filtered.length > 0 ? filtered : recommendations).slice(0, limit);
+    const hasHardConstraints = Number(intent?.maxPrice || 0) > 0 || Boolean(safeString(intent?.category || ''));
+    return (filtered.length > 0 || hasHardConstraints ? filtered : recommendations).slice(0, limit);
 };
 
 const formatRecommendations = (recommendations = [], { debug = false } = {}) => (
@@ -346,12 +403,17 @@ const getAssistantRecommendations = async ({
         logger.warn('recommendations.assistant_event_failed', { error: error.message });
     });
 
-    return withFallback('assistant', async () => {
+    const recommendations = await withFallback('assistant', async () => {
         const profile = await buildUserPreferenceProfile(identity);
+        const searchCandidateRequest = buildAssistantSearchCandidateRequest({
+            message,
+            intent,
+            limit: safeLimit * 2,
+        });
         const groups = await Promise.all([
             currentProductId ? getSimilarProductCandidates({ productId: currentProductId, limit: safeLimit * 2 }) : Promise.resolve([]),
             (cartItems.length > 0 || intent.wantsAddOns) ? getCartAddOnCandidates({ cartItems, limit: safeLimit * 2 }) : Promise.resolve([]),
-            safeString(message) ? getSearchBasedCandidates({ query: message, limit: safeLimit * 2 }) : Promise.resolve([]),
+            (safeString(message) || intent.category || intent.maxPrice) ? getSearchBasedCandidates(searchCandidateRequest) : Promise.resolve([]),
             getPersonalizedCandidates({ profile, limit: safeLimit * 2 }),
             getTrendingProductCandidates({ limit: safeLimit }),
         ]);
@@ -391,6 +453,10 @@ const getAssistantRecommendations = async ({
 
         return recommendations.slice(0, safeLimit);
     }, { limit: safeLimit, debug });
+
+    // Re-apply hard constraints after the generic fallback pipeline. Returning
+    // no constrained match is safer than silently changing category or budget.
+    return filterByAssistantIntent(recommendations, intent, safeLimit);
 };
 
 const getRecommendationsForAssistant = getAssistantRecommendations;
@@ -447,4 +513,12 @@ module.exports = {
     getSearchRecommendations,
     getSimilarProducts,
     getTrendingProducts,
+    __testables: {
+        buildAssistantSearchCandidateRequest,
+        extractAssistantBudget,
+        filterByAssistantIntent,
+        getRecommendationIntent,
+        matchesIntent,
+        normalizeAssistantAddOnSearchQuery,
+    },
 };

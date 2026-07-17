@@ -69,6 +69,193 @@ const writeTempEnvFile = (contents) => {
     return file;
 };
 
+const extractBashFunction = (source, name) => {
+    const lines = source.split(/\r?\n/);
+    const start = lines.findIndex((line) => line === `${name}() {`);
+    if (start < 0) throw new Error(`Missing Bash function: ${name}`);
+    const endOffset = lines.slice(start + 1).findIndex((line) => line === '}');
+    if (endOffset < 0) throw new Error(`Unterminated Bash function: ${name}`);
+    return lines.slice(start, start + endOffset + 2).join('\n');
+};
+
+const runComposeProfileSanitizer = (source, input) => {
+    const bash = process.platform === 'win32'
+        ? path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin', 'bash.exe')
+        : 'bash';
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-compose-profiles-'));
+    const script = path.join(dir, 'sanitize.sh');
+    const functions = [
+        'trim',
+        'strip_inline_comment',
+        'normalize_env_value',
+        'to_lower',
+        'sanitize_compose_profiles',
+    ].map((name) => extractBashFunction(source, name));
+    fs.writeFileSync(script, [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        ...functions,
+        'sanitize_compose_profiles "$1"',
+        '',
+    ].join('\n'));
+
+    try {
+        const output = execFileSync(bash, [script, input], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        return { status: 0, output };
+    } catch (error) {
+        return {
+            status: error.status || 1,
+            output: `${error.stdout || ''}${error.stderr || ''}`,
+        };
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+};
+
+const runReleaseLockProbe = (source, mode) => {
+    const bash = process.platform === 'win32'
+        ? path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin', 'bash.exe')
+        : 'bash';
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-release-lock-'));
+    const script = path.join(dir, 'lock.sh');
+    const lockFile = path.join(dir, 'backend-release.lock');
+    const traceFile = path.join(dir, 'flock.trace');
+    const functions = [
+        'acquire_release_lock',
+        'release_release_lock',
+    ].map((name) => extractBashFunction(source, name));
+    fs.writeFileSync(script, [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'flock() {',
+        '  printf \'%s\\n\' "$*" >> "${AURA_FLOCK_TRACE}"',
+        '  if [[ "$1" == "--exclusive" && "${AURA_TEST_FLOCK_MODE}" == "contended" ]]; then',
+        '    return 1',
+        '  fi',
+        '}',
+        'release_lock_acquired=false',
+        ...functions,
+        'trap release_release_lock EXIT',
+        'acquire_release_lock "$1"',
+        'printf \'critical-section\\n\'',
+        '',
+    ].join('\n'));
+
+    try {
+        const output = execFileSync(bash, [script, lockFile], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+            env: {
+                ...process.env,
+                AURA_FLOCK_TRACE: traceFile,
+                AURA_TEST_FLOCK_MODE: mode,
+            },
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        return {
+            status: 0,
+            output,
+            trace: fs.readFileSync(traceFile, 'utf8'),
+        };
+    } catch (error) {
+        return {
+            status: error.status || 1,
+            output: `${error.stdout || ''}${error.stderr || ''}`,
+            trace: fs.existsSync(traceFile) ? fs.readFileSync(traceFile, 'utf8') : '',
+        };
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+};
+
+const runActivationRestoreProbe = (source) => {
+    const bash = process.platform === 'win32'
+        ? path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin', 'bash.exe')
+        : 'bash';
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-activation-restore-'));
+    const script = path.join(dir, 'restore.sh');
+    const traceFile = path.join(dir, 'docker.trace');
+    const restoreFunction = extractBashFunction(source, 'restore_previous_release');
+    const upsertFunction = extractBashFunction(source, 'upsert_env_value');
+
+    fs.writeFileSync(script, [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'docker() { printf \'%s\\n\' "$*" >> "${AURA_DOCKER_TRACE}"; }',
+        'curl() { return 0; }',
+        'assert_no_model_compose_contract() { return 0; }',
+        'resolve_runtime_contract_value() { printf \'restore-health-token\'; }',
+        'resolve_env_value() {',
+        '  if [[ "$1" == "HEALTH_READY_TOKEN" ]]; then printf \'restore-health-token\'; else printf \'api.example.test\'; fi',
+        '}',
+        upsertFunction,
+        restoreFunction,
+        'current_dir="${AURA_TEST_ROOT}/current"',
+        'shared_dir="${AURA_TEST_ROOT}/shared"',
+        'base_env="${shared_dir}/base.env"',
+        'runtime_env="${shared_dir}/runtime-secrets.env"',
+        'release_env="${shared_dir}/release.env"',
+        'activation_backup_dir="${AURA_TEST_ROOT}/current.previous"',
+        'activation_backup_env="${AURA_TEST_ROOT}/release.env.previous"',
+        'activation_backup_base_env="${AURA_TEST_ROOT}/base.env.previous"',
+        'activation_backup_runtime_env="${AURA_TEST_ROOT}/runtime-secrets.env.previous"',
+        'compose_profiles=""',
+        'previous_current_present=true',
+        'previous_release_env_present=true',
+        'previous_base_env_present=true',
+        'previous_runtime_env_present=true',
+        'mkdir -p "${current_dir}/infra/aws" "${activation_backup_dir}/infra/aws" "${shared_dir}"',
+        'printf \'new\\n\' > "${current_dir}/new-release-marker"',
+        'printf \'old\\n\' > "${activation_backup_dir}/old-release-marker"',
+        'printf \'services: {}\\n\' > "${current_dir}/infra/aws/docker-compose.ec2.yml"',
+        'printf \'services: {}\\n\' > "${activation_backup_dir}/infra/aws/docker-compose.ec2.yml"',
+        'printf \'BASE=true\\n\' > "${base_env}"',
+        'printf \'RUNTIME=true\\n\' > "${runtime_env}"',
+        'printf \'BASE=old\\nAI_MODEL_PROVIDER=ollama\\n\' > "${activation_backup_base_env}"',
+        'printf \'RUNTIME=old\\n\' > "${activation_backup_runtime_env}"',
+        'printf \'AURA_APP_BUILD_SHA=new\\n\' > "${release_env}"',
+        'printf \'AURA_APP_BUILD_SHA=old\\nAI_MODEL_PROVIDER=ollama\\nCOMPOSE_PROFILES=ollama\\n\' > "${activation_backup_env}"',
+        'restore_previous_release',
+        'test -f "${current_dir}/old-release-marker"',
+        'test ! -e "${current_dir}/new-release-marker"',
+        'grep -q \'^AURA_APP_BUILD_SHA=old$\' "${release_env}"',
+        'grep -q \'^AI_MODEL_PROVIDER=disabled$\' "${release_env}"',
+        'grep -q \'^AI_MODEL_PROVIDER_FALLBACKS=$\' "${release_env}"',
+        'grep -q \'^COMPOSE_PROFILES=$\' "${release_env}"',
+        '',
+    ].join('\n'));
+
+    try {
+        const output = execFileSync(bash, [script], {
+            cwd: repoRoot,
+            encoding: 'utf8',
+            env: {
+                ...process.env,
+                AURA_TEST_ROOT: dir,
+                AURA_DOCKER_TRACE: traceFile,
+            },
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        return {
+            status: 0,
+            output,
+            trace: fs.readFileSync(traceFile, 'utf8'),
+        };
+    } catch (error) {
+        return {
+            status: error.status || 1,
+            output: `${error.stdout || ''}${error.stderr || ''}`,
+            trace: fs.existsSync(traceFile) ? fs.readFileSync(traceFile, 'utf8') : '',
+        };
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+};
+
 const blankAuthSmokeEnv = {
     AUTH_PROVIDER: '',
     AUTH_ISSUER_URL: '',
@@ -852,6 +1039,169 @@ describe('repo environment contract scripts', () => {
         expect(inputNames).not.toContain('release_desktop');
     });
 
+    test('manual production command center rejects overlapping deploy and rollback lanes', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+
+        expect(workflow).toContain('reject_overlapping_lane backend "${INPUT_DEPLOY_BACKEND}" "${INPUT_ROLLBACK_BACKEND}"');
+        expect(workflow).toContain('reject_overlapping_lane frontend-multihost "${INPUT_DEPLOY_FRONTEND_NETLIFY}" "${INPUT_ROLLBACK_FRONTEND_NETLIFY}"');
+        expect(workflow).toContain('reject_overlapping_lane gateway "${INPUT_DEPLOY_GATEWAY}" "${INPUT_ROLLBACK_GATEWAY}"');
+    });
+
+    test('multi-host deploy rolls back every provider whose mutation was attempted', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
+
+        expect(workflow.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g)).toHaveLength(3);
+        expect(workflow).toContain("needs.deploy-production.outputs.deployment_attempted == 'true'");
+        expect(workflow).toContain("needs.deploy-vercel-production.outputs.deployment_attempted == 'true'");
+        expect(workflow).toContain("needs.deploy-aws-production.outputs.deployment_attempted == 'true'");
+        expect(workflow).not.toContain("needs.deploy-production.outputs.deploy_url != ''");
+        expect(workflow).not.toContain("needs.deploy-vercel-production.outputs.deploy_url != ''");
+        expect(workflow).not.toContain("needs.deploy-aws-production.outputs.site_url != ''");
+    });
+
+    test('multi-host deploy captures exact rollback targets before mutation', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
+
+        expect(workflow).toContain('https://api.vercel.com/v4/aliases/${vercel_production_host}');
+        expect(workflow).toContain(".deploymentId // .deployment.id // empty");
+        expect(workflow).toContain('test "${vercel_project_id}" = "${VERCEL_PROJECT_ID}"');
+        expect(workflow).not.toContain('api.vercel.com/v6/deployments');
+
+        const snapshotIndex = workflow.indexOf('- name: Snapshot current AWS frontend for rollback');
+        const snapshotRefIndex = workflow.indexOf('echo "rollback_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"');
+        const mutationIndex = workflow.indexOf('- name: Mark AWS production mutation attempt');
+        const publishIndex = workflow.indexOf('- name: Publish shared frontend to S3 origin bucket');
+        expect(snapshotIndex).toBeGreaterThan(-1);
+        expect(snapshotRefIndex).toBeGreaterThan(snapshotIndex);
+        expect(mutationIndex).toBeGreaterThan(snapshotRefIndex);
+        expect(publishIndex).toBeGreaterThan(mutationIndex);
+        expect(workflow).toContain('cleanup_partial_snapshot()');
+        expect(workflow).toContain('AWS frontend rollback snapshot failed; removing the partial snapshot.');
+        expect(workflow).not.toContain('continuing with the new production deploy');
+    });
+
+    test('Vercel storefront rollback verifies immutable org and project ids', () => {
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'rollback-storefront-vercel.yml'), 'utf8');
+        const script = fs.readFileSync(path.join(repoRoot, 'scripts', 'rollback-storefront-vercel.sh'), 'utf8');
+
+        expect(workflow).toContain('VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}');
+        expect(workflow).toContain('VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}');
+        expect(script).toContain('require_env VERCEL_ORG_ID');
+        expect(script).toContain('require_env VERCEL_PROJECT_ID');
+        expect(script).toContain('--project "${VERCEL_PROJECT_ID}"');
+        expect(script).toContain('VERCEL_LINK_FILE="${vercel_link_file}" node');
+        expect(script).toContain('linked.orgId !== expectedOrgId || linked.projectId !== expectedProjectId');
+        expect(script).toContain('npx vercel rollback status "${VERCEL_PROJECT_ID}"');
+        expect(script).not.toContain('VERCEL_STOREFRONT_PROJECT_NAME');
+        expect(script).not.toContain('--scope');
+    });
+
+    test('AWS rollback workflows keep current tooling separate from rollback targets', () => {
+        const backend = yaml.load(
+            fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'rollback-backend-aws.yml'), 'utf8'),
+            { schema: yaml.JSON_SCHEMA }
+        );
+        const frontend = yaml.load(
+            fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'rollback-frontend-aws.yml'), 'utf8'),
+            { schema: yaml.JSON_SCHEMA }
+        );
+
+        const backendSteps = new Map(backend.jobs.rollback.steps.map((step) => [step.name, step]));
+        const frontendSteps = new Map(frontend.jobs.rollback.steps.map((step) => [step.name, step]));
+        const backendToolingCheckout = backendSteps.get('Checkout');
+        const frontendToolingCheckout = frontendSteps.get('Checkout');
+
+        expect(JSON.stringify(backendToolingCheckout)).not.toContain('inputs.rollback_ref');
+        expect(JSON.stringify(frontendToolingCheckout)).not.toContain('inputs.rollback_ref');
+        expect(backendSteps.get('Execute backend rollback hook').env.ROLLBACK_REF)
+            .toBe('${{ inputs.rollback_ref }}');
+        expect(backendSteps.get('Validate explicit backend rollback release').run)
+            .toContain('Backend rollback requires a full known-good release SHA.');
+        expect(frontendSteps.get('Execute AWS frontend rollback hook').env.ROLLBACK_REF)
+            .toBe('${{ inputs.rollback_ref }}');
+        expect(frontendSteps.has('Checkout rebuild rollback source')).toBe(false);
+        expect(frontendSteps.has('Setup Node.js for rebuild fallback')).toBe(false);
+
+        const rollbackScript = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'rollback-frontend-s3.sh'), 'utf8');
+        expect(rollbackScript).toContain('Refusing to execute target code in the credentialed restore job.');
+        expect(rollbackScript).not.toContain('npm --prefix app ci');
+        expect(rollbackScript).not.toContain('ROLLBACK_SOURCE_DIR');
+    });
+
+    test('gateway production deployment restores its captured alias target on mutation failure', () => {
+        const gateway = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-gateway-vercel.yml'), 'utf8');
+        const production = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+
+        const captureIndex = gateway.indexOf('- name: Capture current production gateway deployment');
+        const mutationIndex = gateway.indexOf('- name: Mark gateway production mutation attempt');
+        const deployIndex = gateway.lastIndexOf('npx vercel deploy');
+        const restoreIndex = gateway.indexOf('- name: Restore previous gateway after a failed production mutation');
+
+        expect(captureIndex).toBeGreaterThan(-1);
+        expect(mutationIndex).toBeGreaterThan(captureIndex);
+        expect(deployIndex).toBeGreaterThan(mutationIndex);
+        expect(restoreIndex).toBeGreaterThan(deployIndex);
+        expect(gateway).toContain('https://api.vercel.com/v4/aliases/${VERCEL_GATEWAY_ALIAS}');
+        expect(gateway).toContain('timeout-minutes: 60');
+        expect(gateway).toContain('timeout --signal=TERM --kill-after=30s 30m npx vercel deploy');
+        expect(gateway).toContain("if: failure() && steps.mutation.outputs.attempted == 'true'");
+        expect(gateway).toContain('ROLLBACK_REF: ${{ steps.rollback_target.outputs.ref }}');
+        expect(production).toContain("needs.deploy-gateway.result == 'success'");
+        expect(production).toContain('needs.deploy-gateway.outputs.gateway_rollback_ref');
+        expect(production).not.toContain("needs.deploy-gateway.outputs.deployment_attempted == 'true' &&\n              needs.deploy-gateway.result == 'failure'");
+        expect(production).toContain('backend rollback requires rollback_refs_json.backend as a full known-good commit SHA.');
+        expect(production).toContain('needs.deploy-backend.outputs.backend_rollback_ref');
+    });
+
+    test('production mutations share one non-canceling lock without reusable-workflow deadlock', () => {
+        const production = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+        const multiHost = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
+        const gateway = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-gateway-vercel.yml'), 'utf8');
+        const serializedChildren = [
+            'deploy-frontend-aws.yml',
+            'rollback-netlify.yml',
+            'rollback-storefront-vercel.yml',
+            'rollback-frontend-aws.yml',
+            'rollback-gateway-vercel.yml',
+        ].map((filename) => fs.readFileSync(path.join(repoRoot, '.github', 'workflows', filename), 'utf8'));
+
+        expect(production).toContain('group: aura-production-mutation');
+        expect(production).toContain('cancel-in-progress: false');
+        expect(production.match(/parent_holds_production_lock: true/g)).toHaveLength(7);
+
+        serializedChildren.forEach((workflow) => {
+            expect(workflow).toContain('parent_holds_production_lock:');
+            expect(workflow).toContain("|| 'aura-production-mutation'");
+            expect(workflow).toContain('cancel-in-progress: false');
+        });
+
+        expect(multiHost.match(/parent_holds_production_lock: true/g)).toHaveLength(3);
+        [multiHost, gateway].forEach((workflow) => {
+            expect(workflow).toContain("inputs.target == 'production' && 'aura-production-mutation'");
+            expect(workflow).toContain("cancel-in-progress: ${{ inputs.target != 'production' }}");
+        });
+        expect(multiHost).toContain("format('frontend-{0}'");
+        expect(gateway).toContain("format('gateway-vercel-{0}'");
+    });
+
+    test('production command-center docs use canonical multi-host rollback contracts', () => {
+        const documents = [
+            fs.readFileSync(path.join(repoRoot, 'docs', 'ci-cd.md'), 'utf8'),
+            fs.readFileSync(path.join(repoRoot, 'docs', 'production-cicd-install.md'), 'utf8'),
+        ];
+
+        documents.forEach((document) => {
+            expect(document).toContain('deploy_targets=backend,frontend-multihost,gateway');
+            expect(document).toContain('rollback_targets=backend,frontend-multihost,gateway');
+            expect(document).toContain('rollback_refs_json={"backend":"sha"');
+            expect(document).toContain('parent_holds_production_lock');
+            expect(document).not.toContain('deploy_targets=backend,frontend-netlify,gateway');
+            expect(document).not.toContain('rollback_targets=backend,frontend-netlify,frontend-aws,gateway');
+        });
+        expect(documents[1]).toMatch(/fails closed unless the\s+requested snapshot has that completion manifest/);
+        expect(documents[1]).not.toContain('can rebuild a supplied `ROLLBACK_REF`');
+    });
+
     test('manual production command center does not under-grant CI reusable workflow permissions', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
         const ciWorkflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8');
@@ -909,10 +1259,13 @@ describe('repo environment contract scripts', () => {
 
     test('AWS backend bootstrap and deploy scripts keep hardening guardrails', () => {
         const bootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-free-tier.ps1'), 'utf8');
+        const instanceBootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-instance-user-data.sh'), 'utf8');
         const oidcBootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-github-oidc.ps1'), 'utf8');
         const securityPostureBootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-security-posture.ps1'), 'utf8');
         const renderRuntimeSecrets = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'render-runtime-secrets.sh'), 'utf8');
         const deployRelease = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'deploy-release.sh'), 'utf8');
+        const rollbackBackend = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'rollback-backend.sh'), 'utf8');
+        const awsCompose = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'docker-compose.ec2.yml'), 'utf8');
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-backend-aws.yml'), 'utf8');
 
         expect(bootstrap).toContain('aws sts get-caller-identity');
@@ -945,16 +1298,225 @@ describe('repo environment contract scripts', () => {
         expect(deployRelease).toContain('AURA_IMAGE_BUNDLE_SHA256');
         expect(deployRelease).toContain('verify_sha256 "${release_dir}/infra.tar.gz"');
         expect(deployRelease).toContain('verify_sha256 "${release_dir}/image.tar.gz"');
-        expect(deployRelease).toContain('upsert_env_value "${shared_dir}/base.env" "AUTH_SESSION_ALLOW_MEMORY_FALLBACK" "false"');
-        expect(deployRelease).toContain('upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_RP_ID" "aurapilot.vercel.app"');
-        expect(deployRelease).toContain('upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_ORIGIN" "https://aurapilot.vercel.app"');
-        expect(deployRelease).toContain('upsert_env_value "${shared_dir}/base.env" "AUTH_WEBAUTHN_USER_VERIFICATION" "required"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AUTH_SESSION_ALLOW_MEMORY_FALLBACK" "false"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_RP_ID" "aurapilot.vercel.app"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_ORIGIN" "https://aurapilot.vercel.app"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_USER_VERIFICATION" "required"');
+        expect(instanceBootstrap).toMatch(/^COMPOSE_PROFILES=$/m);
+        expect(instanceBootstrap).toMatch(/^AI_MODEL_PROVIDER=disabled$/m);
+        expect(instanceBootstrap).toMatch(/^AI_MODEL_PROVIDER_FALLBACKS=$/m);
+        expect(instanceBootstrap).toMatch(/^ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false$/m);
+        expect(instanceBootstrap).toMatch(/^dnf install -y .*\butil-linux\b/m);
+        expect(deployRelease).toContain('sanitize_compose_profiles()');
+        expect(deployRelease).toContain('malware-scan)');
+        expect(deployRelease).toContain("''|ollama)");
+        expect(deployRelease).toContain("Refusing deploy: unsupported production Compose profile");
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER" "disabled"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER_FALLBACKS" ""');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA" "false"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED" "false"');
+        expect(deployRelease).toContain('AURA_RUNTIME_SECRETS_FILE="${staged_runtime_env}"');
+        expect(deployRelease).toContain('mv "${staged_base_env}" "${shared_dir}/base.env"');
+        expect(deployRelease).toContain('mv "${staged_runtime_env}" "${shared_dir}/runtime-secrets.env"');
+        expect(deployRelease).toContain('cp -p "${shared_dir}/base.env" "${activation_backup_base_env}"');
+        expect(deployRelease).toContain('cp -p "${shared_dir}/runtime-secrets.env" "${activation_backup_runtime_env}"');
+        expect(deployRelease).toContain('preserved activation recovery state exists');
+        expect(deployRelease).toContain('preserved activation recovery state requires operator recovery');
+        expect(deployRelease).toContain('AURA_PREVIOUS_SUCCESSFUL_SHA=${previous_active_sha}');
+        expect(deployRelease).toContain('same-SHA redeploys cannot preserve an immutable rollback target');
+        expect(deployRelease.indexOf('same-SHA redeploys cannot preserve an immutable rollback target')).toBeLessThan(deployRelease.indexOf('aws s3 cp --region "${aws_region}"'));
+        expect(deployRelease).toContain('cleanup_old_release_dirs "${deploy_root}/releases" 3 "${release_sha}" "${previous_active_sha}"');
+        expect(deployRelease).not.toContain('cleanup_old_release_dirs "${deploy_root}/releases" 3\n');
+        expect(deployRelease).toContain('[[ -n "${staged_runtime_env}" ]] && rm -f "${staged_runtime_env}" || true');
+        expect(deployRelease).toContain('staged_current_dir="${release_dir}/current.staged"');
+        expect(deployRelease).toContain('assert_no_model_compose_contract "${staged_compose_file}"');
+        expect(deployRelease).toContain('release_lock_path="${deploy_root}/.backend-release.lock"');
+        expect(deployRelease).toContain('flock --exclusive --nonblock 9');
+        expect(deployRelease.indexOf('trap release_exit_handler EXIT')).toBeLessThan(deployRelease.indexOf('acquire_release_lock "${release_lock_path}"'));
+        expect(deployRelease.indexOf('acquire_release_lock "${release_lock_path}"')).toBeLessThan(deployRelease.indexOf('mkdir -p "${release_dir}" "${shared_dir}"'));
+        expect(deployRelease.indexOf('compose_profiles="$(sanitize_compose_profiles')).toBeLessThan(deployRelease.lastIndexOf('rm -rf "${current_dir}"'));
+        expect(deployRelease.indexOf('assert_no_model_compose_contract "${staged_compose_file}"')).toBeLessThan(deployRelease.lastIndexOf('rm -rf "${current_dir}"'));
+        expect(deployRelease).toMatch(/cat > "\$\{staged_release_env\}" <<EOF[\s\S]*AI_MODEL_PROVIDER=disabled[\s\S]*ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false/);
+        expect(deployRelease).toContain('export COMPOSE_PROFILES="${compose_profiles}"');
+        expect(deployRelease).toMatch(/--profile ollama\s+\\\s+rm --stop --force ollama/);
+        expect(deployRelease).not.toContain('rm --volumes');
+        expect(deployRelease).not.toContain('down -v');
+        expect(deployRelease).toContain('restore_previous_release()');
+        expect(deployRelease).toContain('Release activation failed; restoring the previous backend state.');
+        expect(deployRelease).toContain('up -d --remove-orphans --force-recreate');
+        expect(deployRelease.indexOf('cp -a "${current_dir}" "${activation_backup_dir}"')).toBeLessThan(deployRelease.indexOf('activation_started=true'));
+        expect(deployRelease.indexOf('activation_started=true')).toBeLessThan(deployRelease.lastIndexOf('rm -rf "${current_dir}"'));
+        expect(deployRelease.lastIndexOf('rm -rf "${current_dir}"')).toBeLessThan(deployRelease.indexOf('mv "${staged_current_dir}" "${current_dir}"'));
+        expect(deployRelease.indexOf('activation_committed=true')).toBeGreaterThan(deployRelease.indexOf('if [[ "${edge_ready}" == "true" ]]'));
+        expect(rollbackBackend).toContain('sanitize_compose_profiles()');
+        expect(rollbackBackend).toContain('staged_current_dir="${target_dir}/current.staged"');
+        expect(rollbackBackend).toContain('release_lock_path="${deploy_root}/.backend-release.lock"');
+        expect(rollbackBackend).toContain('flock --exclusive --nonblock 9');
+        expect(rollbackBackend.indexOf('trap release_exit_handler EXIT')).toBeLessThan(rollbackBackend.indexOf('acquire_release_lock "${release_lock_path}"'));
+        expect(rollbackBackend.indexOf('acquire_release_lock "${release_lock_path}"')).toBeLessThan(rollbackBackend.indexOf('mkdir -p "${shared_dir}"'));
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER" "disabled"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER_FALLBACKS" ""');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA" "false"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED" "false"');
+        expect(rollbackBackend).toContain('AURA_RUNTIME_SECRETS_FILE="${staged_runtime_env}"');
+        expect(rollbackBackend).toContain('mv "${staged_base_env}" "${base_env}"');
+        expect(rollbackBackend).toContain('mv "${staged_runtime_env}" "${runtime_env}"');
+        expect(rollbackBackend).toContain('cp -p "${base_env}" "${activation_backup_base_env}"');
+        expect(rollbackBackend).toContain('cp -p "${runtime_env}" "${activation_backup_runtime_env}"');
+        expect(rollbackBackend).toContain('preserved activation recovery state exists');
+        expect(rollbackBackend).toContain('preserved activation recovery state requires operator recovery');
+        expect(rollbackBackend).toContain('Refusing rollback: an explicit known-good ROLLBACK_REF is required.');
+        expect(rollbackBackend).toContain('AURA_PREVIOUS_SUCCESSFUL_SHA=${current_sha}');
+        expect(rollbackBackend).not.toContain("! -name \"${current_sha}\"");
+        expect(rollbackBackend).toContain('[[ -n "${staged_runtime_env}" ]] && rm -f "${staged_runtime_env}" || true');
+        expect(rollbackBackend).toContain("grep -q 'InvocationDoesNotExist'");
+        expect(rollbackBackend.indexOf('compose_profiles="$(sanitize_compose_profiles')).toBeLessThan(rollbackBackend.lastIndexOf('rm -rf "${current_dir}"'));
+        expect(rollbackBackend.indexOf('assert_no_model_compose_contract "${staged_compose_file}"')).toBeLessThan(rollbackBackend.lastIndexOf('rm -rf "${current_dir}"'));
+        expect(rollbackBackend).toMatch(/cat > "\$\{staged_release_env\}" <<EOF[\s\S]*AI_MODEL_PROVIDER=disabled[\s\S]*ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false/);
+        expect(rollbackBackend).toContain('export COMPOSE_PROFILES="${compose_profiles}"');
+        expect(rollbackBackend).toContain('export AI_MODEL_PROVIDER="disabled"');
+        expect(rollbackBackend).toContain('export AI_MODEL_PROVIDER_FALLBACKS=""');
+        expect(rollbackBackend).toContain('export ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA="false"');
+        expect(rollbackBackend).toContain('export ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED="false"');
+        expect(rollbackBackend).toMatch(/--profile ollama\s+\\\s+rm --stop --force ollama/);
+        expect(rollbackBackend).not.toContain('rm --volumes');
+        expect(rollbackBackend).not.toContain('down -v');
+        expect(rollbackBackend).toContain('restore_previous_release()');
+        expect(rollbackBackend).toContain('Rollback activation failed; restoring the backend state that preceded it.');
+        expect(rollbackBackend).toContain('up -d --remove-orphans --force-recreate');
+        expect(rollbackBackend.indexOf('cp -a "${current_dir}" "${activation_backup_dir}"')).toBeLessThan(rollbackBackend.indexOf('activation_started=true'));
+        expect(rollbackBackend.indexOf('activation_started=true')).toBeLessThan(rollbackBackend.lastIndexOf('rm -rf "${current_dir}"'));
+        expect(rollbackBackend.lastIndexOf('rm -rf "${current_dir}"')).toBeLessThan(rollbackBackend.indexOf('mv "${staged_current_dir}" "${current_dir}"'));
+        expect(rollbackBackend.indexOf('activation_committed=true')).toBeGreaterThan(rollbackBackend.indexOf('if [[ "${edge_ready}" != "true" ]]'));
+        expect(awsCompose.match(/^\s+AI_MODEL_PROVIDER: disabled$/gm)).toHaveLength(2);
+        expect(awsCompose.match(/^\s+AI_MODEL_PROVIDER_FALLBACKS: ""$/gm)).toHaveLength(2);
+        expect(awsCompose.match(/^\s+ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA: "false"$/gm)).toHaveLength(2);
+        expect(awsCompose.match(/^\s+ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED: "false"$/gm)).toHaveLength(2);
+        expect(awsCompose).toContain('aura-ollama:/root/.ollama');
 
-        expect(workflow).toContain('sha256sum "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz"');
-        expect(workflow).toContain('sha256sum "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz"');
+        expect(workflow).toContain('sha256sum "${RUNNER_TEMP}/aura-infra-${AURA_RELEASE_SHA}.tar.gz"');
+        expect(workflow).toContain('sha256sum "${RUNNER_TEMP}/aura-image-${AURA_RELEASE_SHA}.tar.gz"');
         expect(workflow).toContain('sha256sum --check --status');
         expect(workflow).toContain('AURA_INFRA_BUNDLE_SHA256');
         expect(workflow).toContain('AURA_IMAGE_BUNDLE_SHA256');
+        expect(workflow).toContain('Resolve immutable release commit');
+        expect(workflow).toContain('AURA_RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}');
+        expect(workflow).toContain('ref: ${{ needs.preflight.outputs.release_sha }}');
+        expect(workflow).toContain('releases/${AURA_RELEASE_SHA}/infra.tar.gz');
+        expect(workflow).toContain('for _ in $(seq 1 240)');
+        expect(workflow).toContain('timeout-minutes: 120');
+        expect(workflow).toContain('Configure fresh AWS credentials for deployment');
+        expect(workflow).toContain('Refresh AWS credentials for failure restoration');
+        expect(workflow.match(/InvocationDoesNotExist/g)).toHaveLength(2);
+        expect(workflow.indexOf('Build backend container image')).toBeLessThan(workflow.indexOf('Configure fresh AWS credentials for deployment'));
+        expect(workflow.indexOf('Configure fresh AWS credentials for deployment')).toBeLessThan(workflow.indexOf('Upload deployment artifacts to S3'));
+        expect(workflow).not.toContain('releases/${GITHUB_SHA}/infra.tar.gz');
+        expect(workflow).toContain('Capture current backend rollback release');
+        expect(workflow).toContain('refusing a same-SHA redeploy that would overwrite rollback artifacts');
+        expect(workflow.indexOf('Capture current backend rollback release')).toBeLessThan(workflow.indexOf('Upload deployment artifacts to S3'));
+        expect(workflow).toContain('backend_rollback_ref:');
+        expect(workflow).toContain('Current backend release metadata is missing or malformed; refusing mutation.');
+        expect(workflow).toContain('id: wait_ssm');
+        expect(workflow).toContain('Restore previous backend after post-activation verification failure');
+        expect(workflow).toContain("if: failure() && steps.wait_ssm.outcome == 'success' && steps.current_release.outputs.sha != ''");
+        expect(workflow).toContain("if: failure() && steps.rollback_credentials.outcome == 'success' && steps.current_release.outputs.sha != ''");
+        expect(workflow).toContain('ROLLBACK_REF: ${{ steps.current_release.outputs.sha }}');
+    });
+
+    test('AWS production profile sanitizers execute fail closed', () => {
+        const scripts = [
+            fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'deploy-release.sh'), 'utf8'),
+            fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'rollback-backend.sh'), 'utf8'),
+        ];
+
+        scripts.forEach((source) => {
+            expect(runComposeProfileSanitizer(source, '').output).toBe('');
+            expect(runComposeProfileSanitizer(source, 'ollama').output).toBe('');
+            expect(runComposeProfileSanitizer(source, ' OLLAMA , malware-scan ').output).toBe('malware-scan');
+
+            const unsupported = runComposeProfileSanitizer(source, 'malware-scan,debug-shell');
+            expect(unsupported.status).not.toBe(0);
+            expect(unsupported.output).toContain('unsupported production Compose profile');
+        });
+    });
+
+    test('AWS backend release locks execute fail closed and release on exit', () => {
+        const scripts = [
+            fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'deploy-release.sh'), 'utf8'),
+            fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'rollback-backend.sh'), 'utf8'),
+        ];
+
+        scripts.forEach((source) => {
+            const acquired = runReleaseLockProbe(source, 'available');
+            expect(acquired).toMatchObject({ status: 0, output: 'critical-section\n' });
+            expect(acquired.trace.trim().split(/\r?\n/)).toEqual([
+                '--exclusive --nonblock 9',
+                '--unlock 9',
+            ]);
+
+            const contended = runReleaseLockProbe(source, 'contended');
+            expect(contended.status).not.toBe(0);
+            expect(contended.output).toContain('another deploy or rollback is already running');
+            expect(contended.output).not.toContain('critical-section');
+            expect(contended.trace.trim()).toBe('--exclusive --nonblock 9');
+        });
+    });
+
+    test('failed backend activations restore and restart the previous no-model release', () => {
+        const scripts = [
+            fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'deploy-release.sh'), 'utf8'),
+            fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'rollback-backend.sh'), 'utf8'),
+        ];
+
+        scripts.forEach((source) => {
+            const restored = runActivationRestoreProbe(source);
+            expect(restored.status).toBe(0);
+            expect(restored.trace).toContain('down --remove-orphans');
+            expect(restored.trace).toContain('up -d --remove-orphans --force-recreate');
+            expect(restored.trace).not.toContain('down -v');
+        });
+    });
+
+    test('backend container build contexts package the shared assistant capability manifest', () => {
+        const rootDockerfile = fs.readFileSync(path.join(repoRoot, 'Dockerfile'), 'utf8');
+        const serverDockerfile = fs.readFileSync(path.join(repoRoot, 'server', 'Dockerfile'), 'utf8');
+        const ciWorkflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8');
+        const deployWorkflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-backend-aws.yml'), 'utf8');
+        const splitCompose = fs.readFileSync(path.join(repoRoot, 'docker-compose.split-runtime.yml'), 'utf8');
+        const performanceCompose = fs.readFileSync(path.join(repoRoot, 'infra', 'performance', 'docker-compose.performance.yml'), 'utf8');
+        const stagingCompose = fs.readFileSync(path.join(repoRoot, 'infra', 'staging', 'docker-compose.yml'), 'utf8');
+        const stagingDeploy = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
+        const rootDockerignore = fs.readFileSync(path.join(repoRoot, '.dockerignore'), 'utf8');
+        const backendContextCallerPaths = [
+            'scripts/security/trivy-image.sh',
+            'scripts/staging/07-deploy-compose.sh',
+            'infra/performance/docker-compose.performance.yml',
+            'infra/staging/docker-compose.yml',
+        ];
+
+        expect(rootDockerfile).toContain('shared/assistantCapabilities.json /app/shared/assistantCapabilities.json');
+        expect(serverDockerfile).toContain('COPY server/package*.json ./');
+        expect(serverDockerfile).toContain('COPY --chown=node:node server ./');
+        expect(serverDockerfile).toContain('shared/assistantCapabilities.json /shared/assistantCapabilities.json');
+        expect(ciWorkflow).toContain('docker build --file server/Dockerfile --tag aura-backend-ci .');
+        expect(ciWorkflow).toContain("require('./services/ai/assistantToolRegistry')");
+        expect(deployWorkflow).toMatch(/--file server\/Dockerfile[\s\S]*--load \\\n\s+\./);
+        expect(splitCompose.match(/dockerfile: server\/Dockerfile/g)).toHaveLength(2);
+        expect(performanceCompose).toContain('dockerfile: server/Dockerfile');
+        expect(stagingCompose).toContain('dockerfile: server/Dockerfile');
+        expect(stagingDeploy).toMatch(/server \\\n\s+shared \\\n\s+infra\/staging/);
+        expect(stagingDeploy).toContain('"$REPO_ROOT/server/Dockerfile"');
+        backendContextCallerPaths.forEach((callerPath) => {
+            expect(ciWorkflow).toContain(`- "${callerPath}"`);
+        });
+        expect(ciWorkflow).toContain(backendContextCallerPaths.join('|'));
+        expect(rootDockerignore).toContain('.student-pack.local.env');
+        expect(rootDockerignore).toContain('server/tests');
+        expect(rootDockerignore).toContain('server/seeders');
+        expect(rootDockerignore).toContain('server/test_results*.json');
+        expect(rootDockerignore).toContain('server/Dockerfile*');
     });
 
     test('performance smoke fails when no real target is reachable', () => {
@@ -1101,6 +1663,23 @@ describe('repo environment contract scripts', () => {
         expect(stepByName.get('Checkout').if).toBe('inputs.execute_rollback == true');
         expect(stepByName.get(rollbackStepName).if).toBe('inputs.execute_rollback == true');
         expect(stepByName.get('Confirm credential-only validation').if).toBe('inputs.execute_rollback != true');
+    });
+
+    test('AWS backend deploy and rollback workflows serialize on the same concurrency group', () => {
+        const deployWorkflow = yaml.load(
+            fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-backend-aws.yml'), 'utf8'),
+            { schema: yaml.JSON_SCHEMA }
+        );
+        const rollbackWorkflow = yaml.load(
+            fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'rollback-backend-aws.yml'), 'utf8'),
+            { schema: yaml.JSON_SCHEMA }
+        );
+
+        expect(deployWorkflow.concurrency).toEqual({
+            group: 'aws-backend-production',
+            'cancel-in-progress': false,
+        });
+        expect(rollbackWorkflow.concurrency).toEqual(deployWorkflow.concurrency);
     });
 
     test('production command center explicitly authorizes both AWS rollback hooks', () => {

@@ -31,7 +31,7 @@ const ActionBar = ({
                         onClick={() => onAction?.(action)}
                         data-tone={isPrimary ? 'primary' : 'secondary'}
                         className={cn(
-                            'inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm',
+                            'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:text-sm',
                             isPrimary ? primaryClassName : secondaryClassName
                         )}
                     >

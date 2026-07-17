@@ -665,8 +665,10 @@ const clearOtpSession = async ({ identityKey, purpose }) => {
 
 const shouldAttemptEmailSend = () => {
     if (process.env.NODE_ENV !== 'test') return true;
-    // In test, enable delivery (it hits the mock provider)
-    return true;
+    return parseBooleanEnv(
+        process.env.OTP_EMAIL_SEND_IN_TEST,
+        otpEmailFlags.otpEmailSendInTest
+    );
 };
 
 const isOtpEmailFailClosed = () => parseBooleanEnv(

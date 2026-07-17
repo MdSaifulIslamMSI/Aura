@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MarketProvider } from '@/context/MarketContext';
 import { LocaleProvider } from '@/i18n/LocaleProvider';
@@ -97,7 +97,56 @@ describe('MessageItem', () => {
         expect(screen.getByText(/58% confidence/i)).toBeInTheDocument();
     });
 
-    it('renders verification metadata, sources, and tool runs for grounded answers', () => {
+    it('labels the cart value as an item subtotal and hides zero-value savings', () => {
+        renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'assistant-cart-no-savings',
+                    role: 'assistant',
+                    text: 'Your cart has two items.',
+                    uiSurface: 'cart_summary',
+                    cartSummary: {
+                        totalItems: 2,
+                        totalPrice: 49998,
+                        totalDiscount: 0,
+                        currency: 'INR',
+                    },
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByText('Item subtotal')).toBeInTheDocument();
+        expect(screen.queryByText('Total')).not.toBeInTheDocument();
+        expect(screen.queryByText('Item savings')).not.toBeInTheDocument();
+        expect(screen.getByText('Shipping, tax, stock, and final discounts are verified at checkout.')).toBeInTheDocument();
+    });
+
+    it('shows real cart savings when the discount is positive', () => {
+        renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'assistant-cart-with-savings',
+                    role: 'assistant',
+                    text: 'Your cart includes a current item discount.',
+                    uiSurface: 'cart_summary',
+                    cartSummary: {
+                        totalItems: 1,
+                        totalPrice: 49999,
+                        totalDiscount: 2000,
+                        currency: 'INR',
+                    },
+                }}
+                {...noopProps}
+            />
+        );
+
+        const savedLabel = screen.getByText('Item savings');
+        expect(savedLabel).toBeInTheDocument();
+        expect(savedLabel.nextElementSibling).toHaveTextContent(/2,000/);
+    });
+
+    it('keeps the trust summary visible and collapses technical answer details', () => {
         renderWithMarket(
             <MessageItem
                 message={{
@@ -139,11 +188,59 @@ describe('MessageItem', () => {
             />
         );
 
-        expect(screen.getByText('App-grounded')).toBeInTheDocument();
-        expect(screen.getByText('Verified against indexed app files.')).toBeInTheDocument();
-        expect(screen.getByText(/useAssistantController\.js:1/i)).toBeInTheDocument();
-        expect(screen.getByText('search_code_chunks')).toBeInTheDocument();
-        expect(screen.getByText('Trace details')).toBeInTheDocument();
+        expect(screen.getByText('App-grounded')).toBeVisible();
+        expect(screen.getByText('Verified against indexed app files.')).toBeVisible();
+
+        const disclosureSummary = screen.getByText('Why this answer');
+        const disclosure = disclosureSummary.closest('details');
+        expect(disclosureSummary.tagName).toBe('SUMMARY');
+        expect(disclosure).not.toHaveAttribute('open');
+        expect(within(disclosure).getByText(/useAssistantController\.js:1/i)).toBeInTheDocument();
+        expect(within(disclosure).getByText('search_code_chunks')).not.toBeVisible();
+        expect(within(disclosure).getByText(/Trace id:\s*trace_1/)).toBeInTheDocument();
+        expect(screen.queryByText('Trace details')).not.toBeInTheDocument();
+    });
+
+    it('fails closed for an unknown verification label', () => {
+        renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'assistant-unknown-verification',
+                    role: 'assistant',
+                    text: 'This claim has an unrecognized verification state.',
+                    assistantTurn: {
+                        verification: {
+                            label: 'unexpected_label',
+                        },
+                    },
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByText('Cannot verify')).toBeInTheDocument();
+        expect(screen.queryByText('Verified')).not.toBeInTheDocument();
+    });
+
+    it('treats omitted capability metadata as unknown instead of gated', () => {
+        renderWithMarket(
+            <MessageItem
+                message={{
+                    id: 'assistant-unknown-text-capability',
+                    role: 'assistant',
+                    text: 'Provider capability metadata is incomplete.',
+                    providerCapabilities: {
+                        imageInput: true,
+                    },
+                }}
+                {...noopProps}
+            />
+        );
+
+        expect(screen.getByText('Text unknown')).toBeInTheDocument();
+        expect(screen.getByText('Audio unknown')).toBeInTheDocument();
+        expect(screen.queryByText('Text gated')).not.toBeInTheDocument();
+        expect(screen.queryByText('Text ready')).not.toBeInTheDocument();
     });
 
     it('renders markdown and fast/refined status signals without duplicating the bubble', () => {

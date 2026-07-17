@@ -38,19 +38,35 @@ Use `Manual Production Command Center` only for controlled operations:
 
 - rerun one lane without waiting for a new merge
 - deploy a selected surface
-- roll back backend, storefront, AWS frontend, or gateway
+- roll back backend, the complete multi-host storefront, or gateway
 - publish signed desktop/mobile releases when signing secrets are configured
 
 Manual production actions require typing `PRODUCTION` into the workflow input.
 Select lanes with comma-separated target inputs so the workflow remains within
 GitHub's 10-input `workflow_dispatch` limit:
 
-- `deploy_targets=backend,frontend-netlify,gateway`
+- `deploy_targets=backend,frontend-multihost,gateway`
 - `release_targets=desktop,mobile`
-- `rollback_targets=backend,frontend-netlify,frontend-aws,gateway`
+- `rollback_targets=backend,frontend-multihost,gateway`
+- `rollback_refs_json={"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","gateway":"deployment-id"}`
 
 Leave target inputs blank for no-op validation runs. Use only the target names
-you intend to run.
+you intend to run. `frontend-multihost` always covers Netlify, the Vercel
+storefront, and AWS CloudFront together. A lane cannot appear in both
+`deploy_targets` and `rollback_targets` in the same run; the command center
+rejects that request before any production mutation. Supply only the
+provider-specific keys needed by the selected rollback lanes in
+`rollback_refs_json`.
+Use a full known-good 40-character release SHA for `backend`. The rollback
+workflow never infers a target from release-directory timestamps; automatic
+post-deploy rollback uses the pre-mutation SHA captured by the backend deploy.
+
+All command-center, direct multi-host, AWS-only frontend, and gateway production
+mutations share one non-canceling production lock. Reusable children set the
+internal `parent_holds_production_lock=true` input only when their caller already
+owns that lock, which prevents self-deadlock during automatic rollback. Preview
+workflows keep their per-branch cancellation behavior and do not enter the
+production lock.
 
 ## Required GitHub Settings
 

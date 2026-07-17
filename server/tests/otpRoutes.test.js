@@ -122,6 +122,23 @@ describe('OTP API Routes Integration', () => {
             expect(res.body.message).toBe(GENERIC_ACCOUNT_RESPONSE_MESSAGE);
         });
 
+        test('should skip email delivery in tests unless explicitly enabled', async () => {
+            const originalEmailSendInTest = process.env.OTP_EMAIL_SEND_IN_TEST;
+            process.env.OTP_EMAIL_SEND_IN_TEST = 'false';
+            const u = uniqueUser('email-disabled');
+
+            try {
+                const res = await request(app).post('/api/otp/send')
+                    .send({ email: u.email, phone: u.phone, purpose: 'signup' });
+
+                expect(res.statusCode).toBe(200);
+                expect(sendOtpEmail).not.toHaveBeenCalled();
+                expect(sendOtpSms).toHaveBeenCalledTimes(1);
+            } finally {
+                process.env.OTP_EMAIL_SEND_IN_TEST = originalEmailSendInTest;
+            }
+        });
+
         test('should throttle OTP send spam without delivering another code after the limit', async () => {
             const originalNodeEnv = process.env.NODE_ENV;
             process.env.NODE_ENV = 'rate-limit-test';

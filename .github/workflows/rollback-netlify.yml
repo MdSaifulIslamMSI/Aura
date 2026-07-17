@@ -8,6 +8,11 @@ on:
         required: false
         default: ""
         type: string
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
     secrets:
       NETLIFY_AUTH_TOKEN:
         required: false
@@ -16,6 +21,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-rollback-netlify', github.run_id) || 'aura-production-mutation' }}
+  cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -28,10 +37,8 @@ jobs:
       name: production
 
     steps:
-      - name: Checkout
+      - name: Checkout current rollback tooling
         uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.rollback_ref != '' && inputs.rollback_ref || github.sha }}
 
       - name: Execute Netlify rollback hook
         env:

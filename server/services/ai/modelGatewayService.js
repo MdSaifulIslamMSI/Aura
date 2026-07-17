@@ -9,13 +9,17 @@ const SUPPORTED_PROVIDERS = new Set(['gemini', 'ollama', DISABLED_PROVIDER]);
 const buildDisabledHealth = () => ({
     provider: DISABLED_PROVIDER,
     healthy: false,
+    apiConfigured: false,
     error: 'model_gateway_disabled',
     activeProvider: DISABLED_PROVIDER,
     providerChain: [DISABLED_PROVIDER],
     providerFallbackUsed: false,
     capabilities: {
-        chat: 'disabled',
-        embeddings: 'disabled',
+        textInput: false,
+        imageInput: false,
+        audioInput: false,
+        chat: false,
+        embeddings: false,
     },
 });
 

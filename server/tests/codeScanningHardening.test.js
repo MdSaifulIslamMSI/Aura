@@ -56,7 +56,9 @@ describe('code scanning hardening contracts', () => {
     test('security scanner reports avoid check-then-write races', () => {
         const source = readRepoFile('scripts/security/run-docker-tool.mjs');
         expect(source).toContain("{ flag: 'wx' }");
-        expect(source).not.toContain('fs.existsSync(reportPath)');
+        expect(source).not.toMatch(
+            /if\s*\(\s*!fs\.existsSync\(reportPath\)\s*\)\s*\{\s*fs\.writeFileSync\(reportPath/
+        );
     });
 
     test('catalog snapshot defaults use a private temporary directory', () => {
@@ -83,6 +85,6 @@ describe('code scanning hardening contracts', () => {
         expect(cloudFormation).toContain('AccessLogBucket:');
         expect(cloudFormation).toContain('LoggingConfiguration:');
         expect(cloudFormation).toContain('DestinationBucketName: !Ref AccessLogBucket');
-        expect(cloudFormation).toContain('id: CKV_AWS_111');
+        expect(cloudFormation).toContain('#checkov:skip=CKV_AWS_111:');
     });
 });

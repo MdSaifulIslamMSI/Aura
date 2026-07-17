@@ -63,7 +63,7 @@ describe('StripeProvider', () => {
                 order: 'checkout',
                 receipt: 'intent_1',
             },
-        });
+        }, { idempotencyKey: 'intent_1' });
     });
 
     test('confirms saved Stripe card PaymentIntents during checkout', async () => {
@@ -106,7 +106,7 @@ describe('StripeProvider', () => {
                 receipt: 'intent_saved_1',
                 savedPaymentMethodId: 'method_1',
             },
-        });
+        }, { idempotencyKey: 'intent_saved_1' });
     });
 
     test('includes saved card status in Stripe checkout payloads', () => {
@@ -304,7 +304,11 @@ describe('StripeProvider', () => {
         });
 
         await provider.capture({ paymentId: 'pi_test_1', amount: 12.34, currency: 'USD' });
-        expect(capture).toHaveBeenCalledWith('pi_test_1', { amount_to_capture: 1234 });
+        expect(capture).toHaveBeenCalledWith(
+            'pi_test_1',
+            { amount_to_capture: 1234 },
+            { idempotencyKey: 'capture:pi_test_1:1234' }
+        );
 
         await provider.refund({
             paymentId: 'pi_test_1',
@@ -316,6 +320,6 @@ describe('StripeProvider', () => {
             payment_intent: 'pi_test_1',
             amount: 500,
             metadata: { reason: 'customer_request' },
-        });
+        }, { idempotencyKey: 'refund:pi_test_1:500:USD' });
     });
 });

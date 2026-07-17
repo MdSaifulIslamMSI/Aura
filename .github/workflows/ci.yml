@@ -10,7 +10,10 @@ on:
       - "netlify.toml"
       - ".netlifyignore"
       - "server/**"
+      - "shared/**"
       - "scripts/security-*.mjs"
+      - "scripts/security/trivy-image.sh"
+      - "scripts/staging/07-deploy-compose.sh"
       - "scripts/post-merge-security-smoke.mjs"
       - "scripts/validate-env-contract.mjs"
       - "scripts/smoke-preflight.mjs"
@@ -49,6 +52,8 @@ on:
       - "infra/security/**"
       - "infra/auth/**"
       - "infra/opentofu/**"
+      - "infra/performance/docker-compose.performance.yml"
+      - "infra/staging/docker-compose.yml"
       - "k8s/**"
       - "charts/**"
       - "gitops/**"
@@ -57,6 +62,7 @@ on:
       - "docker-compose.yml"
       - "docker-compose.observability.yml"
       - "Dockerfile"
+      - ".dockerignore"
       - "Makefile"
       - "config/environments/**"
       - "config/auth.example.env"
@@ -156,7 +162,13 @@ jobs:
               server/*)
                 backend=true
                 ;;
+              shared/*)
+                backend=true
+                ;;
               scripts/security-*.mjs|scripts/post-merge-security-smoke.mjs|scripts/validate-env-contract.mjs|scripts/smoke-preflight.mjs)
+                backend=true
+                ;;
+              scripts/security/trivy-image.sh|scripts/staging/07-deploy-compose.sh|infra/performance/docker-compose.performance.yml|infra/staging/docker-compose.yml)
                 backend=true
                 ;;
               scripts/scan-prod-fallbacks.mjs|scripts/env-contract-lib.mjs|scripts/duo-activate.mjs)
@@ -192,7 +204,7 @@ jobs:
               k8s/*|charts/*|gitops/*|observability/*)
                 backend=true
                 ;;
-              docker-compose.split-runtime.yml|docker-compose.yml|docker-compose.observability.yml|Dockerfile|Makefile)
+              docker-compose.split-runtime.yml|docker-compose.yml|docker-compose.observability.yml|Dockerfile|.dockerignore|Makefile)
                 backend=true
                 ;;
               config/environments/*|config/auth.example.env)
@@ -204,13 +216,13 @@ jobs:
             esac
 
             case "${file}" in
-              app/*|desktop/*|docs/desktop-app.md|package.json|package-lock.json)
+              app/*|desktop/*|shared/*|docs/desktop-app.md|package.json|package-lock.json)
                 desktop=true
                 ;;
             esac
 
             case "${file}" in
-              app/*|netlify.toml|.netlifyignore|vercel.json|app/vercel.json|.vercelignore)
+              app/*|shared/*|netlify.toml|.netlifyignore|vercel.json|app/vercel.json|.vercelignore)
                 frontend=true
                 ;;
             esac
@@ -529,7 +541,12 @@ jobs:
         run: npm ci
 
       - name: Build backend container image
-        run: docker build --file server/Dockerfile --tag aura-backend-ci ./server
+        run: docker build --file server/Dockerfile --tag aura-backend-ci .
+
+      - name: Verify assistant shared assets in backend image
+        run: >-
+          docker run --rm --entrypoint node aura-backend-ci
+          -e "require('./services/ai/assistantToolRegistry'); require('./services/ai/commerceKnowledgeRagService')"
 
   frontend-quality:
     needs: changes

@@ -23,6 +23,18 @@ on:
         required: false
         default: production
         type: string
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      gateway_rollback_ref:
+        description: Vercel gateway deployment that was live before this release
+        value: ${{ jobs.deploy-production.outputs.rollback_ref }}
+      deployment_attempted:
+        description: Whether the production alias mutation was attempted
+        value: ${{ jobs.deploy-production.outputs.deployment_attempted }}
     secrets:
       VERCEL_TOKEN:
         required: false
@@ -33,8 +45,8 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: gateway-vercel-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
-  cancel-in-progress: true
+  group: ${{ inputs.target == 'production' && inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-gateway', github.run_id) || inputs.target == 'production' && 'aura-production-mutation' || format('gateway-vercel-{0}', github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref) }}
+  cancel-in-progress: ${{ inputs.target != 'production' }}
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -169,10 +181,13 @@ jobs:
   deploy-production:
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Leave deterministic headroom for the bounded deploy plus in-job restore.
+    timeout-minutes: 60
     outputs:
       deploy_url: ${{ steps.deploy.outputs.deploy_url }}
       inspect_url: ${{ steps.deploy.outputs.inspect_url }}
+      rollback_ref: ${{ steps.rollback_target.outputs.ref }}
+      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
 
     steps:
       - uses: actions/checkout@v6
@@ -202,6 +217,43 @@ jobs:
             --scope "${VERCEL_SCOPE}" \
             --token "${VERCEL_TOKEN}"
 
+      - name: Capture current production gateway deployment
+        id: rollback_target
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          linked_project="gateway/.vercel/project.json"
+          alias_state="$(mktemp)"
+          linked_project_id="$(jq -r '.projectId // empty' "${linked_project}")"
+          linked_org_id="$(jq -r '.orgId // empty' "${linked_project}")"
+          test -n "${linked_project_id}" || { echo "Linked gateway project id is missing." >&2; exit 1; }
+          test -n "${linked_org_id}" || { echo "Linked gateway org id is missing." >&2; exit 1; }
+
+          sanitized_vercel_token="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          test -n "${sanitized_vercel_token}" || { echo "Vercel token is empty after trimming whitespace." >&2; exit 1; }
+          echo "::add-mask::${sanitized_vercel_token}"
+
+          curl --fail --show-error --silent --location --get \
+            --header "Authorization: Bearer ${sanitized_vercel_token}" \
+            --data-urlencode "projectId=${linked_project_id}" \
+            --data-urlencode "teamId=${linked_org_id}" \
+            "https://api.vercel.com/v4/aliases/${VERCEL_GATEWAY_ALIAS}" \
+            > "${alias_state}"
+
+          rollback_ref="$(jq -r '.deploymentId // .deployment.id // empty' "${alias_state}")"
+          alias_project_id="$(jq -r '.projectId // empty' "${alias_state}")"
+          test -n "${rollback_ref}" || { echo "Gateway production alias has no deployment to restore." >&2; exit 1; }
+          test "${alias_project_id}" = "${linked_project_id}" || {
+            echo "Gateway production alias belongs to an unexpected Vercel project." >&2
+            exit 1
+          }
+          echo "ref=${rollback_ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Mark gateway production mutation attempt
+        id: mutation
+        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
+
       - name: Publish production deploy
         id: deploy
         env:
@@ -209,7 +261,7 @@ jobs:
         run: |
           set -euo pipefail
           DEPLOY_LOG="${RUNNER_TEMP}/gateway-production.log"
-          npx vercel deploy \
+          timeout --signal=TERM --kill-after=30s 30m npx vercel deploy \
             --cwd gateway \
             --prod \
             --yes \
@@ -238,6 +290,16 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --location --max-time 20 "https://${VERCEL_GATEWAY_ALIAS}" >/dev/null
+
+      - name: Restore previous gateway after a failed production mutation
+        if: failure() && steps.mutation.outputs.attempted == 'true' && steps.rollback_target.outputs.ref != ''
+        env:
+          ROLLBACK_REF: ${{ steps.rollback_target.outputs.ref }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_SCOPE: ${{ env.VERCEL_SCOPE }}
+          VERCEL_GATEWAY_PROJECT_NAME: ${{ env.VERCEL_GATEWAY_PROJECT_NAME }}
+          GATEWAY_PRODUCTION_URL: https://${{ env.VERCEL_GATEWAY_ALIAS }}
+        run: bash scripts/rollback-gateway-vercel.sh
 
       - name: Add production deploy to job summary
         run: |
