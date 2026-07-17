@@ -17,6 +17,7 @@ const requiredWorkflows = [
   'rollback-gateway-vercel.yml',
   'desktop-release.yml',
   'mobile-release.yml',
+  'giant-release-gates.yml',
   'production-cicd.yml',
   'production-on-push.yml',
   'production-admin-access.yml',
@@ -35,6 +36,7 @@ const read = (relativePath) => {
 const exists = (relativePath) => fs.existsSync(path.join(root, relativePath));
 
 const production = read('.github/workflows/production-cicd.yml');
+const giantReleaseGates = read('.github/workflows/giant-release-gates.yml');
 const productionOnPush = read('.github/workflows/production-on-push.yml');
 const productionAdminAccess = read('.github/workflows/production-admin-access.yml');
 const ciWorkflow = read('.github/workflows/ci.yml');
@@ -153,6 +155,15 @@ addCheck(
   'manual production command center exists',
   production.includes('name: Manual Production Command Center') && production.includes('workflow_dispatch:'),
   '.github/workflows/production-cicd.yml'
+);
+
+addCheck(
+  'manual production command center requires same-SHA release safety gates',
+  production.includes('uses: ./.github/workflows/giant-release-gates.yml') &&
+    production.includes("needs.release-safety-gates.result == 'success'") &&
+    production.includes('Production actions must be dispatched from the main branch') &&
+    giantReleaseGates.includes('workflow_call:'),
+  'deploy/release approval is bound to main and the caller SHA staging/cost/rollback gates'
 );
 
 addCheck(

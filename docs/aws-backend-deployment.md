@@ -122,7 +122,7 @@ The deploy workflow refreshes OIDC credentials after the image build and again b
 
 ## Runtime Security Contracts
 
-- `HEALTH_READY_TOKEN` is required. Public probes use `GET /health`; protected readiness uses `GET /health/ready` with `x-health-token` inside the trusted runtime.
+- `HEALTH_READY_TOKEN` is required in production Parameter Store. Public probes use `GET /health`; protected readiness uses `GET /health/ready` with `x-health-token` inside the trusted runtime.
 - `AUTH_DEVICE_CHALLENGE_MODE=always` is enforced for API and worker startup. Do not set it to `off`.
 - `ADMIN_REQUIRE_PASSKEY=true` remains enforced in the EC2 runtime.
 - CloudFront origin verification uses `X-Aura-Origin-Verify` and the matching Parameter Store secret. Never put that value in a frontend bundle.

@@ -38,6 +38,7 @@ describe('auth route rate-limit security', () => {
                         const nextCount = Number(limiterCounts.get(key) || 0) + 1;
                         limiterCounts.set(key, nextCount);
                         res.setHeader('x-test-rate-limiter', String(config.name || ''));
+                        res.setHeader('x-test-rate-limit-key', key);
 
                         if (nextCount > max) {
                             const message = typeof config.message === 'string'
@@ -110,8 +111,11 @@ describe('auth route rate-limit security', () => {
                 passkeyRegisterOptions: (_req, res) => res.json({ ok: true }),
                 passkeyRegisterVerify: (_req, res) => res.json({ ok: true }),
                 passkeyRemove: (_req, res) => res.json({ ok: true }),
+                renameTrustedDevice: (_req, res) => res.json({ ok: true }),
                 recoveryRegenerate: (_req, res) => res.json({ ok: true }),
                 recoveryVerify: (_req, res) => res.json({ ok: true }),
+                revokeOtherTrustedDevices: (_req, res) => res.json({ ok: true }),
+                revokeTrustedDevice: (_req, res) => res.json({ ok: true }),
                 setupTotp: (_req, res) => res.json({ ok: true }),
                 verifyTotpLogin: (_req, res) => res.json({ ok: true }),
                 verifyTotpSetup: (_req, res) => res.json({ ok: true }),
@@ -209,5 +213,26 @@ describe('auth route rate-limit security', () => {
         expect(responses[30].body.message).toMatch(/too many trusted device challenge requests/i);
         expect(responses[30].body.deviceChallenge).toBeUndefined();
         expect(requestBootstrapDeviceChallenge).toHaveBeenCalledTimes(30);
+    });
+
+    test('authenticated MFA limiters key by the verified account after protect runs', async () => {
+        const { app } = buildApp();
+
+        const challenge = await request(app)
+            .post('/api/auth/mfa/step-up')
+            .send({ action: 'profile-security' });
+        const verification = await request(app)
+            .post('/api/auth/mfa/totp/verify-login')
+            .send({ challengeId: 'attacker-controlled-challenge', code: '000000' });
+        const mutation = await request(app)
+            .patch('/api/auth/mfa/trusted-devices/device-owner-0001')
+            .send({ label: 'Work laptop' });
+
+        expect(challenge.headers['x-test-rate-limit-key'])
+            .toBe('auth_mfa_challenge:uid:uid-rate-limit-test');
+        expect(verification.headers['x-test-rate-limit-key'])
+            .toBe('auth_mfa_verify:uid:uid-rate-limit-test');
+        expect(mutation.headers['x-test-rate-limit-key'])
+            .toBe('auth_session_mutation:uid-rate-limit-test');
     });
 });

@@ -53,7 +53,8 @@
     "migrate:catalog-backfill": "node scripts/backfill_catalog_version.js",
     "migrate:purge-legacy-cart": "node scripts/purge_legacy_user_cart.js",
     "wipe:firebase-auth": "node scripts/wipe_firebase_auth_users.js",
-    "migrate:otp-session-identity": "node scripts/migrate_otp_session_identity_key.js"
+    "migrate:otp-session-identity": "node scripts/migrate_otp_session_identity_key.js",
+    "migrate:trusted-device-v2": "node scripts/trusted_device_v2_migration.js"
   },
   "keywords": [],
   "author": "",

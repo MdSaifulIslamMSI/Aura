@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Bell, CheckCircle2, Clock3, Copy, Download, KeyRound, Link2, Lock, LogOut, QrCode, ShieldCheck, Smartphone } from 'lucide-react';
+import { Activity, AlertTriangle, Bell, CheckCircle2, Cloud, Clock3, Copy, Download, KeyRound, Laptop, Link2, Lock, LogOut, Pencil, QrCode, Save, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { TogglePref } from './ProfileShared';
@@ -40,6 +40,10 @@ export default function SettingsSection({
     handleVerifyTotpSetup,
     mfaPasskeyWorking = false,
     handleRegisterMfaPasskey,
+    trustedDeviceAction = '',
+    handleRenameTrustedDevice,
+    handleRevokeTrustedDevice,
+    handleRevokeOtherTrustedDevices,
     linkedProviderIds = [],
     socialAuthStatus = {},
     providerLinking = '',
@@ -51,6 +55,10 @@ export default function SettingsSection({
     const [orderUpdates, setOrderUpdates] = useState(true);
     const [marketplaceUpdates, setMarketplaceUpdates] = useState(true);
     const [supportUpdates, setSupportUpdates] = useState(true);
+    const [editingDeviceId, setEditingDeviceId] = useState('');
+    const [deviceLabelDraft, setDeviceLabelDraft] = useState('');
+    const [confirmingRevokeDeviceId, setConfirmingRevokeDeviceId] = useState('');
+    const [confirmingRevokeOthers, setConfirmingRevokeOthers] = useState(false);
     const hasVisibleRecoveryCodes = recoveryCodes.length > 0;
     const mfaMethods = mfaStatus?.methods || {};
     const passkeyCount = Number(mfaMethods?.passkey?.count || 0);
@@ -60,6 +68,11 @@ export default function SettingsSection({
     const mfaEnabledByDeployment = mfaFlags?.enabled !== false;
     const passkeyEnabledByDeployment = mfaEnabledByDeployment && mfaFlags?.passkeyEnabled !== false;
     const totpEnabledByDeployment = mfaEnabledByDeployment && mfaFlags?.totpEnabled !== false;
+    const trustedDevices = Array.isArray(mfaStatus?.trustedDevices) ? mfaStatus.trustedDevices : [];
+    const activeTrustedDevices = trustedDevices.filter((device) => device?.active !== false && device?.status !== 'revoked' && device?.status !== 'expired');
+    const currentTrustedDevice = activeTrustedDevices.find((device) => device?.isCurrent) || null;
+    const activeOtherDeviceCount = activeTrustedDevices.filter((device) => !device?.isCurrent).length;
+    const deviceAudience = mfaStatus?.devicePolicy?.audience === 'admin' ? 'admin' : 'public';
     const linkedProviderSet = useMemo(() => new Set(linkedProviderIds), [linkedProviderIds]);
     const linkableProviders = useMemo(() => ([
         {
@@ -99,6 +112,61 @@ export default function SettingsSection({
         if (!trustStatus?.backend?.timestamp) return t('profile.settings.trust.noRecent', {}, 'No recent check timestamp');
         return new Date(trustStatus.backend.timestamp).toLocaleString('en-IN');
     }, [t, trustStatus?.backend?.timestamp]);
+
+    const formatDeviceDate = (value) => {
+        if (!value) return t('profile.settings.devices.never', {}, 'Never');
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return t('profile.settings.devices.unknown', {}, 'Unknown');
+        return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+    };
+
+    const startDeviceRename = (device) => {
+        setEditingDeviceId(device.deviceId);
+        setDeviceLabelDraft(device.label || '');
+        setConfirmingRevokeDeviceId('');
+    };
+
+    const submitDeviceRename = async (device) => {
+        const nextLabel = deviceLabelDraft.trim();
+        if (!nextLabel || !handleRenameTrustedDevice) return;
+        try {
+            await handleRenameTrustedDevice(device.deviceId, nextLabel);
+            setEditingDeviceId('');
+            setDeviceLabelDraft('');
+        } catch {
+            // The profile message banner presents the server error.
+        }
+    };
+
+    const requestDeviceRevocation = async (device) => {
+        if (confirmingRevokeDeviceId !== device.deviceId) {
+            setConfirmingRevokeDeviceId(device.deviceId);
+            setConfirmingRevokeOthers(false);
+            return;
+        }
+        if (!handleRevokeTrustedDevice) return;
+        try {
+            await handleRevokeTrustedDevice(device.deviceId, { isCurrent: Boolean(device.isCurrent) });
+            setConfirmingRevokeDeviceId('');
+        } catch {
+            // Keep confirmation visible so the user can retry or cancel.
+        }
+    };
+
+    const requestOtherDeviceRevocation = async () => {
+        if (!confirmingRevokeOthers) {
+            setConfirmingRevokeOthers(true);
+            setConfirmingRevokeDeviceId('');
+            return;
+        }
+        if (!handleRevokeOtherTrustedDevices) return;
+        try {
+            await handleRevokeOtherTrustedDevices();
+            setConfirmingRevokeOthers(false);
+        } catch {
+            // Keep confirmation visible so the user can retry or cancel.
+        }
+    };
 
     return (
         <div className="max-w-3xl space-y-6">
@@ -276,6 +344,233 @@ export default function SettingsSection({
                             </div>
                         ) : null}
                     </div>
+
+                    <section
+                        aria-labelledby="trusted-devices-heading"
+                        className="rounded-[1.6rem] border border-violet-300/20 bg-violet-400/[0.08] p-4"
+                    >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex items-center gap-2 rounded-full border border-violet-300/25 bg-violet-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-violet-100">
+                                        <Laptop className="h-3.5 w-3.5" />
+                                        {t('profile.settings.devices.activeCount', { count: activeTrustedDevices.length }, `${activeTrustedDevices.length} active`)}
+                                    </span>
+                                    {currentTrustedDevice ? (
+                                        <span className="text-xs font-semibold text-emerald-200">
+                                            {t('profile.settings.devices.currentBound', {}, 'This browser is identified')}
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs font-semibold text-amber-200">
+                                            {t('profile.settings.devices.currentUnbound', {}, 'This session is not bound to a managed device')}
+                                        </span>
+                                    )}
+                                </div>
+                                <h4 id="trusted-devices-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                    <ShieldCheck className="h-4 w-4 text-violet-200" />
+                                    {t('profile.settings.devices.title', {}, 'Devices, passkeys & remembered browsers')}
+                                </h4>
+                                <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
+                                    {deviceAudience === 'admin'
+                                        ? t('profile.settings.devices.adminBody', {}, 'Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.')
+                                        : t('profile.settings.devices.publicBody', {}, 'A remembered browser can reduce recognition prompts, but it is not MFA. Passkeys protect MFA; a synced passkey may be available on more than one physical device.')}
+                                </p>
+                            </div>
+
+                            {activeOtherDeviceCount > 0 ? (
+                                <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                                    <button
+                                        type="button"
+                                        onClick={requestOtherDeviceRevocation}
+                                        disabled={!currentTrustedDevice || trustedDeviceAction === 'revoke-others' || !handleRevokeOtherTrustedDevices}
+                                        className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${confirmingRevokeOthers ? 'border-red-300/35 bg-red-500/20 text-red-100' : 'border-white/10 bg-white/5 text-white hover:bg-white/10'}`}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        {trustedDeviceAction === 'revoke-others'
+                                            ? t('profile.settings.devices.revokingOthers', {}, 'Revoking...')
+                                            : confirmingRevokeOthers
+                                                ? t('profile.settings.devices.confirmRevokeOthers', { count: activeOtherDeviceCount }, `Confirm revoke ${activeOtherDeviceCount}`)
+                                                : t('profile.settings.devices.revokeOthers', {}, 'Revoke all others')}
+                                    </button>
+                                    {confirmingRevokeOthers ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => setConfirmingRevokeOthers(false)}
+                                            className="min-h-10 rounded-lg px-3 text-xs font-bold text-slate-300 hover:bg-white/5 hover:text-white"
+                                        >
+                                            {t('common.cancel', {}, 'Cancel')}
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </div>
+
+                        {deviceAudience === 'admin' ? (
+                            <div className="mt-4 flex gap-3 rounded-xl border border-amber-300/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
+                                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                <p>{t('profile.settings.devices.adminWarning', {}, 'Keep at least one independent admin passkey. The server blocks removal of the final policy-required admin factor.')}</p>
+                            </div>
+                        ) : null}
+
+                        {trustedDevices.length === 0 ? (
+                            <div className="mt-4 rounded-xl border border-dashed border-white/15 bg-black/15 px-4 py-6 text-center">
+                                <Laptop className="mx-auto h-6 w-6 text-slate-400" />
+                                <p className="mt-2 text-sm font-bold text-white">
+                                    {t('profile.settings.devices.emptyTitle', {}, 'No managed devices yet')}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                    {t('profile.settings.devices.emptyBody', {}, 'Register a passkey or complete a trusted-browser checkpoint to add one.')}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="mt-4 grid gap-3">
+                                {trustedDevices.map((device) => {
+                                    const active = device?.active !== false && !['revoked', 'expired'].includes(device?.status);
+                                    const isPasskeyDevice = device?.method === 'webauthn';
+                                    const isEditing = editingDeviceId === device.deviceId;
+                                    const isConfirmingRevoke = confirmingRevokeDeviceId === device.deviceId;
+                                    const renameWorking = trustedDeviceAction === `rename:${device.deviceId}`;
+                                    const revokeWorking = trustedDeviceAction === `revoke:${device.deviceId}`;
+                                    const factorLabel = isPasskeyDevice
+                                        ? (device.adminEligible
+                                            ? t('profile.settings.devices.adminPasskey', {}, 'Admin passkey')
+                                            : device.isMfaFactor
+                                                ? t('profile.settings.devices.mfaPasskey', {}, 'MFA passkey')
+                                                : t('profile.settings.devices.recognitionPasskey', {}, 'Recognition passkey'))
+                                        : t('profile.settings.devices.rememberedBrowser', {}, 'Remembered browser · not MFA');
+                                    const syncLabel = isPasskeyDevice
+                                        ? (device.backedUp
+                                            ? t('profile.settings.devices.syncedPasskey', {}, 'Synced passkey')
+                                            : device.backupEligible
+                                                ? t('profile.settings.devices.syncEligible', {}, 'Sync eligible')
+                                                : t('profile.settings.devices.deviceBound', {}, 'Device-bound or sync unknown'))
+                                        : '';
+
+                                    return (
+                                        <article
+                                            key={device.deviceId}
+                                            className={`rounded-[1.25rem] border p-4 ${active ? 'border-white/10 bg-slate-950/35' : 'border-white/5 bg-black/20 opacity-70'}`}
+                                        >
+                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        {isPasskeyDevice ? <KeyRound className="h-4 w-4 text-violet-200" /> : <Laptop className="h-4 w-4 text-cyan-200" />}
+                                                        {isEditing ? (
+                                                            <label className="min-w-0 flex-1">
+                                                                <span className="sr-only">{t('profile.settings.devices.nameLabel', {}, 'Device name')}</span>
+                                                                <input
+                                                                    value={deviceLabelDraft}
+                                                                    onChange={(event) => setDeviceLabelDraft(event.target.value)}
+                                                                    maxLength={120}
+                                                                    autoFocus
+                                                                    className="min-h-11 w-full rounded-xl border border-violet-300/30 bg-black/30 px-3 text-sm font-bold text-white outline-none focus:border-violet-200"
+                                                                    aria-label={t('profile.settings.devices.nameFor', { device: device.label }, `Name for ${device.label}`)}
+                                                                />
+                                                            </label>
+                                                        ) : (
+                                                            <p className="truncate text-sm font-black text-white">{device.label}</p>
+                                                        )}
+                                                        {device.isCurrent ? (
+                                                            <span className="rounded-full border border-emerald-300/25 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-100">
+                                                                {t('profile.settings.devices.current', {}, 'Current')}
+                                                            </span>
+                                                        ) : null}
+                                                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${active ? 'border-sky-300/20 bg-sky-400/10 text-sky-100' : 'border-slate-400/20 bg-slate-500/10 text-slate-300'}`}>
+                                                            {device.status || (active ? 'active' : 'inactive')}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-300">
+                                                        <span>{factorLabel}</span>
+                                                        {syncLabel ? (
+                                                            <span className="inline-flex items-center gap-1"><Cloud className="h-3 w-3" />{syncLabel}</span>
+                                                        ) : null}
+                                                        <span>{t('profile.settings.devices.lastVerified', { date: formatDeviceDate(device.lastVerifiedAt || device.lastSeenAt) }, `Last verified ${formatDeviceDate(device.lastVerifiedAt || device.lastSeenAt)}`)}</span>
+                                                    </div>
+
+                                                    {device.adminEligibility === 'legacy_candidate' ? (
+                                                        <p className="mt-2 text-[11px] font-semibold text-amber-200">
+                                                            {t('profile.settings.devices.legacyAdminWarning', {}, 'Fresh passkey verification is required before this credential can protect admin actions.')}
+                                                        </p>
+                                                    ) : null}
+                                                    {device.isCurrent && isConfirmingRevoke ? (
+                                                        <p className="mt-2 text-[11px] font-semibold text-red-200">
+                                                            {t('profile.settings.devices.currentRevokeWarning', {}, 'Revoking this device signs you out and removes its local trust identity.')}
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+
+                                                {active ? (
+                                                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                                                        {isEditing ? (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => submitDeviceRename(device)}
+                                                                    disabled={renameWorking || !deviceLabelDraft.trim() || deviceLabelDraft.trim() === device.label}
+                                                                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-3 text-xs font-black text-emerald-100 disabled:opacity-50"
+                                                                >
+                                                                    <Save className="h-3.5 w-3.5" />
+                                                                    {renameWorking ? t('common.saving', {}, 'Saving...') : t('common.save', {}, 'Save')}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => { setEditingDeviceId(''); setDeviceLabelDraft(''); }}
+                                                                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-black text-slate-200"
+                                                                    aria-label={t('profile.settings.devices.cancelRename', {}, 'Cancel rename')}
+                                                                >
+                                                                    <X className="h-3.5 w-3.5" />
+                                                                    {t('common.cancel', {}, 'Cancel')}
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => startDeviceRename(device)}
+                                                                disabled={trustedDeviceAction !== '' || !handleRenameTrustedDevice || device.canRename === false}
+                                                                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-black text-white hover:bg-white/10 disabled:opacity-50"
+                                                                aria-label={t('profile.settings.devices.renameAria', { device: device.label }, `Rename ${device.label}`)}
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5" />
+                                                                {t('common.rename', {}, 'Rename')}
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => requestDeviceRevocation(device)}
+                                                            disabled={revokeWorking || !handleRevokeTrustedDevice || device.canRevoke === false}
+                                                            className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 text-xs font-black disabled:opacity-50 ${isConfirmingRevoke ? 'border-red-300/35 bg-red-500/20 text-red-100' : 'border-white/10 bg-white/5 text-slate-200 hover:bg-red-500/10 hover:text-red-100'}`}
+                                                            aria-label={isConfirmingRevoke
+                                                                ? t('profile.settings.devices.confirmRevokeAria', { device: device.label }, `Confirm revoke ${device.label}`)
+                                                                : t('profile.settings.devices.revokeAria', { device: device.label }, `Revoke ${device.label}`)}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                            {revokeWorking
+                                                                ? t('common.revoking', {}, 'Revoking...')
+                                                                : isConfirmingRevoke
+                                                                    ? t('common.confirm', {}, 'Confirm')
+                                                                    : device.isCurrent
+                                                                        ? t('profile.settings.devices.revokeAndSignOut', {}, 'Revoke & sign out')
+                                                                        : t('common.revoke', {}, 'Revoke')}
+                                                        </button>
+                                                        {isConfirmingRevoke ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setConfirmingRevokeDeviceId('')}
+                                                                className="min-h-11 rounded-xl px-3 text-xs font-bold text-slate-300 hover:bg-white/5"
+                                                            >
+                                                                {t('common.cancel', {}, 'Cancel')}
+                                                            </button>
+                                                        ) : null}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        </article>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </section>
 
                     <div className={`rounded-[1.6rem] border p-4 ${recoveryReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

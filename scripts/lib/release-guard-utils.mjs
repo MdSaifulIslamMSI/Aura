@@ -164,4 +164,12 @@ export const currentMonthWindow = () => {
   return { start: fmt(start), end: fmt(end) };
 };
 
+export const currentForecastWindow = () => {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  const fmt = (date) => date.toISOString().slice(0, 10);
+  return { start: fmt(start), end: fmt(end) };
+};
+
 export const tempFile = (name) => path.join(os.tmpdir(), `${name}-${process.pid}-${Date.now()}`);

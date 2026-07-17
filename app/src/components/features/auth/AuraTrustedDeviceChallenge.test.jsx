@@ -197,7 +197,10 @@ describe('AuraTrustedDeviceChallenge', () => {
     expect(callOrder).toEqual(['reauth', 'sign', 'verify']);
   });
 
-  it('prompts for password reauthentication before retrying passkey enrollment for password users', async () => {
+  it.each([
+    ['admin route', '/admin/dashboard'],
+    ['public route', '/'],
+  ])('prompts for password reauthentication before retrying passkey enrollment on the %s', async (_label, route) => {
     const passwordRequiredError = Object.assign(
       new Error('Enter your password to refresh this protected session, then retry this action.'),
       {
@@ -254,7 +257,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     }));
 
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
-    renderWithRoute(<AuraTrustedDeviceChallenge />);
+    renderWithRoute(<AuraTrustedDeviceChallenge />, route);
 
     const verifyButton = screen.getByRole('button', { name: /register/i });
     fireEvent.click(verifyButton);
@@ -388,6 +391,25 @@ describe('AuraTrustedDeviceChallenge', () => {
       expect(screen.getByRole('button', { name: /open trusted device checkpoint/i })).toBeInTheDocument();
       expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
     });
+
+    expect(document.body).not.toHaveClass('aura-trusted-gate-open');
+
+    const pageButton = document.createElement('button');
+    pageButton.type = 'button';
+    pageButton.textContent = 'Page action';
+    document.body.appendChild(pageButton);
+    pageButton.focus();
+
+    const tabEvent = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(tabEvent);
+
+    expect(tabEvent.defaultPrevented).toBe(false);
+    expect(pageButton).toHaveFocus();
+    pageButton.remove();
   });
 
   it('opens first-time trusted-device enrollment even on public routes', async () => {

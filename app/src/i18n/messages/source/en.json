@@ -5462,9 +5462,6 @@
     "defaultMessage": "Upload or paste a screenshot, then rank closest products with price-gap and authenticity hints.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "auth.jsx.text.verify.once.to.unlock.admin.actions": {
-    "defaultMessage": "Verify once to unlock admin actions"
-  },
   "auth.jsx.text.what.stays.private": {
     "defaultMessage": "What stays private"
   },
@@ -5478,13 +5475,197 @@
     "defaultMessage": "Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "auth.mfaChallenge.message": {
-    "defaultMessage": "Complete the second-factor challenge to finish this session.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  "auth.mfaChallenge.action.account": {
+    "defaultMessage": "Continue with a protected account security action."
   },
-  "auth.mfaChallenge.title": {
-    "defaultMessage": "MFA checkpoint",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  "auth.mfaChallenge.action.admin": {
+    "defaultMessage": "Continue with a protected admin action."
+  },
+  "auth.mfaChallenge.action.generic": {
+    "defaultMessage": "Continue with a protected action."
+  },
+  "auth.mfaChallenge.action.login": {
+    "defaultMessage": "Finish secure sign-in."
+  },
+  "auth.mfaChallenge.action.payment": {
+    "defaultMessage": "Continue with a protected payment action."
+  },
+  "auth.mfaChallenge.admin.description": {
+    "defaultMessage": "Complete an approved verification method before continuing to this admin area."
+  },
+  "auth.mfaChallenge.admin.eyebrow": {
+    "defaultMessage": "Admin security checkpoint"
+  },
+  "auth.mfaChallenge.admin.title": {
+    "defaultMessage": "Admin verification required"
+  },
+  "auth.mfaChallenge.alternative.toggle": {
+    "defaultMessage": "Try another way"
+  },
+  "auth.mfaChallenge.alternative.useMethod": {
+    "defaultMessage": "Use {method}"
+  },
+  "auth.mfaChallenge.cancel.admin": {
+    "defaultMessage": "Leave admin checkpoint"
+  },
+  "auth.mfaChallenge.cancel.public": {
+    "defaultMessage": "Return to storefront"
+  },
+  "auth.mfaChallenge.context.label": {
+    "defaultMessage": "Verification context"
+  },
+  "auth.mfaChallenge.context.requestedAction": {
+    "defaultMessage": "Requested action"
+  },
+  "auth.mfaChallenge.countdown.minute": {
+    "defaultMessage": "{count, plural, one {# minute} other {# minutes}}"
+  },
+  "auth.mfaChallenge.countdown.second": {
+    "defaultMessage": "{count, plural, one {# second} other {# seconds}}"
+  },
+  "auth.mfaChallenge.error.expired": {
+    "defaultMessage": "This verification request has expired. Sign out and start again."
+  },
+  "auth.mfaChallenge.error.generic": {
+    "defaultMessage": "We could not complete verification. Try again or choose another method."
+  },
+  "auth.mfaChallenge.error.invalidRecovery": {
+    "defaultMessage": "Enter one unused recovery code."
+  },
+  "auth.mfaChallenge.error.invalidTotp": {
+    "defaultMessage": "Enter the 6-digit code from your authenticator app."
+  },
+  "auth.mfaChallenge.error.noMethod": {
+    "defaultMessage": "No supported verification method is available for this checkpoint. Sign out and try again."
+  },
+  "auth.mfaChallenge.error.passkeyCancelled": {
+    "defaultMessage": "The passkey prompt was cancelled or timed out. Try again or use another method."
+  },
+  "auth.mfaChallenge.error.rateLimitPaused": {
+    "defaultMessage": "Too many verification attempts. Verification is temporarily paused."
+  },
+  "auth.mfaChallenge.error.rateLimitWait": {
+    "defaultMessage": "Too many attempts. Wait a moment, then try again."
+  },
+  "auth.mfaChallenge.error.rejected": {
+    "defaultMessage": "That verification was not accepted or has expired. Check it and try again."
+  },
+  "auth.mfaChallenge.error.sessionIncomplete": {
+    "defaultMessage": "Verification returned, but the authenticated session could not be confirmed. Sign out and sign in again."
+  },
+  "auth.mfaChallenge.error.signOut": {
+    "defaultMessage": "We could not sign you out. Try again."
+  },
+  "auth.mfaChallenge.error.unavailableMethod": {
+    "defaultMessage": "This verification method is temporarily unavailable. Try another method."
+  },
+  "auth.mfaChallenge.error.unavailableRequest": {
+    "defaultMessage": "This verification request is no longer available. Sign out and try again."
+  },
+  "auth.mfaChallenge.input.recoveryLabel": {
+    "defaultMessage": "Recovery code"
+  },
+  "auth.mfaChallenge.input.totpLabel": {
+    "defaultMessage": "6-digit authenticator code"
+  },
+  "auth.mfaChallenge.method.passkey.action": {
+    "defaultMessage": "Continue with passkey"
+  },
+  "auth.mfaChallenge.method.passkey.description": {
+    "defaultMessage": "Use your device unlock, security key, or saved passkey."
+  },
+  "auth.mfaChallenge.method.passkey.label": {
+    "defaultMessage": "Passkey"
+  },
+  "auth.mfaChallenge.method.passkey.pending": {
+    "defaultMessage": "Waiting for passkey..."
+  },
+  "auth.mfaChallenge.method.recovery.action": {
+    "defaultMessage": "Verify recovery code"
+  },
+  "auth.mfaChallenge.method.recovery.description": {
+    "defaultMessage": "Use one unused recovery code. Each code works only once."
+  },
+  "auth.mfaChallenge.method.recovery.label": {
+    "defaultMessage": "Recovery code"
+  },
+  "auth.mfaChallenge.method.recovery.pending": {
+    "defaultMessage": "Checking recovery code..."
+  },
+  "auth.mfaChallenge.method.totp.action": {
+    "defaultMessage": "Verify code"
+  },
+  "auth.mfaChallenge.method.totp.description": {
+    "defaultMessage": "Enter the current 6-digit code from your authenticator app."
+  },
+  "auth.mfaChallenge.method.totp.label": {
+    "defaultMessage": "Authenticator app"
+  },
+  "auth.mfaChallenge.method.totp.pending": {
+    "defaultMessage": "Verifying code..."
+  },
+  "auth.mfaChallenge.public.description": {
+    "defaultMessage": "Complete one verification method to continue securely."
+  },
+  "auth.mfaChallenge.public.eyebrow": {
+    "defaultMessage": "Secure sign-in"
+  },
+  "auth.mfaChallenge.public.title": {
+    "defaultMessage": "Confirm it's you"
+  },
+  "auth.mfaChallenge.reason.admin": {
+    "defaultMessage": "Your admin security policy requires stronger verification."
+  },
+  "auth.mfaChallenge.reason.mfa": {
+    "defaultMessage": "Multi-factor authentication is enabled for this account."
+  },
+  "auth.mfaChallenge.reason.policy": {
+    "defaultMessage": "Your security policy requires additional verification."
+  },
+  "auth.mfaChallenge.reason.seller": {
+    "defaultMessage": "Your seller security policy requires stronger verification."
+  },
+  "auth.mfaChallenge.reason.sensitive": {
+    "defaultMessage": "This sensitive action requires fresh verification."
+  },
+  "auth.mfaChallenge.reason.unusual": {
+    "defaultMessage": "This sign-in needs extra verification because it appears unusual."
+  },
+  "auth.mfaChallenge.retry.disabled": {
+    "defaultMessage": "Verification is disabled for {countdown}."
+  },
+  "auth.mfaChallenge.retry.in": {
+    "defaultMessage": "Try again in {countdown}"
+  },
+  "auth.mfaChallenge.retry.ready": {
+    "defaultMessage": "You can try verification again now."
+  },
+  "auth.mfaChallenge.signOut.action": {
+    "defaultMessage": "Sign out"
+  },
+  "auth.mfaChallenge.signOut.pending": {
+    "defaultMessage": "Signing out..."
+  },
+  "auth.mfaChallenge.status.complete": {
+    "defaultMessage": "Verification complete. Finishing your session..."
+  },
+  "auth.mfaChallenge.status.expiresIn": {
+    "defaultMessage": "Verification expires in {countdown}."
+  },
+  "auth.mfaChallenge.status.requestExpired": {
+    "defaultMessage": "Verification request expired."
+  },
+  "auth.mfaChallenge.status.shortLived": {
+    "defaultMessage": "This verification request is short-lived."
+  },
+  "auth.mfaChallenge.strength.passkey": {
+    "defaultMessage": "Passkey verification required."
+  },
+  "auth.mfaChallenge.strength.recovery": {
+    "defaultMessage": "Recovery code verification required."
+  },
+  "auth.mfaChallenge.strength.totp": {
+    "defaultMessage": "Authenticator app verification required."
   },
   "auth.object.property.label.authenticity": {
     "defaultMessage": "Authenticity",
@@ -5608,6 +5789,9 @@
   "auth.success.signupSuccess.title": {
     "defaultMessage": "Account Created!",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."
+  },
+  "auth.trustedDevice.publicCheckpoint.title": {
+    "defaultMessage": "Verify this browser to continue securely"
   },
   "auth.trustedDevice.reauth.passwordHint": {
     "defaultMessage": "Fresh sign-in is required before this device can register a passkey."
@@ -7267,8 +7451,16 @@
     "defaultMessage": "Yes",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "common.cancel": {
+    "defaultMessage": "Cancel",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "common.choice.or": {
     "defaultMessage": "or",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "common.confirm": {
+    "defaultMessage": "Confirm",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.feedback.another.live.call.reached.you.while.you": {
@@ -8530,6 +8722,26 @@
   "common.object.property.text.okay.i.will.hold.here": {
     "defaultMessage": "Okay, I will hold here.",
     "description": "Static UI/template coverage descriptor from stable text scanner."
+  },
+  "common.rename": {
+    "defaultMessage": "Rename",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "common.revoke": {
+    "defaultMessage": "Revoke",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "common.revoking": {
+    "defaultMessage": "Revoking...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "common.save": {
+    "defaultMessage": "Save",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "common.saving": {
+    "defaultMessage": "Saving...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "common.static.aura.hybrid.marketplace": {
     "defaultMessage": "Aura — Hybrid Marketplace",
@@ -13313,6 +13525,10 @@
     "defaultMessage": "Card saved successfully.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.message.currentTrustedDeviceRevoked": {
+    "defaultMessage": "This device was revoked. You are being signed out.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.message.defaultPaymentUpdateFailed": {
     "defaultMessage": "Failed to update default payment method.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -13331,6 +13547,10 @@
   },
   "profile.message.optimizationStarted": {
     "defaultMessage": "Aura Intelligence optimization started. Fresh insights will appear shortly.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.otherTrustedDevicesRevoked": {
+    "defaultMessage": "Other trusted devices were revoked.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.message.passkeyRegisterFailed": {
@@ -13439,6 +13659,22 @@
   },
   "profile.message.totpVerifyFailed": {
     "defaultMessage": "Could not verify the authenticator code.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.trustedDeviceActionFailed": {
+    "defaultMessage": "Could not update this trusted device.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.trustedDeviceRenamed": {
+    "defaultMessage": "Trusted device renamed.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.trustedDeviceRevoked": {
+    "defaultMessage": "Trusted device revoked.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.message.trustedDeviceUnavailable": {
+    "defaultMessage": "Trusted-device management is unavailable in this session.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.notifications.body": {
@@ -14190,6 +14426,134 @@
   },
   "profile.rewards.title": {
     "defaultMessage": "Aura Points Command Center",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.activeCount": {
+    "defaultMessage": "{count} active",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.adminBody": {
+    "defaultMessage": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.adminPasskey": {
+    "defaultMessage": "Admin passkey",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.adminWarning": {
+    "defaultMessage": "Keep at least one independent admin passkey. The server blocks removal of the final policy-required admin factor.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.cancelRename": {
+    "defaultMessage": "Cancel rename",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.confirmRevokeAria": {
+    "defaultMessage": "Confirm revoke {device}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.confirmRevokeOthers": {
+    "defaultMessage": "Confirm revoke {count}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.current": {
+    "defaultMessage": "Current",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.currentBound": {
+    "defaultMessage": "This browser is identified",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.currentRevokeWarning": {
+    "defaultMessage": "Revoking this device signs you out and removes its local trust identity.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.currentUnbound": {
+    "defaultMessage": "This session is not bound to a managed device",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.deviceBound": {
+    "defaultMessage": "Device-bound or sync unknown",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.emptyBody": {
+    "defaultMessage": "Register a passkey or complete a trusted-browser checkpoint to add one.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.emptyTitle": {
+    "defaultMessage": "No managed devices yet",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.lastVerified": {
+    "defaultMessage": "Last verified {date}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.legacyAdminWarning": {
+    "defaultMessage": "Fresh passkey verification is required before this credential can protect admin actions.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.mfaPasskey": {
+    "defaultMessage": "MFA passkey",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.nameFor": {
+    "defaultMessage": "Name for {device}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.nameLabel": {
+    "defaultMessage": "Device name",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.never": {
+    "defaultMessage": "Never",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.publicBody": {
+    "defaultMessage": "A remembered browser can reduce recognition prompts, but it is not MFA. Passkeys protect MFA; a synced passkey may be available on more than one physical device.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.recognitionPasskey": {
+    "defaultMessage": "Recognition passkey",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.rememberedBrowser": {
+    "defaultMessage": "Remembered browser · not MFA",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.renameAria": {
+    "defaultMessage": "Rename {device}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.revokeAndSignOut": {
+    "defaultMessage": "Revoke & sign out",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.revokeAria": {
+    "defaultMessage": "Revoke {device}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.revokeOthers": {
+    "defaultMessage": "Revoke all others",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.revokingOthers": {
+    "defaultMessage": "Revoking...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.syncEligible": {
+    "defaultMessage": "Sync eligible",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.syncedPasskey": {
+    "defaultMessage": "Synced passkey",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.title": {
+    "defaultMessage": "Devices, passkeys & remembered browsers",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.devices.unknown": {
+    "defaultMessage": "Unknown",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.notifications.marketplace.desc": {

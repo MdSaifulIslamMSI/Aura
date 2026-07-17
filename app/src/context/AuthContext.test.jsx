@@ -32,6 +32,7 @@ const loadAuthContext = async () => {
     clearCsrfTokenCacheMock: vi.fn(),
     cacheTrustedDeviceSessionTokenMock: vi.fn(),
     clearTrustedDeviceSessionTokenMock: vi.fn(),
+    resetTrustedDeviceIdentityMock: vi.fn(),
     authApiMock: {
       exchangeSession: vi.fn(),
       createDesktopHandoffToken: vi.fn(),
@@ -42,6 +43,9 @@ const loadAuthContext = async () => {
       setupTotp: vi.fn(),
       verifyTotpSetup: vi.fn(),
       registerMfaPasskey: vi.fn(),
+      renameTrustedDevice: vi.fn(),
+      revokeTrustedDevice: vi.fn(),
+      revokeOtherTrustedDevices: vi.fn(),
       regenerateMfaRecoveryCodes: vi.fn(),
       verifyDeviceChallenge: vi.fn(),
     },
@@ -113,6 +117,7 @@ const loadAuthContext = async () => {
   vi.doMock('../services/deviceTrustClient', () => ({
     cacheTrustedDeviceSessionToken: mocks.cacheTrustedDeviceSessionTokenMock,
     clearTrustedDeviceSessionToken: mocks.clearTrustedDeviceSessionTokenMock,
+    resetTrustedDeviceIdentity: mocks.resetTrustedDeviceIdentityMock,
   }));
 
   vi.doMock('../services/nativeSocialAuth', () => ({
@@ -202,6 +207,9 @@ describe('AuthProvider', () => {
     mocks.authApiMock.setupTotp.mockResolvedValue({ success: true });
     mocks.authApiMock.verifyTotpSetup.mockResolvedValue({ success: true });
     mocks.authApiMock.registerMfaPasskey.mockResolvedValue({ success: true });
+    mocks.authApiMock.renameTrustedDevice.mockResolvedValue({ success: true });
+    mocks.authApiMock.revokeTrustedDevice.mockResolvedValue({ success: true, revokedCurrentDevice: false });
+    mocks.authApiMock.revokeOtherTrustedDevices.mockResolvedValue({ success: true });
     mocks.authApiMock.regenerateMfaRecoveryCodes.mockResolvedValue({ success: true });
     mocks.authApiMock.verifyDeviceChallenge.mockResolvedValue({
       success: true,
@@ -1423,6 +1431,94 @@ describe('AuthProvider', () => {
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });
 
+  it('preserves the MFA checkpoint returned after trusted-device verification', async () => {
+    let capturedContext = null;
+    const session = {
+      sessionId: 'server-session-mfa-1',
+      uid: 'firebase-user-1',
+      email: 'stale@example.com',
+      emailVerified: true,
+      providerIds: [],
+    };
+    const profile = {
+      _id: 'db-user-1',
+      name: 'Stale Session',
+      email: 'stale@example.com',
+      isAdmin: false,
+      isVerified: true,
+      isSeller: false,
+    };
+    const roles = { isAdmin: false, isSeller: false, isVerified: true };
+    mocks.authApiMock.getSession.mockResolvedValueOnce({
+      status: 'device_challenge_required',
+      deviceChallenge: {
+        token: 'challenge-token',
+        mode: 'assert',
+        availableMethods: ['browser_key'],
+        challenge: 'challenge-value',
+      },
+      session,
+      profile,
+      roles,
+    });
+    mocks.authApiMock.verifyDeviceChallenge.mockResolvedValueOnce({
+      success: true,
+      status: 'mfa_challenge_required',
+      deviceSessionToken: 'trusted-device-session-token-mfa',
+      expiresAt: '2026-04-12T14:00:00.000Z',
+      deviceChallenge: null,
+      mfaChallenge: {
+        challengeId: 'mfa-challenge-1',
+        purpose: 'login',
+        allowedMethods: ['totp', 'recovery_code'],
+        preferredMethod: 'totp',
+      },
+      mfaPolicy: { mfaRequired: true, reason: 'user_enabled' },
+      session,
+      profile,
+      roles,
+    });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return (
+        <div>
+          <span data-testid="verify-status">{authContext.status}</span>
+          <span data-testid="mfa-method">{authContext.mfaChallenge?.preferredMethod || ''}</span>
+        </div>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('verify-status')).toHaveTextContent('device_challenge_required');
+    });
+    await act(async () => {
+      await capturedContext.verifyDeviceChallenge('challenge-token', {
+        method: 'browser_key',
+        proofBase64: 'proof',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('verify-status')).toHaveTextContent('mfa_challenge_required');
+      expect(screen.getByTestId('mfa-method')).toHaveTextContent('totp');
+    });
+    expect(capturedContext.isAuthenticated).toBe(false);
+    expect(mocks.cacheTrustedDeviceSessionTokenMock).toHaveBeenCalledWith(
+      'trusted-device-session-token-mfa',
+      '2026-04-12T14:00:00.000Z'
+    );
+  });
+
   it('reauthenticates once and retries trusted-device verification when recent auth is required', async () => {
     let capturedContext = null;
     const recentAuthError = new Error('Recent re-authentication is required for this action.');
@@ -1726,6 +1822,47 @@ describe('AuthProvider', () => {
       firebaseUser: mocks.mockUser,
       forceRefreshAuth: true,
     });
+  });
+
+  it('clears local trust and signs out after revoking the current device', async () => {
+    let capturedContext = null;
+    mocks.mockUser.providerData = [{ providerId: 'google.com' }];
+    mocks.reauthenticateWithPopupMock.mockResolvedValue({ user: mocks.mockUser });
+    mocks.authApiMock.revokeTrustedDevice.mockResolvedValue({
+      success: true,
+      revokedCurrentDevice: true,
+      revokedDeviceIds: ['device-current'],
+    });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="revoke-status">{authContext.status}</div>;
+    };
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('revoke-status')).toHaveTextContent('authenticated');
+    });
+
+    await act(async () => {
+      await capturedContext.revokeTrustedDevice({ deviceId: 'device-current' });
+    });
+
+    expect(mocks.authApiMock.revokeTrustedDevice).toHaveBeenCalledWith(
+      { deviceId: 'device-current' },
+      { firebaseUser: mocks.mockUser, forceRefreshAuth: true }
+    );
+    expect(mocks.resetTrustedDeviceIdentityMock).toHaveBeenCalledTimes(1);
+    expect(mocks.signOutMock).toHaveBeenCalled();
+    expect(screen.getByTestId('revoke-status')).toHaveTextContent('signed_out');
   });
 
   it('reauthenticates once and retries sensitive MFA recovery-code generation when recent auth is required', async () => {

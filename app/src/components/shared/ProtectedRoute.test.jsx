@@ -53,9 +53,18 @@ const renderAdminRoute = (authValue, initialEntries = ['/admin/dashboard']) => {
             <LocaleProvider>
                 <AuthContext.Provider value={authValue}>
                     <MemoryRouter initialEntries={initialEntries}>
+                        <LocationProbe />
                         <Routes>
                             <Route
-                                path="*"
+                                path="/"
+                                element={<div>Storefront</div>}
+                            />
+                            <Route
+                                path="/login"
+                                element={<div>Login Screen</div>}
+                            />
+                            <Route
+                                path="/admin/*"
                                 element={(
                                     <AdminRoute>
                                         <div>Admin Dashboard</div>
@@ -104,6 +113,105 @@ describe('ProtectedRoute', () => {
 
         expect(screen.getByText('Trusted device checkpoint')).toBeInTheDocument();
         expect(screen.queryByText('Profile Screen')).not.toBeInTheDocument();
+    });
+
+    it('renders an interactive MFA challenge and forwards the existing TOTP contract', async () => {
+        const verifyMfaTotpChallenge = vi.fn().mockResolvedValue({
+            success: true,
+            session: { sessionId: 'route-session' },
+            profile: { id: 'route-profile' },
+            roles: { isAdmin: false },
+        });
+
+        renderProtectedRoute({
+            status: 'mfa_challenge_required',
+            sessionError: null,
+            mfaChallenge: {
+                challengeId: 'mfa-route-challenge',
+                purpose: 'login',
+                action: 'finish_login',
+                allowedMethods: ['totp', 'recovery_code'],
+                preferredMethod: 'totp',
+            },
+            mfaPolicy: { allowedMethods: ['totp', 'recovery_code'] },
+            roles: { isAdmin: false },
+            verifyMfaTotpChallenge,
+            verifyMfaRecoveryCodeChallenge: vi.fn(),
+            refreshSession: async () => null,
+            logout: vi.fn().mockResolvedValue(null),
+            currentUser: { uid: 'u_1', email: 'user@example.com' },
+        });
+
+        expect(screen.getByRole('heading', { name: /confirm it's you/i })).toBeInTheDocument();
+        expect(screen.queryByText('Profile Screen')).not.toBeInTheDocument();
+        fireEvent.change(screen.getByLabelText(/6-digit authenticator code/i), {
+            target: { value: '654321' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: /verify code/i }));
+
+        await waitFor(() => {
+            expect(verifyMfaTotpChallenge).toHaveBeenCalledWith({
+                challengeId: 'mfa-route-challenge',
+                purpose: 'login',
+                action: 'finish_login',
+                code: '654321',
+            });
+        });
+    });
+
+    it('uses admin checkpoint copy only when the resolved role is admin', () => {
+        renderAdminRoute({
+            status: 'mfa_challenge_required',
+            sessionError: null,
+            sessionIntelligence: null,
+            mfaChallenge: {
+                challengeId: 'mfa-admin-challenge',
+                allowedMethods: ['passkey'],
+                preferredMethod: 'passkey',
+            },
+            mfaPolicy: { allowedMethods: ['passkey'] },
+            roles: { isAdmin: true },
+            verifyMfaPasskeyChallenge: vi.fn().mockResolvedValue({ success: true }),
+            refreshSession: vi.fn().mockResolvedValue(null),
+            logout: vi.fn().mockResolvedValue(null),
+            currentUser: { uid: 'u_admin', email: 'admin@example.com' },
+        });
+
+        expect(screen.getByRole('heading', { name: /admin verification required/i })).toBeInTheDocument();
+        expect(screen.getByText(/admin security checkpoint/i)).toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: /confirm it's you/i })).not.toBeInTheDocument();
+        expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
+    });
+
+    it.each([
+        ['trusted-device', 'device_challenge_required'],
+        ['MFA', 'mfa_challenge_required'],
+    ])('rejects a non-admin before rendering the %s challenge', (_label, status) => {
+        renderAdminRoute({
+            status,
+            sessionError: null,
+            sessionIntelligence: null,
+            deviceChallenge: status === 'device_challenge_required'
+                ? { token: 'device-challenge', mode: 'assert' }
+                : null,
+            mfaChallenge: status === 'mfa_challenge_required'
+                ? {
+                    challengeId: 'mfa-non-admin',
+                    allowedMethods: ['totp'],
+                    preferredMethod: 'totp',
+                }
+                : null,
+            roles: { isAdmin: false },
+            verifyMfaTotpChallenge: vi.fn(),
+            refreshSession: vi.fn().mockResolvedValue(null),
+            logout: vi.fn().mockResolvedValue(null),
+            currentUser: { uid: 'u_non_admin', email: 'buyer@example.com' },
+        });
+
+        expect(screen.getByText('Storefront')).toBeInTheDocument();
+        expect(screen.queryByText(/trusted device checkpoint/i)).not.toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: /confirm it's you|admin verification required/i })).not.toBeInTheDocument();
+        expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
     });
 
     it('offers a reset sign-in path that preserves the blocked support route', async () => {

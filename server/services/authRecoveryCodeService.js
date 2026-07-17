@@ -54,7 +54,11 @@ const formatRecoveryCode = () => {
 
 const getPasskeyCount = (user = null) => (
     Array.isArray(user?.trustedDevices)
-        ? user.trustedDevices.filter((device) => String(device?.method || '').trim().toLowerCase() === 'webauthn').length
+        ? user.trustedDevices.filter((device) => (
+            !device?.revokedAt
+            && (!device?.expiresAt || new Date(device.expiresAt).getTime() > Date.now())
+            && String(device?.method || '').trim().toLowerCase() === 'webauthn'
+        )).length
         : 0
 );
 

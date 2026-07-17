@@ -3978,16 +3978,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "auth.mfaChallenge.message": {
-        id: "auth.mfaChallenge.message",
-        defaultMessage: "Complete the second-factor challenge to finish this session.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.mfaChallenge.title": {
-        id: "auth.mfaChallenge.title",
-        defaultMessage: "MFA checkpoint",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "auth.pending.admin": {
         id: "auth.pending.admin",
         defaultMessage: "Checking admin session access...",
@@ -5858,9 +5848,19 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Yes",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "common.cancel": {
+        id: "common.cancel",
+        defaultMessage: "Cancel",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "common.choice.or": {
         id: "common.choice.or",
         defaultMessage: "or",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.confirm": {
+        id: "common.confirm",
+        defaultMessage: "Confirm",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "common.jsx.expression.a.live.lane.is.active.e6c9da1a": {
@@ -7001,6 +7001,31 @@ export const stableUiMessages = defineMessages({
     "common.jsx.text.your.hosted.aura.experience.keeps.updating.automatically.5f175dd0": {
         id: "common.jsx.text.your.hosted.aura.experience.keeps.updating.automatically.5f175dd0",
         defaultMessage: "Your hosted Aura experience keeps updating automatically. This notice is for the native",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.rename": {
+        id: "common.rename",
+        defaultMessage: "Rename",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.revoke": {
+        id: "common.revoke",
+        defaultMessage: "Revoke",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.revoking": {
+        id: "common.revoking",
+        defaultMessage: "Revoking...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.save": {
+        id: "common.save",
+        defaultMessage: "Save",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.saving": {
+        id: "common.saving",
+        defaultMessage: "Saving...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "common.validation.jsx.text.a.ui.module.failed.to.load.correctly.547ea3f7": {
@@ -12553,6 +12578,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Card saved successfully.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.message.currentTrustedDeviceRevoked": {
+        id: "profile.message.currentTrustedDeviceRevoked",
+        defaultMessage: "This device was revoked. You are being signed out.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.message.defaultPaymentUpdateFailed": {
         id: "profile.message.defaultPaymentUpdateFailed",
         defaultMessage: "Failed to update default payment method.",
@@ -12576,6 +12606,11 @@ export const stableUiMessages = defineMessages({
     "profile.message.optimizationStarted": {
         id: "profile.message.optimizationStarted",
         defaultMessage: "Aura Intelligence optimization started. Fresh insights will appear shortly.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.otherTrustedDevicesRevoked": {
+        id: "profile.message.otherTrustedDevicesRevoked",
+        defaultMessage: "Other trusted devices were revoked.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.message.passkeyRegisterFailed": {
@@ -12711,6 +12746,26 @@ export const stableUiMessages = defineMessages({
     "profile.message.totpVerifyFailed": {
         id: "profile.message.totpVerifyFailed",
         defaultMessage: "Could not verify the authenticator code.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.trustedDeviceActionFailed": {
+        id: "profile.message.trustedDeviceActionFailed",
+        defaultMessage: "Could not update this trusted device.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.trustedDeviceRenamed": {
+        id: "profile.message.trustedDeviceRenamed",
+        defaultMessage: "Trusted device renamed.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.trustedDeviceRevoked": {
+        id: "profile.message.trustedDeviceRevoked",
+        defaultMessage: "Trusted device revoked.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.trustedDeviceUnavailable": {
+        id: "profile.message.trustedDeviceUnavailable",
+        defaultMessage: "Trusted-device management is unavailable in this session.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.notifications.body": {
@@ -13631,6 +13686,166 @@ export const stableUiMessages = defineMessages({
     "profile.rewards.title": {
         id: "profile.rewards.title",
         defaultMessage: "Aura Points Command Center",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.activeCount": {
+        id: "profile.settings.devices.activeCount",
+        defaultMessage: "{count} active",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.adminBody": {
+        id: "profile.settings.devices.adminBody",
+        defaultMessage: "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.adminPasskey": {
+        id: "profile.settings.devices.adminPasskey",
+        defaultMessage: "Admin passkey",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.adminWarning": {
+        id: "profile.settings.devices.adminWarning",
+        defaultMessage: "Keep at least one independent admin passkey. The server blocks removal of the final policy-required admin factor.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.cancelRename": {
+        id: "profile.settings.devices.cancelRename",
+        defaultMessage: "Cancel rename",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.confirmRevokeAria": {
+        id: "profile.settings.devices.confirmRevokeAria",
+        defaultMessage: "Confirm revoke {device}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.confirmRevokeOthers": {
+        id: "profile.settings.devices.confirmRevokeOthers",
+        defaultMessage: "Confirm revoke {count}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.current": {
+        id: "profile.settings.devices.current",
+        defaultMessage: "Current",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.currentBound": {
+        id: "profile.settings.devices.currentBound",
+        defaultMessage: "This browser is identified",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.currentRevokeWarning": {
+        id: "profile.settings.devices.currentRevokeWarning",
+        defaultMessage: "Revoking this device signs you out and removes its local trust identity.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.currentUnbound": {
+        id: "profile.settings.devices.currentUnbound",
+        defaultMessage: "This session is not bound to a managed device",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.deviceBound": {
+        id: "profile.settings.devices.deviceBound",
+        defaultMessage: "Device-bound or sync unknown",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.emptyBody": {
+        id: "profile.settings.devices.emptyBody",
+        defaultMessage: "Register a passkey or complete a trusted-browser checkpoint to add one.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.emptyTitle": {
+        id: "profile.settings.devices.emptyTitle",
+        defaultMessage: "No managed devices yet",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.lastVerified": {
+        id: "profile.settings.devices.lastVerified",
+        defaultMessage: "Last verified {date}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.legacyAdminWarning": {
+        id: "profile.settings.devices.legacyAdminWarning",
+        defaultMessage: "Fresh passkey verification is required before this credential can protect admin actions.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.mfaPasskey": {
+        id: "profile.settings.devices.mfaPasskey",
+        defaultMessage: "MFA passkey",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.nameFor": {
+        id: "profile.settings.devices.nameFor",
+        defaultMessage: "Name for {device}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.nameLabel": {
+        id: "profile.settings.devices.nameLabel",
+        defaultMessage: "Device name",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.never": {
+        id: "profile.settings.devices.never",
+        defaultMessage: "Never",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.publicBody": {
+        id: "profile.settings.devices.publicBody",
+        defaultMessage: "A remembered browser can reduce recognition prompts, but it is not MFA. Passkeys protect MFA; a synced passkey may be available on more than one physical device.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.recognitionPasskey": {
+        id: "profile.settings.devices.recognitionPasskey",
+        defaultMessage: "Recognition passkey",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.rememberedBrowser": {
+        id: "profile.settings.devices.rememberedBrowser",
+        defaultMessage: "Remembered browser · not MFA",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.renameAria": {
+        id: "profile.settings.devices.renameAria",
+        defaultMessage: "Rename {device}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.revokeAndSignOut": {
+        id: "profile.settings.devices.revokeAndSignOut",
+        defaultMessage: "Revoke & sign out",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.revokeAria": {
+        id: "profile.settings.devices.revokeAria",
+        defaultMessage: "Revoke {device}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.revokeOthers": {
+        id: "profile.settings.devices.revokeOthers",
+        defaultMessage: "Revoke all others",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.revokingOthers": {
+        id: "profile.settings.devices.revokingOthers",
+        defaultMessage: "Revoking...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.syncEligible": {
+        id: "profile.settings.devices.syncEligible",
+        defaultMessage: "Sync eligible",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.syncedPasskey": {
+        id: "profile.settings.devices.syncedPasskey",
+        defaultMessage: "Synced passkey",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.title": {
+        id: "profile.settings.devices.title",
+        defaultMessage: "Devices, passkeys & remembered browsers",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.devices.unknown": {
+        id: "profile.settings.devices.unknown",
+        defaultMessage: "Unknown",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.notifications.marketplace.desc": {

@@ -6703,8 +6703,7 @@ body.aura-trusted-gate-open :is(
   .aura-secure-path-dock,
   .aura-anchor-rail,
   .aura-update-banner,
-  .market-studio-popover,
-  .trusted-device-minimized
+  .market-studio-popover
 ) {
   opacity: 0 !important;
   pointer-events: none !important;

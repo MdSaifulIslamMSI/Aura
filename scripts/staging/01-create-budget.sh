@@ -12,6 +12,8 @@ need_env STAGING_MONTHLY_BUDGET_USD
 budget_name="${PROJECT_NAME}-${STAGING_NAME}-monthly-budget"
 budget_file="$STATE_DIR/budget.json"
 notification_file="$STATE_DIR/budget-notification.json"
+forecast_notification_file="$STATE_DIR/budget-forecast-notification.json"
+subscribers_file="$STATE_DIR/budget-subscribers.json"
 ensure_state
 
 cat > "$budget_file" <<JSON
@@ -41,6 +43,38 @@ cat > "$notification_file" <<JSON
         "Address": "$STAGING_BUDGET_EMAIL"
       }
     ]
+  },
+  {
+    "Notification": {
+      "NotificationType": "FORECASTED",
+      "ComparisonOperator": "GREATER_THAN",
+      "Threshold": 80,
+      "ThresholdType": "PERCENTAGE"
+    },
+    "Subscribers": [
+      {
+        "SubscriptionType": "EMAIL",
+        "Address": "$STAGING_BUDGET_EMAIL"
+      }
+    ]
+  }
+]
+JSON
+
+cat > "$forecast_notification_file" <<'JSON'
+{
+  "NotificationType": "FORECASTED",
+  "ComparisonOperator": "GREATER_THAN",
+  "Threshold": 80,
+  "ThresholdType": "PERCENTAGE"
+}
+JSON
+
+cat > "$subscribers_file" <<JSON
+[
+  {
+    "SubscriptionType": "EMAIL",
+    "Address": "$STAGING_BUDGET_EMAIL"
   }
 ]
 JSON
@@ -63,6 +97,21 @@ if [ "$rc" -ne 0 ]; then
   fi
   cat /tmp/aura-budget.log >&2 || true
   die "Budget guardrail could not be created or updated. Set ALLOW_NO_BUDGET=true only if this is intentional."
+fi
+
+forecast_notification_exists="$(aws_cli budgets describe-notifications-for-budget \
+  --region us-east-1 \
+  --account-id "$AWS_ACCOUNT_ID" \
+  --budget-name "$budget_name" \
+  --query "contains(Notifications[].NotificationType, 'FORECASTED')" \
+  --output text)"
+if [ "$forecast_notification_exists" != "True" ]; then
+  aws_cli budgets create-notification \
+    --region us-east-1 \
+    --account-id "$AWS_ACCOUNT_ID" \
+    --budget-name "$budget_name" \
+    --notification "$(aws_file_uri "$forecast_notification_file")" \
+    --subscribers "$(aws_file_uri "$subscribers_file")"
 fi
 
 state_set budget_name "$budget_name"

@@ -68,6 +68,61 @@ groups:
           summary: Aura trusted-device verification failures are elevated
           description: More than 10 trusted-device verification failures were recorded in the last 10 minutes.
 
+      - alert: AuraAuthAdminTrustedDeviceVerifyFailure
+        expr: sum(increase(aura_auth_security_events_total{event="trusted_device_verify",outcome="failure",audience="admin"}[10m])) > 2
+        for: 1m
+        labels:
+          severity: critical
+          domain: auth
+          runbook: trusted-device-v2-rollout
+        annotations:
+          summary: Admin trusted-device verification failures are elevated
+          description: More than 2 admin trusted-device verification failures were recorded in 10 minutes; pause the admin cohort.
+
+      - alert: AuraAuthPublicTrustedDeviceFailureRatio
+        expr: (sum(rate(aura_auth_security_events_total{event="trusted_device_verify",outcome="failure",audience="public"}[10m])) / clamp_min(sum(rate(aura_auth_security_events_total{event="trusted_device_verify",audience="public"}[10m])), 0.001)) > 0.15 and sum(increase(aura_auth_security_events_total{event="trusted_device_verify",audience="public"}[10m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+          domain: auth
+          runbook: trusted-device-v2-rollout
+        annotations:
+          summary: Public trusted-device verification failure ratio is elevated
+          description: More than 15 percent of at least 20 public verifications failed over 10 minutes; stop widening the public cohort.
+
+      - alert: AuraAuthTrustedDeviceRevocationFailure
+        expr: sum(increase(aura_auth_security_events_total{event=~"trusted_device[.]revoked|trusted_device[.]others_revoked",outcome=~"failure|blocked"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          domain: auth
+          runbook: trusted-device-v2-rollout
+        annotations:
+          summary: Trusted-device revocation failed
+          description: A device revocation or revoke-others operation failed; halt trusted-device rollout until session invalidation is restored.
+
+      - alert: AuraAuthTrustedDeviceV2ShadowMismatch
+        expr: sum(increase(aura_auth_security_events_total{event="trusted_device_v2_shadow_compare",outcome="failure"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          domain: auth
+          runbook: trusted-device-v2-rollout
+        annotations:
+          summary: Trusted-device V2 shadow comparison drifted
+          description: Legacy and V2 trust decisions disagreed; keep V2 reads disabled and investigate the mismatch.
+
+      - alert: AuraAuthTrustedDeviceV2WriteFailure
+        expr: sum(increase(aura_auth_security_events_total{event=~"trusted_device_v2_dual_write|trusted_device_v2_metadata_write|trusted_device_v2_bulk_revoke",outcome="failure"}[10m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          domain: auth
+          runbook: trusted-device-v2-rollout
+        annotations:
+          summary: Trusted-device V2 dual-write drift detected
+          description: A V2 credential or lifecycle mirror failed; keep V2 reads disabled and repair the cohort before widening rollout.
+
       - alert: AuraAuthStepUpPressure
         expr: sum(increase(aura_auth_security_events_total{event="step_up_required"}[10m])) > 25
         for: 5m

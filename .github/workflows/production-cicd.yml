@@ -131,6 +131,7 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
           CONFIRM_PRODUCTION: ${{ github.event.inputs.confirm_production || '' }}
@@ -303,6 +304,11 @@ jobs:
           validate_target_list "deploy" "${INPUT_DEPLOY_TARGETS}" backend frontend-multihost storefront gateway
           validate_target_list "release" "${INPUT_RELEASE_TARGETS}" desktop mobile
           validate_target_list "rollback" "${INPUT_ROLLBACK_TARGETS}" backend frontend-multihost storefront gateway
+
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ] && [ "${REF_NAME}" != "main" ] && [ -n "${INPUT_DEPLOY_TARGETS}${INPUT_RELEASE_TARGETS}${INPUT_ROLLBACK_TARGETS}" ]; then
+            echo "Production actions must be dispatched from the main branch; received ${REF_NAME}." >&2
+            exit 1
+          fi
 
           rollback_backend_ref="$(rollback_ref_for backend)"
           rollback_netlify_ref="$(rollback_ref_for netlify)"
@@ -753,6 +759,20 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+  release-safety-gates:
+    name: Same-SHA staging, cost, observability, and rollback gates
+    needs:
+      - plan
+    if: |
+      needs.plan.outputs.planned_production_action == 'true' &&
+      needs.plan.outputs.requested_deploy_or_release_action == 'true'
+    uses: ./.github/workflows/giant-release-gates.yml
+    permissions:
+      contents: read
+      id-token: write
+    secrets:
+      STAGING_AWS_DEPLOY_ROLE_ARN: ${{ secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}
+
   production-approval:
     name: Production approval gate
     runs-on: ubuntu-latest
@@ -760,6 +780,7 @@ jobs:
       - plan
       - quality-gates
       - security-gates
+      - release-safety-gates
     if: |
       always() &&
       needs.plan.outputs.planned_production_action == 'true' &&
@@ -770,7 +791,8 @@ jobs:
         ) ||
         (
           needs.quality-gates.result == 'success' &&
-          needs.security-gates.result == 'success'
+          needs.security-gates.result == 'success' &&
+          needs.release-safety-gates.result == 'success'
         )
       )
     environment:
@@ -784,6 +806,7 @@ jobs:
           REQUESTED_ROLLBACK: ${{ needs.plan.outputs.requested_rollback_action }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          RELEASE_SAFETY_GATES_RESULT: ${{ needs.release-safety-gates.result }}
           ACTOR_NAME: ${{ github.actor }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
@@ -799,6 +822,7 @@ jobs:
             echo "| Rollback requested | ${REQUESTED_ROLLBACK} |"
             echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
             echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Same-SHA release safety gates | ${RELEASE_SAFETY_GATES_RESULT} |"
             echo "| Actor | ${ACTOR_NAME} |"
             echo "| SHA | ${COMMIT_SHA} |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -810,6 +834,7 @@ jobs:
       - plan
       - quality-gates
       - security-gates
+      - release-safety-gates
       - production-approval
     if: always() && needs.production-approval.result != 'success'
 
@@ -822,6 +847,7 @@ jobs:
           MANUAL_CONFIRMED: ${{ needs.plan.outputs.manual_confirmed }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          RELEASE_SAFETY_GATES_RESULT: ${{ needs.release-safety-gates.result }}
           APPROVAL_RESULT: ${{ needs.production-approval.result }}
         run: |
           {
@@ -834,12 +860,13 @@ jobs:
             echo "| Manual confirmed | ${MANUAL_CONFIRMED} |"
             echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
             echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Same-SHA release safety gates | ${RELEASE_SAFETY_GATES_RESULT} |"
             echo "| Approval result | ${APPROVAL_RESULT} |"
             echo
             if [ "${PLANNED_PRODUCTION_ACTION}" != "true" ]; then
               echo "No real production action was planned, so the production environment approval was intentionally not requested."
-            elif [ "${REQUESTED_DEPLOY_OR_RELEASE}" = "true" ] && { [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ]; }; then
-              echo "A deploy or release was requested, but production approval was blocked because CI or security gates did not pass."
+            elif [ "${REQUESTED_DEPLOY_OR_RELEASE}" = "true" ] && { [ "${QUALITY_GATES_RESULT}" != "success" ] || [ "${SECURITY_GATES_RESULT}" != "success" ] || [ "${RELEASE_SAFETY_GATES_RESULT}" != "success" ]; }; then
+              echo "A deploy or release was requested, but production approval was blocked because CI, security, or same-SHA release safety gates did not pass."
             else
               echo "Production approval did not complete successfully."
             fi
@@ -1880,6 +1907,7 @@ jobs:
       - plan
       - quality-gates
       - security-gates
+      - release-safety-gates
       - production-approval
       - production-approval-noop
       - release-manifest
@@ -1927,6 +1955,7 @@ jobs:
           GATEWAY_MISSING: ${{ needs.plan.outputs.gateway_missing }}
           QUALITY_GATES_RESULT: ${{ needs.quality-gates.result }}
           SECURITY_GATES_RESULT: ${{ needs.security-gates.result }}
+          RELEASE_SAFETY_GATES_RESULT: ${{ needs.release-safety-gates.result }}
           PRODUCTION_APPROVAL_RESULT: ${{ needs.production-approval.result }}
           RELEASE_MANIFEST_RESULT: ${{ needs.release-manifest.result }}
           SHOULD_DEPLOY_BACKEND: ${{ needs.plan.outputs.should_deploy_backend }}
@@ -1999,6 +2028,7 @@ jobs:
             echo "|---|---|"
             echo "| Quality gates | ${QUALITY_GATES_RESULT} |"
             echo "| Security gates | ${SECURITY_GATES_RESULT} |"
+            echo "| Same-SHA release safety gates | ${RELEASE_SAFETY_GATES_RESULT} |"
             echo "| Production approval | ${PRODUCTION_APPROVAL_RESULT} |"
             echo "| Release manifest | ${RELEASE_MANIFEST_RESULT} |"
             echo

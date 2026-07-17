@@ -30,7 +30,7 @@ const resolveMfaLevel = (req = {}) => {
     if (amr.some((entry) => entry === 'webauthn' || entry === 'passkey' || entry === 'duo' || entry === 'duo_oidc')) {
         return 'phishing_resistant';
     }
-    if (amr.some((entry) => entry === 'mfa' || entry === 'otp' || entry === 'totp' || entry === 'sms' || entry === 'trusted_device')) {
+    if (amr.some((entry) => entry === 'mfa' || entry === 'otp' || entry === 'totp' || entry === 'sms')) {
         return 'second_factor';
     }
     if (req.user?.mfa?.enabled || req.user?.trustedDevices?.length > 0) {

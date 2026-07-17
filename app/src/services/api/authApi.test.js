@@ -323,6 +323,63 @@ describe('authApi', () => {
     });
   });
 
+  it('renames a trusted device with a CSRF-protected PATCH request', async () => {
+    const csrfToken = 'r'.repeat(64);
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    mocks.ensureCsrfTokenMock.mockResolvedValueOnce(csrfToken);
+    mocks.addCsrfTokenToHeadersMock.mockReturnValueOnce({
+      'X-Session-Mode': 'cookie',
+      'X-CSRF-Token': csrfToken,
+    });
+    global.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await expect(authApi.renameTrustedDevice({
+      deviceId: 'device-public-1',
+      label: 'Work laptop',
+    })).resolves.toMatchObject({ success: true });
+
+    expect(mocks.addCsrfTokenToHeadersMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      'PATCH',
+      csrfToken
+    );
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/mfa/trusted-devices/device-public-1');
+    expect(requestOptions.method).toBe('PATCH');
+    expect(JSON.parse(requestOptions.body)).toEqual({ label: 'Work laptop' });
+  });
+
+  it('revokes one trusted device or all other devices through explicit endpoints', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        revokedDeviceIds: ['device-public-1'],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        revokedDeviceIds: ['device-public-2'],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    await authApi.revokeTrustedDevice({ deviceId: 'device-public-1' }, { firebaseUser });
+    await authApi.revokeOtherTrustedDevices({ firebaseUser });
+
+    expect(global.fetch.mock.calls[0][0]).toContain('/auth/mfa/trusted-devices/device-public-1/revoke');
+    expect(global.fetch.mock.calls[0][1].method).toBe('POST');
+    expect(global.fetch.mock.calls[1][0]).toContain('/auth/mfa/trusted-devices/revoke-others');
+    expect(global.fetch.mock.calls[1][1].method).toBe('POST');
+  });
+
   it('builds a Duo login redirect URL with a safe return path', async () => {
     expect(authApi.getDuoLoginUrl('/profile?tab=security')).toContain('/api/auth/duo/start?returnTo=%2Fprofile%3Ftab%3Dsecurity');
     expect(authApi.getDuoLoginUrl('/desktop-login?desktopAuthRequest=req-1&desktopAuthSecret=secret-1#bridge')).toContain('/api/auth/duo/start?returnTo=%2Fdesktop-login%3FdesktopAuthRequest%3Dreq-1%26desktopAuthSecret%3Dsecret-1%23bridge');

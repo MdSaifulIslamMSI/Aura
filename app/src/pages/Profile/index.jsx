@@ -87,6 +87,9 @@ export default function Profile() {
         startTotpSetup,
         verifyTotpSetup,
         registerMfaPasskey,
+        renameTrustedDevice: renameTrustedDeviceInContext,
+        revokeTrustedDevice: revokeTrustedDeviceInContext,
+        revokeOtherTrustedDevices: revokeOtherTrustedDevicesInContext,
         regenerateMfaRecoveryCodes,
         isAuthenticated,
     } = useContext(AuthContext);
@@ -122,6 +125,7 @@ export default function Profile() {
     const [totpSetupLoading, setTotpSetupLoading] = useState(false);
     const [totpVerifyLoading, setTotpVerifyLoading] = useState(false);
     const [mfaPasskeyWorking, setMfaPasskeyWorking] = useState(false);
+    const [trustedDeviceAction, setTrustedDeviceAction] = useState('');
     const [intelligenceData, setIntelligenceData] = useState(null);
     const [intelligenceLoading, setIntelligenceLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
@@ -706,6 +710,63 @@ export default function Profile() {
         } finally {
             setMfaPasskeyWorking(false);
         }
+    };
+
+    const applyTrustedDeviceMutation = async ({ actionKey, operation, successMessage }) => {
+        setTrustedDeviceAction(actionKey);
+        try {
+            const result = await operation();
+            if (result?.mfa) {
+                setMfaCenter((previous) => ({ ...(previous || {}), success: true, mfa: result.mfa }));
+            } else if (!result?.revokedCurrentDevice) {
+                await refreshMfaCenter({ silent: true });
+            }
+            showMsg('success', successMessage);
+            return result;
+        } catch (error) {
+            showMsg(
+                'error',
+                error.message || t('profile.message.trustedDeviceActionFailed', {}, 'Could not update this trusted device.')
+            );
+            throw error;
+        } finally {
+            setTrustedDeviceAction('');
+        }
+    };
+
+    const handleRenameTrustedDevice = async (deviceId, label) => {
+        if (!renameTrustedDeviceInContext) {
+            throw new Error(t('profile.message.trustedDeviceUnavailable', {}, 'Trusted-device management is unavailable in this session.'));
+        }
+        return applyTrustedDeviceMutation({
+            actionKey: `rename:${deviceId}`,
+            operation: () => renameTrustedDeviceInContext({ deviceId, label }),
+            successMessage: t('profile.message.trustedDeviceRenamed', {}, 'Trusted device renamed.'),
+        });
+    };
+
+    const handleRevokeTrustedDevice = async (deviceId, { isCurrent = false } = {}) => {
+        if (!revokeTrustedDeviceInContext) {
+            throw new Error(t('profile.message.trustedDeviceUnavailable', {}, 'Trusted-device management is unavailable in this session.'));
+        }
+        return applyTrustedDeviceMutation({
+            actionKey: `revoke:${deviceId}`,
+            operation: () => revokeTrustedDeviceInContext({ deviceId }),
+            successMessage: isCurrent
+                ? t('profile.message.currentTrustedDeviceRevoked', {}, 'This device was revoked. You are being signed out.')
+                : t('profile.message.trustedDeviceRevoked', {}, 'Trusted device revoked.'),
+        });
+    };
+
+    const handleRevokeOtherTrustedDevices = async () => {
+        if (!revokeOtherTrustedDevicesInContext) {
+            throw new Error(t('profile.message.trustedDeviceUnavailable', {}, 'Trusted-device management is unavailable in this session.'));
+        }
+        return applyTrustedDeviceMutation({
+            actionKey: 'revoke-others',
+            operation: () => revokeOtherTrustedDevicesInContext(),
+            successMessage: t('profile.message.otherTrustedDevicesRevoked', {}, 'Other trusted devices were revoked.'),
+        });
     };
 
     const handleCopyRecoveryCodes = async () => {
@@ -1317,6 +1378,10 @@ export default function Profile() {
                             handleVerifyTotpSetup={handleVerifyTotpSetup}
                             mfaPasskeyWorking={mfaPasskeyWorking}
                             handleRegisterMfaPasskey={handleRegisterMfaPasskey}
+                            trustedDeviceAction={trustedDeviceAction}
+                            handleRenameTrustedDevice={handleRenameTrustedDevice}
+                            handleRevokeTrustedDevice={handleRevokeTrustedDevice}
+                            handleRevokeOtherTrustedDevices={handleRevokeOtherTrustedDevices}
                             linkedProviderIds={linkedProviderIds}
                             socialAuthStatus={socialAuthStatus}
                             providerLinking={providerLinking}

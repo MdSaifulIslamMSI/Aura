@@ -20,6 +20,17 @@ const SURFACES = new Set([
     'data',
     'ai',
 ]);
+const AUDIENCES = new Set(['admin', 'seller', 'public', 'unknown']);
+const METHODS = new Set([
+    'browser_key',
+    'duo',
+    'email_otp',
+    'none',
+    'passkey',
+    'recovery_code',
+    'totp',
+    'unknown',
+]);
 const REASON_ALIASES = [
     ['already_used', ['already used', 'replay']],
     ['allowlist', ['allowlist']],
@@ -61,6 +72,29 @@ const normalizeSurface = (value) => {
     return SURFACES.has(normalized) ? normalized : 'auth';
 };
 
+const normalizeAudience = (value, req = null) => {
+    const explicit = sanitizeLabel(value, '');
+    if (AUDIENCES.has(explicit)) return explicit;
+    if (req?.user?.isAdmin || req?.authSession?.isAdmin) return 'admin';
+    if (req?.user?.isSeller || req?.authSession?.isSeller) return 'seller';
+    if (req?.user || req?.authUid || req?.authSession?.userId) return 'public';
+    return 'unknown';
+};
+
+const normalizeMethod = (value, req = null) => {
+    const raw = sanitizeLabel(value || req?.authSession?.deviceMethod, 'unknown');
+    const aliases = {
+        browser: 'browser_key',
+        device_binding: 'browser_key',
+        duo_oidc: 'duo',
+        mfa_recovery: 'recovery_code',
+        recovery: 'recovery_code',
+        webauthn: 'passkey',
+    };
+    const normalized = aliases[raw] || raw;
+    return METHODS.has(normalized) ? normalized : 'unknown';
+};
+
 const normalizeReason = (value) => {
     const raw = String(value || '').trim();
     if (!raw) return 'none';
@@ -92,8 +126,8 @@ const getCounter = () => (
     registry.getSingleMetric(METRIC_NAME)
     || new client.Counter({
         name: METRIC_NAME,
-        help: 'Total authentication security events by bounded event, outcome, reason, and surface.',
-        labelNames: ['event', 'outcome', 'reason', 'surface'],
+        help: 'Total authentication security events by bounded event, outcome, reason, surface, audience, and method.',
+        labelNames: ['event', 'outcome', 'reason', 'surface', 'audience', 'method'],
         registers: [registry],
     })
 );
@@ -119,6 +153,8 @@ const recordAuthSecurityEvent = ({
         outcome: normalizeOutcome(outcome),
         reason: normalizeReason(reason),
         surface: normalizeSurface(surface),
+        audience: normalizeAudience(meta.audience, req),
+        method: normalizeMethod(meta.method, req),
     };
 
     try {
@@ -130,12 +166,13 @@ const recordAuthSecurityEvent = ({
     const logLevel = chooseLogLevel(labels.outcome, level);
     try {
         logger[logLevel]('auth.security_event', {
+            ...meta,
             ...labels,
             requestId: req?.requestId || req?.headers?.['x-request-id'] || '',
             method: req?.method || '',
             path: normalizePathForLog(req || {}),
             statusCode: meta.statusCode || undefined,
-            ...meta,
+            factorMethod: labels.method,
         });
     } catch {
         // Telemetry must never change authentication behavior.
@@ -155,6 +192,8 @@ module.exports = {
     METRIC_NAME,
     recordAuthSecurityEvent,
     __private: {
+        normalizeAudience,
+        normalizeMethod,
         normalizeReason,
         sanitizeLabel,
     },

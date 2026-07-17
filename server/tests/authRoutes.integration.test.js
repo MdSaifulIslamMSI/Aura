@@ -7,6 +7,7 @@ const {
     issueTrustedDeviceSession,
     TRUSTED_DEVICE_SESSION_HEADER,
 } = require('../services/trustedDeviceChallengeService');
+const { inspectOtpFlowToken } = require('../utils/otpFlowToken');
 const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
 const buildStrongPassword = () => String.fromCharCode(79, 114, 99, 104, 105, 100, 33, 56, 118, 82, 50, 80);
 const GENERIC_PHONE_FACTOR_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
@@ -142,7 +143,7 @@ describe('Auth backup recovery codes', () => {
         expect(replay.body.message).toContain('invalid or already used');
     });
 
-    test('POST /api/auth/recovery-codes/verify rejects spoofable device id without consuming the code', async () => {
+    test('POST /api/auth/recovery-codes/verify accepts a valid code without an old device session', async () => {
         const deviceId = 'device-recovery-session-required';
         const user = await User.create({
             name: 'Recovery Session Required User',
@@ -159,7 +160,7 @@ describe('Auth backup recovery codes', () => {
         });
         const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
 
-        const missingSession = await request(app)
+        const recoveredFromNewBrowser = await request(app)
             .post('/api/auth/recovery-codes/verify')
             .set('X-Aura-Device-Id', deviceId)
             .send({
@@ -167,27 +168,25 @@ describe('Auth backup recovery codes', () => {
                 code: codes[0],
             });
 
-        expect(missingSession.statusCode).toBe(400);
-        expect(missingSession.body.message).toContain('Trusted device session');
-
-        const { deviceSessionToken } = issueTrustedDeviceSession({ user, deviceId });
-        const retryWithSession = await request(app)
-            .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', deviceId)
-            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
-            .send({
-                email: user.email,
-                code: codes[0],
-            });
-
-        expect(retryWithSession.statusCode).toBe(200);
-        expect(retryWithSession.body).toMatchObject({
+        expect(recoveredFromNewBrowser.statusCode).toBe(200);
+        expect(recoveredFromNewBrowser.body).toMatchObject({
             success: true,
             flowToken: expect.any(String),
         });
+
+        const replay = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', deviceId)
+            .send({
+                email: user.email,
+                code: codes[0],
+            });
+
+        expect(replay.statusCode).toBe(401);
+        expect(replay.body.message).toBe('Recovery code is invalid or already used.');
     });
 
-    test('POST /api/auth/recovery-codes/verify rejects missing device identity without consuming the code', async () => {
+    test('POST /api/auth/recovery-codes/verify accepts a valid code when the old device is lost', async () => {
         const deviceId = 'device-recovery-retry';
         const user = await User.create({
             name: 'Recovery Missing Device User',
@@ -204,28 +203,15 @@ describe('Auth backup recovery codes', () => {
         });
         const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
 
-        const missingDevice = await request(app)
+        const recoveredWithoutDevice = await request(app)
             .post('/api/auth/recovery-codes/verify')
             .send({
                 email: user.email,
                 code: codes[0],
             });
 
-        expect(missingDevice.statusCode).toBe(400);
-        expect(missingDevice.body.message).toContain('Trusted device identity');
-
-        const { deviceSessionToken } = issueTrustedDeviceSession({ user, deviceId });
-        const retryWithDevice = await request(app)
-            .post('/api/auth/recovery-codes/verify')
-            .set('X-Aura-Device-Id', deviceId)
-            .set(TRUSTED_DEVICE_SESSION_HEADER, deviceSessionToken)
-            .send({
-                email: user.email,
-                code: codes[0],
-            });
-
-        expect(retryWithDevice.statusCode).toBe(200);
-        expect(retryWithDevice.body).toMatchObject({
+        expect(recoveredWithoutDevice.statusCode).toBe(200);
+        expect(recoveredWithoutDevice.body).toMatchObject({
             success: true,
             flowToken: expect.any(String),
         });
@@ -272,7 +258,7 @@ describe('Auth backup recovery codes', () => {
         expect(unknownAccount.body.message).toBe(wrongCode.body.message);
     });
 
-    test('POST /api/auth/recovery-codes/verify binds reset flow token to the requesting device', async () => {
+    test('POST /api/auth/recovery-codes/verify issues a one-time reset flow that is not bound to the lost device', async () => {
         const deviceId = 'device-recovery-a';
         const user = await User.create({
             name: 'Recovery Device Bound User',
@@ -301,18 +287,12 @@ describe('Auth backup recovery codes', () => {
 
         expect(verifyRes.statusCode).toBe(200);
         expect(verifyRes.body.flowToken).toEqual(expect.any(String));
-
-        const nextPassword = buildStrongPassword();
-        const resetFromOtherDevice = await request(app)
-            .post('/api/otp/reset-password')
-            .set('X-Aura-Device-Id', 'device-recovery-b')
-            .send({
-                flowToken: verifyRes.body.flowToken,
-                password: nextPassword,
-            });
-
-        expect(resetFromOtherDevice.statusCode).toBe(403);
-        expect(resetFromOtherDevice.body.message).toMatch(/fresh trusted device verification/i);
+        expect(inspectOtpFlowToken(verifyRes.body.flowToken)).toMatchObject({
+            purpose: 'forgot-password',
+            factor: 'recovery-code',
+            nextStep: 'reset-password',
+            signalBond: {},
+        });
     });
 });
 
@@ -875,6 +855,37 @@ describe('Auth sync lattice challenge policy', () => {
         expect(res.body.session.sessionId).toBeUndefined();
     });
 
+    test('POST /api/auth/sync requires trusted-device proof before MFA when both gates apply', async () => {
+        const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp({
+            challengeMode: 'always',
+            mfaEnabled: true,
+            userMfa: {
+                enabled: true,
+                defaultMethod: 'totp',
+                totp: {
+                    enabled: true,
+                    confirmedAt: new Date('2026-01-01T00:00:00.000Z'),
+                },
+            },
+            recoveryCodeState: { activeCount: 2 },
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .set('x-aura-device-id', 'device-test-1234')
+            .send({ email: 'verified@example.com', name: 'Verified User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            status: 'device_challenge_required',
+            requiresMfa: false,
+            mfaChallenge: null,
+        });
+        expect(res.body.deviceChallenge).toBeTruthy();
+        expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
+    });
+
     test('POST /api/auth/sync can require trusted device challenge when policy is always', async () => {
         const { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession } = buildIsolatedSyncApp({ challengeMode: 'always' });
 
@@ -897,7 +908,7 @@ describe('Auth sync lattice challenge policy', () => {
         expect(res.body.session.sessionId).toBeUndefined();
     });
 
-    test('POST /api/auth/sync accepts an existing stepped-up browser session for the same device', async () => {
+    test('POST /api/auth/sync does not treat a browser-key binding as MFA assurance', async () => {
         const { isolatedApp, issueTrustedDeviceChallenge } = buildIsolatedSyncApp({
             challengeMode: 'always',
             authSession: {
@@ -914,9 +925,9 @@ describe('Auth sync lattice challenge policy', () => {
             .send({ email: 'verified@example.com', name: 'Verified User' });
 
         expect(res.statusCode).toBe(200);
-        expect(res.body.status).toBe('authenticated');
-        expect(res.body.deviceChallenge).toBeNull();
-        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+        expect(res.body.status).toBe('device_challenge_required');
+        expect(res.body.deviceChallenge).toBeTruthy();
+        expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
     });
 
     test('POST /api/auth/sync keeps high login risk monitor-only by default', async () => {
@@ -1439,7 +1450,23 @@ describe('Firebase phone factor completion for signup and recovery', () => {
 });
 
 describe('Trusted device verification response payload', () => {
+    const originalMfaEnabled = process.env.MFA_ENABLED;
+    const originalMfaTotpEnabled = process.env.MFA_TOTP_ENABLED;
+    const originalMfaPasskeyEnabled = process.env.MFA_PASSKEY_ENABLED;
+    const originalMfaRecoveryCodesEnabled = process.env.MFA_RECOVERY_CODES_ENABLED;
+    const originalMfaSecretEncryptionKey = process.env.MFA_SECRET_ENCRYPTION_KEY;
+
     afterEach(() => {
+        for (const [key, value] of [
+            ['MFA_ENABLED', originalMfaEnabled],
+            ['MFA_TOTP_ENABLED', originalMfaTotpEnabled],
+            ['MFA_PASSKEY_ENABLED', originalMfaPasskeyEnabled],
+            ['MFA_RECOVERY_CODES_ENABLED', originalMfaRecoveryCodesEnabled],
+            ['MFA_SECRET_ENCRYPTION_KEY', originalMfaSecretEncryptionKey],
+        ]) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
         jest.resetModules();
         jest.clearAllMocks();
     });
@@ -1569,6 +1596,151 @@ describe('Trusted device verification response payload', () => {
         expect(res.body.session).toMatchObject({
             sessionId: 'verified-session-1',
             email: 'verified@example.com',
+        });
+    });
+
+    test('POST /api/auth/verify-device advances to MFA instead of authenticating early', async () => {
+        let isolatedApp;
+        const verifiedDeviceSessionToken = buildRuntimeSecret('session-mfa-ref');
+        const challengeToken = buildRuntimeSecret('challenge-mfa-ref');
+        const challengeProof = buildRuntimeSecret('sig-mfa-ref');
+
+        jest.isolateModules(() => {
+            process.env.MFA_ENABLED = 'true';
+            process.env.MFA_TOTP_ENABLED = 'true';
+            process.env.MFA_PASSKEY_ENABLED = 'false';
+            process.env.MFA_RECOVERY_CODES_ENABLED = 'true';
+            process.env.MFA_SECRET_ENCRYPTION_KEY = 'test-mfa-secret-encryption-key-32-characters-plus';
+
+            jest.doMock('../services/authSessionService', () => ({
+                buildSessionPayload: jest.fn(({
+                    status,
+                    deviceChallenge,
+                    mfaChallenge,
+                    mfaPolicy,
+                } = {}) => ({
+                    status,
+                    deviceChallenge: deviceChallenge || null,
+                    mfaChallenge: mfaChallenge || null,
+                    requiresMfa: Boolean(mfaChallenge),
+                    mfaPolicy: mfaPolicy || null,
+                    session: {
+                        sessionId: 'verified-session-mfa-1',
+                        uid: 'uid-verified',
+                        email: 'verified@example.com',
+                        emailVerified: true,
+                        displayName: 'Verified User',
+                        phone: '+919876543210',
+                        providerIds: ['password'],
+                    },
+                    profile: {
+                        _id: 'user-1',
+                        name: 'Verified User',
+                        email: 'verified@example.com',
+                        isAdmin: false,
+                        isVerified: true,
+                    },
+                    roles: { isAdmin: false, isSeller: false, isVerified: true },
+                    intelligence: null,
+                })),
+                persistAuthSnapshot: jest.fn().mockResolvedValue(undefined),
+                resolveAuthenticatedSession: jest.fn(),
+                syncAuthenticatedUser: jest.fn(),
+                applyLoginAssuranceToSession: jest.fn(),
+            }));
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                SESSION_STEP_UP_TTL_MS: 10 * 60 * 1000,
+                clearBrowserSessionCookie: jest.fn(),
+                getBrowserSessionFromRequest: jest.fn(),
+                refreshBrowserSession: jest.fn().mockResolvedValue({
+                    sessionId: 'verified-session-mfa-1',
+                    firebaseUid: 'uid-verified',
+                    deviceId: 'device-test-1234',
+                    deviceMethod: 'browser_key',
+                    amr: ['password', 'device_binding'],
+                }),
+                revokeBrowserSession: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-test-1234',
+                    deviceLabel: 'Verified Browser',
+                }),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                issueTrustedDeviceBootstrapChallenge: jest.fn().mockResolvedValue(null),
+                issueTrustedDeviceChallenge: jest.fn(),
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockReturnValue({ verified: false, deviceId: '', deviceSessionHash: '' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+                verifyTrustedDeviceChallenge: jest.fn().mockResolvedValue({
+                    success: true,
+                    mode: 'assert',
+                    method: 'browser_key',
+                    postDeviceMfaRequired: true,
+                    postDeviceMfaReason: 'login_risk_high',
+                    deviceSessionToken: verifiedDeviceSessionToken,
+                    expiresAt: new Date('2026-04-12T14:00:00.000Z').toISOString(),
+                }),
+            }));
+
+            const express = require('express');
+            const { verifyDeviceChallenge } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.use(express.json());
+            isolatedApp.post('/api/auth/verify-device', (req, _res, next) => {
+                req.user = {
+                    _id: 'user-1',
+                    email: 'verified@example.com',
+                    name: 'Verified User',
+                    isVerified: true,
+                    mfa: {
+                        enabled: true,
+                        defaultMethod: 'totp',
+                        totp: {
+                            enabled: true,
+                            confirmedAt: new Date('2026-01-01T00:00:00.000Z'),
+                        },
+                    },
+                    recoveryCodeState: { activeCount: 2 },
+                };
+                req.authUid = 'uid-verified';
+                req.authToken = { email: 'verified@example.com', email_verified: true };
+                req.authSession = { sessionId: 'bootstrap-session-mfa-1', amr: ['password'] };
+                next();
+            }, verifyDeviceChallenge);
+            isolatedApp.use(errorHandler);
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/verify-device')
+            .send({
+                token: challengeToken,
+                method: 'browser_key',
+                proof: challengeProof,
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            success: true,
+            status: 'mfa_challenge_required',
+            requiresMfa: true,
+            deviceChallenge: null,
+            mfaChallenge: {
+                purpose: 'login',
+                allowedMethods: ['totp', 'recovery_code'],
+                preferredMethod: 'totp',
+            },
+            mfaPolicy: {
+                mfaRequired: true,
+                reason: 'suspicious_login',
+            },
         });
     });
 });

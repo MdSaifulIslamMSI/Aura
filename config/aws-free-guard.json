@@ -1,6 +1,16 @@
 {
   "region": "ap-south-1",
-  "maxMonthlyUsd": 5,
+  "maxMonthlyUsd": 30,
+  "requiredBudgets": [
+    {
+      "name": "aura-staging-monthly-budget",
+      "maxMonthlyUsd": 30
+    },
+    {
+      "name": "aura-backend-monthly-guardrail",
+      "maxMonthlyUsd": 90
+    }
+  ],
   "allowNatGateway": false,
   "allowLoadBalancer": false,
   "allowPaidRds": false,

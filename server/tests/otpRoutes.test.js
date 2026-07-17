@@ -460,10 +460,40 @@ describe('OTP API Routes Integration', () => {
 
         test('should update Firebase password after a recent forgot-password OTP verification', async () => {
             const u = uniqueUser();
+            const alreadyRevokedAt = new Date(Date.now() - 60_000);
             const user = await User.create({
                 ...u,
                 isVerified: true,
                 resetOtpVerifiedAt: new Date(),
+                trustedDevices: [
+                    {
+                        deviceId: 'device-reset-123',
+                        label: 'Current browser',
+                        publicKeySpkiBase64: 'dGVzdA==',
+                        sessionVersion: 'active-session-version',
+                    },
+                    {
+                        deviceId: 'device-already-revoked',
+                        label: 'Old browser',
+                        publicKeySpkiBase64: 'dGVzdA==',
+                        sessionVersion: 'revoked-session-version',
+                        revokedAt: alreadyRevokedAt,
+                    },
+                ],
+                mfa: {
+                    enabled: true,
+                    defaultMethod: 'passkey',
+                    passkeys: [
+                        { credentialId: 'active-passkey', publicKey: 'active-public-key' },
+                        {
+                            credentialId: 'already-revoked-passkey',
+                            publicKey: 'revoked-public-key',
+                            revokedAt: alreadyRevokedAt,
+                        },
+                    ],
+                    lastMfaAt: new Date(),
+                    lastMfaMethod: 'passkey',
+                },
             });
             const existingBrowserSession = await browserSessionService.createBrowserSession({
                 req: {
@@ -521,8 +551,25 @@ describe('OTP API Routes Integration', () => {
             });
             expect(mockRevokeRefreshTokens).toHaveBeenCalledWith('firebase-user-1');
 
-            const updated = await User.findById(user._id).select('+resetOtpVerifiedAt');
+            const updated = await User.findById(user._id)
+                .select('+resetOtpVerifiedAt +mfa.passkeys.publicKey');
             expect(updated.resetOtpVerifiedAt).toBeNull();
+            const activeDevice = updated.trustedDevices.find((device) => device.deviceId === 'device-reset-123');
+            const previouslyRevokedDevice = updated.trustedDevices.find(
+                (device) => device.deviceId === 'device-already-revoked'
+            );
+            expect(activeDevice.revokedAt).toEqual(expect.any(Date));
+            expect(activeDevice.sessionVersion).not.toBe('active-session-version');
+            expect(previouslyRevokedDevice.revokedAt).toEqual(alreadyRevokedAt);
+            expect(previouslyRevokedDevice.sessionVersion).toBe('revoked-session-version');
+            expect(updated.mfa.passkeys.find((passkey) => passkey.credentialId === 'active-passkey').revokedAt)
+                .toEqual(expect.any(Date));
+            expect(updated.mfa.passkeys.find((passkey) => passkey.credentialId === 'already-revoked-passkey').revokedAt)
+                .toEqual(alreadyRevokedAt);
+            expect(updated.mfa.enabled).toBe(false);
+            expect(updated.mfa.defaultMethod).toBe('');
+            expect(updated.mfa.lastMfaAt).toBeNull();
+            expect(updated.mfa.lastMfaMethod).toBe('');
             await expect(browserSessionService.getBrowserSession(existingBrowserSession.sessionId)).resolves.toBeNull();
         });
 

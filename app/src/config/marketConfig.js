@@ -1,4 +1,5 @@
 import { MARKET_MESSAGE_PACK as EN_GENERATED_MARKET_MESSAGES } from './marketMessagePacks/en.js';
+import { TRUSTED_DEVICE_RUNTIME_FALLBACK } from '../i18n/messages/trustedDeviceRuntimeFallback.js';
 
 const DEFAULT_COUNTRY_CODE = 'IN';
 const DEFAULT_LANGUAGE_CODE = 'en';
@@ -1192,6 +1193,7 @@ const NON_ENGLISH_RUNTIME_MESSAGE_BACKFILL = {
   'profile.support.arch.description': 'Move from written support into live voice or video without losing history, status, or the eventual resolution.',
   'profile.support.compose.voiceDraft': 'Voice draft',
   'profile.support.compose.voiceDraftStop': 'Stop voice',
+  ...TRUSTED_DEVICE_RUNTIME_FALLBACK,
 };
 
 export const MARKET_MESSAGES = {

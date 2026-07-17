@@ -320,25 +320,6 @@ const resolveTrustedDeviceSessionToken = (req = {}) => String(
     || ''
 ).trim();
 
-const hasSessionTrustedDeviceState = (req = {}, deviceId = '') => {
-    const normalizedDeviceId = String(deviceId || '').trim();
-    const sessionDeviceId = String(req.authSession?.deviceId || '').trim();
-    const sessionDeviceMethod = String(req.authSession?.deviceMethod || '').trim().toLowerCase();
-    const sessionAmr = Array.isArray(req.authSession?.amr)
-        ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
-        : [];
-
-    if (!normalizedDeviceId || !sessionDeviceId || normalizedDeviceId !== sessionDeviceId) {
-        return false;
-    }
-
-    if (sessionDeviceMethod === 'webauthn' || sessionDeviceMethod === 'browser_key') {
-        return true;
-    }
-
-    return sessionAmr.includes('webauthn') || sessionAmr.includes('trusted_device');
-};
-
 const shouldEnforceRuntimeRiskSessionStepUp = (req = {}) => (
     String(req.authSession?.riskState || '').trim().toLowerCase() === LOGIN_RISK_STATE_HIGH
     && getLoginRuntimeEnforcementPolicy().riskEngineEnforced
@@ -512,10 +493,6 @@ const resolveDeviceChallengeState = async ({
         return { status: 'authenticated', deviceChallenge: null };
     }
 
-    if (hasSessionTrustedDeviceState(req, deviceId)) {
-        return { status: 'authenticated', deviceChallenge: null };
-    }
-
     const deviceChallenge = await issueTrustedDeviceChallenge({
         req,
         user,
@@ -523,6 +500,8 @@ const resolveDeviceChallengeState = async ({
         authToken,
         deviceId,
         deviceLabel,
+        postDeviceMfaRequired: forceStepUp,
+        postDeviceMfaReason: forceStepUp ? stepUpReason : '',
     });
 
     recordAuthSecurityEvent({
@@ -568,6 +547,66 @@ const buildRequestAuthUser = (req) => ({
     }),
 });
 
+const resolveLoginMfaState = async ({ req, user, loginRisk = null } = {}) => {
+    const mfaPolicy = evaluateMfaLoginPolicy({
+        user,
+        context: {
+            forceStepUp: Boolean(loginRisk?.forceStepUp),
+            risk: loginRisk?.risk || null,
+            riskState: loginRisk?.riskState || '',
+            stepUpReason: loginRisk?.stepUpReason || '',
+            session: req.authSession || null,
+        },
+    });
+
+    if (!mfaPolicy.mfaRequired) {
+        return {
+            status: 'authenticated',
+            mfaChallenge: null,
+            mfaPolicy: null,
+        };
+    }
+
+    const publicMfaPolicy = buildPublicMfaPolicy(mfaPolicy);
+    if (mfaPolicy.block) {
+        recordAuthSecurityEvent({
+            event: 'mfa.policy.blocked',
+            outcome: 'failure',
+            reason: mfaPolicy.reason || 'blocked',
+            surface: 'mfa',
+            req,
+            meta: { statusCode: 403 },
+        });
+        const error = new AppError('MFA is required but no allowed verification method is available.', 403);
+        error.code = 'MFA_METHOD_REQUIRED';
+        error.requiresMfa = true;
+        error.mfaPolicy = publicMfaPolicy;
+        throw error;
+    }
+
+    const mfaChallenge = await createMfaChallenge({
+        user,
+        purpose: 'login',
+        policy: mfaPolicy,
+        req,
+    });
+
+    recordAuthSecurityEvent({
+        event: 'mfa.challenge.created',
+        outcome: 'required',
+        reason: mfaPolicy.reason || 'required',
+        surface: 'mfa',
+        req,
+        meta: { purpose: 'login', preferredMethod: mfaPolicy.preferredMethod || '' },
+    });
+
+    return {
+        status: 'mfa_challenge_required',
+        mfaChallenge,
+        mfaPolicy: publicMfaPolicy,
+    };
+};
+
 const getSession = asyncHandler(async (req, res) => {
     const resolved = await resolveAuthenticatedSession({
         authUser: buildRequestAuthUser(req),
@@ -576,15 +615,21 @@ const getSession = asyncHandler(async (req, res) => {
         authSession: req.authSession || null,
     });
 
-    const { status, deviceChallenge } = await resolveDeviceChallengeState({
+    const loginRisk = evaluateRuntimeLoginRisk({ req, user: resolved.user });
+    const deviceState = await resolveDeviceChallengeState({
         req,
         authUser: buildRequestAuthUser(req),
         authToken: req.authToken || null,
         authUid: req.authUid || '',
         user: resolved.user,
-        forceStepUp: shouldEnforceRuntimeRiskSessionStepUp(req),
+        forceStepUp: shouldEnforceRuntimeRiskSessionStepUp(req) || loginRisk.forceStepUp,
         stepUpReason: 'login_risk_high',
+        riskDecision: loginRisk.risk,
     });
+    const mfaState = deviceState.status === 'authenticated'
+        ? await resolveLoginMfaState({ req, user: resolved.user, loginRisk })
+        : { status: deviceState.status, mfaChallenge: null, mfaPolicy: null };
+    const status = mfaState.status;
 
     recordAuthSecurityEvent({
         event: 'session_check',
@@ -598,7 +643,10 @@ const getSession = asyncHandler(async (req, res) => {
     res.json({
         ...resolved.payload,
         status,
-        deviceChallenge,
+        deviceChallenge: deviceState.deviceChallenge || null,
+        mfaChallenge: mfaState.mfaChallenge || null,
+        requiresMfa: Boolean(mfaState.mfaChallenge),
+        mfaPolicy: mfaState.mfaPolicy || null,
     });
 });
 
@@ -1044,75 +1092,7 @@ const syncSession = asyncHandler(async (req, res) => {
     await invalidateUserCacheByEmail(user?.email || authUser.email || '');
 
     const loginRisk = evaluateRuntimeLoginRisk({ req, user });
-
-    const mfaPolicy = evaluateMfaLoginPolicy({
-        user,
-        context: {
-            forceStepUp: loginRisk.forceStepUp,
-            risk: loginRisk.risk,
-            riskState: loginRisk.riskState,
-            stepUpReason: loginRisk.stepUpReason,
-        },
-    });
-
-    if (mfaPolicy.mfaRequired) {
-        const publicMfaPolicy = buildPublicMfaPolicy(mfaPolicy);
-
-        if (mfaPolicy.block) {
-            recordAuthSecurityEvent({
-                event: 'mfa.policy.blocked',
-                outcome: 'failure',
-                reason: mfaPolicy.reason || 'blocked',
-                surface: 'mfa',
-                req,
-                meta: { statusCode: 403 },
-            });
-            const error = new AppError('MFA is required but no allowed verification method is available.', 403);
-            error.code = 'MFA_METHOD_REQUIRED';
-            error.requiresMfa = true;
-            error.mfaPolicy = publicMfaPolicy;
-            throw error;
-        }
-
-        const mfaChallenge = await createMfaChallenge({
-            user,
-            purpose: 'login',
-            policy: mfaPolicy,
-            req,
-        });
-
-        recordAuthSecurityEvent({
-            event: 'mfa.challenge.created',
-            outcome: 'required',
-            reason: mfaPolicy.reason || 'required',
-            surface: 'mfa',
-            req,
-            meta: { purpose: 'login', preferredMethod: mfaPolicy.preferredMethod || '' },
-        });
-
-        recordAuthSecurityEvent({
-            event: 'login_session',
-            outcome: 'required',
-            reason: 'mfa_challenge_required',
-            surface: 'auth',
-            req,
-            meta: { status: 'mfa_challenge_required' },
-        });
-
-        return res.json(buildSessionPayload({
-            authUser,
-            authToken: req.authToken || null,
-            authUid: req.authUid || '',
-            authSession: req.authSession || null,
-            user,
-            status: 'mfa_challenge_required',
-            deviceChallenge: null,
-            mfaChallenge,
-            mfaPolicy: publicMfaPolicy,
-        }));
-    }
-
-    const { status, deviceChallenge } = await resolveDeviceChallengeState({
+    const deviceState = await resolveDeviceChallengeState({
         req,
         authUser,
         authToken: req.authToken || null,
@@ -1122,6 +1102,10 @@ const syncSession = asyncHandler(async (req, res) => {
         stepUpReason: loginRisk.stepUpReason || 'login_risk_high',
         riskDecision: loginRisk.risk,
     });
+    const mfaState = deviceState.status === 'authenticated'
+        ? await resolveLoginMfaState({ req, user, loginRisk })
+        : { status: deviceState.status, mfaChallenge: null, mfaPolicy: null };
+    const status = mfaState.status;
 
     if (status === 'authenticated') {
         await persistBrowserSessionForUser({
@@ -1151,7 +1135,9 @@ const syncSession = asyncHandler(async (req, res) => {
         authSession: req.authSession || null,
         user,
         status,
-        deviceChallenge,
+        deviceChallenge: deviceState.deviceChallenge || null,
+        mfaChallenge: mfaState.mfaChallenge || null,
+        mfaPolicy: mfaState.mfaPolicy || null,
     }));
 });
 
@@ -1607,23 +1593,15 @@ const generateBackupRecoveryCodes = asyncHandler(async (req, res) => {
 const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     const code = String(req.body?.code || '').trim();
-    const { deviceId } = extractTrustedDeviceContext(req);
-    const deviceSessionToken = getTrustedDeviceSessionToken(req);
     const responseStartedAt = Date.now();
 
     if (!email || !code) {
         throw new AppError('Email and recovery code are required.', 400);
     }
-    if (!deviceId) {
-        throw new AppError('Trusted device identity is required before verifying a recovery code.', 400);
-    }
-    if (!deviceSessionToken) {
-        throw new AppError('Trusted device session is required before verifying a recovery code.', 400);
-    }
 
     const recoveryCandidate = await User.findOne(
         { email, isVerified: true },
-        'email trustedDevices'
+        'email'
     ).lean();
     if (!recoveryCandidate?._id) {
         await waitForRecoveryCodeVerificationWindow(responseStartedAt);
@@ -1631,26 +1609,6 @@ const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
             event: 'recovery_code',
             outcome: 'failure',
             reason: 'invalid',
-            surface: 'recovery',
-            req,
-            meta: { statusCode: 401 },
-        });
-        throw new AppError('Recovery code is invalid or already used.', 401);
-    }
-
-    const verifiedBootstrapDeviceSignal = await resolveTrustedDeviceBootstrapSignal({
-        req,
-        user: recoveryCandidate,
-        challengePayload: {},
-        expectedScope: '',
-        requireFreshProof: false,
-    });
-    if (!verifiedBootstrapDeviceSignal.verified || !verifiedBootstrapDeviceSignal.deviceSessionHash) {
-        await waitForRecoveryCodeVerificationWindow(responseStartedAt);
-        recordAuthSecurityEvent({
-            event: 'recovery_code',
-            outcome: 'failure',
-            reason: 'trusted_device_session_required',
             surface: 'recovery',
             req,
             meta: { statusCode: 401 },
@@ -1683,10 +1641,11 @@ const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
         purpose: 'forgot-password',
         factor: 'recovery-code',
         nextStep: 'reset-password',
-        signalBond: {
-            deviceId: verifiedBootstrapDeviceSignal.deviceId,
-            deviceSessionHash: verifiedBootstrapDeviceSignal.deviceSessionHash,
-        },
+        // Recovery codes are specifically the escape hatch for a lost device.
+        // The signed flow token and server-side one-time grant remain replay
+        // protected, but the flow must not depend on possession of the device
+        // the user is trying to recover from.
+        signalBond: {},
     });
     await registerOtpFlowGrant({
         tokenId: tokenState?.tokenId,
@@ -1765,24 +1724,49 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(req.user?.email || '');
 
+    const webAuthnProof = verification.method === 'webauthn';
+    const webAuthnVerified = webAuthnProof
+        && verification.trustedDevice?.webauthnUserVerified === true;
     await persistBrowserSessionForUser({
         req,
         res,
         user: req.user,
         rotate: Boolean(req.authSession?.sessionId),
-        deviceMethod: verification.method === 'webauthn' ? 'webauthn' : 'browser_key',
-        stepUpUntil: verification.expiresAt || null,
-        additionalAmr: [verification.method === 'webauthn' ? 'webauthn' : 'trusted_device'],
+        deviceMethod: webAuthnProof ? 'webauthn' : 'browser_key',
+        stepUpUntil: webAuthnVerified
+            ? new Date(Date.now() + SESSION_STEP_UP_TTL_MS)
+            : new Date(0),
+        additionalAmr: [webAuthnVerified ? 'webauthn' : 'device_binding'],
     });
+
+    const trustedDevices = Array.isArray(req.user?.trustedDevices)
+        ? req.user.trustedDevices.filter((device) => (
+            String(device?.deviceId || '').trim() !== String(verification.trustedDevice?.deviceId || '').trim()
+        ))
+        : [];
+    const policyUser = verification.trustedDevice
+        ? { ...req.user, trustedDevices: [...trustedDevices, verification.trustedDevice] }
+        : req.user;
+    const loginRisk = verification.postDeviceMfaRequired
+        ? {
+            forceStepUp: true,
+            risk: { level: RISK_LEVELS.HIGH, reasons: [verification.postDeviceMfaReason || 'trusted_device_step_up'] },
+            riskState: LOGIN_RISK_STATE_HIGH,
+            stepUpReason: verification.postDeviceMfaReason || 'trusted_device_step_up',
+        }
+        : evaluateRuntimeLoginRisk({ req, user: policyUser });
+    const mfaState = await resolveLoginMfaState({ req, user: policyUser, loginRisk });
 
     const sessionPayload = buildSessionPayload({
         authUser: buildRequestAuthUser(req),
         authToken: req.authToken || null,
         authUid: req.authUid || '',
         authSession: req.authSession || null,
-        user: req.user,
-        status: 'authenticated',
+        user: policyUser,
+        status: mfaState.status,
         deviceChallenge: null,
+        mfaChallenge: mfaState.mfaChallenge,
+        mfaPolicy: mfaState.mfaPolicy,
     });
 
     recordAuthSecurityEvent({
@@ -1791,18 +1775,29 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         reason: 'none',
         surface: 'trusted_device',
         req,
-        meta: { mode: verification.mode || '', method: verification.method || '' },
+        meta: {
+            mode: verification.mode || '',
+            method: verification.method || '',
+            userVerified: webAuthnVerified,
+            nextStatus: mfaState.status,
+        },
     });
 
     res.json({
         success: true,
         message: verification.mode === 'enroll'
-            ? 'Trusted device registered and verified'
-            : 'Trusted device verified',
+            ? (mfaState.status === 'authenticated'
+                ? 'Trusted device registered and verified'
+                : 'Trusted device registered. Complete MFA to finish signing in.')
+            : (mfaState.status === 'authenticated'
+                ? 'Trusted device verified'
+                : 'Trusted device verified. Complete MFA to finish signing in.'),
         ...sessionPayload,
         ...verification,
-        status: 'authenticated',
+        status: mfaState.status,
         deviceChallenge: null,
+        mfaChallenge: mfaState.mfaChallenge,
+        mfaPolicy: mfaState.mfaPolicy,
     });
 });
 

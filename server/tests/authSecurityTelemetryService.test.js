@@ -31,17 +31,21 @@ describe('authSecurityTelemetryService', () => {
                 method: 'GET',
                 originalUrl: '/api/admin/users/507f1f77bcf86cd799439011',
                 headers: {},
+                user: { isAdmin: true },
             },
-            meta: { statusCode: 403 },
+            meta: { statusCode: 403, method: 'webauthn' },
         });
 
         const metrics = await registry.metrics();
 
         expect(metrics).toContain(
-            'aura_auth_security_events_total{event="admin_access_blocked",outcome="blocked",reason="passkey",surface="admin"} 1'
+            'aura_auth_security_events_total{event="admin_access_blocked",outcome="blocked",reason="passkey",surface="admin",audience="admin",method="passkey"} 1'
         );
         expect(logger.warn).toHaveBeenCalledWith('auth.security_event', expect.objectContaining({
+            audience: 'admin',
             event: 'admin_access_blocked',
+            factorMethod: 'passkey',
+            method: 'GET',
             outcome: 'blocked',
             path: '/api/admin/users/:id',
             reason: 'passkey',
@@ -65,5 +69,17 @@ describe('authSecurityTelemetryService', () => {
         expect(telemetry.__private.normalizeReason('firebase_session_cleanup_pending')).toBe('unavailable');
         expect(telemetry.__private.normalizeReason('user_session_revoked')).toBe('revoked');
         expect(telemetry.__private.normalizeReason('something novel and verbose')).toBe('other');
+    });
+
+    test('keeps audience and factor labels on fixed allowlists', () => {
+        const { telemetry } = loadSubject();
+
+        expect(telemetry.__private.normalizeAudience('', { user: { isAdmin: true } })).toBe('admin');
+        expect(telemetry.__private.normalizeAudience('', { user: { isSeller: true } })).toBe('seller');
+        expect(telemetry.__private.normalizeAudience('', { authUid: 'user-id' })).toBe('public');
+        expect(telemetry.__private.normalizeAudience('attacker-controlled-value')).toBe('unknown');
+        expect(telemetry.__private.normalizeMethod('webauthn')).toBe('passkey');
+        expect(telemetry.__private.normalizeMethod('duo_oidc')).toBe('duo');
+        expect(telemetry.__private.normalizeMethod('arbitrary-factor')).toBe('unknown');
     });
 });

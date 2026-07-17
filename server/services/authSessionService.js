@@ -27,6 +27,7 @@ const {
     requireAuthAssurance,
 } = require('./authAssurancePolicyService');
 const { getRecoveryReadiness } = require('./authRecoveryCodeService');
+const { isAdminSubject } = require('./mfaPolicyService');
 
 const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt addresses cart wishlist loyalty createdAt';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
@@ -69,7 +70,7 @@ const resolveAdminAccessState = (user = null, env = process.env) => {
     const required = parseBooleanEnv(env.ADMIN_REQUIRE_ALLOWLIST, productionDefault);
     const allowlist = parseAdminAllowlistEmails(env.ADMIN_ALLOWLIST_EMAILS);
     const configured = allowlist.size > 0;
-    const isAdmin = Boolean(user?.isAdmin);
+    const isAdmin = isAdminSubject(user);
     const actorEmail = normalizeEmail(user?.email || '');
     const allowlisted = Boolean(actorEmail && allowlist.has(actorEmail));
     const shouldEnforceOptionalAllowlist = configured || required;
@@ -290,7 +291,7 @@ const persistAuthSnapshot = async (user) => {
 };
 
 const toRoleState = (user = null) => ({
-    isAdmin: Boolean(user?.isAdmin),
+    isAdmin: isAdminSubject(user),
     isSeller: Boolean(user?.isSeller),
     isVerified: Boolean(user?.isVerified),
     adminRoles: Array.isArray(user?.adminRoles) ? user.adminRoles : [],
@@ -321,7 +322,7 @@ const toProfilePayload = (user = null, options = {}) => {
         gender: user.gender || '',
         dob: user.dob || null,
         bio: user.bio || '',
-        isAdmin: Boolean(user.isAdmin),
+        isAdmin: isAdminSubject(user),
         adminRoles: Array.isArray(user.adminRoles) ? user.adminRoles : [],
         isVerified: Boolean(user.isVerified),
         isSeller: Boolean(user.isSeller),
@@ -444,7 +445,7 @@ const toSessionIntelligence = (user = null, session = null) => {
     const stepUpActive = stepUpUntilMillis > now;
     const deviceBound = Boolean(normalizeText(session?.deviceId));
     const strongDeviceBinding = deviceBound && ['browser_key', 'webauthn'].includes(normalizeText(session?.deviceMethod));
-    const privilegedAccount = Boolean(user?.isAdmin || user?.isSeller);
+    const privilegedAccount = Boolean(isAdminSubject(user) || user?.isSeller);
     const trustedDeviceRequired = shouldRequireTrustedDevice({ user });
     const elevatedAssurance = assuranceLevel === 'password+otp' || normalizeText(session?.aal) === 'aal2' || stepUpActive;
     const freshForSensitiveActions = Boolean(
@@ -479,7 +480,7 @@ const toSessionIntelligence = (user = null, session = null) => {
             hasVerifiedEmail: Boolean(session?.email && session?.emailVerified),
             hasPhone: Boolean(user?.phone || session?.phone),
             accountState: user?.accountState || 'active',
-            isPrivileged: Boolean(user?.isAdmin || user?.isSeller),
+            isPrivileged: Boolean(isAdminSubject(user) || user?.isSeller),
             hasPasskey: recoveryReadiness.hasPasskey,
             recoveryCodesActiveCount: recoveryReadiness.recoveryCodesActiveCount,
             passkeyRecoveryReady: recoveryReadiness.passkeyRecoveryReady,

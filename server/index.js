@@ -92,6 +92,7 @@ const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const { assertAuthVaultConfig } = require('./config/authVaultFlags');
 const { assertAuthEnvironmentConfig } = require('./config/authEnvironment');
 const { assertTrustedDeviceConfig } = require('./config/authTrustedDeviceFlags');
+const { assertTrustedDeviceV2RolloutConfig } = require('./config/trustedDeviceV2Rollout');
 const {
     startPaymentOutboxWorker,
     getPaymentOutboxStats,
@@ -872,6 +873,7 @@ assertProductionRedisConfig();
     assertAuthVaultConfig();
     assertAuthEnvironmentConfig();
     assertTrustedDeviceConfig();
+    assertTrustedDeviceV2RolloutConfig();
 
     connectDB().then(() => {
         // Start listening IMMEDIATELY after DB connection to satisfy Render health checks.

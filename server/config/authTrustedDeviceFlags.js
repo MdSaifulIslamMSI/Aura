@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { flags: authVaultFlags, MIN_SECRET_LENGTH, secretLooksStrong } = require('./authVaultFlags');
+const { isAdminSubject } = require('../services/mfaPolicyService');
 
 const trim = (value, fallback = '') => String(value || fallback).trim();
 
@@ -116,11 +117,11 @@ const shouldRequireTrustedDevice = ({ user = null, mode = flags.authDeviceChalle
     case 'always':
         return true;
     case 'admin':
-        return Boolean(user?.isAdmin);
+        return isAdminSubject(user);
     case 'seller':
         return Boolean(user?.isSeller);
     case 'privileged':
-        return Boolean(user?.isAdmin || user?.isSeller);
+        return Boolean(isAdminSubject(user) || user?.isSeller);
     case 'off':
     default:
         return false;
