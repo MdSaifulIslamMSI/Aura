@@ -149,11 +149,12 @@ tar \
   -czf "$release_tar" \
   -C "$REPO_ROOT" \
   server \
+  shared \
   infra/staging
 
 if [ "$build_backend_locally" = "true" ]; then
   log "Building staging backend Docker image locally as $backend_image"
-  docker build -t "$backend_image" "$(node_path "$REPO_ROOT/server")"
+  docker build -f "$(node_path "$REPO_ROOT/server/Dockerfile")" -t "$backend_image" "$(node_path "$REPO_ROOT")"
   log "Saving staging backend Docker image artifact"
   docker save "$backend_image" | gzip -c > "$backend_image_tar"
 fi

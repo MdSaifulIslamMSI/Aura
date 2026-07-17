@@ -2,7 +2,7 @@
 set -euo pipefail
 
 dnf update -y
-dnf install -y docker jq awscli git tar gzip
+dnf install -y docker jq awscli git tar gzip util-linux
 
 mkdir -p /usr/local/lib/docker/cli-plugins
 compose_arch="x86_64"
@@ -65,8 +65,8 @@ OTP_SMS_ENABLED=false
 OTP_WHATSAPP_ENABLED=false
 ORDER_EMAILS_ENABLED=false
 ORDER_EMAIL_PROVIDER=disabled
-COMPOSE_PROFILES=ollama
-AI_MODEL_PROVIDER=ollama
+COMPOSE_PROFILES=
+AI_MODEL_PROVIDER=disabled
 AI_MODEL_PROVIDER_FALLBACKS=
 ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA=false
 ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false
@@ -95,8 +95,8 @@ else
   echo "# AURA_BACKEND_PUBLIC_HOST remains the checked-in placeholder until DNS is assigned." >> /opt/aura/shared/base.env
 fi
 
-echo "# Ollama runtime: free-plan t4g.small uses llama3.2:1b; use t4g.large or larger for llama3.2:3b." >> /opt/aura/shared/base.env
-echo "# To fall back to deterministic RAG/tool mode, set AI_MODEL_PROVIDER=disabled and remove COMPOSE_PROFILES=ollama." >> /opt/aura/shared/base.env
+echo "# Deterministic commerce assistant mode is the production default; no model provider or Compose model profile is enabled." >> /opt/aura/shared/base.env
+echo "# Re-enabling a model requires an explicit reviewed release contract change." >> /opt/aura/shared/base.env
 
 touch /opt/aura/shared/runtime-secrets.env
 touch /opt/aura/shared/release.env

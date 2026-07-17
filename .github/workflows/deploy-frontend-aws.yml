@@ -15,6 +15,11 @@ on:
         required: false
         default: true
         type: boolean
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN:
         required: false
@@ -42,7 +47,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: aws-frontend-${{ github.ref }}
+  group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-frontend-aws', github.run_id) || 'aura-production-mutation' }}
   cancel-in-progress: false
 
 env:

@@ -17,7 +17,7 @@ mkdir -p "$REPO_ROOT/security-reports" "$REPO_ROOT/.trivycache"
 if [ -f "$REPO_ROOT/Dockerfile" ]; then
   docker build -t "$IMAGE_NAME" "$REPO_ROOT"
 elif [ -f "$REPO_ROOT/server/Dockerfile" ]; then
-  docker build -f "$REPO_ROOT/server/Dockerfile" -t "$IMAGE_NAME" "$REPO_ROOT/server"
+  docker build -f "$REPO_ROOT/server/Dockerfile" -t "$IMAGE_NAME" "$REPO_ROOT"
 else
   echo "No Dockerfile found. Skipping Trivy image scan."
   exit 0

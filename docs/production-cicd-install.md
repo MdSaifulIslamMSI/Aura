@@ -13,7 +13,8 @@ This repository uses the full manual command center from the package, with repo-
 
 - The storefront deploy still calls the existing multi-host workflow that
   publishes Netlify, Vercel, and AWS from one shared build.
-- AWS-only storefront deploy remains available as an explicit manual fallback.
+- AWS-only storefront deploy remains available as a direct manual fallback; it
+  is not a separate command-center target.
 - Desktop release signing remains optional for the current free/internal release
   lane. Unsigned desktop artifacts are internal testing builds only until real
   platform signing/notarization is configured.
@@ -29,6 +30,7 @@ Copy these files into your repository:
 .github/workflows/rollback-backend-aws.yml
 .github/workflows/rollback-frontend-aws.yml
 .github/workflows/rollback-netlify.yml
+.github/workflows/rollback-storefront-vercel.yml
 .github/workflows/rollback-gateway-vercel.yml
 ```
 
@@ -77,13 +79,15 @@ Rollback workflows intentionally call project rollback hooks. Add the hook that 
 infra/aws/rollback-backend.sh or infra/aws/rollback-backend.ps1
 infra/aws/rollback-frontend-s3.sh or infra/aws/rollback-frontend-s3.ps1
 scripts/rollback-netlify.sh or scripts/rollback-netlify.ps1
+scripts/rollback-storefront-vercel.sh
 scripts/rollback-gateway-vercel.sh or scripts/rollback-gateway-vercel.ps1
 ```
 
 This repo currently provides the `.sh` hooks listed above. AWS frontend deploys
-also write S3 rollback snapshots under `_aura-rollback/<sha>/`; if a snapshot is
-missing, the AWS frontend rollback hook can rebuild a supplied `ROLLBACK_REF`
-from the checked-out git ref.
+also write completion-manifest-backed S3 rollback snapshots under
+`_aura-rollback/<sha>/`. The AWS frontend rollback hook fails closed unless the
+requested snapshot has that completion manifest; it never executes historical
+application code in the production-credentialed restore job.
 
 Manual production actions require typing:
 
@@ -98,11 +102,25 @@ workflow within GitHub's 10-input `workflow_dispatch` limit while preserving
 per-surface deploy and rollback gates.
 
 ```text
-deploy_targets=backend,frontend-netlify,gateway
+deploy_targets=backend,frontend-multihost,gateway
 release_targets=desktop,mobile
-rollback_targets=backend,frontend-netlify,frontend-aws,gateway
+rollback_targets=backend,frontend-multihost,gateway
+rollback_refs_json={"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","gateway":"deployment-id"}
 ```
 
 Leave target inputs blank for no-op validation runs. Use only the targets you
 intend to run; for example, the storefront multi-host deploy is
-`frontend-netlify`, while `frontend-aws` is the AWS-only fallback lane.
+`frontend-multihost`. It deploys or rolls back Netlify, the Vercel storefront,
+and AWS CloudFront as one command-center lane. The command center rejects a lane
+selected for both deploy and rollback before any mutation. For rollback, supply
+the selected providers' immutable identifiers through `rollback_refs_json`.
+Backend rollback always requires a full known-good 40-character release SHA;
+the workflow never guesses from release-directory timestamps. Automatic
+post-deploy rollback uses the SHA captured before the backend mutation.
+
+The command center and every direct production frontend or gateway mutation use
+the same non-canceling production lock. Reusable deploy and rollback workflows
+set `parent_holds_production_lock=true` only when the command center or the
+multi-host parent already owns the lock; standalone calls leave it false.
+Preview runs retain cancel-on-new-run behavior and never share the production
+lock.

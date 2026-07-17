@@ -1,0 +1,52 @@
+name: Rollback Storefront Vercel
+
+on:
+  workflow_call:
+    inputs:
+      rollback_ref:
+        description: Optional Vercel deployment id or URL to restore
+        required: false
+        default: ""
+        type: string
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      VERCEL_ORG_ID:
+        required: false
+      VERCEL_PROJECT_ID:
+        required: false
+      VERCEL_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-rollback-storefront-vercel', github.run_id) || 'aura-production-mutation' }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  rollback:
+    name: Roll back Vercel storefront
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout current rollback tooling
+        uses: actions/checkout@v6
+
+      - name: Execute Vercel storefront rollback hook
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
+          VERCEL_STOREFRONT_PRODUCTION_URL: ${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}
+        run: bash scripts/rollback-storefront-vercel.sh

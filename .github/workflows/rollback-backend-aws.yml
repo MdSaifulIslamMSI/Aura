@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       rollback_ref:
-        description: Optional git ref/version to roll back to
+        description: Explicit known-good backend release SHA to restore
         required: false
         default: ""
         type: string
@@ -22,6 +22,10 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: aws-backend-production
+  cancel-in-progress: false
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -37,7 +41,18 @@ jobs:
         if: inputs.execute_rollback == true
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.rollback_ref != '' && inputs.rollback_ref || github.sha }}
+          persist-credentials: false
+
+      - name: Validate explicit backend rollback release
+        if: inputs.execute_rollback == true
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+        run: |
+          set -euo pipefail
+          [[ "${ROLLBACK_REF}" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "Backend rollback requires a full known-good release SHA." >&2
+            exit 1
+          }
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6

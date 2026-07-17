@@ -10,7 +10,7 @@ on:
         type: string
 
       deploy_targets:
-        description: "Comma-separated deploy targets: backend, frontend-netlify, frontend-aws, gateway"
+        description: "Comma-separated non-overlapping targets: backend, frontend-multihost, gateway"
         required: false
         default: ""
         type: string
@@ -22,7 +22,7 @@ on:
         type: string
 
       rollback_targets:
-        description: "Comma-separated rollback targets: backend, frontend-netlify, frontend-aws, gateway"
+        description: "Comma-separated non-overlapping targets: backend, frontend-multihost, gateway"
         required: false
         default: ""
         type: string
@@ -45,10 +45,10 @@ on:
         default: ""
         type: string
 
-      rollback_ref:
-        description: Optional git ref/version to roll back to
+      rollback_refs_json:
+        description: 'Optional provider-specific refs JSON, for example {"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","gateway":"deployment-id"}'
         required: false
-        default: ""
+        default: "{}"
         type: string
 
       skip_backend_healthcheck:
@@ -61,7 +61,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: aura-production-release-${{ github.ref }}
+  group: aura-production-mutation
   cancel-in-progress: false
 
 env:
@@ -114,6 +114,11 @@ jobs:
       should_run_smoke_tests: ${{ steps.plan.outputs.should_run_smoke_tests }}
       signing_enabled: ${{ steps.plan.outputs.signing_enabled }}
       store_publish_enabled: ${{ steps.plan.outputs.store_publish_enabled }}
+      rollback_backend_ref: ${{ steps.plan.outputs.rollback_backend_ref }}
+      rollback_netlify_ref: ${{ steps.plan.outputs.rollback_netlify_ref }}
+      rollback_vercel_storefront_ref: ${{ steps.plan.outputs.rollback_vercel_storefront_ref }}
+      rollback_aws_frontend_ref: ${{ steps.plan.outputs.rollback_aws_frontend_ref }}
+      rollback_gateway_ref: ${{ steps.plan.outputs.rollback_gateway_ref }}
 
     steps:
       - name: Checkout
@@ -132,6 +137,7 @@ jobs:
           INPUT_DEPLOY_TARGETS: ${{ github.event.inputs.deploy_targets || '' }}
           INPUT_RELEASE_TARGETS: ${{ github.event.inputs.release_targets || '' }}
           INPUT_ROLLBACK_TARGETS: ${{ github.event.inputs.rollback_targets || '' }}
+          INPUT_ROLLBACK_REFS_JSON: ${{ github.event.inputs.rollback_refs_json || '{}' }}
           INPUT_AUTO_ROLLBACK_ON_SMOKE_FAILURE: ${{ github.event.inputs.auto_rollback_on_smoke_failure == 'true' }}
           AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
           AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
@@ -214,6 +220,62 @@ jobs:
             echo "false"
           }
 
+          validate_target_list() {
+            local label="$1"
+            local targets="$2"
+            shift 2
+            local normalized
+            normalized="$(printf '%s' "${targets}" | tr '[:upper:]' '[:lower:]' | tr ';[:space:]' ',,')"
+
+            local IFS=','
+            local selected
+            local expected
+            local valid
+            read -ra selected_targets <<< "${normalized}"
+            for selected in "${selected_targets[@]}"; do
+              [ -z "${selected}" ] && continue
+              valid="false"
+              for expected in "$@"; do
+                if [ "${selected}" = "${expected}" ]; then
+                  valid="true"
+                  break
+                fi
+              done
+              if [ "${valid}" != "true" ]; then
+                echo "Unsupported ${label} target '${selected}'." >&2
+                return 1
+              fi
+            done
+          }
+
+          rollback_ref_for() {
+            ROLLBACK_REF_KEY="$1" ROLLBACK_REFS_JSON="${INPUT_ROLLBACK_REFS_JSON}" node <<'NODE'
+          const allowed = new Set(['backend', 'netlify', 'vercel-storefront', 'aws-frontend', 'gateway']);
+          let refs;
+          try {
+            refs = JSON.parse(process.env.ROLLBACK_REFS_JSON || '{}');
+          } catch (error) {
+            console.error(`rollback_refs_json must be valid JSON: ${error.message}`);
+            process.exit(1);
+          }
+          if (!refs || Array.isArray(refs) || typeof refs !== 'object') {
+            console.error('rollback_refs_json must be a JSON object.');
+            process.exit(1);
+          }
+          for (const [key, value] of Object.entries(refs)) {
+            if (!allowed.has(key)) {
+              console.error(`rollback_refs_json contains unsupported provider '${key}'.`);
+              process.exit(1);
+            }
+            if (typeof value !== 'string' || /[\r\n]/.test(value)) {
+              console.error(`rollback_refs_json provider '${key}' must be a single-line string.`);
+              process.exit(1);
+            }
+          }
+          process.stdout.write(refs[process.env.ROLLBACK_REF_KEY] || '');
+          NODE
+          }
+
           matches_any() {
             local file="$1"
             shift
@@ -237,6 +299,16 @@ jobs:
             done
             echo "false"
           }
+
+          validate_target_list "deploy" "${INPUT_DEPLOY_TARGETS}" backend frontend-multihost storefront gateway
+          validate_target_list "release" "${INPUT_RELEASE_TARGETS}" desktop mobile
+          validate_target_list "rollback" "${INPUT_ROLLBACK_TARGETS}" backend frontend-multihost storefront gateway
+
+          rollback_backend_ref="$(rollback_ref_for backend)"
+          rollback_netlify_ref="$(rollback_ref_for netlify)"
+          rollback_vercel_storefront_ref="$(rollback_ref_for vercel-storefront)"
+          rollback_aws_frontend_ref="$(rollback_ref_for aws-frontend)"
+          rollback_gateway_ref="$(rollback_ref_for gateway)"
 
           changed_files=()
           if [ "${EVENT_NAME}" = "push" ]; then
@@ -303,6 +375,8 @@ jobs:
             '.github/workflows/deploy-frontend-aws.yml' \
             '.github/workflows/rollback-netlify.yml' \
             '.github/workflows/rollback-frontend-aws.yml' \
+            '.github/workflows/rollback-storefront-vercel.yml' \
+            'scripts/rollback-storefront-vercel.sh' \
             '.github/workflows/production-cicd.yml')"
 
           frontend_aws_changed="$(surface_changed frontend_aws \
@@ -383,15 +457,42 @@ jobs:
           fi
 
           INPUT_DEPLOY_BACKEND="$(target_selected "${INPUT_DEPLOY_TARGETS}" backend)"
-          INPUT_DEPLOY_FRONTEND_NETLIFY="$(target_selected "${INPUT_DEPLOY_TARGETS}" frontend-netlify netlify storefront)"
-          INPUT_DEPLOY_FRONTEND_AWS="$(target_selected "${INPUT_DEPLOY_TARGETS}" frontend-aws aws-frontend)"
+          INPUT_DEPLOY_FRONTEND_NETLIFY="$(target_selected "${INPUT_DEPLOY_TARGETS}" frontend-multihost storefront)"
+          INPUT_DEPLOY_FRONTEND_AWS="false"
           INPUT_DEPLOY_GATEWAY="$(target_selected "${INPUT_DEPLOY_TARGETS}" gateway)"
           INPUT_RELEASE_DESKTOP="$(target_selected "${INPUT_RELEASE_TARGETS}" desktop)"
           INPUT_RELEASE_MOBILE="$(target_selected "${INPUT_RELEASE_TARGETS}" mobile)"
           INPUT_ROLLBACK_BACKEND="$(target_selected "${INPUT_ROLLBACK_TARGETS}" backend)"
-          INPUT_ROLLBACK_FRONTEND_NETLIFY="$(target_selected "${INPUT_ROLLBACK_TARGETS}" frontend-netlify netlify storefront)"
-          INPUT_ROLLBACK_FRONTEND_AWS="$(target_selected "${INPUT_ROLLBACK_TARGETS}" frontend-aws aws-frontend)"
+          INPUT_ROLLBACK_FRONTEND_NETLIFY="$(target_selected "${INPUT_ROLLBACK_TARGETS}" frontend-multihost storefront)"
+          INPUT_ROLLBACK_FRONTEND_AWS="false"
           INPUT_ROLLBACK_GATEWAY="$(target_selected "${INPUT_ROLLBACK_TARGETS}" gateway)"
+
+          reject_overlapping_lane() {
+            local lane="$1"
+            local deploy_selected="$2"
+            local rollback_selected="$3"
+            if [ "${deploy_selected}" = "true" ] && [ "${rollback_selected}" = "true" ]; then
+              echo "Production lane '${lane}' cannot be requested for both deploy and rollback in the same run." >&2
+              return 1
+            fi
+          }
+
+          reject_overlapping_lane backend "${INPUT_DEPLOY_BACKEND}" "${INPUT_ROLLBACK_BACKEND}"
+          reject_overlapping_lane frontend-multihost "${INPUT_DEPLOY_FRONTEND_NETLIFY}" "${INPUT_ROLLBACK_FRONTEND_NETLIFY}"
+          reject_overlapping_lane gateway "${INPUT_DEPLOY_GATEWAY}" "${INPUT_ROLLBACK_GATEWAY}"
+
+          if [ "${INPUT_ROLLBACK_FRONTEND_NETLIFY}" = "true" ]; then
+            test -n "${rollback_netlify_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json.netlify." >&2; exit 1; }
+            test -n "${rollback_vercel_storefront_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json['vercel-storefront']." >&2; exit 1; }
+            test -n "${rollback_aws_frontend_ref}" || { echo "frontend-multihost rollback requires rollback_refs_json['aws-frontend']." >&2; exit 1; }
+          fi
+
+          if [ "${INPUT_ROLLBACK_BACKEND}" = "true" ]; then
+            [[ "${rollback_backend_ref}" =~ ^[0-9a-f]{40}$ ]] || {
+              echo "backend rollback requires rollback_refs_json.backend as a full known-good commit SHA." >&2
+              exit 1
+            }
+          fi
 
           deploy_backend_requested="false"
           deploy_frontend_netlify_requested="false"
@@ -489,6 +590,11 @@ jobs:
           emit should_run_smoke_tests "${should_run_smoke_tests}"
           emit signing_enabled "false"
           emit store_publish_enabled "false"
+          emit rollback_backend_ref "${rollback_backend_ref}"
+          emit rollback_netlify_ref "${rollback_netlify_ref}"
+          emit rollback_vercel_storefront_ref "${rollback_vercel_storefront_ref}"
+          emit rollback_aws_frontend_ref "${rollback_aws_frontend_ref}"
+          emit rollback_gateway_ref "${rollback_gateway_ref}"
 
           {
             echo "## Production Plan"
@@ -506,8 +612,7 @@ jobs:
             echo "| Surface | Changed | Ready | Missing config | Planned action |"
             echo "|---|---:|---:|---|---:|"
             echo "| Backend | ${backend_changed} | ${backend_ready} | ${backend_missing} | ${should_deploy_backend} |"
-            echo "| Frontend Netlify | ${frontend_netlify_changed} | ${frontend_netlify_ready} | ${frontend_netlify_missing} | ${should_deploy_frontend_netlify} |"
-            echo "| Frontend AWS | ${frontend_aws_changed} | ${frontend_aws_ready} | ${frontend_aws_missing} | ${should_deploy_frontend_aws} |"
+            echo "| Frontend multihost (Netlify, Vercel, AWS) | ${frontend_netlify_changed} | ${frontend_netlify_ready} | ${frontend_netlify_missing} | ${should_deploy_frontend_netlify} |"
             echo "| Gateway | ${gateway_changed} | ${gateway_ready} | ${gateway_missing} | ${should_deploy_gateway} |"
             echo "| Desktop | ${desktop_changed} | n/a | none | ${should_release_desktop} |"
             echo "| Mobile | ${mobile_changed} | n/a | none | ${should_release_mobile} |"
@@ -795,28 +900,24 @@ jobs:
             runId: process.env.RUN_ID,
             changed: {
               backend: bool('BACKEND_CHANGED'),
-              frontendNetlify: bool('FRONTEND_NETLIFY_CHANGED'),
-              frontendAws: bool('FRONTEND_AWS_CHANGED'),
+              frontendMultihost: bool('FRONTEND_NETLIFY_CHANGED'),
               gateway: bool('GATEWAY_CHANGED'),
               desktop: bool('DESKTOP_CHANGED'),
               mobile: bool('MOBILE_CHANGED'),
             },
             providerReadiness: {
               backend: bool('BACKEND_READY'),
-              frontendNetlify: bool('FRONTEND_NETLIFY_READY'),
-              frontendAws: bool('FRONTEND_AWS_READY'),
+              frontendMultihost: bool('FRONTEND_NETLIFY_READY'),
               gateway: bool('GATEWAY_READY'),
             },
             plannedActions: {
               deployBackend: bool('SHOULD_DEPLOY_BACKEND'),
-              deployFrontendNetlify: bool('SHOULD_DEPLOY_FRONTEND_NETLIFY'),
-              deployFrontendAws: bool('SHOULD_DEPLOY_FRONTEND_AWS'),
+              deployFrontendMultihost: bool('SHOULD_DEPLOY_FRONTEND_NETLIFY'),
               deployGateway: bool('SHOULD_DEPLOY_GATEWAY'),
               releaseDesktop: bool('SHOULD_RELEASE_DESKTOP'),
               releaseMobile: bool('SHOULD_RELEASE_MOBILE'),
               rollbackBackend: bool('SHOULD_ROLLBACK_BACKEND'),
-              rollbackFrontendNetlify: bool('SHOULD_ROLLBACK_FRONTEND_NETLIFY'),
-              rollbackFrontendAws: bool('SHOULD_ROLLBACK_FRONTEND_AWS'),
+              rollbackFrontendMultihost: bool('SHOULD_ROLLBACK_FRONTEND_NETLIFY'),
               rollbackGateway: bool('SHOULD_ROLLBACK_GATEWAY'),
             },
             signing: {
@@ -945,6 +1046,8 @@ jobs:
       pull-requests: write
     with:
       target: production
+      auto_rollback_on_failure: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.auto_rollback_on_smoke_failure == 'true' || false }}
+      parent_holds_production_lock: true
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
@@ -1037,6 +1140,7 @@ jobs:
       id-token: write
     with:
       deploy: true
+      parent_holds_production_lock: true
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
       VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -1125,6 +1229,7 @@ jobs:
       pull-requests: write
     with:
       target: production
+      parent_holds_production_lock: true
     secrets:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -1221,12 +1326,12 @@ jobs:
         env:
           BACKEND_DEPLOY_RESULT: ${{ needs.deploy-backend.result }}
           FRONTEND_NETLIFY_DEPLOY_RESULT: ${{ needs.deploy-frontend-netlify.result }}
-          FRONTEND_AWS_DEPLOY_RESULT: ${{ needs.deploy-frontend-aws.result }}
           GATEWAY_DEPLOY_RESULT: ${{ needs.deploy-gateway.result }}
           AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
           BACKEND_HEALTH_PATH: ${{ vars.BACKEND_HEALTH_PATH || '/health' }}
-          NETLIFY_PRODUCTION_URL: ${{ vars.NETLIFY_PRODUCTION_URL || '' }}
-          AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL || '' }}
+          NETLIFY_PRODUCTION_URL: ${{ needs.deploy-frontend-netlify.outputs.netlify_production_url || vars.NETLIFY_PRODUCTION_URL || '' }}
+          VERCEL_STOREFRONT_PRODUCTION_URL: ${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_production_url || vars.VERCEL_PRODUCTION_URL || '' }}
+          AWS_FRONTEND_PUBLIC_URL: ${{ needs.deploy-frontend-netlify.outputs.aws_frontend_production_url || vars.AWS_FRONTEND_PUBLIC_URL || '' }}
           GATEWAY_PRODUCTION_URL: ${{ vars.GATEWAY_PRODUCTION_URL || '' }}
           GATEWAY_HEALTH_PATH: ${{ vars.GATEWAY_HEALTH_PATH || '/' }}
         run: |
@@ -1243,8 +1348,8 @@ jobs:
             fi
 
             if [ -z "${url}" ]; then
-              echo "Skipping ${name}; related URL is empty."
-              return 0
+              echo "${name} was deployed but its production URL is empty." >&2
+              return 1
             fi
 
             echo "Checking ${name}: ${url}"
@@ -1254,7 +1359,8 @@ jobs:
 
           smoke_if_deployed "backend" "${BACKEND_DEPLOY_RESULT}" "${AURA_BACKEND_ORIGIN}${BACKEND_HEALTH_PATH}"
           smoke_if_deployed "netlify storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${NETLIFY_PRODUCTION_URL}"
-          smoke_if_deployed "aws storefront" "${FRONTEND_AWS_DEPLOY_RESULT}" "${AWS_FRONTEND_PUBLIC_URL}"
+          smoke_if_deployed "vercel storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${VERCEL_STOREFRONT_PRODUCTION_URL}"
+          smoke_if_deployed "aws storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${AWS_FRONTEND_PUBLIC_URL}"
           smoke_if_deployed "gateway" "${GATEWAY_DEPLOY_RESULT}" "${GATEWAY_PRODUCTION_URL}${GATEWAY_HEALTH_PATH}"
 
   smoke-tests-noop:
@@ -1313,7 +1419,7 @@ jobs:
       contents: read
       id-token: write
     with:
-      rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
+      rollback_ref: ${{ needs.plan.outputs.rollback_backend_ref != '' && needs.plan.outputs.rollback_backend_ref || needs.deploy-backend.outputs.backend_rollback_ref }}
       execute_rollback: true
     secrets:
       AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -1341,7 +1447,8 @@ jobs:
     permissions:
       contents: read
     with:
-      rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
+      rollback_ref: ${{ needs.plan.outputs.rollback_netlify_ref != '' && needs.plan.outputs.rollback_netlify_ref || needs.deploy-frontend-netlify.outputs.netlify_rollback_ref }}
+      parent_holds_production_lock: true
     secrets:
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
       NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
@@ -1351,17 +1458,17 @@ jobs:
     needs:
       - plan
       - production-approval
-      - deploy-frontend-aws
+      - deploy-frontend-netlify
       - smoke-tests
     if: |
       always() &&
       needs.production-approval.result == 'success' &&
       (
-        needs.plan.outputs.should_rollback_frontend_aws == 'true' ||
+        needs.plan.outputs.should_rollback_frontend_netlify == 'true' ||
         (
           github.event_name == 'workflow_dispatch' &&
           github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
-          needs.deploy-frontend-aws.result == 'success' &&
+          needs.deploy-frontend-netlify.result == 'success' &&
           needs.smoke-tests.result == 'failure'
         )
       )
@@ -1370,10 +1477,41 @@ jobs:
       contents: read
       id-token: write
     with:
-      rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
+      rollback_ref: ${{ needs.plan.outputs.rollback_aws_frontend_ref != '' && needs.plan.outputs.rollback_aws_frontend_ref || needs.deploy-frontend-netlify.outputs.aws_frontend_rollback_ref }}
       execute_rollback: true
+      parent_holds_production_lock: true
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
+
+  rollback-frontend-vercel-storefront:
+    name: Roll back Vercel storefront
+    needs:
+      - plan
+      - production-approval
+      - deploy-frontend-netlify
+      - smoke-tests
+    if: |
+      always() &&
+      needs.production-approval.result == 'success' &&
+      (
+        needs.plan.outputs.should_rollback_frontend_netlify == 'true' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.auto_rollback_on_smoke_failure == 'true' &&
+          needs.deploy-frontend-netlify.result == 'success' &&
+          needs.smoke-tests.result == 'failure'
+        )
+      )
+    uses: ./.github/workflows/rollback-storefront-vercel.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.plan.outputs.rollback_vercel_storefront_ref != '' && needs.plan.outputs.rollback_vercel_storefront_ref || needs.deploy-frontend-netlify.outputs.vercel_storefront_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   rollback-gateway:
     name: Roll back gateway
@@ -1398,7 +1536,8 @@ jobs:
     permissions:
       contents: read
     with:
-      rollback_ref: ${{ github.event.inputs.rollback_ref || '' }}
+      rollback_ref: ${{ needs.plan.outputs.rollback_gateway_ref != '' && needs.plan.outputs.rollback_gateway_ref || needs.deploy-gateway.outputs.gateway_rollback_ref }}
+      parent_holds_production_lock: true
     secrets:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -1412,6 +1551,7 @@ jobs:
       - smoke-tests
       - rollback-backend
       - rollback-frontend-netlify
+      - rollback-frontend-vercel-storefront
       - rollback-frontend-aws
       - rollback-gateway
     if: always()
@@ -1423,7 +1563,8 @@ jobs:
           ROLLBACK_BACKEND_RESULT: ${{ needs.rollback-backend.result }}
           SHOULD_ROLLBACK_FRONTEND_NETLIFY: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
           ROLLBACK_FRONTEND_NETLIFY_RESULT: ${{ needs.rollback-frontend-netlify.result }}
-          SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_aws }}
+          ROLLBACK_FRONTEND_VERCEL_RESULT: ${{ needs.rollback-frontend-vercel-storefront.result }}
+          SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
           ROLLBACK_FRONTEND_AWS_RESULT: ${{ needs.rollback-frontend-aws.result }}
           SHOULD_ROLLBACK_GATEWAY: ${{ needs.plan.outputs.should_rollback_gateway }}
           ROLLBACK_GATEWAY_RESULT: ${{ needs.rollback-gateway.result }}
@@ -1438,6 +1579,7 @@ jobs:
             echo "|---|---:|---|"
             echo "| Backend | ${SHOULD_ROLLBACK_BACKEND} | ${ROLLBACK_BACKEND_RESULT} |"
             echo "| Netlify frontend | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_NETLIFY_RESULT} |"
+            echo "| Vercel storefront | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_VERCEL_RESULT} |"
             echo "| AWS frontend | ${SHOULD_ROLLBACK_FRONTEND_AWS} | ${ROLLBACK_FRONTEND_AWS_RESULT} |"
             echo "| Gateway | ${SHOULD_ROLLBACK_GATEWAY} | ${ROLLBACK_GATEWAY_RESULT} |"
             echo
@@ -1753,6 +1895,7 @@ jobs:
       - smoke-tests-noop
       - rollback-backend
       - rollback-frontend-netlify
+      - rollback-frontend-vercel-storefront
       - rollback-frontend-aws
       - rollback-gateway
       - rollback-decisions
@@ -1804,7 +1947,8 @@ jobs:
           ROLLBACK_BACKEND_RESULT: ${{ needs.rollback-backend.result }}
           SHOULD_ROLLBACK_FRONTEND_NETLIFY: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
           ROLLBACK_FRONTEND_NETLIFY_RESULT: ${{ needs.rollback-frontend-netlify.result }}
-          SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_aws }}
+          ROLLBACK_FRONTEND_VERCEL_RESULT: ${{ needs.rollback-frontend-vercel-storefront.result }}
+          SHOULD_ROLLBACK_FRONTEND_AWS: ${{ needs.plan.outputs.should_rollback_frontend_netlify }}
           ROLLBACK_FRONTEND_AWS_RESULT: ${{ needs.rollback-frontend-aws.result }}
           SHOULD_ROLLBACK_GATEWAY: ${{ needs.plan.outputs.should_rollback_gateway }}
           ROLLBACK_GATEWAY_RESULT: ${{ needs.rollback-gateway.result }}
@@ -1846,8 +1990,7 @@ jobs:
             echo "| Provider | Ready | Missing config names |"
             echo "|---|---:|---|"
             echo "| Backend AWS | ${BACKEND_READY} | ${BACKEND_MISSING} |"
-            echo "| Frontend Netlify | ${FRONTEND_NETLIFY_READY} | ${FRONTEND_NETLIFY_MISSING} |"
-            echo "| Frontend AWS | ${FRONTEND_AWS_READY} | ${FRONTEND_AWS_MISSING} |"
+            echo "| Frontend multihost | ${FRONTEND_NETLIFY_READY} | ${FRONTEND_NETLIFY_MISSING} |"
             echo "| Gateway Vercel | ${GATEWAY_READY} | ${GATEWAY_MISSING} |"
             echo
             echo "### D. CI/security/approval results"
@@ -1864,8 +2007,7 @@ jobs:
             echo "| Deploy | Planned | Result | No-op job |"
             echo "|---|---:|---|---|"
             echo "| Backend AWS | ${SHOULD_DEPLOY_BACKEND} | ${DEPLOY_BACKEND_RESULT} | ${DEPLOY_BACKEND_NOOP_RESULT} |"
-            echo "| Frontend Netlify | ${SHOULD_DEPLOY_FRONTEND_NETLIFY} | ${DEPLOY_FRONTEND_NETLIFY_RESULT} | ${DEPLOY_FRONTEND_NETLIFY_NOOP_RESULT} |"
-            echo "| Frontend AWS | ${SHOULD_DEPLOY_FRONTEND_AWS} | ${DEPLOY_FRONTEND_AWS_RESULT} | ${DEPLOY_FRONTEND_AWS_NOOP_RESULT} |"
+            echo "| Frontend multihost | ${SHOULD_DEPLOY_FRONTEND_NETLIFY} | ${DEPLOY_FRONTEND_NETLIFY_RESULT} | ${DEPLOY_FRONTEND_NETLIFY_NOOP_RESULT} |"
             echo "| Gateway Vercel | ${SHOULD_DEPLOY_GATEWAY} | ${DEPLOY_GATEWAY_RESULT} | ${DEPLOY_GATEWAY_NOOP_RESULT} |"
             echo
             echo "### F. Smoke test result"
@@ -1881,6 +2023,7 @@ jobs:
             echo "|---|---:|---|"
             echo "| Backend | ${SHOULD_ROLLBACK_BACKEND} | ${ROLLBACK_BACKEND_RESULT} |"
             echo "| Frontend Netlify | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_NETLIFY_RESULT} |"
+            echo "| Frontend Vercel | ${SHOULD_ROLLBACK_FRONTEND_NETLIFY} | ${ROLLBACK_FRONTEND_VERCEL_RESULT} |"
             echo "| Frontend AWS | ${SHOULD_ROLLBACK_FRONTEND_AWS} | ${ROLLBACK_FRONTEND_AWS_RESULT} |"
             echo "| Gateway | ${SHOULD_ROLLBACK_GATEWAY} | ${ROLLBACK_GATEWAY_RESULT} |"
             echo

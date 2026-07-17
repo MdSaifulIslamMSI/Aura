@@ -32,6 +32,35 @@ on:
         required: false
         default: production
         type: string
+      auto_rollback_on_failure:
+        description: Restore every mutated storefront host if the multi-host release fails
+        required: false
+        default: false
+        type: boolean
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      netlify_rollback_ref:
+        description: Netlify deploy id that was live before this release
+        value: ${{ jobs.build-frontend.outputs.netlify_rollback_ref }}
+      vercel_storefront_rollback_ref:
+        description: Vercel storefront deployment that was live before this release
+        value: ${{ jobs.build-frontend.outputs.vercel_storefront_rollback_ref }}
+      aws_frontend_rollback_ref:
+        description: AWS snapshot key created for this release
+        value: ${{ jobs.deploy-aws-production.outputs.rollback_ref }}
+      netlify_production_url:
+        description: Netlify production URL published by this release
+        value: ${{ jobs.deploy-production.outputs.site_url }}
+      vercel_storefront_production_url:
+        description: Vercel storefront production URL published by this release
+        value: ${{ jobs.deploy-vercel-production.outputs.site_url }}
+      aws_frontend_production_url:
+        description: AWS CloudFront production URL published by this release
+        value: ${{ jobs.deploy-aws-production.outputs.site_url }}
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN:
         required: false
@@ -71,8 +100,8 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: frontend-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
-  cancel-in-progress: true
+  group: ${{ inputs.target == 'production' && inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-frontend-multihost', github.run_id) || inputs.target == 'production' && 'aura-production-mutation' || format('frontend-{0}', github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref) }}
+  cancel-in-progress: ${{ inputs.target != 'production' }}
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -82,6 +111,7 @@ env:
   VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
   VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME || 'app' }}
+  VERCEL_PRODUCTION_URL: ${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
   AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
   AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
@@ -108,6 +138,8 @@ jobs:
     outputs:
       backend_origin: ${{ steps.backend.outputs.origin }}
       built_at: ${{ steps.release.outputs.built_at }}
+      netlify_rollback_ref: ${{ steps.rollback_targets.outputs.netlify_ref }}
+      vercel_storefront_rollback_ref: ${{ steps.rollback_targets.outputs.vercel_ref }}
     defaults:
       run:
         working-directory: ./app
@@ -138,6 +170,59 @@ jobs:
           test -n "${VERCEL_TOKEN}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
           test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
           test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
+
+      - name: Capture provider-specific production rollback targets
+        if: inputs.target == 'production'
+        id: rollback_targets
+        working-directory: .
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          netlify_site="$(mktemp)"
+          vercel_alias_state="$(mktemp)"
+
+          curl --fail --show-error --silent --location \
+            --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
+            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}" \
+            > "${netlify_site}"
+
+          netlify_ref="$(jq -r '.published_deploy.id // empty' "${netlify_site}")"
+          test -n "${netlify_ref}" || { echo "Netlify has no published production deploy to restore." >&2; exit 1; }
+
+          sanitized_vercel_token="$(printf '%s' "${VERCEL_TOKEN}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          test -n "${sanitized_vercel_token}" || { echo "Vercel token is empty after trimming whitespace." >&2; exit 1; }
+          echo "::add-mask::${sanitized_vercel_token}"
+
+          vercel_production_host="$(VERCEL_PRODUCTION_URL="${VERCEL_PRODUCTION_URL}" node <<'NODE'
+          const value = String(process.env.VERCEL_PRODUCTION_URL || '').trim();
+          const url = new URL(value);
+          if (url.protocol !== 'https:' || !url.hostname) {
+            throw new Error('VERCEL_PRODUCTION_URL must be an absolute HTTPS URL.');
+          }
+          process.stdout.write(url.hostname);
+          NODE
+          )"
+
+          curl --fail --show-error --silent --location --get \
+            --header "Authorization: Bearer ${sanitized_vercel_token}" \
+            --data-urlencode "projectId=${VERCEL_PROJECT_ID}" \
+            --data-urlencode "teamId=${VERCEL_ORG_ID}" \
+            "https://api.vercel.com/v4/aliases/${vercel_production_host}" \
+            > "${vercel_alias_state}"
+
+          vercel_ref="$(jq -r '.deploymentId // .deployment.id // empty' "${vercel_alias_state}")"
+          vercel_project_id="$(jq -r '.projectId // empty' "${vercel_alias_state}")"
+          test -n "${vercel_ref}" || { echo "Vercel production alias has no deployment to restore." >&2; exit 1; }
+          test "${vercel_project_id}" = "${VERCEL_PROJECT_ID}" || {
+            echo "Vercel production alias belongs to project '${vercel_project_id}', expected '${VERCEL_PROJECT_ID}'." >&2
+            exit 1
+          }
+
+          echo "netlify_ref=${netlify_ref}" >> "$GITHUB_OUTPUT"
+          echo "vercel_ref=${vercel_ref}" >> "$GITHUB_OUTPUT"
 
       - name: Install frontend dependencies
         run: npm ci
@@ -398,6 +483,7 @@ jobs:
     outputs:
       deploy_url: ${{ steps.deploy.outputs.deploy_url }}
       site_url: ${{ steps.deploy.outputs.site_url }}
+      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
 
     steps:
       - uses: actions/checkout@v6
@@ -412,6 +498,10 @@ jobs:
         with:
           name: frontend-dist
           path: app/dist
+
+      - name: Mark Netlify production mutation attempt
+        id: mutation
+        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
 
       - name: Publish production deploy
         id: deploy
@@ -572,6 +662,7 @@ jobs:
     outputs:
       deploy_url: ${{ steps.deploy.outputs.deploy_url }}
       site_url: ${{ steps.deploy.outputs.site_url }}
+      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
 
     steps:
       - uses: actions/checkout@v6
@@ -586,6 +677,10 @@ jobs:
         with:
           name: vercel-prebuilt-output
           path: .vercel
+
+      - name: Mark Vercel production mutation attempt
+        id: mutation
+        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
 
       - name: Publish Vercel production deploy
         id: deploy
@@ -651,6 +746,8 @@ jobs:
       url: ${{ steps.publish.outputs.site_url }}
     outputs:
       site_url: ${{ steps.publish.outputs.site_url }}
+      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
+      rollback_ref: ${{ steps.snapshot.outputs.rollback_ref }}
 
     steps:
       - uses: actions/checkout@v6
@@ -684,15 +781,31 @@ jobs:
           unset-current-credentials: true
 
       - name: Snapshot current AWS frontend for rollback
+        id: snapshot
         run: |
           set -euo pipefail
           BACKUP_PREFIX="_aura-rollback/${GITHUB_SHA}"
 
-          if ! aws s3 sync "s3://${AWS_FRONTEND_BUCKET}" "s3://${AWS_FRONTEND_BUCKET}/${BACKUP_PREFIX}" \
+          cleanup_partial_snapshot() {
+            local status="$?"
+            trap - EXIT
+            if [ "${status}" -ne 0 ]; then
+              echo "AWS frontend rollback snapshot failed; removing the partial snapshot." >&2
+              aws s3 rm "s3://${AWS_FRONTEND_BUCKET}/${BACKUP_PREFIX}" \
+                --region "${AWS_REGION}" \
+                --recursive >/dev/null || true
+            fi
+            exit "${status}"
+          }
+          trap cleanup_partial_snapshot EXIT
+
+          aws s3 rm "s3://${AWS_FRONTEND_BUCKET}/${BACKUP_PREFIX}" \
             --region "${AWS_REGION}" \
-            --exclude "_aura-rollback/*"; then
-            echo "AWS frontend rollback snapshot hit stale source keys; continuing with the new production deploy."
-          fi
+            --recursive >/dev/null
+
+          aws s3 sync "s3://${AWS_FRONTEND_BUCKET}" "s3://${AWS_FRONTEND_BUCKET}/${BACKUP_PREFIX}" \
+            --region "${AWS_REGION}" \
+            --exclude "_aura-rollback/*"
 
           cat > "${RUNNER_TEMP}/aura-rollback-manifest.json" <<EOF
           {
@@ -708,6 +821,13 @@ jobs:
             --region "${AWS_REGION}" \
             --cache-control "no-cache,no-store,must-revalidate" \
             --content-type "application/json"
+
+          echo "rollback_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          trap - EXIT
+
+      - name: Mark AWS production mutation attempt
+        id: mutation
+        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
 
       - name: Publish shared frontend to S3 origin bucket
         id: publish
@@ -871,3 +991,74 @@ jobs:
               {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
+
+  rollback-netlify-on-production-failure:
+    needs:
+      - build-frontend
+      - deploy-production
+      - deploy-vercel-production
+      - deploy-aws-production
+      - verify-production-coherence
+    if: >-
+      always() &&
+      inputs.target == 'production' &&
+      inputs.auto_rollback_on_failure == true &&
+      needs.deploy-production.outputs.deployment_attempted == 'true' &&
+      needs.verify-production-coherence.result != 'success'
+    uses: ./.github/workflows/rollback-netlify.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.build-frontend.outputs.netlify_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+  rollback-vercel-storefront-on-production-failure:
+    needs:
+      - build-frontend
+      - deploy-production
+      - deploy-vercel-production
+      - deploy-aws-production
+      - verify-production-coherence
+    if: >-
+      always() &&
+      inputs.target == 'production' &&
+      inputs.auto_rollback_on_failure == true &&
+      needs.deploy-vercel-production.outputs.deployment_attempted == 'true' &&
+      needs.verify-production-coherence.result != 'success'
+    uses: ./.github/workflows/rollback-storefront-vercel.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.build-frontend.outputs.vercel_storefront_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+  rollback-aws-storefront-on-production-failure:
+    needs:
+      - build-frontend
+      - deploy-production
+      - deploy-vercel-production
+      - deploy-aws-production
+      - verify-production-coherence
+    if: >-
+      always() &&
+      inputs.target == 'production' &&
+      inputs.auto_rollback_on_failure == true &&
+      needs.deploy-aws-production.outputs.deployment_attempted == 'true' &&
+      needs.verify-production-coherence.result != 'success'
+    uses: ./.github/workflows/rollback-frontend-aws.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      rollback_ref: ${{ needs.deploy-aws-production.outputs.rollback_ref }}
+      execute_rollback: true
+      parent_holds_production_lock: true
+    secrets:
+      AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}

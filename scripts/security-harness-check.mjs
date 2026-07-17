@@ -24,7 +24,8 @@ const supplyChainPinCheck = read('scripts/security/check-supply-chain-pins.mjs')
 const securityDockerTool = read('scripts/security/run-docker-tool.mjs');
 const gitleaksConfig = read('.gitleaks.toml');
 const gitignore = read('.gitignore');
-const dockerignore = read('server/.dockerignore');
+const rootDockerignore = read('.dockerignore');
+const serverDockerignore = read('server/.dockerignore');
 const desktopRuntime = read('desktop/runtimeServer.cjs');
 const statusService = read('server/services/statusService.js');
 const statusPage = read('app/src/pages/Status/index.jsx');
@@ -172,8 +173,29 @@ addCheck(
 
 addCheck(
   'server container excludes env and private key material',
-  includesAll(dockerignore, ['.env*', '*.pem', '*.key', '*.p12', '*.pfx', '*.jks', '*.keystore']),
-  'server/.dockerignore secret artifact exclusions'
+  includesAll(rootDockerignore, [
+    '**/.env',
+    '**/.env.*',
+    '.student-pack.local.env',
+    '**/*.pem',
+    '**/*.key',
+    '**/*.p12',
+    '**/*.pfx',
+    '**/*.jks',
+    '**/*.keystore',
+    'server/tests',
+    'server/seeders',
+    'server/test_results*.json',
+    'server/Dockerfile*',
+    '.staging',
+    '.openbao-token',
+    '*.payment.local.env',
+    'payment-secrets*.env',
+    'server/test-prod-*.js',
+    'server/public',
+  ])
+    && includesAll(serverDockerignore, ['.env*', '*.pem', '*.key', '*.p12', '*.pfx', '*.jks', '*.keystore']),
+  'root and server Docker build contexts exclude secret artifacts'
 );
 
 addCheck(
@@ -392,8 +414,14 @@ addCheck(
 
 addCheck(
   'production AI chat defaults closed in runtime compose',
-  awsRuntimeCompose.includes('AI_PUBLIC_CHAT_ACCESS_ENABLED: ${AI_PUBLIC_CHAT_ACCESS_ENABLED:-false}'),
-  'infra/aws/docker-compose.ec2.yml keeps anonymous AI chat opt-in'
+  includesAll(awsRuntimeCompose, [
+    'AI_PUBLIC_CHAT_ACCESS_ENABLED: ${AI_PUBLIC_CHAT_ACCESS_ENABLED:-false}',
+    'AI_MODEL_PROVIDER: disabled',
+    'AI_MODEL_PROVIDER_FALLBACKS: ""',
+    'ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA: "false"',
+    'ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED: "false"',
+  ]),
+  'infra/aws/docker-compose.ec2.yml keeps public chat opt-in and model execution disabled'
 );
 
 addCheck(

@@ -5,12 +5,17 @@ on:
   workflow_call:
     inputs:
       rollback_ref:
-        description: Optional git ref/version to roll back to
+        description: Optional completed AWS frontend snapshot id to restore
         required: false
         default: ""
         type: string
       execute_rollback:
         description: Allow a trusted reusable-workflow caller to execute the rollback hook
+        required: false
+        default: false
+        type: boolean
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
         required: false
         default: false
         type: boolean
@@ -22,8 +27,13 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-rollback-frontend-aws', github.run_id) || 'aura-production-mutation' }}
+  cancel-in-progress: false
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
 
 jobs:
   rollback:
@@ -37,7 +47,7 @@ jobs:
         if: inputs.execute_rollback == true
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.rollback_ref != '' && inputs.rollback_ref || github.sha }}
+          persist-credentials: false
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
@@ -48,14 +58,6 @@ jobs:
       - name: Verify AWS rollback identity
         run: aws sts get-caller-identity --query Account --output text > /dev/null
 
-      - name: Setup Node.js for rebuild fallback
-        if: inputs.execute_rollback == true
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: app/package-lock.json
-
       - name: Execute AWS frontend rollback hook
         if: inputs.execute_rollback == true
         env:
@@ -63,7 +65,6 @@ jobs:
           AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET }}
           AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID }}
           AWS_FRONTEND_PUBLIC_URL: ${{ vars.AWS_FRONTEND_PUBLIC_URL }}
-          AURA_BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
         run: |
           set -euo pipefail
 

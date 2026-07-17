@@ -156,8 +156,8 @@ requireIncludes(bootstrapSecurityPosture, 'configservice put-configuration-recor
 requireIncludes(bootstrapSecurityPosture, 'ec2 create-flow-logs', 'AWS security posture bootstrap must enable backend VPC Flow Logs.');
 requireIncludes(awsBackendDocs, 'bootstrap-security-posture.ps1', 'AWS backend docs must include the security posture bootstrap step.');
 requireIncludes(backendDeployWorkflow, '${AWS_BACKEND_BASE_URL%/}/health"', 'External deploy smoke must use public health summary, not private readiness.');
-requireIncludes(backendDeployWorkflow, 'sha256sum "${RUNNER_TEMP}/aura-infra-${GITHUB_SHA}.tar.gz"', 'Backend deploy workflow must compute the infra artifact SHA-256.');
-requireIncludes(backendDeployWorkflow, 'sha256sum "${RUNNER_TEMP}/aura-image-${GITHUB_SHA}.tar.gz"', 'Backend deploy workflow must compute the image artifact SHA-256.');
+requireIncludes(backendDeployWorkflow, 'sha256sum "${RUNNER_TEMP}/aura-infra-${AURA_RELEASE_SHA}.tar.gz"', 'Backend deploy workflow must compute the immutable infra artifact SHA-256.');
+requireIncludes(backendDeployWorkflow, 'sha256sum "${RUNNER_TEMP}/aura-image-${AURA_RELEASE_SHA}.tar.gz"', 'Backend deploy workflow must compute the immutable image artifact SHA-256.');
 requireIncludes(backendDeployWorkflow, 'sha256sum --check --status', 'Backend deploy workflow must verify the bootstrap infra bundle before extracting it on EC2.');
 requireIncludes(backendDeployWorkflow, 'AURA_IMAGE_BUNDLE_SHA256', 'Backend deploy workflow must pass expected image artifact SHA-256 to EC2.');
 requireIncludes(backendConnectivityDoctor, "name: 'summary health', path: '/health', critical: true", 'Backend doctor must treat public health summary as the critical unauthenticated probe.');
