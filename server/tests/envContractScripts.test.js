@@ -914,6 +914,13 @@ describe('repo environment contract scripts', () => {
         expect(commonScript).toMatch(/nginx_staging_server_name/);
         expect(commonScript).toMatch(/Could not derive concrete Nginx server_name/);
         expect(commonScript).toMatch(/ec2PublicDns/);
+        expect(commonScript).toMatch(/required_verify_env_vars\(\)/);
+        const verifyEnvSection = commonScript.match(/required_verify_env_vars\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+        expect(verifyEnvSection).toContain('STAGING_ALLOWED_SSH_CIDR');
+        expect(verifyEnvSection).not.toContain('STAGING_BUDGET_EMAIL');
+
+        const verifyScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '10-verify-staging.sh'), 'utf8');
+        expect(verifyScript).toMatch(/STAGING_PREFLIGHT_MODE=verify bash "\$SCRIPT_DIR\/00-preflight\.sh"/);
 
         const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
         expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);

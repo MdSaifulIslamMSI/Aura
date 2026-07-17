@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
-bash "$SCRIPT_DIR/00-preflight.sh"
+STAGING_PREFLIGHT_MODE=verify bash "$SCRIPT_DIR/00-preflight.sh"
 
 ensure_state
 staging_base_url="${STAGING_BASE_URL:-$(state_get staging_base_url)}"
