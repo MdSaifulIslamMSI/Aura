@@ -1500,8 +1500,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const runWithFreshSensitiveActionAuth = async (operation) => {
+    let reauthenticated = false;
     if (!hasFreshSensitiveActionAuth(sessionState.intelligence)) {
       await reauthenticateForSensitiveAction();
+      reauthenticated = true;
     } else if (typeof currentUser?.getIdToken === 'function') {
       await currentUser.getIdToken(true);
     }
@@ -1512,7 +1514,9 @@ export const AuthProvider = ({ children }) => {
       if (!isRecentReauthRequiredError(error)) {
         throw error;
       }
-      await reauthenticateForSensitiveAction();
+      if (!reauthenticated) {
+        await reauthenticateForSensitiveAction();
+      }
       return operation({ forceRefreshAuth: true });
     }
   };

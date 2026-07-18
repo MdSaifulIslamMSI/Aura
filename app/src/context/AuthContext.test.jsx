@@ -2192,7 +2192,7 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('revoke-status')).toHaveTextContent('signed_out');
   });
 
-  it('reauthenticates once and retries sensitive MFA recovery-code generation when recent auth is required', async () => {
+  it('reauthenticates at most once when local posture is stale and recovery-code generation also requires recent auth', async () => {
     let capturedContext = null;
     const recentAuthError = new Error('Recent re-authentication is required for this action.');
     recentAuthError.status = 401;
@@ -2240,7 +2240,7 @@ describe('AuthProvider', () => {
         posture: {
           session: {
             authAgeSeconds: 60,
-            freshForSensitiveActions: true,
+            freshForSensitiveActions: false,
             stepUpActive: false,
           },
         },
