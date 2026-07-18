@@ -99,7 +99,7 @@ describe('LoginView desktop browser-only mode', () => {
     const props = buildProps({ desktopBrowserSignInPending: true });
     renderView(props);
 
-    fireEvent.click(screen.getByRole('button', { name: /continue in browser/i }));
+    fireEvent.click(screen.getByRole('button', { name: /open browser again/i }));
     expect(props.handleReopenDesktopBrowserSignIn).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole('button', { name: /cancel browser sign-in/i }));

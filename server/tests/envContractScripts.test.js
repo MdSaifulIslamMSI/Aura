@@ -1549,9 +1549,11 @@ describe('repo environment contract scripts', () => {
         ];
 
         expect(rootDockerfile).toContain('shared/assistantCapabilities.json /app/shared/assistantCapabilities.json');
+        expect(rootDockerfile).toContain('config/desktopAuthLoopback.cjs /app/config/desktopAuthLoopback.cjs');
         expect(serverDockerfile).toContain('COPY server/package*.json ./');
         expect(serverDockerfile).toContain('COPY --chown=node:node server ./');
         expect(serverDockerfile).toContain('shared/assistantCapabilities.json /shared/assistantCapabilities.json');
+        expect(serverDockerfile).toContain('config/desktopAuthLoopback.cjs /config/desktopAuthLoopback.cjs');
         expect(ciWorkflow).toContain('docker build --file server/Dockerfile --tag aura-backend-ci .');
         expect(ciWorkflow).toContain("require('./services/ai/assistantToolRegistry')");
         expect(deployWorkflow).toMatch(/--file server\/Dockerfile[\s\S]*--load \\\n\s+\./);

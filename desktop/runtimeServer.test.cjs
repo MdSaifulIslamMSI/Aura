@@ -14,8 +14,10 @@ const {
     DEFAULT_BACKEND_ORIGIN,
     DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
+    MAX_STABLE_RUNTIME_PORT,
     DESKTOP_AUTH_PROTOCOL_VERSION,
     DESKTOP_AUTH_REQUEST_TTL_MS,
+    DESKTOP_AUTH_CANCEL_PATH,
     DESKTOP_AUTH_COMPLETE_PATH,
     RUNTIME_CALLBACK_HOST,
     buildRuntimeCallbackUrl,
@@ -31,12 +33,24 @@ const {
 } = require('./runtimeServer.cjs');
 
 test('desktop runtime only uses the callback ports accepted by the hosted handoff', () => {
+    const allowedPorts = Array.from(
+        { length: 11 },
+        (_value, index) => DEFAULT_RUNTIME_PORT + index
+    );
     assert.deepEqual(
         buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT),
-        Array.from({ length: 11 }, (_value, index) => DEFAULT_RUNTIME_PORT + index)
+        allowedPorts
+    );
+    assert.deepEqual(
+        buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT + 10),
+        [DEFAULT_RUNTIME_PORT + 10, ...allowedPorts.slice(0, -1)]
     );
     assert.equal(buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT).includes(0), false);
     assert.throws(() => buildRuntimePortCandidates(0), /requires a fixed loopback port/);
+    assert.throws(
+        () => buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT + 11),
+        /requires a fixed loopback port/
+    );
 });
 
 test('desktop browser handoff allows enough time for password and two OTP stages', () => {
@@ -188,8 +202,8 @@ test('desktop runtime has a stable default port but falls back if it is busy', a
     fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
 
     const blocker = http.createServer((_request, response) => response.end('busy'));
-    await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
-    const busyPort = blocker.address().port;
+    await new Promise((resolve) => blocker.listen(DEFAULT_RUNTIME_PORT, '127.0.0.1', resolve));
+    const busyPort = DEFAULT_RUNTIME_PORT;
 
     const runtime = await startRuntimeServer({ distDir, port: busyPort });
 
@@ -207,6 +221,7 @@ test('desktop runtime has a stable default port but falls back if it is busy', a
         assert.equal(desktopAuthUrl.searchParams.has('desktopAuthCallback'), false);
         assert.equal(desktopAuthUrl.searchParams.has('desktopAuthSecret'), false);
         assert.equal(DEFAULT_RUNTIME_PORT, 47831);
+        assert.ok(runtime.port <= MAX_STABLE_RUNTIME_PORT);
 
         const rootResponse = await fetch(`${runtime.url}/`);
         assert.equal(rootResponse.status, 200);
@@ -278,15 +293,62 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     assert.equal(broker.consumeResult(request.requestId), null);
 });
 
+test('desktop auth broker requires its timing-safe secret and cancels a browser handoff once', () => {
+    const cancellations = [];
+    const broker = createDesktopAuthBroker({
+        onCancel: (event) => cancellations.push(event),
+    });
+    const request = broker.createRequest({
+        callbackUrl: 'http://127.0.0.1:47831',
+        runtimeUrl: 'http://localhost:47831',
+    });
+    const handoff = new URLSearchParams(new URL(request.url).hash.slice(1));
+    const secret = handoff.get('desktopAuthSecret');
+
+    assert.throws(() => broker.cancelAuthenticatedRequest({
+        requestId: request.requestId,
+        secret: 'wrong-secret',
+    }), (error) => error.statusCode === 403 && /could not be verified/.test(error.message));
+    assert.notEqual(broker.getRequest(request.requestId), null);
+
+    const result = broker.cancelAuthenticatedRequest({
+        requestId: request.requestId,
+        secret,
+    });
+    assert.equal(result.requestId, request.requestId);
+    assert.equal(typeof result.cancelledAt, 'number');
+    assert.deepEqual(cancellations, [{
+        requestId: request.requestId,
+        cancelledAt: result.cancelledAt,
+    }]);
+    assert.equal(broker.getRequest(request.requestId), null);
+    assert.throws(() => broker.cancelAuthenticatedRequest({
+        requestId: request.requestId,
+        secret,
+    }), (error) => error.statusCode === 404 && /expired or unknown/.test(error.message));
+    assert.equal(cancellations.length, 1);
+    assert.deepEqual(broker.consumeResult(request.requestId), {
+        requestId: request.requestId,
+        cancelled: true,
+        cancelledAt: result.cancelledAt,
+    });
+    assert.equal(broker.consumeResult(request.requestId), null);
+
+    const legacyRequest = broker.createRequest({
+        callbackUrl: 'http://127.0.0.1:47831',
+        runtimeUrl: 'http://localhost:47831',
+    });
+    assert.equal(broker.cancelRequest(legacyRequest.requestId), true);
+});
+
 test('desktop auth callback completes the HTTP handoff and consumes its token once', async () => {
     const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-callback-'));
     fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
-    const portProbe = http.createServer();
-    await new Promise((resolve) => portProbe.listen(0, '127.0.0.1', resolve));
-    const freePort = portProbe.address().port;
-    await new Promise((resolve) => portProbe.close(resolve));
 
-    const runtime = await startRuntimeServer({ distDir, port: freePort });
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 2,
+    });
     try {
         const request = runtime.createDesktopAuthRequest();
         const handoff = new URLSearchParams(new URL(request.url).hash.slice(1));
@@ -340,9 +402,121 @@ test('desktop auth callback completes the HTTP handoff and consumes its token on
         });
         assert.equal(formResponse.status, 200);
         assert.match(formResponse.headers.get('content-type'), /^text\/html/);
-        assert.match(await formResponse.text(), /Aura Desktop received the secure result/);
+        const completionHtml = await formResponse.text();
+        assert.match(completionHtml, /Aura Desktop received the secure result/);
+        assert.match(completionHtml, /background:#1f1f1f/);
+        assert.doesNotMatch(completionHtml, /#67e8f9/);
         assert.equal(runtime.consumeDesktopAuthResult(formRequest.requestId).customToken, 'form-navigation-custom-token');
         assert.equal(runtime.getDesktopAuthRequest(formRequest.requestId), null);
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
+});
+
+test('desktop auth cancellation endpoint enforces CORS and secret authentication once', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-cancel-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+    const cancellations = [];
+
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 3,
+        onDesktopAuthCancel: (event) => cancellations.push(event),
+    });
+    try {
+        const request = runtime.createDesktopAuthRequest();
+        const handoff = new URLSearchParams(new URL(request.url).hash.slice(1));
+        const cancelUrl = new URL(handoff.get('desktopAuthCallback'));
+        cancelUrl.pathname = DESKTOP_AUTH_CANCEL_PATH;
+        const origin = 'https://aurapilot.vercel.app';
+
+        const preflight = await fetch(cancelUrl, {
+            method: 'OPTIONS',
+            headers: {
+                Origin: origin,
+                'Access-Control-Request-Method': 'POST',
+                'Access-Control-Request-Private-Network': 'true',
+            },
+        });
+        assert.equal(preflight.status, 204);
+        assert.equal(preflight.headers.get('access-control-allow-origin'), origin);
+        assert.equal(preflight.headers.get('access-control-allow-private-network'), 'true');
+
+        const hostilePreflight = await fetch(cancelUrl, {
+            method: 'OPTIONS',
+            headers: {
+                Origin: 'https://evil.example.test',
+                'Access-Control-Request-Method': 'POST',
+            },
+        });
+        assert.equal(hostilePreflight.status, 403);
+        assert.equal(hostilePreflight.headers.get('access-control-allow-origin'), null);
+
+        const hostileResponse = await fetch(cancelUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: 'https://evil.example.test',
+            },
+            body: JSON.stringify({
+                requestId: request.requestId,
+                secret: handoff.get('desktopAuthSecret'),
+            }),
+        });
+        assert.equal(hostileResponse.status, 403);
+        assert.notEqual(runtime.getDesktopAuthRequest(request.requestId), null);
+
+        const wrongSecretResponse = await fetch(cancelUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: origin,
+            },
+            body: JSON.stringify({
+                requestId: request.requestId,
+                secret: 'wrong-secret',
+            }),
+        });
+        assert.equal(wrongSecretResponse.status, 403);
+        assert.match((await wrongSecretResponse.json()).message, /could not be verified/);
+        assert.notEqual(runtime.getDesktopAuthRequest(request.requestId), null);
+
+        const cancelResponse = await fetch(cancelUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                Origin: origin,
+            },
+            body: new URLSearchParams({
+                requestId: request.requestId,
+                secret: handoff.get('desktopAuthSecret'),
+            }),
+        });
+        assert.equal(cancelResponse.status, 200);
+        assert.equal(cancelResponse.headers.get('access-control-allow-origin'), origin);
+        assert.match(cancelResponse.headers.get('content-type'), /^text\/html/);
+        const cancellationHtml = await cancelResponse.text();
+        assert.match(cancellationHtml, /Sign-in cancelled/);
+        assert.match(cancellationHtml, /Aura Desktop cancelled this browser sign-in/);
+        assert.match(cancellationHtml, /background:#1f1f1f/);
+        assert.equal(runtime.getDesktopAuthRequest(request.requestId), null);
+        assert.equal(cancellations.length, 1);
+        assert.equal(cancellations[0].requestId, request.requestId);
+
+        const repeatedResponse = await fetch(cancelUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: origin,
+            },
+            body: JSON.stringify({
+                requestId: request.requestId,
+                secret: handoff.get('desktopAuthSecret'),
+            }),
+        });
+        assert.equal(repeatedResponse.status, 404);
+        assert.equal(cancellations.length, 1);
     } finally {
         await runtime.close();
         fs.rmSync(distDir, { force: true, recursive: true });
@@ -394,17 +568,17 @@ test('local fallback limiter rejects excess local attempts', () => {
     assert.match(response.body.message, /Too many desktop sign-in callback requests/);
 });
 
-test('desktop auth callback applies the recognized route rate limiter', async () => {
+test('desktop auth callback routes share the recognized route rate limiter', async () => {
     const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-rate-limit-'));
     fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
-    const portProbe = http.createServer();
-    await new Promise((resolve) => portProbe.listen(0, '127.0.0.1', resolve));
-    const freePort = portProbe.address().port;
-    await new Promise((resolve) => portProbe.close(resolve));
 
-    const runtime = await startRuntimeServer({ distDir, port: freePort });
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 4,
+    });
     try {
-        const responses = await Promise.all(Array.from({ length: 61 }, () => fetch(runtime.callbackUrl + DESKTOP_AUTH_COMPLETE_PATH, {
+        const responses = await Promise.all(Array.from({ length: 61 }, (_, index) => fetch(
+            runtime.callbackUrl + (index % 2 === 0 ? DESKTOP_AUTH_COMPLETE_PATH : DESKTOP_AUTH_CANCEL_PATH), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: '{}',

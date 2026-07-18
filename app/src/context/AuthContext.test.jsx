@@ -875,6 +875,65 @@ describe('AuthProvider', () => {
     }
   });
 
+  it('polls a desktop browser cancellation tombstone if the event is missed', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+
+    const cancelBrowserSignIn = vi.fn().mockResolvedValue({ success: false });
+    const consumeBrowserSignIn = vi.fn()
+      .mockResolvedValueOnce({
+        success: false,
+        message: 'Desktop browser sign-in is not ready or has expired.',
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        cancelled: true,
+        code: 'auth/desktop-browser-sign-in-cancelled',
+        requestId: 'desktop-browser-cancel-poll-1',
+        message: 'Desktop browser sign-in was cancelled.',
+      });
+
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn,
+      consumeBrowserSignIn,
+      onBrowserSignInStatus: vi.fn(() => () => {}),
+      startBrowserSignIn: vi.fn().mockResolvedValue({
+        requestId: 'desktop-browser-cancel-poll-1',
+        expiresAt: Date.now() + 10 * 60_000,
+      }),
+    };
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('unexpected-success'))
+          .catch((error) => setResult(`${error.code}:${error.message}`));
+      }, [signInWithDesktopBrowser]);
+
+      return <div data-testid="desktop-browser-cancel-poll-result">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-cancel-poll-result'))
+          .toHaveTextContent('auth/desktop-browser-sign-in-cancelled');
+      }, { timeout: 4000 });
+      expect(consumeBrowserSignIn).toHaveBeenCalledTimes(2);
+      expect(cancelBrowserSignIn).toHaveBeenCalledWith('desktop-browser-cancel-poll-1');
+      expect(mocks.signInWithCustomTokenMock).not.toHaveBeenCalled();
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
   it('reopens the exact pending desktop browser request through the native bridge', async () => {
     mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
     const reopenBrowserSignIn = vi.fn().mockResolvedValue({
@@ -967,6 +1026,66 @@ describe('AuthProvider', () => {
       });
 
       expect(cancelBrowserSignIn).toHaveBeenCalledWith('desktop-browser-cancel-1');
+      expect(mocks.signInWithCustomTokenMock).not.toHaveBeenCalled();
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it('honors browser-side desktop cancellation events without creating a Firebase session', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+
+    let statusListener = null;
+    const cancelBrowserSignIn = vi.fn().mockResolvedValue({ success: false });
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn,
+      consumeBrowserSignIn: vi.fn().mockResolvedValue({
+        success: false,
+        message: 'Desktop browser sign-in is not ready or has expired.',
+      }),
+      onBrowserSignInStatus: vi.fn((listener) => {
+        statusListener = listener;
+        return () => {};
+      }),
+      startBrowserSignIn: vi.fn().mockResolvedValue({
+        requestId: 'desktop-browser-cancel-event-1',
+        expiresAt: Date.now() + 10 * 60_000,
+      }),
+    };
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('unexpected-success'))
+          .catch((error) => setResult(`${error.code}:${error.message}`));
+      }, [signInWithDesktopBrowser]);
+
+      return <div data-testid="desktop-browser-cancel-event-result">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => expect(statusListener).toEqual(expect.any(Function)));
+
+      await act(async () => {
+        await statusListener({
+          type: 'cancelled',
+          requestId: 'desktop-browser-cancel-event-1',
+        });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-cancel-event-result'))
+          .toHaveTextContent('auth/desktop-browser-sign-in-cancelled');
+      });
+      expect(cancelBrowserSignIn).toHaveBeenCalledWith('desktop-browser-cancel-event-1');
       expect(mocks.signInWithCustomTokenMock).not.toHaveBeenCalled();
     } finally {
       delete window.auraDesktop;
@@ -2073,7 +2192,7 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('revoke-status')).toHaveTextContent('signed_out');
   });
 
-  it('reauthenticates once and retries sensitive MFA recovery-code generation when recent auth is required', async () => {
+  it('reauthenticates at most once when local posture is stale and recovery-code generation also requires recent auth', async () => {
     let capturedContext = null;
     const recentAuthError = new Error('Recent re-authentication is required for this action.');
     recentAuthError.status = 401;
@@ -2121,7 +2240,7 @@ describe('AuthProvider', () => {
         posture: {
           session: {
             authAgeSeconds: 60,
-            freshForSensitiveActions: true,
+            freshForSensitiveActions: false,
             stepUpActive: false,
           },
         },

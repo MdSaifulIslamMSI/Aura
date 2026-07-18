@@ -6,6 +6,12 @@ import {
   FRONTEND_CONTENT_SECURITY_POLICY,
   FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY,
 } from '../../config/vercelRoutingContract.mjs';
+import desktopAuthLoopbackContract from '../../../config/desktopAuthLoopback.cjs';
+
+const {
+  DESKTOP_AUTH_LOOPBACK_CONNECT_SOURCES,
+  DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES,
+} = desktopAuthLoopbackContract;
 
 const projectRootPath = process.cwd();
 
@@ -69,6 +75,22 @@ const expectFrameAncestorHeaderPolicy = (policy = '') => {
   expect(getDirectiveSources(policy, 'frame-ancestors')).toEqual(["'none'"]);
 };
 
+const expectDesktopLoopbackPolicy = (policy = '', { allowLocalDevelopmentSources = false } = {}) => {
+  expect(getDirectiveSources(policy, 'form-action')).toEqual([
+    "'self'",
+    ...DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES,
+  ]);
+
+  const connectSources = getDirectiveSources(policy, 'connect-src');
+  DESKTOP_AUTH_LOOPBACK_CONNECT_SOURCES.forEach((source) => {
+    expect(connectSources).toContain(source);
+  });
+  if (!allowLocalDevelopmentSources) {
+    expect(connectSources).not.toContain('http://127.0.0.1:*');
+    expect(connectSources).not.toContain('http://localhost:*');
+  }
+};
+
 const readVercelCsp = (relativePath) => {
   const config = JSON.parse(readProjectFile(relativePath));
   return config.headers?.[0]?.headers?.find((header) => header.key === 'Content-Security-Policy')?.value || '';
@@ -108,11 +130,13 @@ describe('auth CSP allowlists', () => {
     expect(FRONTEND_CONNECT_SRC).not.toContain('wss:');
     expectHardenedConnectSrc(FRONTEND_CONTENT_SECURITY_POLICY);
     expectProductionStylePolicy(FRONTEND_CONTENT_SECURITY_POLICY);
+    expectDesktopLoopbackPolicy(FRONTEND_CONTENT_SECURITY_POLICY);
 
     const html = readProjectFile('index.html');
     const htmlCsp = html.match(/http-equiv="Content-Security-Policy"[\s\S]*?content="([^"]+)"/)?.[1] || '';
     expectHardenedConnectSrc(htmlCsp);
     expectProductionStylePolicy(htmlCsp);
+    expectDesktopLoopbackPolicy(htmlCsp);
     expect(getDirective(htmlCsp, 'frame-ancestors')).toBe('');
   });
 
@@ -125,6 +149,7 @@ describe('auth CSP allowlists', () => {
       expectHardenedConnectSrc(policy);
       expectProductionStylePolicy(policy);
       expectFrameAncestorHeaderPolicy(policy);
+      expectDesktopLoopbackPolicy(policy);
     });
   });
 
@@ -136,5 +161,8 @@ describe('auth CSP allowlists', () => {
       .toContain("'unsafe-inline'");
     expect(getDirectiveSources(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, 'style-src-elem'))
       .toContain("'unsafe-inline'");
+    expectDesktopLoopbackPolicy(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, {
+      allowLocalDevelopmentSources: true,
+    });
   });
 });

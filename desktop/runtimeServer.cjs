@@ -18,6 +18,7 @@ const RUNTIME_PUBLIC_HOST = 'localhost';
 const RUNTIME_CALLBACK_HOST = RUNTIME_LISTEN_HOST;
 const BROWSER_ONLY_PROXY_HEADERS = ['origin', 'referer'];
 const DESKTOP_AUTH_COMPLETE_PATH = '/desktop-auth/complete';
+const DESKTOP_AUTH_CANCEL_PATH = '/desktop-auth/cancel';
 const DESKTOP_AUTH_FRONTEND_PATH = '/desktop-login';
 const DESKTOP_AUTH_CALLBACK_PARAM = 'desktopAuthCallback';
 const DESKTOP_AUTH_TRANSPORT_PARAM = 'desktopAuthTransport';
@@ -27,21 +28,37 @@ const DESKTOP_AUTH_PROTOCOL_VERSION = '2';
 const DESKTOP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 const DESKTOP_AUTH_RESULT_TTL_MS = 60 * 1000;
 const DESKTOP_AUTH_TOKEN_MAX_LENGTH = 8192;
-const DESKTOP_AUTH_COMPLETE_HTML = `<!doctype html>
+const createDesktopAuthResultHtml = ({ title, heading, message }) => `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>Aura Desktop Sign-In Complete</title>
+  <title>${title}</title>
   <style>
-    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#050b18;color:#f8fafc;font:16px/1.5 system-ui,sans-serif}
-    main{max-width:34rem;margin:2rem;padding:2rem;border:1px solid #155e75;border-radius:1.25rem;background:#081426;text-align:center}
-    h1{margin:0 0 .75rem;color:#67e8f9;font-size:1.5rem}p{margin:.5rem 0;color:#cbd5e1}
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f4f4f4;background:#1f1f1f}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;min-height:100svh;display:grid;place-items:center;background:#1f1f1f}
+    main{width:min(28rem,calc(100% - 3rem));text-align:center}
+    .mark{display:grid;place-items:center;width:3rem;height:3rem;margin:0 auto 1.75rem;border:1px solid #6f6f6f;border-radius:50%;color:#ededed;font-size:1.25rem;font-weight:650;letter-spacing:-.04em}
+    h1{margin:0 0 .75rem;font-size:1.5rem;font-weight:500;letter-spacing:-.02em}
+    p{margin:.35rem 0;color:#a8a8a8;font-size:.95rem;line-height:1.55}
   </style>
 </head>
-<body><main><h1>Sign-in received</h1><p>Aura Desktop received the secure result.</p><p>Return to the desktop app. You can close this tab.</p></main></body>
+<body><main><div class="mark" aria-hidden="true">A</div><h1>${heading}</h1><p>${message}</p><p>You can close this tab.</p></main></body>
 </html>`;
+
+const DESKTOP_AUTH_COMPLETE_HTML = createDesktopAuthResultHtml({
+    title: 'Aura Desktop Sign-In Complete',
+    heading: 'Sign-in complete',
+    message: 'Aura Desktop received the secure result. Return to the desktop app.',
+});
+
+const DESKTOP_AUTH_CANCEL_HTML = createDesktopAuthResultHtml({
+    title: 'Aura Desktop Sign-In Cancelled',
+    heading: 'Sign-in cancelled',
+    message: 'Aura Desktop cancelled this browser sign-in.',
+});
 
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 
@@ -217,9 +234,9 @@ const isSafeRelativePath = (value = '') => {
 };
 
 const safeEquals = (left = '', right = '') => {
-    const leftBuffer = Buffer.from(normalizeDesktopAuthString(left));
-    const rightBuffer = Buffer.from(normalizeDesktopAuthString(right));
-    return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+    const leftDigest = crypto.createHash('sha256').update(normalizeDesktopAuthString(left)).digest();
+    const rightDigest = crypto.createHash('sha256').update(normalizeDesktopAuthString(right)).digest();
+    return crypto.timingSafeEqual(leftDigest, rightDigest);
 };
 
 const buildDesktopAuthUrl = ({
@@ -302,7 +319,7 @@ const createLocalRateLimiter = ({ windowMs, max }) => {
     };
 };
 
-const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } = {}) => {
+const createDesktopAuthBroker = ({ onComplete = null, onCancel = null, now = () => Date.now() } = {}) => {
     const pendingRequests = new Map();
     const completedResults = new Map();
 
@@ -430,8 +447,52 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
         completedResults.delete(normalizedRequestId);
         return {
             requestId: result.requestId,
-            customToken: result.customToken,
-            completedAt: result.completedAt,
+            ...(result.cancelled
+                ? {
+                    cancelled: true,
+                    cancelledAt: result.cancelledAt,
+                }
+                : {
+                    customToken: result.customToken,
+                    completedAt: result.completedAt,
+                }),
+        };
+    };
+
+    const cancelAuthenticatedRequest = ({ requestId = '', secret = '' } = {}) => {
+        pruneExpired();
+        const normalizedRequestId = normalizeDesktopAuthString(requestId);
+        const normalizedSecret = normalizeDesktopAuthString(secret);
+        const pendingRequest = pendingRequests.get(normalizedRequestId);
+
+        if (!pendingRequest) {
+            const error = new Error('Desktop sign-in request is expired or unknown.');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        if (!safeEquals(pendingRequest.secret, normalizedSecret)) {
+            const error = new Error('Desktop sign-in request could not be verified.');
+            error.statusCode = 403;
+            throw error;
+        }
+
+        pendingRequests.delete(normalizedRequestId);
+        const cancelledAt = now();
+        completedResults.set(normalizedRequestId, {
+            requestId: normalizedRequestId,
+            cancelled: true,
+            cancelledAt,
+            expiresAt: cancelledAt + DESKTOP_AUTH_RESULT_TTL_MS,
+        });
+        onCancel?.({
+            requestId: normalizedRequestId,
+            cancelledAt,
+        });
+
+        return {
+            requestId: normalizedRequestId,
+            cancelledAt,
         };
     };
 
@@ -441,6 +502,7 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
     };
 
     return {
+        cancelAuthenticatedRequest,
         cancelRequest,
         completeRequest,
         consumeResult,
@@ -452,19 +514,19 @@ const createDesktopAuthBroker = ({ onComplete = null, now = () => Date.now() } =
 
 const buildRuntimePortCandidates = (port) => {
     const requestedPort = Number(port);
-    if (!Number.isInteger(requestedPort) || requestedPort <= 0) {
+    if (
+        !Number.isInteger(requestedPort)
+        || requestedPort < DEFAULT_RUNTIME_PORT
+        || requestedPort > MAX_STABLE_RUNTIME_PORT
+    ) {
         throw new Error('Desktop runtime requires a fixed loopback port.');
     }
 
-    const candidates = [requestedPort];
-    for (let offset = 1; offset <= STABLE_RUNTIME_FALLBACK_PORTS; offset += 1) {
-        const fallbackPort = requestedPort + offset;
-        if (fallbackPort < 65536) {
-            candidates.push(fallbackPort);
-        }
-    }
-
-    return candidates;
+    const stablePorts = Array.from(
+        { length: STABLE_RUNTIME_FALLBACK_PORTS + 1 },
+        (_value, index) => DEFAULT_RUNTIME_PORT + index
+    );
+    return [requestedPort, ...stablePorts.filter((candidate) => candidate !== requestedPort)];
 };
 
 const listenOnPort = (server, port) => new Promise((resolve, reject) => {
@@ -482,7 +544,12 @@ const listenOnPort = (server, port) => new Promise((resolve, reject) => {
     server.listen(port, RUNTIME_LISTEN_HOST);
 });
 
-const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesktopAuthComplete = null } = {}) => {
+const startRuntimeServer = async ({
+    distDir,
+    port = DEFAULT_RUNTIME_PORT,
+    onDesktopAuthComplete = null,
+    onDesktopAuthCancel = null,
+} = {}) => {
     const resolvedDistDir = path.resolve(distDir);
     assertDistExists(resolvedDistDir);
     const frontendIndexHtml = fs.readFileSync(path.join(resolvedDistDir, 'index.html'), 'utf8');
@@ -492,8 +559,11 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     const allowedDesktopAuthOrigins = resolveAllowedDesktopAuthOrigins(desktopAuthFrontendOrigin);
     const app = express();
     const server = http.createServer(app);
-    const desktopAuthBroker = createDesktopAuthBroker({ onComplete: onDesktopAuthComplete });
-    const desktopAuthCompleteLimiter = rateLimit({
+    const desktopAuthBroker = createDesktopAuthBroker({
+        onComplete: onDesktopAuthComplete,
+        onCancel: onDesktopAuthCancel,
+    });
+    const desktopAuthCallbackLimiter = rateLimit({
         windowMs: 60 * 1000,
         limit: 60,
         standardHeaders: false,
@@ -514,16 +584,18 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
     app.use('/api', apiProxy);
     app.use('/health', apiProxy);
     app.use('/uploads', apiProxy);
-    app.options(DESKTOP_AUTH_COMPLETE_PATH, desktopAuthCompleteLimiter, (request, response) => {
+    const handleDesktopAuthPreflight = (request, response) => {
         if (!applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
             response.status(403).end();
             return;
         }
         response.status(204).end();
-    });
+    };
+    app.options(DESKTOP_AUTH_COMPLETE_PATH, desktopAuthCallbackLimiter, handleDesktopAuthPreflight);
+    app.options(DESKTOP_AUTH_CANCEL_PATH, desktopAuthCallbackLimiter, handleDesktopAuthPreflight);
     app.post(
         DESKTOP_AUTH_COMPLETE_PATH,
-        desktopAuthCompleteLimiter,
+        desktopAuthCallbackLimiter,
         express.json({ limit: '16kb' }),
         express.urlencoded({ extended: false, limit: '16kb' }),
         (request, response) => {
@@ -550,6 +622,38 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
             response.status(error.statusCode || 400).json({
                 success: false,
                 message: error?.message || 'Desktop sign-in could not be completed.',
+            });
+        }
+    });
+    app.post(
+        DESKTOP_AUTH_CANCEL_PATH,
+        desktopAuthCallbackLimiter,
+        express.json({ limit: '16kb' }),
+        express.urlencoded({ extended: false, limit: '16kb' }),
+        (request, response) => {
+        const hasOrigin = Boolean(String(request.headers.origin || '').trim());
+        if (hasOrigin && !applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
+            response.status(403).json({
+                success: false,
+                message: 'Desktop sign-in callback origin is not trusted.',
+            });
+            return;
+        }
+
+        try {
+            const result = desktopAuthBroker.cancelAuthenticatedRequest(request.body || {});
+            if (request.is('application/x-www-form-urlencoded')) {
+                response.status(200).type('html').send(DESKTOP_AUTH_CANCEL_HTML);
+                return;
+            }
+            response.json({
+                success: true,
+                requestId: result.requestId,
+            });
+        } catch (error) {
+            response.status(error.statusCode || 400).json({
+                success: false,
+                message: error?.message || 'Desktop sign-in could not be cancelled.',
             });
         }
     });
@@ -584,7 +688,7 @@ const startRuntimeServer = async ({ distDir, port = DEFAULT_RUNTIME_PORT, onDesk
 
     if (lastListenError) {
         const error = new Error(
-            `Aura could not start its secure local sign-in service because ports ${portCandidates[0]}-${portCandidates.at(-1)} are busy.`
+            `Aura could not start its secure local sign-in service because ports ${DEFAULT_RUNTIME_PORT}-${MAX_STABLE_RUNTIME_PORT} are busy.`
         );
         error.code = lastListenError.code;
         error.cause = lastListenError;
@@ -638,6 +742,7 @@ module.exports = {
     DESKTOP_AUTH_PROTOCOL_META_NAME,
     DESKTOP_AUTH_PROTOCOL_VERSION,
     DESKTOP_AUTH_REQUEST_TTL_MS,
+    DESKTOP_AUTH_CANCEL_PATH,
     DESKTOP_AUTH_COMPLETE_PATH,
     DESKTOP_AUTH_FRONTEND_PATH,
     applyDesktopAuthCors,

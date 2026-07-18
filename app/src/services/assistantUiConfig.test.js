@@ -8,6 +8,7 @@ import {
     shouldShowAmbientChrome,
     shouldShowAssistantLauncher,
     shouldShowBackendStatusBanner,
+    shouldShowPremiumWelcomeCurtain,
     shouldShowSiteChrome,
 } from './assistantUiConfig';
 
@@ -90,5 +91,14 @@ describe('assistantUiConfig', () => {
         expect(isDesktopAuthLoginRequest('/login', '?desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete')).toBe(true);
         expect(isDesktopAuthLoginRequest('/login', '?next=/checkout')).toBe(false);
         expect(isDesktopAuthLoginRequest('/desktop-login', '?desktopAuthRequest=req-1')).toBe(false);
+    });
+
+    it('keeps the welcome curtain off every canonical and legacy auth route', () => {
+        expect(shouldShowPremiumWelcomeCurtain('/login')).toBe(false);
+        expect(shouldShowPremiumWelcomeCurtain('/login/')).toBe(false);
+        expect(shouldShowPremiumWelcomeCurtain('/desktop-login')).toBe(false);
+        expect(shouldShowPremiumWelcomeCurtain('/desktop-login/')).toBe(false);
+        expect(shouldShowPremiumWelcomeCurtain('/login', '?desktopAuthRequest=req-1')).toBe(false);
+        expect(shouldShowPremiumWelcomeCurtain('/')).toBe(true);
     });
 });

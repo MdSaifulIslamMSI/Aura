@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const { app, BrowserWindow, dialog, ipcMain, powerMonitor, screen, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
@@ -8,7 +9,14 @@ const {
     validateDesktopAuthFrontend,
 } = require('./runtimeServer.cjs');
 const { isDesktopOwnerAccessSignInConfigured } = require('./ownerAccessAuth.cjs');
-const { revealWindow, runWithTimeout } = require('./startupReliability.cjs');
+const { formatDesktopAuthResultForRenderer } = require('./browserAuthResult.cjs');
+const { buildLaunchShellDataUrl } = require('./launchShell.cjs');
+const {
+    buildDesktopStartupUrl,
+    loadWindowUrlSafely,
+    revealWindow,
+    runWithTimeout,
+} = require('./startupReliability.cjs');
 
 let mainWindow = null;
 let mainWindowCreationPromise = null;
@@ -82,20 +90,7 @@ ipcMain.handle('desktop:auth:consume-browser-sign-in', (_event, requestId = '') 
         throw new Error('Desktop auth runtime is not ready yet.');
     }
 
-    const result = runtime.consumeDesktopAuthResult(requestId);
-    if (!result?.customToken) {
-        return {
-            success: false,
-            message: 'Desktop browser sign-in is not ready or has expired.',
-        };
-    }
-
-    return {
-        success: true,
-        requestId: result.requestId,
-        customToken: result.customToken,
-        completedAt: result.completedAt,
-    };
+    return formatDesktopAuthResultForRenderer(runtime.consumeDesktopAuthResult(requestId));
 });
 
 ipcMain.handle('desktop:auth:reopen-browser-sign-in', async (_event, requestId = '') => {
@@ -160,6 +155,19 @@ const resolveIconPath = () => (
         : resolveAssetPath('app', 'public', 'assets', 'icon-512.png')
 );
 const resolvePreloadPath = () => path.join(app.getAppPath(), 'desktop', 'preload.cjs');
+
+const resolveLaunchIconDataUrl = () => {
+    const iconPath = app.isPackaged
+        ? path.join(process.resourcesPath, 'app-icon.png')
+        : path.join(app.getAppPath(), 'app', 'public', 'assets', 'icon-512.png');
+
+    try {
+        return `data:image/png;base64,${fs.readFileSync(iconPath).toString('base64')}`;
+    } catch (error) {
+        console.warn('[desktop] launch icon could not be loaded:', error?.message || error);
+        return '';
+    }
+};
 
 const resolveRequestedRuntimePort = () => {
     const rawValue = String(process.env.AURA_DESKTOP_PORT || '').trim();
@@ -375,32 +383,6 @@ const buildUpdateErrorMessage = (error) => {
 };
 
 const createMainWindow = async () => {
-    if (!runtime) {
-        const runtimeOptions = {
-            distDir: resolveDistDir(),
-            onDesktopAuthComplete: (payload) => {
-                sendDesktopAuthStatus('completed', payload);
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    revealWindow(mainWindow);
-                }
-            },
-        };
-        const requestedPort = resolveRequestedRuntimePort();
-        if (requestedPort) {
-            runtimeOptions.port = requestedPort;
-        }
-        runtime = await startRuntimeServer(runtimeOptions);
-    }
-    try {
-        await runWithTimeout(
-            () => clearDesktopRuntimeWebCaches(runtime.url),
-            STARTUP_CACHE_CLEAR_TIMEOUT_MS,
-            'Desktop cache cleanup timed out.'
-        );
-    } catch (error) {
-        console.warn('[desktop] continuing after cache cleanup timeout:', error?.message || error);
-    }
-
     const iconPath = resolveIconPath();
     const initialBounds = getInitialWindowBounds();
     mainWindow = new BrowserWindow({
@@ -408,9 +390,10 @@ const createMainWindow = async () => {
         minWidth: 1080,
         minHeight: 720,
         show: false,
-        backgroundColor: '#020617',
+        backgroundColor: '#202020',
         autoHideMenuBar: true,
         icon: iconPath,
+        title: 'Aura Desktop',
         webPreferences: {
             backgroundThrottling: false,
             contextIsolation: true,
@@ -443,43 +426,9 @@ const createMainWindow = async () => {
     });
 
     mainWindow.webContents.on('did-finish-load', () => {
-        mainWindow?.webContents.setZoomFactor(1);
-        Promise.resolve(mainWindow?.webContents.setVisualZoomLevelLimits(1, 1)).catch(() => {});
-    });
-
-    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        if (isInternalUrl(url, runtime.url)) {
-            return { action: 'allow' };
-        }
-
-        if (isAuthWindowUrl(url)) {
-            return {
-                action: 'allow',
-                overrideBrowserWindowOptions: buildAuthWindowOptions(mainWindow),
-            };
-        }
-
-        void shell.openExternal(url);
-        return { action: 'deny' };
-    });
-
-    mainWindow.webContents.on('did-create-window', (childWindow, details = {}) => {
-        childWindow.setMenuBarVisibility(false);
-        if (isAuthWindowUrl(details.url || '')) {
-            childWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
-            childWindow.center();
-        }
-        childWindow.webContents.setWindowOpenHandler(({ url }) => {
-            if (isAuthWindowUrl(url) || isInternalUrl(url, runtime.url)) {
-                return {
-                    action: 'allow',
-                    overrideBrowserWindowOptions: buildAuthWindowOptions(mainWindow),
-                };
-            }
-
-            void shell.openExternal(url);
-            return { action: 'deny' };
-        });
+        if (activeWindow.isDestroyed()) return;
+        activeWindow.webContents.setZoomFactor(1);
+        Promise.resolve(activeWindow.webContents.setVisualZoomLevelLimits(1, 1)).catch(() => {});
     });
 
     mainWindow.on('closed', () => {
@@ -489,10 +438,91 @@ const createMainWindow = async () => {
         }
     });
 
-    const startupUrl = new URL(runtime.url);
-    startupUrl.searchParams.set('desktopRuntimeVersion', app.getVersion());
-    await activeWindow.loadURL(startupUrl.toString());
-    return activeWindow;
+    const launchShellLoaded = await loadWindowUrlSafely(
+        activeWindow,
+        buildLaunchShellDataUrl({
+            iconDataUrl: resolveLaunchIconDataUrl(),
+        })
+    );
+    if (!launchShellLoaded) return null;
+
+    if (!runtime) {
+        const runtimeOptions = {
+            distDir: resolveDistDir(),
+            onDesktopAuthComplete: (payload) => {
+                sendDesktopAuthStatus('completed', payload);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    revealWindow(mainWindow);
+                }
+            },
+            onDesktopAuthCancel: (payload) => {
+                sendDesktopAuthStatus('cancelled', payload);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    revealWindow(mainWindow);
+                }
+            },
+        };
+        const requestedPort = resolveRequestedRuntimePort();
+        if (requestedPort) {
+            runtimeOptions.port = requestedPort;
+        }
+        runtime = await startRuntimeServer(runtimeOptions);
+    }
+    if (activeWindow.isDestroyed()) return null;
+    try {
+        await runWithTimeout(
+            () => clearDesktopRuntimeWebCaches(runtime.url),
+            STARTUP_CACHE_CLEAR_TIMEOUT_MS,
+            'Desktop cache cleanup timed out.'
+        );
+    } catch (error) {
+        console.warn('[desktop] continuing after cache cleanup timeout:', error?.message || error);
+    }
+
+    if (activeWindow.isDestroyed()) {
+        return null;
+    }
+
+    activeWindow.webContents.setWindowOpenHandler(({ url }) => {
+        if (isInternalUrl(url, runtime.url)) {
+            return { action: 'allow' };
+        }
+
+        if (isAuthWindowUrl(url)) {
+            return {
+                action: 'allow',
+                overrideBrowserWindowOptions: buildAuthWindowOptions(activeWindow),
+            };
+        }
+
+        void shell.openExternal(url);
+        return { action: 'deny' };
+    });
+
+    activeWindow.webContents.on('did-create-window', (childWindow, details = {}) => {
+        childWindow.setMenuBarVisibility(false);
+        if (isAuthWindowUrl(details.url || '')) {
+            childWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
+            childWindow.center();
+        }
+        childWindow.webContents.setWindowOpenHandler(({ url }) => {
+            if (isAuthWindowUrl(url) || isInternalUrl(url, runtime.url)) {
+                return {
+                    action: 'allow',
+                    overrideBrowserWindowOptions: buildAuthWindowOptions(activeWindow),
+                };
+            }
+
+            void shell.openExternal(url);
+            return { action: 'deny' };
+        });
+    });
+
+    const appLoaded = await loadWindowUrlSafely(
+        activeWindow,
+        buildDesktopStartupUrl(runtime.url, app.getVersion())
+    );
+    return appLoaded ? activeWindow : null;
 };
 
 const ensureMainWindow = async () => {

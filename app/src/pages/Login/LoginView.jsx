@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import TurnstileChallenge from '@/components/features/auth/TurnstileChallenge';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
+import DesktopBrowserAuthShell from '@/components/features/auth/DesktopBrowserAuthShell';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
 
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neo-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950';
@@ -111,6 +112,27 @@ const LoginView = ({
       ? processingLabel
       : submitLabel;
   const checkpointIsMfa = sessionStatus === 'mfa_challenge_required';
+
+  if (canUseDesktopBrowserSignIn) {
+    return (
+      <DesktopBrowserAuthShell
+        authError={authError}
+        authSuccess={authSuccess}
+        canUseDesktopOwnerAccessSignIn={canUseDesktopOwnerAccessSignIn}
+        desktopBrowserSignInPending={desktopBrowserSignInPending}
+        emergencyAuthDisabled={emergencyAuthDisabled}
+        handleCancelDesktopBrowserSignIn={handleCancelDesktopBrowserSignIn}
+        handleDesktopBrowserSignIn={handleDesktopBrowserSignIn}
+        handleDesktopOwnerAccessSignIn={handleDesktopOwnerAccessSignIn}
+        handleFeedbackAction={handleFeedbackAction}
+        handleReopenDesktopBrowserSignIn={handleReopenDesktopBrowserSignIn}
+        isLoading={isLoading}
+        isSessionCheckpointPending={isSessionCheckpointPending}
+        sessionStatus={sessionStatus}
+        t={t}
+      />
+    );
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-zinc-950 px-4 py-8 text-white sm:px-6 sm:py-12">

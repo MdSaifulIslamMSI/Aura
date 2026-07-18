@@ -898,11 +898,21 @@ export const AuthProvider = ({ children }) => {
       callback(value);
     };
 
+    const cancelWithMessage = (message = 'Desktop browser sign-in was cancelled.') => {
+      const error = new Error(message);
+      error.code = 'auth/desktop-browser-sign-in-cancelled';
+      settle(reject, error);
+    };
+
     const consumeCompletedToken = async ({ rejectOnFailure = false } = {}) => {
       if (settled) return;
 
       try {
         const result = await desktop.consumeBrowserSignIn(request.requestId);
+        if (result?.cancelled || result?.code === 'auth/desktop-browser-sign-in-cancelled') {
+          cancelWithMessage(result?.message);
+          return;
+        }
         if (result?.success && result?.customToken) {
           settle(resolve, result.customToken);
           return;
@@ -919,9 +929,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const cancelFromSignal = () => {
-      const error = new Error('Desktop browser sign-in was cancelled.');
-      error.code = 'auth/desktop-browser-sign-in-cancelled';
-      settle(reject, error);
+      cancelWithMessage();
     };
 
     if (signal?.aborted) {
@@ -943,9 +951,16 @@ export const AuthProvider = ({ children }) => {
     cleanupHandlers.push(() => window.clearTimeout(timeout));
 
     const unsubscribe = desktop.onBrowserSignInStatus(async (payload = {}) => {
-      if (payload.type !== 'completed' || payload.requestId !== request.requestId) {
+      if (payload.requestId !== request.requestId) {
         return;
       }
+
+      if (payload.type === 'cancelled') {
+        cancelFromSignal();
+        return;
+      }
+
+      if (payload.type !== 'completed') return;
 
       await consumeCompletedToken({ rejectOnFailure: true });
     });
@@ -1485,8 +1500,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const runWithFreshSensitiveActionAuth = async (operation) => {
+    let reauthenticated = false;
     if (!hasFreshSensitiveActionAuth(sessionState.intelligence)) {
       await reauthenticateForSensitiveAction();
+      reauthenticated = true;
     } else if (typeof currentUser?.getIdToken === 'function') {
       await currentUser.getIdToken(true);
     }
@@ -1497,7 +1514,9 @@ export const AuthProvider = ({ children }) => {
       if (!isRecentReauthRequiredError(error)) {
         throw error;
       }
-      await reauthenticateForSensitiveAction();
+      if (!reauthenticated) {
+        await reauthenticateForSensitiveAction();
+      }
       return operation({ forceRefreshAuth: true });
     }
   };

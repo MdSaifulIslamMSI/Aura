@@ -18,10 +18,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Total tracked review pairs preserved: 86856
 - Unique review locale/id pairs: 86856
-- Actionable grouped queue entries: 3166
-- Actionable affected locale/message pairs: 42157
-- Native-review audit grouped entries: 2489
-- Native-review audit affected locale/message pairs: 44699
+- Actionable grouped queue entries: 3159
+- Actionable affected locale/message pairs: 42195
+- Native-review audit grouped entries: 2490
+- Native-review audit affected locale/message pairs: 44661
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -29,9 +29,9 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 1214 | 20701 | bn 975, hi 1144, te 1034, mr 1040, ur 1020, gu 1055, pa 1049, ml 1035, kn 1034, or 1048, as 1033, sa 1037, es 1165, fr 1197, de 1185, ar 1111, ja 1184, pt 1176, zh 1179 |
-| high | 213 | 880 | bn 9, hi 195, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 74, fr 80, de 78, ar 77, ja 81, pt 74, zh 78 |
-| medium | 1192 | 17145 | bn 768, hi 1084, te 775, mr 774, ur 773, gu 792, pa 786, ml 773, kn 773, or 783, as 772, sa 782, es 1082, fr 1066, de 1054, ar 1049, ja 1093, pt 1075, zh 1091 |
+| critical | 1210 | 20763 | bn 978, hi 1149, te 1037, mr 1043, ur 1023, gu 1058, pa 1052, ml 1038, kn 1037, or 1051, as 1036, sa 1040, es 1168, fr 1200, de 1188, ar 1115, ja 1188, pt 1179, zh 1183 |
+| high | 211 | 875 | bn 9, hi 193, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 74, fr 80, de 78, ar 76, ja 80, pt 74, zh 77 |
+| medium | 1191 | 17126 | bn 767, hi 1083, te 774, mr 773, ur 772, gu 791, pa 785, ml 772, kn 772, or 782, as 771, sa 781, es 1081, fr 1065, de 1053, ar 1048, ja 1092, pt 1074, zh 1090 |
 | low | 547 | 3431 | bn 2, hi 537, te 1, mr 2, ur 3, gu 3, pa 2, ml 1, kn 2, or 3, as 1, sa 3, es 407, fr 414, de 410, ar 411, ja 411, pt 408, zh 410 |
 
 ## Examples
@@ -41,11 +41,11 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | critical | high | 57 | Recheck your email and phone details, then request a new code. | auth.error.noAccountFound.hint, auth.error.noAccountFoundWithThisEmail.hint, auth.error.noAccountFoundWithThisPhone.hint |
 | critical | high | 57 | Sign in for support | securePathDock.support.guest.title, support.jsx.text.sign.in.for.support, supportLauncher.guest.title |
 | critical | high | 57 | We could not verify those account details for OTP. | auth.error.noAccountFound.detail, auth.error.noAccountFoundWithThisEmail.detail, auth.error.noAccountFoundWithThisPhone.detail |
+| critical | high | 47 | Cancel | common.action.cancel, common.cancel, checkout.cancel, profile.payments.addCard.cancel, profile.personal.cancel |
+| critical | high | 38 | Confirm password | desktopLogin.field.confirmPassword, desktopLogin.placeholder.confirmPasswordShort |
+| critical | high | 38 | Continue with Duo | desktopLogin.provider.duo, login.social.duo |
 | critical | high | 38 | Enter your password | desktopLogin.placeholder.password, login.password.placeholder |
-| critical | high | 38 | Owner Access | login.desktopOwnerAccess.button, login.desktopOwnerAccess.startedTitle |
-| critical | high | 38 | Revoking... | common.revoking, profile.settings.devices.revokingOthers |
-| critical | high | 38 | Secure sign-in | auth.trustedDevice.eyebrow.public, login.secureSignIn |
-| critical | high | 38 | Active incidents | status.incidents.active, support.jsx.prop.label.active.incidents |
+| critical | high | 38 | New password | desktopLogin.field.newPassword, desktopLogin.placeholder.newPassword |
 | high | high | 10 | Aura Catalog | listing.catalogTitleFull |
 | high | high | 9 | Aura never asks for your OTP outside this secure verification step. | login.trust.otp.default.2 |
 | high | high | 9 | Keep all negotiation inside Aura chat. | listingDetail.safety.note4 |
@@ -75,25 +75,25 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Locale | Affected pairs |
 | --- | ---: |
-| bn | 2654 |
-| hi | 1448 |
-| te | 2788 |
-| mr | 2782 |
-| ur | 2641 |
-| gu | 2749 |
-| pa | 2762 |
-| ml | 2786 |
-| kn | 2789 |
-| or | 2757 |
-| as | 2801 |
-| sa | 2782 |
-| es | 1884 |
-| fr | 1855 |
-| de | 1885 |
-| ar | 1760 |
-| ja | 1843 |
-| pt | 1879 |
-| zh | 1854 |
+| bn | 2652 |
+| hi | 1446 |
+| te | 2786 |
+| mr | 2780 |
+| ur | 2639 |
+| gu | 2747 |
+| pa | 2760 |
+| ml | 2784 |
+| kn | 2787 |
+| or | 2755 |
+| as | 2799 |
+| sa | 2780 |
+| es | 1882 |
+| fr | 1853 |
+| de | 1883 |
+| ar | 1758 |
+| ja | 1841 |
+| pt | 1877 |
+| zh | 1852 |
 
 ## Files
 

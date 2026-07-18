@@ -3853,129 +3853,14 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "done",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "auth.jsx.expression.create.account.2428c1b6": {
-        id: "auth.jsx.expression.create.account.2428c1b6",
-        defaultMessage: "Create account",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.expression.email.address.cef5d897": {
-        id: "auth.jsx.expression.email.address.cef5d897",
-        defaultMessage: "Email Address *",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.expression.email.verification.fa2c19cf": {
-        id: "auth.jsx.expression.email.verification.fa2c19cf",
-        defaultMessage: "Email verification",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.expression.phone.verification.94e84a2f": {
-        id: "auth.jsx.expression.phone.verification.94e84a2f",
-        defaultMessage: "Phone verification",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.expression.registered.email.27c6cef1": {
-        id: "auth.jsx.expression.registered.email.27c6cef1",
-        defaultMessage: "Registered Email *",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.expression.request.armed.b9bf993d": {
-        id: "auth.jsx.expression.request.armed.b9bf993d",
-        defaultMessage: "Request armed",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.expression.request.missing.3c67b181": {
-        id: "auth.jsx.expression.request.missing.3c67b181",
-        defaultMessage: "Request missing",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.expression.use.existing.account.78f61e74": {
-        id: "auth.jsx.expression.use.existing.account.78f61e74",
-        defaultMessage: "Use existing account",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.expression.verification.code.0c41bf58": {
-        id: "auth.jsx.expression.verification.code.0c41bf58",
-        defaultMessage: "Verification code",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.aura.desktop.9942bc8a": {
-        id: "auth.jsx.text.aura.desktop.9942bc8a",
-        defaultMessage: "Aura Desktop",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.aura.desktop.e8fd0ce4": {
-        id: "auth.jsx.text.aura.desktop.e8fd0ce4",
-        defaultMessage: "Aura Desktop.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.aura.desktop.keeps.your.session.secure.and.f6004bed": {
-        id: "auth.jsx.text.aura.desktop.keeps.your.session.secure.and.f6004bed",
-        defaultMessage: "Aura Desktop keeps your session secure and private.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.cisco.duo.5fa9322e": {
-        id: "auth.jsx.text.cisco.duo.5fa9322e",
-        defaultMessage: "Cisco Duo",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.confirm.password.8b9db931": {
-        id: "auth.jsx.text.confirm.password.8b9db931",
-        defaultMessage: "Confirm Password *",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.desktop.handoff.active.3cb7b554": {
-        id: "auth.jsx.text.desktop.handoff.active.3cb7b554",
-        defaultMessage: "Desktop handoff active",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.desktop.request.not.active.e348cafc": {
-        id: "auth.jsx.text.desktop.request.not.active.e348cafc",
-        defaultMessage: "Desktop request not active",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.forgot.password.823e0b60": {
-        id: "auth.jsx.text.forgot.password.823e0b60",
-        defaultMessage: "Forgot password?",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "auth.jsx.text.live.auth.67a9883c": {
         id: "auth.jsx.text.live.auth.67a9883c",
         defaultMessage: "Live auth",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f": {
-        id: "auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f",
-        defaultMessage: "One focused login bridge for",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.password.464054c2": {
-        id: "auth.jsx.text.password.464054c2",
-        defaultMessage: "Password *",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.resend.in.eeb75215": {
-        id: "auth.jsx.text.resend.in.eeb75215",
-        defaultMessage: "Resend in",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2": {
-        id: "auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2",
-        defaultMessage: "Social access is unavailable for this deployment.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d": {
-        id: "auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d",
-        defaultMessage: "Start again from Aura Desktop so this browser lane can bind to the local session request.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df": {
         id: "auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df",
         defaultMessage: "Upload or paste a screenshot, then rank closest products with price-gap and authenticity hints.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe": {
-        id: "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe",
-        defaultMessage: "Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "auth.pending.admin": {
@@ -5923,6 +5808,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Back",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "common.action.cancel": {
+        id: "common.action.cancel",
+        defaultMessage: "Cancel",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.action.continue": {
+        id: "common.action.continue",
+        defaultMessage: "Continue",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "common.answer.no": {
         id: "common.answer.no",
         defaultMessage: "No",
@@ -7293,84 +7188,89 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "7+ days",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "desktopLogin.action.resetPassword": {
+        id: "desktopLogin.action.resetPassword",
+        defaultMessage: "Reset password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "desktopLogin.action.temporarilyUnavailable": {
         id: "desktopLogin.action.temporarilyUnavailable",
-        defaultMessage: "Temporarily Unavailable",
+        defaultMessage: "Temporarily unavailable",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.action.waitingForBrowser": {
         id: "desktopLogin.action.waitingForBrowser",
-        defaultMessage: "Waiting for Browser",
+        defaultMessage: "Waiting for browser",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.bridge.api": {
-        id: "desktopLogin.bridge.api",
-        defaultMessage: "API",
+    "desktopLogin.consent.accountFallback": {
+        id: "desktopLogin.consent.accountFallback",
+        defaultMessage: "Signed-in Aura account",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.bridge.callback": {
-        id: "desktopLogin.bridge.callback",
-        defaultMessage: "Callback",
+    "desktopLogin.consent.security": {
+        id: "desktopLogin.consent.security",
+        defaultMessage: "Only continue if you started this sign-in from Aura Desktop. Aura sends a one-time sealed session to this device; your required identity and security checks remain in force.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.bridge.delivery": {
-        id: "desktopLogin.bridge.delivery",
-        defaultMessage: "Delivery",
+    "desktopLogin.consent.status": {
+        id: "desktopLogin.consent.status",
+        defaultMessage: "Securely returning sign-in to Aura Desktop.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.bridge.hosted": {
-        id: "desktopLogin.bridge.hosted",
-        defaultMessage: "Hosted",
+    "desktopLogin.consent.submitting": {
+        id: "desktopLogin.consent.submitting",
+        defaultMessage: "Opening Aura Desktop",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.bridge.loopback": {
-        id: "desktopLogin.bridge.loopback",
-        defaultMessage: "Loopback",
+    "desktopLogin.consent.title": {
+        id: "desktopLogin.consent.title",
+        defaultMessage: "Continue to Aura Desktop",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.bridge.protected": {
-        id: "desktopLogin.bridge.protected",
-        defaultMessage: "Protected",
+    "desktopLogin.consent.verifiedAccount": {
+        id: "desktopLogin.consent.verifiedAccount",
+        defaultMessage: "Verified Aura account",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.capability.desktopOnly": {
-        id: "desktopLogin.capability.desktopOnly",
-        defaultMessage: "Desktop only",
+    "desktopLogin.field.confirmPassword": {
+        id: "desktopLogin.field.confirmPassword",
+        defaultMessage: "Confirm password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.capability.loopbackOnly": {
-        id: "desktopLogin.capability.loopbackOnly",
-        defaultMessage: "Loopback only",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "desktopLogin.capability.requestLocked": {
-        id: "desktopLogin.capability.requestLocked",
-        defaultMessage: "Request locked",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "desktopLogin.capability.sealedToken": {
-        id: "desktopLogin.capability.sealedToken",
-        defaultMessage: "Sealed token",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "desktopLogin.capability.traceReady": {
-        id: "desktopLogin.capability.traceReady",
-        defaultMessage: "Trace ready",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "desktopLogin.capability.verifiedProof": {
-        id: "desktopLogin.capability.verifiedProof",
-        defaultMessage: "Verified proof",
+    "desktopLogin.field.email": {
+        id: "desktopLogin.field.email",
+        defaultMessage: "Email address",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.field.fullName": {
         id: "desktopLogin.field.fullName",
-        defaultMessage: "Full Name *",
+        defaultMessage: "Full name",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.field.newPassword": {
+        id: "desktopLogin.field.newPassword",
+        defaultMessage: "New password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.field.password": {
+        id: "desktopLogin.field.password",
+        defaultMessage: "Password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.field.phoneNumber": {
         id: "desktopLogin.field.phoneNumber",
-        defaultMessage: "Phone Number *",
+        defaultMessage: "Phone number",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.field.registeredEmail": {
+        id: "desktopLogin.field.registeredEmail",
+        defaultMessage: "Registered email",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.handoff.active": {
+        id: "desktopLogin.handoff.active",
+        defaultMessage: "Desktop handoff active",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.handoff.stepsDetail": {
@@ -7378,9 +7278,54 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.handoff.stepsTitle": {
-        id: "desktopLogin.handoff.stepsTitle",
-        defaultMessage: "Complete all three browser steps",
+    "desktopLogin.hydration.detail": {
+        id: "desktopLogin.hydration.detail",
+        defaultMessage: "Confirming whether this trusted browser is already signed in before showing the next secure step.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.hydration.title": {
+        id: "desktopLogin.hydration.title",
+        defaultMessage: "Checking your Aura session",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.inactive.detail": {
+        id: "desktopLogin.inactive.detail",
+        defaultMessage: "Start again from Aura Desktop so this browser can bind sign-in to the trusted local request.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.inactive.title": {
+        id: "desktopLogin.inactive.title",
+        defaultMessage: "Desktop request not active",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.mode.haveAccount": {
+        id: "desktopLogin.mode.haveAccount",
+        defaultMessage: "Already have an account?",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.mode.noAccount": {
+        id: "desktopLogin.mode.noAccount",
+        defaultMessage: "Don't have an account?",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.mode.rememberPassword": {
+        id: "desktopLogin.mode.rememberPassword",
+        defaultMessage: "Remember your password?",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.mode.signIn": {
+        id: "desktopLogin.mode.signIn",
+        defaultMessage: "Sign in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.mode.signUp": {
+        id: "desktopLogin.mode.signUp",
+        defaultMessage: "Sign up",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.otp.digit": {
+        id: "desktopLogin.otp.digit",
+        defaultMessage: "Verification code digit {number}",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.otp.emailSent": {
@@ -7388,9 +7333,29 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Code sent to {email}.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "desktopLogin.otp.enter": {
+        id: "desktopLogin.otp.enter",
+        defaultMessage: "Enter the secure verification code to continue.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "desktopLogin.otp.phoneSent": {
         id: "desktopLogin.otp.phoneSent",
         defaultMessage: "Code sent to {phone}.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.otp.resend": {
+        id: "desktopLogin.otp.resend",
+        defaultMessage: "Resend code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.otp.resendIn": {
+        id: "desktopLogin.otp.resendIn",
+        defaultMessage: "Resend in {count}s",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.password.forgot": {
+        id: "desktopLogin.password.forgot",
+        defaultMessage: "Forgot password?",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.password.hide": {
@@ -7418,6 +7383,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Confirm password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "desktopLogin.placeholder.email": {
+        id: "desktopLogin.placeholder.email",
+        defaultMessage: "you@example.com",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "desktopLogin.placeholder.fullName": {
         id: "desktopLogin.placeholder.fullName",
         defaultMessage: "Your full name",
@@ -7433,39 +7403,59 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Enter your password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.status.builtForTrust": {
-        id: "desktopLogin.status.builtForTrust",
-        defaultMessage: "Built for trust",
+    "desktopLogin.placeholder.phone": {
+        id: "desktopLogin.placeholder.phone",
+        defaultMessage: "Phone number",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.status.privacyFirst": {
-        id: "desktopLogin.status.privacyFirst",
-        defaultMessage: "Privacy first",
+    "desktopLogin.provider.duo": {
+        id: "desktopLogin.provider.duo",
+        defaultMessage: "Continue with Duo",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.status.secureByDesign": {
-        id: "desktopLogin.status.secureByDesign",
-        defaultMessage: "Secure by design",
+    "desktopLogin.social.unavailable": {
+        id: "desktopLogin.social.unavailable",
+        defaultMessage: "Social access is unavailable for this deployment. Use your email, phone, and password instead.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.step.accountLane": {
-        id: "desktopLogin.step.accountLane",
-        defaultMessage: "Account lane",
+    "desktopLogin.title.newPassword": {
+        id: "desktopLogin.title.newPassword",
+        defaultMessage: "Choose a new password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.step.credentialLane": {
-        id: "desktopLogin.step.credentialLane",
-        defaultMessage: "Credential lane",
+    "desktopLogin.title.recovery": {
+        id: "desktopLogin.title.recovery",
+        defaultMessage: "Reset your password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.step.otpLane": {
-        id: "desktopLogin.step.otpLane",
-        defaultMessage: "OTP lane",
+    "desktopLogin.title.signup": {
+        id: "desktopLogin.title.signup",
+        defaultMessage: "Create your account",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.step.recoveryLane": {
-        id: "desktopLogin.step.recoveryLane",
-        defaultMessage: "Recovery lane",
+    "desktopLogin.title.verifyCode": {
+        id: "desktopLogin.title.verifyCode",
+        defaultMessage: "Enter your verification code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.title.verifyEmail": {
+        id: "desktopLogin.title.verifyEmail",
+        defaultMessage: "Verify your email",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.title.verifyPhone": {
+        id: "desktopLogin.title.verifyPhone",
+        defaultMessage: "Verify your phone",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.title.welcome": {
+        id: "desktopLogin.title.welcome",
+        defaultMessage: "Welcome back",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopWelcome.openMarketplace": {
+        id: "desktopWelcome.openMarketplace",
+        defaultMessage: "Open marketplace",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "filters.any": {
@@ -8978,6 +8968,21 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Finishing Desktop Sign-In",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "login.desktopBrowser.desktopDetail": {
+        id: "login.desktopBrowser.desktopDetail",
+        defaultMessage: "Use your browser to complete Aura sign-in securely.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopBrowser.reopen": {
+        id: "login.desktopBrowser.reopen",
+        defaultMessage: "Open browser again",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopBrowser.signupHint": {
+        id: "login.desktopBrowser.signupHint",
+        defaultMessage: "New to Aura? Continue in the browser, then choose Sign up.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "login.desktopBrowser.startedDetail": {
         id: "login.desktopBrowser.startedDetail",
         defaultMessage: "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
@@ -8996,6 +9001,16 @@ export const stableUiMessages = defineMessages({
     "login.desktopBrowser.unavailable": {
         id: "login.desktopBrowser.unavailable",
         defaultMessage: "Desktop browser sign-in is available only in the Aura desktop app.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopBrowser.waitingDetail": {
+        id: "login.desktopBrowser.waitingDetail",
+        defaultMessage: "Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.desktopBrowser.welcomeTitle": {
+        id: "login.desktopBrowser.welcomeTitle",
+        defaultMessage: "Welcome back",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.desktopOwnerAccess.button": {

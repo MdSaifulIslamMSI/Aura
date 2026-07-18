@@ -1,3 +1,10 @@
+import desktopAuthLoopbackContract from '../../config/desktopAuthLoopback.cjs';
+
+const {
+    DESKTOP_AUTH_LOOPBACK_CONNECT_SOURCES,
+    DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES,
+} = desktopAuthLoopbackContract;
+
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 
 const assertAbsoluteHttpUrl = (value) => {
@@ -71,6 +78,7 @@ export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN, options 
     "'self'",
     trimTrailingSlash(origin),
     toWebSocketOrigin(origin),
+    ...DESKTOP_AUTH_LOOPBACK_CONNECT_SOURCES,
     ...(options.includeLocalDevelopmentSources ? LOCAL_DEVELOPMENT_CONNECT_SRC : []),
     'https://api.github.com',
     'https://api.stripe.com',
@@ -101,7 +109,7 @@ export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGI
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
-    "form-action 'self'",
+    `form-action 'self' ${DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES.join(' ')}`,
     "script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com",
     `style-src ${buildFrontendStyleSrc(options)}`,
     `style-src-elem ${buildFrontendStyleElementSrc()}`,
@@ -112,10 +120,14 @@ export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGI
     "frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.firebaseapp.com https://*.web.app https://app.powerbi.com",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
-    "frame-ancestors 'none'",
+    ...(options.includeFrameAncestors === false ? [] : ["frame-ancestors 'none'"]),
 ].join('; ');
 
 export const FRONTEND_CONTENT_SECURITY_POLICY = buildFrontendContentSecurityPolicy(HOSTED_BACKEND_ORIGIN);
+export const FRONTEND_META_CONTENT_SECURITY_POLICY = buildFrontendContentSecurityPolicy(
+    HOSTED_BACKEND_ORIGIN,
+    { includeFrameAncestors: false }
+);
 export const FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY = buildFrontendContentSecurityPolicy(
     HOSTED_BACKEND_ORIGIN,
     {
