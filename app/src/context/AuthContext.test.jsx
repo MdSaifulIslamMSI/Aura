@@ -754,6 +754,8 @@ describe('AuthProvider', () => {
         claims: {
           desktop_handoff: true,
           desktop_request_id: 'desktop-browser-request-1',
+          desktop_handoff_grant_id: 'g'.repeat(43),
+          desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 300,
         },
       }),
     };
@@ -885,7 +887,7 @@ describe('AuthProvider', () => {
       expect(onBrowserSignInStatus).toHaveBeenCalled();
       expect(consumeBrowserSignIn).toHaveBeenCalledTimes(2);
       expect(mocks.signInWithCustomTokenMock).toHaveBeenCalledWith({}, 'desktop-browser-custom-token');
-      expect(desktopUser.getIdTokenResult).toHaveBeenCalledTimes(1);
+      expect(desktopUser.getIdTokenResult).toHaveBeenCalledWith(true);
       expect(mocks.authApiMock.syncSession).toHaveBeenCalledWith(
         desktopUser.email,
         desktopUser.displayName,
@@ -954,6 +956,66 @@ describe('AuthProvider', () => {
       });
       expect(mocks.signOutMock).toHaveBeenCalledWith(expect.anything());
       expect(mocks.authApiMock.syncSession).not.toHaveBeenCalled();
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it('rejects an expired one-time desktop assurance before backend session sync', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    const desktopUser = {
+      uid: 'desktop-browser-user-expired',
+      email: 'desktop-expired@example.com',
+      providerData: [],
+      getIdTokenResult: vi.fn().mockResolvedValue({
+        claims: {
+          desktop_handoff: true,
+          desktop_request_id: 'desktop-browser-expired-request',
+          desktop_handoff_grant_id: 'e'.repeat(43),
+          desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) - 1,
+        },
+      }),
+    };
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn: vi.fn().mockResolvedValue({ success: true }),
+      consumeBrowserSignIn: vi.fn().mockResolvedValue({
+        success: true,
+        customToken: 'expired-desktop-token',
+      }),
+      onBrowserSignInStatus: vi.fn(() => () => {}),
+      startBrowserSignIn: vi.fn().mockResolvedValue({
+        requestId: 'desktop-browser-expired-request',
+        expiresAt: Date.now() + 60_000,
+      }),
+    };
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('unexpected-success'))
+          .catch((error) => setResult(`${error.code}:${error.message}`));
+      }, [signInWithDesktopBrowser]);
+      return <div data-testid="desktop-browser-expired-result">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-expired-result'))
+          .toHaveTextContent('auth/desktop-browser-sign-in-assurance-expired');
+      });
+      expect(desktopUser.getIdTokenResult).toHaveBeenCalledWith(true);
+      expect(mocks.signOutMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.authApiMock.syncSession).not.toHaveBeenCalled();
+      expect(window.auraDesktop.startBrowserSignIn).toHaveBeenCalledTimes(2);
+      expect(window.auraDesktop.cancelBrowserSignIn).toHaveBeenCalledTimes(2);
     } finally {
       delete window.auraDesktop;
     }

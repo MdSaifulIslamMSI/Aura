@@ -201,8 +201,10 @@ const ConsentView = ({ controller, t }) => {
           ) : null}
           <span>
             {submitting
-              ? t('desktopLogin.consent.submitting', {}, 'Opening Aura Desktop')
-              : t('common.action.continue', {}, 'Continue')}
+              ? (controller.desktopBrowserConsentSubmittingLabel
+                || t('desktopLogin.consent.submitting', {}, 'Opening Aura Desktop'))
+              : (controller.desktopBrowserConsentActionLabel
+                || t('common.action.continue', {}, 'Continue'))}
           </span>
         </button>
       </div>
@@ -220,7 +222,9 @@ const ConsentView = ({ controller, t }) => {
 
       <p className="sr-only" role="status" aria-live="polite">
         {submitting
-          ? t('desktopLogin.consent.status', {}, 'Securely returning sign-in to Aura Desktop.')
+          ? (controller.desktopBrowserConsentStage === 'passkey'
+            ? t('desktopLogin.consent.passkeyStatus', {}, 'Waiting for passkey verification before returning sign-in to Aura Desktop.')
+            : t('desktopLogin.consent.status', {}, 'Securely returning sign-in to Aura Desktop.'))
           : ''}
       </p>
     </section>

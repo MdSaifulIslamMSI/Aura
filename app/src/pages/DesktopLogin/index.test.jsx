@@ -38,8 +38,11 @@ const buildController = (overrides = {}) => ({
   canUseFirebasePhoneOtp: true,
   countdown: 0,
   desktopBrowserConsentIdentity: null,
+  desktopBrowserConsentActionLabel: 'Continue',
   desktopBrowserConsentReady: false,
+  desktopBrowserConsentStage: 'idle',
   desktopBrowserConsentSubmitting: false,
+  desktopBrowserConsentSubmittingLabel: 'Opening Aura Desktop',
   desktopBrowserHandoff: { active: true },
   desktopBrowserSessionHydrating: false,
   desktopBrowserSignInPending: false,
@@ -187,6 +190,30 @@ describe('DesktopLogin tactile hosted browser flow', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Opening Aura Desktop' })).toBeDisabled();
     expect(screen.getByRole('status')).toHaveTextContent('Securely returning sign-in to Aura Desktop.');
+  });
+
+  it('shows the passkey step honestly before opening Aura Desktop', () => {
+    controller = buildController({
+      desktopBrowserConsentActionLabel: 'Verify passkey & continue',
+      desktopBrowserConsentIdentity: 'admin@example.com',
+      desktopBrowserConsentReady: true,
+    });
+    const view = renderDesktopLogin();
+
+    expect(screen.getByRole('button', { name: 'Verify passkey & continue' })).toBeEnabled();
+
+    controller = {
+      ...controller,
+      desktopBrowserConsentReady: false,
+      desktopBrowserConsentStage: 'passkey',
+      desktopBrowserConsentSubmitting: true,
+      desktopBrowserConsentSubmittingLabel: 'Checking passkey',
+    };
+    view.rerender(<DesktopLoginHarness />);
+
+    expect(screen.getByRole('button', { name: 'Checking passkey' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Waiting for passkey verification');
+    expect(screen.queryByText('Finishing Desktop Sign-In')).not.toBeInTheDocument();
   });
 
   it('holds the credential form behind a neutral session hydration state', () => {

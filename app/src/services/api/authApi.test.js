@@ -98,6 +98,24 @@ describe('authApi', () => {
     expect(mocks.cacheTokenMock).toHaveBeenCalledWith(csrfToken, 'cookie_session');
   });
 
+  it('keeps explicit cookie-session hydration isolated from an ambient Firebase user', async () => {
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ status: 'authenticated' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.getSession({ preferCookieSession: true }))
+      .resolves
+      .toEqual({ status: 'authenticated' });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(null, {
+      useFirebaseBearer: false,
+    });
+  });
+
   it('sends auth sync with Firebase bearer only when a Firebase user is present', async () => {
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),
@@ -184,6 +202,7 @@ describe('authApi', () => {
     });
 
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
+      forceRefresh: true,
       useFirebaseBearer: true,
     });
     const [url, requestOptions] = global.fetch.mock.calls[0];
@@ -193,8 +212,14 @@ describe('authApi', () => {
     });
   });
 
-  it('creates a desktop handoff token from an existing browser session when no Firebase user is available', async () => {
+  it('creates a desktop handoff token from an explicit cookie session without ambient Firebase auth', async () => {
+    const csrfToken = 'd'.repeat(64);
     mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Trusted-Device-Session': 'trusted-session' });
+    mocks.ensureCsrfTokenMock.mockResolvedValueOnce(csrfToken);
+    mocks.addCsrfTokenToHeadersMock.mockReturnValueOnce({
+      'X-Trusted-Device-Session': 'trusted-session',
+      'X-CSRF-Token': csrfToken,
+    });
 
     global.fetch.mockResolvedValueOnce(
       new Response(JSON.stringify({
@@ -207,14 +232,21 @@ describe('authApi', () => {
     );
 
     await expect(authApi.createDesktopHandoffToken({
+      preferCookieSession: true,
       requestId: '123e4567-e89b-12d3-a456-426614174000',
     })).resolves.toEqual({
       success: true,
       customToken: 'duo-session-desktop-token',
     });
 
-    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(null, {
-      useFirebaseBearer: true,
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith({}, {
+      forceRefresh: false,
+      useFirebaseBearer: false,
+    });
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenCalledWith({
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: false,
     });
     const [url, requestOptions] = global.fetch.mock.calls[0];
     expect(url).toContain('/auth/desktop-handoff/custom-token');

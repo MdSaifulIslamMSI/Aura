@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
 import { authApi, otpApi } from '@/services/api';
@@ -43,6 +43,9 @@ const LoginControllerProbe = () => {
 
 const DesktopBrowserHandoffProbe = () => {
   const {
+    authError,
+    authSuccess,
+    desktopBrowserConsentActionLabel,
     desktopBrowserConsentReady,
     desktopBrowserConsentIdentity,
     desktopBrowserConsentSubmitting,
@@ -59,6 +62,47 @@ const DesktopBrowserHandoffProbe = () => {
       <div data-testid="desktop-consent-identity">{desktopBrowserConsentIdentity}</div>
       <div data-testid="desktop-consent-submitting">{String(desktopBrowserConsentSubmitting)}</div>
       <div data-testid="desktop-session-hydrating">{String(desktopBrowserSessionHydrating)}</div>
+      <div data-testid="desktop-consent-action-label">{desktopBrowserConsentActionLabel}</div>
+      <div data-testid="desktop-consent-error">{authError?.detail || 'none'}</div>
+      <div data-testid="desktop-consent-success">{authSuccess?.title || 'none'}</div>
+    </>
+  );
+};
+
+const DesktopBrowserHandoffNavigationProbe = ({ nextRequestId }) => {
+  const navigate = useNavigate();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => navigate(
+          `/desktop-login?desktopAuthRequest=${nextRequestId}#desktopAuthSecret=secret-next-request&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`
+        )}
+      >
+        Start next desktop request
+      </button>
+      <DesktopBrowserHandoffProbe />
+    </>
+  );
+};
+
+const DesktopBrowserHandoffRoundTripProbe = ({ firstRequestId, nextRequestId }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const navigateToRequest = (requestId, secret) => navigate(
+    `/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=${secret}&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`
+  );
+
+  return (
+    <>
+      <button type="button" onClick={() => navigateToRequest(nextRequestId, 'secret-roundtrip-next')}>
+        Start roundtrip next request
+      </button>
+      <button type="button" onClick={() => navigateToRequest(firstRequestId, 'secret-roundtrip-first')}>
+        Reopen roundtrip first request
+      </button>
+      <div data-testid="desktop-roundtrip-location">{location.search}</div>
+      <DesktopBrowserHandoffProbe />
     </>
   );
 };
@@ -311,6 +355,8 @@ const buildAuthValue = (overrides = {}) => ({
   currentUser: null,
   isAuthenticated: false,
   loading: false,
+  roles: { isAdmin: false, isSeller: false, isVerified: false },
+  session: { deviceMethod: 'browser_key', webAuthnStepUpActive: false },
   status: 'signed_out',
   login: vi.fn(),
   loginWithPhoneCredential: vi.fn(),
@@ -324,10 +370,28 @@ const buildAuthValue = (overrides = {}) => ({
   signInWithX: vi.fn(),
   signInWithDesktopBrowser: vi.fn(),
   reopenDesktopBrowserSignIn: vi.fn(),
+  registerMfaPasskey: vi.fn(),
   signInWithDesktopOwnerAccess: vi.fn(),
   signup: vi.fn(),
   syncUserWithBackend: vi.fn(),
+  verifyMfaPasskeyChallenge: vi.fn(),
   ...overrides,
+});
+
+const buildDesktopCookieSessionPayload = ({
+  email = 'duo@example.com',
+  isAdmin = false,
+  deviceMethod = 'browser_key',
+  webAuthnStepUpActive = false,
+} = {}) => ({
+  status: 'authenticated',
+  session: {
+    email,
+    deviceMethod,
+    webAuthnStepUpActive,
+  },
+  profile: { email, isAdmin },
+  roles: { isAdmin, isSeller: false, isVerified: true },
 });
 
 const AuthenticationCheckpointProbe = ({ completeAuthentication }) => {
@@ -1457,6 +1521,13 @@ describe('useLoginController', () => {
 
   it('finishes a Duo desktop handoff with a top-level form navigation to loopback', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174000';
+    const ambientFirebaseUser = {
+      email: 'stale-firebase-user@example.com',
+      getIdToken: vi.fn(),
+    };
+    const getSession = vi.spyOn(authApi, 'getSession').mockResolvedValue(
+      buildDesktopCookieSessionPayload()
+    );
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
       success: true,
       customToken: 'duo-desktop-custom-token',
@@ -1467,7 +1538,7 @@ describe('useLoginController', () => {
       render(
         <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
           <AuthContext.Provider value={buildAuthValue({
-            currentUser: null,
+            currentUser: ambientFirebaseUser,
             isAuthenticated: false,
             loading: false,
           })}>
@@ -1483,6 +1554,9 @@ describe('useLoginController', () => {
       await waitFor(() => {
         expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
       });
+      expect(getSession).toHaveBeenCalledWith({ preferCookieSession: true });
+      expect(screen.getByTestId('desktop-consent-identity')).toHaveTextContent('duo@example.com');
+      expect(screen.getByTestId('desktop-consent-identity')).not.toHaveTextContent(ambientFirebaseUser.email);
       expect(createToken).not.toHaveBeenCalled();
 
       fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
@@ -1490,6 +1564,7 @@ describe('useLoginController', () => {
       await waitFor(() => {
         expect(createToken).toHaveBeenCalledWith({
           firebaseUser: null,
+          preferCookieSession: true,
           requestId,
         });
         expect(submitSpy).toHaveBeenCalledTimes(1);
@@ -1504,14 +1579,481 @@ describe('useLoginController', () => {
         customToken: 'duo-desktop-custom-token',
       });
     } finally {
+      getSession.mockRestore();
       createToken.mockRestore();
       submitSpy.mockRestore();
       document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/complete"]')?.remove();
     }
   });
 
+  it('hydrates a cookie-only Duo admin session and verifies its passkey before token minting', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174013';
+    const staleAdminSession = buildDesktopCookieSessionPayload({
+      email: 'duo-admin@example.com',
+      isAdmin: true,
+      deviceMethod: 'webauthn',
+      webAuthnStepUpActive: false,
+    });
+    const refreshedAdminSession = {
+      ...staleAdminSession,
+      deviceSessionToken: 'duo-admin-passkey-device-session',
+      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+      session: {
+        ...staleAdminSession.session,
+        webAuthnStepUpActive: true,
+      },
+    };
+    const getSession = vi.spyOn(authApi, 'getSession').mockResolvedValue(staleAdminSession);
+    let resolvePasskey;
+    const verifyMfaPasskeyLogin = vi.spyOn(authApi, 'verifyMfaPasskeyLogin').mockImplementation(
+      () => new Promise((resolve) => {
+        resolvePasskey = resolve;
+      })
+    );
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
+      success: true,
+      customToken: 'duo-admin-desktop-custom-token',
+    });
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser: null,
+            isAuthenticated: false,
+            loading: false,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&duo=success#desktopAuthSecret=secret-duo-admin&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(getSession).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('desktop-consent-identity')).toHaveTextContent('duo-admin@example.com');
+        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Verify passkey & continue');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(verifyMfaPasskeyLogin).toHaveBeenCalledWith({
+          purpose: 'step_up',
+          action: 'desktop_handoff',
+        }, { preferCookieSession: true });
+      });
+      expect(createToken).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolvePasskey(refreshedAdminSession);
+      });
+
+      await waitFor(() => {
+        expect(createToken).toHaveBeenCalledWith({
+          firebaseUser: null,
+          preferCookieSession: true,
+          requestId,
+        });
+        expect(submitSpy).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      getSession.mockRestore();
+      verifyMfaPasskeyLogin.mockRestore();
+      createToken.mockRestore();
+      submitSpy.mockRestore();
+      document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/complete"]')?.remove();
+    }
+  });
+
+  it('recovers from a server-required admin passkey without showing contradictory success', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174014';
+    const currentUser = { email: 'admin-fallback@example.com', getIdToken: vi.fn() };
+    const verifyMfaPasskeyChallenge = vi.fn().mockResolvedValue({ success: true });
+    const assuranceError = Object.assign(
+      new Error('Admin desktop handoff requires a fresh verified passkey session.'),
+      { data: { code: 'DESKTOP_HANDOFF_ADMIN_ASSURANCE_REQUIRED' } }
+    );
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken')
+      .mockRejectedValueOnce(assuranceError)
+      .mockResolvedValueOnce({ success: true, customToken: 'admin-fallback-custom-token' });
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            roles: { isAdmin: true, isSeller: false, isVerified: true },
+            session: { deviceMethod: 'webauthn', webAuthnStepUpActive: true },
+            verifyMfaPasskeyChallenge,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-admin-fallback&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(createToken).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Verify passkey & continue');
+        expect(screen.getByTestId('desktop-consent-success')).toHaveTextContent('none');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(verifyMfaPasskeyChallenge).toHaveBeenCalledWith({
+          purpose: 'step_up',
+          action: 'desktop_handoff',
+        });
+        expect(createToken).toHaveBeenCalledTimes(2);
+        expect(submitSpy).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      createToken.mockRestore();
+      submitSpy.mockRestore();
+      document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/complete"]')?.remove();
+    }
+  });
+
+  it('clears server passkey fallback state when Aura Desktop starts a new sealed request', async () => {
+    const firstRequestId = '123e4567-e89b-12d3-a456-426614174015';
+    const nextRequestId = '123e4567-e89b-12d3-a456-426614174016';
+    const currentUser = { email: 'admin-reset@example.com', getIdToken: vi.fn() };
+    const assuranceError = Object.assign(
+      new Error('Admin desktop handoff requires a fresh verified passkey session.'),
+      { data: { code: 'DESKTOP_HANDOFF_ADMIN_ASSURANCE_REQUIRED' } }
+    );
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockRejectedValue(assuranceError);
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            roles: { isAdmin: true, isSeller: false, isVerified: true },
+            session: { deviceMethod: 'webauthn', webAuthnStepUpActive: true },
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${firstRequestId}#desktopAuthSecret=secret-first-request&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route
+                  path="/desktop-login"
+                  element={<DesktopBrowserHandoffNavigationProbe nextRequestId={nextRequestId} />}
+                />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Verify passkey & continue');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Start next desktop request' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Continue');
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+    } finally {
+      createToken.mockRestore();
+    }
+  });
+
+  it('keeps the fresh desktop handoff lifecycle available to regular users without an admin passkey gate', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174010';
+    const currentUser = { email: 'customer@example.com', getIdToken: vi.fn() };
+    const verifyMfaPasskeyChallenge = vi.fn();
+    const registerMfaPasskey = vi.fn();
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
+      success: true,
+      customToken: 'customer-desktop-custom-token',
+    });
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            roles: { isAdmin: false, isSeller: false, isVerified: true },
+            session: { deviceMethod: 'browser_key', webAuthnStepUpActive: false },
+            registerMfaPasskey,
+            verifyMfaPasskeyChallenge,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-customer&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Continue');
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+
+      await waitFor(() => {
+        expect(createToken).toHaveBeenCalledWith({ firebaseUser: currentUser, requestId });
+        expect(submitSpy).toHaveBeenCalledTimes(1);
+      });
+      expect(verifyMfaPasskeyChallenge).not.toHaveBeenCalled();
+      expect(registerMfaPasskey).not.toHaveBeenCalled();
+    } finally {
+      createToken.mockRestore();
+      submitSpy.mockRestore();
+      document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/complete"]')?.remove();
+    }
+  });
+
+  it('completes the admin passkey step before minting a one-time desktop token', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174011';
+    const currentUser = { email: 'admin@example.com', getIdToken: vi.fn() };
+    let resolvePasskey;
+    const verifyMfaPasskeyChallenge = vi.fn(() => new Promise((resolve) => {
+      resolvePasskey = resolve;
+    }));
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
+      success: true,
+      customToken: 'admin-desktop-custom-token',
+    });
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            roles: { isAdmin: true, isSeller: false, isVerified: true },
+            session: { deviceMethod: 'webauthn', webAuthnStepUpActive: false },
+            verifyMfaPasskeyChallenge,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-admin&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Verify passkey & continue');
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+
+      await waitFor(() => {
+        expect(verifyMfaPasskeyChallenge).toHaveBeenCalledWith({
+          purpose: 'step_up',
+          action: 'desktop_handoff',
+        });
+      });
+      expect(createToken).not.toHaveBeenCalled();
+      expect(screen.getByTestId('desktop-consent-success')).toHaveTextContent('none');
+
+      await act(async () => {
+        resolvePasskey({ success: true });
+      });
+
+      await waitFor(() => {
+        expect(createToken).toHaveBeenCalledWith({ firebaseUser: currentUser, requestId });
+        expect(submitSpy).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      createToken.mockRestore();
+      submitSpy.mockRestore();
+      document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/complete"]')?.remove();
+    }
+  });
+
+  it('does not transfer a pending passkey approval to a replacement desktop request', async () => {
+    const firstRequestId = '123e4567-e89b-12d3-a456-426614174017';
+    const nextRequestId = '123e4567-e89b-12d3-a456-426614174018';
+    const currentUser = { email: 'admin-request-race@example.com', getIdToken: vi.fn() };
+    let resolveFirstPasskey;
+    const verifyMfaPasskeyChallenge = vi.fn(() => new Promise((resolve) => {
+      resolveFirstPasskey = resolve;
+    }));
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken');
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            roles: { isAdmin: true, isSeller: false, isVerified: true },
+            session: { deviceMethod: 'webauthn', webAuthnStepUpActive: false },
+            verifyMfaPasskeyChallenge,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${firstRequestId}#desktopAuthSecret=secret-race-first&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route
+                  path="/desktop-login"
+                  element={<DesktopBrowserHandoffNavigationProbe nextRequestId={nextRequestId} />}
+                />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(verifyMfaPasskeyChallenge).toHaveBeenCalledTimes(1);
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Start next desktop request' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+
+      await act(async () => {
+        resolveFirstPasskey({ success: true });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+        expect(screen.getByTestId('desktop-consent-submitting')).toHaveTextContent('false');
+      });
+      expect(createToken).not.toHaveBeenCalled();
+      expect(submitSpy).not.toHaveBeenCalled();
+    } finally {
+      createToken.mockRestore();
+      submitSpy.mockRestore();
+    }
+  });
+
+  it('allows the same desktop request to restart after an older mint attempt is cancelled', async () => {
+    const firstRequestId = '123e4567-e89b-12d3-a456-426614174019';
+    const nextRequestId = '123e4567-e89b-12d3-a456-426614174020';
+    const currentUser = { email: 'desktop-reopen@example.com', getIdToken: vi.fn() };
+    let resolveFirstMint;
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken')
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveFirstMint = resolve;
+      }))
+      .mockResolvedValueOnce({ success: true, customToken: 'reopened-desktop-custom-token' });
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            roles: { isAdmin: false, isSeller: false, isVerified: true },
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${firstRequestId}#desktopAuthSecret=secret-roundtrip-first&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route
+                  path="/desktop-login"
+                  element={(
+                    <DesktopBrowserHandoffRoundTripProbe
+                      firstRequestId={firstRequestId}
+                      nextRequestId={nextRequestId}
+                    />
+                  )}
+                />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(createToken).toHaveBeenCalledTimes(1);
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Start roundtrip next request' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-roundtrip-location')).toHaveTextContent(nextRequestId);
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Reopen roundtrip first request' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-roundtrip-location')).toHaveTextContent(firstRequestId);
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+
+      await act(async () => {
+        resolveFirstMint({ success: true, customToken: 'discarded-old-custom-token' });
+      });
+      expect(submitSpy).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(createToken).toHaveBeenCalledTimes(2);
+        expect(createToken).toHaveBeenLastCalledWith({
+          firebaseUser: currentUser,
+          requestId: firstRequestId,
+        });
+        expect(submitSpy).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      createToken.mockRestore();
+      submitSpy.mockRestore();
+      document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/complete"]')?.remove();
+    }
+  });
+
+  it('does not mint or display success when admin passkey verification fails', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174012';
+    const currentUser = { email: 'admin@example.com', getIdToken: vi.fn() };
+    const verifyMfaPasskeyChallenge = vi.fn().mockRejectedValue(new Error('Passkey verification was cancelled.'));
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken');
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            roles: { isAdmin: true, isSeller: false, isVerified: true },
+            session: { deviceMethod: 'webauthn', webAuthnStepUpActive: false },
+            verifyMfaPasskeyChallenge,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-admin-cancel&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-submitting')).toHaveTextContent('false');
+        expect(screen.getByTestId('desktop-consent-error')).not.toHaveTextContent('none');
+      });
+      expect(createToken).not.toHaveBeenCalled();
+      expect(screen.getByTestId('desktop-consent-success')).toHaveTextContent('none');
+    } finally {
+      createToken.mockRestore();
+    }
+  });
+
   it('keeps JSON callback completion for desktop releases without the form capability', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174001';
+    const getSession = vi.spyOn(authApi, 'getSession').mockResolvedValue(
+      buildDesktopCookieSessionPayload()
+    );
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
       success: true,
       customToken: 'legacy-desktop-custom-token',
@@ -1559,6 +2101,7 @@ describe('useLoginController', () => {
         customToken: 'legacy-desktop-custom-token',
       });
     } finally {
+      getSession.mockRestore();
       createToken.mockRestore();
       vi.stubGlobal('fetch', previousFetch);
     }
@@ -1608,34 +2151,41 @@ describe('useLoginController', () => {
 
   it('does not present a browser-editable email as the verified consent identity', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174003';
-
-    render(
-      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-        <AuthContext.Provider value={buildAuthValue({
-          currentUser: null,
-          isAuthenticated: false,
-          loading: false,
-        })}>
-          <MemoryRouter initialEntries={[{
-            pathname: '/desktop-login',
-            search: `?desktopAuthRequest=${requestId}&duo=success`,
-            hash: '#desktopAuthSecret=secret-neutral&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post',
-            state: { authPrefill: { email: 'browser-edited@example.com' } },
-          }]}
-          >
-            <Routes>
-              <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
-            </Routes>
-          </MemoryRouter>
-        </AuthContext.Provider>
-      </MarketProvider>
+    const getSession = vi.spyOn(authApi, 'getSession').mockResolvedValue(
+      buildDesktopCookieSessionPayload({ email: 'verified-duo@example.com' })
     );
 
-    await waitFor(() => {
-      expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
-    });
-    expect(screen.getByTestId('desktop-consent-identity')).toHaveTextContent('Verified Aura account');
-    expect(screen.getByTestId('desktop-consent-identity')).not.toHaveTextContent('browser-edited@example.com');
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser: null,
+            isAuthenticated: false,
+            loading: false,
+          })}>
+            <MemoryRouter initialEntries={[{
+              pathname: '/desktop-login',
+              search: `?desktopAuthRequest=${requestId}&duo=success`,
+              hash: '#desktopAuthSecret=secret-neutral&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post',
+              state: { authPrefill: { email: 'browser-edited@example.com' } },
+            }]}
+            >
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+      expect(screen.getByTestId('desktop-consent-identity')).toHaveTextContent('verified-duo@example.com');
+      expect(screen.getByTestId('desktop-consent-identity')).not.toHaveTextContent('browser-edited@example.com');
+    } finally {
+      getSession.mockRestore();
+    }
   });
 
   it('summarizes only enabled expanded social providers', () => {

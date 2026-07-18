@@ -87,6 +87,13 @@ export const useAuth = () => {
 const AUTH_SYNC_DEDUPE_MS = 5 * 1000;  // Reduced from 30s for faster security updates
 const BOOTSTRAP_TIMEOUT_MS = 6000;
 const DESKTOP_BROWSER_SIGN_IN_TIMEOUT_MS = 10 * 60 * 1000;
+const DESKTOP_HANDOFF_GRANT_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const RETRYABLE_DESKTOP_HANDOFF_ASSURANCE_CODES = new Set([
+  'AUTH/DESKTOP-BROWSER-SIGN-IN-ASSURANCE-EXPIRED',
+  'DESKTOP_HANDOFF_ASSURANCE_CLAIMS_INVALID',
+  'DESKTOP_HANDOFF_ASSURANCE_GRANT_CONSUMED',
+  'DESKTOP_HANDOFF_ASSURANCE_GRANT_INVALID',
+]);
 const REDIRECT_AUTH_PENDING_KEY = 'aura-social-auth-redirect-pending';
 const REDIRECT_AUTH_PENDING_TTL_MS = 5 * 60 * 1000;
 const authContextIntlCache = createIntlCache();
@@ -96,6 +103,9 @@ const authContextMessages = defineMessages({
     defaultMessage: 'Authentication bootstrap timed out. Retry to recover your session.',
   },
 });
+const shouldRetryDesktopHandoffAssurance = (error) => RETRYABLE_DESKTOP_HANDOFF_ASSURANCE_CODES.has(
+  normalizeText(error?.code || error?.data?.code || '').toUpperCase()
+);
 const OAUTH_CREDENTIAL_EXTRACTORS = [
   GithubAuthProvider,
   GoogleAuthProvider,
@@ -990,7 +1000,12 @@ export const AuthProvider = ({ children }) => {
     void consumeCompletedToken();
   });
 
-  const signInWithDesktopBrowser = async ({ returnTo = '/', signal, onRequestStarted } = {}) => {
+  const signInWithDesktopBrowser = async ({
+    returnTo = '/',
+    signal,
+    onRequestStarted,
+    retryExpiredAssurance = true,
+  } = {}) => {
     assertFirebaseReady('Desktop browser sign-in');
     const desktop = getDesktopBridge();
 
@@ -1019,7 +1034,7 @@ export const AuthProvider = ({ children }) => {
           });
           const customToken = await waitForDesktopBrowserCustomToken(desktop, request, { signal });
           const result = await signInWithCustomToken(auth, customToken);
-          const tokenResult = await result?.user?.getIdTokenResult?.();
+          const tokenResult = await result?.user?.getIdTokenResult?.(true);
           const claims = tokenResult?.claims || {};
           if (
             claims.desktop_handoff !== true
@@ -1028,6 +1043,18 @@ export const AuthProvider = ({ children }) => {
             await signOut(auth);
             const error = new Error('Desktop browser sign-in token is not bound to this request.');
             error.code = 'auth/desktop-browser-sign-in-token-mismatch';
+            throw error;
+          }
+          const grantId = normalizeText(claims.desktop_handoff_grant_id);
+          const grantExpiresAtSeconds = Number(claims.desktop_handoff_grant_exp || 0);
+          if (
+            !DESKTOP_HANDOFF_GRANT_ID_PATTERN.test(grantId)
+            || !Number.isFinite(grantExpiresAtSeconds)
+            || grantExpiresAtSeconds <= Math.floor(Date.now() / 1000)
+          ) {
+            await signOut(auth);
+            const error = new Error('Desktop browser sign-in proof expired. Start a fresh browser sign-in and try again.');
+            error.code = 'auth/desktop-browser-sign-in-assurance-expired';
             throw error;
           }
           return result;
@@ -1040,6 +1067,18 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       if (request?.requestId && typeof desktop.cancelBrowserSignIn === 'function') {
         await desktop.cancelBrowserSignIn(request.requestId).catch(() => {});
+      }
+      if (
+        retryExpiredAssurance
+        && !signal?.aborted
+        && shouldRetryDesktopHandoffAssurance(error)
+      ) {
+        return signInWithDesktopBrowser({
+          returnTo,
+          signal,
+          onRequestStarted,
+          retryExpiredAssurance: false,
+        });
       }
       throw error;
     }
