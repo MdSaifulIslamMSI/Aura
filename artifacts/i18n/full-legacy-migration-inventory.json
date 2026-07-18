@@ -127,7 +127,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 478,
+      "line": 519,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -190,8 +190,14 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 153,
+      "messageIdCount": 159,
       "messageIds": [
+        "common.action.continue",
+        "desktopLogin.consent.checkingPasskey",
+        "desktopLogin.consent.registerPasskey",
+        "desktopLogin.consent.submitting",
+        "desktopLogin.consent.verifiedAccount",
+        "desktopLogin.consent.verifyPasskey",
         "login.acceleration.identity",
         "login.acceleration.identityBody",
         "login.acceleration.identityBodyFallback",
@@ -347,7 +353,7 @@
         "login.trust.signup.3"
       ],
       "risk": "high",
-      "stableLiteralCount": 164,
+      "stableLiteralCount": 170,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1150,71 +1156,73 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 60,
+      "messageIdCount": 62,
       "messageIds": [
-        "auth.jsx.expression.create.account.2428c1b6",
-        "auth.jsx.expression.email.address.cef5d897",
-        "auth.jsx.expression.email.verification.fa2c19cf",
-        "auth.jsx.expression.phone.verification.94e84a2f",
-        "auth.jsx.expression.registered.email.27c6cef1",
-        "auth.jsx.expression.request.armed.b9bf993d",
-        "auth.jsx.expression.request.missing.3c67b181",
-        "auth.jsx.expression.use.existing.account.78f61e74",
-        "auth.jsx.expression.verification.code.0c41bf58",
-        "auth.jsx.text.aura.desktop.9942bc8a",
-        "auth.jsx.text.aura.desktop.e8fd0ce4",
-        "auth.jsx.text.aura.desktop.keeps.your.session.secure.and.f6004bed",
-        "auth.jsx.text.cisco.duo.5fa9322e",
-        "auth.jsx.text.confirm.password.8b9db931",
-        "auth.jsx.text.desktop.handoff.active.3cb7b554",
-        "auth.jsx.text.desktop.request.not.active.e348cafc",
-        "auth.jsx.text.forgot.password.823e0b60",
-        "auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f",
-        "auth.jsx.text.password.464054c2",
-        "auth.jsx.text.resend.in.eeb75215",
-        "auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2",
-        "auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d",
-        "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe",
         "common.action.back",
+        "common.action.cancel",
+        "common.action.continue",
         "common.choice.or",
+        "desktopLogin.action.resetPassword",
         "desktopLogin.action.temporarilyUnavailable",
         "desktopLogin.action.waitingForBrowser",
-        "desktopLogin.bridge.api",
-        "desktopLogin.bridge.callback",
-        "desktopLogin.bridge.delivery",
-        "desktopLogin.bridge.hosted",
-        "desktopLogin.bridge.loopback",
-        "desktopLogin.bridge.protected",
-        "desktopLogin.capability.desktopOnly",
-        "desktopLogin.capability.loopbackOnly",
-        "desktopLogin.capability.requestLocked",
-        "desktopLogin.capability.sealedToken",
-        "desktopLogin.capability.traceReady",
-        "desktopLogin.capability.verifiedProof",
+        "desktopLogin.consent.accountFallback",
+        "desktopLogin.consent.passkeyStatus",
+        "desktopLogin.consent.security",
+        "desktopLogin.consent.status",
+        "desktopLogin.consent.submitting",
+        "desktopLogin.consent.title",
+        "desktopLogin.field.confirmPassword",
+        "desktopLogin.field.email",
         "desktopLogin.field.fullName",
+        "desktopLogin.field.newPassword",
+        "desktopLogin.field.password",
         "desktopLogin.field.phoneNumber",
+        "desktopLogin.field.registeredEmail",
+        "desktopLogin.handoff.active",
         "desktopLogin.handoff.stepsDetail",
-        "desktopLogin.handoff.stepsTitle",
+        "desktopLogin.hydration.detail",
+        "desktopLogin.hydration.title",
+        "desktopLogin.inactive.detail",
+        "desktopLogin.inactive.title",
+        "desktopLogin.mode.haveAccount",
+        "desktopLogin.mode.noAccount",
+        "desktopLogin.mode.rememberPassword",
+        "desktopLogin.mode.signIn",
+        "desktopLogin.mode.signUp",
+        "desktopLogin.otp.digit",
         "desktopLogin.otp.emailSent",
+        "desktopLogin.otp.enter",
         "desktopLogin.otp.phoneSent",
+        "desktopLogin.otp.resend",
+        "desktopLogin.otp.resendIn",
+        "desktopLogin.password.forgot",
         "desktopLogin.password.hide",
         "desktopLogin.password.show",
         "desktopLogin.phone.countryCallingCode",
         "desktopLogin.placeholder.confirmPassword",
         "desktopLogin.placeholder.confirmPasswordShort",
+        "desktopLogin.placeholder.email",
         "desktopLogin.placeholder.fullName",
         "desktopLogin.placeholder.newPassword",
         "desktopLogin.placeholder.password",
-        "desktopLogin.status.builtForTrust",
-        "desktopLogin.status.privacyFirst",
-        "desktopLogin.status.secureByDesign",
-        "desktopLogin.step.accountLane",
-        "desktopLogin.step.credentialLane",
-        "desktopLogin.step.otpLane",
-        "desktopLogin.step.recoveryLane"
+        "desktopLogin.placeholder.phone",
+        "desktopLogin.provider.duo",
+        "desktopLogin.social.unavailable",
+        "desktopLogin.title.newPassword",
+        "desktopLogin.title.recovery",
+        "desktopLogin.title.signup",
+        "desktopLogin.title.verifyCode",
+        "desktopLogin.title.verifyEmail",
+        "desktopLogin.title.verifyPhone",
+        "desktopLogin.title.welcome",
+        "login.securityWarning",
+        "login.terms.middle",
+        "login.terms.prefix",
+        "login.terms.privacy",
+        "login.terms.use"
       ],
       "risk": "high",
-      "stableLiteralCount": 61,
+      "stableLiteralCount": 66,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1858,6 +1866,39 @@
       ],
       "risk": "high",
       "stableLiteralCount": 22,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 19,
+      "messageIds": [
+        "desktopWelcome.openMarketplace",
+        "login.checkpoint.body",
+        "login.checkpoint.deviceTitle",
+        "login.checkpoint.mfaTitle",
+        "login.checkpoint.stayHere",
+        "login.desktopBrowser.button",
+        "login.desktopBrowser.cancel",
+        "login.desktopBrowser.desktopDetail",
+        "login.desktopBrowser.reopen",
+        "login.desktopBrowser.signupHint",
+        "login.desktopBrowser.startedTitle",
+        "login.desktopBrowser.waitingDetail",
+        "login.desktopBrowser.welcomeTitle",
+        "login.desktopOwnerAccess.button",
+        "login.securityWarning",
+        "login.terms.middle",
+        "login.terms.prefix",
+        "login.terms.privacy",
+        "login.terms.use"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 19,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -5183,7 +5224,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-07-18T09:30:37.877Z",
+  "generatedAt": "2026-07-18T18:46:11.233Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -5220,7 +5261,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 128,
+      "line": 129,
       "reason": ""
     },
     {
@@ -5233,7 +5274,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 129,
+      "line": 130,
       "reason": ""
     },
     {
@@ -5246,7 +5287,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 131,
+      "line": 132,
       "reason": ""
     },
     {
@@ -5259,7 +5300,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 246,
+      "line": 251,
       "reason": ""
     },
     {
@@ -5481,6 +5522,253 @@
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
       "line": 502,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Complete multi-factor verification",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Complete multi-factor verification",
+      "id": "login.checkpoint.mfaTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 108,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verify this device",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Verify this device",
+      "id": "login.checkpoint.deviceTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 109,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
+      "id": "login.checkpoint.body",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 112,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Keep this page open. Do not submit your sign-in details again.",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Keep this page open. Do not submit your sign-in details again.",
+      "id": "login.checkpoint.stayHere",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 119,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue in Your Browser",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Continue in Your Browser",
+      "id": "login.desktopBrowser.startedTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 131,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.",
+      "id": "login.desktopBrowser.waitingDetail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 134,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Cancel browser sign-in",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Cancel browser sign-in",
+      "id": "login.desktopBrowser.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 143,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Open browser again",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Open browser again",
+      "id": "login.desktopBrowser.reopen",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 151,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Welcome back",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Welcome back",
+      "id": "login.desktopBrowser.welcomeTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 164,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Use your browser to complete Aura sign-in securely.",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Use your browser to complete Aura sign-in securely.",
+      "id": "login.desktopBrowser.desktopDetail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 167,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue in Browser",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Continue in Browser",
+      "id": "login.desktopBrowser.button",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 183,
+      "reason": ""
+    },
+    {
+      "column": 20,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Owner Access",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Owner Access",
+      "id": "login.desktopOwnerAccess.button",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 194,
+      "reason": ""
+    },
+    {
+      "column": 20,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Open marketplace",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Open marketplace",
+      "id": "desktopWelcome.openMarketplace",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 199,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "New to Aura? Continue in the browser, then choose Sign up.",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "New to Aura? Continue in the browser, then choose Sign up.",
+      "id": "login.desktopBrowser.signupHint",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 205,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
+      "id": "login.securityWarning",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 213,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "By continuing, you accept our",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "By continuing, you accept our",
+      "id": "login.terms.prefix",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 215,
+      "reason": ""
+    },
+    {
+      "column": 20,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Terms of Use",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Terms of Use",
+      "id": "login.terms.use",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 217,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "and",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "and",
+      "id": "login.terms.middle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 219,
+      "reason": ""
+    },
+    {
+      "column": 20,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Privacy Policy",
+      "file": "app/src/components/features/auth/DesktopBrowserAuthShell.jsx",
+      "icuDefaultMessage": "Privacy Policy",
+      "id": "login.terms.privacy",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 221,
       "reason": ""
     },
     {
@@ -29171,371 +29459,7 @@
       "reason": ""
     },
     {
-      "column": 28,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Delivery",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Delivery",
-      "id": "desktopLogin.bridge.delivery",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 39,
-      "reason": ""
-    },
-    {
-      "column": 111,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Hosted",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Hosted",
-      "id": "desktopLogin.bridge.hosted",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 39,
-      "reason": ""
-    },
-    {
-      "column": 23,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "API",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "API",
-      "id": "desktopLogin.bridge.api",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 40,
-      "reason": ""
-    },
-    {
-      "column": 96,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Protected",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Protected",
-      "id": "desktopLogin.bridge.protected",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 40,
-      "reason": ""
-    },
-    {
-      "column": 28,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Callback",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Callback",
-      "id": "desktopLogin.bridge.callback",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 41,
-      "reason": ""
-    },
-    {
-      "column": 111,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Loopback",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Loopback",
-      "id": "desktopLogin.bridge.loopback",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 41,
-      "reason": ""
-    },
-    {
-      "column": 34,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Request locked",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Request locked",
-      "id": "desktopLogin.capability.requestLocked",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 45,
-      "reason": ""
-    },
-    {
-      "column": 34,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Verified proof",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Verified proof",
-      "id": "desktopLogin.capability.verifiedProof",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 46,
-      "reason": ""
-    },
-    {
-      "column": 32,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Sealed token",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Sealed token",
-      "id": "desktopLogin.capability.sealedToken",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 47,
-      "reason": ""
-    },
-    {
-      "column": 33,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Loopback only",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Loopback only",
-      "id": "desktopLogin.capability.loopbackOnly",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 48,
-      "reason": ""
-    },
-    {
-      "column": 32,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Desktop only",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Desktop only",
-      "id": "desktopLogin.capability.desktopOnly",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 49,
-      "reason": ""
-    },
-    {
-      "column": 31,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Trace ready",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Trace ready",
-      "id": "desktopLogin.capability.traceReady",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 50,
-      "reason": ""
-    },
-    {
-      "column": 36,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Secure by design",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Secure by design",
-      "id": "desktopLogin.status.secureByDesign",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 54,
-      "reason": ""
-    },
-    {
-      "column": 33,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Privacy first",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Privacy first",
-      "id": "desktopLogin.status.privacyFirst",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 55,
-      "reason": ""
-    },
-    {
-      "column": 35,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Built for trust",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Built for trust",
-      "id": "desktopLogin.status.builtForTrust",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 56,
-      "reason": ""
-    },
-    {
-      "column": 7,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "OTP lane",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "OTP lane",
-      "id": "desktopLogin.step.otpLane",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 136,
-      "reason": ""
-    },
-    {
-      "column": 9,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Recovery lane",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Recovery lane",
-      "id": "desktopLogin.step.recoveryLane",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 138,
-      "reason": ""
-    },
-    {
-      "column": 11,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Account lane",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Account lane",
-      "id": "desktopLogin.step.accountLane",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 140,
-      "reason": ""
-    },
-    {
-      "column": 11,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Credential lane",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Credential lane",
-      "id": "desktopLogin.step.credentialLane",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 141,
-      "reason": ""
-    },
-    {
-      "column": 93,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Aura Desktop",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Aura Desktop",
-      "id": "auth.jsx.text.aura.desktop.9942bc8a",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 152,
-      "reason": ""
-    },
-    {
-      "column": 30,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Request armed",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Request armed",
-      "id": "auth.jsx.expression.request.armed.b9bf993d",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 161,
-      "reason": ""
-    },
-    {
-      "column": 130,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Request missing",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Request missing",
-      "id": "auth.jsx.expression.request.missing.3c67b181",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 161,
-      "reason": ""
-    },
-    {
-      "column": 23,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "One focused login bridge for",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "One focused login bridge for",
-      "id": "auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 178,
-      "reason": ""
-    },
-    {
-      "column": 177,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Aura Desktop.",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Aura Desktop.",
-      "id": "auth.jsx.text.aura.desktop.e8fd0ce4",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 178,
-      "reason": ""
-    },
-    {
-      "column": 23,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.",
-      "id": "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 181,
-      "reason": ""
-    },
-    {
-      "column": 74,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Desktop request not active",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Desktop request not active",
-      "id": "auth.jsx.text.desktop.request.not.active.e348cafc",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 211,
-      "reason": ""
-    },
-    {
-      "column": 19,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Start again from Aura Desktop so this browser lane can bind to the local session request.",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Start again from Aura Desktop so this browser lane can bind to the local session request.",
-      "id": "auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 213,
-      "reason": ""
-    },
-    {
-      "column": 21,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Complete all three browser steps",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Complete all three browser steps",
-      "id": "desktopLogin.handoff.stepsTitle",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 226,
-      "reason": ""
-    },
-    {
-      "column": 21,
+      "column": 8,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes.",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29544,24 +29468,362 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 229,
+      "line": 84,
       "reason": ""
     },
     {
-      "column": 39,
+      "column": 8,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Full Name *",
+      "fallback": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Full Name *",
+      "icuDefaultMessage": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
+      "id": "login.securityWarning",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 97,
+      "reason": ""
+    },
+    {
+      "column": 6,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "By continuing, you accept our",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "By continuing, you accept our",
+      "id": "login.terms.prefix",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 108,
+      "reason": ""
+    },
+    {
+      "column": 8,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Terms of Use",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Terms of Use",
+      "id": "login.terms.use",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 113,
+      "reason": ""
+    },
+    {
+      "column": 6,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "and",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "and",
+      "id": "login.terms.middle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 115,
+      "reason": ""
+    },
+    {
+      "column": 8,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Privacy Policy",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Privacy Policy",
+      "id": "login.terms.privacy",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 120,
+      "reason": ""
+    },
+    {
+      "column": 5,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Signed-in Aura account",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Signed-in Aura account",
+      "id": "desktopLogin.consent.accountFallback",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 146,
+      "reason": ""
+    },
+    {
+      "column": 10,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue to Aura Desktop",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Continue to Aura Desktop",
+      "id": "desktopLogin.consent.title",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 157,
+      "reason": ""
+    },
+    {
+      "column": 12,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Cancel",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Cancel",
+      "id": "common.action.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 191,
+      "reason": ""
+    },
+    {
+      "column": 20,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Opening Aura Desktop",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Opening Aura Desktop",
+      "id": "desktopLogin.consent.submitting",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 205,
+      "reason": ""
+    },
+    {
+      "column": 20,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Continue",
+      "id": "common.action.continue",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 207,
+      "reason": ""
+    },
+    {
+      "column": 10,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Only continue if you started this sign-in from Aura Desktop. Aura sends a one-time sealed session to this device; your required identity and security checks remain in force.",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Only continue if you started this sign-in from Aura Desktop. Aura sends a one-time sealed session to this device; your required identity and security checks remain in force.",
+      "id": "desktopLogin.consent.security",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 213,
+      "reason": ""
+    },
+    {
+      "column": 15,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Waiting for passkey verification before returning sign-in to Aura Desktop.",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Waiting for passkey verification before returning sign-in to Aura Desktop.",
+      "id": "desktopLogin.consent.passkeyStatus",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 226,
+      "reason": ""
+    },
+    {
+      "column": 15,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Securely returning sign-in to Aura Desktop.",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Securely returning sign-in to Aura Desktop.",
+      "id": "desktopLogin.consent.status",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 227,
+      "reason": ""
+    },
+    {
+      "column": 8,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Desktop request not active",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Desktop request not active",
+      "id": "desktopLogin.inactive.title",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 238,
+      "reason": ""
+    },
+    {
+      "column": 8,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Start again from Aura Desktop so this browser can bind sign-in to the trusted local request.",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Start again from Aura Desktop so this browser can bind sign-in to the trusted local request.",
+      "id": "desktopLogin.inactive.detail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 241,
+      "reason": ""
+    },
+    {
+      "column": 8,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Checking your Aura session",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Checking your Aura session",
+      "id": "desktopLogin.hydration.title",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 269,
+      "reason": ""
+    },
+    {
+      "column": 8,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirming whether this trusted browser is already signed in before showing the next secure step.",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Confirming whether this trusted browser is already signed in before showing the next secure step.",
+      "id": "desktopLogin.hydration.detail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 272,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Choose a new password",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Choose a new password",
+      "id": "desktopLogin.title.newPassword",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 306,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verify your email",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Verify your email",
+      "id": "desktopLogin.title.verifyEmail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 309,
+      "reason": ""
+    },
+    {
+      "column": 13,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verify your phone",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Verify your phone",
+      "id": "desktopLogin.title.verifyPhone",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 311,
+      "reason": ""
+    },
+    {
+      "column": 13,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Enter your verification code",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Enter your verification code",
+      "id": "desktopLogin.title.verifyCode",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 312,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Create your account",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Create your account",
+      "id": "desktopLogin.title.signup",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 314,
+      "reason": ""
+    },
+    {
+      "column": 13,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Reset your password",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Reset your password",
+      "id": "desktopLogin.title.recovery",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 316,
+      "reason": ""
+    },
+    {
+      "column": 13,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Welcome back",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Welcome back",
+      "id": "desktopLogin.title.welcome",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 317,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Reset password",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Reset password",
+      "id": "desktopLogin.action.resetPassword",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 319,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Continue",
+      "id": "common.action.continue",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 320,
+      "reason": ""
+    },
+    {
+      "column": 26,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Full name",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Full name",
       "id": "desktopLogin.field.fullName",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 262,
+      "line": 379,
       "reason": ""
     },
     {
-      "column": 149,
+      "column": 40,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Your full name",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29570,50 +29832,63 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 264,
+      "line": 388,
       "reason": ""
     },
     {
-      "column": 78,
+      "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Registered Email *",
+      "fallback": "Registered email",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Registered Email *",
-      "id": "auth.jsx.expression.registered.email.27c6cef1",
+      "icuDefaultMessage": "Registered email",
+      "id": "desktopLogin.field.registeredEmail",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 270,
+      "line": 398,
       "reason": ""
     },
     {
-      "column": 186,
+      "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Email Address *",
+      "fallback": "Email address",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Email Address *",
-      "id": "auth.jsx.expression.email.address.cef5d897",
+      "icuDefaultMessage": "Email address",
+      "id": "desktopLogin.field.email",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 270,
+      "line": 399,
       "reason": ""
     },
     {
-      "column": 37,
+      "column": 38,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Phone Number *",
+      "fallback": "you@example.com",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Phone Number *",
+      "icuDefaultMessage": "you@example.com",
+      "id": "desktopLogin.placeholder.email",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 409,
+      "reason": ""
+    },
+    {
+      "column": 24,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Phone number",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Phone number",
       "id": "desktopLogin.field.phoneNumber",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 277,
+      "line": 417,
       "reason": ""
     },
     {
-      "column": 130,
+      "column": 37,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Country calling code",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29622,37 +29897,50 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 280,
+      "line": 424,
       "reason": ""
     },
     {
-      "column": 33,
+      "column": 38,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Phone number",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Phone number",
+      "id": "desktopLogin.placeholder.phone",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 442,
+      "reason": ""
+    },
+    {
+      "column": 30,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Forgot password?",
       "file": "app/src/pages/DesktopLogin/index.jsx",
       "icuDefaultMessage": "Forgot password?",
-      "id": "auth.jsx.text.forgot.password.823e0b60",
+      "id": "desktopLogin.password.forgot",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 297,
+      "line": 459,
       "reason": ""
     },
     {
-      "column": 29,
+      "column": 26,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Password *",
+      "fallback": "Password",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Password *",
-      "id": "auth.jsx.text.password.464054c2",
+      "icuDefaultMessage": "Password",
+      "id": "desktopLogin.field.password",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 301,
+      "line": 463,
       "reason": ""
     },
     {
-      "column": 272,
+      "column": 40,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Enter your password",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29661,11 +29949,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 304,
+      "line": 473,
       "reason": ""
     },
     {
-      "column": 255,
+      "column": 31,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Hide password",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29674,11 +29962,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 305,
+      "line": 481,
       "reason": ""
     },
     {
-      "column": 310,
+      "column": 31,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Show password",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29687,24 +29975,24 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 305,
+      "line": 482,
       "reason": ""
     },
     {
-      "column": 39,
+      "column": 26,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Confirm Password *",
+      "fallback": "Confirm password",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Confirm Password *",
-      "id": "auth.jsx.text.confirm.password.8b9db931",
+      "icuDefaultMessage": "Confirm password",
+      "id": "desktopLogin.field.confirmPassword",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 314,
+      "line": 493,
       "reason": ""
     },
     {
-      "column": 232,
+      "column": 40,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Confirm your password",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29713,11 +30001,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 316,
+      "line": 503,
       "reason": ""
     },
     {
-      "column": 59,
+      "column": 22,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Back",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29726,50 +30014,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 326,
+      "line": 520,
       "reason": ""
     },
     {
-      "column": 113,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Email verification",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Email verification",
-      "id": "auth.jsx.expression.email.verification.fa2c19cf",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 329,
-      "reason": ""
-    },
-    {
-      "column": 252,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Phone verification",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Phone verification",
-      "id": "auth.jsx.expression.phone.verification.94e84a2f",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 329,
-      "reason": ""
-    },
-    {
-      "column": 362,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Verification code",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Verification code",
-      "id": "auth.jsx.expression.verification.code.0c41bf58",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 329,
-      "reason": ""
-    },
-    {
-      "column": 122,
+      "column": 25,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Code sent to {email}.",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29778,11 +30027,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 330,
+      "line": 525,
       "reason": ""
     },
     {
-      "column": 285,
+      "column": 27,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Code sent to {phone}.",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29791,24 +30040,63 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 330,
+      "line": 527,
       "reason": ""
     },
     {
-      "column": 86,
+      "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Resend in",
+      "fallback": "Enter the secure verification code to continue.",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Resend in",
-      "id": "auth.jsx.text.resend.in.eeb75215",
+      "icuDefaultMessage": "Enter the secure verification code to continue.",
+      "id": "desktopLogin.otp.enter",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 352,
+      "line": 528,
       "reason": ""
     },
     {
-      "column": 59,
+      "column": 37,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verification code digit {number}",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Verification code digit {number}",
+      "id": "desktopLogin.otp.digit",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 536,
+      "reason": ""
+    },
+    {
+      "column": 26,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Resend in {count}s",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Resend in {count}s",
+      "id": "desktopLogin.otp.resendIn",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 557,
+      "reason": ""
+    },
+    {
+      "column": 26,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Resend code",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Resend code",
+      "id": "desktopLogin.otp.resend",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 566,
+      "reason": ""
+    },
+    {
+      "column": 22,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Back",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29817,11 +30105,24 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 363,
+      "line": 581,
       "reason": ""
     },
     {
-      "column": 214,
+      "column": 24,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "New password",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "New password",
+      "id": "desktopLogin.field.newPassword",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 585,
+      "reason": ""
+    },
+    {
+      "column": 38,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "New password",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29830,11 +30131,24 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 366,
+      "line": 595,
       "reason": ""
     },
     {
-      "column": 228,
+      "column": 24,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirm password",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Confirm password",
+      "id": "desktopLogin.field.confirmPassword",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 602,
+      "reason": ""
+    },
+    {
+      "column": 38,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Confirm password",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29843,37 +30157,89 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 369,
+      "line": 612,
+      "reason": ""
+    },
+    {
+      "column": 21,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Temporarily unavailable",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Temporarily unavailable",
+      "id": "desktopLogin.action.temporarilyUnavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 633,
+      "reason": ""
+    },
+    {
+      "column": 23,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Waiting for browser",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Waiting for browser",
+      "id": "desktopLogin.action.waitingForBrowser",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 635,
+      "reason": ""
+    },
+    {
+      "column": 23,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Already have an account?",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Already have an account?",
+      "id": "desktopLogin.mode.haveAccount",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 644,
+      "reason": ""
+    },
+    {
+      "column": 23,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Don't have an account?",
+      "file": "app/src/pages/DesktopLogin/index.jsx",
+      "icuDefaultMessage": "Don't have an account?",
+      "id": "desktopLogin.mode.noAccount",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 645,
       "reason": ""
     },
     {
       "column": 25,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Temporarily Unavailable",
+      "fallback": "Sign in",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Temporarily Unavailable",
-      "id": "desktopLogin.action.temporarilyUnavailable",
+      "icuDefaultMessage": "Sign in",
+      "id": "desktopLogin.mode.signIn",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 381,
+      "line": 653,
       "reason": ""
     },
     {
-      "column": 27,
+      "column": 25,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Waiting for Browser",
+      "fallback": "Sign up",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Waiting for Browser",
-      "id": "desktopLogin.action.waitingForBrowser",
+      "icuDefaultMessage": "Sign up",
+      "id": "desktopLogin.mode.signUp",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 383,
+      "line": 654,
       "reason": ""
     },
     {
-      "column": 85,
+      "column": 81,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "or",
       "file": "app/src/pages/DesktopLogin/index.jsx",
@@ -29882,85 +30248,72 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 392,
+      "line": 660,
       "reason": ""
     },
     {
-      "column": 29,
+      "column": 26,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Cisco Duo",
+      "fallback": "Continue with Duo",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Cisco Duo",
-      "id": "auth.jsx.text.cisco.duo.5fa9322e",
+      "icuDefaultMessage": "Continue with Duo",
+      "id": "desktopLogin.provider.duo",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 400,
+      "line": 669,
       "reason": ""
     },
     {
-      "column": 25,
+      "column": 22,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Social access is unavailable for this deployment.",
+      "fallback": "Social access is unavailable for this deployment. Use your email, phone, and password instead.",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Social access is unavailable for this deployment.",
-      "id": "auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2",
+      "icuDefaultMessage": "Social access is unavailable for this deployment. Use your email, phone, and password instead.",
+      "id": "desktopLogin.social.unavailable",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 432,
+      "line": 713,
       "reason": ""
     },
     {
-      "column": 53,
+      "column": 18,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Use existing account",
+      "fallback": "Remember your password?",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Use existing account",
-      "id": "auth.jsx.expression.use.existing.account.78f61e74",
+      "icuDefaultMessage": "Remember your password?",
+      "id": "desktopLogin.mode.rememberPassword",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 440,
+      "line": 725,
       "reason": ""
     },
     {
-      "column": 167,
+      "column": 20,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Create account",
+      "fallback": "Sign in",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Create account",
-      "id": "auth.jsx.expression.create.account.2428c1b6",
+      "icuDefaultMessage": "Sign in",
+      "id": "desktopLogin.mode.signIn",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 440,
+      "line": 732,
       "reason": ""
     },
     {
-      "column": 121,
+      "column": 16,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Desktop handoff active",
       "file": "app/src/pages/DesktopLogin/index.jsx",
       "icuDefaultMessage": "Desktop handoff active",
-      "id": "auth.jsx.text.desktop.handoff.active.3cb7b554",
+      "id": "desktopLogin.handoff.active",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 442,
-      "reason": ""
-    },
-    {
-      "column": 11,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Aura Desktop keeps your session secure and private.",
-      "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Aura Desktop keeps your session secure and private.",
-      "id": "auth.jsx.text.aura.desktop.keeps.your.session.secure.and.f6004bed",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 451,
+      "line": 745,
       "reason": ""
     },
     {
@@ -33252,7 +33605,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 106,
+      "line": 107,
       "reason": ""
     },
     {
@@ -33265,7 +33618,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Temporarily Unavailable",
-      "line": 107,
+      "line": 108,
       "reason": ""
     },
     {
@@ -33278,7 +33631,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 131,
+      "line": 153,
       "reason": ""
     },
     {
@@ -33291,7 +33644,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 137,
+      "line": 159,
       "reason": ""
     },
     {
@@ -33304,7 +33657,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 184,
+      "line": 206,
       "reason": ""
     },
     {
@@ -33317,7 +33670,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 185,
+      "line": 207,
       "reason": ""
     },
     {
@@ -33330,7 +33683,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 188,
+      "line": 210,
       "reason": ""
     },
     {
@@ -33343,7 +33696,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 195,
+      "line": 217,
       "reason": ""
     },
     {
@@ -33356,7 +33709,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 203,
+      "line": 225,
       "reason": ""
     },
     {
@@ -33369,7 +33722,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 206,
+      "line": 228,
       "reason": ""
     },
     {
@@ -33382,7 +33735,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 221,
+      "line": 243,
       "reason": ""
     },
     {
@@ -33395,7 +33748,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 230,
+      "line": 252,
       "reason": ""
     },
     {
@@ -33408,7 +33761,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 242,
+      "line": 264,
       "reason": ""
     },
     {
@@ -33421,7 +33774,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 256,
+      "line": 278,
       "reason": ""
     },
     {
@@ -33434,7 +33787,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 266,
+      "line": 288,
       "reason": ""
     },
     {
@@ -33447,7 +33800,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 277,
+      "line": 299,
       "reason": ""
     },
     {
@@ -33460,7 +33813,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 278,
+      "line": 300,
       "reason": ""
     },
     {
@@ -33473,7 +33826,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 288,
+      "line": 310,
       "reason": ""
     },
     {
@@ -33486,7 +33839,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 297,
+      "line": 319,
       "reason": ""
     },
     {
@@ -33499,7 +33852,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 302,
+      "line": 324,
       "reason": ""
     },
     {
@@ -33512,7 +33865,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 310,
+      "line": 332,
       "reason": ""
     },
     {
@@ -33525,7 +33878,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 325,
+      "line": 347,
       "reason": ""
     },
     {
@@ -33538,7 +33891,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 328,
+      "line": 350,
       "reason": ""
     },
     {
@@ -33551,7 +33904,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 338,
+      "line": 360,
       "reason": ""
     },
     {
@@ -33564,7 +33917,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 340,
+      "line": 362,
       "reason": ""
     },
     {
@@ -33577,7 +33930,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 341,
+      "line": 363,
       "reason": ""
     },
     {
@@ -33590,7 +33943,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 349,
+      "line": 371,
       "reason": ""
     },
     {
@@ -33603,7 +33956,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 358,
+      "line": 380,
       "reason": ""
     },
     {
@@ -33616,7 +33969,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 370,
+      "line": 392,
       "reason": ""
     },
     {
@@ -33629,7 +33982,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 389,
+      "line": 411,
       "reason": ""
     },
     {
@@ -33642,7 +33995,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 399,
+      "line": 421,
       "reason": ""
     },
     {
@@ -33655,7 +34008,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 413,
+      "line": 435,
       "reason": ""
     },
     {
@@ -33668,7 +34021,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 417,
+      "line": 439,
       "reason": ""
     },
     {
@@ -33683,7 +34036,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 420,
+      "line": 442,
       "reason": ""
     },
     {
@@ -33698,7 +34051,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 422,
+      "line": 444,
       "reason": ""
     },
     {
@@ -33711,7 +34064,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 423,
+      "line": 445,
       "reason": ""
     },
     {
@@ -33724,7 +34077,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 428,
+      "line": 450,
       "reason": ""
     },
     {
@@ -33739,7 +34092,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 443,
+      "line": 465,
       "reason": ""
     },
     {
@@ -33754,7 +34107,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 457,
+      "line": 479,
       "reason": ""
     },
     {
@@ -33767,7 +34120,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 466,
+      "line": 488,
       "reason": ""
     },
     {
@@ -33780,7 +34133,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 477,
+      "line": 499,
       "reason": ""
     },
     {
@@ -33793,7 +34146,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 480,
+      "line": 502,
       "reason": ""
     },
     {
@@ -33806,7 +34159,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 485,
+      "line": 507,
       "reason": ""
     },
     {
@@ -33819,7 +34172,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 495,
+      "line": 517,
       "reason": ""
     },
     {
@@ -33832,7 +34185,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 512,
+      "line": 534,
       "reason": ""
     },
     {
@@ -33845,7 +34198,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 522,
+      "line": 544,
       "reason": ""
     },
     {
@@ -33858,7 +34211,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 558,
+      "line": 580,
       "reason": ""
     },
     {
@@ -33871,7 +34224,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 570,
+      "line": 592,
       "reason": ""
     },
     {
@@ -33884,7 +34237,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 611,
+      "line": 633,
       "reason": ""
     },
     {
@@ -33897,7 +34250,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 612,
+      "line": 634,
       "reason": ""
     },
     {
@@ -33910,7 +34263,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 621,
+      "line": 643,
       "reason": ""
     },
     {
@@ -33923,7 +34276,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 630,
+      "line": 652,
       "reason": ""
     },
     {
@@ -33936,7 +34289,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 643,
+      "line": 665,
       "reason": ""
     },
     {
@@ -33949,7 +34302,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 644,
+      "line": 666,
       "reason": ""
     },
     {
@@ -33962,7 +34315,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 659,
+      "line": 681,
       "reason": ""
     },
     {
@@ -33975,7 +34328,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 661,
+      "line": 683,
       "reason": ""
     },
     {
@@ -33988,7 +34341,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 663,
+      "line": 685,
       "reason": ""
     },
     {
@@ -34001,7 +34354,85 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 665,
+      "line": 687,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verify passkey & continue",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Verify passkey & continue",
+      "id": "desktopLogin.consent.verifyPasskey",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 673,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Register passkey & continue",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Register passkey & continue",
+      "id": "desktopLogin.consent.registerPasskey",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 674,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Continue",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Continue",
+      "id": "common.action.continue",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 676,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Checking passkey",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Checking passkey",
+      "id": "desktopLogin.consent.checkingPasskey",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 678,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Opening Aura Desktop",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Opening Aura Desktop",
+      "id": "desktopLogin.consent.submitting",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 679,
+      "reason": ""
+    },
+    {
+      "column": 8,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verified Aura account",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Verified Aura account",
+      "id": "desktopLogin.consent.verifiedAccount",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 687,
       "reason": ""
     },
     {
@@ -34014,7 +34445,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 651,
+      "line": 782,
       "reason": ""
     },
     {
@@ -34027,7 +34458,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 652,
+      "line": 783,
       "reason": ""
     },
     {
@@ -34040,7 +34471,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 725,
+      "line": 873,
       "reason": ""
     },
     {
@@ -34053,7 +34484,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 783,
+      "line": 931,
       "reason": ""
     },
     {
@@ -34066,7 +34497,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1108,
+      "line": 1315,
       "reason": ""
     },
     {
@@ -34079,7 +34510,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1110,
+      "line": 1317,
       "reason": ""
     },
     {
@@ -34092,7 +34523,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1111,
+      "line": 1318,
       "reason": ""
     },
     {
@@ -34105,7 +34536,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1113,
+      "line": 1320,
       "reason": ""
     },
     {
@@ -34118,7 +34549,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1115,
+      "line": 1322,
       "reason": ""
     },
     {
@@ -34131,7 +34562,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1116,
+      "line": 1323,
       "reason": ""
     },
     {
@@ -34144,7 +34575,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1125,
+      "line": 1332,
       "reason": ""
     },
     {
@@ -34157,7 +34588,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1126,
+      "line": 1333,
       "reason": ""
     },
     {
@@ -34172,7 +34603,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1128,
+      "line": 1335,
       "reason": ""
     },
     {
@@ -34187,7 +34618,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1129,
+      "line": 1336,
       "reason": ""
     },
     {
@@ -34200,7 +34631,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1135,
+      "line": 1342,
       "reason": ""
     },
     {
@@ -34215,7 +34646,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1136,
+      "line": 1343,
       "reason": ""
     },
     {
@@ -34228,7 +34659,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1143,
+      "line": 1350,
       "reason": ""
     },
     {
@@ -34241,7 +34672,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1144,
+      "line": 1351,
       "reason": ""
     },
     {
@@ -34254,7 +34685,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1146,
+      "line": 1353,
       "reason": ""
     },
     {
@@ -34267,7 +34698,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1147,
+      "line": 1354,
       "reason": ""
     },
     {
@@ -34280,7 +34711,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1152,
+      "line": 1359,
       "reason": ""
     },
     {
@@ -34293,7 +34724,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1154,
+      "line": 1361,
       "reason": ""
     },
     {
@@ -34306,7 +34737,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1155,
+      "line": 1362,
       "reason": ""
     },
     {
@@ -34319,7 +34750,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1275,
+      "line": 1482,
       "reason": ""
     },
     {
@@ -34332,7 +34763,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1276,
+      "line": 1483,
       "reason": ""
     },
     {
@@ -34345,7 +34776,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1277,
+      "line": 1484,
       "reason": ""
     },
     {
@@ -34358,7 +34789,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1278,
+      "line": 1485,
       "reason": ""
     },
     {
@@ -34371,7 +34802,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1279,
+      "line": 1486,
       "reason": ""
     },
     {
@@ -34384,7 +34815,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1280,
+      "line": 1487,
       "reason": ""
     },
     {
@@ -34397,7 +34828,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1281,
+      "line": 1488,
       "reason": ""
     },
     {
@@ -34410,7 +34841,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1287,
+      "line": 1494,
       "reason": ""
     },
     {
@@ -34423,7 +34854,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1291,
+      "line": 1498,
       "reason": ""
     },
     {
@@ -34436,7 +34867,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1295,
+      "line": 1502,
       "reason": ""
     },
     {
@@ -34449,7 +34880,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1296,
+      "line": 1503,
       "reason": ""
     },
     {
@@ -34462,7 +34893,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1297,
+      "line": 1504,
       "reason": ""
     },
     {
@@ -34475,7 +34906,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1306,
+      "line": 1513,
       "reason": ""
     },
     {
@@ -34488,7 +34919,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1307,
+      "line": 1514,
       "reason": ""
     },
     {
@@ -34501,7 +34932,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1308,
+      "line": 1515,
       "reason": ""
     },
     {
@@ -34514,7 +34945,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1311,
+      "line": 1518,
       "reason": ""
     },
     {
@@ -34527,7 +34958,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1312,
+      "line": 1519,
       "reason": ""
     },
     {
@@ -34540,7 +34971,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1320,
+      "line": 1527,
       "reason": ""
     },
     {
@@ -34553,7 +34984,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1383,
+      "line": 1590,
       "reason": ""
     },
     {
@@ -34566,7 +34997,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1422,
+      "line": 1629,
       "reason": ""
     },
     {
@@ -34579,7 +35010,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1459,
+      "line": 1666,
       "reason": ""
     },
     {
@@ -34592,7 +35023,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1493,
+      "line": 1700,
       "reason": ""
     },
     {
@@ -34605,7 +35036,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1554,
+      "line": 1761,
       "reason": ""
     },
     {
@@ -34618,7 +35049,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1688,
+      "line": 1895,
       "reason": ""
     },
     {
@@ -34631,7 +35062,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1689,
+      "line": 1896,
       "reason": ""
     },
     {
@@ -34644,7 +35075,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1696,
+      "line": 1903,
       "reason": ""
     },
     {
@@ -34657,7 +35088,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1698,
+      "line": 1905,
       "reason": ""
     },
     {
@@ -34670,7 +35101,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1700,
+      "line": 1907,
       "reason": ""
     },
     {
@@ -34683,7 +35114,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1701,
+      "line": 1908,
       "reason": ""
     },
     {
@@ -34696,7 +35127,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1707,
+      "line": 1914,
       "reason": ""
     },
     {
@@ -34709,7 +35140,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1709,
+      "line": 1916,
       "reason": ""
     },
     {
@@ -34722,7 +35153,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1711,
+      "line": 1918,
       "reason": ""
     },
     {
@@ -34735,7 +35166,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1712,
+      "line": 1919,
       "reason": ""
     },
     {
@@ -34748,7 +35179,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1717,
+      "line": 1924,
       "reason": ""
     },
     {
@@ -34761,7 +35192,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1719,
+      "line": 1926,
       "reason": ""
     },
     {
@@ -34776,7 +35207,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1720,
+      "line": 1927,
       "reason": ""
     },
     {
@@ -34789,7 +35220,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1720,
+      "line": 1927,
       "reason": ""
     },
     {
@@ -34802,7 +35233,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1727,
+      "line": 1934,
       "reason": ""
     },
     {
@@ -34815,7 +35246,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1729,
+      "line": 1936,
       "reason": ""
     },
     {
@@ -34828,7 +35259,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1731,
+      "line": 1938,
       "reason": ""
     },
     {
@@ -34841,7 +35272,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1732,
+      "line": 1939,
       "reason": ""
     },
     {
@@ -34854,7 +35285,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1736,
+      "line": 1943,
       "reason": ""
     },
     {
@@ -34867,7 +35298,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1738,
+      "line": 1945,
       "reason": ""
     },
     {
@@ -34880,7 +35311,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1740,
+      "line": 1947,
       "reason": ""
     },
     {
@@ -34893,7 +35324,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1741,
+      "line": 1948,
       "reason": ""
     },
     {
@@ -34906,7 +35337,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1745,
+      "line": 1952,
       "reason": ""
     },
     {
@@ -34919,7 +35350,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1747,
+      "line": 1954,
       "reason": ""
     },
     {
@@ -34932,7 +35363,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1749,
+      "line": 1956,
       "reason": ""
     },
     {
@@ -34945,7 +35376,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1750,
+      "line": 1957,
       "reason": ""
     },
     {
@@ -34958,7 +35389,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1758,
+      "line": 1965,
       "reason": ""
     },
     {
@@ -34971,7 +35402,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1759,
+      "line": 1966,
       "reason": ""
     },
     {
@@ -34984,7 +35415,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1760,
+      "line": 1967,
       "reason": ""
     },
     {
@@ -34997,7 +35428,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1768,
+      "line": 1975,
       "reason": ""
     },
     {
@@ -35010,7 +35441,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1770,
+      "line": 1977,
       "reason": ""
     },
     {
@@ -35023,7 +35454,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1771,
+      "line": 1978,
       "reason": ""
     },
     {
@@ -35036,7 +35467,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1772,
+      "line": 1979,
       "reason": ""
     },
     {
@@ -35049,7 +35480,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1773,
+      "line": 1980,
       "reason": ""
     },
     {
@@ -35062,7 +35493,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1780,
+      "line": 1987,
       "reason": ""
     },
     {
@@ -35075,7 +35506,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1782,
+      "line": 1989,
       "reason": ""
     },
     {
@@ -35088,7 +35519,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1783,
+      "line": 1990,
       "reason": ""
     },
     {
@@ -35101,7 +35532,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1784,
+      "line": 1991,
       "reason": ""
     },
     {
@@ -35114,7 +35545,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1785,
+      "line": 1992,
       "reason": ""
     },
     {
@@ -35127,7 +35558,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1790,
+      "line": 1997,
       "reason": ""
     },
     {
@@ -35140,7 +35571,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1791,
+      "line": 1998,
       "reason": ""
     },
     {
@@ -35153,7 +35584,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1792,
+      "line": 1999,
       "reason": ""
     },
     {
@@ -35166,7 +35597,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1799,
+      "line": 2006,
       "reason": ""
     },
     {
@@ -35179,7 +35610,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1801,
+      "line": 2008,
       "reason": ""
     },
     {
@@ -35192,7 +35623,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1802,
+      "line": 2009,
       "reason": ""
     },
     {
@@ -35205,7 +35636,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1803,
+      "line": 2010,
       "reason": ""
     },
     {
@@ -35218,7 +35649,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1804,
+      "line": 2011,
       "reason": ""
     },
     {
@@ -35231,7 +35662,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1811,
+      "line": 2018,
       "reason": ""
     },
     {
@@ -35244,7 +35675,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1813,
+      "line": 2020,
       "reason": ""
     },
     {
@@ -35257,7 +35688,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1814,
+      "line": 2021,
       "reason": ""
     },
     {
@@ -35270,7 +35701,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1815,
+      "line": 2022,
       "reason": ""
     },
     {
@@ -35283,7 +35714,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1816,
+      "line": 2023,
       "reason": ""
     },
     {
@@ -35296,7 +35727,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1822,
+      "line": 2029,
       "reason": ""
     },
     {
@@ -35309,7 +35740,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1824,
+      "line": 2031,
       "reason": ""
     },
     {
@@ -35322,7 +35753,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1825,
+      "line": 2032,
       "reason": ""
     },
     {
@@ -35335,7 +35766,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1826,
+      "line": 2033,
       "reason": ""
     },
     {
@@ -35348,7 +35779,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1827,
+      "line": 2034,
       "reason": ""
     },
     {
@@ -35361,7 +35792,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1839,
+      "line": 2046,
       "reason": ""
     },
     {
@@ -35374,7 +35805,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1839,
+      "line": 2046,
       "reason": ""
     },
     {
@@ -35387,7 +35818,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1839,
+      "line": 2046,
       "reason": ""
     },
     {
@@ -35400,7 +35831,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1841,
+      "line": 2048,
       "reason": ""
     },
     {
@@ -35413,7 +35844,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1843,
+      "line": 2050,
       "reason": ""
     },
     {
@@ -35426,7 +35857,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1844,
+      "line": 2051,
       "reason": ""
     },
     {
@@ -35439,7 +35870,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1847,
+      "line": 2054,
       "reason": ""
     },
     {
@@ -35452,7 +35883,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1849,
+      "line": 2056,
       "reason": ""
     },
     {
@@ -35465,7 +35896,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1851,
+      "line": 2058,
       "reason": ""
     },
     {
@@ -35478,7 +35909,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1853,
+      "line": 2060,
       "reason": ""
     },
     {
@@ -35491,7 +35922,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1855,
+      "line": 2062,
       "reason": ""
     },
     {
@@ -35504,7 +35935,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1856,
+      "line": 2063,
       "reason": ""
     },
     {
@@ -35517,7 +35948,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1856,
+      "line": 2063,
       "reason": ""
     },
     {
@@ -35530,7 +35961,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1859,
+      "line": 2066,
       "reason": ""
     },
     {
@@ -35543,7 +35974,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1861,
+      "line": 2068,
       "reason": ""
     },
     {
@@ -35556,7 +35987,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1864,
+      "line": 2071,
       "reason": ""
     },
     {
@@ -35569,7 +36000,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1865,
+      "line": 2072,
       "reason": ""
     },
     {
@@ -35582,7 +36013,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1866,
+      "line": 2073,
       "reason": ""
     },
     {
@@ -35595,7 +36026,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1869,
+      "line": 2076,
       "reason": ""
     },
     {
@@ -35610,7 +36041,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{providers}} ready",
-      "line": 1872,
+      "line": 2079,
       "reason": ""
     },
     {
@@ -35623,7 +36054,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1873,
+      "line": 2080,
       "reason": ""
     },
     {
@@ -35636,7 +36067,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1875,
+      "line": 2082,
       "reason": ""
     },
     {
@@ -35649,7 +36080,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1877,
+      "line": 2084,
       "reason": ""
     },
     {
@@ -35664,7 +36095,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1878,
+      "line": 2085,
       "reason": ""
     },
     {
@@ -35677,7 +36108,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1878,
+      "line": 2085,
       "reason": ""
     },
     {
@@ -35690,7 +36121,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1905,
+      "line": 2112,
       "reason": ""
     },
     {
@@ -35703,7 +36134,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1906,
+      "line": 2113,
       "reason": ""
     },
     {
@@ -35716,7 +36147,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1907,
+      "line": 2114,
       "reason": ""
     },
     {
@@ -35731,7 +36162,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1909,
+      "line": 2116,
       "reason": ""
     },
     {
@@ -35744,7 +36175,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1915,
+      "line": 2122,
       "reason": ""
     },
     {
@@ -35761,7 +36192,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1917,
+      "line": 2124,
       "reason": ""
     },
     {
@@ -35774,7 +36205,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1922,
+      "line": 2129,
       "reason": ""
     },
     {
@@ -35790,7 +36221,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1926,
+      "line": 2133,
       "reason": ""
     },
     {
@@ -35803,7 +36234,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1930,
+      "line": 2137,
       "reason": ""
     },
     {
@@ -35816,7 +36247,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1938,
+      "line": 2145,
       "reason": ""
     },
     {
@@ -35829,7 +36260,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1942,
+      "line": 2149,
       "reason": ""
     },
     {
@@ -35842,7 +36273,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1958,
+      "line": 2165,
       "reason": ""
     },
     {
@@ -35855,7 +36286,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2024,
+      "line": 2231,
       "reason": ""
     },
     {
@@ -35868,7 +36299,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2036,
+      "line": 2243,
       "reason": ""
     },
     {
@@ -35881,7 +36312,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2037,
+      "line": 2244,
       "reason": ""
     },
     {
@@ -35894,7 +36325,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2064,
+      "line": 2271,
       "reason": ""
     },
     {
@@ -35907,7 +36338,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2072,
+      "line": 2279,
       "reason": ""
     },
     {
@@ -35920,7 +36351,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2073,
+      "line": 2280,
       "reason": ""
     },
     {
@@ -35933,7 +36364,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2086,
+      "line": 2387,
       "reason": ""
     },
     {
@@ -35946,7 +36377,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2093,
+      "line": 2394,
       "reason": ""
     },
     {
@@ -35959,7 +36390,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2094,
+      "line": 2395,
       "reason": ""
     },
     {
@@ -35972,7 +36403,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2119,
+      "line": 2420,
       "reason": ""
     },
     {
@@ -35985,7 +36416,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2133,
+      "line": 2434,
       "reason": ""
     },
     {
@@ -35998,7 +36429,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2136,
+      "line": 2437,
       "reason": ""
     },
     {
@@ -36011,7 +36442,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2138,
+      "line": 2439,
       "reason": ""
     },
     {
@@ -36024,7 +36455,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2139,
+      "line": 2440,
       "reason": ""
     },
     {
@@ -36037,7 +36468,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2140,
+      "line": 2441,
       "reason": ""
     },
     {
@@ -36050,7 +36481,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2142,
+      "line": 2443,
       "reason": ""
     },
     {
@@ -36063,7 +36494,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2142,
+      "line": 2443,
       "reason": ""
     },
     {
@@ -36076,7 +36507,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2145,
+      "line": 2446,
       "reason": ""
     },
     {
@@ -36089,7 +36520,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2146,
+      "line": 2447,
       "reason": ""
     },
     {
@@ -36102,7 +36533,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2146,
+      "line": 2447,
       "reason": ""
     },
     {
@@ -36115,7 +36546,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2147,
+      "line": 2448,
       "reason": ""
     },
     {
@@ -36128,7 +36559,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2147,
+      "line": 2448,
       "reason": ""
     },
     {
@@ -36141,7 +36572,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2148,
+      "line": 2449,
       "reason": ""
     },
     {
@@ -36154,7 +36585,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2148,
+      "line": 2449,
       "reason": ""
     },
     {
@@ -54335,15 +54766,15 @@
     "dynamicLookupReferences": 14,
     "legacyPackInternalFiles": 21,
     "parseErrors": 0,
-    "productionFiles": 80,
-    "productionStableReferences": 3718,
+    "productionFiles": 81,
+    "productionStableReferences": 3748,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 361,
+    "sourceFilesScanned": 364,
     "testHarnessReferences": 4,
-    "totalTrackedFiles": 112,
-    "uniqueProductionStableIds": 3384,
+    "totalTrackedFiles": 113,
+    "uniqueProductionStableIds": 3391,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -55173,31 +55604,8 @@
     "assistant.product.warrantyLabel",
     "assistant.product.whyItFits",
     "assistant.tool.status.done",
-    "auth.jsx.expression.create.account.2428c1b6",
-    "auth.jsx.expression.email.address.cef5d897",
-    "auth.jsx.expression.email.verification.fa2c19cf",
-    "auth.jsx.expression.phone.verification.94e84a2f",
-    "auth.jsx.expression.registered.email.27c6cef1",
-    "auth.jsx.expression.request.armed.b9bf993d",
-    "auth.jsx.expression.request.missing.3c67b181",
-    "auth.jsx.expression.use.existing.account.78f61e74",
-    "auth.jsx.expression.verification.code.0c41bf58",
-    "auth.jsx.text.aura.desktop.9942bc8a",
-    "auth.jsx.text.aura.desktop.e8fd0ce4",
-    "auth.jsx.text.aura.desktop.keeps.your.session.secure.and.f6004bed",
-    "auth.jsx.text.cisco.duo.5fa9322e",
-    "auth.jsx.text.confirm.password.8b9db931",
-    "auth.jsx.text.desktop.handoff.active.3cb7b554",
-    "auth.jsx.text.desktop.request.not.active.e348cafc",
-    "auth.jsx.text.forgot.password.823e0b60",
     "auth.jsx.text.live.auth.67a9883c",
-    "auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f",
-    "auth.jsx.text.password.464054c2",
-    "auth.jsx.text.resend.in.eeb75215",
-    "auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2",
-    "auth.jsx.text.start.again.from.aura.desktop.so.this.ef23bf5d",
     "auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df",
-    "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe",
     "auth.pending.admin",
     "auth.pending.seller",
     "auth.recoverableIssue",
@@ -55587,6 +55995,8 @@
     "checkout.warning.otpRequired",
     "common.accessibility.jsx.text.health.signals.533914d8",
     "common.action.back",
+    "common.action.cancel",
+    "common.action.continue",
     "common.answer.no",
     "common.answer.yes",
     "common.cancel",
@@ -55861,41 +56271,64 @@
     "deliveryWindow.3to5Days",
     "deliveryWindow.5to7Days",
     "deliveryWindow.7PlusDays",
+    "desktopLogin.action.resetPassword",
     "desktopLogin.action.temporarilyUnavailable",
     "desktopLogin.action.waitingForBrowser",
-    "desktopLogin.bridge.api",
-    "desktopLogin.bridge.callback",
-    "desktopLogin.bridge.delivery",
-    "desktopLogin.bridge.hosted",
-    "desktopLogin.bridge.loopback",
-    "desktopLogin.bridge.protected",
-    "desktopLogin.capability.desktopOnly",
-    "desktopLogin.capability.loopbackOnly",
-    "desktopLogin.capability.requestLocked",
-    "desktopLogin.capability.sealedToken",
-    "desktopLogin.capability.traceReady",
-    "desktopLogin.capability.verifiedProof",
+    "desktopLogin.consent.accountFallback",
+    "desktopLogin.consent.checkingPasskey",
+    "desktopLogin.consent.passkeyStatus",
+    "desktopLogin.consent.registerPasskey",
+    "desktopLogin.consent.security",
+    "desktopLogin.consent.status",
+    "desktopLogin.consent.submitting",
+    "desktopLogin.consent.title",
+    "desktopLogin.consent.verifiedAccount",
+    "desktopLogin.consent.verifyPasskey",
+    "desktopLogin.field.confirmPassword",
+    "desktopLogin.field.email",
     "desktopLogin.field.fullName",
+    "desktopLogin.field.newPassword",
+    "desktopLogin.field.password",
     "desktopLogin.field.phoneNumber",
+    "desktopLogin.field.registeredEmail",
+    "desktopLogin.handoff.active",
     "desktopLogin.handoff.stepsDetail",
-    "desktopLogin.handoff.stepsTitle",
+    "desktopLogin.hydration.detail",
+    "desktopLogin.hydration.title",
+    "desktopLogin.inactive.detail",
+    "desktopLogin.inactive.title",
+    "desktopLogin.mode.haveAccount",
+    "desktopLogin.mode.noAccount",
+    "desktopLogin.mode.rememberPassword",
+    "desktopLogin.mode.signIn",
+    "desktopLogin.mode.signUp",
+    "desktopLogin.otp.digit",
     "desktopLogin.otp.emailSent",
+    "desktopLogin.otp.enter",
     "desktopLogin.otp.phoneSent",
+    "desktopLogin.otp.resend",
+    "desktopLogin.otp.resendIn",
+    "desktopLogin.password.forgot",
     "desktopLogin.password.hide",
     "desktopLogin.password.show",
     "desktopLogin.phone.countryCallingCode",
     "desktopLogin.placeholder.confirmPassword",
     "desktopLogin.placeholder.confirmPasswordShort",
+    "desktopLogin.placeholder.email",
     "desktopLogin.placeholder.fullName",
     "desktopLogin.placeholder.newPassword",
     "desktopLogin.placeholder.password",
-    "desktopLogin.status.builtForTrust",
-    "desktopLogin.status.privacyFirst",
-    "desktopLogin.status.secureByDesign",
-    "desktopLogin.step.accountLane",
-    "desktopLogin.step.credentialLane",
-    "desktopLogin.step.otpLane",
-    "desktopLogin.step.recoveryLane",
+    "desktopLogin.placeholder.phone",
+    "desktopLogin.provider.duo",
+    "desktopLogin.social.unavailable",
+    "desktopLogin.title.newPassword",
+    "desktopLogin.title.recovery",
+    "desktopLogin.title.signup",
+    "desktopLogin.title.verifyCode",
+    "desktopLogin.title.verifyEmail",
+    "desktopLogin.title.verifyPhone",
+    "desktopLogin.title.welcome",
+    "desktopWelcome.openMarketplace",
     "filters.any",
     "filters.brandPlaceholder",
     "filters.chip.brand",
@@ -56198,10 +56631,15 @@
     "login.desktopBrowser.cancel",
     "login.desktopBrowser.completingDetail",
     "login.desktopBrowser.completingTitle",
+    "login.desktopBrowser.desktopDetail",
+    "login.desktopBrowser.reopen",
+    "login.desktopBrowser.signupHint",
     "login.desktopBrowser.startedDetail",
     "login.desktopBrowser.startedTitle",
     "login.desktopBrowser.storageUnavailable",
     "login.desktopBrowser.unavailable",
+    "login.desktopBrowser.waitingDetail",
+    "login.desktopBrowser.welcomeTitle",
     "login.desktopOwnerAccess.button",
     "login.desktopOwnerAccess.startedDetail",
     "login.desktopOwnerAccess.startedTitle",
