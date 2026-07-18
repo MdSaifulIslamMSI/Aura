@@ -82,6 +82,17 @@ const isIpv6Host = (host = '') => {
 
 const isIpLiteralHost = (host = '') => isIpv4Host(host) || isIpv6Host(host);
 
+const isLoopbackHost = (host = '') => {
+  const normalized = normalizeHost(host).replace(/^\[|\]$/g, '');
+  return normalized === 'localhost'
+    || normalized === '127.0.0.1'
+    || normalized === '::1';
+};
+
+const isDesktopLoopbackRuntime = () => (
+  isElectronDesktopRuntime() && isLoopbackHost(getRuntimeHost())
+);
+
 const isRegistrableHost = (host = '') => {
   const normalized = normalizeHost(host);
   if (!normalized || normalized === 'localhost' || isIpLiteralHost(normalized)) {
@@ -330,6 +341,27 @@ export const cacheTrustedDeviceSessionToken = (token = '', expiresAt = '') => {
   clearTrustedDeviceSessionStorage(sharedStorage);
 };
 
+export const adoptTrustedDeviceSession = ({
+  deviceId = '',
+  deviceSessionToken = '',
+  expiresAt = '',
+} = {}) => {
+  const normalizedDeviceId = String(deviceId || '').trim();
+  if (!/^[A-Za-z0-9:_-]{12,128}$/.test(normalizedDeviceId)) {
+    throw new Error('Desktop trusted-device identity is invalid.');
+  }
+
+  const normalizedSessionToken = String(deviceSessionToken || '').trim();
+  if (!normalizedSessionToken) {
+    throw new Error('Desktop trusted-device session is missing.');
+  }
+
+  const storage = readStorage('localStorage');
+  storage?.setItem(DEVICE_ID_STORAGE_KEY, normalizedDeviceId);
+  inMemoryDeviceId = normalizedDeviceId;
+  cacheTrustedDeviceSessionToken(normalizedSessionToken, expiresAt);
+};
+
 export const clearTrustedDeviceSessionToken = () => {
   cacheTrustedDeviceSessionToken('');
 };
@@ -361,6 +393,7 @@ export const isWebAuthnSupported = () => Boolean(
   && window.isSecureContext
   && window.PublicKeyCredential
   && window.navigator?.credentials
+  && !isDesktopLoopbackRuntime()
 );
 
 const canUseBrowserKeyFallback = () => Boolean(
@@ -372,12 +405,14 @@ const canUseBrowserKeyFallback = () => Boolean(
 
 export const getTrustedDeviceSupportProfile = () => {
   const runtimeHost = getRuntimeHost();
+  const desktopLoopbackRuntime = isDesktopLoopbackRuntime();
   return {
     webauthn: isWebAuthnSupported(),
     browserKeyFallback: canUseBrowserKeyFallback(),
     biometricPasskeyLabel: getPlatformPasskeyLabel(),
     runtimeHost,
-    webauthnHostEligible: runtimeHost === 'localhost' || isRegistrableHost(runtimeHost),
+    webauthnHostEligible: !desktopLoopbackRuntime
+      && (runtimeHost === 'localhost' || isRegistrableHost(runtimeHost)),
     localIpHost: isIpLiteralHost(runtimeHost),
   };
 };
@@ -514,6 +549,9 @@ const shouldFallbackFromWebAuthn = (error) => {
 
 const runWebAuthnEnrollment = async (challenge = {}) => {
   if (!isWebAuthnSupported()) {
+    if (isDesktopLoopbackRuntime()) {
+      throw new Error('Passkey verification must run on Aura\'s hosted HTTPS origin, not inside the desktop loopback renderer.');
+    }
     throw new Error('Passkey verification requires a WebAuthn-capable secure browser.');
   }
 
@@ -535,6 +573,9 @@ const runWebAuthnEnrollment = async (challenge = {}) => {
 
 const runWebAuthnAssertion = async (challenge = {}) => {
   if (!isWebAuthnSupported()) {
+    if (isDesktopLoopbackRuntime()) {
+      throw new Error('Passkey verification must run on Aura\'s hosted HTTPS origin, not inside the desktop loopback renderer.');
+    }
     throw new Error('Passkey verification requires a WebAuthn-capable secure browser.');
   }
 

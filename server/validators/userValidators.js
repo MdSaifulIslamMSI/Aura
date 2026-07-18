@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const PHONE_REGEX = /^\+?\d{10,15}$/;
+const DESKTOP_HANDOFF_REQUEST_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const loginSchema = z.object({
     body: z.object({
@@ -13,6 +14,10 @@ const loginSchema = z.object({
             .optional()
             .refine((value) => !value || PHONE_REGEX.test(value), 'Invalid phone number'),
         flowToken: z.string().trim().max(4096, 'Invalid login assurance token').optional(),
+        desktopHandoffRequestId: z.string()
+            .trim()
+            .regex(DESKTOP_HANDOFF_REQUEST_ID_REGEX, 'Invalid desktop handoff request')
+            .optional(),
     }),
 });
 

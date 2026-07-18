@@ -336,6 +336,22 @@ describe('AuraTrustedDeviceChallenge', () => {
     expect(screen.getByText(/recognition key already stored in this browser/i)).toBeInTheDocument();
   });
 
+  it('defaults desktop loopback challenges to the browser key instead of starting an incompatible passkey ceremony', async () => {
+    getTrustedDeviceSupportProfile.mockReturnValue({
+      ...baseSupportProfile,
+      runtimeHost: 'localhost',
+      webauthnHostEligible: false,
+    });
+
+    const { default: AuraTrustedDeviceChallenge } = await loadComponent();
+    renderWithRoute(<AuraTrustedDeviceChallenge />);
+
+    expect(screen.getByRole('button', { name: /confirm this browser/i })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: /try another way/i }));
+    expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: /this browser/i })).toBeEnabled();
+  });
+
   it('moves focus into the blocking checkpoint and traps tab navigation', async () => {
     const beforeGateButton = document.createElement('button');
     beforeGateButton.type = 'button';

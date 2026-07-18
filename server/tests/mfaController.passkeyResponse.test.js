@@ -220,6 +220,9 @@ describe('mfaController passkey response contract', () => {
         expect(refreshBrowserSession).toHaveBeenCalledWith(expect.objectContaining({
             deviceMethod: 'webauthn',
             additionalAmr: ['webauthn', 'passkey', 'mfa'],
+            webAuthnStepUpUntil: expect.any(String),
         }));
+        const persistedSession = refreshBrowserSession.mock.calls.at(-1)[0];
+        expect(persistedSession.webAuthnStepUpUntil).toBe(persistedSession.stepUpUntil);
     });
 });

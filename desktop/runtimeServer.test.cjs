@@ -5,6 +5,33 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
+const postOpaqueFormNavigation = (targetUrl, body, headerOverrides = {}) => new Promise((resolve, reject) => {
+    const url = new URL(targetUrl);
+    const encodedBody = body.toString();
+    const request = http.request(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(encodedBody),
+            Origin: 'null',
+            'Sec-Fetch-Site': 'cross-site',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Dest': 'document',
+            ...headerOverrides,
+        },
+    }, (response) => {
+        const chunks = [];
+        response.on('data', (chunk) => chunks.push(chunk));
+        response.on('end', () => resolve({
+            body: Buffer.concat(chunks).toString('utf8'),
+            headers: response.headers,
+            status: response.statusCode,
+        }));
+    });
+    request.on('error', reject);
+    request.end(encodedBody);
+});
+
 const {
     buildProxyOptions,
     applyLocalFrontendCachePolicy,
@@ -23,6 +50,7 @@ const {
     buildRuntimeCallbackUrl,
     buildRuntimePortCandidates,
     isLoopbackBackendOrigin,
+    isOpaqueDesktopAuthNavigation,
     resolveBackendOrigin,
     resolveAllowedDesktopAuthOrigins,
     readDesktopAuthProtocolVersion,
@@ -63,6 +91,29 @@ test('desktop browser handoff allows enough time for password and two OTP stages
 
     assert.equal(DESKTOP_AUTH_REQUEST_TTL_MS, 10 * 60 * 1000);
     assert.equal(request.expiresAt - now, DESKTOP_AUTH_REQUEST_TTL_MS);
+});
+
+test('desktop only recognizes Chromium opaque origins for top-level form navigation', () => {
+    const validHeaders = {
+        origin: 'null',
+        'content-type': 'application/x-www-form-urlencoded',
+        'sec-fetch-site': 'cross-site',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-dest': 'document',
+    };
+
+    assert.equal(isOpaqueDesktopAuthNavigation({ headers: validHeaders }), true);
+    for (const [header, value] of [
+        ['origin', 'https://evil.example.test'],
+        ['content-type', 'application/json'],
+        ['sec-fetch-site', 'same-origin'],
+        ['sec-fetch-mode', 'cors'],
+        ['sec-fetch-dest', 'iframe'],
+    ]) {
+        assert.equal(isOpaqueDesktopAuthNavigation({
+            headers: { ...validHeaders, [header]: value },
+        }), false, `${header} must stay constrained`);
+    }
 });
 
 test('desktop validates the hosted browser protocol before opening a request', async () => {
@@ -388,21 +439,48 @@ test('desktop auth callback completes the HTTP handoff and consumes its token on
 
         const formRequest = runtime.createDesktopAuthRequest();
         const formHandoff = new URLSearchParams(new URL(formRequest.url).hash.slice(1));
-        const formResponse = await fetch(formHandoff.get('desktopAuthCallback'), {
+        const rejectedOpaqueJson = await fetch(formHandoff.get('desktopAuthCallback'), {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Origin: origin,
+                'Content-Type': 'application/json',
+                Origin: 'null',
+                'Sec-Fetch-Site': 'cross-site',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Dest': 'document',
             },
-            body: new URLSearchParams({
+            body: JSON.stringify({
+                requestId: formRequest.requestId,
+                secret: formHandoff.get('desktopAuthSecret'),
+                customToken: 'must-not-be-consumed',
+            }),
+        });
+        assert.equal(rejectedOpaqueJson.status, 403);
+        assert.notEqual(runtime.getDesktopAuthRequest(formRequest.requestId), null);
+
+        const rejectedNestedNavigation = await postOpaqueFormNavigation(
+            formHandoff.get('desktopAuthCallback'),
+            new URLSearchParams({
+                requestId: formRequest.requestId,
+                secret: formHandoff.get('desktopAuthSecret'),
+                customToken: 'must-not-be-consumed',
+            }),
+            { 'Sec-Fetch-Dest': 'iframe' }
+        );
+        assert.equal(rejectedNestedNavigation.status, 403);
+        assert.notEqual(runtime.getDesktopAuthRequest(formRequest.requestId), null);
+
+        const formResponse = await postOpaqueFormNavigation(
+            formHandoff.get('desktopAuthCallback'),
+            new URLSearchParams({
                 requestId: formRequest.requestId,
                 secret: formHandoff.get('desktopAuthSecret'),
                 customToken: 'form-navigation-custom-token',
-            }),
-        });
+            })
+        );
         assert.equal(formResponse.status, 200);
-        assert.match(formResponse.headers.get('content-type'), /^text\/html/);
-        const completionHtml = await formResponse.text();
+        assert.equal(formResponse.headers['access-control-allow-origin'], undefined);
+        assert.match(formResponse.headers['content-type'], /^text\/html/);
+        const completionHtml = formResponse.body;
         assert.match(completionHtml, /Aura Desktop received the secure result/);
         assert.match(completionHtml, /background:#1f1f1f/);
         assert.doesNotMatch(completionHtml, /#67e8f9/);
@@ -482,21 +560,17 @@ test('desktop auth cancellation endpoint enforces CORS and secret authentication
         assert.match((await wrongSecretResponse.json()).message, /could not be verified/);
         assert.notEqual(runtime.getDesktopAuthRequest(request.requestId), null);
 
-        const cancelResponse = await fetch(cancelUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Origin: origin,
-            },
-            body: new URLSearchParams({
+        const cancelResponse = await postOpaqueFormNavigation(
+            cancelUrl,
+            new URLSearchParams({
                 requestId: request.requestId,
                 secret: handoff.get('desktopAuthSecret'),
-            }),
-        });
+            })
+        );
         assert.equal(cancelResponse.status, 200);
-        assert.equal(cancelResponse.headers.get('access-control-allow-origin'), origin);
-        assert.match(cancelResponse.headers.get('content-type'), /^text\/html/);
-        const cancellationHtml = await cancelResponse.text();
+        assert.equal(cancelResponse.headers['access-control-allow-origin'], undefined);
+        assert.match(cancelResponse.headers['content-type'], /^text\/html/);
+        const cancellationHtml = cancelResponse.body;
         assert.match(cancellationHtml, /Sign-in cancelled/);
         assert.match(cancellationHtml, /Aura Desktop cancelled this browser sign-in/);
         assert.match(cancellationHtml, /background:#1f1f1f/);

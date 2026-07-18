@@ -158,6 +158,7 @@ const resolveSyntheticAssurance = ({
     previousSession = null,
     deviceMethod = '',
     stepUpUntil = null,
+    webAuthnStepUpUntil = null,
     additionalAmr = [],
 } = {}) => {
     const providerIds = resolveProviderIds({ previousSession, authToken });
@@ -192,6 +193,13 @@ const resolveSyntheticAssurance = ({
     const hasActiveStepUp = Boolean(
         stepUpExpiry && new Date(stepUpExpiry).getTime() > Date.now()
     );
+    const webAuthnStepUpExpiry = toIsoOrNull(webAuthnStepUpUntil)
+        || (effectiveDeviceMethod === 'webauthn'
+            ? toIsoOrNull(previousSession?.webAuthnStepUpUntil)
+            : null);
+    const hasActiveWebAuthnStepUp = Boolean(
+        webAuthnStepUpExpiry && new Date(webAuthnStepUpExpiry).getTime() > Date.now()
+    );
     const hasStrongFactor = normalizedAmr.some((entry) => (
         entry === 'firebase_mfa'
         || entry === 'webauthn'
@@ -207,6 +215,7 @@ const resolveSyntheticAssurance = ({
         amr: normalizedAmr,
         aal: (hasStrongFactor || hasActiveStepUp) ? 'aal2' : 'aal1',
         stepUpUntil: hasActiveStepUp ? stepUpExpiry : null,
+        webAuthnStepUpUntil: hasActiveWebAuthnStepUp ? webAuthnStepUpExpiry : null,
         deviceMethod: deviceMethod || getStoredTrustedDeviceMethod(previousSession),
     };
 };
@@ -649,6 +658,7 @@ const buildBrowserSessionRecord = ({
     previousSession = null,
     deviceMethod = '',
     stepUpUntil = null,
+    webAuthnStepUpUntil = null,
     additionalAmr = [],
     riskState = '',
     dpopJwk = null,
@@ -669,6 +679,7 @@ const buildBrowserSessionRecord = ({
         previousSession,
         deviceMethod,
         stepUpUntil,
+        webAuthnStepUpUntil,
         additionalAmr,
     });
     const absoluteExpiresAt = new Date(createdAt.getTime() + SESSION_ABSOLUTE_TTL_MS).toISOString();
@@ -690,6 +701,7 @@ const buildBrowserSessionRecord = ({
         deviceMethod: assurance.deviceMethod,
         riskState: resolveRiskState({ user, previousSession, riskState }),
         stepUpUntil: assurance.stepUpUntil,
+        webAuthnStepUpUntil: assurance.webAuthnStepUpUntil,
         authTime: epochSecondsToIso(identity.authTimeSeconds),
         authTimeSeconds: identity.authTimeSeconds,
         issuedAt: epochSecondsToIso(identity.issuedAtSeconds),
@@ -1013,6 +1025,7 @@ const createBrowserSession = async ({
     authToken = null,
     deviceMethod = '',
     stepUpUntil = null,
+    webAuthnStepUpUntil = null,
     additionalAmr = [],
     riskState = '',
 } = {}) => {
@@ -1037,6 +1050,7 @@ const createBrowserSession = async ({
         req,
         deviceMethod,
         stepUpUntil,
+        webAuthnStepUpUntil,
         additionalAmr,
         riskState,
         dpopJwk,
@@ -1058,6 +1072,7 @@ const rotateBrowserSession = async ({
     authToken = null,
     deviceMethod = '',
     stepUpUntil = null,
+    webAuthnStepUpUntil = null,
     additionalAmr = [],
     riskState = '',
 } = {}) => {
@@ -1085,6 +1100,7 @@ const rotateBrowserSession = async ({
         previousSession,
         deviceMethod,
         stepUpUntil,
+        webAuthnStepUpUntil,
         additionalAmr,
         riskState,
         dpopJwk,
@@ -1132,6 +1148,7 @@ const refreshBrowserSession = async ({
     authToken = null,
     deviceMethod = '',
     stepUpUntil = null,
+    webAuthnStepUpUntil = null,
     additionalAmr = [],
     rotate = false,
     riskState = '',
@@ -1145,6 +1162,7 @@ const refreshBrowserSession = async ({
             authToken,
             deviceMethod,
             stepUpUntil,
+            webAuthnStepUpUntil,
             additionalAmr,
             riskState,
         });
@@ -1160,6 +1178,7 @@ const refreshBrowserSession = async ({
             authToken,
             deviceMethod,
             stepUpUntil,
+            webAuthnStepUpUntil,
             additionalAmr,
             riskState,
         });
@@ -1187,6 +1206,7 @@ const refreshBrowserSession = async ({
         previousSession: currentSession,
         deviceMethod,
         stepUpUntil,
+        webAuthnStepUpUntil,
         additionalAmr,
         riskState,
         dpopJwk,

@@ -355,6 +355,9 @@ export const authApi = {
             name,
             phone,
             ...(options.flowToken ? { flowToken: options.flowToken } : {}),
+            ...(options.desktopHandoffRequestId
+                ? { desktopHandoffRequestId: options.desktopHandoffRequestId }
+                : {}),
         }, {
             ...options,
             useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),

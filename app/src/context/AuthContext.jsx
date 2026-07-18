@@ -43,6 +43,7 @@ import { authApi, userApi } from '../services/api';
 import { resetBrowserSessionState } from '../services/browserSessionReset';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
 import {
+  adoptTrustedDeviceSession,
   cacheTrustedDeviceSessionToken,
   clearTrustedDeviceSessionToken,
   resetTrustedDeviceIdentity,
@@ -429,6 +430,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const applyResolvedSession = (payload, firebaseUser, identity) => {
+    if (payload?.desktopHandoff?.assuranceTransferred && payload?.deviceSessionToken) {
+      adoptTrustedDeviceSession({
+        deviceId: payload.desktopHandoff.deviceId,
+        deviceSessionToken: payload.deviceSessionToken,
+        expiresAt: payload.expiresAt,
+      });
+    } else if (payload?.deviceSessionToken) {
+      cacheTrustedDeviceSessionToken(payload.deviceSessionToken, payload.expiresAt);
+    }
     setSessionState(buildSessionStateFromPayload(payload, firebaseUser));
     syncStateRef.current = {
       identity,
@@ -608,6 +618,7 @@ export const AuthProvider = ({ children }) => {
     name = '',
     phone = '',
     flowToken = '',
+    desktopHandoffRequestId = '',
     force = false,
     silent = false,
   } = {}) => {
@@ -667,6 +678,7 @@ export const AuthProvider = ({ children }) => {
         ? await authApi.syncSession(safeEmail, name, phone, {
           firebaseUser: activeUser,
           flowToken: normalizeText(flowToken),
+          desktopHandoffRequestId: normalizeText(desktopHandoffRequestId),
         })
         : await authApi.getSession({ firebaseUser: activeUser });
 
@@ -735,6 +747,7 @@ export const AuthProvider = ({ children }) => {
     name,
     phone,
     flowToken: options?.flowToken || '',
+    desktopHandoffRequestId: options?.desktopHandoffRequestId || '',
     force: options?.force === true,
     silent: options?.silent === true,
   });
@@ -810,7 +823,11 @@ export const AuthProvider = ({ children }) => {
         resolvedDisplayName,
         user.phoneNumber || '',
         user,
-        { force: true, silent: options?.silent === true }
+        {
+          force: true,
+          silent: options?.silent === true,
+          desktopHandoffRequestId: options?.desktopHandoffRequestId || '',
+        }
       );
 
       clearFirebaseSocialAuthRuntimeBlock();
@@ -1001,10 +1018,23 @@ export const AuthProvider = ({ children }) => {
             expiresAt: request?.expiresAt || 0,
           });
           const customToken = await waitForDesktopBrowserCustomToken(desktop, request, { signal });
-          return signInWithCustomToken(auth, customToken);
+          const result = await signInWithCustomToken(auth, customToken);
+          const tokenResult = await result?.user?.getIdTokenResult?.();
+          const claims = tokenResult?.claims || {};
+          if (
+            claims.desktop_handoff !== true
+            || normalizeText(claims.desktop_request_id) !== normalizeText(request?.requestId)
+          ) {
+            await signOut(auth);
+            const error = new Error('Desktop browser sign-in token is not bound to this request.');
+            error.code = 'auth/desktop-browser-sign-in-token-mismatch';
+            throw error;
+          }
+          return result;
         },
         finalize: async (_result, firebaseUser) => resolveOAuthUser(firebaseUser, {
           isNewUser: false,
+          desktopHandoffRequestId: request?.requestId || '',
         }),
       });
     } catch (error) {
