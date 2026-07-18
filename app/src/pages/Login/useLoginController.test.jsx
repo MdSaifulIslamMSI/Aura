@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as React from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -288,6 +288,7 @@ const buildAuthValue = (overrides = {}) => ({
   currentUser: null,
   isAuthenticated: false,
   loading: false,
+  status: 'signed_out',
   login: vi.fn(),
   loginWithPhoneCredential: vi.fn(),
   logout: vi.fn(),
@@ -305,6 +306,69 @@ const buildAuthValue = (overrides = {}) => ({
   syncUserWithBackend: vi.fn(),
   ...overrides,
 });
+
+const AuthenticationCheckpointProbe = ({ completeAuthentication }) => {
+  const {
+    authSuccess,
+    handleSocialSignIn,
+    isSessionCheckpointPending,
+    sessionStatus,
+    signInWithGoogle,
+  } = useLoginController();
+
+  return (
+    <>
+      <button type="button" onClick={() => handleSocialSignIn(signInWithGoogle, 'Google')}>start sign-in</button>
+      <button type="button" onClick={completeAuthentication}>complete checkpoint</button>
+      <div data-testid="checkpoint-pending">{String(isSessionCheckpointPending)}</div>
+      <div data-testid="checkpoint-status">{sessionStatus || 'none'}</div>
+      <div data-testid="checkpoint-success">{authSuccess?.title || 'none'}</div>
+    </>
+  );
+};
+
+const AuthenticationCheckpointHarness = ({ checkpointStatus }) => {
+  const [authState, setAuthState] = React.useState({
+    currentUser: null,
+    isAuthenticated: false,
+    loading: false,
+    status: 'signed_out',
+  });
+  const signInWithGoogle = React.useCallback(async () => {
+    setAuthState({
+      currentUser: { uid: 'checkpoint-user', email: 'checkpoint@example.com' },
+      isAuthenticated: false,
+      loading: false,
+      status: checkpointStatus,
+    });
+    return { dbUser: { email: 'checkpoint@example.com' } };
+  }, [checkpointStatus]);
+  const completeAuthentication = React.useCallback(() => {
+    setAuthState((current) => ({
+      ...current,
+      isAuthenticated: true,
+      status: 'authenticated',
+    }));
+  }, []);
+
+  return (
+    <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+      <AuthContext.Provider value={buildAuthValue({ ...authState, signInWithGoogle })}>
+        <MemoryRouter initialEntries={[{
+          pathname: '/login',
+          state: { from: { pathname: '/profile' } },
+        }]}
+        >
+          <LocationProbe />
+          <Routes>
+            <Route path="/login" element={<AuthenticationCheckpointProbe completeAuthentication={completeAuthentication} />} />
+            <Route path="/profile" element={<div>Profile Screen</div>} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    </MarketProvider>
+  );
+};
 
 const renderLoginController = (authValue, initialEntry) => render(
   <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
@@ -544,6 +608,47 @@ describe('useLoginController', () => {
       expect(screen.queryByText('Profile Screen')).not.toBeInTheDocument();
       expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
     });
+  });
+
+  it.each([
+    'device_challenge_required',
+    'mfa_challenge_required',
+  ])('waits for authenticated after %s before announcing success or navigating', async (checkpointStatus) => {
+    vi.useFakeTimers();
+    try {
+      render(<AuthenticationCheckpointHarness checkpointStatus={checkpointStatus} />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'start sign-in' }));
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('checkpoint-pending')).toHaveTextContent('true');
+      expect(screen.getByTestId('checkpoint-status')).toHaveTextContent(checkpointStatus);
+      expect(screen.getByTestId('checkpoint-success')).toHaveTextContent('none');
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
+
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'complete checkpoint' }));
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('checkpoint-pending')).toHaveTextContent('false');
+      expect(screen.getByTestId('checkpoint-success')).not.toHaveTextContent('none');
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('"pathname":"/login"');
+
+      await act(async () => {
+        vi.advanceTimersByTime(1200);
+      });
+      expect(screen.getByText('Profile Screen')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps popup-close as a cancellation message on safe hosts', async () => {

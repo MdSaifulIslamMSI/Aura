@@ -182,7 +182,7 @@ const ensureIndexedDb = () => {
 const openKeyDatabase = () => {
   if (keyDbPromise) return keyDbPromise;
 
-  keyDbPromise = new Promise((resolve, reject) => {
+  const openPromise = new Promise((resolve, reject) => {
     let request;
 
     try {
@@ -200,6 +200,14 @@ const openKeyDatabase = () => {
       }
     };
     request.onsuccess = () => resolve(request.result);
+  });
+
+  keyDbPromise = openPromise.catch((error) => {
+    // IndexedDB can fail transiently while a browser profile is unlocking or
+    // recovering. Never cache a rejected open forever; the next user retry must
+    // be allowed to open a fresh connection.
+    keyDbPromise = null;
+    throw error;
   });
 
   return keyDbPromise;
@@ -631,12 +639,17 @@ export const resetTrustedDeviceIdentity = async () => {
   clearTrustedDeviceSessionToken();
   inMemoryDeviceId = '';
 
-  try {
-    if (deviceId) {
+  if (deviceId) {
+    try {
       await deleteKeyRecord(deviceId);
+    } catch (error) {
+      const resetError = new Error(
+        'This browser identity was cleared, but its stored key could not be removed. Retry once before registering this browser again.'
+      );
+      resetError.code = 'trusted_device_key_reset_incomplete';
+      resetError.cause = error;
+      throw resetError;
     }
-  } catch {
-    // best-effort cleanup
   }
 };
 

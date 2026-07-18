@@ -31,7 +31,6 @@ const getGlobalSessionRevokedAfter = typeof browserSessionService.getGlobalSessi
     : async () => 0;
 const { csrfTokenValidator } = require('./csrfMiddleware');
 const {
-    flags: trustedDeviceFlags,
     shouldRequireTrustedDevice,
 } = require('../config/authTrustedDeviceFlags');
 const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnforcementPolicy');
@@ -52,7 +51,7 @@ const { recordSensitiveActionDecision } = require('../services/securityAuditServ
 const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 const { hasObservedWebAuthnUserVerification } = require('../services/trustedDeviceAssuranceService');
 const { shadowCompareTrustedDeviceRequest } = require('../services/trustedDeviceV2RuntimeService');
-const { isAdminSubject } = require('../services/mfaPolicyService');
+const { evaluateLogin, isAdminSubject } = require('../services/mfaPolicyService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -524,6 +523,21 @@ const isTrustedDeviceBypassPath = (req = {}) => {
         || path.startsWith('/api/auth/logout');
 };
 
+const isLoginContinuationPath = (req = {}) => {
+    const path = String(req.originalUrl || req.path || '').toLowerCase();
+    return path.startsWith('/api/auth/session')
+        || path.startsWith('/api/auth/exchange')
+        || path.startsWith('/api/auth/sync')
+        || path.startsWith('/api/auth/verify-device')
+        || path.startsWith('/api/auth/logout')
+        || path.startsWith('/api/auth/mfa/totp/verify-login')
+        || path.startsWith('/api/auth/mfa/passkey/login/')
+        || path.startsWith('/api/auth/mfa/recovery/verify')
+        || path.startsWith('/api/auth/complete-phone-factor-login')
+        || path.startsWith('/api/auth/duo/')
+        || path.startsWith('/api/auth/enterprise/');
+};
+
 const getTrustedDeviceSessionToken = (req = {}) => String(
     req.get?.(TRUSTED_DEVICE_SESSION_HEADER)
     || req.headers?.[TRUSTED_DEVICE_SESSION_HEADER]
@@ -664,6 +678,40 @@ const enforceTrustedDevice = (req) => {
         recordStepUpRequired(req, verification.reason || 'trusted_device_required');
         throw new AppError('Trusted device verification required for this account', 403);
     }
+};
+
+const enforceCompletedLoginMfa = (req = {}) => {
+    if (isLoginContinuationPath(req)) return;
+
+    const tokenAmr = getTokenAmr(req);
+    const firebaseSecondFactor = String(
+        req.authToken?.firebase?.sign_in_second_factor || ''
+    ).trim();
+    const sessionAmr = Array.isArray(req.authSession?.amr)
+        ? req.authSession.amr
+        : [];
+    const policy = evaluateLogin({
+        user: req.user,
+        context: {
+            session: {
+                ...(req.authSession || {}),
+                amr: Array.from(new Set([
+                    ...sessionAmr,
+                    ...tokenAmr,
+                    ...(firebaseSecondFactor ? ['firebase_mfa'] : []),
+                ])),
+            },
+        },
+    });
+
+    if (!policy.mfaRequired) return;
+
+    recordStepUpRequired(req, 'login_mfa_required');
+    const error = new AppError('Complete the required multi-factor sign-in before accessing this resource.', 403);
+    error.code = 'MFA_LOGIN_REQUIRED';
+    error.mfaRequired = true;
+    error.allowedMethods = policy.allowedMethods;
+    throw error;
 };
 
 const normalizePath = (value) => String(value || '').trim().toLowerCase();
@@ -1272,9 +1320,8 @@ const finalizeProtectedRequest = async (req, res, next) => {
     if (AUTH_REQUIRE_OTP_FOR_ALL_PROTECTED) {
         enforceOtpAssurance(req);
     }
-    if (trustedDeviceFlags.authDeviceChallengeMode === 'always') {
-        enforceTrustedDevice(req);
-    }
+    enforceTrustedDevice(req);
+    enforceCompletedLoginMfa(req);
     await enforceContinuousAccessPosture(req);
     await enforceCookieSessionCsrf(req, res);
     return next();

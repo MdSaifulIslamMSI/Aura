@@ -120,6 +120,8 @@ export default function Profile() {
     const [trustLoading, setTrustLoading] = useState(false);
     const [mfaCenter, setMfaCenter] = useState(null);
     const [mfaCenterLoading, setMfaCenterLoading] = useState(false);
+    const [mfaCenterLoaded, setMfaCenterLoaded] = useState(false);
+    const [mfaCenterError, setMfaCenterError] = useState(null);
     const [totpSetup, setTotpSetup] = useState(null);
     const [totpSetupCode, setTotpSetupCode] = useState('');
     const [totpSetupLoading, setTotpSetupLoading] = useState(false);
@@ -270,23 +272,29 @@ export default function Profile() {
     const refreshMfaCenter = useCallback(async ({ silent = false } = {}) => {
         if (!canUseProtectedProfileApis) {
             setMfaCenter(null);
+            setMfaCenterError(null);
+            setMfaCenterLoaded(false);
             setMfaCenterLoading(false);
             return null;
         }
 
         if (!silent) {
             setMfaCenterLoading(true);
+            setMfaCenterError(null);
         }
 
         try {
             const nextCenter = await authApi.getMfaSecurityCenter({ firebaseUser: currentUser });
             setMfaCenter(nextCenter || null);
+            setMfaCenterError(null);
+            setMfaCenterLoaded(true);
             return nextCenter || null;
         } catch (error) {
             if (!isTrustedDeviceChallengeError(error) && Number(error?.status || 0) !== 403) {
                 console.error('MFA security center fetch failed:', error);
             }
-            setMfaCenter(null);
+            setMfaCenterError(error);
+            setMfaCenterLoaded(true);
             return null;
         } finally {
             if (!silent) {
@@ -1369,6 +1377,10 @@ export default function Profile() {
                             mfaFlags={mfaFlags}
                             mfaPolicy={mfaPolicy}
                             mfaCenterLoading={mfaCenterLoading}
+                            mfaCenterLoaded={mfaCenterLoaded}
+                            mfaCenterHasData={Boolean(mfaCenter)}
+                            mfaCenterError={mfaCenterError}
+                            handleRetryMfaCenter={() => refreshMfaCenter()}
                             totpSetup={totpSetup}
                             totpSetupCode={totpSetupCode}
                             setTotpSetupCode={setTotpSetupCode}

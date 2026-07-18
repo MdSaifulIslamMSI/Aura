@@ -631,6 +631,12 @@ describe('Trusted device bootstrap challenge', () => {
                 challenge: challengeValue,
                 mode: 'assert',
                 deviceId: 'device-test-1234',
+                audience: 'public',
+                purpose: 'sign_in',
+                surface: 'authentication',
+                requiredAssurance: 'device_proof',
+                blocking: true,
+                exitMode: 'sign_out',
             },
         });
         expect(issueTrustedDeviceBootstrapChallenge).toHaveBeenCalledWith(expect.objectContaining({
@@ -684,6 +690,7 @@ describe('Auth sync lattice challenge policy', () => {
         riskSignalSecret = '',
         mfaEnabled = false,
         userMfa = null,
+        trustedDevices = [],
         recoveryCodeState = { activeCount: 0 },
     } = {}) => {
         let isolatedApp;
@@ -750,6 +757,7 @@ describe('Auth sync lattice challenge policy', () => {
                         accountState: 'active',
                         moderation: {},
                         mfa: userMfa || undefined,
+                        trustedDevices,
                         recoveryCodeState,
                         loyalty: {},
                         createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -787,6 +795,7 @@ describe('Auth sync lattice challenge policy', () => {
                     isAdmin,
                     isSeller: false,
                     mfa: userMfa || undefined,
+                    trustedDevices,
                     recoveryCodeState,
                 };
                 req.authUid = 'uid-verified';
@@ -844,14 +853,68 @@ describe('Auth sync lattice challenge policy', () => {
             purpose: 'login',
             allowedMethods: ['totp', 'recovery_code'],
             preferredMethod: 'totp',
+            audience: 'public',
+            surface: 'authentication',
+            presentationPurpose: 'sign_in',
+            blocking: true,
+            requiredAssurance: 'mfa',
         });
         expect(res.body.mfaPolicy).toMatchObject({
             mfaRequired: true,
             reason: 'user_enabled',
+            audience: 'public',
+            surface: 'authentication',
+            presentationPurpose: 'sign_in',
+            blocking: true,
+            requiredAssurance: 'mfa',
         });
         expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
         expect(refreshBrowserSession).not.toHaveBeenCalled();
         expect(res.headers['set-cookie']).toBeUndefined();
+        expect(res.body.session.sessionId).toBeUndefined();
+    });
+
+    test('POST /api/auth/sync labels a passkey-only admin challenge as admin passkey assurance', async () => {
+        const credentialId = 'admin-passkey-credential-1';
+        const { isolatedApp, refreshBrowserSession } = buildIsolatedSyncApp({
+            isAdmin: true,
+            mfaEnabled: true,
+            userMfa: {
+                enabled: true,
+                defaultMethod: 'passkey',
+                passkeys: [{ credentialId }],
+            },
+            trustedDevices: [{
+                deviceId: 'device-admin-passkey-1',
+                method: 'webauthn',
+                webauthnCredentialIdBase64Url: credentialId,
+                webauthnUserVerified: true,
+                credentialScope: 'admin',
+                adminEligibility: 'verified',
+            }],
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .send({ email: 'verified@example.com', name: 'Verified User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            status: 'mfa_challenge_required',
+            mfaChallenge: {
+                allowedMethods: ['passkey'],
+                audience: 'admin',
+                requiredAssurance: 'admin_passkey',
+            },
+            mfaPolicy: {
+                allowedMethods: ['passkey'],
+                audience: 'admin',
+                requiredAssurance: 'admin_passkey',
+            },
+        });
+        expect(res.body.mfaChallenge).not.toHaveProperty('nextAssurance');
+        expect(res.body.mfaPolicy).not.toHaveProperty('nextAssurance');
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
         expect(res.body.session.sessionId).toBeUndefined();
     });
 
@@ -901,11 +964,41 @@ describe('Auth sync lattice challenge policy', () => {
             challenge: expect.any(String),
             mode: 'assert',
             deviceId: 'device-test-1234',
+            audience: 'public',
+            purpose: 'sign_in',
+            surface: 'authentication',
+            requiredAssurance: 'device_proof',
+            blocking: true,
+            exitMode: 'sign_out',
         });
         expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
         expect(refreshBrowserSession).not.toHaveBeenCalled();
         expect(res.headers['set-cookie']).toBeUndefined();
         expect(res.body.session.sessionId).toBeUndefined();
+    });
+
+    test('POST /api/auth/sync labels an admin trusted-device challenge with admin assurance', async () => {
+        const { isolatedApp, refreshBrowserSession } = buildIsolatedSyncApp({
+            challengeMode: 'always',
+            isAdmin: true,
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .set('x-aura-device-id', 'device-test-1234')
+            .send({ email: 'verified@example.com', name: 'Verified User' });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body.deviceChallenge).toMatchObject({
+            audience: 'admin',
+            purpose: 'sign_in',
+            surface: 'authentication',
+            requiredAssurance: 'device_proof',
+            nextAssurance: 'admin_passkey',
+            blocking: true,
+            exitMode: 'sign_out',
+        });
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
     });
 
     test('POST /api/auth/sync does not treat a browser-key binding as MFA assurance', async () => {
@@ -993,6 +1086,12 @@ describe('Auth sync lattice challenge policy', () => {
             challenge: expect.any(String),
             mode: 'assert',
             deviceId: 'device-test-1234',
+            audience: 'public',
+            purpose: 'sign_in',
+            surface: 'authentication',
+            requiredAssurance: 'device_proof',
+            blocking: true,
+            exitMode: 'sign_out',
         });
         expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
         expect(refreshBrowserSession).not.toHaveBeenCalled();
@@ -1476,6 +1575,13 @@ describe('Trusted device verification response payload', () => {
         const verifiedDeviceSessionToken = buildRuntimeSecret('session-ref');
         const challengeToken = buildRuntimeSecret('challenge-ref');
         const challengeProof = buildRuntimeSecret('sig-ref');
+        const refreshBrowserSession = jest.fn().mockResolvedValue({
+            sessionId: 'verified-session-1',
+            firebaseUid: 'uid-verified',
+            deviceId: 'device-test-1234',
+            deviceMethod: 'browser_key',
+            amr: ['password', 'trusted_device'],
+        });
 
         jest.isolateModules(() => {
             jest.doMock('../services/authSessionService', () => ({
@@ -1524,13 +1630,7 @@ describe('Trusted device verification response payload', () => {
             jest.doMock('../services/browserSessionService', () => ({
                 clearBrowserSessionCookie: jest.fn(),
                 getBrowserSessionFromRequest: jest.fn(),
-                refreshBrowserSession: jest.fn().mockResolvedValue({
-                    sessionId: 'verified-session-1',
-                    firebaseUid: 'uid-verified',
-                    deviceId: 'device-test-1234',
-                    deviceMethod: 'browser_key',
-                    amr: ['password', 'trusted_device'],
-                }),
+                refreshBrowserSession,
                 revokeBrowserSession: jest.fn(),
             }));
             jest.doMock('../services/trustedDeviceChallengeService', () => ({
@@ -1597,6 +1697,7 @@ describe('Trusted device verification response payload', () => {
             sessionId: 'verified-session-1',
             email: 'verified@example.com',
         });
+        expect(refreshBrowserSession).toHaveBeenCalledTimes(1);
     });
 
     test('POST /api/auth/verify-device advances to MFA instead of authenticating early', async () => {
@@ -1604,6 +1705,13 @@ describe('Trusted device verification response payload', () => {
         const verifiedDeviceSessionToken = buildRuntimeSecret('session-mfa-ref');
         const challengeToken = buildRuntimeSecret('challenge-mfa-ref');
         const challengeProof = buildRuntimeSecret('sig-mfa-ref');
+        const refreshBrowserSession = jest.fn().mockResolvedValue({
+            sessionId: 'verified-session-mfa-1',
+            firebaseUid: 'uid-verified',
+            deviceId: 'device-test-1234',
+            deviceMethod: 'browser_key',
+            amr: ['password', 'device_binding'],
+        });
 
         jest.isolateModules(() => {
             process.env.MFA_ENABLED = 'true';
@@ -1615,6 +1723,7 @@ describe('Trusted device verification response payload', () => {
             jest.doMock('../services/authSessionService', () => ({
                 buildSessionPayload: jest.fn(({
                     status,
+                    authSession,
                     deviceChallenge,
                     mfaChallenge,
                     mfaPolicy,
@@ -1625,7 +1734,7 @@ describe('Trusted device verification response payload', () => {
                     requiresMfa: Boolean(mfaChallenge),
                     mfaPolicy: mfaPolicy || null,
                     session: {
-                        sessionId: 'verified-session-mfa-1',
+                        ...(authSession?.sessionId ? { sessionId: authSession.sessionId } : {}),
                         uid: 'uid-verified',
                         email: 'verified@example.com',
                         emailVerified: true,
@@ -1656,13 +1765,7 @@ describe('Trusted device verification response payload', () => {
                 SESSION_STEP_UP_TTL_MS: 10 * 60 * 1000,
                 clearBrowserSessionCookie: jest.fn(),
                 getBrowserSessionFromRequest: jest.fn(),
-                refreshBrowserSession: jest.fn().mockResolvedValue({
-                    sessionId: 'verified-session-mfa-1',
-                    firebaseUid: 'uid-verified',
-                    deviceId: 'device-test-1234',
-                    deviceMethod: 'browser_key',
-                    amr: ['password', 'device_binding'],
-                }),
+                refreshBrowserSession,
                 revokeBrowserSession: jest.fn(),
             }));
             jest.doMock('../services/trustedDeviceChallengeService', () => ({
@@ -1736,11 +1839,169 @@ describe('Trusted device verification response payload', () => {
                 purpose: 'login',
                 allowedMethods: ['totp', 'recovery_code'],
                 preferredMethod: 'totp',
+                audience: 'public',
+                surface: 'authentication',
+                presentationPurpose: 'sign_in',
+                blocking: true,
+                requiredAssurance: 'mfa',
             },
             mfaPolicy: {
                 mfaRequired: true,
                 reason: 'suspicious_login',
+                audience: 'public',
+                surface: 'authentication',
+                presentationPurpose: 'sign_in',
+                blocking: true,
+                requiredAssurance: 'mfa',
             },
+            deviceSessionToken: verifiedDeviceSessionToken,
+            mfaBlocked: false,
+            mfaError: null,
         });
+        expect(res.body.session.sessionId).toBeUndefined();
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
+        expect(res.headers['set-cookie']).toBeUndefined();
+    });
+
+    test('POST /api/auth/verify-device preserves the device token when admin MFA has no available method', async () => {
+        let isolatedApp;
+        const verifiedDeviceSessionToken = buildRuntimeSecret('session-admin-blocked-ref');
+        const refreshBrowserSession = jest.fn();
+
+        jest.isolateModules(() => {
+            jest.doMock('../services/authSessionService', () => ({
+                buildSessionPayload: jest.fn(({
+                    status,
+                    authSession,
+                    mfaChallenge,
+                    mfaPolicy,
+                } = {}) => ({
+                    status,
+                    deviceChallenge: null,
+                    mfaChallenge: mfaChallenge || null,
+                    requiresMfa: Boolean(mfaChallenge),
+                    mfaPolicy: mfaPolicy || null,
+                    session: authSession?.sessionId
+                        ? { sessionId: authSession.sessionId, email: 'admin@example.com' }
+                        : { email: 'admin@example.com' },
+                    profile: {
+                        _id: 'admin-1',
+                        email: 'admin@example.com',
+                        isAdmin: true,
+                        isVerified: true,
+                    },
+                    roles: { isAdmin: true, isSeller: false, isVerified: true },
+                    intelligence: null,
+                })),
+                persistAuthSnapshot: jest.fn().mockResolvedValue(undefined),
+                resolveAuthenticatedSession: jest.fn(),
+                syncAuthenticatedUser: jest.fn(),
+                applyLoginAssuranceToSession: jest.fn(),
+            }));
+            jest.doMock('../middleware/authMiddleware', () => ({
+                invalidateUserCache: jest.fn().mockResolvedValue(undefined),
+                invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
+            }));
+            jest.doMock('../services/browserSessionService', () => ({
+                SESSION_STEP_UP_TTL_MS: 10 * 60 * 1000,
+                clearBrowserSessionCookie: jest.fn(),
+                getBrowserSessionFromRequest: jest.fn(),
+                refreshBrowserSession,
+                revokeBrowserSession: jest.fn(),
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-admin-1234',
+                    deviceLabel: 'Admin Browser',
+                }),
+                getTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                hashTrustedDeviceSessionToken: jest.fn().mockReturnValue(''),
+                issueTrustedDeviceBootstrapChallenge: jest.fn().mockResolvedValue(null),
+                issueTrustedDeviceChallenge: jest.fn(),
+                resolveTrustedDeviceBootstrapSignal: jest.fn().mockReturnValue({ verified: false, deviceId: '', deviceSessionHash: '' }),
+                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+                verifyTrustedDeviceChallenge: jest.fn().mockResolvedValue({
+                    success: true,
+                    mode: 'assert',
+                    method: 'browser_key',
+                    deviceSessionToken: verifiedDeviceSessionToken,
+                    expiresAt: new Date('2026-04-12T14:00:00.000Z').toISOString(),
+                }),
+            }));
+            jest.doMock('../services/mfaPolicyService', () => {
+                const actual = jest.requireActual('../services/mfaPolicyService');
+                return {
+                    ...actual,
+                    evaluateLogin: jest.fn().mockReturnValue({
+                        mfaRequired: true,
+                        freshMfaRequired: false,
+                        allowedMethods: [],
+                        preferredMethod: null,
+                        reason: 'admin_policy',
+                        block: true,
+                        role: 'admin',
+                    }),
+                };
+            });
+
+            const express = require('express');
+            const { verifyDeviceChallenge } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.use(express.json());
+            isolatedApp.post('/api/auth/verify-device', (req, _res, next) => {
+                req.user = {
+                    _id: 'admin-1',
+                    email: 'admin@example.com',
+                    name: 'Admin User',
+                    isAdmin: true,
+                    isVerified: true,
+                };
+                req.authUid = 'uid-admin';
+                req.authToken = { email: 'admin@example.com', email_verified: true };
+                req.authSession = null;
+                next();
+            }, verifyDeviceChallenge);
+            isolatedApp.use(errorHandler);
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/verify-device')
+            .send({
+                token: buildRuntimeSecret('challenge-admin-blocked-ref'),
+                method: 'browser_key',
+                proof: buildRuntimeSecret('sig-admin-blocked-ref'),
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            success: true,
+            status: 'mfa_challenge_required',
+            requiresMfa: true,
+            mfaBlocked: true,
+            mfaChallenge: null,
+            mfaPolicy: {
+                mfaRequired: true,
+                allowedMethods: [],
+                reason: 'admin_policy',
+                block: true,
+                audience: 'admin',
+                surface: 'authentication',
+                presentationPurpose: 'sign_in',
+                blocking: true,
+                requiredAssurance: 'mfa',
+                nextAssurance: 'admin_passkey',
+            },
+            mfaError: {
+                code: 'MFA_METHOD_REQUIRED',
+                message: 'MFA is required but no allowed verification method is available.',
+            },
+            deviceSessionToken: verifiedDeviceSessionToken,
+        });
+        expect(res.body.session.sessionId).toBeUndefined();
+        expect(refreshBrowserSession).not.toHaveBeenCalled();
+        expect(res.headers['set-cookie']).toBeUndefined();
     });
 });

@@ -112,6 +112,7 @@ const RECENT_REAUTH_REQUIRED_CODES = new Set([
   'WEBAUTHN_RECENT_AUTH_REQUIRED',
   'AUTH_FACTOR_CHANGE_RECENT_AUTH_REQUIRED',
   'RECENT_AUTH_REQUIRED',
+  'STEP_UP_REQUIRED',
 ]);
 const FIREBASE_POPUP_REDIRECT_FALLBACK_CODES = new Set([
   'auth/popup-blocked',
@@ -126,7 +127,7 @@ const isRecentReauthRequiredError = (error) => {
   const code = normalizeText(error?.code || error?.data?.code || error?.data?.reasonCode || '').toUpperCase();
   const message = `${error?.message || ''} ${error?.data?.message || ''}`.toLowerCase();
 
-  return status === 401 && (
+  return (status === 401 || status === 403) && (
     RECENT_REAUTH_REQUIRED_CODES.has(code)
     || message.includes('recent re-authentication is required')
     || message.includes('recent authentication is required')
@@ -300,7 +301,9 @@ export const AuthProvider = ({ children }) => {
     identity: '',
     lastSyncedAt: 0,
     inFlight: null,
+    mode: '',
   });
+  const sessionRequestVersionRef = useRef(0);
   const controlledAuthFlowRef = useRef({
     uid: '',
     email: '',
@@ -333,10 +336,21 @@ export const AuthProvider = ({ children }) => {
   }, [sessionState]);
 
   const resetSyncTracking = () => {
+    sessionRequestVersionRef.current += 1;
     syncStateRef.current = {
       identity: '',
       lastSyncedAt: 0,
       inFlight: null,
+      mode: '',
+    };
+  };
+
+  const invalidatePendingSessionRequests = () => {
+    sessionRequestVersionRef.current += 1;
+    syncStateRef.current = {
+      ...syncStateRef.current,
+      inFlight: null,
+      mode: '',
     };
   };
 
@@ -386,6 +400,8 @@ export const AuthProvider = ({ children }) => {
       deviceChallenge: null,
       mfaChallenge: null,
       mfaPolicy: null,
+      mfaBlocked: false,
+      mfaError: null,
       session: null,
       intelligence: null,
       profile: null,
@@ -402,6 +418,8 @@ export const AuthProvider = ({ children }) => {
       deviceChallenge: null,
       mfaChallenge: null,
       mfaPolicy: null,
+      mfaBlocked: false,
+      mfaError: null,
       session: sessionFallback,
       intelligence: buildSessionIntelligenceFallback(sessionFallback, null, EMPTY_ROLES),
       profile: null,
@@ -416,6 +434,7 @@ export const AuthProvider = ({ children }) => {
       identity,
       lastSyncedAt: Date.now(),
       inFlight: null,
+      mode: '',
     };
     return payload?.profile || null;
   };
@@ -441,6 +460,7 @@ export const AuthProvider = ({ children }) => {
         identity,
         lastSyncedAt: syncStateRef.current.lastSyncedAt,
         inFlight: null,
+        mode: '',
       };
       return;
     }
@@ -450,6 +470,8 @@ export const AuthProvider = ({ children }) => {
       deviceChallenge: null,
       mfaChallenge: null,
       mfaPolicy: null,
+      mfaBlocked: false,
+      mfaError: null,
       session: buildFirebaseSessionFallback(firebaseUser),
       intelligence: buildSessionIntelligenceFallback(buildFirebaseSessionFallback(firebaseUser), null, EMPTY_ROLES),
       profile: null,
@@ -465,6 +487,7 @@ export const AuthProvider = ({ children }) => {
       identity,
       lastSyncedAt: 0,
       inFlight: null,
+      mode: '',
     };
   };
 
@@ -516,6 +539,8 @@ export const AuthProvider = ({ children }) => {
       deviceChallenge: null,
       mfaChallenge: null,
       mfaPolicy: null,
+      mfaBlocked: false,
+      mfaError: null,
       session: null,
       intelligence: null,
       profile: null,
@@ -554,6 +579,8 @@ export const AuthProvider = ({ children }) => {
       deviceChallenge: null,
       mfaChallenge: null,
       mfaPolicy: null,
+      mfaBlocked: false,
+      mfaError: null,
       session: null,
       intelligence: null,
       profile: null,
@@ -603,9 +630,16 @@ export const AuthProvider = ({ children }) => {
       return sessionStateRef.current.profile;
     }
 
-    if (!force && syncStateRef.current.identity === identity && syncStateRef.current.inFlight) {
+    if (
+      syncStateRef.current.identity === identity
+      && syncStateRef.current.mode === mode
+      && syncStateRef.current.inFlight
+    ) {
       return syncStateRef.current.inFlight;
     }
+
+    const requestVersion = sessionRequestVersionRef.current + 1;
+    sessionRequestVersionRef.current = requestVersion;
 
     if (!silent) {
       const sessionFallback = buildFirebaseSessionFallback(activeUser);
@@ -614,6 +648,8 @@ export const AuthProvider = ({ children }) => {
         deviceChallenge: syncStateRef.current.identity === identity ? (prev.deviceChallenge || null) : null,
         mfaChallenge: syncStateRef.current.identity === identity ? (prev.mfaChallenge || null) : null,
         mfaPolicy: syncStateRef.current.identity === identity ? (prev.mfaPolicy || null) : null,
+        mfaBlocked: syncStateRef.current.identity === identity ? Boolean(prev.mfaBlocked) : false,
+        mfaError: syncStateRef.current.identity === identity ? (prev.mfaError || null) : null,
         session: syncStateRef.current.identity === identity
           ? (prev.session || sessionFallback)
           : sessionFallback,
@@ -633,9 +669,18 @@ export const AuthProvider = ({ children }) => {
           flowToken: normalizeText(flowToken),
         })
         : await authApi.getSession({ firebaseUser: activeUser });
+
+      if (requestVersion !== sessionRequestVersionRef.current) {
+        return sessionStateRef.current.profile;
+      }
+
       return applyResolvedSession(payload, activeUser, identity);
     })()
       .catch(async (error) => {
+        if (requestVersion !== sessionRequestVersionRef.current) {
+          return sessionStateRef.current.profile;
+        }
+
         if (isUnauthorizedSessionError(error)) {
           await invalidateStaleAuthSession(error, activeUser);
           throw error;
@@ -645,10 +690,15 @@ export const AuthProvider = ({ children }) => {
         throw error;
       })
       .finally(() => {
-        if (syncStateRef.current.identity === identity) {
+        if (
+          requestVersion === sessionRequestVersionRef.current
+          && syncStateRef.current.identity === identity
+          && syncStateRef.current.inFlight === requestPromise
+        ) {
           syncStateRef.current = {
             ...syncStateRef.current,
             inFlight: null,
+            mode: '',
           };
         }
       });
@@ -657,6 +707,7 @@ export const AuthProvider = ({ children }) => {
       ...syncStateRef.current,
       identity,
       inFlight: requestPromise,
+      mode,
     };
 
     return requestPromise;
@@ -671,7 +722,10 @@ export const AuthProvider = ({ children }) => {
 
   useActiveWindowRefresh(
     () => refreshSession(currentUser, { force: true, silent: true }),
-    { enabled: Boolean(currentUser?.uid) }
+    {
+      enabled: Boolean(currentUser?.uid)
+        && sessionState.status === SESSION_STATUS.AUTHENTICATED,
+    }
   );
 
   const syncUserWithBackend = async (email, name, phone, firebaseUser = null, options = {}) => runSessionRequest({
@@ -1284,6 +1338,8 @@ export const AuthProvider = ({ children }) => {
         deviceChallenge: prev.deviceChallenge || null,
         mfaChallenge: prev.mfaChallenge || null,
         mfaPolicy: prev.mfaPolicy || null,
+        mfaBlocked: Boolean(prev.mfaBlocked),
+        mfaError: prev.mfaError || null,
         session: prev.session,
         intelligence: buildSessionIntelligenceFallback(prev.session, nextProfile, nextRoles),
         profile: nextProfile,
@@ -1323,6 +1379,8 @@ export const AuthProvider = ({ children }) => {
         deviceChallenge: null,
         mfaChallenge: null,
         mfaPolicy: null,
+        mfaBlocked: false,
+        mfaError: null,
         session: null,
         intelligence: null,
         profile: null,
@@ -1445,6 +1503,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const verifyDeviceChallenge = async (token, proofOrPayload, publicKeySpkiBase64 = '') => {
+    // WebAuthn can trigger focus/visibility events. Invalidate any session refresh
+    // that started before this proof so an older challenge cannot overwrite the
+    // verification result when the platform authenticator closes.
+    invalidatePendingSessionRequests();
     const challengePayload = proofOrPayload && typeof proofOrPayload === 'object' && !Array.isArray(proofOrPayload)
       ? proofOrPayload
       : {
@@ -1493,6 +1555,8 @@ export const AuthProvider = ({ children }) => {
           deviceChallenge: null,
           mfaChallenge: response?.mfaChallenge || null,
           mfaPolicy: response?.mfaPolicy || null,
+          mfaBlocked: Boolean(response?.mfaBlocked),
+          mfaError: response?.mfaError || null,
           error: null,
         }));
       }
@@ -1515,6 +1579,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const applyMfaSessionResponse = (response) => {
+    if (response?.deviceSessionToken) {
+      cacheTrustedDeviceSessionToken(response.deviceSessionToken, response.expiresAt);
+    }
     if (!currentUser || !response?.session || !response?.profile || !response?.roles) {
       return false;
     }
@@ -1523,12 +1590,15 @@ export const AuthProvider = ({ children }) => {
       currentUser,
       response?.session?.email || response?.profile?.email || currentUser?.email || ''
     );
+    invalidatePendingSessionRequests();
     applyResolvedSession({
       ...response,
       status: SESSION_STATUS.AUTHENTICATED,
       deviceChallenge: null,
       mfaChallenge: null,
       mfaPolicy: null,
+      mfaBlocked: false,
+      mfaError: null,
       error: null,
     }, currentUser, identity);
     return true;
@@ -1686,6 +1756,8 @@ export const AuthProvider = ({ children }) => {
     deviceChallenge: sessionState.deviceChallenge,
     mfaChallenge: sessionState.mfaChallenge,
     mfaPolicy: sessionState.mfaPolicy,
+    mfaBlocked: sessionState.mfaBlocked,
+    mfaError: sessionState.mfaError,
     sessionError: sessionState.error,
     loading: sessionState.status === SESSION_STATUS.BOOTSTRAP || sessionState.status === SESSION_STATUS.LOADING,
     isAuthenticated,

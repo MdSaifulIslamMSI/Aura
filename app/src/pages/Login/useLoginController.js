@@ -485,6 +485,7 @@ export const useLoginController = () => {
     login,
     loginWithPhoneCredential,
     loading,
+    status: sessionStatus,
     signup,
     signInWithGoogle,
     signInWithFacebook,
@@ -503,6 +504,7 @@ export const useLoginController = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [authSuccess, setAuthSuccess] = useState(null);
+  const [pendingAuthSuccess, setPendingAuthSuccess] = useState(null);
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileRefreshKey, setTurnstileRefreshKey] = useState(0);
   const [countdown, setCountdown] = useState(0);
@@ -530,6 +532,7 @@ export const useLoginController = () => {
   const firebasePhoneChallengeRef = useRef(null);
   const authAccelerationHydratedRef = useRef(false);
   const initialResolvedAuthRedirectCheckedRef = useRef(false);
+  const authenticatedNavigationTimerRef = useRef(null);
   const desktopBrowserHandoffCompletedRef = useRef('');
   const desktopBrowserAbortControllerRef = useRef(null);
   const resetPasswordRequestInFlightRef = useRef(false);
@@ -783,11 +786,8 @@ export const useLoginController = () => {
   };
 
   const finishAuthAndNavigate = (successState) => {
-    setAuthSuccess(successState);
-    if (desktopBrowserHandoff.active) {
-      return;
-    }
-    setTimeout(() => navigate(from, { replace: true }), 1200);
+    setAuthSuccess(null);
+    setPendingAuthSuccess(successState);
   };
 
   useEffect(() => {
@@ -821,18 +821,31 @@ export const useLoginController = () => {
   ]);
 
   useEffect(() => {
-    if (initialResolvedAuthRedirectCheckedRef.current) return;
     if (loading) return;
 
-    initialResolvedAuthRedirectCheckedRef.current = true;
+    const isInitialResolvedCheck = !initialResolvedAuthRedirectCheckedRef.current;
+    if (isInitialResolvedCheck) {
+      initialResolvedAuthRedirectCheckedRef.current = true;
+    }
 
-    if (isAuthenticated) {
-      if (desktopBrowserHandoff.active) {
-        return;
-      }
+    if (!isAuthenticated || desktopBrowserHandoff.active) return;
+
+    if (pendingAuthSuccess) {
+      if (authenticatedNavigationTimerRef.current) return;
+
+      setAuthSuccess(pendingAuthSuccess);
+      setPendingAuthSuccess(null);
+      authenticatedNavigationTimerRef.current = setTimeout(() => {
+        authenticatedNavigationTimerRef.current = null;
+        navigate(from, { replace: true });
+      }, 1200);
+      return;
+    }
+
+    if (isInitialResolvedCheck) {
       navigate(from, { replace: true });
     }
-  }, [desktopBrowserHandoff.active, from, isAuthenticated, loading, navigate]);
+  }, [desktopBrowserHandoff.active, from, isAuthenticated, loading, navigate, pendingAuthSuccess]);
 
   useEffect(() => {
     if (!desktopBrowserHandoff.active || loading || !isAuthenticated || !currentUser?.getIdToken) {
@@ -933,6 +946,10 @@ export const useLoginController = () => {
   useEffect(() => () => {
     clearFirebaseChallenge().catch(() => {});
     desktopBrowserAbortControllerRef.current?.abort();
+    if (authenticatedNavigationTimerRef.current) {
+      clearTimeout(authenticatedNavigationTimerRef.current);
+      authenticatedNavigationTimerRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -1978,10 +1995,8 @@ export const useLoginController = () => {
     try {
       if (canUseDesktopBrowserSignIn) {
         const result = await signInWithDesktopBrowser({ returnTo: from });
-        if (result?.dbUser) {
+        if (!result?.redirecting) {
           finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
-        } else {
-          navigate(from, { replace: true });
         }
         return;
       }
@@ -1993,10 +2008,8 @@ export const useLoginController = () => {
       if (desktopBrowserHandoff.active) {
         return;
       }
-      if (result?.dbUser) {
+      if (!result?.redirecting) {
         finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
-      } else {
-        navigate(from, { replace: true });
       }
     } catch (error) {
       console.error(`${providerLabel} sign-in failed`, error);
@@ -2030,10 +2043,8 @@ export const useLoginController = () => {
         signal: abortController.signal,
         onRequestStarted: ({ requestId = '' } = {}) => setDesktopBrowserRequestId(requestId),
       });
-      if (result?.dbUser) {
+      if (!result?.redirecting) {
         finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
-      } else {
-        navigate(from, { replace: true });
       }
     } catch (error) {
       setAuthSuccess(null);
@@ -2085,10 +2096,8 @@ export const useLoginController = () => {
 
     try {
       const result = await signInWithDesktopOwnerAccess();
-      if (result?.dbUser) {
+      if (!result?.redirecting) {
         finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
-      } else {
-        navigate(from, { replace: true });
       }
     } catch (error) {
       setAuthSuccess(null);
@@ -2151,6 +2160,11 @@ export const useLoginController = () => {
     return 'auth_otp_send_signin';
   }, [isEmailOtpStage, isPhoneOtpStage, mode, step]);
 
+  const isSessionCheckpointPending = (
+    sessionStatus === 'device_challenge_required'
+    || sessionStatus === 'mfa_challenge_required'
+  );
+
   return {
     OTP_TRANSPORT,
     accelerationCards,
@@ -2184,6 +2198,7 @@ export const useLoginController = () => {
     info,
     isEmailOtpStage,
     isLoading,
+    isSessionCheckpointPending,
     isPhoneOtpStage,
     mode,
     otpRefs,
@@ -2204,6 +2219,7 @@ export const useLoginController = () => {
     signInWithApple,
     signInWithX,
     socialAuthStatus,
+    sessionStatus,
     step,
     submitLabel,
     switchMode,

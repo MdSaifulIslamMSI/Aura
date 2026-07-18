@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import SettingsSection from './SettingsSection';
@@ -30,6 +30,8 @@ const baseProps = {
     },
     logout: vi.fn(),
     memberSince: 'April 2026',
+    mfaCenterLoaded: true,
+    mfaCenterHasData: true,
 };
 
 const renderSettings = (props = {}) => render(
@@ -123,7 +125,7 @@ describe('SettingsSection recovery codes', () => {
             handleRegisterMfaPasskey,
         });
 
-        expect(screen.getByText('Multi-factor security center')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Passkeys and MFA' })).toBeInTheDocument();
         expect(screen.getByText('MFA ready')).toBeInTheDocument();
         expect(screen.getByText('1 passkeys | 1 authenticator apps')).toBeInTheDocument();
 
@@ -180,18 +182,6 @@ describe('SettingsSection recovery codes', () => {
                 devicePolicy: { audience: 'public', currentDeviceBound: true },
                 trustedDevices: [
                     {
-                        deviceId: 'device-current',
-                        label: 'Home browser',
-                        method: 'browser_key',
-                        status: 'active',
-                        active: true,
-                        isCurrent: true,
-                        isMfaFactor: false,
-                        canRename: true,
-                        canRevoke: true,
-                        lastVerifiedAt: '2026-07-17T10:00:00.000Z',
-                    },
-                    {
                         deviceId: 'device-passkey',
                         label: 'Work laptop',
                         method: 'webauthn',
@@ -205,6 +195,18 @@ describe('SettingsSection recovery codes', () => {
                         canRevoke: true,
                         lastVerifiedAt: '2026-07-16T10:00:00.000Z',
                     },
+                    {
+                        deviceId: 'device-current',
+                        label: 'Home browser',
+                        method: 'browser_key',
+                        status: 'active',
+                        active: true,
+                        isCurrent: true,
+                        isMfaFactor: false,
+                        canRename: true,
+                        canRevoke: true,
+                        lastVerifiedAt: '2026-07-17T10:00:00.000Z',
+                    },
                 ],
             },
             handleRenameTrustedDevice,
@@ -212,10 +214,15 @@ describe('SettingsSection recovery codes', () => {
             handleRevokeOtherTrustedDevices,
         });
 
+        expect(screen.getByRole('heading', { name: 'Passkeys and MFA' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Signed-in devices and remembered browsers' })).toBeInTheDocument();
         expect(screen.getByText(/remembered browser can reduce recognition prompts, but it is not MFA/i)).toBeInTheDocument();
-        expect(screen.getByText('Remembered browser · not MFA')).toBeInTheDocument();
+        expect(screen.getByText('Remembered browser - not MFA')).toBeInTheDocument();
         expect(screen.getByText('Synced passkey')).toBeInTheDocument();
         expect(screen.getByText('Current')).toBeInTheDocument();
+        const deviceCards = screen.getAllByRole('article');
+        expect(within(deviceCards[0]).getByText('Home browser')).toBeInTheDocument();
+        expect(within(deviceCards[1]).getByText('Work laptop')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Rename Work laptop' }));
         fireEvent.change(screen.getByRole('textbox', { name: 'Name for Work laptop' }), {
@@ -289,5 +296,80 @@ describe('SettingsSection recovery codes', () => {
         });
 
         expect(screen.getByRole('button', { name: /microsoft linked/i })).toBeDisabled();
+    });
+
+    it('shows an explicit loading state without false factor or device empties', () => {
+        renderSettings({
+            mfaCenterLoaded: true,
+            mfaCenterHasData: false,
+            mfaCenterLoading: true,
+            mfaStatus: null,
+        });
+
+        expect(screen.getByText('Loading security settings')).toBeInTheDocument();
+        expect(screen.queryByText('No MFA method enrolled yet')).not.toBeInTheDocument();
+        expect(screen.queryByText('No signed-in devices or remembered browsers')).not.toBeInTheDocument();
+    });
+
+    it('preserves the backend error, offers retry, and does not misreport empty security data', () => {
+        const handleRetryMfaCenter = vi.fn();
+
+        renderSettings({
+            mfaCenterLoaded: true,
+            mfaCenterHasData: false,
+            mfaCenterError: Object.assign(new Error('Security center is temporarily unavailable.'), {
+                serverRequestId: 'profile-security-request-1',
+            }),
+            handleRetryMfaCenter,
+            mfaStatus: null,
+        });
+
+        const alert = screen.getByRole('alert');
+        expect(alert).toHaveTextContent('Security settings could not load');
+        expect(alert).toHaveTextContent('Security center is temporarily unavailable.');
+        expect(alert).toHaveTextContent('profile-security-request-1');
+        expect(screen.queryByText('No MFA method enrolled yet')).not.toBeInTheDocument();
+        expect(screen.queryByText('No signed-in devices or remembered browsers')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+        expect(handleRetryMfaCenter).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps last loaded device data visible when a refresh fails', () => {
+        renderSettings({
+            mfaCenterLoaded: true,
+            mfaCenterHasData: true,
+            mfaCenterError: new Error('Refresh failed.'),
+            mfaStatus: {
+                enabled: false,
+                methods: {},
+                trustedDevices: [{
+                    deviceId: 'last-known-device',
+                    label: 'Last known browser',
+                    method: 'browser_key',
+                    status: 'active',
+                    active: true,
+                    isCurrent: true,
+                }],
+            },
+        });
+
+        expect(screen.getByRole('alert')).toHaveTextContent('Refresh failed.');
+        expect(screen.getByText('Showing the last security settings loaded on this page.')).toBeInTheDocument();
+        expect(screen.getByText('Last known browser')).toBeInTheDocument();
+    });
+
+    it('renders separate actionable empty states only after a successful empty response', () => {
+        renderSettings({
+            mfaCenterLoaded: true,
+            mfaCenterHasData: false,
+            mfaCenterError: null,
+            mfaStatus: null,
+        });
+
+        expect(screen.getByText('No MFA method enrolled yet')).toBeInTheDocument();
+        expect(screen.getByText(/Register a passkey or set up an authenticator app/i)).toBeInTheDocument();
+        expect(screen.getByText('No signed-in devices or remembered browsers')).toBeInTheDocument();
+        expect(screen.getByText(/Browser recognition helps identify a device, but it is not MFA/i)).toBeInTheDocument();
     });
 });

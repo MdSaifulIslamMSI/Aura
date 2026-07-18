@@ -1102,14 +1102,10 @@ const verifyTrustedDeviceChallenge = async ({
     }
     const postDeviceMfaRequired = payload?.postDeviceMfaRequired === true;
     const postDeviceMfaReason = normalizeChallengeScope(payload?.postDeviceMfaReason || '');
-
-    const replayProtection = await consumeChallengeOnce({
+    const consumeVerifiedChallenge = () => consumeChallengeOnce({
         challengeId: payload?.jti,
         expiresAt: payload?.exp,
     });
-    if (!replayProtection.success) {
-        return { success: false, reason: replayProtection.reason };
-    }
 
     const requestedMethod = normalizeChallengeMethod(
         method
@@ -1154,6 +1150,11 @@ const verifyTrustedDeviceChallenge = async ({
                     && Boolean(registeredDevice.webauthnBackupEligible) !== Boolean(assertion.backupEligible)
                 ) {
                     throw new Error('WebAuthn backup eligibility changed for an existing credential');
+                }
+
+                const replayProtection = await consumeVerifiedChallenge();
+                if (!replayProtection.success) {
+                    return { success: false, reason: replayProtection.reason };
                 }
 
                 const shouldUpgradeLegacyAdminCandidate = Boolean(
@@ -1214,6 +1215,11 @@ const verifyTrustedDeviceChallenge = async ({
                 expectedRpId: payload.webauthnContext.rpId,
                 userVerification: payload.webauthnContext.userVerification,
             });
+
+            const replayProtection = await consumeVerifiedChallenge();
+            if (!replayProtection.success) {
+                return { success: false, reason: replayProtection.reason };
+            }
 
             const { trustedDevice, sessionVersion } = await upsertTrustedDevice({
                 userId: user._id,
@@ -1279,6 +1285,11 @@ const verifyTrustedDeviceChallenge = async ({
             return { success: false, reason: 'Trusted device signature invalid' };
         }
 
+        const replayProtection = await consumeVerifiedChallenge();
+        if (!replayProtection.success) {
+            return { success: false, reason: replayProtection.reason };
+        }
+
         const { trustedDevice, sessionVersion } = await upsertTrustedDevice({
             userId: user._id,
             deviceId: normalizedDeviceId,
@@ -1322,6 +1333,11 @@ const verifyTrustedDeviceChallenge = async ({
 
     if (!enrollmentValid) {
         return { success: false, reason: 'Trusted device enrollment signature invalid' };
+    }
+
+    const replayProtection = await consumeVerifiedChallenge();
+    if (!replayProtection.success) {
+        return { success: false, reason: replayProtection.reason };
     }
 
     const { trustedDevice, sessionVersion } = await upsertTrustedDevice({

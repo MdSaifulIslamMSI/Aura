@@ -652,11 +652,13 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 121,
+      "messageIdCount": 132,
       "messageIds": [
         "common.cancel",
         "common.confirm",
         "common.rename",
+        "common.retry",
+        "common.retrying",
         "common.revoke",
         "common.revoking",
         "common.save",
@@ -673,8 +675,8 @@
         "profile.settings.devices.currentRevokeWarning",
         "profile.settings.devices.currentUnbound",
         "profile.settings.devices.deviceBound",
-        "profile.settings.devices.emptyBody",
-        "profile.settings.devices.emptyTitle",
+        "profile.settings.devices.emptySignedInBody",
+        "profile.settings.devices.emptySignedInTitle",
         "profile.settings.devices.lastVerified",
         "profile.settings.devices.legacyAdminWarning",
         "profile.settings.devices.mfaPasskey",
@@ -683,15 +685,15 @@
         "profile.settings.devices.never",
         "profile.settings.devices.publicBody",
         "profile.settings.devices.recognitionPasskey",
-        "profile.settings.devices.rememberedBrowser",
+        "profile.settings.devices.rememberedBrowserNotMfa",
         "profile.settings.devices.renameAria",
         "profile.settings.devices.revokeAndSignOut",
         "profile.settings.devices.revokeAria",
         "profile.settings.devices.revokeOthers",
         "profile.settings.devices.revokingOthers",
+        "profile.settings.devices.signedInTitle",
         "profile.settings.devices.syncEligible",
         "profile.settings.devices.syncedPasskey",
-        "profile.settings.devices.title",
         "profile.settings.devices.unknown",
         "profile.settings.notifications.marketplace.desc",
         "profile.settings.notifications.marketplace.label",
@@ -705,6 +707,13 @@
         "profile.settings.safety.privacyPolicy",
         "profile.settings.safety.securityPolicy",
         "profile.settings.safety.title",
+        "profile.settings.security.centerErrorBody",
+        "profile.settings.security.centerErrorReference",
+        "profile.settings.security.centerErrorTitle",
+        "profile.settings.security.centerLoadingBody",
+        "profile.settings.security.centerLoadingTitle",
+        "profile.settings.security.centerRefreshing",
+        "profile.settings.security.centerStaleData",
         "profile.settings.security.incomplete",
         "profile.settings.security.incompleteBody",
         "profile.settings.security.linkedProviders",
@@ -712,15 +721,17 @@
         "profile.settings.security.mfaAvailable",
         "profile.settings.security.mfaBody",
         "profile.settings.security.mfaChecking",
+        "profile.settings.security.mfaEmptyBody",
+        "profile.settings.security.mfaEmptyTitle",
         "profile.settings.security.mfaFactorSummary",
         "profile.settings.security.mfaPolicyReason",
         "profile.settings.security.mfaReady",
-        "profile.settings.security.mfaTitle",
         "profile.settings.security.openRecovery",
         "profile.settings.security.opening",
         "profile.settings.security.otpLabel",
         "profile.settings.security.passkeyRegister",
         "profile.settings.security.passkeyRegistering",
+        "profile.settings.security.passkeysAndMfaTitle",
         "profile.settings.security.password",
         "profile.settings.security.passwordBody",
         "profile.settings.security.paymentLabel",
@@ -777,7 +788,7 @@
         "profile.settings.trust.warning"
       ],
       "risk": "high",
-      "stableLiteralCount": 124,
+      "stableLiteralCount": 135,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1135,87 +1146,6 @@
     },
     {
       "dynamicLookupCount": 0,
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 67,
-      "messageIds": [
-        "login.action.backToForm",
-        "login.action.forgotPassword",
-        "login.actionTemporarilyUnavailable",
-        "login.desktopBrowser.button",
-        "login.desktopBrowser.cancel",
-        "login.desktopBrowser.startedDetail",
-        "login.desktopBrowser.startedTitle",
-        "login.desktopOwnerAccess.button",
-        "login.field.confirmPassword",
-        "login.field.email",
-        "login.field.fullName",
-        "login.field.newPassword",
-        "login.field.password",
-        "login.field.phone",
-        "login.field.phoneCountry",
-        "login.field.phoneWithDialCode",
-        "login.field.registeredEmail",
-        "login.modeToggle.haveAccount",
-        "login.modeToggle.noAccount",
-        "login.modeToggle.rememberPassword",
-        "login.or",
-        "login.otp.and",
-        "login.otp.defaultSent",
-        "login.otp.emailStepForgotPrefix",
-        "login.otp.emailStepForgotSuffix",
-        "login.otp.emailStepPrefix",
-        "login.otp.emailStepSigninPrefix",
-        "login.otp.emailStepSigninSuffix",
-        "login.otp.emailStepSignupPrefix",
-        "login.otp.emailStepSignupSuffix",
-        "login.otp.firebaseSent",
-        "login.otp.phoneStepForgot",
-        "login.otp.phoneStepPrefix",
-        "login.otp.phoneStepSignin",
-        "login.otp.phoneStepSignup",
-        "login.otp.resend",
-        "login.otp.resendIn",
-        "login.otp.title",
-        "login.phoneHint.default",
-        "login.phoneHint.fallback",
-        "login.phoneHint.forgot",
-        "login.phoneHint.signin",
-        "login.phoneHint.signup",
-        "login.placeholder.email",
-        "login.placeholder.fullName",
-        "login.placeholder.phoneLocal",
-        "login.processing",
-        "login.reset.bodyPrefix",
-        "login.reset.bodySuffix",
-        "login.reset.title",
-        "login.secureEntry",
-        "login.social.disabledHost",
-        "login.social.enablePrefix",
-        "login.social.enableSuffix",
-        "login.social.mobileConfigBody",
-        "login.social.mobileConfigTitle",
-        "login.social.paused",
-        "login.social.runtimeBlockedPrefix",
-        "login.social.runtimeBlockedSuffix",
-        "login.social.runtimeCode",
-        "login.social.thisDomain",
-        "login.social.unavailable",
-        "login.social.unavailableBody",
-        "login.terms.middle",
-        "login.terms.prefix",
-        "login.terms.privacy",
-        "login.terms.use"
-      ],
-      "risk": "high",
-      "stableLiteralCount": 77,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
-    },
-    {
-      "dynamicLookupCount": 0,
       "file": "app/src/pages/DesktopLogin/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -1285,6 +1215,76 @@
       ],
       "risk": "high",
       "stableLiteralCount": 61,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 56,
+      "messageIds": [
+        "login.action.backToRecoveryDetails",
+        "login.action.backToSignInDetails",
+        "login.action.forgotPassword",
+        "login.actionTemporarilyUnavailable",
+        "login.brand.initials",
+        "login.checkpoint.body",
+        "login.checkpoint.deviceTitle",
+        "login.checkpoint.mfaTitle",
+        "login.checkpoint.stayHere",
+        "login.desktopBrowser.button",
+        "login.desktopBrowser.cancel",
+        "login.desktopBrowser.startedDetail",
+        "login.desktopBrowser.startedTitle",
+        "login.desktopOwnerAccess.button",
+        "login.field.confirmPassword",
+        "login.field.email",
+        "login.field.fullName",
+        "login.field.newPassword",
+        "login.field.password",
+        "login.field.phone",
+        "login.field.phoneCountry",
+        "login.field.registeredEmail",
+        "login.modeToggle.haveAccount",
+        "login.modeToggle.noAccount",
+        "login.modeToggle.rememberPassword",
+        "login.otherOptions",
+        "login.otp.codeLabel",
+        "login.otp.compactDefault",
+        "login.otp.compactEmail",
+        "login.otp.compactPhone",
+        "login.otp.digitLabel",
+        "login.otp.resend",
+        "login.otp.resendIn",
+        "login.otp.title",
+        "login.password.placeholder",
+        "login.phone.inputLabel",
+        "login.phoneHint.compact",
+        "login.phoneHint.default",
+        "login.phoneHint.fallback",
+        "login.placeholder.email",
+        "login.placeholder.fullName",
+        "login.placeholder.phoneLocal",
+        "login.processing",
+        "login.reset.compactBody",
+        "login.reset.placeholder.confirmNewPassword",
+        "login.reset.placeholder.newPassword",
+        "login.secureSignIn",
+        "login.securityWarning",
+        "login.signup.placeholder.confirmPassword",
+        "login.social.duo",
+        "login.social.unavailableBody",
+        "login.social.useStandard",
+        "login.terms.middle",
+        "login.terms.prefix",
+        "login.terms.privacy",
+        "login.terms.use"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 58,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1858,6 +1858,37 @@
       ],
       "risk": "high",
       "stableLiteralCount": 22,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 17,
+      "messageIds": [
+        "auth.trustedDevice.confirming",
+        "auth.trustedDevice.exit.anotherAccount",
+        "auth.trustedDevice.eyebrow.admin",
+        "auth.trustedDevice.eyebrow.public",
+        "auth.trustedDevice.feedback.browserIdentityReset",
+        "auth.trustedDevice.method.groupLabel",
+        "auth.trustedDevice.method.recommended",
+        "auth.trustedDevice.method.tryAnother",
+        "auth.trustedDevice.method.unavailable",
+        "auth.trustedDevice.progress.accountVerified",
+        "auth.trustedDevice.progress.confirmDevice",
+        "auth.trustedDevice.progress.extraCheck",
+        "auth.trustedDevice.progress.label",
+        "auth.trustedDevice.proofBindingNote",
+        "auth.trustedDevice.reauth.passwordLabel",
+        "auth.trustedDevice.resetBrowser",
+        "auth.trustedDevice.resetBrowserSession"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 17,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -5152,7 +5183,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-07-17T18:14:54.926Z",
+  "generatedAt": "2026-07-18T09:30:37.877Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -5229,6 +5260,227 @@
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
       "line": 246,
+      "reason": ""
+    },
+    {
+      "column": 21,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Browser identity reset. Start the device check again.",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Browser identity reset. Start the device check again.",
+      "id": "auth.trustedDevice.feedback.browserIdentityReset",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 286,
+      "reason": ""
+    },
+    {
+      "column": 21,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Admin access",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Admin access",
+      "id": "auth.trustedDevice.eyebrow.admin",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 347,
+      "reason": ""
+    },
+    {
+      "column": 21,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Secure sign-in",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Secure sign-in",
+      "id": "auth.trustedDevice.eyebrow.public",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 348,
+      "reason": ""
+    },
+    {
+      "column": 27,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Sign-in progress",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Sign-in progress",
+      "id": "auth.trustedDevice.progress.label",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 359,
+      "reason": ""
+    },
+    {
+      "column": 46,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Account verified",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Account verified",
+      "id": "auth.trustedDevice.progress.accountVerified",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 361,
+      "reason": ""
+    },
+    {
+      "column": 47,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirm device",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Confirm device",
+      "id": "auth.trustedDevice.progress.confirmDevice",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 364,
+      "reason": ""
+    },
+    {
+      "column": 52,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Extra check if needed",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Extra check if needed",
+      "id": "auth.trustedDevice.progress.extraCheck",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 367,
+      "reason": ""
+    },
+    {
+      "column": 20,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Recommended",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Recommended",
+      "id": "auth.trustedDevice.method.recommended",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 375,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Try another way",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Try another way",
+      "id": "auth.trustedDevice.method.tryAnother",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 392,
+      "reason": ""
+    },
+    {
+      "column": 50,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Device verification methods",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Device verification methods",
+      "id": "auth.trustedDevice.method.groupLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 397,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Account password",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Account password",
+      "id": "auth.trustedDevice.reauth.passwordLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 432,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "The required method is not available in this browser. Use a supported browser or another device.",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "The required method is not available in this browser. Use a supported browser or another device.",
+      "id": "auth.trustedDevice.method.unavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 448,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirming device…",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Confirming device…",
+      "id": "auth.trustedDevice.confirming",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 469,
+      "reason": ""
+    },
+    {
+      "column": 47,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Use another account",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Use another account",
+      "id": "auth.trustedDevice.exit.anotherAccount",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 478,
+      "reason": ""
+    },
+    {
+      "column": 89,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Reset this browser",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Reset this browser",
+      "id": "auth.trustedDevice.resetBrowser",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 489,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Reset browser session",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Reset browser session",
+      "id": "auth.trustedDevice.resetBrowserSession",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 498,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Device proof is short-lived and bound to this sign-in.",
+      "file": "app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx",
+      "icuDefaultMessage": "Device proof is short-lived and bound to this sign-in.",
+      "id": "auth.trustedDevice.proofBindingNote",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 502,
       "reason": ""
     },
     {
@@ -9987,7 +10239,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 241,
+      "line": 211,
       "reason": ""
     },
     {
@@ -10000,7 +10252,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 242,
+      "line": 212,
       "reason": ""
     },
     {
@@ -10013,7 +10265,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 243,
+      "line": 213,
       "reason": ""
     },
     {
@@ -10026,7 +10278,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 244,
+      "line": 214,
       "reason": ""
     },
     {
@@ -10039,7 +10291,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 245,
+      "line": 215,
       "reason": ""
     },
     {
@@ -10052,7 +10304,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 246,
+      "line": 216,
       "reason": ""
     },
     {
@@ -10065,7 +10317,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 247,
+      "line": 217,
       "reason": ""
     },
     {
@@ -10078,7 +10330,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 248,
+      "line": 218,
       "reason": ""
     },
     {
@@ -10091,7 +10343,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 319,
+      "line": 286,
       "reason": ""
     },
     {
@@ -10104,7 +10356,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 346,
+      "line": 311,
       "reason": ""
     },
     {
@@ -32991,20 +33243,111 @@
       "reason": ""
     },
     {
-      "column": 18,
+      "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Secure Entry Layer",
+      "fallback": "Processing",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Secure Entry Layer",
-      "id": "login.secureEntry",
+      "icuDefaultMessage": "Processing",
+      "id": "login.processing",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 147,
+      "line": 106,
       "reason": ""
     },
     {
-      "column": 22,
+      "column": 28,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Temporarily unavailable",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Temporarily Unavailable",
+      "id": "login.actionTemporarilyUnavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Temporarily Unavailable",
+      "line": 107,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "AR",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "AR",
+      "id": "login.brand.initials",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 131,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Secure sign-in",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Secure sign-in",
+      "id": "login.secureSignIn",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 137,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Complete multi-factor verification",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Complete multi-factor verification",
+      "id": "login.checkpoint.mfaTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 184,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verify this device",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Verify this device",
+      "id": "login.checkpoint.deviceTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 185,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
+      "id": "login.checkpoint.body",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 188,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Keep this page open. Do not submit your sign-in details again.",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Keep this page open. Do not submit your sign-in details again.",
+      "id": "login.checkpoint.stayHere",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 195,
+      "reason": ""
+    },
+    {
+      "column": 18,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Continue in Your Browser",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33013,11 +33356,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 194,
+      "line": 203,
       "reason": ""
     },
     {
-      "column": 22,
+      "column": 18,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33026,11 +33369,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 197,
+      "line": 206,
       "reason": ""
     },
     {
-      "column": 22,
+      "column": 16,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Continue in Browser",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33039,24 +33382,24 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 213,
+      "line": 221,
       "reason": ""
     },
     {
-      "column": 22,
+      "column": 18,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Cancel Browser Sign-In",
+      "fallback": "Cancel browser sign-in",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Cancel Browser Sign-In",
+      "icuDefaultMessage": "Cancel browser sign-in",
       "id": "login.desktopBrowser.cancel",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 223,
+      "line": 230,
       "reason": ""
     },
     {
-      "column": 22,
+      "column": 18,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Owner Access",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33065,50 +33408,63 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 235,
+      "line": 242,
       "reason": ""
     },
     {
-      "column": 113,
+      "column": 26,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Full Name",
+      "fallback": "Full name",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Full Name",
+      "icuDefaultMessage": "Full name",
       "id": "login.field.fullName",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 247,
+      "line": 256,
       "reason": ""
     },
     {
-      "column": 115,
+      "column": 40,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "John Doe",
+      "fallback": "Your full name",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "John Doe",
+      "icuDefaultMessage": "Your full name",
       "id": "login.placeholder.fullName",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 250,
+      "line": 266,
       "reason": ""
     },
     {
-      "column": 113,
+      "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Email Address",
+      "fallback": "Registered email",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Email Address",
+      "icuDefaultMessage": "Registered email",
+      "id": "login.field.registeredEmail",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 277,
+      "reason": ""
+    },
+    {
+      "column": 27,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Email address",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Email address",
       "id": "login.field.email",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 258,
+      "line": 278,
       "reason": ""
     },
     {
-      "column": 118,
+      "column": 38,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "you@example.com",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33117,20 +33473,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 261,
+      "line": 288,
       "reason": ""
     },
     {
-      "column": 111,
+      "column": 24,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Phone Number",
+      "fallback": "Phone number",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Phone Number",
+      "icuDefaultMessage": "Phone number",
       "id": "login.field.phone",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 268,
+      "line": 297,
       "reason": ""
     },
     {
@@ -33143,7 +33499,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 272,
+      "line": 302,
       "reason": ""
     },
     {
@@ -33156,7 +33512,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 280,
+      "line": 310,
       "reason": ""
     },
     {
@@ -33169,105 +33525,63 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 295,
+      "line": 325,
       "reason": ""
     },
     {
       "column": 37,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "{{label}} {{dialCode}}",
+      "fallback": "Phone number {dialCode}",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "{label} {dialCode}",
-      "id": "login.field.phoneWithDialCode",
-      "interpolationTokens": [
-        "dialCode",
-        "label"
-      ],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 298,
-      "reason": ""
-    },
-    {
-      "column": 34,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Phone Number",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Phone Number",
-      "id": "login.field.phone",
+      "icuDefaultMessage": "Phone number {dialCode}",
+      "id": "login.phone.inputLabel",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 299,
+      "line": 328,
       "reason": ""
     },
     {
       "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Firebase SMS is unavailable here. Secure backup OTP will be sent through the available secure verification channel instead.",
+      "fallback": "SMS delivery is unavailable here, so the available secure backup verification channel will be used.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Firebase SMS is unavailable here. Secure backup OTP will be sent through the available secure verification channel instead.",
+      "icuDefaultMessage": "SMS delivery is unavailable here, so the available secure backup verification channel will be used.",
       "id": "login.phoneHint.fallback",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 307,
+      "line": 338,
       "reason": ""
     },
     {
-      "column": 31,
+      "column": 29,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Signup sends one code to email and one Firebase SMS code to your phone.",
+      "fallback": "We will verify this sign-in with email and phone codes.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Signup sends one code to email and one Firebase SMS code to your phone.",
-      "id": "login.phoneHint.signup",
+      "icuDefaultMessage": "We will verify this sign-in with email and phone codes.",
+      "id": "login.phoneHint.compact",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 310,
+      "line": 340,
       "reason": ""
     },
     {
-      "column": 33,
+      "column": 29,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Recovery sends one code to email and one Firebase SMS code to your phone.",
+      "fallback": "We will send a verification code to your email and phone.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Recovery sends one code to email and one Firebase SMS code to your phone.",
-      "id": "login.phoneHint.forgot",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 312,
-      "reason": ""
-    },
-    {
-      "column": 33,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Sign-in sends one code to email and one Firebase SMS code to your phone.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Sign-in sends one code to email and one Firebase SMS code to your phone.",
-      "id": "login.phoneHint.signin",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 313,
-      "reason": ""
-    },
-    {
-      "column": 27,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "OTP will be sent to your email & phone",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "OTP will be sent to your email & phone",
+      "icuDefaultMessage": "We will send a verification code to your email and phone.",
       "id": "login.phoneHint.default",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 314,
+      "line": 341,
       "reason": ""
     },
     {
-      "column": 110,
+      "column": 28,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Password",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33276,267 +33590,156 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 321,
+      "line": 349,
       "reason": ""
     },
     {
       "column": 30,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Forgot Password?",
+      "fallback": "Forgot password?",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Forgot Password?",
+      "icuDefaultMessage": "Forgot password?",
       "id": "login.action.forgotPassword",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 326,
+      "line": 358,
       "reason": ""
     },
     {
-      "column": 113,
+      "column": 40,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Confirm Password",
+      "fallback": "Enter your password",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Confirm Password",
+      "icuDefaultMessage": "Enter your password",
+      "id": "login.password.placeholder",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 370,
+      "reason": ""
+    },
+    {
+      "column": 26,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirm password",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Confirm password",
       "id": "login.field.confirmPassword",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 345,
+      "line": 389,
       "reason": ""
     },
     {
-      "column": 113,
+      "column": 40,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Registered Email",
+      "fallback": "Re-enter your password",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Registered Email",
-      "id": "login.field.registeredEmail",
+      "icuDefaultMessage": "Re-enter your password",
+      "id": "login.signup.placeholder.confirmPassword",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 356,
+      "line": 399,
       "reason": ""
     },
     {
-      "column": 118,
+      "column": 22,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "you@example.com",
+      "fallback": "Back to sign-in details",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "you@example.com",
-      "id": "login.placeholder.email",
+      "icuDefaultMessage": "Back to sign-in details",
+      "id": "login.action.backToSignInDetails",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 359,
+      "line": 413,
       "reason": ""
     },
     {
-      "column": 56,
+      "column": 59,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Back to form",
+      "fallback": "Enter verification code",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Back to form",
-      "id": "login.action.backToForm",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 371,
-      "reason": ""
-    },
-    {
-      "column": 99,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Enter Verification Code",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Enter Verification Code",
+      "icuDefaultMessage": "Enter verification code",
       "id": "login.otp.title",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 378,
+      "line": 417,
       "reason": ""
     },
     {
-      "column": 26,
+      "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Step 1 of 2. We sent a 6-digit email code to",
+      "fallback": "Enter the 6-digit code sent to {{email}}. Phone verification follows.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Step 1 of 2. We sent a 6-digit email code to",
-      "id": "login.otp.emailStepPrefix",
-      "interpolationTokens": [],
+      "icuDefaultMessage": "Enter the 6-digit code sent to {email}. Phone verification follows.",
+      "id": "login.otp.compactEmail",
+      "interpolationTokens": [
+        "email"
+      ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 381,
-      "reason": ""
-    },
-    {
-      "column": 32,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Your Firebase SMS code for",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Your Firebase SMS code for",
-      "id": "login.otp.emailStepSignupPrefix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 384,
-      "reason": ""
-    },
-    {
-      "column": 168,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "will finish activating this account next.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "will finish activating this account next.",
-      "id": "login.otp.emailStepSignupSuffix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 384,
-      "reason": ""
-    },
-    {
-      "column": 34,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Your Firebase SMS code for",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Your Firebase SMS code for",
-      "id": "login.otp.emailStepForgotPrefix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 386,
-      "reason": ""
-    },
-    {
-      "column": 170,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "will unlock password recovery next.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "will unlock password recovery next.",
-      "id": "login.otp.emailStepForgotSuffix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 386,
-      "reason": ""
-    },
-    {
-      "column": 34,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Your Firebase SMS code for",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Your Firebase SMS code for",
-      "id": "login.otp.emailStepSigninPrefix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 387,
-      "reason": ""
-    },
-    {
-      "column": 170,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "will complete the same login next.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "will complete the same login next.",
-      "id": "login.otp.emailStepSigninSuffix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 387,
-      "reason": ""
-    },
-    {
-      "column": 26,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to",
-      "id": "login.otp.phoneStepPrefix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 391,
+      "line": 420,
       "reason": ""
     },
     {
       "column": 29,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "to activate the account.",
+      "fallback": "Enter the 6-digit code sent to {{phone}}.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "to activate the account.",
-      "id": "login.otp.phoneStepSignup",
-      "interpolationTokens": [],
+      "icuDefaultMessage": "Enter the 6-digit code sent to {phone}.",
+      "id": "login.otp.compactPhone",
+      "interpolationTokens": [
+        "phone"
+      ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 393,
+      "line": 422,
       "reason": ""
     },
     {
-      "column": 31,
+      "column": 29,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "to continue password recovery.",
+      "fallback": "Enter the 6-digit verification code we sent you.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "to continue password recovery.",
-      "id": "login.otp.phoneStepForgot",
+      "icuDefaultMessage": "Enter the 6-digit verification code we sent you.",
+      "id": "login.otp.compactDefault",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 395,
+      "line": 423,
       "reason": ""
     },
     {
-      "column": 31,
+      "column": 50,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "to finish signing in.",
+      "fallback": "Six-digit verification code",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "to finish signing in.",
-      "id": "login.otp.phoneStepSignin",
+      "icuDefaultMessage": "Six-digit verification code",
+      "id": "login.otp.codeLabel",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 396,
+      "line": 428,
       "reason": ""
     },
     {
-      "column": 26,
+      "column": 39,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "We sent a 6-digit Firebase SMS code to",
+      "fallback": "Verification code digit {{position}}",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "We sent a 6-digit Firebase SMS code to",
-      "id": "login.otp.firebaseSent",
-      "interpolationTokens": [],
+      "icuDefaultMessage": "Verification code digit {position}",
+      "id": "login.otp.digitLabel",
+      "interpolationTokens": [
+        "position"
+      ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 400,
-      "reason": ""
-    },
-    {
-      "column": 26,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "We sent a 6-digit code to",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "We sent a 6-digit code to",
-      "id": "login.otp.defaultSent",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 404,
-      "reason": ""
-    },
-    {
-      "column": 48,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "and",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "and",
-      "id": "login.otp.and",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 405,
+      "line": 443,
       "reason": ""
     },
     {
@@ -33551,362 +33754,167 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 437,
+      "line": 457,
       "reason": ""
     },
     {
       "column": 26,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Resend OTP",
+      "fallback": "Resend code",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Resend OTP",
+      "icuDefaultMessage": "Resend code",
       "id": "login.otp.resend",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 442,
+      "line": 466,
       "reason": ""
     },
     {
-      "column": 56,
+      "column": 22,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Back to form",
+      "fallback": "Back to recovery details",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Back to form",
-      "id": "login.action.backToForm",
+      "icuDefaultMessage": "Back to recovery details",
+      "id": "login.action.backToRecoveryDetails",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 453,
+      "line": 477,
       "reason": ""
     },
     {
-      "column": 99,
+      "column": 22,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Create New Password",
+      "fallback": "Recovery is verified. Set a strong new password for this account.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Create New Password",
-      "id": "login.reset.title",
+      "icuDefaultMessage": "Recovery is verified. Set a strong new password for this account.",
+      "id": "login.reset.compactBody",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 460,
+      "line": 480,
       "reason": ""
     },
     {
       "column": 24,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Recovery is verified for",
+      "fallback": "New password",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Recovery is verified for",
-      "id": "login.reset.bodyPrefix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 462,
-      "reason": ""
-    },
-    {
-      "column": 24,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Set a strong new password for the account tied to",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Set a strong new password for the account tied to",
-      "id": "login.reset.bodySuffix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 464,
-      "reason": ""
-    },
-    {
-      "column": 113,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "New Password",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "New Password",
+      "icuDefaultMessage": "New password",
       "id": "login.field.newPassword",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 470,
+      "line": 485,
       "reason": ""
     },
     {
-      "column": 113,
+      "column": 38,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Confirm Password",
+      "fallback": "Enter a new password",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Confirm Password",
+      "icuDefaultMessage": "Enter a new password",
+      "id": "login.reset.placeholder.newPassword",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 495,
+      "reason": ""
+    },
+    {
+      "column": 24,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Confirm password",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Confirm password",
       "id": "login.field.confirmPassword",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 491,
+      "line": 512,
       "reason": ""
     },
     {
-      "column": 22,
+      "column": 38,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Continue in Browser",
+      "fallback": "Re-enter the new password",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Continue in Browser",
-      "id": "login.desktopBrowser.button",
+      "icuDefaultMessage": "Re-enter the new password",
+      "id": "login.reset.placeholder.confirmNewPassword",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 532,
-      "reason": ""
-    },
-    {
-      "column": 22,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "PROCESSING...",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "PROCESSING...",
-      "id": "login.processing",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 537,
-      "reason": ""
-    },
-    {
-      "column": 25,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Temporarily Unavailable",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Temporarily Unavailable",
-      "id": "login.actionTemporarilyUnavailable",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Temporarily Unavailable",
-      "line": 542,
+      "line": 522,
       "reason": ""
     },
     {
       "column": 20,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Cancel Browser Sign-In",
+      "fallback": "Other secure sign-in options",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Cancel Browser Sign-In",
-      "id": "login.desktopBrowser.cancel",
+      "icuDefaultMessage": "Other secure sign-in options",
+      "id": "login.otherOptions",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 555,
-      "reason": ""
-    },
-    {
-      "column": 102,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "or",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "or",
-      "id": "login.or",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 565,
+      "line": 558,
       "reason": ""
     },
     {
       "column": 24,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Continue in Browser",
+      "fallback": "Continue with Duo",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Continue in Browser",
-      "id": "login.desktopBrowser.button",
+      "icuDefaultMessage": "Continue with Duo",
+      "id": "login.social.duo",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 576,
-      "reason": ""
-    },
-    {
-      "column": 22,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Owner Access",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Owner Access",
-      "id": "login.desktopOwnerAccess.button",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 587,
+      "line": 570,
       "reason": ""
     },
     {
       "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Social sign-in paused on this tab",
+      "fallback": "Social sign-in is unavailable here. Use email, phone, and password instead.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Social sign-in paused on this tab",
-      "id": "login.social.paused",
+      "icuDefaultMessage": "Social sign-in is unavailable here. Use email, phone, and password instead.",
+      "id": "login.social.useStandard",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 673,
-      "reason": ""
-    },
-    {
-      "column": 29,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Mobile social sign-in needs native config",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Mobile social sign-in needs native config",
-      "id": "login.social.mobileConfigTitle",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 675,
+      "line": 611,
       "reason": ""
     },
     {
       "column": 27,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Social sign-in is disabled on this host",
+      "fallback": "Social sign-in could not initialize. Email, phone, and password sign-in remain available.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Social sign-in is disabled on this host",
-      "id": "login.social.disabledHost",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 676,
-      "reason": ""
-    },
-    {
-      "column": 28,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Firebase rejected popup sign-in for",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Firebase rejected popup sign-in for",
-      "id": "login.social.runtimeBlockedPrefix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 681,
-      "reason": ""
-    },
-    {
-      "column": 107,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "this domain",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "this domain",
-      "id": "login.social.thisDomain",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 682,
-      "reason": ""
-    },
-    {
-      "column": 28,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "in this tab. Refresh after confirming the domain is authorized, or continue with email and OTP now.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "in this tab. Refresh after confirming the domain is authorized, or continue with email and OTP now.",
-      "id": "login.social.runtimeBlockedSuffix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 683,
-      "reason": ""
-    },
-    {
-      "column": 28,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "The installed app is using the stable email and OTP lane until Android/iOS OAuth credentials are attached to the native build.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "The installed app is using the stable email and OTP lane until Android/iOS OAuth credentials are attached to the native build.",
-      "id": "login.social.mobileConfigBody",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 687,
-      "reason": ""
-    },
-    {
-      "column": 28,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Use email and OTP sign-in here. To enable Google, Facebook, GitHub, and X, authorize",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Use email and OTP sign-in here. To enable Google, Facebook, GitHub, and X, authorize",
-      "id": "login.social.enablePrefix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 691,
-      "reason": ""
-    },
-    {
-      "column": 107,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "this domain",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "this domain",
-      "id": "login.social.thisDomain",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 692,
-      "reason": ""
-    },
-    {
-      "column": 28,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "in Firebase Authentication settings.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "in Firebase Authentication settings.",
-      "id": "login.social.enableSuffix",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 693,
-      "reason": ""
-    },
-    {
-      "column": 24,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Social sign-in is unavailable on this deployment",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Social sign-in is unavailable on this deployment",
-      "id": "login.social.unavailable",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 701,
-      "reason": ""
-    },
-    {
-      "column": 24,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Firebase authentication did not initialize cleanly for this frontend build. Email and OTP sign-in remain available.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Firebase authentication did not initialize cleanly for this frontend build. Email and OTP sign-in remain available.",
+      "icuDefaultMessage": "Social sign-in could not initialize. Email, phone, and password sign-in remain available.",
       "id": "login.social.unavailableBody",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 704,
+      "line": 612,
       "reason": ""
     },
     {
-      "column": 26,
+      "column": 22,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Runtime code:",
+      "fallback": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Runtime code:",
-      "id": "login.social.runtimeCode",
+      "icuDefaultMessage": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
+      "id": "login.securityWarning",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 708,
+      "line": 621,
       "reason": ""
     },
     {
-      "column": 20,
+      "column": 18,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Remember your password?",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33915,11 +33923,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 719,
+      "line": 630,
       "reason": ""
     },
     {
-      "column": 23,
+      "column": 21,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Don't have an account?",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33928,11 +33936,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 729,
+      "line": 643,
       "reason": ""
     },
     {
-      "column": 23,
+      "column": 21,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Already have an account?",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33941,11 +33949,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 730,
+      "line": 644,
       "reason": ""
     },
     {
-      "column": 16,
+      "column": 12,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "By continuing, you accept our",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33954,11 +33962,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 741,
+      "line": 659,
       "reason": ""
     },
     {
-      "column": 158,
+      "column": 14,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Terms of Use",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33967,24 +33975,24 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 742,
+      "line": 661,
       "reason": ""
     },
     {
-      "column": 16,
+      "column": 12,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "and allow",
+      "fallback": "and",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "and allow",
+      "icuDefaultMessage": "and",
       "id": "login.terms.middle",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 743,
+      "line": 663,
       "reason": ""
     },
     {
-      "column": 160,
+      "column": 14,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Privacy Policy",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33993,7 +34001,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 744,
+      "line": 665,
       "reason": ""
     },
     {
@@ -34006,7 +34014,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 648,
+      "line": 651,
       "reason": ""
     },
     {
@@ -34019,7 +34027,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 649,
+      "line": 652,
       "reason": ""
     },
     {
@@ -34032,7 +34040,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 722,
+      "line": 725,
       "reason": ""
     },
     {
@@ -34045,7 +34053,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 780,
+      "line": 783,
       "reason": ""
     },
     {
@@ -34058,7 +34066,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1091,
+      "line": 1108,
       "reason": ""
     },
     {
@@ -34071,7 +34079,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1093,
+      "line": 1110,
       "reason": ""
     },
     {
@@ -34084,7 +34092,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1094,
+      "line": 1111,
       "reason": ""
     },
     {
@@ -34097,7 +34105,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1096,
+      "line": 1113,
       "reason": ""
     },
     {
@@ -34110,7 +34118,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1098,
+      "line": 1115,
       "reason": ""
     },
     {
@@ -34123,7 +34131,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1099,
+      "line": 1116,
       "reason": ""
     },
     {
@@ -34136,7 +34144,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1108,
+      "line": 1125,
       "reason": ""
     },
     {
@@ -34149,7 +34157,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1109,
+      "line": 1126,
       "reason": ""
     },
     {
@@ -34164,7 +34172,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1111,
+      "line": 1128,
       "reason": ""
     },
     {
@@ -34179,7 +34187,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1112,
+      "line": 1129,
       "reason": ""
     },
     {
@@ -34192,7 +34200,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1118,
+      "line": 1135,
       "reason": ""
     },
     {
@@ -34207,7 +34215,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1119,
+      "line": 1136,
       "reason": ""
     },
     {
@@ -34220,7 +34228,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1126,
+      "line": 1143,
       "reason": ""
     },
     {
@@ -34233,7 +34241,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1127,
+      "line": 1144,
       "reason": ""
     },
     {
@@ -34246,7 +34254,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1129,
+      "line": 1146,
       "reason": ""
     },
     {
@@ -34259,7 +34267,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1130,
+      "line": 1147,
       "reason": ""
     },
     {
@@ -34272,7 +34280,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1135,
+      "line": 1152,
       "reason": ""
     },
     {
@@ -34285,7 +34293,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1137,
+      "line": 1154,
       "reason": ""
     },
     {
@@ -34298,7 +34306,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1138,
+      "line": 1155,
       "reason": ""
     },
     {
@@ -34311,7 +34319,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1258,
+      "line": 1275,
       "reason": ""
     },
     {
@@ -34324,7 +34332,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1259,
+      "line": 1276,
       "reason": ""
     },
     {
@@ -34337,7 +34345,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1260,
+      "line": 1277,
       "reason": ""
     },
     {
@@ -34350,7 +34358,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1261,
+      "line": 1278,
       "reason": ""
     },
     {
@@ -34363,7 +34371,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1262,
+      "line": 1279,
       "reason": ""
     },
     {
@@ -34376,7 +34384,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1263,
+      "line": 1280,
       "reason": ""
     },
     {
@@ -34389,7 +34397,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1264,
+      "line": 1281,
       "reason": ""
     },
     {
@@ -34402,7 +34410,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1270,
+      "line": 1287,
       "reason": ""
     },
     {
@@ -34415,7 +34423,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1274,
+      "line": 1291,
       "reason": ""
     },
     {
@@ -34428,7 +34436,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1278,
+      "line": 1295,
       "reason": ""
     },
     {
@@ -34441,7 +34449,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1279,
+      "line": 1296,
       "reason": ""
     },
     {
@@ -34454,7 +34462,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1280,
+      "line": 1297,
       "reason": ""
     },
     {
@@ -34467,7 +34475,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1289,
+      "line": 1306,
       "reason": ""
     },
     {
@@ -34480,7 +34488,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1290,
+      "line": 1307,
       "reason": ""
     },
     {
@@ -34493,7 +34501,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1291,
+      "line": 1308,
       "reason": ""
     },
     {
@@ -34506,7 +34514,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1294,
+      "line": 1311,
       "reason": ""
     },
     {
@@ -34519,7 +34527,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1295,
+      "line": 1312,
       "reason": ""
     },
     {
@@ -34532,7 +34540,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1303,
+      "line": 1320,
       "reason": ""
     },
     {
@@ -34545,7 +34553,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1366,
+      "line": 1383,
       "reason": ""
     },
     {
@@ -34558,7 +34566,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1405,
+      "line": 1422,
       "reason": ""
     },
     {
@@ -34571,7 +34579,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1442,
+      "line": 1459,
       "reason": ""
     },
     {
@@ -34584,7 +34592,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1476,
+      "line": 1493,
       "reason": ""
     },
     {
@@ -34597,7 +34605,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1537,
+      "line": 1554,
       "reason": ""
     },
     {
@@ -34610,7 +34618,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1671,
+      "line": 1688,
       "reason": ""
     },
     {
@@ -34623,7 +34631,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1672,
+      "line": 1689,
       "reason": ""
     },
     {
@@ -34636,7 +34644,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1679,
+      "line": 1696,
       "reason": ""
     },
     {
@@ -34649,7 +34657,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1681,
+      "line": 1698,
       "reason": ""
     },
     {
@@ -34662,7 +34670,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1683,
+      "line": 1700,
       "reason": ""
     },
     {
@@ -34675,7 +34683,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1684,
+      "line": 1701,
       "reason": ""
     },
     {
@@ -34688,7 +34696,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1690,
+      "line": 1707,
       "reason": ""
     },
     {
@@ -34701,7 +34709,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1692,
+      "line": 1709,
       "reason": ""
     },
     {
@@ -34714,7 +34722,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1694,
+      "line": 1711,
       "reason": ""
     },
     {
@@ -34727,7 +34735,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1695,
+      "line": 1712,
       "reason": ""
     },
     {
@@ -34740,7 +34748,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1700,
+      "line": 1717,
       "reason": ""
     },
     {
@@ -34753,7 +34761,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1702,
+      "line": 1719,
       "reason": ""
     },
     {
@@ -34768,7 +34776,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1703,
+      "line": 1720,
       "reason": ""
     },
     {
@@ -34781,7 +34789,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1703,
+      "line": 1720,
       "reason": ""
     },
     {
@@ -34794,7 +34802,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1710,
+      "line": 1727,
       "reason": ""
     },
     {
@@ -34807,7 +34815,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1712,
+      "line": 1729,
       "reason": ""
     },
     {
@@ -34820,7 +34828,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1714,
+      "line": 1731,
       "reason": ""
     },
     {
@@ -34833,7 +34841,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1715,
+      "line": 1732,
       "reason": ""
     },
     {
@@ -34846,7 +34854,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1719,
+      "line": 1736,
       "reason": ""
     },
     {
@@ -34859,7 +34867,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1721,
+      "line": 1738,
       "reason": ""
     },
     {
@@ -34872,7 +34880,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1723,
+      "line": 1740,
       "reason": ""
     },
     {
@@ -34885,7 +34893,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1724,
+      "line": 1741,
       "reason": ""
     },
     {
@@ -34898,7 +34906,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1728,
+      "line": 1745,
       "reason": ""
     },
     {
@@ -34911,7 +34919,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1730,
+      "line": 1747,
       "reason": ""
     },
     {
@@ -34924,7 +34932,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1732,
+      "line": 1749,
       "reason": ""
     },
     {
@@ -34937,7 +34945,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1733,
+      "line": 1750,
       "reason": ""
     },
     {
@@ -34950,7 +34958,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1741,
+      "line": 1758,
       "reason": ""
     },
     {
@@ -34963,7 +34971,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1742,
+      "line": 1759,
       "reason": ""
     },
     {
@@ -34976,7 +34984,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1743,
+      "line": 1760,
       "reason": ""
     },
     {
@@ -34989,7 +34997,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1751,
+      "line": 1768,
       "reason": ""
     },
     {
@@ -35002,7 +35010,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1753,
+      "line": 1770,
       "reason": ""
     },
     {
@@ -35015,7 +35023,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1754,
+      "line": 1771,
       "reason": ""
     },
     {
@@ -35028,7 +35036,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1755,
+      "line": 1772,
       "reason": ""
     },
     {
@@ -35041,7 +35049,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1756,
+      "line": 1773,
       "reason": ""
     },
     {
@@ -35054,7 +35062,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1763,
+      "line": 1780,
       "reason": ""
     },
     {
@@ -35067,7 +35075,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1765,
+      "line": 1782,
       "reason": ""
     },
     {
@@ -35080,7 +35088,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1766,
+      "line": 1783,
       "reason": ""
     },
     {
@@ -35093,7 +35101,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1767,
+      "line": 1784,
       "reason": ""
     },
     {
@@ -35106,7 +35114,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1768,
+      "line": 1785,
       "reason": ""
     },
     {
@@ -35119,7 +35127,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1773,
+      "line": 1790,
       "reason": ""
     },
     {
@@ -35132,7 +35140,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1774,
+      "line": 1791,
       "reason": ""
     },
     {
@@ -35145,7 +35153,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1775,
+      "line": 1792,
       "reason": ""
     },
     {
@@ -35158,7 +35166,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1782,
+      "line": 1799,
       "reason": ""
     },
     {
@@ -35171,7 +35179,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1784,
+      "line": 1801,
       "reason": ""
     },
     {
@@ -35184,7 +35192,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1785,
+      "line": 1802,
       "reason": ""
     },
     {
@@ -35197,7 +35205,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1786,
+      "line": 1803,
       "reason": ""
     },
     {
@@ -35210,7 +35218,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1787,
+      "line": 1804,
       "reason": ""
     },
     {
@@ -35223,7 +35231,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1794,
+      "line": 1811,
       "reason": ""
     },
     {
@@ -35236,7 +35244,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1796,
+      "line": 1813,
       "reason": ""
     },
     {
@@ -35249,7 +35257,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1797,
+      "line": 1814,
       "reason": ""
     },
     {
@@ -35262,7 +35270,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1798,
+      "line": 1815,
       "reason": ""
     },
     {
@@ -35275,7 +35283,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1799,
+      "line": 1816,
       "reason": ""
     },
     {
@@ -35288,7 +35296,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1805,
+      "line": 1822,
       "reason": ""
     },
     {
@@ -35301,7 +35309,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1807,
+      "line": 1824,
       "reason": ""
     },
     {
@@ -35314,7 +35322,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1808,
+      "line": 1825,
       "reason": ""
     },
     {
@@ -35327,7 +35335,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1809,
+      "line": 1826,
       "reason": ""
     },
     {
@@ -35340,7 +35348,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1810,
+      "line": 1827,
       "reason": ""
     },
     {
@@ -35353,7 +35361,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1822,
+      "line": 1839,
       "reason": ""
     },
     {
@@ -35366,7 +35374,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1822,
+      "line": 1839,
       "reason": ""
     },
     {
@@ -35379,7 +35387,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1822,
+      "line": 1839,
       "reason": ""
     },
     {
@@ -35392,7 +35400,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1824,
+      "line": 1841,
       "reason": ""
     },
     {
@@ -35405,7 +35413,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1826,
+      "line": 1843,
       "reason": ""
     },
     {
@@ -35418,7 +35426,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1827,
+      "line": 1844,
       "reason": ""
     },
     {
@@ -35431,7 +35439,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1830,
+      "line": 1847,
       "reason": ""
     },
     {
@@ -35444,7 +35452,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1832,
+      "line": 1849,
       "reason": ""
     },
     {
@@ -35457,7 +35465,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1834,
+      "line": 1851,
       "reason": ""
     },
     {
@@ -35470,7 +35478,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1836,
+      "line": 1853,
       "reason": ""
     },
     {
@@ -35483,7 +35491,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1838,
+      "line": 1855,
       "reason": ""
     },
     {
@@ -35496,7 +35504,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1839,
+      "line": 1856,
       "reason": ""
     },
     {
@@ -35509,7 +35517,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1839,
+      "line": 1856,
       "reason": ""
     },
     {
@@ -35522,7 +35530,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1842,
+      "line": 1859,
       "reason": ""
     },
     {
@@ -35535,7 +35543,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1844,
+      "line": 1861,
       "reason": ""
     },
     {
@@ -35548,7 +35556,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1847,
+      "line": 1864,
       "reason": ""
     },
     {
@@ -35561,7 +35569,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1848,
+      "line": 1865,
       "reason": ""
     },
     {
@@ -35574,7 +35582,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1849,
+      "line": 1866,
       "reason": ""
     },
     {
@@ -35587,7 +35595,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1852,
+      "line": 1869,
       "reason": ""
     },
     {
@@ -35602,7 +35610,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{providers}} ready",
-      "line": 1855,
+      "line": 1872,
       "reason": ""
     },
     {
@@ -35615,7 +35623,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1856,
+      "line": 1873,
       "reason": ""
     },
     {
@@ -35628,7 +35636,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1858,
+      "line": 1875,
       "reason": ""
     },
     {
@@ -35641,7 +35649,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1860,
+      "line": 1877,
       "reason": ""
     },
     {
@@ -35656,7 +35664,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1861,
+      "line": 1878,
       "reason": ""
     },
     {
@@ -35669,7 +35677,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1861,
+      "line": 1878,
       "reason": ""
     },
     {
@@ -35682,7 +35690,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1888,
+      "line": 1905,
       "reason": ""
     },
     {
@@ -35695,7 +35703,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1889,
+      "line": 1906,
       "reason": ""
     },
     {
@@ -35708,7 +35716,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1890,
+      "line": 1907,
       "reason": ""
     },
     {
@@ -35723,7 +35731,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1892,
+      "line": 1909,
       "reason": ""
     },
     {
@@ -35736,7 +35744,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1898,
+      "line": 1915,
       "reason": ""
     },
     {
@@ -35753,7 +35761,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1900,
+      "line": 1917,
       "reason": ""
     },
     {
@@ -35766,7 +35774,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1905,
+      "line": 1922,
       "reason": ""
     },
     {
@@ -35782,7 +35790,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1909,
+      "line": 1926,
       "reason": ""
     },
     {
@@ -35795,7 +35803,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1913,
+      "line": 1930,
       "reason": ""
     },
     {
@@ -35808,7 +35816,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1921,
+      "line": 1938,
       "reason": ""
     },
     {
@@ -35821,7 +35829,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1925,
+      "line": 1942,
       "reason": ""
     },
     {
@@ -35834,7 +35842,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1941,
+      "line": 1958,
       "reason": ""
     },
     {
@@ -35847,7 +35855,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2011,
+      "line": 2024,
       "reason": ""
     },
     {
@@ -35860,7 +35868,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2023,
+      "line": 2036,
       "reason": ""
     },
     {
@@ -35873,7 +35881,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2024,
+      "line": 2037,
       "reason": ""
     },
     {
@@ -35886,7 +35894,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2053,
+      "line": 2064,
       "reason": ""
     },
     {
@@ -35899,7 +35907,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2061,
+      "line": 2072,
       "reason": ""
     },
     {
@@ -35912,7 +35920,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2062,
+      "line": 2073,
       "reason": ""
     },
     {
@@ -35925,7 +35933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2075,
+      "line": 2086,
       "reason": ""
     },
     {
@@ -35938,7 +35946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2082,
+      "line": 2093,
       "reason": ""
     },
     {
@@ -35951,7 +35959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2083,
+      "line": 2094,
       "reason": ""
     },
     {
@@ -35964,7 +35972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2110,
+      "line": 2119,
       "reason": ""
     },
     {
@@ -35977,7 +35985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2124,
+      "line": 2133,
       "reason": ""
     },
     {
@@ -35990,7 +35998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2127,
+      "line": 2136,
       "reason": ""
     },
     {
@@ -36003,7 +36011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2129,
+      "line": 2138,
       "reason": ""
     },
     {
@@ -36016,7 +36024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2130,
+      "line": 2139,
       "reason": ""
     },
     {
@@ -36029,7 +36037,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2131,
+      "line": 2140,
       "reason": ""
     },
     {
@@ -36042,7 +36050,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2133,
+      "line": 2142,
       "reason": ""
     },
     {
@@ -36055,7 +36063,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2133,
+      "line": 2142,
       "reason": ""
     },
     {
@@ -36068,7 +36076,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2136,
+      "line": 2145,
       "reason": ""
     },
     {
@@ -36081,7 +36089,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2137,
+      "line": 2146,
       "reason": ""
     },
     {
@@ -36094,7 +36102,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2137,
+      "line": 2146,
       "reason": ""
     },
     {
@@ -36107,7 +36115,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2138,
+      "line": 2147,
       "reason": ""
     },
     {
@@ -36120,7 +36128,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2138,
+      "line": 2147,
       "reason": ""
     },
     {
@@ -36133,7 +36141,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2139,
+      "line": 2148,
       "reason": ""
     },
     {
@@ -36146,7 +36154,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2139,
+      "line": 2148,
       "reason": ""
     },
     {
@@ -45609,6 +45617,19 @@
       "reason": ""
     },
     {
+      "column": 12,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Your security settings could not be loaded. Your factors and devices have not been changed.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Your security settings could not be loaded. Your factors and devices have not been changed.",
+      "id": "profile.settings.security.centerErrorBody",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 99,
+      "reason": ""
+    },
+    {
       "column": 54,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "No recent check timestamp",
@@ -45618,7 +45639,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 112,
+      "line": 141,
       "reason": ""
     },
     {
@@ -45631,7 +45652,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 117,
+      "line": 146,
       "reason": ""
     },
     {
@@ -45644,7 +45665,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 119,
+      "line": 148,
       "reason": ""
     },
     {
@@ -45657,7 +45678,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 176,
+      "line": 205,
       "reason": ""
     },
     {
@@ -45670,7 +45691,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 182,
+      "line": 211,
       "reason": ""
     },
     {
@@ -45683,7 +45704,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 183,
+      "line": 212,
       "reason": ""
     },
     {
@@ -45696,7 +45717,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 186,
+      "line": 215,
       "reason": ""
     },
     {
@@ -45709,7 +45730,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 196,
+      "line": 225,
       "reason": ""
     },
     {
@@ -45722,7 +45743,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 197,
+      "line": 226,
       "reason": ""
     },
     {
@@ -45735,7 +45756,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linked sign-in providers",
-      "line": 208,
+      "line": 237,
       "reason": ""
     },
     {
@@ -45748,7 +45769,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Attach another provider after signing in with the method that already owns this email.",
-      "line": 211,
+      "line": 240,
       "reason": ""
     },
     {
@@ -45763,7 +45784,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linked",
-      "line": 228,
+      "line": 257,
       "reason": ""
     },
     {
@@ -45778,7 +45799,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linking {{provider}}...",
-      "line": 230,
+      "line": 259,
       "reason": ""
     },
     {
@@ -45793,7 +45814,113 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Link {{provider}}",
-      "line": 231,
+      "line": 260,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Loading security settings",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Loading security settings",
+      "id": "profile.settings.security.centerLoadingTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 275,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Checking your passkeys, MFA methods, signed-in devices, and remembered browsers.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Checking your passkeys, MFA methods, signed-in devices, and remembered browsers.",
+      "id": "profile.settings.security.centerLoadingBody",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 278,
+      "reason": ""
+    },
+    {
+      "column": 46,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Security settings could not load",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Security settings could not load",
+      "id": "profile.settings.security.centerErrorTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 292,
+      "reason": ""
+    },
+    {
+      "column": 50,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Reference: {{reference}}",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Reference: {reference}",
+      "id": "profile.settings.security.centerErrorReference",
+      "interpolationTokens": [
+        "reference"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 297,
+      "reason": ""
+    },
+    {
+      "column": 50,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Showing the last security settings loaded on this page.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Showing the last security settings loaded on this page.",
+      "id": "profile.settings.security.centerStaleData",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 302,
+      "reason": ""
+    },
+    {
+      "column": 43,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Retrying...",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Retrying...",
+      "id": "common.retrying",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 315,
+      "reason": ""
+    },
+    {
+      "column": 43,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Retry",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Retry",
+      "id": "common.retry",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 316,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Refreshing security settings...",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Refreshing security settings...",
+      "id": "profile.settings.security.centerRefreshing",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 325,
       "reason": ""
     },
     {
@@ -45806,7 +45933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 247,
+      "line": 338,
       "reason": ""
     },
     {
@@ -45819,7 +45946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 248,
+      "line": 339,
       "reason": ""
     },
     {
@@ -45832,7 +45959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 252,
+      "line": 343,
       "reason": ""
     },
     {
@@ -45848,20 +45975,20 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 253,
+      "line": 344,
       "reason": ""
     },
     {
       "column": 38,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Multi-factor security center",
+      "fallback": "Passkeys and MFA",
       "file": "app/src/pages/Profile/components/SettingsSection.jsx",
-      "icuDefaultMessage": "Multi-factor security center",
-      "id": "profile.settings.security.mfaTitle",
+      "icuDefaultMessage": "Passkeys and MFA",
+      "id": "profile.settings.security.passkeysAndMfaTitle",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 262,
+      "line": 353,
       "reason": ""
     },
     {
@@ -45876,7 +46003,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 266,
+      "line": 357,
       "reason": ""
     },
     {
@@ -45889,7 +46016,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 267,
+      "line": 358,
       "reason": ""
     },
     {
@@ -45902,7 +46029,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 279,
+      "line": 370,
       "reason": ""
     },
     {
@@ -45915,7 +46042,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 280,
+      "line": 371,
       "reason": ""
     },
     {
@@ -45928,7 +46055,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 290,
+      "line": 381,
       "reason": ""
     },
     {
@@ -45941,7 +46068,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 292,
+      "line": 383,
       "reason": ""
     },
     {
@@ -45954,7 +46081,33 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 293,
+      "line": 384,
+      "reason": ""
+    },
+    {
+      "column": 38,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "No MFA method enrolled yet",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "No MFA method enrolled yet",
+      "id": "profile.settings.security.mfaEmptyTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 392,
+      "reason": ""
+    },
+    {
+      "column": 38,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Register a passkey or set up an authenticator app to add a second sign-in factor.",
+      "file": "app/src/pages/Profile/components/SettingsSection.jsx",
+      "icuDefaultMessage": "Register a passkey or set up an authenticator app to add a second sign-in factor.",
+      "id": "profile.settings.security.mfaEmptyBody",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 395,
       "reason": ""
     },
     {
@@ -45967,7 +46120,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 303,
+      "line": 405,
       "reason": ""
     },
     {
@@ -45980,7 +46133,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 314,
+      "line": 416,
       "reason": ""
     },
     {
@@ -45993,7 +46146,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 327,
+      "line": 429,
       "reason": ""
     },
     {
@@ -46006,7 +46159,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 329,
+      "line": 431,
       "reason": ""
     },
     {
@@ -46019,7 +46172,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 339,
+      "line": 441,
       "reason": ""
     },
     {
@@ -46032,7 +46185,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 340,
+      "line": 442,
       "reason": ""
     },
     {
@@ -46047,7 +46200,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 357,
+      "line": 459,
       "reason": ""
     },
     {
@@ -46060,7 +46213,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 361,
+      "line": 463,
       "reason": ""
     },
     {
@@ -46073,20 +46226,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 365,
+      "line": 467,
       "reason": ""
     },
     {
       "column": 38,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Devices, passkeys & remembered browsers",
+      "fallback": "Signed-in devices and remembered browsers",
       "file": "app/src/pages/Profile/components/SettingsSection.jsx",
-      "icuDefaultMessage": "Devices, passkeys & remembered browsers",
-      "id": "profile.settings.devices.title",
+      "icuDefaultMessage": "Signed-in devices and remembered browsers",
+      "id": "profile.settings.devices.signedInTitle",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 371,
+      "line": 473,
       "reason": ""
     },
     {
@@ -46099,7 +46252,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 375,
+      "line": 477,
       "reason": ""
     },
     {
@@ -46112,7 +46265,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 376,
+      "line": 478,
       "reason": ""
     },
     {
@@ -46125,7 +46278,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 390,
+      "line": 492,
       "reason": ""
     },
     {
@@ -46140,7 +46293,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 392,
+      "line": 494,
       "reason": ""
     },
     {
@@ -46153,7 +46306,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 393,
+      "line": 495,
       "reason": ""
     },
     {
@@ -46166,7 +46319,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 401,
+      "line": 503,
       "reason": ""
     },
     {
@@ -46179,33 +46332,33 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 411,
+      "line": 513,
       "reason": ""
     },
     {
       "column": 38,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "No managed devices yet",
+      "fallback": "No signed-in devices or remembered browsers",
       "file": "app/src/pages/Profile/components/SettingsSection.jsx",
-      "icuDefaultMessage": "No managed devices yet",
-      "id": "profile.settings.devices.emptyTitle",
+      "icuDefaultMessage": "No signed-in devices or remembered browsers",
+      "id": "profile.settings.devices.emptySignedInTitle",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 419,
+      "line": 521,
       "reason": ""
     },
     {
       "column": 38,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Register a passkey or complete a trusted-browser checkpoint to add one.",
+      "fallback": "A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.",
       "file": "app/src/pages/Profile/components/SettingsSection.jsx",
-      "icuDefaultMessage": "Register a passkey or complete a trusted-browser checkpoint to add one.",
-      "id": "profile.settings.devices.emptyBody",
+      "icuDefaultMessage": "A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.",
+      "id": "profile.settings.devices.emptySignedInBody",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 422,
+      "line": 524,
       "reason": ""
     },
     {
@@ -46218,7 +46371,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 436,
+      "line": 538,
       "reason": ""
     },
     {
@@ -46231,7 +46384,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 438,
+      "line": 540,
       "reason": ""
     },
     {
@@ -46244,20 +46397,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 439,
+      "line": 541,
       "reason": ""
     },
     {
       "column": 43,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Remembered browser · not MFA",
+      "fallback": "Remembered browser - not MFA",
       "file": "app/src/pages/Profile/components/SettingsSection.jsx",
-      "icuDefaultMessage": "Remembered browser · not MFA",
-      "id": "profile.settings.devices.rememberedBrowser",
+      "icuDefaultMessage": "Remembered browser - not MFA",
+      "id": "profile.settings.devices.rememberedBrowserNotMfa",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 440,
+      "line": 542,
       "reason": ""
     },
     {
@@ -46270,7 +46423,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 443,
+      "line": 545,
       "reason": ""
     },
     {
@@ -46283,7 +46436,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 445,
+      "line": 547,
       "reason": ""
     },
     {
@@ -46296,7 +46449,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 446,
+      "line": 548,
       "reason": ""
     },
     {
@@ -46309,7 +46462,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 460,
+      "line": 562,
       "reason": ""
     },
     {
@@ -46324,7 +46477,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 467,
+      "line": 569,
       "reason": ""
     },
     {
@@ -46337,7 +46490,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 475,
+      "line": 577,
       "reason": ""
     },
     {
@@ -46352,7 +46505,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 488,
+      "line": 590,
       "reason": ""
     },
     {
@@ -46365,7 +46518,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 493,
+      "line": 595,
       "reason": ""
     },
     {
@@ -46378,7 +46531,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 498,
+      "line": 600,
       "reason": ""
     },
     {
@@ -46391,7 +46544,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 514,
+      "line": 616,
       "reason": ""
     },
     {
@@ -46404,7 +46557,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 514,
+      "line": 616,
       "reason": ""
     },
     {
@@ -46417,7 +46570,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 520,
+      "line": 622,
       "reason": ""
     },
     {
@@ -46430,7 +46583,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 523,
+      "line": 625,
       "reason": ""
     },
     {
@@ -46445,7 +46598,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 532,
+      "line": 634,
       "reason": ""
     },
     {
@@ -46458,7 +46611,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 535,
+      "line": 637,
       "reason": ""
     },
     {
@@ -46473,7 +46626,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 544,
+      "line": 646,
       "reason": ""
     },
     {
@@ -46488,7 +46641,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 545,
+      "line": 647,
       "reason": ""
     },
     {
@@ -46501,7 +46654,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 549,
+      "line": 651,
       "reason": ""
     },
     {
@@ -46514,7 +46667,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 551,
+      "line": 653,
       "reason": ""
     },
     {
@@ -46527,7 +46680,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 553,
+      "line": 655,
       "reason": ""
     },
     {
@@ -46540,7 +46693,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 554,
+      "line": 656,
       "reason": ""
     },
     {
@@ -46553,7 +46706,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 562,
+      "line": 664,
       "reason": ""
     },
     {
@@ -46566,7 +46719,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 582,
+      "line": 684,
       "reason": ""
     },
     {
@@ -46579,7 +46732,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 583,
+      "line": 685,
       "reason": ""
     },
     {
@@ -46594,7 +46747,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 586,
+      "line": 688,
       "reason": ""
     },
     {
@@ -46607,7 +46760,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 595,
+      "line": 697,
       "reason": ""
     },
     {
@@ -46620,7 +46773,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 599,
+      "line": 701,
       "reason": ""
     },
     {
@@ -46633,7 +46786,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 600,
+      "line": 702,
       "reason": ""
     },
     {
@@ -46646,7 +46799,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 604,
+      "line": 706,
       "reason": ""
     },
     {
@@ -46659,7 +46812,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 616,
+      "line": 718,
       "reason": ""
     },
     {
@@ -46672,7 +46825,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 618,
+      "line": 720,
       "reason": ""
     },
     {
@@ -46685,7 +46838,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 619,
+      "line": 721,
       "reason": ""
     },
     {
@@ -46698,7 +46851,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 628,
+      "line": 730,
       "reason": ""
     },
     {
@@ -46711,7 +46864,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 631,
+      "line": 733,
       "reason": ""
     },
     {
@@ -46724,7 +46877,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 641,
+      "line": 743,
       "reason": ""
     },
     {
@@ -46737,7 +46890,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 649,
+      "line": 751,
       "reason": ""
     },
     {
@@ -46750,7 +46903,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 656,
+      "line": 758,
       "reason": ""
     },
     {
@@ -46763,7 +46916,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 673,
+      "line": 777,
       "reason": ""
     },
     {
@@ -46776,7 +46929,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 675,
+      "line": 779,
       "reason": ""
     },
     {
@@ -46789,7 +46942,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 675,
+      "line": 779,
       "reason": ""
     },
     {
@@ -46802,7 +46955,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 679,
+      "line": 783,
       "reason": ""
     },
     {
@@ -46815,7 +46968,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 680,
+      "line": 784,
       "reason": ""
     },
     {
@@ -46828,7 +46981,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 685,
+      "line": 789,
       "reason": ""
     },
     {
@@ -46841,7 +46994,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 687,
+      "line": 791,
       "reason": ""
     },
     {
@@ -46854,7 +47007,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 687,
+      "line": 791,
       "reason": ""
     },
     {
@@ -46869,7 +47022,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 691,
+      "line": 795,
       "reason": ""
     },
     {
@@ -46884,7 +47037,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 692,
+      "line": 796,
       "reason": ""
     },
     {
@@ -46897,7 +47050,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 702,
+      "line": 806,
       "reason": ""
     },
     {
@@ -46910,7 +47063,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 707,
+      "line": 811,
       "reason": ""
     },
     {
@@ -46923,7 +47076,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 710,
+      "line": 814,
       "reason": ""
     },
     {
@@ -46936,7 +47089,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 712,
+      "line": 816,
       "reason": ""
     },
     {
@@ -46949,7 +47102,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 713,
+      "line": 817,
       "reason": ""
     },
     {
@@ -46962,7 +47115,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 717,
+      "line": 821,
       "reason": ""
     },
     {
@@ -46975,7 +47128,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 719,
+      "line": 823,
       "reason": ""
     },
     {
@@ -46988,7 +47141,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 719,
+      "line": 823,
       "reason": ""
     },
     {
@@ -47001,7 +47154,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 723,
+      "line": 827,
       "reason": ""
     },
     {
@@ -47014,7 +47167,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 725,
+      "line": 829,
       "reason": ""
     },
     {
@@ -47027,7 +47180,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 725,
+      "line": 829,
       "reason": ""
     },
     {
@@ -47040,7 +47193,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 733,
+      "line": 837,
       "reason": ""
     },
     {
@@ -47057,7 +47210,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 737,
+      "line": 841,
       "reason": ""
     },
     {
@@ -47070,7 +47223,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 741,
+      "line": 845,
       "reason": ""
     },
     {
@@ -47083,7 +47236,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 742,
+      "line": 846,
       "reason": ""
     },
     {
@@ -47096,7 +47249,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 751,
+      "line": 855,
       "reason": ""
     },
     {
@@ -47109,7 +47262,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 759,
+      "line": 863,
       "reason": ""
     },
     {
@@ -47122,7 +47275,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 763,
+      "line": 867,
       "reason": ""
     },
     {
@@ -47135,7 +47288,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 764,
+      "line": 868,
       "reason": ""
     },
     {
@@ -47148,7 +47301,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 769,
+      "line": 873,
       "reason": ""
     },
     {
@@ -47161,7 +47314,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 770,
+      "line": 874,
       "reason": ""
     },
     {
@@ -47174,7 +47327,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 775,
+      "line": 879,
       "reason": ""
     },
     {
@@ -47187,7 +47340,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 776,
+      "line": 880,
       "reason": ""
     },
     {
@@ -47200,7 +47353,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 786,
+      "line": 890,
       "reason": ""
     },
     {
@@ -47213,7 +47366,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 790,
+      "line": 894,
       "reason": ""
     },
     {
@@ -47226,7 +47379,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 793,
+      "line": 897,
       "reason": ""
     },
     {
@@ -47239,7 +47392,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 796,
+      "line": 900,
       "reason": ""
     },
     {
@@ -47252,7 +47405,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 803,
+      "line": 907,
       "reason": ""
     },
     {
@@ -49382,7 +49535,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 230,
+      "line": 232,
       "reason": ""
     },
     {
@@ -49395,7 +49548,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 489,
+      "line": 497,
       "reason": ""
     },
     {
@@ -49408,7 +49561,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 491,
+      "line": 499,
       "reason": ""
     },
     {
@@ -49421,7 +49574,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 508,
+      "line": 516,
       "reason": ""
     },
     {
@@ -49434,7 +49587,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 510,
+      "line": 518,
       "reason": ""
     },
     {
@@ -49447,7 +49600,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 551,
+      "line": 559,
       "reason": ""
     },
     {
@@ -49460,7 +49613,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 552,
+      "line": 560,
       "reason": ""
     },
     {
@@ -49473,7 +49626,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 554,
+      "line": 562,
       "reason": ""
     },
     {
@@ -49486,7 +49639,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 561,
+      "line": 569,
       "reason": ""
     },
     {
@@ -49499,7 +49652,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 565,
+      "line": 573,
       "reason": ""
     },
     {
@@ -49512,7 +49665,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 567,
+      "line": 575,
       "reason": ""
     },
     {
@@ -49525,7 +49678,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 576,
+      "line": 584,
       "reason": ""
     },
     {
@@ -49538,7 +49691,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 597,
+      "line": 605,
       "reason": ""
     },
     {
@@ -49551,7 +49704,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 605,
+      "line": 613,
       "reason": ""
     },
     {
@@ -49564,7 +49717,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 611,
+      "line": 619,
       "reason": ""
     },
     {
@@ -49579,7 +49732,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 627,
+      "line": 635,
       "reason": ""
     },
     {
@@ -49592,7 +49745,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 636,
+      "line": 644,
       "reason": ""
     },
     {
@@ -49605,7 +49758,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 645,
+      "line": 653,
       "reason": ""
     },
     {
@@ -49618,7 +49771,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 654,
+      "line": 662,
       "reason": ""
     },
     {
@@ -49631,7 +49784,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 656,
+      "line": 664,
       "reason": ""
     },
     {
@@ -49644,7 +49797,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 665,
+      "line": 673,
       "reason": ""
     },
     {
@@ -49657,7 +49810,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 669,
+      "line": 677,
       "reason": ""
     },
     {
@@ -49670,7 +49823,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 686,
+      "line": 694,
       "reason": ""
     },
     {
@@ -49683,7 +49836,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 688,
+      "line": 696,
       "reason": ""
     },
     {
@@ -49696,7 +49849,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 696,
+      "line": 704,
       "reason": ""
     },
     {
@@ -49709,7 +49862,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 707,
+      "line": 715,
       "reason": ""
     },
     {
@@ -49722,7 +49875,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 709,
+      "line": 717,
       "reason": ""
     },
     {
@@ -49735,7 +49888,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 729,
+      "line": 737,
       "reason": ""
     },
     {
@@ -49748,7 +49901,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 739,
+      "line": 747,
       "reason": ""
     },
     {
@@ -49761,7 +49914,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 744,
+      "line": 752,
       "reason": ""
     },
     {
@@ -49774,7 +49927,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 750,
+      "line": 758,
       "reason": ""
     },
     {
@@ -49787,7 +49940,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 756,
+      "line": 764,
       "reason": ""
     },
     {
@@ -49800,7 +49953,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 757,
+      "line": 765,
       "reason": ""
     },
     {
@@ -49813,7 +49966,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 763,
+      "line": 771,
       "reason": ""
     },
     {
@@ -49826,7 +49979,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 768,
+      "line": 776,
       "reason": ""
     },
     {
@@ -49839,7 +49992,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 777,
+      "line": 785,
       "reason": ""
     },
     {
@@ -49852,7 +50005,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 779,
+      "line": 787,
       "reason": ""
     },
     {
@@ -49865,7 +50018,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 804,
+      "line": 812,
       "reason": ""
     },
     {
@@ -49878,7 +50031,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 811,
+      "line": 819,
       "reason": ""
     },
     {
@@ -49891,7 +50044,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 813,
+      "line": 821,
       "reason": ""
     },
     {
@@ -49904,7 +50057,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 818,
+      "line": 826,
       "reason": ""
     },
     {
@@ -49917,7 +50070,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 822,
+      "line": 830,
       "reason": ""
     },
     {
@@ -49930,7 +50083,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 824,
+      "line": 832,
       "reason": ""
     },
     {
@@ -49943,7 +50096,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 834,
+      "line": 842,
       "reason": ""
     },
     {
@@ -49956,7 +50109,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 835,
+      "line": 843,
       "reason": ""
     },
     {
@@ -49969,7 +50122,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 836,
+      "line": 844,
       "reason": ""
     },
     {
@@ -49982,7 +50135,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 848,
+      "line": 856,
       "reason": ""
     },
     {
@@ -49995,7 +50148,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 851,
+      "line": 859,
       "reason": ""
     },
     {
@@ -50008,7 +50161,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 858,
+      "line": 866,
       "reason": ""
     },
     {
@@ -50021,7 +50174,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 878,
+      "line": 886,
       "reason": ""
     },
     {
@@ -50034,7 +50187,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 880,
+      "line": 888,
       "reason": ""
     },
     {
@@ -50049,7 +50202,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linking is not available in this build.",
-      "line": 886,
+      "line": 894,
       "reason": ""
     },
     {
@@ -50064,7 +50217,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Complete {{provider}} linking in the provider window.",
-      "line": 894,
+      "line": 902,
       "reason": ""
     },
     {
@@ -50079,7 +50232,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} is already linked to this account.",
-      "line": 899,
+      "line": 907,
       "reason": ""
     },
     {
@@ -50094,7 +50247,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{provider}} linked to this account.",
-      "line": 900,
+      "line": 908,
       "reason": ""
     },
     {
@@ -50109,7 +50262,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not link {{provider}}.",
-      "line": 902,
+      "line": 910,
       "reason": ""
     },
     {
@@ -50122,7 +50275,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 920,
+      "line": 928,
       "reason": ""
     },
     {
@@ -50135,7 +50288,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 925,
+      "line": 933,
       "reason": ""
     },
     {
@@ -50148,7 +50301,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 951,
+      "line": 959,
       "reason": ""
     },
     {
@@ -50161,7 +50314,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 953,
+      "line": 961,
       "reason": ""
     },
     {
@@ -50174,7 +50327,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 964,
+      "line": 972,
       "reason": ""
     },
     {
@@ -50187,7 +50340,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1005,
+      "line": 1013,
       "reason": ""
     },
     {
@@ -50200,7 +50353,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1007,
+      "line": 1015,
       "reason": ""
     },
     {
@@ -50213,7 +50366,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1010,
+      "line": 1018,
       "reason": ""
     },
     {
@@ -50226,7 +50379,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1012,
+      "line": 1020,
       "reason": ""
     },
     {
@@ -50239,7 +50392,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1015,
+      "line": 1023,
       "reason": ""
     },
     {
@@ -50252,7 +50405,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1017,
+      "line": 1025,
       "reason": ""
     },
     {
@@ -50265,7 +50418,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1020,
+      "line": 1028,
       "reason": ""
     },
     {
@@ -50280,7 +50433,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1022,
+      "line": 1030,
       "reason": ""
     },
     {
@@ -50293,7 +50446,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1027,
+      "line": 1035,
       "reason": ""
     },
     {
@@ -50306,7 +50459,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1028,
+      "line": 1036,
       "reason": ""
     },
     {
@@ -50319,7 +50472,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1029,
+      "line": 1037,
       "reason": ""
     },
     {
@@ -50332,7 +50485,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1030,
+      "line": 1038,
       "reason": ""
     },
     {
@@ -50345,7 +50498,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1047,
+      "line": 1055,
       "reason": ""
     },
     {
@@ -50358,7 +50511,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1048,
+      "line": 1056,
       "reason": ""
     },
     {
@@ -50371,7 +50524,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1049,
+      "line": 1057,
       "reason": ""
     },
     {
@@ -50384,7 +50537,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1076,
+      "line": 1084,
       "reason": ""
     },
     {
@@ -50399,7 +50552,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1077,
+      "line": 1085,
       "reason": ""
     },
     {
@@ -50414,7 +50567,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1078,
+      "line": 1086,
       "reason": ""
     },
     {
@@ -50429,7 +50582,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1102,
+      "line": 1110,
       "reason": ""
     },
     {
@@ -50442,7 +50595,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1130,
+      "line": 1138,
       "reason": ""
     },
     {
@@ -50455,7 +50608,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1131,
+      "line": 1139,
       "reason": ""
     },
     {
@@ -50468,7 +50621,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1135,
+      "line": 1143,
       "reason": ""
     },
     {
@@ -50483,7 +50636,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1139,
+      "line": 1147,
       "reason": ""
     },
     {
@@ -50496,7 +50649,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1143,
+      "line": 1151,
       "reason": ""
     },
     {
@@ -50509,7 +50662,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1144,
+      "line": 1152,
       "reason": ""
     },
     {
@@ -50522,7 +50675,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1153,
+      "line": 1161,
       "reason": ""
     },
     {
@@ -50535,7 +50688,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1157,
+      "line": 1165,
       "reason": ""
     },
     {
@@ -50548,7 +50701,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1159,
+      "line": 1167,
       "reason": ""
     },
     {
@@ -50564,7 +50717,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1162,
+      "line": 1170,
       "reason": ""
     },
     {
@@ -50577,7 +50730,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1167,
+      "line": 1175,
       "reason": ""
     },
     {
@@ -50590,7 +50743,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1168,
+      "line": 1176,
       "reason": ""
     },
     {
@@ -50603,7 +50756,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1182,
+      "line": 1190,
       "reason": ""
     },
     {
@@ -50616,7 +50769,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1189,
+      "line": 1197,
       "reason": ""
     },
     {
@@ -50629,7 +50782,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1196,
+      "line": 1204,
       "reason": ""
     },
     {
@@ -54182,15 +54335,15 @@
     "dynamicLookupReferences": 14,
     "legacyPackInternalFiles": 21,
     "parseErrors": 0,
-    "productionFiles": 79,
-    "productionStableReferences": 3709,
+    "productionFiles": 80,
+    "productionStableReferences": 3718,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 358,
+    "sourceFilesScanned": 361,
     "testHarnessReferences": 4,
-    "totalTrackedFiles": 111,
-    "uniqueProductionStableIds": 3367,
+    "totalTrackedFiles": 112,
+    "uniqueProductionStableIds": 3384,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -55055,6 +55208,23 @@
     "auth.recovery.retry",
     "auth.recovery.supportHint",
     "auth.recovery.title",
+    "auth.trustedDevice.confirming",
+    "auth.trustedDevice.exit.anotherAccount",
+    "auth.trustedDevice.eyebrow.admin",
+    "auth.trustedDevice.eyebrow.public",
+    "auth.trustedDevice.feedback.browserIdentityReset",
+    "auth.trustedDevice.method.groupLabel",
+    "auth.trustedDevice.method.recommended",
+    "auth.trustedDevice.method.tryAnother",
+    "auth.trustedDevice.method.unavailable",
+    "auth.trustedDevice.progress.accountVerified",
+    "auth.trustedDevice.progress.confirmDevice",
+    "auth.trustedDevice.progress.extraCheck",
+    "auth.trustedDevice.progress.label",
+    "auth.trustedDevice.proofBindingNote",
+    "auth.trustedDevice.reauth.passwordLabel",
+    "auth.trustedDevice.resetBrowser",
+    "auth.trustedDevice.resetBrowserSession",
     "bundles.ai.prompt.explainGroundedBundle",
     "cart.action.save",
     "cart.allItemsReady",
@@ -55651,6 +55821,8 @@
     "common.jsx.text.your.camera.preview.is.live.029460fd",
     "common.jsx.text.your.hosted.aura.experience.keeps.updating.automatically.5f175dd0",
     "common.rename",
+    "common.retry",
+    "common.retrying",
     "common.revoke",
     "common.revoking",
     "common.save",
@@ -56013,9 +56185,15 @@
     "login.acceleration.resumeTitle",
     "login.acceleration.savedAt",
     "login.acceleration.useIdentity",
-    "login.action.backToForm",
+    "login.action.backToRecoveryDetails",
+    "login.action.backToSignInDetails",
     "login.action.forgotPassword",
     "login.actionTemporarilyUnavailable",
+    "login.brand.initials",
+    "login.checkpoint.body",
+    "login.checkpoint.deviceTitle",
+    "login.checkpoint.mfaTitle",
+    "login.checkpoint.stayHere",
     "login.desktopBrowser.button",
     "login.desktopBrowser.cancel",
     "login.desktopBrowser.completingDetail",
@@ -56050,7 +56228,6 @@
     "login.field.password",
     "login.field.phone",
     "login.field.phoneCountry",
-    "login.field.phoneWithDialCode",
     "login.field.registeredEmail",
     "login.info.forgot.dual",
     "login.info.forgot.fallback",
@@ -56081,23 +56258,19 @@
     "login.modeToggle.haveAccount",
     "login.modeToggle.noAccount",
     "login.modeToggle.rememberPassword",
-    "login.or",
-    "login.otp.and",
+    "login.otherOptions",
     "login.otp.backend.checkForCode.title",
     "login.otp.backend.codeResent.detail",
     "login.otp.backend.codeSent.detail",
-    "login.otp.defaultSent",
+    "login.otp.codeLabel",
+    "login.otp.compactDefault",
+    "login.otp.compactEmail",
+    "login.otp.compactPhone",
+    "login.otp.digitLabel",
     "login.otp.email.codeSent.detail",
     "login.otp.email.codeSent.title",
     "login.otp.email.codesResent.detail",
     "login.otp.email.codesResent.title",
-    "login.otp.emailStepForgotPrefix",
-    "login.otp.emailStepForgotSuffix",
-    "login.otp.emailStepPrefix",
-    "login.otp.emailStepSigninPrefix",
-    "login.otp.emailStepSigninSuffix",
-    "login.otp.emailStepSignupPrefix",
-    "login.otp.emailStepSignupSuffix",
     "login.otp.error.incomplete",
     "login.otp.error.phoneChallengeExpired",
     "login.otp.error.signInProofExpired",
@@ -56105,7 +56278,6 @@
     "login.otp.firebase.codeResent.title",
     "login.otp.firebase.smsSent.detail",
     "login.otp.firebase.smsSent.title",
-    "login.otp.firebaseSent",
     "login.otp.mode.accountSetup",
     "login.otp.mode.passwordRecovery",
     "login.otp.mode.signIn",
@@ -56114,29 +56286,26 @@
     "login.otp.phoneOutcome.activateAccount",
     "login.otp.phoneOutcome.finishSignIn",
     "login.otp.phoneOutcome.unlockReset",
-    "login.otp.phoneStepForgot",
-    "login.otp.phoneStepPrefix",
-    "login.otp.phoneStepSignin",
-    "login.otp.phoneStepSignup",
     "login.otp.resend",
     "login.otp.resendIn",
     "login.otp.title",
+    "login.password.placeholder",
+    "login.phone.inputLabel",
+    "login.phoneHint.compact",
     "login.phoneHint.default",
     "login.phoneHint.fallback",
-    "login.phoneHint.forgot",
-    "login.phoneHint.signin",
-    "login.phoneHint.signup",
     "login.placeholder.email",
     "login.placeholder.fullName",
     "login.placeholder.phoneLocal",
     "login.processing",
-    "login.reset.bodyPrefix",
-    "login.reset.bodySuffix",
-    "login.reset.title",
+    "login.reset.compactBody",
+    "login.reset.placeholder.confirmNewPassword",
+    "login.reset.placeholder.newPassword",
     "login.reset.verifiedDual",
     "login.reset.verifiedSingle",
     "login.reset.verifiedTitle",
-    "login.secureEntry",
+    "login.secureSignIn",
+    "login.securityWarning",
     "login.signal.delivery",
     "login.signal.deliveryActive",
     "login.signal.deliveryDual",
@@ -56162,18 +56331,10 @@
     "login.signal.valueReset",
     "login.signal.windowOtp",
     "login.signal.windowReset",
-    "login.social.disabledHost",
-    "login.social.enablePrefix",
-    "login.social.enableSuffix",
-    "login.social.mobileConfigBody",
-    "login.social.mobileConfigTitle",
-    "login.social.paused",
-    "login.social.runtimeBlockedPrefix",
-    "login.social.runtimeBlockedSuffix",
-    "login.social.runtimeCode",
-    "login.social.thisDomain",
-    "login.social.unavailable",
+    "login.signup.placeholder.confirmPassword",
+    "login.social.duo",
     "login.social.unavailableBody",
+    "login.social.useStandard",
     "login.submit.reset",
     "login.submit.sendBackupOtp",
     "login.submit.sendDualOtp",
@@ -56999,8 +57160,8 @@
     "profile.settings.devices.currentRevokeWarning",
     "profile.settings.devices.currentUnbound",
     "profile.settings.devices.deviceBound",
-    "profile.settings.devices.emptyBody",
-    "profile.settings.devices.emptyTitle",
+    "profile.settings.devices.emptySignedInBody",
+    "profile.settings.devices.emptySignedInTitle",
     "profile.settings.devices.lastVerified",
     "profile.settings.devices.legacyAdminWarning",
     "profile.settings.devices.mfaPasskey",
@@ -57009,15 +57170,15 @@
     "profile.settings.devices.never",
     "profile.settings.devices.publicBody",
     "profile.settings.devices.recognitionPasskey",
-    "profile.settings.devices.rememberedBrowser",
+    "profile.settings.devices.rememberedBrowserNotMfa",
     "profile.settings.devices.renameAria",
     "profile.settings.devices.revokeAndSignOut",
     "profile.settings.devices.revokeAria",
     "profile.settings.devices.revokeOthers",
     "profile.settings.devices.revokingOthers",
+    "profile.settings.devices.signedInTitle",
     "profile.settings.devices.syncEligible",
     "profile.settings.devices.syncedPasskey",
-    "profile.settings.devices.title",
     "profile.settings.devices.unknown",
     "profile.settings.notifications.marketplace.desc",
     "profile.settings.notifications.marketplace.label",
@@ -57031,6 +57192,13 @@
     "profile.settings.safety.privacyPolicy",
     "profile.settings.safety.securityPolicy",
     "profile.settings.safety.title",
+    "profile.settings.security.centerErrorBody",
+    "profile.settings.security.centerErrorReference",
+    "profile.settings.security.centerErrorTitle",
+    "profile.settings.security.centerLoadingBody",
+    "profile.settings.security.centerLoadingTitle",
+    "profile.settings.security.centerRefreshing",
+    "profile.settings.security.centerStaleData",
     "profile.settings.security.incomplete",
     "profile.settings.security.incompleteBody",
     "profile.settings.security.linkedProviders",
@@ -57038,15 +57206,17 @@
     "profile.settings.security.mfaAvailable",
     "profile.settings.security.mfaBody",
     "profile.settings.security.mfaChecking",
+    "profile.settings.security.mfaEmptyBody",
+    "profile.settings.security.mfaEmptyTitle",
     "profile.settings.security.mfaFactorSummary",
     "profile.settings.security.mfaPolicyReason",
     "profile.settings.security.mfaReady",
-    "profile.settings.security.mfaTitle",
     "profile.settings.security.openRecovery",
     "profile.settings.security.opening",
     "profile.settings.security.otpLabel",
     "profile.settings.security.passkeyRegister",
     "profile.settings.security.passkeyRegistering",
+    "profile.settings.security.passkeysAndMfaTitle",
     "profile.settings.security.password",
     "profile.settings.security.passwordBody",
     "profile.settings.security.paymentLabel",

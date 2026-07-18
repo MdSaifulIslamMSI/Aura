@@ -7,7 +7,9 @@ const loadProtectedApp = ({
     user = null,
     authSession = null,
     routePath = '/api/admin/ops/smoke',
+    additionalRoutePaths = [],
     riskEngineMode = '',
+    tokenAmr = [],
 } = {}) => {
     jest.resetModules();
     process.env.AUTH_RISK_ENGINE_MODE = riskEngineMode;
@@ -20,6 +22,7 @@ const loadProtectedApp = ({
         auth_time: Math.floor(Date.now() / 1000) - 60,
         iat: Math.floor(Date.now() / 1000) - 60,
         exp: Math.floor(Date.now() / 1000) + 3600,
+        amr: tokenAmr,
         firebase: {
             sign_in_provider: 'password',
         },
@@ -100,10 +103,12 @@ const loadProtectedApp = ({
     const { protect } = require('../middleware/authMiddleware');
     const app = express();
     app.use(express.json());
-    app.post(routePath, protect, (req, res) => {
-        res.json({
-            ok: true,
-            posture: req.authzPosture,
+    [routePath, ...additionalRoutePaths].forEach((protectedPath) => {
+        app.post(protectedPath, protect, (req, res) => {
+            res.json({
+                ok: true,
+                posture: req.authzPosture,
+            });
         });
     });
     app.use((err, _req, res, _next) => {
@@ -119,8 +124,22 @@ describe('authMiddleware continuous access posture', () => {
         jest.clearAllMocks();
     });
 
-    test('counts a verified trusted-device session header as elevated assurance for privileged bearer requests', async () => {
+    test('does not treat browser-key trusted-device binding as elevated MFA for privileged bearer requests', async () => {
         const app = loadProtectedApp();
+
+        const res = await request(app)
+            .post('/api/admin/ops/smoke')
+            .set('Authorization', 'Bearer firebase-token')
+            .set('x-aura-device-id', 'device-admin-1')
+            .set('x-aura-trusted-device-session', 'valid-device-session')
+            .send({});
+
+        expect(res.statusCode).toBe(403);
+        expect(res.body.message).toBe('A stronger verified session is required for this action.');
+    });
+
+    test('accepts privileged bearer requests when trusted-device binding is paired with verified MFA', async () => {
+        const app = loadProtectedApp({ tokenAmr: ['mfa', 'totp'] });
 
         const res = await request(app)
             .post('/api/admin/ops/smoke')
@@ -182,6 +201,53 @@ describe('authMiddleware continuous access posture', () => {
             },
         });
     });
+
+    test('blocks an MFA-pending login from protected APIs while allowing login continuation', async () => {
+        process.env.MFA_ENABLED = 'true';
+        process.env.MFA_TOTP_ENABLED = 'true';
+        process.env.MFA_PASSKEY_ENABLED = 'false';
+        process.env.MFA_RECOVERY_CODES_ENABLED = 'false';
+
+        const pendingMfaUser = {
+            _id: '507f1f77bcf86cd799439014',
+            email: 'admin@example.com',
+            isAdmin: false,
+            isSeller: false,
+            isVerified: true,
+            trustedDevices: [],
+            mfa: {
+                enabled: true,
+                defaultMethod: 'totp',
+                totp: {
+                    enabled: true,
+                    confirmedAt: new Date('2026-07-01T00:00:00.000Z'),
+                },
+            },
+        };
+        const protectedApp = loadProtectedApp({
+            routePath: '/api/orders/smoke',
+            additionalRoutePaths: ['/api/auth/mfa/totp/verify-login'],
+            user: pendingMfaUser,
+        });
+
+        const blocked = await request(protectedApp)
+            .post('/api/orders/smoke')
+            .set('Authorization', 'Bearer firebase-token')
+            .send({});
+
+        expect(blocked.statusCode).toBe(403);
+        expect(blocked.body.message).toBe(
+            'Complete the required multi-factor sign-in before accessing this resource.'
+        );
+
+        const continuation = await request(protectedApp)
+            .post('/api/auth/mfa/totp/verify-login')
+            .set('Authorization', 'Bearer firebase-token')
+            .send({});
+
+        expect(continuation.statusCode).toBe(200);
+        expect(continuation.body).toMatchObject({ ok: true });
+    }, 15_000);
 
     test('treats review upload writes as sensitive actions requiring recent auth', async () => {
         const staleAuthTime = Math.floor(Date.now() / 1000) - (20 * 60);

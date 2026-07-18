@@ -149,6 +149,33 @@ describe('MfaChallengePanel', () => {
     await waitFor(() => expect(onSignOut).toHaveBeenCalledTimes(1));
   });
 
+  it('explains the blocked admin recovery path without suggesting a retry loop', () => {
+    const onCancel = vi.fn();
+
+    renderPanel(
+      <MfaChallengePanel
+        challenge={null}
+        policy={{
+          audience: 'admin',
+          allowedMethods: [],
+          reason: 'admin_policy',
+          requiredAssurance: 'mfa',
+          nextAssurance: 'admin_passkey',
+        }}
+        isAdmin
+        blocked
+        onCancel={onCancel}
+      />
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/admin access remains locked/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/restore a passkey or mfa method/i);
+    expect(screen.queryByText(/verification request is short-lived/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /sign out and leave admin/i }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
   it('disables verification for the Retry-After countdown and announces when retry is available', async () => {
     vi.useFakeTimers();
     const rateLimitError = Object.assign(new Error('Rate limited'), {

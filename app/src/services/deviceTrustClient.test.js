@@ -313,6 +313,73 @@ describe('deviceTrustClient', () => {
     });
   });
 
+  it('recovers from a transient IndexedDB open failure on the next proof attempt', async () => {
+    const indexedDbMock = createIndexedDbMock();
+    const transientError = new Error('IndexedDB is temporarily unavailable.');
+    let openCount = 0;
+    const flakyIndexedDb = {
+      open: (...args) => {
+        openCount += 1;
+        if (openCount > 1) {
+          return indexedDbMock.indexedDB.open(...args);
+        }
+
+        const request = {
+          error: null,
+          result: undefined,
+          onerror: null,
+          onsuccess: null,
+          onupgradeneeded: null,
+        };
+        queueMicrotask(() => {
+          request.error = transientError;
+          request.onerror?.();
+        });
+        return request;
+      },
+    };
+    const subtleMocks = {
+      generateKey: vi.fn().mockResolvedValue({
+        privateKey: { kind: 'private-key' },
+        publicKey: { kind: 'public-key' },
+      }),
+      exportKey: vi.fn().mockResolvedValue(Uint8Array.from([1, 2, 3, 4]).buffer),
+      sign: vi.fn().mockResolvedValue(Uint8Array.from([5, 6, 7, 8]).buffer),
+    };
+
+    setRuntimeHost({ hostname: 'localhost', host: 'localhost:4173' });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(window, 'indexedDB', { configurable: true, value: flakyIndexedDb });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: {
+        randomUUID: () => 'uuid-transient-indexeddb',
+        subtle: subtleMocks,
+      },
+    });
+
+    const deviceTrustClient = await loadDeviceTrustModule();
+    const challenge = {
+      availableMethods: ['browser_key'],
+      challenge: 'transient-indexeddb',
+      mode: 'enroll',
+    };
+
+    await expect(deviceTrustClient.signTrustedDeviceChallenge(challenge, {
+      preferredMethod: 'browser_key',
+    })).rejects.toThrow('IndexedDB is temporarily unavailable');
+
+    await expect(deviceTrustClient.signTrustedDeviceChallenge(challenge, {
+      preferredMethod: 'browser_key',
+    })).resolves.toMatchObject({
+      method: 'browser_key',
+      proofBase64: expect.any(String),
+    });
+
+    expect(openCount).toBe(2);
+    expect(subtleMocks.generateKey).toHaveBeenCalledTimes(1);
+  });
+
   it('forces platform user verification for biometric passkey registration', async () => {
     const indexedDbMock = createIndexedDbMock();
     const createCredentialMock = vi.fn().mockResolvedValue({

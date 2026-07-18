@@ -8,6 +8,7 @@ const mockGetTotpQr = jest.fn((_req, res) => res.json({ qrCodeDataUrl: 'data:ima
 const mockVerifyTotpSetup = jest.fn((_req, res) => res.json({ enabled: true }));
 const mockPasskeyRegisterOptions = jest.fn((_req, res) => res.json({ challenge: 'mock-passkey-register-challenge' }));
 const mockPasskeyRegisterVerify = jest.fn((_req, res) => res.status(201).json({ registered: true }));
+const mockPasskeyLoginVerify = jest.fn((_req, res) => res.json({ authenticated: true }));
 
 jest.mock('../middleware/authMiddleware', () => ({
     protect: (req, _res, next) => {
@@ -65,7 +66,7 @@ jest.mock('../controllers/mfaController', () => ({
     getMfaSecurityCenter: (_req, res) => res.json({ mfa: { enabled: false } }),
     getTotpQr: mockGetTotpQr,
     passkeyLoginOptions: (_req, res) => res.json({ challenge: 'mock-passkey-login-challenge' }),
-    passkeyLoginVerify: (_req, res) => res.json({ authenticated: true }),
+    passkeyLoginVerify: mockPasskeyLoginVerify,
     passkeyRegisterOptions: mockPasskeyRegisterOptions,
     passkeyRegisterVerify: mockPasskeyRegisterVerify,
     passkeyRemove: (_req, res) => res.json({ removed: true }),
@@ -369,6 +370,26 @@ describe('CSRF auth route integration', () => {
 
         expect(passkeyRes.statusCode).toBe(200);
         expect(passkeyRes.body.challenge).toBe('mock-passkey-register-challenge');
+    });
+
+    test('routes authenticated passkey login verification through the trusted-device verifier limiter', async () => {
+        const res = await request(app)
+            .post('/api/auth/mfa/passkey/login/verify')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('x-aura-device-id', 'device-passkey-login-1')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({
+                challengeId: 'fixture-mfa-challenge',
+                token: 'fixture-passkey-challenge',
+                method: 'webauthn',
+                proof: 'fixture-passkey-proof',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['x-test-rate-limiter']).toBe('auth_verify_device');
+        expect(res.body).toEqual({ authenticated: true });
+        expect(mockPasskeyLoginVerify).toHaveBeenCalledTimes(1);
     });
 
     test('rejects cookie-session /logout without csrf', async () => {

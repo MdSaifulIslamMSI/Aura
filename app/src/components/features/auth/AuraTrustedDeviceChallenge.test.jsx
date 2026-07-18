@@ -40,6 +40,9 @@ const buildAuthValue = (overrides = {}) => ({
   deviceChallenge: {
     token: 'challenge-token',
     mode: 'assert',
+    audience: 'public',
+    requiredAssurance: 'device_proof',
+    blocking: true,
     availableMethods: ['webauthn', 'browser_key'],
     preferredMethod: 'webauthn',
     registeredMethod: 'webauthn',
@@ -97,12 +100,14 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
+    fireEvent.click(screen.getByRole('button', { name: /try another way/i }));
+
     expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /browser fallback key/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /this browser/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('radio', { name: /browser fallback key/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /this browser/i }));
 
-    const verifyButton = screen.getByRole('button', { name: /use browser fallback/i });
+    const verifyButton = screen.getByRole('button', { name: /confirm this browser/i });
     fireEvent.click(verifyButton);
 
     await waitFor(() => {
@@ -115,12 +120,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     expect(verifyDeviceChallenge).toHaveBeenCalledWith('challenge-token', expect.objectContaining({
       method: 'browser_key',
     }));
-    await waitFor(() => {
-      expect(refreshSession).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'user@example.com' }),
-        { force: true, silent: true },
-      );
-    });
+    expect(refreshSession).not.toHaveBeenCalled();
   });
 
   it('ignores duplicate trusted-device verify clicks while one proof is already running', async () => {
@@ -130,7 +130,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
-    const verifyButton = screen.getByRole('button', { name: /use windows hello passkey/i });
+    const verifyButton = screen.getByRole('button', { name: /continue with device passkey/i });
     fireEvent.click(verifyButton);
     fireEvent.click(verifyButton);
 
@@ -160,6 +160,9 @@ describe('AuraTrustedDeviceChallenge', () => {
       deviceChallenge: {
         token: 'challenge-token',
         mode: 'enroll',
+        audience: 'public',
+        requiredAssurance: 'device_proof',
+        requiresRecentAuth: true,
         availableMethods: ['webauthn'],
         preferredMethod: 'webauthn',
         registeredMethod: '',
@@ -185,7 +188,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
-    fireEvent.click(screen.getByRole('button', { name: /register/i }));
+    fireEvent.click(screen.getByRole('button', { name: /register device passkey/i }));
 
     await waitFor(() => {
       expect(verifyDeviceChallenge).toHaveBeenCalledWith('challenge-token', expect.objectContaining({
@@ -234,6 +237,9 @@ describe('AuraTrustedDeviceChallenge', () => {
       deviceChallenge: {
         token: 'challenge-token',
         mode: 'enroll',
+        audience: 'public',
+        requiredAssurance: 'device_proof',
+        requiresRecentAuth: true,
         availableMethods: ['webauthn'],
         preferredMethod: 'webauthn',
         registeredMethod: '',
@@ -259,7 +265,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />, route);
 
-    const verifyButton = screen.getByRole('button', { name: /register/i });
+    const verifyButton = screen.getByRole('button', { name: /register device passkey/i });
     fireEvent.click(verifyButton);
 
     const passwordInput = await screen.findByLabelText(/account password/i);
@@ -291,7 +297,7 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
-    const verifyButton = screen.getByRole('button', { name: /use windows hello passkey/i });
+    const verifyButton = screen.getByRole('button', { name: /continue with device passkey/i });
     fireEvent.click(verifyButton);
 
     await waitFor(() => {
@@ -325,9 +331,9 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
-    expect(screen.queryByRole('radio', { name: /windows hello passkey/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /browser fallback key/i })).not.toBeDisabled();
-    expect(screen.getAllByText(/fallback key already stored inside this browser/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /try another way/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm this browser/i })).toBeEnabled();
+    expect(screen.getByText(/recognition key already stored in this browser/i)).toBeInTheDocument();
   });
 
   it('moves focus into the blocking checkpoint and traps tab navigation', async () => {
@@ -340,17 +346,17 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     const view = renderWithRoute(<AuraTrustedDeviceChallenge />);
 
-    const primaryAction = screen.getByRole('button', { name: /use windows hello passkey/i });
+    const primaryAction = screen.getByRole('button', { name: /continue with device passkey/i });
     await waitFor(() => {
       expect(primaryAction).toHaveFocus();
     });
 
-    const selectedProofMethod = screen.getByRole('radio', { name: /windows hello passkey/i });
     const resetAction = screen.getByRole('button', { name: /reset this browser/i });
+    const firstAction = screen.getByRole('button', { name: /try another way/i });
     resetAction.focus();
 
     fireEvent.keyDown(document, { key: 'Tab' });
-    expect(selectedProofMethod).toHaveFocus();
+    expect(firstAction).toHaveFocus();
 
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
     expect(resetAction).toHaveFocus();
@@ -364,11 +370,13 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />);
 
-    const passkeyMethod = screen.getByRole('radio', { name: /windows hello passkey/i });
-    const browserKeyMethod = screen.getByRole('radio', { name: /browser fallback key/i });
+    fireEvent.click(screen.getByRole('button', { name: /try another way/i }));
 
-    expect(passkeyMethod).toHaveAttribute('aria-describedby', expect.stringContaining('trusted-device-blocking-webauthn-description'));
-    expect(browserKeyMethod).toHaveAttribute('aria-describedby', expect.stringContaining('trusted-device-blocking-browser_key-description'));
+    const passkeyMethod = screen.getByRole('radio', { name: /windows hello passkey/i });
+    const browserKeyMethod = screen.getByRole('radio', { name: /this browser/i });
+
+    expect(passkeyMethod).toHaveAttribute('aria-describedby', 'trusted-device-webauthn-description');
+    expect(browserKeyMethod).toHaveAttribute('aria-describedby', 'trusted-device-browser_key-description');
 
     passkeyMethod.focus();
     fireEvent.keyDown(passkeyMethod, { key: 'ArrowRight' });
@@ -378,45 +386,27 @@ describe('AuraTrustedDeviceChallenge', () => {
       expect(browserKeyMethod).toHaveFocus();
     });
 
-    const resetAction = screen.getByRole('button', { name: /reset this browser/i });
-    fireEvent.keyDown(browserKeyMethod, { key: 'Tab', shiftKey: true });
-    expect(resetAction).toHaveFocus();
+    expect(browserKeyMethod).toHaveFocus();
   });
 
-  it('keeps repeat public-route trusted-device checks minimized', async () => {
+  it('keeps a public authentication checkpoint visible and blocking on every route', async () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />, '/');
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /open trusted device checkpoint/i })).toBeInTheDocument();
-      expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
-    });
-
-    expect(document.body).not.toHaveClass('aura-trusted-gate-open');
-
-    const pageButton = document.createElement('button');
-    pageButton.type = 'button';
-    pageButton.textContent = 'Page action';
-    document.body.appendChild(pageButton);
-    pageButton.focus();
-
-    const tabEvent = new KeyboardEvent('keydown', {
-      key: 'Tab',
-      bubbles: true,
-      cancelable: true,
-    });
-    document.dispatchEvent(tabEvent);
-
-    expect(tabEvent.defaultPrevented).toBe(false);
-    expect(pageButton).toHaveFocus();
-    pageButton.remove();
+    expect(screen.getByRole('heading', { name: /confirm this device/i })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+    expect(document.body).toHaveClass('aura-trusted-gate-open');
+    expect(screen.queryByText(/admin access/i)).not.toBeInTheDocument();
   });
 
-  it('opens first-time trusted-device enrollment even on public routes', async () => {
+  it('uses the server audience contract rather than the pathname for admin language', async () => {
     useAuth.mockReturnValue(buildAuthValue({
       deviceChallenge: {
         token: 'challenge-token',
         mode: 'enroll',
+        audience: 'admin',
+        requiredAssurance: 'admin_passkey',
+        blocking: true,
         availableMethods: ['webauthn', 'browser_key'],
         preferredMethod: 'webauthn',
         registeredMethod: '',
@@ -428,17 +418,17 @@ describe('AuraTrustedDeviceChallenge', () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge />, '/');
 
-    expect(screen.getByRole('heading', { name: /finish trusted device setup/i })).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: /windows hello passkey/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /open trusted device checkpoint/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /admin security check/i })).toBeInTheDocument();
+    expect(screen.getByText(/browser-only recognition cannot unlock admin controls/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /try another way/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/register this browser/i)).not.toBeInTheDocument();
   });
 
   it('stays quiet when an earlier admin policy lock is active', async () => {
     const { default: AuraTrustedDeviceChallenge } = await loadComponent();
     renderWithRoute(<AuraTrustedDeviceChallenge disabled />);
 
-    expect(screen.queryByRole('radio', { name: /windows hello passkey/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /open trusted device checkpoint/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /privileged mode locked/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /continue with device passkey/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /confirm this device/i })).not.toBeInTheDocument();
   });
 });

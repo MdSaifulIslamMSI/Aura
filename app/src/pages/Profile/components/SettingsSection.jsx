@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Bell, CheckCircle2, Cloud, Clock3, Copy, Download, KeyRound, Laptop, Link2, Lock, LogOut, Pencil, QrCode, Save, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react';
+import { Activity, AlertTriangle, Bell, CheckCircle2, Cloud, Clock3, Copy, Download, KeyRound, Laptop, Link2, Lock, LogOut, Pencil, QrCode, RefreshCw, Save, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { TogglePref } from './ProfileShared';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+
+const isTrustedDeviceActive = (device) => (
+    device?.active !== false && !['revoked', 'expired'].includes(device?.status)
+);
 
 export default function SettingsSection({
     handleSecureRecovery,
@@ -31,6 +35,10 @@ export default function SettingsSection({
     mfaFlags = {},
     mfaPolicy = null,
     mfaCenterLoading = false,
+    mfaCenterLoaded = false,
+    mfaCenterHasData = false,
+    mfaCenterError = null,
+    handleRetryMfaCenter,
     totpSetup = null,
     totpSetupCode = '',
     setTotpSetupCode,
@@ -69,10 +77,31 @@ export default function SettingsSection({
     const passkeyEnabledByDeployment = mfaEnabledByDeployment && mfaFlags?.passkeyEnabled !== false;
     const totpEnabledByDeployment = mfaEnabledByDeployment && mfaFlags?.totpEnabled !== false;
     const trustedDevices = Array.isArray(mfaStatus?.trustedDevices) ? mfaStatus.trustedDevices : [];
-    const activeTrustedDevices = trustedDevices.filter((device) => device?.active !== false && device?.status !== 'revoked' && device?.status !== 'expired');
+    const orderedTrustedDevices = [...trustedDevices].sort((left, right) => {
+        if (Boolean(left?.isCurrent) !== Boolean(right?.isCurrent)) {
+            return left?.isCurrent ? -1 : 1;
+        }
+        if (isTrustedDeviceActive(left) !== isTrustedDeviceActive(right)) {
+            return isTrustedDeviceActive(left) ? -1 : 1;
+        }
+        return 0;
+    });
+    const activeTrustedDevices = orderedTrustedDevices.filter(isTrustedDeviceActive);
     const currentTrustedDevice = activeTrustedDevices.find((device) => device?.isCurrent) || null;
     const activeOtherDeviceCount = activeTrustedDevices.filter((device) => !device?.isCurrent).length;
     const deviceAudience = mfaStatus?.devicePolicy?.audience === 'admin' ? 'admin' : 'public';
+    const hasMfaCenterError = Boolean(mfaCenterError);
+    const showMfaCenterLoading = !mfaCenterHasData && (mfaCenterLoading || !mfaCenterLoaded);
+    const showMfaCenterContent = mfaCenterHasData || (
+        mfaCenterLoaded && !hasMfaCenterError && !mfaCenterLoading
+    );
+    const mfaCenterErrorMessage = String(mfaCenterError?.message || '').trim()
+        || t('profile.settings.security.centerErrorBody', {}, 'Your security settings could not be loaded. Your factors and devices have not been changed.');
+    const mfaCenterErrorReference = String(
+        mfaCenterError?.serverRequestId
+        || mfaCenterError?.requestId
+        || ''
+    ).trim();
     const linkedProviderSet = useMemo(() => new Set(linkedProviderIds), [linkedProviderIds]);
     const linkableProviders = useMemo(() => ([
         {
@@ -237,7 +266,69 @@ export default function SettingsSection({
                         </div>
                     ) : null}
 
-                    <div className={`rounded-[1.6rem] border p-4 ${mfaFactorReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-cyan-300/20 bg-cyan-400/10'}`}>
+                    {showMfaCenterLoading ? (
+                        <div className="rounded-[1.6rem] border border-cyan-300/20 bg-cyan-400/10 p-5" role="status" aria-live="polite">
+                            <div className="flex items-center gap-3">
+                                <RefreshCw className="h-5 w-5 animate-spin text-cyan-100" aria-hidden="true" />
+                                <div>
+                                    <p className="text-sm font-black text-white">
+                                        {t('profile.settings.security.centerLoadingTitle', {}, 'Loading security settings')}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-300">
+                                        {t('profile.settings.security.centerLoadingBody', {}, 'Checking your passkeys, MFA methods, signed-in devices, and remembered browsers.')}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {hasMfaCenterError ? (
+                        <div className="rounded-[1.6rem] border border-rose-300/25 bg-rose-400/10 p-5" role="alert">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="flex min-w-0 gap-3">
+                                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-200" aria-hidden="true" />
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-black text-white">
+                                            {t('profile.settings.security.centerErrorTitle', {}, 'Security settings could not load')}
+                                        </p>
+                                        <p className="mt-1 break-words text-xs leading-5 text-rose-100">{mfaCenterErrorMessage}</p>
+                                        {mfaCenterErrorReference ? (
+                                            <p className="mt-2 text-[11px] font-semibold text-rose-200">
+                                                {t('profile.settings.security.centerErrorReference', { reference: mfaCenterErrorReference }, `Reference: ${mfaCenterErrorReference}`)}
+                                            </p>
+                                        ) : null}
+                                        {mfaCenterHasData ? (
+                                            <p className="mt-2 text-[11px] font-semibold text-slate-300">
+                                                {t('profile.settings.security.centerStaleData', {}, 'Showing the last security settings loaded on this page.')}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleRetryMfaCenter}
+                                    disabled={mfaCenterLoading || !handleRetryMfaCenter}
+                                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-rose-200/25 bg-rose-200/10 px-4 text-sm font-black text-rose-50 hover:bg-rose-200/15 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <RefreshCw className={`h-4 w-4 ${mfaCenterLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
+                                    {mfaCenterLoading
+                                        ? t('common.retrying', {}, 'Retrying...')
+                                        : t('common.retry', {}, 'Retry')}
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {mfaCenterLoading && mfaCenterHasData && !hasMfaCenterError ? (
+                        <p className="flex items-center gap-2 text-xs font-semibold text-cyan-100" role="status" aria-live="polite">
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                            {t('profile.settings.security.centerRefreshing', {}, 'Refreshing security settings...')}
+                        </p>
+                    ) : null}
+
+                    {showMfaCenterContent ? (
+                    <>
+                    <section aria-labelledby="passkeys-mfa-heading" className={`rounded-[1.6rem] border p-4 ${mfaFactorReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-cyan-300/20 bg-cyan-400/10'}`}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -257,10 +348,10 @@ export default function SettingsSection({
                                             )}
                                     </span>
                                 </div>
-                                <p className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                <h4 id="passkeys-mfa-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                                     <ShieldCheck className="h-4 w-4 text-neo-cyan" />
-                                    {t('profile.settings.security.mfaTitle', {}, 'Multi-factor security center')}
-                                </p>
+                                    {t('profile.settings.security.passkeysAndMfaTitle', {}, 'Passkeys and MFA')}
+                                </h4>
                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
                                     {mfaPolicy?.reason
                                         ? t('profile.settings.security.mfaPolicyReason', { reason: mfaPolicy.reason }, `Current policy: ${mfaPolicy.reason}`)
@@ -294,6 +385,17 @@ export default function SettingsSection({
                                 </button>
                             </div>
                         </div>
+
+                        {!mfaFactorReady && !mfaCenterLoading ? (
+                            <div className="mt-4 rounded-xl border border-dashed border-cyan-200/25 bg-black/15 px-4 py-4" role="status">
+                                <p className="text-sm font-bold text-white">
+                                    {t('profile.settings.security.mfaEmptyTitle', {}, 'No MFA method enrolled yet')}
+                                </p>
+                                <p className="mt-1 text-xs leading-5 text-slate-300">
+                                    {t('profile.settings.security.mfaEmptyBody', {}, 'Register a passkey or set up an authenticator app to add a second sign-in factor.')}
+                                </p>
+                            </div>
+                        ) : null}
 
                         {totpSetup ? (
                             <div className="mt-4 grid gap-4 rounded-[1.4rem] border border-cyan-300/20 bg-slate-950/45 p-4 md:grid-cols-[auto,1fr]">
@@ -343,10 +445,10 @@ export default function SettingsSection({
                                 </div>
                             </div>
                         ) : null}
-                    </div>
+                    </section>
 
                     <section
-                        aria-labelledby="trusted-devices-heading"
+                        aria-labelledby="signed-in-devices-heading"
                         className="rounded-[1.6rem] border border-violet-300/20 bg-violet-400/[0.08] p-4"
                     >
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -366,9 +468,9 @@ export default function SettingsSection({
                                         </span>
                                     )}
                                 </div>
-                                <h4 id="trusted-devices-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                <h4 id="signed-in-devices-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                                     <ShieldCheck className="h-4 w-4 text-violet-200" />
-                                    {t('profile.settings.devices.title', {}, 'Devices, passkeys & remembered browsers')}
+                                    {t('profile.settings.devices.signedInTitle', {}, 'Signed-in devices and remembered browsers')}
                                 </h4>
                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
                                     {deviceAudience === 'admin'
@@ -412,20 +514,20 @@ export default function SettingsSection({
                             </div>
                         ) : null}
 
-                        {trustedDevices.length === 0 ? (
+                        {orderedTrustedDevices.length === 0 ? (
                             <div className="mt-4 rounded-xl border border-dashed border-white/15 bg-black/15 px-4 py-6 text-center">
                                 <Laptop className="mx-auto h-6 w-6 text-slate-400" />
                                 <p className="mt-2 text-sm font-bold text-white">
-                                    {t('profile.settings.devices.emptyTitle', {}, 'No managed devices yet')}
+                                    {t('profile.settings.devices.emptySignedInTitle', {}, 'No signed-in devices or remembered browsers')}
                                 </p>
                                 <p className="mt-1 text-xs text-slate-400">
-                                    {t('profile.settings.devices.emptyBody', {}, 'Register a passkey or complete a trusted-browser checkpoint to add one.')}
+                                    {t('profile.settings.devices.emptySignedInBody', {}, 'A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.')}
                                 </p>
                             </div>
                         ) : (
                             <div className="mt-4 grid gap-3">
-                                {trustedDevices.map((device) => {
-                                    const active = device?.active !== false && !['revoked', 'expired'].includes(device?.status);
+                                {orderedTrustedDevices.map((device) => {
+                                    const active = isTrustedDeviceActive(device);
                                     const isPasskeyDevice = device?.method === 'webauthn';
                                     const isEditing = editingDeviceId === device.deviceId;
                                     const isConfirmingRevoke = confirmingRevokeDeviceId === device.deviceId;
@@ -437,7 +539,7 @@ export default function SettingsSection({
                                             : device.isMfaFactor
                                                 ? t('profile.settings.devices.mfaPasskey', {}, 'MFA passkey')
                                                 : t('profile.settings.devices.recognitionPasskey', {}, 'Recognition passkey'))
-                                        : t('profile.settings.devices.rememberedBrowser', {}, 'Remembered browser · not MFA');
+                                        : t('profile.settings.devices.rememberedBrowserNotMfa', {}, 'Remembered browser - not MFA');
                                     const syncLabel = isPasskeyDevice
                                         ? (device.backedUp
                                             ? t('profile.settings.devices.syncedPasskey', {}, 'Synced passkey')
@@ -590,10 +692,10 @@ export default function SettingsSection({
                                         )}
                                     </span>
                                 </div>
-                                <p className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                <h4 className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                                     <ShieldCheck className="h-4 w-4 text-neo-cyan" />
                                     {t('profile.settings.security.recoveryCodesTitle', {}, 'MFA backup recovery codes')}
-                                </p>
+                                </h4>
                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
                                     {mfaFactorReady
                                         ? t('profile.settings.security.recoveryCodesBody', {}, 'Generate one-time backup codes so this MFA account has a recovery path that still stays server-gated and single-use.')
@@ -667,6 +769,8 @@ export default function SettingsSection({
                             </div>
                         ) : null}
                     </div>
+                    </>
+                    ) : null}
 
                     <div className="grid gap-3 md:grid-cols-2">
                         <div className={`rounded-[1.6rem] border p-4 ${hasOtpReadyIdentity ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>

@@ -4028,6 +4028,91 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "This account needs a fresh session sync.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "auth.trustedDevice.confirming": {
+        id: "auth.trustedDevice.confirming",
+        defaultMessage: "Confirming device…",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.exit.anotherAccount": {
+        id: "auth.trustedDevice.exit.anotherAccount",
+        defaultMessage: "Use another account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.eyebrow.admin": {
+        id: "auth.trustedDevice.eyebrow.admin",
+        defaultMessage: "Admin access",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.eyebrow.public": {
+        id: "auth.trustedDevice.eyebrow.public",
+        defaultMessage: "Secure sign-in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.feedback.browserIdentityReset": {
+        id: "auth.trustedDevice.feedback.browserIdentityReset",
+        defaultMessage: "Browser identity reset. Start the device check again.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.method.groupLabel": {
+        id: "auth.trustedDevice.method.groupLabel",
+        defaultMessage: "Device verification methods",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.method.recommended": {
+        id: "auth.trustedDevice.method.recommended",
+        defaultMessage: "Recommended",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.method.tryAnother": {
+        id: "auth.trustedDevice.method.tryAnother",
+        defaultMessage: "Try another way",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.method.unavailable": {
+        id: "auth.trustedDevice.method.unavailable",
+        defaultMessage: "The required method is not available in this browser. Use a supported browser or another device.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.progress.accountVerified": {
+        id: "auth.trustedDevice.progress.accountVerified",
+        defaultMessage: "Account verified",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.progress.confirmDevice": {
+        id: "auth.trustedDevice.progress.confirmDevice",
+        defaultMessage: "Confirm device",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.progress.extraCheck": {
+        id: "auth.trustedDevice.progress.extraCheck",
+        defaultMessage: "Extra check if needed",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.progress.label": {
+        id: "auth.trustedDevice.progress.label",
+        defaultMessage: "Sign-in progress",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.proofBindingNote": {
+        id: "auth.trustedDevice.proofBindingNote",
+        defaultMessage: "Device proof is short-lived and bound to this sign-in.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.reauth.passwordLabel": {
+        id: "auth.trustedDevice.reauth.passwordLabel",
+        defaultMessage: "Account password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.resetBrowser": {
+        id: "auth.trustedDevice.resetBrowser",
+        defaultMessage: "Reset this browser",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "auth.trustedDevice.resetBrowserSession": {
+        id: "auth.trustedDevice.resetBrowserSession",
+        defaultMessage: "Reset browser session",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "bundles.ai.prompt.explainGroundedBundle": {
         id: "bundles.ai.prompt.explainGroundedBundle",
         defaultMessage: "Explain this grounded bundle for the shopper, highlight tradeoffs, and suggest next actions.",
@@ -7008,6 +7093,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Rename",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "common.retry": {
+        id: "common.retry",
+        defaultMessage: "Retry",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.retrying": {
+        id: "common.retrying",
+        defaultMessage: "Retrying...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "common.revoke": {
         id: "common.revoke",
         defaultMessage: "Revoke",
@@ -8818,19 +8913,49 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Use saved identity",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.action.backToForm": {
-        id: "login.action.backToForm",
-        defaultMessage: "Back to form",
+    "login.action.backToRecoveryDetails": {
+        id: "login.action.backToRecoveryDetails",
+        defaultMessage: "Back to recovery details",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.action.backToSignInDetails": {
+        id: "login.action.backToSignInDetails",
+        defaultMessage: "Back to sign-in details",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.action.forgotPassword": {
         id: "login.action.forgotPassword",
-        defaultMessage: "Forgot Password?",
+        defaultMessage: "Forgot password?",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.actionTemporarilyUnavailable": {
         id: "login.actionTemporarilyUnavailable",
         defaultMessage: "Temporarily Unavailable",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.brand.initials": {
+        id: "login.brand.initials",
+        defaultMessage: "AR",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.checkpoint.body": {
+        id: "login.checkpoint.body",
+        defaultMessage: "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.checkpoint.deviceTitle": {
+        id: "login.checkpoint.deviceTitle",
+        defaultMessage: "Verify this device",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.checkpoint.mfaTitle": {
+        id: "login.checkpoint.mfaTitle",
+        defaultMessage: "Complete multi-factor verification",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.checkpoint.stayHere": {
+        id: "login.checkpoint.stayHere",
+        defaultMessage: "Keep this page open. Do not submit your sign-in details again.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.desktopBrowser.button": {
@@ -8840,7 +8965,7 @@ export const stableUiMessages = defineMessages({
     },
     "login.desktopBrowser.cancel": {
         id: "login.desktopBrowser.cancel",
-        defaultMessage: "Cancel Browser Sign-In",
+        defaultMessage: "Cancel browser sign-in",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.desktopBrowser.completingDetail": {
@@ -8970,22 +9095,22 @@ export const stableUiMessages = defineMessages({
     },
     "login.field.confirmPassword": {
         id: "login.field.confirmPassword",
-        defaultMessage: "Confirm Password",
+        defaultMessage: "Confirm password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.field.email": {
         id: "login.field.email",
-        defaultMessage: "Email Address",
+        defaultMessage: "Email address",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.field.fullName": {
         id: "login.field.fullName",
-        defaultMessage: "Full Name",
+        defaultMessage: "Full name",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.field.newPassword": {
         id: "login.field.newPassword",
-        defaultMessage: "New Password",
+        defaultMessage: "New password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.field.password": {
@@ -8995,7 +9120,7 @@ export const stableUiMessages = defineMessages({
     },
     "login.field.phone": {
         id: "login.field.phone",
-        defaultMessage: "Phone Number",
+        defaultMessage: "Phone number",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.field.phoneCountry": {
@@ -9003,14 +9128,9 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Country calling code",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.field.phoneWithDialCode": {
-        id: "login.field.phoneWithDialCode",
-        defaultMessage: "{label} {dialCode}",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "login.field.registeredEmail": {
         id: "login.field.registeredEmail",
-        defaultMessage: "Registered Email",
+        defaultMessage: "Registered email",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.info.forgot.dual": {
@@ -9158,14 +9278,9 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Remember your password?",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.or": {
-        id: "login.or",
-        defaultMessage: "or",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.and": {
-        id: "login.otp.and",
-        defaultMessage: "and",
+    "login.otherOptions": {
+        id: "login.otherOptions",
+        defaultMessage: "Other secure sign-in options",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.otp.backend.checkForCode.title": {
@@ -9183,9 +9298,29 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "If the account details are valid, a 6-digit verification code has been sent.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.otp.defaultSent": {
-        id: "login.otp.defaultSent",
-        defaultMessage: "We sent a 6-digit code to",
+    "login.otp.codeLabel": {
+        id: "login.otp.codeLabel",
+        defaultMessage: "Six-digit verification code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.compactDefault": {
+        id: "login.otp.compactDefault",
+        defaultMessage: "Enter the 6-digit verification code we sent you.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.compactEmail": {
+        id: "login.otp.compactEmail",
+        defaultMessage: "Enter the 6-digit code sent to {email}. Phone verification follows.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.compactPhone": {
+        id: "login.otp.compactPhone",
+        defaultMessage: "Enter the 6-digit code sent to {phone}.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.otp.digitLabel": {
+        id: "login.otp.digitLabel",
+        defaultMessage: "Verification code digit {position}",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.otp.email.codeSent.detail": {
@@ -9206,41 +9341,6 @@ export const stableUiMessages = defineMessages({
     "login.otp.email.codesResent.title": {
         id: "login.otp.email.codesResent.title",
         defaultMessage: "Codes Re-Sent",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.emailStepForgotPrefix": {
-        id: "login.otp.emailStepForgotPrefix",
-        defaultMessage: "Your Firebase SMS code for",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.emailStepForgotSuffix": {
-        id: "login.otp.emailStepForgotSuffix",
-        defaultMessage: "will unlock password recovery next.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.emailStepPrefix": {
-        id: "login.otp.emailStepPrefix",
-        defaultMessage: "Step 1 of 2. We sent a 6-digit email code to",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.emailStepSigninPrefix": {
-        id: "login.otp.emailStepSigninPrefix",
-        defaultMessage: "Your Firebase SMS code for",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.emailStepSigninSuffix": {
-        id: "login.otp.emailStepSigninSuffix",
-        defaultMessage: "will complete the same login next.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.emailStepSignupPrefix": {
-        id: "login.otp.emailStepSignupPrefix",
-        defaultMessage: "Your Firebase SMS code for",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.emailStepSignupSuffix": {
-        id: "login.otp.emailStepSignupSuffix",
-        defaultMessage: "will finish activating this account next.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.otp.error.incomplete": {
@@ -9276,11 +9376,6 @@ export const stableUiMessages = defineMessages({
     "login.otp.firebase.smsSent.title": {
         id: "login.otp.firebase.smsSent.title",
         defaultMessage: "Firebase SMS Sent",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.firebaseSent": {
-        id: "login.otp.firebaseSent",
-        defaultMessage: "We sent a 6-digit Firebase SMS code to",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.otp.mode.accountSetup": {
@@ -9323,29 +9418,9 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "unlock password reset",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.otp.phoneStepForgot": {
-        id: "login.otp.phoneStepForgot",
-        defaultMessage: "to continue password recovery.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.phoneStepPrefix": {
-        id: "login.otp.phoneStepPrefix",
-        defaultMessage: "Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.phoneStepSignin": {
-        id: "login.otp.phoneStepSignin",
-        defaultMessage: "to finish signing in.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.otp.phoneStepSignup": {
-        id: "login.otp.phoneStepSignup",
-        defaultMessage: "to activate the account.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "login.otp.resend": {
         id: "login.otp.resend",
-        defaultMessage: "Resend OTP",
+        defaultMessage: "Resend code",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.otp.resendIn": {
@@ -9355,32 +9430,32 @@ export const stableUiMessages = defineMessages({
     },
     "login.otp.title": {
         id: "login.otp.title",
-        defaultMessage: "Enter Verification Code",
+        defaultMessage: "Enter verification code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.password.placeholder": {
+        id: "login.password.placeholder",
+        defaultMessage: "Enter your password",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.phone.inputLabel": {
+        id: "login.phone.inputLabel",
+        defaultMessage: "Phone number {dialCode}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.phoneHint.compact": {
+        id: "login.phoneHint.compact",
+        defaultMessage: "We will verify this sign-in with email and phone codes.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.phoneHint.default": {
         id: "login.phoneHint.default",
-        defaultMessage: "OTP will be sent to your email & phone",
+        defaultMessage: "We will send a verification code to your email and phone.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.phoneHint.fallback": {
         id: "login.phoneHint.fallback",
-        defaultMessage: "Firebase SMS is unavailable here. Secure backup OTP will be sent through the available secure verification channel instead.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.phoneHint.forgot": {
-        id: "login.phoneHint.forgot",
-        defaultMessage: "Recovery sends one code to email and one Firebase SMS code to your phone.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.phoneHint.signin": {
-        id: "login.phoneHint.signin",
-        defaultMessage: "Sign-in sends one code to email and one Firebase SMS code to your phone.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.phoneHint.signup": {
-        id: "login.phoneHint.signup",
-        defaultMessage: "Signup sends one code to email and one Firebase SMS code to your phone.",
+        defaultMessage: "SMS delivery is unavailable here, so the available secure backup verification channel will be used.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.placeholder.email": {
@@ -9390,7 +9465,7 @@ export const stableUiMessages = defineMessages({
     },
     "login.placeholder.fullName": {
         id: "login.placeholder.fullName",
-        defaultMessage: "John Doe",
+        defaultMessage: "Your full name",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.placeholder.phoneLocal": {
@@ -9400,22 +9475,22 @@ export const stableUiMessages = defineMessages({
     },
     "login.processing": {
         id: "login.processing",
-        defaultMessage: "PROCESSING...",
+        defaultMessage: "Processing",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.reset.bodyPrefix": {
-        id: "login.reset.bodyPrefix",
-        defaultMessage: "Recovery is verified for",
+    "login.reset.compactBody": {
+        id: "login.reset.compactBody",
+        defaultMessage: "Recovery is verified. Set a strong new password for this account.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.reset.bodySuffix": {
-        id: "login.reset.bodySuffix",
-        defaultMessage: "Set a strong new password for the account tied to",
+    "login.reset.placeholder.confirmNewPassword": {
+        id: "login.reset.placeholder.confirmNewPassword",
+        defaultMessage: "Re-enter the new password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.reset.title": {
-        id: "login.reset.title",
-        defaultMessage: "Create New Password",
+    "login.reset.placeholder.newPassword": {
+        id: "login.reset.placeholder.newPassword",
+        defaultMessage: "Enter a new password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.reset.verifiedDual": {
@@ -9433,9 +9508,14 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Recovery Verified",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.secureEntry": {
-        id: "login.secureEntry",
-        defaultMessage: "Secure Entry Layer",
+    "login.secureSignIn": {
+        id: "login.secureSignIn",
+        defaultMessage: "Secure sign-in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.securityWarning": {
+        id: "login.securityWarning",
+        defaultMessage: "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.signal.delivery": {
@@ -9563,64 +9643,24 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Reset window",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.social.disabledHost": {
-        id: "login.social.disabledHost",
-        defaultMessage: "Social sign-in is disabled on this host",
+    "login.signup.placeholder.confirmPassword": {
+        id: "login.signup.placeholder.confirmPassword",
+        defaultMessage: "Re-enter your password",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.social.enablePrefix": {
-        id: "login.social.enablePrefix",
-        defaultMessage: "Use email and OTP sign-in here. To enable Google, Facebook, GitHub, and X, authorize",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.enableSuffix": {
-        id: "login.social.enableSuffix",
-        defaultMessage: "in Firebase Authentication settings.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.mobileConfigBody": {
-        id: "login.social.mobileConfigBody",
-        defaultMessage: "The installed app is using the stable email and OTP lane until Android/iOS OAuth credentials are attached to the native build.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.mobileConfigTitle": {
-        id: "login.social.mobileConfigTitle",
-        defaultMessage: "Mobile social sign-in needs native config",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.paused": {
-        id: "login.social.paused",
-        defaultMessage: "Social sign-in paused on this tab",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.runtimeBlockedPrefix": {
-        id: "login.social.runtimeBlockedPrefix",
-        defaultMessage: "Firebase rejected popup sign-in for",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.runtimeBlockedSuffix": {
-        id: "login.social.runtimeBlockedSuffix",
-        defaultMessage: "in this tab. Refresh after confirming the domain is authorized, or continue with email and OTP now.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.runtimeCode": {
-        id: "login.social.runtimeCode",
-        defaultMessage: "Runtime code:",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.thisDomain": {
-        id: "login.social.thisDomain",
-        defaultMessage: "this domain",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.social.unavailable": {
-        id: "login.social.unavailable",
-        defaultMessage: "Social sign-in is unavailable on this deployment",
+    "login.social.duo": {
+        id: "login.social.duo",
+        defaultMessage: "Continue with Duo",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.social.unavailableBody": {
         id: "login.social.unavailableBody",
-        defaultMessage: "Firebase authentication did not initialize cleanly for this frontend build. Email and OTP sign-in remain available.",
+        defaultMessage: "Social sign-in could not initialize. Email, phone, and password sign-in remain available.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.social.useStandard": {
+        id: "login.social.useStandard",
+        defaultMessage: "Social sign-in is unavailable here. Use email, phone, and password instead.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.submit.reset": {
@@ -9685,7 +9725,7 @@ export const stableUiMessages = defineMessages({
     },
     "login.terms.middle": {
         id: "login.terms.middle",
-        defaultMessage: "and allow",
+        defaultMessage: "and",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.terms.prefix": {
@@ -13748,14 +13788,14 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Device-bound or sync unknown",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.devices.emptyBody": {
-        id: "profile.settings.devices.emptyBody",
-        defaultMessage: "Register a passkey or complete a trusted-browser checkpoint to add one.",
+    "profile.settings.devices.emptySignedInBody": {
+        id: "profile.settings.devices.emptySignedInBody",
+        defaultMessage: "A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.devices.emptyTitle": {
-        id: "profile.settings.devices.emptyTitle",
-        defaultMessage: "No managed devices yet",
+    "profile.settings.devices.emptySignedInTitle": {
+        id: "profile.settings.devices.emptySignedInTitle",
+        defaultMessage: "No signed-in devices or remembered browsers",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.devices.lastVerified": {
@@ -13798,9 +13838,9 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Recognition passkey",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.devices.rememberedBrowser": {
-        id: "profile.settings.devices.rememberedBrowser",
-        defaultMessage: "Remembered browser · not MFA",
+    "profile.settings.devices.rememberedBrowserNotMfa": {
+        id: "profile.settings.devices.rememberedBrowserNotMfa",
+        defaultMessage: "Remembered browser - not MFA",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.devices.renameAria": {
@@ -13828,6 +13868,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Revoking...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.settings.devices.signedInTitle": {
+        id: "profile.settings.devices.signedInTitle",
+        defaultMessage: "Signed-in devices and remembered browsers",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.settings.devices.syncEligible": {
         id: "profile.settings.devices.syncEligible",
         defaultMessage: "Sync eligible",
@@ -13836,11 +13881,6 @@ export const stableUiMessages = defineMessages({
     "profile.settings.devices.syncedPasskey": {
         id: "profile.settings.devices.syncedPasskey",
         defaultMessage: "Synced passkey",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.settings.devices.title": {
-        id: "profile.settings.devices.title",
-        defaultMessage: "Devices, passkeys & remembered browsers",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.devices.unknown": {
@@ -13908,6 +13948,41 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Safety controls",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.settings.security.centerErrorBody": {
+        id: "profile.settings.security.centerErrorBody",
+        defaultMessage: "Your security settings could not be loaded. Your factors and devices have not been changed.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.security.centerErrorReference": {
+        id: "profile.settings.security.centerErrorReference",
+        defaultMessage: "Reference: {reference}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.security.centerErrorTitle": {
+        id: "profile.settings.security.centerErrorTitle",
+        defaultMessage: "Security settings could not load",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.security.centerLoadingBody": {
+        id: "profile.settings.security.centerLoadingBody",
+        defaultMessage: "Checking your passkeys, MFA methods, signed-in devices, and remembered browsers.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.security.centerLoadingTitle": {
+        id: "profile.settings.security.centerLoadingTitle",
+        defaultMessage: "Loading security settings",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.security.centerRefreshing": {
+        id: "profile.settings.security.centerRefreshing",
+        defaultMessage: "Refreshing security settings...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.security.centerStaleData": {
+        id: "profile.settings.security.centerStaleData",
+        defaultMessage: "Showing the last security settings loaded on this page.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.settings.security.incomplete": {
         id: "profile.settings.security.incomplete",
         defaultMessage: "Incomplete",
@@ -13943,6 +14018,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Checking factors...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.settings.security.mfaEmptyBody": {
+        id: "profile.settings.security.mfaEmptyBody",
+        defaultMessage: "Register a passkey or set up an authenticator app to add a second sign-in factor.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.security.mfaEmptyTitle": {
+        id: "profile.settings.security.mfaEmptyTitle",
+        defaultMessage: "No MFA method enrolled yet",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.settings.security.mfaFactorSummary": {
         id: "profile.settings.security.mfaFactorSummary",
         defaultMessage: "{passkeys} passkeys | {totp} authenticator apps",
@@ -13956,11 +14041,6 @@ export const stableUiMessages = defineMessages({
     "profile.settings.security.mfaReady": {
         id: "profile.settings.security.mfaReady",
         defaultMessage: "MFA ready",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.settings.security.mfaTitle": {
-        id: "profile.settings.security.mfaTitle",
-        defaultMessage: "Multi-factor security center",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.security.openRecovery": {
@@ -13986,6 +14066,11 @@ export const stableUiMessages = defineMessages({
     "profile.settings.security.passkeyRegistering": {
         id: "profile.settings.security.passkeyRegistering",
         defaultMessage: "Registering...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.security.passkeysAndMfaTitle": {
+        id: "profile.settings.security.passkeysAndMfaTitle",
+        defaultMessage: "Passkeys and MFA",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.security.password": {

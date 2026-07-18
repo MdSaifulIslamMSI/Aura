@@ -478,6 +478,20 @@ describe('trustedDeviceChallengeService', () => {
             privateKeyPem: privateKey,
         });
 
+        const invalidVerification = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            token: assertChallenge.token,
+            proof: Buffer.from('invalid-signature').toString('base64'),
+            deviceId,
+            deviceLabel: 'Replay laptop',
+            ...authContext,
+        });
+
+        expect(invalidVerification).toEqual({
+            success: false,
+            reason: 'Trusted device signature invalid',
+        });
+
         const firstVerification = await service.verifyTrustedDeviceChallenge({
             user: { _id: userId, trustedDevices: dbState.trustedDevices },
             token: assertChallenge.token,
@@ -1064,6 +1078,19 @@ describe('trustedDeviceChallengeService', () => {
             publicJwk: webauthnKeyPair.publicJwk,
         });
 
+        const invalidEnrollment = await service.verifyTrustedDeviceChallenge({
+            user: { ...baseUser, trustedDevices: [] },
+            token: enrollChallenge.token,
+            method: 'webauthn',
+            credential: {},
+            deviceId,
+            deviceLabel: 'Passkey laptop',
+            ...authContext,
+        });
+
+        expect(invalidEnrollment.success).toBe(false);
+        expect(invalidEnrollment.reason).not.toBe('Device challenge already used');
+
         const enrollResult = await service.verifyTrustedDeviceChallenge({
             user: { ...baseUser, trustedDevices: [] },
             token: enrollChallenge.token,
@@ -1125,6 +1152,19 @@ describe('trustedDeviceChallengeService', () => {
             privateKey: webauthnKeyPair.privateKey,
             signCount: 5,
         });
+
+        const invalidAttempt = await service.verifyTrustedDeviceChallenge({
+            user: { ...baseUser, trustedDevices: dbState.trustedDevices },
+            token: assertChallenge.token,
+            method: 'webauthn',
+            credential: {},
+            deviceId,
+            deviceLabel: 'Passkey laptop',
+            ...authContext,
+        });
+
+        expect(invalidAttempt.success).toBe(false);
+        expect(invalidAttempt.reason).not.toBe('Device challenge already used');
 
         const assertResult = await service.verifyTrustedDeviceChallenge({
             user: { ...baseUser, trustedDevices: dbState.trustedDevices },
