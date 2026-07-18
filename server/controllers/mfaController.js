@@ -272,6 +272,7 @@ const persistMfaSession = async ({
     const additionalAmr = normalizedMethod === MFA_METHODS.PASSKEY
         ? ['webauthn', 'passkey', 'mfa']
         : [normalizedMethod, 'mfa'].filter(Boolean);
+    const stepUpUntil = getStepUpExpiry();
     const authSession = await refreshBrowserSession({
         req,
         res,
@@ -281,7 +282,8 @@ const persistMfaSession = async ({
         authToken: req.authToken || null,
         rotate: Boolean(req.authSession?.sessionId),
         deviceMethod: normalizedMethod === MFA_METHODS.PASSKEY ? 'webauthn' : '',
-        stepUpUntil: getStepUpExpiry(),
+        stepUpUntil,
+        webAuthnStepUpUntil: normalizedMethod === MFA_METHODS.PASSKEY ? stepUpUntil : null,
         additionalAmr,
         riskState,
     });

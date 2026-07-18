@@ -64,6 +64,7 @@ describe('authController Duo step-up gates', () => {
                 amr: ['webauthn'],
                 deviceMethod: 'webauthn',
                 stepUpUntil: new Date(Date.now() + 60_000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() + 60_000).toISOString(),
             },
             authUid: 'firebase-user-1',
         };

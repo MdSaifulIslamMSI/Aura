@@ -87,7 +87,7 @@ const getMethodAction = (method, mode) => {
 
 const isMethodSupported = (method, supportProfile) => (
   method === 'webauthn'
-    ? Boolean(supportProfile.webauthn)
+    ? Boolean(supportProfile.webauthn && supportProfile.webauthnHostEligible)
     : Boolean(supportProfile.browserKeyFallback)
 );
 

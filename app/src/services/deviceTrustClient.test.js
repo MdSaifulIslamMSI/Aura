@@ -196,6 +196,52 @@ describe('deviceTrustClient', () => {
     });
   });
 
+  it('does not advertise a production-RP passkey ceremony inside the desktop loopback renderer', async () => {
+    const { indexedDB } = createIndexedDbMock();
+    const createCredential = vi.fn();
+
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:47832',
+      protocol: 'http:',
+      origin: 'http://localhost:47832',
+    });
+    setDesktopBridge({ isDesktop: true });
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(window, 'PublicKeyCredential', { configurable: true, value: class PublicKeyCredential {} });
+    Object.defineProperty(window, 'indexedDB', { configurable: true, value: indexedDB });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: {
+        randomUUID: () => 'desktop-loopback-device',
+        subtle: {
+          generateKey: vi.fn(),
+          exportKey: vi.fn(),
+          sign: vi.fn(),
+        },
+      },
+    });
+    Object.defineProperty(window.navigator, 'credentials', {
+      configurable: true,
+      value: { create: createCredential, get: vi.fn() },
+    });
+
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    expect(deviceTrustClient.getTrustedDeviceSupportProfile()).toMatchObject({
+      webauthn: false,
+      browserKeyFallback: true,
+      runtimeHost: 'localhost',
+      webauthnHostEligible: false,
+    });
+    await expect(deviceTrustClient.signTrustedDeviceChallenge({
+      mode: 'enroll',
+      availableMethods: ['webauthn', 'browser_key'],
+      webauthn: { registrationOptions: { challenge: 'AQ', user: { id: 'AQ' } } },
+    }, { preferredMethod: 'webauthn' })).rejects.toThrow(/hosted HTTPS origin/i);
+    expect(createCredential).not.toHaveBeenCalled();
+  });
+
   it('falls back to a browser key when WebAuthn fails with an RP-ID host mismatch', async () => {
     const indexedDbMock = createIndexedDbMock();
     const createCredentialMock = vi.fn().mockRejectedValue(Object.assign(
@@ -604,6 +650,44 @@ describe('deviceTrustClient', () => {
       expiresAt,
     });
     expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('expiring-device-token');
+  });
+
+  it('adopts the hosted-browser device identity with its desktop-bound session', async () => {
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:47831',
+      protocol: 'http:',
+      origin: 'http://localhost:47831',
+    });
+    setDesktopBridge({ isDesktop: true });
+    const deviceTrustClient = await loadDeviceTrustModule();
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+
+    deviceTrustClient.adoptTrustedDeviceSession({
+      deviceId: 'aura_hosted_browser_device_1',
+      deviceSessionToken: 'desktop-bound-device-session',
+      expiresAt,
+    });
+
+    expect(deviceTrustClient.getTrustedDeviceId()).toBe('aura_hosted_browser_device_1');
+    expect(localStorage.getItem('aura_trusted_device_id_v1')).toBe('aura_hosted_browser_device_1');
+    expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('desktop-bound-device-session');
+    expect(JSON.parse(localStorage.getItem('aura_trusted_device_session_v1'))).toEqual({
+      token: 'desktop-bound-device-session',
+      expiresAt,
+    });
+  });
+
+  it('rejects an invalid hosted-browser device identity without replacing local state', async () => {
+    localStorage.setItem('aura_trusted_device_id_v1', 'aura_existing_device_123');
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    expect(() => deviceTrustClient.adoptTrustedDeviceSession({
+      deviceId: '../invalid',
+      deviceSessionToken: 'desktop-bound-device-session',
+    })).toThrow('Desktop trusted-device identity is invalid.');
+    expect(deviceTrustClient.getTrustedDeviceId()).toBe('aura_existing_device_123');
+    expect(deviceTrustClient.getTrustedDeviceSessionToken()).toBe('');
   });
 
   it('clears expired trusted-device session tokens before adding headers', async () => {

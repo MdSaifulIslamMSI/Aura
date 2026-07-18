@@ -45,6 +45,7 @@ describe('browserSessionService', () => {
             secure: true,
         };
         const res = createResponseStub();
+        const passkeyStepUpUntil = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
         const session = await browserSessionService.createBrowserSession({
             req,
@@ -75,6 +76,7 @@ describe('browserSessionService', () => {
             },
             deviceMethod: 'webauthn',
             stepUpUntil: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+            webAuthnStepUpUntil: passkeyStepUpUntil,
             additionalAmr: ['otp', 'webauthn'],
         });
 
@@ -88,6 +90,7 @@ describe('browserSessionService', () => {
         expect(session.deviceMethod).toBe('webauthn');
         expect(session.aal).toBe('aal2');
         expect(session.amr).toEqual(expect.arrayContaining(['password', 'otp', 'webauthn']));
+        expect(session.webAuthnStepUpUntil).toBe(passkeyStepUpUntil);
         expect(storedSession).toMatchObject({
             sessionId: session.sessionId,
             firebaseUid: 'firebase-admin-1',
@@ -99,6 +102,23 @@ describe('browserSessionService', () => {
         expect(setCookieHeader[0]).toContain('HttpOnly');
         expect(setCookieHeader[0]).toContain('Secure');
         expect(setCookieHeader[0]).toContain('SameSite=Strict');
+
+        const otpStepUpUntil = new Date(Date.now() + 9 * 60 * 1000).toISOString();
+        const refreshedSession = await browserSessionService.refreshBrowserSession({
+            req,
+            currentSession: session,
+            user: {
+                _id: '507f1f77bcf86cd799439011',
+                email: 'admin@example.com',
+                isAdmin: true,
+            },
+            authUid: 'firebase-admin-1',
+            stepUpUntil: otpStepUpUntil,
+            additionalAmr: ['otp', 'mfa'],
+        });
+
+        expect(refreshedSession.stepUpUntil).toBe(otpStepUpUntil);
+        expect(refreshedSession.webAuthnStepUpUntil).toBe(passkeyStepUpUntil);
     });
 
     test('does not infer AAL2 from a WebAuthn transport when UV was not observed', async () => {

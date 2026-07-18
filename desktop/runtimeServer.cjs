@@ -296,6 +296,20 @@ const applyDesktopAuthCors = (request, response, allowedOrigins) => {
     return true;
 };
 
+const isOpaqueDesktopAuthNavigation = (request = {}) => {
+    const headers = request.headers || {};
+    const contentType = String(headers['content-type'] || '')
+        .split(';')[0]
+        .trim()
+        .toLowerCase();
+
+    return String(headers.origin || '').trim().toLowerCase() === 'null'
+        && contentType === 'application/x-www-form-urlencoded'
+        && String(headers['sec-fetch-site'] || '').trim().toLowerCase() === 'cross-site'
+        && String(headers['sec-fetch-mode'] || '').trim().toLowerCase() === 'navigate'
+        && String(headers['sec-fetch-dest'] || '').trim().toLowerCase() === 'document';
+};
+
 const createLocalRateLimiter = ({ windowMs, max }) => {
     const windows = new Map();
 
@@ -600,7 +614,9 @@ const startRuntimeServer = async ({
         express.urlencoded({ extended: false, limit: '16kb' }),
         (request, response) => {
         const hasOrigin = Boolean(String(request.headers.origin || '').trim());
-        if (hasOrigin && !applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
+        const hasTrustedCorsOrigin = hasOrigin
+            && applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins);
+        if (hasOrigin && !hasTrustedCorsOrigin && !isOpaqueDesktopAuthNavigation(request)) {
             response.status(403).json({
                 success: false,
                 message: 'Desktop sign-in callback origin is not trusted.',
@@ -632,7 +648,9 @@ const startRuntimeServer = async ({
         express.urlencoded({ extended: false, limit: '16kb' }),
         (request, response) => {
         const hasOrigin = Boolean(String(request.headers.origin || '').trim());
-        if (hasOrigin && !applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
+        const hasTrustedCorsOrigin = hasOrigin
+            && applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins);
+        if (hasOrigin && !hasTrustedCorsOrigin && !isOpaqueDesktopAuthNavigation(request)) {
             response.status(403).json({
                 success: false,
                 message: 'Desktop sign-in callback origin is not trusted.',
@@ -753,6 +771,7 @@ module.exports = {
     RUNTIME_CALLBACK_HOST,
     buildProxyOptions,
     isLoopbackBackendOrigin,
+    isOpaqueDesktopAuthNavigation,
     applyLocalFrontendCachePolicy,
     createDesktopAuthBroker,
     createLocalRateLimiter,

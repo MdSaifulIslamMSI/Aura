@@ -679,6 +679,7 @@ describe('Auth sync lattice challenge policy', () => {
         jest.clearAllMocks();
         jest.dontMock('../services/authSessionService');
         jest.dontMock('../services/browserSessionService');
+        jest.dontMock('../services/desktopHandoffAssuranceService');
         jest.dontMock('../services/trustedDeviceChallengeService');
     });
 
@@ -692,6 +693,7 @@ describe('Auth sync lattice challenge policy', () => {
         userMfa = null,
         trustedDevices = [],
         recoveryCodeState = { activeCount: 0 },
+        desktopHandoffGrant = null,
     } = {}) => {
         let isolatedApp;
         const challengeToken = buildRuntimeSecret('challenge-ref');
@@ -703,9 +705,11 @@ describe('Auth sync lattice challenge policy', () => {
             deviceId: 'device-test-1234',
         });
         const refreshBrowserSession = jest.fn().mockImplementation(({
+            req = {},
             riskState = '',
             deviceMethod = '',
             stepUpUntil = null,
+            webAuthnStepUpUntil = null,
             additionalAmr = [],
         } = {}) => Promise.resolve({
             sessionId: 'session-created-1',
@@ -715,13 +719,15 @@ describe('Auth sync lattice challenge policy', () => {
             displayName: 'Verified User',
             phoneNumber: '+919876543210',
             providerIds: ['password'],
-            deviceId: 'device-test-1234',
+            deviceId: req.headers?.['x-aura-device-id'] || 'device-test-1234',
             deviceMethod,
             amr: ['password', ...additionalAmr],
             riskState: riskState || 'standard',
             stepUpUntil,
+            webAuthnStepUpUntil,
         }));
         const revokeBrowserSession = jest.fn().mockResolvedValue(undefined);
+        const consumeDesktopHandoffAssuranceGrant = jest.fn().mockResolvedValue(desktopHandoffGrant);
 
         jest.isolateModules(() => {
             process.env.AUTH_DEVICE_CHALLENGE_MODE = challengeMode;
@@ -765,6 +771,11 @@ describe('Auth sync lattice challenge policy', () => {
                 };
             });
 
+            jest.doMock('../services/desktopHandoffAssuranceService', () => ({
+                createDesktopHandoffAssuranceGrant: jest.fn(),
+                consumeDesktopHandoffAssuranceGrant,
+            }));
+
             jest.doMock('../services/trustedDeviceChallengeService', () => ({
                 TRUSTED_DEVICE_SESSION_HEADER: 'x-aura-device-session',
                 extractTrustedDeviceContext: jest.fn((req) => ({
@@ -777,7 +788,13 @@ describe('Auth sync lattice challenge policy', () => {
                 issueTrustedDeviceChallenge,
                 resolveTrustedDeviceBootstrapSignal: jest.fn().mockReturnValue({ verified: false, deviceId: '', deviceSessionHash: '' }),
                 verifyTrustedDeviceChallenge: jest.fn(),
-                verifyTrustedDeviceSession: jest.fn().mockReturnValue({ success: false }),
+                verifyTrustedDeviceSession: jest.fn(({ deviceId = '', deviceSessionToken = '' } = {}) => ({
+                    success: Boolean(
+                        desktopHandoffGrant
+                        && deviceId === desktopHandoffGrant.deviceId
+                        && deviceSessionToken === desktopHandoffGrant.deviceSessionToken
+                    ),
+                })),
             }));
 
             const express = require('express');
@@ -802,6 +819,10 @@ describe('Auth sync lattice challenge policy', () => {
                 req.authToken = {
                     email: 'verified@example.com',
                     email_verified: true,
+                    ...(desktopHandoffGrant ? {
+                        desktop_handoff: true,
+                        desktop_request_id: '123e4567-e89b-12d3-a456-426614174000',
+                    } : {}),
                 };
                 req.authSession = authSession;
                 next();
@@ -809,7 +830,13 @@ describe('Auth sync lattice challenge policy', () => {
             isolatedApp.use(errorHandler);
         });
 
-        return { isolatedApp, issueTrustedDeviceChallenge, refreshBrowserSession, revokeBrowserSession };
+        return {
+            isolatedApp,
+            consumeDesktopHandoffAssuranceGrant,
+            issueTrustedDeviceChallenge,
+            refreshBrowserSession,
+            revokeBrowserSession,
+        };
     };
 
     test('POST /api/auth/sync does not require trusted device challenge by default', async () => {
@@ -916,6 +943,74 @@ describe('Auth sync lattice challenge policy', () => {
         expect(res.body.mfaPolicy).not.toHaveProperty('nextAssurance');
         expect(refreshBrowserSession).not.toHaveBeenCalled();
         expect(res.body.session.sessionId).toBeUndefined();
+    });
+
+    test('POST /api/auth/sync redeems hosted admin passkey assurance without a local WebAuthn challenge', async () => {
+        const credentialId = 'admin-passkey-credential-desktop-relay';
+        const desktopHandoffGrant = {
+            deviceId: 'aura_hosted_browser_device_1',
+            deviceMethod: 'webauthn',
+            deviceSessionToken: 'desktop-bound-device-session',
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            stepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
+            webAuthnStepUpUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
+            additionalAmr: ['webauthn', 'passkey', 'mfa', 'desktop_handoff'],
+        };
+        const {
+            isolatedApp,
+            consumeDesktopHandoffAssuranceGrant,
+            issueTrustedDeviceChallenge,
+            refreshBrowserSession,
+        } = buildIsolatedSyncApp({
+            isAdmin: true,
+            mfaEnabled: true,
+            userMfa: {
+                enabled: true,
+                defaultMethod: 'passkey',
+                passkeys: [{ credentialId }],
+            },
+            trustedDevices: [{
+                deviceId: desktopHandoffGrant.deviceId,
+                method: 'webauthn',
+                webauthnCredentialIdBase64Url: credentialId,
+                webauthnUserVerified: true,
+                credentialScope: 'admin',
+                adminEligibility: 'verified',
+                sessionVersion: 'desktop-relay-session-v1',
+            }],
+            desktopHandoffGrant,
+        });
+
+        const res = await request(isolatedApp)
+            .post('/api/auth/sync')
+            .set('x-aura-device-id', 'aura_old_desktop_device_1')
+            .send({
+                email: 'verified@example.com',
+                name: 'Verified User',
+                desktopHandoffRequestId: '123e4567-e89b-12d3-a456-426614174000',
+            });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toMatchObject({
+            status: 'authenticated',
+            deviceChallenge: null,
+            mfaChallenge: null,
+            deviceSessionToken: 'desktop-bound-device-session',
+            desktopHandoff: {
+                assuranceTransferred: true,
+                deviceId: 'aura_hosted_browser_device_1',
+                deviceMethod: 'webauthn',
+            },
+        });
+        expect(consumeDesktopHandoffAssuranceGrant).toHaveBeenCalledWith(expect.objectContaining({
+            desktopHandoffRequestId: '123e4567-e89b-12d3-a456-426614174000',
+        }));
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+        expect(refreshBrowserSession).toHaveBeenCalledWith(expect.objectContaining({
+            additionalAmr: ['webauthn', 'passkey', 'mfa', 'desktop_handoff'],
+            deviceMethod: 'webauthn',
+            webAuthnStepUpUntil: desktopHandoffGrant.webAuthnStepUpUntil,
+        }));
     });
 
     test('POST /api/auth/sync requires trusted-device proof before MFA when both gates apply', async () => {

@@ -70,6 +70,10 @@ const {
     verifyDesktopOwnerAccessAssertion,
 } = require('../services/desktopOwnerAccessService');
 const {
+    createDesktopHandoffAssuranceGrant,
+    consumeDesktopHandoffAssuranceGrant,
+} = require('../services/desktopHandoffAssuranceService');
+const {
     buildPublicMfaPolicy,
     evaluateLogin: evaluateMfaLoginPolicy,
     isAdminSubject,
@@ -222,13 +226,13 @@ const hasFreshPasskeySession = (req = {}) => {
     const amr = Array.isArray(req.authSession?.amr)
         ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
         : [];
-    const stepUpUntilMs = req.authSession?.stepUpUntil
-        ? new Date(req.authSession.stepUpUntil).getTime()
+    const webAuthnStepUpUntilMs = req.authSession?.webAuthnStepUpUntil
+        ? new Date(req.authSession.webAuthnStepUpUntil).getTime()
         : 0;
 
     return (deviceMethod === 'webauthn' || amr.includes('webauthn'))
-        && Number.isFinite(stepUpUntilMs)
-        && stepUpUntilMs > Date.now();
+        && Number.isFinite(webAuthnStepUpUntilMs)
+        && webAuthnStepUpUntilMs > Date.now();
 };
 
 const BOOTSTRAP_CHALLENGE_SCOPE_OTP_SEND_LOGIN = 'otp-send:login';
@@ -446,6 +450,7 @@ const persistBrowserSessionForUser = async ({
     rotate = false,
     deviceMethod = '',
     stepUpUntil = null,
+    webAuthnStepUpUntil = null,
     additionalAmr = [],
     riskState = '',
 } = {}) => {
@@ -462,6 +467,7 @@ const persistBrowserSessionForUser = async ({
         authToken: req.authToken || null,
         deviceMethod,
         stepUpUntil,
+        webAuthnStepUpUntil,
         additionalAmr,
         riskState,
         rotate,
@@ -1155,6 +1161,39 @@ const syncSession = asyncHandler(async (req, res) => {
         });
     }
 
+    const requestDeviceContext = extractTrustedDeviceContext(req);
+    const existingDeviceSession = verifyTrustedDeviceSession({
+        user,
+        authUid: req.authUid || req.authToken?.uid || '',
+        authToken: req.authToken || null,
+        deviceId: requestDeviceContext.deviceId,
+        deviceSessionToken: resolveTrustedDeviceSessionToken(req),
+    });
+    const desktopHandoffGrant = req.authToken?.desktop_handoff === true && !existingDeviceSession.success
+        ? await consumeDesktopHandoffAssuranceGrant({
+            authToken: req.authToken || null,
+            authUid: req.authUid || req.authToken?.uid || '',
+            desktopHandoffRequestId: req.body?.desktopHandoffRequestId || '',
+            user,
+        })
+        : null;
+
+    if (desktopHandoffGrant) {
+        req.headers['x-aura-device-id'] = desktopHandoffGrant.deviceId;
+        req.headers[TRUSTED_DEVICE_SESSION_HEADER] = desktopHandoffGrant.deviceSessionToken;
+        await persistBrowserSessionForUser({
+            req,
+            res,
+            user,
+            rotate: Boolean(req.authSession?.sessionId),
+            deviceMethod: desktopHandoffGrant.deviceMethod,
+            stepUpUntil: desktopHandoffGrant.stepUpUntil,
+            webAuthnStepUpUntil: desktopHandoffGrant.webAuthnStepUpUntil,
+            additionalAmr: desktopHandoffGrant.additionalAmr,
+            riskState: user?.isAdmin ? 'privileged' : user?.isSeller ? 'heightened' : 'standard',
+        });
+    }
+
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(user?.email || authUser.email || '');
 
@@ -1212,6 +1251,15 @@ const syncSession = asyncHandler(async (req, res) => {
         requiresMfa: Boolean(mfaState.mfaPolicy?.mfaRequired || mfaState.mfaChallenge),
         mfaBlocked: Boolean(mfaState.mfaBlocked),
         mfaError: mfaState.mfaError || null,
+        ...(desktopHandoffGrant ? {
+            deviceSessionToken: desktopHandoffGrant.deviceSessionToken,
+            expiresAt: desktopHandoffGrant.expiresAt,
+            desktopHandoff: {
+                assuranceTransferred: true,
+                deviceId: desktopHandoffGrant.deviceId,
+                deviceMethod: desktopHandoffGrant.deviceMethod,
+            },
+        } : {}),
     });
 });
 
@@ -1229,11 +1277,21 @@ const issueDesktopHandoffToken = asyncHandler(async (req, res) => {
         throw new AppError('Desktop sign-in requires an authenticated Firebase user.', 401);
     }
 
+    const { deviceId } = extractTrustedDeviceContext(req);
+    const assuranceGrant = await createDesktopHandoffAssuranceGrant({
+        requestId,
+        user: req.user,
+        authUid,
+        authToken: req.authToken || null,
+        authSession: req.authSession || null,
+        deviceId,
+        deviceSessionToken: resolveTrustedDeviceSessionToken(req),
+    });
+
     let customToken = '';
     try {
         customToken = await firebaseAdmin.auth().createCustomToken(authUid, {
-            desktop_handoff: true,
-            desktop_request_id: requestId,
+            ...assuranceGrant.claims,
         });
     } catch (error) {
         const wrapped = new AppError('Desktop browser sign-in is not available on this backend.', 503);
@@ -1253,7 +1311,10 @@ const issueDesktopHandoffToken = asyncHandler(async (req, res) => {
     res.json({
         success: true,
         customToken,
-        expiresInSeconds: 60 * 60,
+        expiresInSeconds: Math.max(
+            Math.floor((new Date(assuranceGrant.expiresAt).getTime() - Date.now()) / 1000),
+            1
+        ),
     });
 });
 
@@ -1828,15 +1889,17 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     });
 
     if (mfaState.status === 'authenticated') {
+        const webAuthnStepUpUntil = webAuthnVerified
+            ? new Date(Date.now() + SESSION_STEP_UP_TTL_MS)
+            : new Date(0);
         await persistBrowserSessionForUser({
             req,
             res,
             user: policyUser,
             rotate: Boolean(req.authSession?.sessionId),
             deviceMethod: webAuthnProof ? 'webauthn' : 'browser_key',
-            stepUpUntil: webAuthnVerified
-                ? new Date(Date.now() + SESSION_STEP_UP_TTL_MS)
-                : new Date(0),
+            stepUpUntil: webAuthnStepUpUntil,
+            webAuthnStepUpUntil,
             additionalAmr: [webAuthnVerified ? 'webauthn' : 'device_binding'],
         });
     }

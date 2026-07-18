@@ -30,6 +30,7 @@ const loadAuthContext = async () => {
     signOutNativeSocialAuthMock: vi.fn().mockResolvedValue(undefined),
     shouldPreferFirebaseRedirectAuthMock: vi.fn().mockReturnValue(false),
     clearCsrfTokenCacheMock: vi.fn(),
+    adoptTrustedDeviceSessionMock: vi.fn(),
     cacheTrustedDeviceSessionTokenMock: vi.fn(),
     clearTrustedDeviceSessionTokenMock: vi.fn(),
     resetTrustedDeviceIdentityMock: vi.fn(),
@@ -118,6 +119,7 @@ const loadAuthContext = async () => {
   }));
 
   vi.doMock('../services/deviceTrustClient', () => ({
+    adoptTrustedDeviceSession: mocks.adoptTrustedDeviceSessionMock,
     cacheTrustedDeviceSessionToken: mocks.cacheTrustedDeviceSessionTokenMock,
     clearTrustedDeviceSessionToken: mocks.clearTrustedDeviceSessionTokenMock,
     resetTrustedDeviceIdentity: mocks.resetTrustedDeviceIdentityMock,
@@ -748,6 +750,12 @@ describe('AuthProvider', () => {
       phoneNumber: '',
       providerData: [{ providerId: 'google.com' }],
       getIdToken: vi.fn().mockResolvedValue('desktop-browser-firebase-token'),
+      getIdTokenResult: vi.fn().mockResolvedValue({
+        claims: {
+          desktop_handoff: true,
+          desktop_request_id: 'desktop-browser-request-1',
+        },
+      }),
     };
     const startBrowserSignIn = vi.fn().mockResolvedValue({
       requestId: 'desktop-browser-request-1',
@@ -767,7 +775,7 @@ describe('AuthProvider', () => {
 
     window.auraDesktop = {
       isDesktop: true,
-      cancelBrowserSignIn: vi.fn(),
+      cancelBrowserSignIn: vi.fn().mockResolvedValue({ success: true }),
       consumeBrowserSignIn,
       onBrowserSignInStatus,
       startBrowserSignIn,
@@ -776,6 +784,13 @@ describe('AuthProvider', () => {
     mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
     mocks.authApiMock.syncSession.mockResolvedValue({
       status: 'authenticated',
+      deviceSessionToken: 'desktop-bound-device-session',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      desktopHandoff: {
+        assuranceTransferred: true,
+        deviceId: 'aura_hosted_browser_device_1',
+        deviceMethod: 'webauthn',
+      },
       session: {
         uid: desktopUser.uid,
         email: desktopUser.email,
@@ -870,6 +885,75 @@ describe('AuthProvider', () => {
       expect(onBrowserSignInStatus).toHaveBeenCalled();
       expect(consumeBrowserSignIn).toHaveBeenCalledTimes(2);
       expect(mocks.signInWithCustomTokenMock).toHaveBeenCalledWith({}, 'desktop-browser-custom-token');
+      expect(desktopUser.getIdTokenResult).toHaveBeenCalledTimes(1);
+      expect(mocks.authApiMock.syncSession).toHaveBeenCalledWith(
+        desktopUser.email,
+        desktopUser.displayName,
+        '',
+        expect.objectContaining({
+          desktopHandoffRequestId: 'desktop-browser-request-1',
+          firebaseUser: desktopUser,
+        })
+      );
+      expect(mocks.adoptTrustedDeviceSessionMock).toHaveBeenCalledWith(expect.objectContaining({
+        deviceId: 'aura_hosted_browser_device_1',
+        deviceSessionToken: 'desktop-bound-device-session',
+      }));
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it('rejects a desktop browser token that is not bound to the pending request', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    const desktopUser = {
+      uid: 'desktop-browser-user-mismatch',
+      email: 'desktop-mismatch@example.com',
+      providerData: [],
+      getIdTokenResult: vi.fn().mockResolvedValue({
+        claims: {
+          desktop_handoff: true,
+          desktop_request_id: 'different-desktop-request',
+        },
+      }),
+    };
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn: vi.fn().mockResolvedValue({ success: true }),
+      consumeBrowserSignIn: vi.fn().mockResolvedValue({
+        success: true,
+        customToken: 'mismatched-desktop-token',
+      }),
+      onBrowserSignInStatus: vi.fn(() => () => {}),
+      startBrowserSignIn: vi.fn().mockResolvedValue({
+        requestId: 'expected-desktop-request',
+        expiresAt: Date.now() + 60_000,
+      }),
+    };
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('unexpected-success'))
+          .catch((error) => setResult(`${error.code}:${error.message}`));
+      }, [signInWithDesktopBrowser]);
+      return <div data-testid="desktop-browser-mismatch-result">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-mismatch-result'))
+          .toHaveTextContent('auth/desktop-browser-sign-in-token-mismatch');
+      });
+      expect(mocks.signOutMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.authApiMock.syncSession).not.toHaveBeenCalled();
     } finally {
       delete window.auraDesktop;
     }

@@ -134,6 +134,30 @@ describe('authApi', () => {
     });
   });
 
+  it('binds desktop auth sync to the pending native broker request', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('desktop-token'),
+    };
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ Authorization: 'Bearer desktop-token' });
+    global.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ status: 'authenticated' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await authApi.syncSession('desktop@example.com', 'Desktop User', '', {
+      firebaseUser,
+      desktopHandoffRequestId: '123e4567-e89b-12d3-a456-426614174000',
+    });
+
+    const [, requestOptions] = global.fetch.mock.calls[0];
+    expect(JSON.parse(requestOptions.body)).toEqual({
+      email: 'desktop@example.com',
+      name: 'Desktop User',
+      phone: '',
+      desktopHandoffRequestId: '123e4567-e89b-12d3-a456-426614174000',
+    });
+  });
+
   it('creates a desktop handoff token from the token already issued by browser sign-in', async () => {
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),
