@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Loader2, Shield, ShoppingBag } from 'lucide-react';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { cn } from '@/lib/utils';
 
 const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#181818]';
@@ -43,9 +44,10 @@ const DesktopBrowserAuthShell = ({
   isLoading,
   isSessionCheckpointPending,
   sessionStatus,
-  t,
+  t: legacyT,
 }) => {
   const headingRef = useRef(null);
+  const t = useStableIcuMessages(legacyT);
   const checkpointIsMfa = sessionStatus === 'mfa_challenge_required';
   const phase = isSessionCheckpointPending
     ? 'checkpoint'
