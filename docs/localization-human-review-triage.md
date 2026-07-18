@@ -18,7 +18,7 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Total tracked review pairs preserved: 86856
 - Unique review locale/id pairs: 86856
-- Actionable grouped queue entries: 3166
+- Actionable grouped queue entries: 3159
 - Actionable affected locale/message pairs: 42195
 - Native-review audit grouped entries: 2490
 - Native-review audit affected locale/message pairs: 44661
@@ -29,8 +29,8 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 1216 | 20762 | bn 978, hi 1148, te 1037, mr 1043, ur 1023, gu 1058, pa 1052, ml 1038, kn 1037, or 1051, as 1036, sa 1040, es 1168, fr 1200, de 1188, ar 1115, ja 1188, pt 1179, zh 1183 |
-| high | 212 | 876 | bn 9, hi 194, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 74, fr 80, de 78, ar 76, ja 80, pt 74, zh 77 |
+| critical | 1210 | 20763 | bn 978, hi 1149, te 1037, mr 1043, ur 1023, gu 1058, pa 1052, ml 1038, kn 1037, or 1051, as 1036, sa 1040, es 1168, fr 1200, de 1188, ar 1115, ja 1188, pt 1179, zh 1183 |
+| high | 211 | 875 | bn 9, hi 193, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 74, fr 80, de 78, ar 76, ja 80, pt 74, zh 77 |
 | medium | 1191 | 17126 | bn 767, hi 1083, te 774, mr 773, ur 772, gu 791, pa 785, ml 772, kn 772, or 782, as 771, sa 781, es 1081, fr 1065, de 1053, ar 1048, ja 1092, pt 1074, zh 1090 |
 | low | 547 | 3431 | bn 2, hi 537, te 1, mr 2, ur 3, gu 3, pa 2, ml 1, kn 2, or 3, as 1, sa 3, es 407, fr 414, de 410, ar 411, ja 411, pt 408, zh 410 |
 
@@ -41,11 +41,11 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | critical | high | 57 | Recheck your email and phone details, then request a new code. | auth.error.noAccountFound.hint, auth.error.noAccountFoundWithThisEmail.hint, auth.error.noAccountFoundWithThisPhone.hint |
 | critical | high | 57 | Sign in for support | securePathDock.support.guest.title, support.jsx.text.sign.in.for.support, supportLauncher.guest.title |
 | critical | high | 57 | We could not verify those account details for OTP. | auth.error.noAccountFound.detail, auth.error.noAccountFoundWithThisEmail.detail, auth.error.noAccountFoundWithThisPhone.detail |
+| critical | high | 47 | Cancel | common.action.cancel, common.cancel, checkout.cancel, profile.payments.addCard.cancel, profile.personal.cancel |
+| critical | high | 38 | Confirm password | desktopLogin.field.confirmPassword, desktopLogin.placeholder.confirmPasswordShort |
+| critical | high | 38 | Continue with Duo | desktopLogin.provider.duo, login.social.duo |
 | critical | high | 38 | Enter your password | desktopLogin.placeholder.password, login.password.placeholder |
-| critical | high | 38 | Owner Access | login.desktopOwnerAccess.button, login.desktopOwnerAccess.startedTitle |
-| critical | high | 38 | Revoking... | common.revoking, profile.settings.devices.revokingOthers |
-| critical | high | 38 | Secure sign-in | auth.trustedDevice.eyebrow.public, login.secureSignIn |
-| critical | high | 38 | Active incidents | status.incidents.active, support.jsx.prop.label.active.incidents |
+| critical | high | 38 | New password | desktopLogin.field.newPassword, desktopLogin.placeholder.newPassword |
 | high | high | 10 | Aura Catalog | listing.catalogTitleFull |
 | high | high | 9 | Aura never asks for your OTP outside this secure verification step. | login.trust.otp.default.2 |
 | high | high | 9 | Keep all negotiation inside Aura chat. | listingDetail.safety.note4 |
