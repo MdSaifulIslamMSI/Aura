@@ -395,6 +395,9 @@ const buildSessionIdentity = ({
     };
 
     if (authSession?.sessionId) {
+        const webAuthnStepUpUntilMs = authSession.webAuthnStepUpUntil
+            ? new Date(authSession.webAuthnStepUpUntil).getTime()
+            : 0;
         return {
             sessionId: normalizeText(authSession.sessionId),
             uid: normalizeText(authSession.firebaseUid || authUid || authUser.uid),
@@ -414,6 +417,8 @@ const buildSessionIdentity = ({
             deviceMethod: normalizeText(authSession.deviceMethod),
             riskState: normalizeText(authSession.riskState) || 'standard',
             stepUpUntil: toIsoOrNull(authSession.stepUpUntil),
+            webAuthnStepUpActive: Number.isFinite(webAuthnStepUpUntilMs)
+                && webAuthnStepUpUntilMs > Date.now(),
         };
     }
 
@@ -427,6 +432,7 @@ const buildSessionIdentity = ({
         authTime: toIso(authToken?.auth_time),
         issuedAt: toIso(authToken?.iat),
         expiresAt: toIso(authToken?.exp),
+        webAuthnStepUpActive: false,
     };
 };
 

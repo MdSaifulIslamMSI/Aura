@@ -394,6 +394,7 @@ describe('authSessionService session intelligence payload', () => {
                 deviceMethod: 'browser_key',
                 riskState: 'privileged',
                 stepUpUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
             },
             user: {
                 email: 'stepup@example.com',
@@ -419,6 +420,37 @@ describe('authSessionService session intelligence payload', () => {
                 reauthRecommended: false,
             },
         });
+        expect(payload.session.webAuthnStepUpActive).toBe(true);
+    });
+
+    test('does not report an expired WebAuthn step-up as active', () => {
+        const payload = buildSessionPayload({
+            authUser: {
+                email: 'expired-passkey@example.com',
+                emailVerified: true,
+            },
+            authUid: 'uid-expired-passkey',
+            authSession: {
+                sessionId: 'session-expired-passkey',
+                firebaseUid: 'uid-expired-passkey',
+                email: 'expired-passkey@example.com',
+                emailVerified: true,
+                aal: 'aal2',
+                amr: ['password', 'mfa', 'passkey', 'webauthn'],
+                deviceId: 'device-expired-passkey',
+                deviceMethod: 'webauthn',
+                stepUpUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+                webAuthnStepUpUntil: new Date(Date.now() - 1000).toISOString(),
+            },
+            user: {
+                email: 'expired-passkey@example.com',
+                isVerified: true,
+                isAdmin: true,
+                accountState: 'active',
+            },
+        });
+
+        expect(payload.session.webAuthnStepUpActive).toBe(false);
     });
 });
 

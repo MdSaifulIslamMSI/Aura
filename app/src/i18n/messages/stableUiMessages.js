@@ -7208,6 +7208,21 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Signed-in Aura account",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "desktopLogin.consent.checkingPasskey": {
+        id: "desktopLogin.consent.checkingPasskey",
+        defaultMessage: "Checking passkey",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.consent.passkeyStatus": {
+        id: "desktopLogin.consent.passkeyStatus",
+        defaultMessage: "Waiting for passkey verification before returning sign-in to Aura Desktop.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.consent.registerPasskey": {
+        id: "desktopLogin.consent.registerPasskey",
+        defaultMessage: "Register passkey & continue",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "desktopLogin.consent.security": {
         id: "desktopLogin.consent.security",
         defaultMessage: "Only continue if you started this sign-in from Aura Desktop. Aura sends a one-time sealed session to this device; your required identity and security checks remain in force.",
@@ -7231,6 +7246,11 @@ export const stableUiMessages = defineMessages({
     "desktopLogin.consent.verifiedAccount": {
         id: "desktopLogin.consent.verifiedAccount",
         defaultMessage: "Verified Aura account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "desktopLogin.consent.verifyPasskey": {
+        id: "desktopLogin.consent.verifyPasskey",
+        defaultMessage: "Verify passkey & continue",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.field.confirmPassword": {

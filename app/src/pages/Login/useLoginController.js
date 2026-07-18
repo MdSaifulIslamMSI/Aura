@@ -4,6 +4,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { getPhoneCountryOption, getPhoneCountryOptionLabel, PHONE_COUNTRY_OPTIONS } from '@/config/phoneCountryOptions';
 import { authApi, otpApi } from '@/services/api';
+import { cacheTrustedDeviceSessionToken } from '@/services/deviceTrustClient';
 import {
   completeFirebasePhoneCodeChallenge,
   completeFirebasePhoneLoginChallenge,
@@ -536,6 +537,10 @@ export const useLoginController = () => {
     signInWithDesktopBrowser,
     reopenDesktopBrowserSignIn,
     signInWithDesktopOwnerAccess,
+    registerMfaPasskey,
+    roles,
+    session,
+    verifyMfaPasskeyChallenge,
   } = useContext(AuthContext);
 
   const [mode, setMode] = useState(launchMode);
@@ -558,8 +563,12 @@ export const useLoginController = () => {
   const [desktopOwnerAccessAvailable, setDesktopOwnerAccessAvailable] = useState(false);
   const [desktopBrowserSignInPending, setDesktopBrowserSignInPending] = useState(false);
   const [desktopBrowserRequestId, setDesktopBrowserRequestId] = useState('');
-  const [desktopBrowserConsentGranted, setDesktopBrowserConsentGranted] = useState(false);
+  const [desktopBrowserConsentGrantedKey, setDesktopBrowserConsentGrantedKey] = useState('');
   const [desktopBrowserConsentSubmitting, setDesktopBrowserConsentSubmitting] = useState(false);
+  const [desktopBrowserConsentStage, setDesktopBrowserConsentStage] = useState('idle');
+  const [desktopBrowserPasskeyRequiredOverride, setDesktopBrowserPasskeyRequiredOverride] = useState(false);
+  const [desktopBrowserCookieSession, setDesktopBrowserCookieSession] = useState(null);
+  const [desktopBrowserCookieSessionLoading, setDesktopBrowserCookieSessionLoading] = useState(false);
   const [formData, setFormData] = useState(() => createEmptyFormData({
     email: launchPrefill.email,
     phone: launchPrefill.phone,
@@ -575,7 +584,8 @@ export const useLoginController = () => {
   const authAccelerationHydratedRef = useRef(false);
   const initialResolvedAuthRedirectCheckedRef = useRef(false);
   const authenticatedNavigationTimerRef = useRef(null);
-  const desktopBrowserHandoffCompletedRef = useRef('');
+  const desktopBrowserHandoffCompletedRef = useRef(null);
+  const desktopBrowserHandoffKeyRef = useRef('');
   const desktopBrowserAbortControllerRef = useRef(null);
   const resetPasswordRequestInFlightRef = useRef(false);
 
@@ -591,6 +601,15 @@ export const useLoginController = () => {
     () => resolveDesktopBrowserHandoff(location.search, location.hash),
     [location.hash, location.search]
   );
+  const desktopBrowserHandoffKey = useMemo(
+    () => (
+      desktopBrowserHandoff.active
+        ? `${desktopBrowserHandoff.requestId}:${desktopBrowserHandoff.secret}`
+        : ''
+    ),
+    [desktopBrowserHandoff.active, desktopBrowserHandoff.requestId, desktopBrowserHandoff.secret]
+  );
+  desktopBrowserHandoffKeyRef.current = desktopBrowserHandoffKey;
   const desktopBrowserHandoffIsInline = useMemo(
     () => hasInlineDesktopBrowserHandoff(location.search, location.hash),
     [location.hash, location.search]
@@ -603,19 +622,68 @@ export const useLoginController = () => {
     () => (desktopBrowserHandoff.active ? currentRoute : from),
     [currentRoute, desktopBrowserHandoff.active, from]
   );
+  const desktopBrowserCookieSessionRequired = Boolean(
+    desktopBrowserHandoff.active
+    && (duoCallbackStatus === 'success' || duoCallbackStatus === 'step-up')
+  );
+  const desktopBrowserResolvedRoles = desktopBrowserCookieSessionRequired
+    ? desktopBrowserCookieSession?.roles
+    : roles;
+  const desktopBrowserResolvedSession = desktopBrowserCookieSessionRequired
+    ? desktopBrowserCookieSession?.session
+    : session;
+  const desktopBrowserConsentGranted = Boolean(
+    desktopBrowserHandoffKey
+    && desktopBrowserConsentGrantedKey === desktopBrowserHandoffKey
+  );
   const desktopBrowserConsentReady = Boolean(
     desktopBrowserHandoff.active
     && !loading
+    && !desktopBrowserCookieSessionLoading
     && !desktopBrowserConsentGranted
     && (
-      (isAuthenticated && currentUser?.getIdToken)
-      || duoCallbackStatus === 'success'
-      || duoCallbackStatus === 'step-up'
+      (
+        desktopBrowserCookieSessionRequired
+        && desktopBrowserCookieSession?.status === 'authenticated'
+      )
+      || (
+        !desktopBrowserCookieSessionRequired
+        && isAuthenticated
+        && currentUser?.getIdToken
+      )
     )
   );
-  const desktopBrowserSessionHydrating = Boolean(desktopBrowserHandoff.active && loading);
+  const desktopBrowserSessionHydrating = Boolean(
+    desktopBrowserHandoff.active
+    && (loading || desktopBrowserCookieSessionLoading)
+  );
+  const desktopBrowserPasskeyRequired = Boolean(
+    desktopBrowserPasskeyRequiredOverride
+    || (
+      desktopBrowserResolvedRoles?.isAdmin
+      && desktopBrowserResolvedSession?.webAuthnStepUpActive !== true
+    )
+  );
+  const desktopBrowserPasskeyAction = desktopBrowserResolvedSession?.deviceMethod === 'webauthn'
+    ? 'verify'
+    : 'register';
+  const desktopBrowserConsentActionLabel = desktopBrowserPasskeyRequired
+    ? (
+      desktopBrowserPasskeyAction === 'verify'
+        ? t('desktopLogin.consent.verifyPasskey', {}, 'Verify passkey & continue')
+        : t('desktopLogin.consent.registerPasskey', {}, 'Register passkey & continue')
+    )
+    : t('common.action.continue', {}, 'Continue');
+  const desktopBrowserConsentSubmittingLabel = desktopBrowserConsentStage === 'passkey'
+    ? t('desktopLogin.consent.checkingPasskey', {}, 'Checking passkey')
+    : t('desktopLogin.consent.submitting', {}, 'Opening Aura Desktop');
   const desktopBrowserConsentIdentity = String(
-    currentUser?.email
+    (desktopBrowserCookieSessionRequired
+      ? (
+        desktopBrowserCookieSession?.session?.email
+        || desktopBrowserCookieSession?.profile?.email
+      )
+      : currentUser?.email)
     || t('desktopLogin.consent.verifiedAccount', {}, 'Verified Aura account')
   ).trim();
   const hasLaunchDirective = Boolean(location.state?.authMode || launchPrefill.email || launchPrefill.phone);
@@ -695,15 +763,21 @@ export const useLoginController = () => {
   const setErr = (rawErr) => setAuthError(resolveAuthError(rawErr, t));
   const turnstileEnabled = isTurnstileEnabled();
 
-  const completeDesktopBrowserHandoff = useCallback(async ({ firebaseUser = null, isCancelled = () => false } = {}) => {
+  const completeDesktopBrowserHandoff = useCallback(async ({
+    firebaseUser = null,
+    preferCookieSession = false,
+    isCancelled = () => false,
+  } = {}) => {
     const handoffKey = `${desktopBrowserHandoff.requestId}:${desktopBrowserHandoff.secret}`;
-    if (desktopBrowserHandoffCompletedRef.current === handoffKey) {
+    if (desktopBrowserHandoffCompletedRef.current?.key === handoffKey) {
       return;
     }
 
-    desktopBrowserHandoffCompletedRef.current = handoffKey;
+    const handoffAttempt = { key: handoffKey };
+    desktopBrowserHandoffCompletedRef.current = handoffAttempt;
     setIsLoading(true);
     setAuthError(null);
+    setDesktopBrowserConsentStage('handoff');
     setAuthSuccess({
       title: t('login.desktopBrowser.completingTitle', {}, 'Finishing Desktop Sign-In'),
       detail: t('login.desktopBrowser.completingDetail', {}, 'Aura is securely returning this browser sign-in to the desktop app.'),
@@ -718,7 +792,14 @@ export const useLoginController = () => {
       const tokenPayload = await authApi.createDesktopHandoffToken({
         firebaseUser,
         requestId: desktopBrowserHandoff.requestId,
+        ...(preferCookieSession ? { preferCookieSession: true } : {}),
       });
+      if (isCancelled()) {
+        if (desktopBrowserHandoffCompletedRef.current === handoffAttempt) {
+          desktopBrowserHandoffCompletedRef.current = null;
+        }
+        return;
+      }
       const customToken = String(tokenPayload?.customToken || '').trim();
       if (!customToken) {
         throw new Error('Desktop sign-in token was not returned by the server.');
@@ -745,10 +826,18 @@ export const useLoginController = () => {
         clearStoredDesktopBrowserHandoff(desktopBrowserHandoff.requestId);
       }
     } catch (error) {
-      desktopBrowserHandoffCompletedRef.current = '';
+      if (desktopBrowserHandoffCompletedRef.current === handoffAttempt) {
+        desktopBrowserHandoffCompletedRef.current = null;
+      }
       if (!isCancelled()) {
-        setDesktopBrowserConsentGranted(false);
+        const errorCode = String(error?.code || error?.data?.code || '').trim().toUpperCase();
+        if (errorCode === 'DESKTOP_HANDOFF_ADMIN_ASSURANCE_REQUIRED') {
+          setDesktopBrowserPasskeyRequiredOverride(true);
+        }
+        setDesktopBrowserConsentGrantedKey('');
         setDesktopBrowserConsentSubmitting(false);
+        setDesktopBrowserConsentStage('idle');
+        setAuthSuccess(null);
         setAuthError(resolveAuthError(error, t));
       }
     } finally {
@@ -856,9 +945,49 @@ export const useLoginController = () => {
   }, [countdown]);
 
   useEffect(() => {
-    setDesktopBrowserConsentGranted(false);
+    desktopBrowserHandoffCompletedRef.current = null;
+    setIsLoading(false);
+    setDesktopBrowserConsentGrantedKey('');
     setDesktopBrowserConsentSubmitting(false);
-  }, [desktopBrowserHandoff.requestId]);
+    setDesktopBrowserConsentStage('idle');
+    setDesktopBrowserPasskeyRequiredOverride(false);
+    setDesktopBrowserCookieSession(null);
+  }, [desktopBrowserHandoffKey]);
+
+  useEffect(() => {
+    if (!desktopBrowserCookieSessionRequired) {
+      setDesktopBrowserCookieSessionLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setDesktopBrowserCookieSessionLoading(true);
+    setAuthError(null);
+
+    authApi.getSession({ preferCookieSession: true })
+      .then((payload) => {
+        if (cancelled) return;
+        if (payload?.status !== 'authenticated') {
+          throw new Error('The verified browser session could not be restored for desktop sign-in.');
+        }
+        setDesktopBrowserCookieSession(payload);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setDesktopBrowserCookieSession(null);
+          setAuthError(resolveAuthError(error, t));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDesktopBrowserCookieSessionLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [desktopBrowserCookieSessionRequired, desktopBrowserHandoffKey, t]);
 
   useEffect(() => {
     if (!desktopBrowserHandoff.active || !desktopBrowserHandoffIsInline) {
@@ -916,6 +1045,7 @@ export const useLoginController = () => {
       !desktopBrowserHandoff.active
       || !desktopBrowserConsentGranted
       || loading
+      || desktopBrowserCookieSessionRequired
       || !isAuthenticated
       || !currentUser?.getIdToken
     ) {
@@ -936,22 +1066,27 @@ export const useLoginController = () => {
     completeDesktopBrowserHandoff,
     currentUser,
     desktopBrowserHandoff.active,
+    desktopBrowserCookieSessionRequired,
     desktopBrowserConsentGranted,
     isAuthenticated,
     loading,
   ]);
 
   useEffect(() => {
-    if (!desktopBrowserHandoff.active || !desktopBrowserConsentGranted || loading || isAuthenticated) {
-      return;
-    }
-    if (duoCallbackStatus !== 'success' && duoCallbackStatus !== 'step-up') {
+    if (
+      !desktopBrowserHandoff.active
+      || !desktopBrowserConsentGranted
+      || loading
+      || !desktopBrowserCookieSessionRequired
+      || desktopBrowserCookieSession?.status !== 'authenticated'
+    ) {
       return;
     }
 
     let cancelled = false;
 
     completeDesktopBrowserHandoff({
+      preferCookieSession: true,
       isCancelled: () => cancelled,
     });
 
@@ -961,9 +1096,9 @@ export const useLoginController = () => {
   }, [
     completeDesktopBrowserHandoff,
     desktopBrowserHandoff.active,
+    desktopBrowserCookieSession?.status,
+    desktopBrowserCookieSessionRequired,
     desktopBrowserConsentGranted,
-    duoCallbackStatus,
-    isAuthenticated,
     loading,
   ]);
 
@@ -2153,14 +2288,77 @@ export const useLoginController = () => {
     desktopBrowserAbortControllerRef.current?.abort();
   };
 
-  const handleDesktopBrowserConsent = () => {
+  const handleDesktopBrowserConsent = async () => {
     if (!desktopBrowserConsentReady || desktopBrowserConsentSubmitting) {
       return;
     }
 
+    const consentHandoffKey = desktopBrowserHandoffKey;
+    if (!consentHandoffKey) {
+      return;
+    }
+
     setAuthError(null);
+    setAuthSuccess(null);
     setDesktopBrowserConsentSubmitting(true);
-    setDesktopBrowserConsentGranted(true);
+    try {
+      if (desktopBrowserPasskeyRequired) {
+        setDesktopBrowserConsentStage('passkey');
+        let passkeyResponse = null;
+        if (desktopBrowserPasskeyAction === 'verify') {
+          if (desktopBrowserCookieSessionRequired) {
+            passkeyResponse = await authApi.verifyMfaPasskeyLogin({
+              purpose: 'step_up',
+              action: 'desktop_handoff',
+            }, { preferCookieSession: true });
+          } else {
+            if (typeof verifyMfaPasskeyChallenge !== 'function') {
+              throw new Error('Passkey verification is unavailable in this browser session.');
+            }
+            passkeyResponse = await verifyMfaPasskeyChallenge({
+              purpose: 'step_up',
+              action: 'desktop_handoff',
+            });
+          }
+        } else {
+          if (desktopBrowserCookieSessionRequired) {
+            passkeyResponse = await authApi.registerMfaPasskey({ preferCookieSession: true });
+          } else {
+            if (typeof registerMfaPasskey !== 'function') {
+              throw new Error('Passkey registration is unavailable in this browser session.');
+            }
+            passkeyResponse = await registerMfaPasskey();
+          }
+        }
+        if (desktopBrowserHandoffKeyRef.current !== consentHandoffKey) {
+          return;
+        }
+        if (desktopBrowserCookieSessionRequired && passkeyResponse) {
+          if (passkeyResponse.deviceSessionToken) {
+            cacheTrustedDeviceSessionToken(
+              passkeyResponse.deviceSessionToken,
+              passkeyResponse.expiresAt
+            );
+          }
+          setDesktopBrowserCookieSession(passkeyResponse);
+        }
+        setDesktopBrowserPasskeyRequiredOverride(false);
+      }
+
+      if (desktopBrowserHandoffKeyRef.current !== consentHandoffKey) {
+        return;
+      }
+      setDesktopBrowserConsentStage('handoff');
+      setDesktopBrowserConsentGrantedKey(consentHandoffKey);
+    } catch (error) {
+      if (desktopBrowserHandoffKeyRef.current !== consentHandoffKey) {
+        return;
+      }
+      setDesktopBrowserConsentStage('idle');
+      setDesktopBrowserConsentSubmitting(false);
+      setAuthSuccess(null);
+      setErr(error);
+    }
   };
 
   const handleDesktopBrowserConsentCancel = () => {
@@ -2279,8 +2477,11 @@ export const useLoginController = () => {
     countdown,
     desktopBrowserHandoff,
     desktopBrowserConsentIdentity,
+    desktopBrowserConsentActionLabel,
     desktopBrowserConsentReady,
+    desktopBrowserConsentStage,
     desktopBrowserConsentSubmitting,
+    desktopBrowserConsentSubmittingLabel,
     desktopBrowserSessionHydrating,
     desktopBrowserSignInPending,
     firebasePhoneFallback,

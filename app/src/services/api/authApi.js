@@ -322,16 +322,32 @@ export const authApi = {
         return { redirecting: true, url };
     },
     exchangeSession: async (options = {}) => exchangeSessionWithFirebase(options.firebaseUser, options),
-    createDesktopHandoffToken: async ({ requestId = '', firebaseUser = null } = {}) => {
+    createDesktopHandoffToken: async ({
+        requestId = '',
+        firebaseUser = null,
+        preferCookieSession = false,
+    } = {}) => {
+        if (preferCookieSession) {
+            return postWithFreshCsrf('/auth/desktop-handoff/custom-token', {
+                requestId,
+            }, {
+                preferCookieSession: true,
+                useFirebaseBearer: false,
+                disableSessionExchangeOnUnauthorized: true,
+            });
+        }
         return postWithFirebaseBearer('/auth/desktop-handoff/custom-token', {
             requestId,
         }, {
             firebaseUser,
+            forceRefreshAuth: Boolean(firebaseUser?.getIdToken),
         });
     },
     getSession: async (options = {}) => {
         const execute = async () => {
-            const headers = await getAuthHeader(options.firebaseUser);
+            const headers = options.preferCookieSession === true
+                ? await getAuthHeader(null, { useFirebaseBearer: false })
+                : await getAuthHeader(options.firebaseUser);
             const response = await apiFetch('/auth/session', { headers });
             cacheCsrfTokenFromResponse(response, 'cookie_session');
             return response.data;
@@ -340,7 +356,11 @@ export const authApi = {
         try {
             return await execute();
         } catch (error) {
-            if (options.firebaseUser?.getIdToken && isUnauthorizedAuthError(error)) {
+            if (
+                options.preferCookieSession !== true
+                && options.firebaseUser?.getIdToken
+                && isUnauthorizedAuthError(error)
+            ) {
                 clearCsrfTokenCache();
                 return exchangeSessionWithFirebase(options.firebaseUser, {
                     forceRefreshAuth: true,
