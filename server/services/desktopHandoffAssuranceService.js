@@ -114,7 +114,11 @@ const assertActiveAuthSession = ({ authSession, authUid, userId, deviceId, nowMs
         );
     }
 
-    for (const expiry of [authSession?.absoluteExpiresAt, authSession?.firebaseExpiresAt]) {
+    // Firebase expiry is a snapshot of the token that created or last refreshed
+    // the server session. Browser-session liveness is governed by its own idle
+    // and absolute deadlines. Requests are independently authenticated by
+    // `protect` before this assurance is issued.
+    for (const expiry of [authSession?.absoluteExpiresAt, authSession?.idleExpiresAt]) {
         if (!expiry) continue;
         const expiryMs = getDateMs(expiry);
         if (!Number.isFinite(expiryMs) || expiryMs <= nowMs) {

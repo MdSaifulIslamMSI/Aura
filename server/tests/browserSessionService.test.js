@@ -104,6 +104,8 @@ describe('browserSessionService', () => {
         expect(setCookieHeader[0]).toContain('SameSite=Strict');
 
         const otpStepUpUntil = new Date(Date.now() + 9 * 60 * 1000).toISOString();
+        const refreshedIssuedAt = nowSeconds + 60;
+        const refreshedExpiresAt = nowSeconds + 7200;
         const refreshedSession = await browserSessionService.refreshBrowserSession({
             req,
             currentSession: session,
@@ -113,12 +115,24 @@ describe('browserSessionService', () => {
                 isAdmin: true,
             },
             authUid: 'firebase-admin-1',
+            authToken: {
+                auth_time: nowSeconds - 15,
+                iat: refreshedIssuedAt,
+                exp: refreshedExpiresAt,
+                firebase: {
+                    sign_in_provider: 'password',
+                },
+            },
             stepUpUntil: otpStepUpUntil,
             additionalAmr: ['otp', 'mfa'],
         });
 
         expect(refreshedSession.stepUpUntil).toBe(otpStepUpUntil);
         expect(refreshedSession.webAuthnStepUpUntil).toBe(passkeyStepUpUntil);
+        expect(refreshedSession.authTimeSeconds).toBe(nowSeconds - 15);
+        expect(refreshedSession.issuedAtSeconds).toBe(refreshedIssuedAt);
+        expect(refreshedSession.firebaseExpiresAtSeconds).toBe(refreshedExpiresAt);
+        expect(refreshedSession.amr).toEqual(expect.arrayContaining(['webauthn', 'otp', 'mfa']));
     });
 
     test('does not infer AAL2 from a WebAuthn transport when UV was not observed', async () => {
