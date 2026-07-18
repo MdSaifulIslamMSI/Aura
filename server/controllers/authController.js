@@ -484,7 +484,12 @@ const persistBrowserSessionForUser = async ({
 };
 
 const establishSessionCookie = asyncHandler(async (req, res, next) => {
-    if (req.authSession?.sessionId || !req.user?._id || !req.authToken) {
+    const hasBearerProof = String(req.headers?.authorization || '').startsWith('Bearer ');
+    if (
+        !req.user?._id
+        || !req.authToken
+        || (req.authSession?.sessionId && !hasBearerProof)
+    ) {
         return next();
     }
 

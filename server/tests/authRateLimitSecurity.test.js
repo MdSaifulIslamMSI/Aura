@@ -19,6 +19,8 @@ describe('auth route rate-limit security', () => {
 
     const buildApp = () => {
         let requestBootstrapDeviceChallenge;
+        let establishSessionCookie;
+        let issueDesktopHandoffToken;
 
         jest.isolateModules(() => {
             const limiterCounts = new Map();
@@ -81,9 +83,11 @@ describe('auth route rate-limit security', () => {
                 success: true,
                 deviceChallenge: { token: 'issued-device-challenge' },
             }));
+            establishSessionCookie = jest.fn((_req, _res, next) => next());
+            issueDesktopHandoffToken = jest.fn((_req, res) => res.json({ customToken: 'handoff' }));
 
             jest.doMock('../controllers/authController', () => ({
-                establishSessionCookie: (_req, _res, next) => next(),
+                establishSessionCookie,
                 generateBackupRecoveryCodes: (_req, res) => res.status(201).json({ success: true }),
                 getSession: (_req, res) => res.json({ ok: true }),
                 logoutSession: (_req, res) => res.json({ success: true }),
@@ -95,7 +99,7 @@ describe('auth route rate-limit security', () => {
                 completeEnterpriseLogin: (_req, res) => res.json({ ok: true }),
                 verifyBackupRecoveryCode: (_req, res) => res.json({ success: true }),
                 verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
-                issueDesktopHandoffToken: (_req, res) => res.json({ customToken: 'handoff' }),
+                issueDesktopHandoffToken,
                 issueDesktopOwnerAccessToken: (_req, res) => res.json({ customToken: 'owner-access' }),
                 startEnterpriseLogin: (_req, res) => res.json({ ok: true }),
                 startDuoLogin: (_req, res) => res.json({ ok: true }),
@@ -135,6 +139,8 @@ describe('auth route rate-limit security', () => {
 
         return {
             app: buildApp.app,
+            establishSessionCookie,
+            issueDesktopHandoffToken,
             requestBootstrapDeviceChallenge,
         };
     };
@@ -234,5 +240,19 @@ describe('auth route rate-limit security', () => {
             .toBe('auth_mfa_verify:uid:uid-rate-limit-test');
         expect(mutation.headers['x-test-rate-limit-key'])
             .toBe('auth_session_mutation:uid-rate-limit-test');
+    });
+
+    test('desktop handoff refreshes the authenticated browser session before issuing its token', async () => {
+        const { app, establishSessionCookie, issueDesktopHandoffToken } = buildApp();
+
+        const response = await request(app)
+            .post('/api/auth/desktop-handoff/custom-token')
+            .send({ requestId: '123e4567-e89b-42d3-a456-426614174000' });
+
+        expect(response.statusCode).toBe(200);
+        expect(establishSessionCookie).toHaveBeenCalledTimes(1);
+        expect(issueDesktopHandoffToken).toHaveBeenCalledTimes(1);
+        expect(establishSessionCookie.mock.invocationCallOrder[0])
+            .toBeLessThan(issueDesktopHandoffToken.mock.invocationCallOrder[0]);
     });
 });

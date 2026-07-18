@@ -73,6 +73,7 @@ const buildContext = ({ admin = false, nowMs = Date.now() } = {}) => {
         stepUpUntil: new Date(nowMs + 10 * 60 * 1000).toISOString(),
         webAuthnStepUpUntil: admin ? new Date(nowMs + 10 * 60 * 1000).toISOString() : null,
         absoluteExpiresAt: new Date(nowMs + 60 * 60 * 1000).toISOString(),
+        idleExpiresAt: new Date(nowMs + 30 * 60 * 1000).toISOString(),
         firebaseExpiresAt: new Date(nowMs + 30 * 60 * 1000).toISOString(),
         revokedAt: null,
     };
@@ -183,6 +184,33 @@ describe('desktopHandoffAssuranceService', () => {
             stepUpUntil: context.authSession.stepUpUntil,
             webAuthnStepUpUntil: context.authSession.webAuthnStepUpUntil,
             additionalAmr: expect.arrayContaining(['webauthn', 'passkey', 'mfa', 'desktop_handoff']),
+        });
+    });
+
+    test('accepts an active browser session after its Firebase token snapshot expires', async () => {
+        const nowMs = Date.now();
+        const context = buildContext({ nowMs });
+        context.authSession.firebaseExpiresAt = new Date(nowMs - 1).toISOString();
+
+        await expect(issueGrant(context, { nowMs })).resolves.toMatchObject({
+            claims: {
+                desktop_handoff: true,
+                desktop_request_id: REQUEST_ID,
+            },
+        });
+    });
+
+    test.each([
+        ['absolute', 'absoluteExpiresAt'],
+        ['idle', 'idleExpiresAt'],
+    ])('rejects a browser session after its %s deadline', async (_label, expiryField) => {
+        const nowMs = Date.now();
+        const context = buildContext({ nowMs });
+        context.authSession[expiryField] = new Date(nowMs - 1).toISOString();
+
+        await expect(issueGrant(context, { nowMs })).rejects.toMatchObject({
+            statusCode: 403,
+            code: 'DESKTOP_HANDOFF_ASSURANCE_SESSION_EXPIRED',
         });
     });
 

@@ -259,7 +259,7 @@ router.get('/duo/step-up', protect, establishSessionCookie, duoOidcLimiter, star
 router.get('/duo/callback', duoOidcLimiter, completeDuoLogin);
 router.get('/enterprise/start', enterpriseOidcLimiter, startEnterpriseLogin);
 router.get('/enterprise/callback', enterpriseOidcLimiter, completeEnterpriseLogin);
-router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, issueDesktopHandoffToken);
+router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, establishSessionCookie, issueDesktopHandoffToken);
 router.post('/desktop-handoff/owner-access-token', desktopOwnerAccessLimiter, issueDesktopOwnerAccessToken);
 router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);

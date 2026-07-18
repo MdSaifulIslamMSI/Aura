@@ -543,6 +543,101 @@ describe('Browser session replacement hardening', () => {
             supersededAuthSessionId: null,
         });
     });
+
+    test('establishSessionCookie refreshes matching session metadata from fresh bearer proof', async () => {
+        let isolatedApp;
+        let refreshBrowserSession;
+
+        jest.isolateModules(() => {
+            refreshBrowserSession = jest.fn().mockResolvedValue({
+                sessionId: 'existing-session-1',
+                firebaseExpiresAtSeconds: 2000000000,
+                amr: ['webauthn', 'mfa'],
+            });
+
+            jest.doMock('../services/browserSessionService', () => ({
+                clearBrowserSessionCookie: jest.fn(),
+                getBrowserSessionFromRequest: jest.fn(),
+                refreshBrowserSession,
+                revokeBrowserSession: jest.fn(),
+            }));
+
+            const express = require('express');
+            const { establishSessionCookie } = require('../controllers/authController');
+            const { errorHandler } = require('../middleware/errorMiddleware');
+
+            isolatedApp = express();
+            isolatedApp.get('/refresh-session', (req, _res, next) => {
+                req.headers.authorization = 'Bearer fresh-token';
+                req.user = {
+                    _id: '507f1f77bcf86cd799439099',
+                    email: 'refresh-session@example.com',
+                };
+                req.authUid = 'uid-refresh-session';
+                req.authToken = {
+                    uid: 'uid-refresh-session',
+                    exp: 2000000000,
+                };
+                req.authSession = {
+                    sessionId: 'existing-session-1',
+                    firebaseUid: 'uid-refresh-session',
+                    firebaseExpiresAtSeconds: 1000000000,
+                    amr: ['webauthn', 'mfa'],
+                };
+                next();
+            }, establishSessionCookie, (req, res) => {
+                res.json({ session: req.authSession });
+            });
+            isolatedApp.get('/keep-cookie-session', (req, _res, next) => {
+                req.user = {
+                    _id: '507f1f77bcf86cd799439099',
+                    email: 'refresh-session@example.com',
+                };
+                req.authUid = 'uid-refresh-session';
+                req.authToken = {
+                    uid: 'uid-refresh-session',
+                    exp: 1000000000,
+                };
+                req.authSession = {
+                    sessionId: 'existing-session-1',
+                    firebaseUid: 'uid-refresh-session',
+                    firebaseExpiresAtSeconds: 1000000000,
+                    amr: ['webauthn', 'mfa'],
+                };
+                next();
+            }, establishSessionCookie, (req, res) => {
+                res.json({ session: req.authSession });
+            });
+            isolatedApp.use(errorHandler);
+        });
+
+        const res = await request(isolatedApp).get('/refresh-session');
+        const cookieSessionRes = await request(isolatedApp).get('/keep-cookie-session');
+
+        expect(res.statusCode).toBe(200);
+        expect(refreshBrowserSession).toHaveBeenCalledWith(expect.objectContaining({
+            currentSession: expect.objectContaining({
+                sessionId: 'existing-session-1',
+                amr: ['webauthn', 'mfa'],
+            }),
+            authToken: expect.objectContaining({
+                exp: 2000000000,
+            }),
+            rotate: false,
+        }));
+        expect(res.body.session).toMatchObject({
+            sessionId: 'existing-session-1',
+            firebaseExpiresAtSeconds: 2000000000,
+            amr: ['webauthn', 'mfa'],
+        });
+        expect(refreshBrowserSession).toHaveBeenCalledTimes(1);
+        expect(cookieSessionRes.statusCode).toBe(200);
+        expect(cookieSessionRes.body.session).toMatchObject({
+            sessionId: 'existing-session-1',
+            firebaseExpiresAtSeconds: 1000000000,
+            amr: ['webauthn', 'mfa'],
+        });
+    });
 });
 
 describe('Trusted device bootstrap challenge', () => {

@@ -642,9 +642,9 @@ const buildSessionIdentitySnapshot = ({
         displayName,
         phoneNumber,
         providerIds,
-        authTimeSeconds: toEpochSeconds(previousSession?.authTimeSeconds || authToken?.auth_time),
-        issuedAtSeconds: toEpochSeconds(previousSession?.issuedAtSeconds || authToken?.iat),
-        firebaseExpiresAtSeconds: toEpochSeconds(previousSession?.firebaseExpiresAtSeconds || authToken?.exp),
+        authTimeSeconds: toEpochSeconds(authToken?.auth_time || previousSession?.authTimeSeconds),
+        issuedAtSeconds: toEpochSeconds(authToken?.iat || previousSession?.issuedAtSeconds),
+        firebaseExpiresAtSeconds: toEpochSeconds(authToken?.exp || previousSession?.firebaseExpiresAtSeconds),
         signInSecondFactor: normalizeText(previousSession?.signInSecondFactor || authToken?.firebase?.sign_in_second_factor),
     };
 };
