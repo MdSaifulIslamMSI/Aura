@@ -1,241 +1,51 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
+  Check,
   ChevronDown,
-  ChevronUp,
   KeyRound,
   Laptop,
   Loader2,
-  Minimize2,
+  LogOut,
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
+import { useStableIcuMessages } from '../../../i18n/useStableIcuMessages';
 import {
   getTrustedDeviceSupportProfile,
   resetTrustedDeviceIdentity,
   signTrustedDeviceChallenge,
 } from '../../../services/deviceTrustClient';
-import { isAdminPath } from '../../../services/assistantUiConfig';
-import { FormattedMessage, useIntl } from 'react-intl';
 
-const TRUSTED_DEVICE_METHOD_ORDER = ['webauthn', 'browser_key'];
+const METHOD_ORDER = ['webauthn', 'browser_key'];
 const PASSWORD_REAUTH_REQUIRED_CODE = 'auth/password-reauth-required';
-const TRUSTED_DEVICE_FOCUSABLE_SELECTOR = [
+const FOCUSABLE_SELECTOR = [
   'a[href]',
   'button:not([disabled])',
   'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
-const getTrustedDeviceFocusableElements = (container) => (
-  Array.from(container?.querySelectorAll(TRUSTED_DEVICE_FOCUSABLE_SELECTOR) || [])
-    .filter((element) => (
-      element
-      && !element.hasAttribute('hidden')
-      && element.getAttribute('aria-hidden') !== 'true'
-      && element.tabIndex >= 0
-      && typeof element.focus === 'function'
-    ))
-);
-
-const normalizeTrustedDeviceMethod = (value = '') => {
+const normalizeMethod = (value = '') => {
   const normalized = String(value || '').trim().toLowerCase();
-  return TRUSTED_DEVICE_METHOD_ORDER.includes(normalized)
-    ? normalized
-    : '';
+  return METHOD_ORDER.includes(normalized) ? normalized : '';
 };
 
-const isWebAuthnHostMismatchError = (error) => {
-  const errorName = String(error?.name || '');
-  const errorMessage = String(error?.message || '').toLowerCase();
-  return errorName === 'SecurityError'
-    || errorMessage.includes('securityerror')
-    || errorMessage.includes('relying party id')
-    || errorMessage.includes('registrable domain suffix')
-    || errorMessage.includes('.well-known/webauthn')
-    || errorMessage.includes('claimed rp id')
-    || errorMessage.includes('webauthn resource');
-};
-
-const getBiometricPasskeyLabel = (supportProfile = {}) => (
-  supportProfile.biometricPasskeyLabel || 'Face ID / Windows Hello passkey'
-);
-
-const getTrustedDeviceMethodLabel = (method, supportProfile = {}) => (
-  method === 'webauthn'
-    ? getBiometricPasskeyLabel(supportProfile)
-    : 'Browser fallback key'
-);
-
-const getTrustedDeviceHeading = ({ method, challengeMode, supportProfile }) => {
-  if (challengeMode === 'enroll') {
-    return method === 'webauthn'
-      ? `Register ${getBiometricPasskeyLabel(supportProfile)}`
-      : 'Register this browser';
-  }
-
-  return method === 'webauthn'
-    ? `Verify with ${getBiometricPasskeyLabel(supportProfile)}`
-    : 'Prove this browser';
-};
-
-const getTrustedDeviceActionLabel = ({ method, challengeMode, supportProfile }) => {
-  if (method === 'webauthn') {
-    return challengeMode === 'enroll'
-      ? 'Register Face / Device Auth'
-      : `Use ${getBiometricPasskeyLabel(supportProfile)}`;
-  }
-
-  return challengeMode === 'enroll'
-    ? 'Register Browser Fallback'
-    : 'Use Browser Fallback';
-};
-
-const getTrustedDeviceIntro = ({
-  activeMethod,
-  browserKeyOffered,
-  challengeMode,
-  fallbackHost,
-  hostUsesBrowserKeyOnly,
-  passkeyOffered,
-}) => {
-  if (passkeyOffered && browserKeyOffered) {
-    return challengeMode === 'enroll'
-      ? 'Choose which trusted-device proof to register on this device. The biometric passkey path uses Face ID, Touch ID, Windows Hello, or the device unlock locally while Aura only receives a signed WebAuthn proof.'
-      : 'Choose which trusted-device proof to present. The passkey path uses the device authenticator locally; the browser fallback is a separate key stored only in this browser.';
-  }
-
-  if (activeMethod === 'webauthn') {
-    return challengeMode === 'enroll'
-      ? 'This checkpoint now prefers face or device-unlock authentication through a platform passkey. The authenticator creates a WebAuthn credential tied to this account.'
-      : 'Privileged access now requires a fresh face or device-unlock passkey assertion from the authenticator already registered to this account.';
-  }
-
-  if (hostUsesBrowserKeyOnly) {
-    return challengeMode === 'enroll'
-      ? `This host is using the browser-held trusted-device key path. Passkeys stay reserved for localhost or verified domains that match the relying-party configuration.`
-      : `This checkpoint is using the browser-held trusted-device key path on ${fallbackHost}.`;
-  }
-
-  return challengeMode === 'enroll'
-    ? 'This flow creates a real browser-held signing key and binds it to your account for privileged access.'
-    : 'Privileged access now requires a fresh signature from the trusted browser key already registered to this account.';
-};
-
-const getTrustedDeviceMethodNote = ({
-  challengeMode,
-  fallbackHost,
-  hostUsesBrowserKeyOnly,
-  method,
-  offered,
-  registeredMethod,
-  supported,
-}) => {
-  if (supported) {
-    if (method === 'webauthn') {
-      return challengeMode === 'enroll'
-        ? 'Register a platform passkey unlocked by Face ID, Touch ID, Windows Hello, biometrics, or device PIN. Aura never receives face data.'
-        : 'Use the registered platform passkey already tied to this device. Biometric/PIN verification stays inside the authenticator.';
-    }
-
-    return challengeMode === 'enroll'
-      ? 'Register the fallback key stored inside this browser. Use this only when passkeys are not available for the host.'
-      : 'Use the fallback key already stored inside this browser. This is separate from Windows Hello or platform passkeys.';
-  }
-
-  if (offered) {
-    return method === 'webauthn'
-      ? 'This browser does not expose the WebAuthn APIs needed for the passkey flow here.'
-      : 'This browser does not expose the WebCrypto or IndexedDB support needed for the browser fallback.';
-  }
-
-  if (method === 'webauthn') {
-    if (challengeMode === 'assert' && registeredMethod === 'browser_key') {
-      return 'This device is currently registered with the browser fallback key, not a platform passkey.';
-    }
-
-    return hostUsesBrowserKeyOnly
-      ? `Passkeys are only offered on localhost or a verified domain, so ${fallbackHost} stays on browser fallback proof.`
-      : 'Passkey proof is not offered for this checkpoint.';
-  }
-
-  if (challengeMode === 'assert' && registeredMethod === 'webauthn') {
-    return 'This device is currently registered with a platform passkey, so the browser fallback is not offered for this checkpoint.';
-  }
-
-  return 'Browser-key proof is not offered for this checkpoint.';
-};
-
-const getTrustedDeviceMethodBadge = ({
-  offered,
-  preferred,
-  selected,
-  supported,
-}) => {
-  if (selected) return 'Selected';
-  if (preferred && offered) return 'Recommended';
-  if (supported) return 'Ready';
-  if (offered) return 'Unsupported';
-  return 'Unavailable';
-};
-
-const getTrustedDeviceMethodDetail = ({
-  fallbackHost,
-  hostUsesBrowserKeyOnly,
-  method,
-}) => {
-  if (method === 'webauthn') {
-    return 'Your platform authenticator completes a short-lived WebAuthn challenge locally after Face ID, Touch ID, Windows Hello, biometrics, or device PIN verification. The server verifies only the signed assertion and then issues a session-bound trusted-device token for this Firebase session.';
-  }
-
-  return hostUsesBrowserKeyOnly
-    ? `On ${fallbackHost}, the browser signs a short-lived challenge locally with its trusted-device key. The server verifies that proof and then issues a session-bound device token for this Firebase session.`
-    : 'The browser fallback signs a short-lived challenge locally with a key stored in this browser. It is not a Windows Hello passkey, and it is only used when this account or host is configured for the fallback path.';
-};
-
-const buildTrustedDeviceErrorMessage = ({
-  attemptedMethod,
-  browserKeyOffered,
-  error,
-  passkeyOffered,
-  supportProfile,
-}) => {
-  const fallbackHost = supportProfile.runtimeHost || 'this host';
-  if (attemptedMethod === 'webauthn' && passkeyOffered && browserKeyOffered && isWebAuthnHostMismatchError(error)) {
-    return supportProfile.webauthnHostEligible
-      ? 'Passkey verification could not be completed here. Use the browser fallback only if Aura offers it for this checkpoint, or retry on a device that already has the passkey.'
-      : `Passkeys are not available on ${fallbackHost}. Use the browser fallback only if Aura offers it for this checkpoint.`;
-  }
-
-  return String(error?.message || 'Trusted device verification failed.');
-};
-
-const isPasswordReauthRequiredError = (error) => (
-  error?.requiresPasswordReauth === true
-  || String(error?.code || '') === PASSWORD_REAUTH_REQUIRED_CODE
-);
-
-const getPasswordReauthErrorMessage = (error) => {
-  const code = String(error?.code || '');
-  if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-    return 'That password did not verify this session. Re-enter your account password and try again.';
-  }
-  if (isPasswordReauthRequiredError(error)) {
-    return String(error?.message || 'Enter your password to refresh this protected session, then retry this action.');
-  }
-  return String(error?.message || 'Password re-authentication failed. Try again.');
-};
+const getFocusableElements = (container) => Array.from(
+  container?.querySelectorAll(FOCUSABLE_SELECTOR) || []
+).filter((element) => (
+  element
+  && !element.hasAttribute('hidden')
+  && element.getAttribute('aria-hidden') !== 'true'
+  && element.tabIndex >= 0
+));
 
 const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
   const session = sessionIntelligence?.posture?.session || {};
   const assurance = sessionIntelligence?.assurance || {};
-
   return Boolean(
     session.freshForSensitiveActions
     || session.stepUpActive
@@ -245,384 +55,194 @@ const hasFreshSensitiveActionAuth = (sessionIntelligence) => {
   );
 };
 
-const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
-  const intl = useIntl();
-  const location = useLocation();
+const isPasswordReauthRequiredError = (error) => (
+  error?.requiresPasswordReauth === true
+  || String(error?.code || '') === PASSWORD_REAUTH_REQUIRED_CODE
+);
+
+const getMethodLabel = (method, supportProfile) => (
+  method === 'webauthn'
+    ? (supportProfile.biometricPasskeyLabel || 'Device passkey')
+    : 'This browser'
+);
+
+const getMethodDescription = (method, mode) => {
+  if (method === 'webauthn') {
+    return mode === 'enroll'
+      ? 'Use Face ID, Touch ID, Windows Hello, or your device PIN. Biometric data never leaves your device.'
+      : 'Approve with the passkey already registered to this account.';
+  }
+
+  return mode === 'enroll'
+    ? 'Create a local browser key for device recognition. This is not an admin passkey.'
+    : 'Use the recognition key already stored in this browser.';
+};
+
+const getMethodAction = (method, mode) => {
+  if (method === 'webauthn') {
+    return mode === 'enroll' ? 'Register device passkey' : 'Continue with device passkey';
+  }
+  return mode === 'enroll' ? 'Register this browser' : 'Confirm this browser';
+};
+
+const isMethodSupported = (method, supportProfile) => (
+  method === 'webauthn'
+    ? Boolean(supportProfile.webauthn)
+    : Boolean(supportProfile.browserKeyFallback)
+);
+
+const buildErrorMessage = (error) => {
+  const name = String(error?.name || '').toLowerCase();
+  if (name === 'notallowederror') {
+    return 'Verification was cancelled or timed out. Nothing changed; try again when you are ready.';
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return 'You appear to be offline. Reconnect and try this device check again.';
+  }
+  return String(error?.message || 'This device could not be confirmed. Try again or choose another method.');
+};
+
+const AuraTrustedDeviceChallenge = ({ disabled = false, onExit = null }) => {
+  const navigate = useNavigate();
+  const t = useStableIcuMessages();
   const {
     currentUser,
     deviceChallenge,
-    refreshSession,
+    logout,
     reauthenticateForSensitiveAction,
+    refreshSession,
     resetBrowserSession,
     sessionIntelligence,
     status,
     verifyDeviceChallenge,
   } = useAuth();
+  const supportProfile = useMemo(() => getTrustedDeviceSupportProfile(), []);
+  const dialogRef = useRef(null);
+  const primaryActionRef = useRef(null);
+  const methodRefs = useRef({});
+  const verifyInFlightRef = useRef(false);
+  const [selectedMethod, setSelectedMethod] = useState('');
+  const [showMethods, setShowMethods] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [failedAttemptCount, setFailedAttemptCount] = useState(0);
   const [requiresPasswordReauth, setRequiresPasswordReauth] = useState(false);
   const [reauthPassword, setReauthPassword] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [showMethodChooser, setShowMethodChooser] = useState(false);
-  const [failedAttemptCount, setFailedAttemptCount] = useState(0);
-  const dialogRef = useRef(null);
-  const passwordInputRef = useRef(null);
-  const primaryActionRef = useRef(null);
-  const methodOptionRefs = useRef({});
-  const verifyInFlightRef = useRef(false);
 
-  const challengeMode = String(deviceChallenge?.mode || '').trim() === 'enroll'
-    ? 'enroll'
-    : 'assert';
-  const isBlockingRoute = isAdminPath(location?.pathname || '/');
-  const supportProfile = useMemo(() => getTrustedDeviceSupportProfile(), []);
-  const availableMethods = useMemo(() => (
-    Array.isArray(deviceChallenge?.availableMethods)
-      ? deviceChallenge.availableMethods
-        .map((method) => String(method || '').trim().toLowerCase())
-        .filter(Boolean)
-      : []
-  ), [deviceChallenge?.availableMethods]);
-  const passkeyOffered = availableMethods.includes('webauthn');
-  const browserKeyOffered = availableMethods.includes('browser_key');
-  const canUsePasskey = supportProfile.webauthn && passkeyOffered;
-  const canUseBrowserKey = supportProfile.browserKeyFallback && browserKeyOffered;
-  const hostUsesBrowserKeyOnly = !passkeyOffered && browserKeyOffered && !supportProfile.webauthnHostEligible;
-  const fallbackHost = supportProfile.runtimeHost || 'this host';
-  const preferredMethod = normalizeTrustedDeviceMethod(deviceChallenge?.preferredMethod);
-  const registeredMethod = normalizeTrustedDeviceMethod(deviceChallenge?.registeredMethod);
-  const displayedProofMethods = useMemo(() => {
-    const offeredMethods = TRUSTED_DEVICE_METHOD_ORDER.filter((method) => availableMethods.includes(method));
-    if (offeredMethods.length) {
-      return offeredMethods;
-    }
-
-    return TRUSTED_DEVICE_METHOD_ORDER.filter((method) => (
-      method === 'webauthn'
-        ? supportProfile.webauthn
-        : supportProfile.browserKeyFallback
-    ));
-  }, [
-    availableMethods,
-    supportProfile.browserKeyFallback,
-    supportProfile.webauthn,
-  ]);
-  const hasMultipleProofMethods = displayedProofMethods.length > 1;
-
-  const defaultSelectedMethod = useMemo(() => {
-    const offeredMethods = TRUSTED_DEVICE_METHOD_ORDER.filter((method) => availableMethods.includes(method));
-    const supportedMethods = offeredMethods.filter((method) => (
-      method === 'webauthn'
-        ? canUsePasskey
-        : canUseBrowserKey
-    ));
-
-    if (preferredMethod && supportedMethods.includes(preferredMethod)) {
-      return preferredMethod;
-    }
-
-    if (supportedMethods.length) {
-      return supportedMethods[0];
-    }
-
-    if (preferredMethod && offeredMethods.includes(preferredMethod)) {
-      return preferredMethod;
-    }
-
-    if (offeredMethods.length) {
-      return offeredMethods[0];
-    }
-
-    return canUsePasskey ? 'webauthn' : 'browser_key';
-  }, [
-    availableMethods,
-    canUseBrowserKey,
-    canUsePasskey,
-    preferredMethod,
-  ]);
-
-  useEffect(() => {
-    setSelectedMethod(defaultSelectedMethod);
-    setRequiresPasswordReauth(false);
-    setReauthPassword('');
-    setFailedAttemptCount(0);
-  }, [defaultSelectedMethod, deviceChallenge?.token]);
-
-  useEffect(() => {
-    const shouldOpenEnrollment = challengeMode === 'enroll';
-    setIsCollapsed(!isBlockingRoute && !shouldOpenEnrollment);
-    setShowMethodChooser(isBlockingRoute || shouldOpenEnrollment);
-  }, [challengeMode, deviceChallenge?.token, isBlockingRoute]);
-
-  useEffect(() => {
-    if (!requiresPasswordReauth) return;
-
-    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => passwordInputRef.current?.focus({ preventScroll: true }));
-      return;
-    }
-
-    passwordInputRef.current?.focus({ preventScroll: true });
-  }, [requiresPasswordReauth]);
-
-  const shouldRenderTrustedGate = !disabled
+  const challengeMode = deviceChallenge?.mode === 'enroll' ? 'enroll' : 'assert';
+  const audience = deviceChallenge?.audience === 'admin' ? 'admin' : 'public';
+  const requiredAssurance = String(deviceChallenge?.requiredAssurance || 'device_proof');
+  const isAdminCheckpoint = audience === 'admin';
+  const requiresAdminPasskey = requiredAssurance === 'admin_passkey';
+  const offeredMethods = useMemo(() => {
+    const methods = Array.isArray(deviceChallenge?.availableMethods)
+      ? deviceChallenge.availableMethods.map(normalizeMethod).filter(Boolean)
+      : [];
+    return requiresAdminPasskey ? methods.filter((method) => method === 'webauthn') : methods;
+  }, [deviceChallenge?.availableMethods, requiresAdminPasskey]);
+  const supportedMethods = offeredMethods.filter((method) => isMethodSupported(method, supportProfile));
+  const preferredMethod = normalizeMethod(deviceChallenge?.preferredMethod);
+  const defaultMethod = supportedMethods.includes(preferredMethod)
+    ? preferredMethod
+    : (supportedMethods[0] || offeredMethods[0] || '');
+  const activeMethod = normalizeMethod(selectedMethod) || defaultMethod;
+  const selectedMethodSupported = supportedMethods.includes(activeMethod);
+  const shouldRender = !disabled
     && status === 'device_challenge_required'
     && Boolean(deviceChallenge)
     && import.meta.env.MODE !== 'test';
-  const shouldLockTrustedGate = shouldRenderTrustedGate && isBlockingRoute;
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
-
-    document.body.classList.toggle('aura-trusted-gate-open', shouldLockTrustedGate);
-    return () => {
-      document.body.classList.remove('aura-trusted-gate-open');
-    };
-  }, [shouldLockTrustedGate]);
-
-  const activeMethod = normalizeTrustedDeviceMethod(selectedMethod) || defaultSelectedMethod;
-  const selectedMethodSupported = activeMethod === 'webauthn'
-    ? canUsePasskey
-    : canUseBrowserKey;
-  const shouldReauthenticateBeforeDeviceProof = challengeMode === 'enroll'
+  const shouldRequireExplicitReauth = deviceChallenge?.requiresRecentAuth === true
+    && challengeMode === 'enroll'
     && !hasFreshSensitiveActionAuth(sessionIntelligence)
     && typeof reauthenticateForSensitiveAction === 'function';
-  const heading = isBlockingRoute
-    ? getTrustedDeviceHeading({ method: activeMethod, challengeMode, supportProfile })
-    : (challengeMode === 'enroll' ? 'Finish trusted device setup' : 'Privileged mode locked');
-  const actionLabel = getTrustedDeviceActionLabel({ method: activeMethod, challengeMode, supportProfile });
-  const selectedMethodLabel = getTrustedDeviceMethodLabel(activeMethod, supportProfile);
-  const selectedMethodNote = getTrustedDeviceMethodNote({
-    challengeMode,
-    fallbackHost,
-    hostUsesBrowserKeyOnly,
-    method: activeMethod,
-    offered: availableMethods.includes(activeMethod),
-    registeredMethod,
-    supported: selectedMethodSupported,
-  });
-  const selectedMethodDetail = getTrustedDeviceMethodDetail({
-    fallbackHost,
-    hostUsesBrowserKeyOnly,
-    method: activeMethod,
-  });
-  const showProofOptions = isBlockingRoute || showMethodChooser;
-  const checkpointReason = challengeMode === 'enroll'
-    ? 'Set up this device once so admin-grade actions can trust a fresh proof tied to this session.'
-    : 'This session is valid, but elevated actions need a fresh device proof before Aura unlocks them.';
-  const privacyHighlights = activeMethod === 'webauthn'
-    ? [
-      'Face, fingerprint, or Windows Hello stays inside the authenticator.',
-      'Aura receives only a signed WebAuthn assertion for this challenge.',
-      'The elevated session token is short-lived and bound to this Firebase session.',
-    ]
-    : [
-      'The browser signs the challenge locally with its stored RSA-PSS key.',
-      'Aura verifies the signature against the registered public key only.',
-      'The elevated session token is short-lived and bound to this Firebase session.',
-    ];
-  const publicRouteHighlights = challengeMode === 'enroll'
-    ? 'Keep browsing normally while this device finishes its trust setup.'
-    : 'Keep browsing normally and unlock admin, payout, and trust-sensitive actions when you need them.';
-  const introMessage = isBlockingRoute
-    ? getTrustedDeviceIntro({
-      activeMethod,
-      browserKeyOffered,
-      challengeMode,
-      fallbackHost,
-      hostUsesBrowserKeyOnly,
-      passkeyOffered,
-    })
-    : (
-      challengeMode === 'enroll'
-        ? 'You can keep browsing, but admin-grade actions stay locked until this device finishes trusted verification.'
-        : 'You can keep browsing normally. Verify this device when you want to unlock admin and other privileged actions.'
-    );
-  const shouldShowBrowserSessionReset = failedAttemptCount >= 2
-    && typeof resetBrowserSession === 'function';
 
-  const isTrustedDeviceMethodSupported = (method) => (
-    method === 'webauthn'
-      ? canUsePasskey
-      : canUseBrowserKey
-  );
-
-  const focusTrustedDeviceMethod = (method) => {
-    const target = methodOptionRefs.current[method];
-    if (!target || target.disabled) return;
-
-    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => target.focus({ preventScroll: true }));
-      return;
-    }
-
-    target.focus({ preventScroll: true });
-  };
-
-  const selectTrustedDeviceMethod = (method) => {
-    setSelectedMethod(method);
+  useEffect(() => {
+    setSelectedMethod(defaultMethod);
+    setShowMethods(offeredMethods.length > 1 && !defaultMethod);
     setErrorMessage('');
     setFailedAttemptCount(0);
-    focusTrustedDeviceMethod(method);
+    setRequiresPasswordReauth(false);
+    setReauthPassword('');
+  }, [defaultMethod, deviceChallenge?.token, offeredMethods.length]);
+
+  useEffect(() => {
+    if (!shouldRender || typeof document === 'undefined') return undefined;
+    const previouslyFocused = document.activeElement;
+    document.body.classList.add('aura-trusted-gate-open');
+
+    const frame = window.requestAnimationFrame(() => {
+      primaryActionRef.current?.focus({ preventScroll: true });
+    });
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Tab') return;
+      const focusable = getFocusableElements(dialogRef.current);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (!dialogRef.current?.contains(active) || active === first)) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && (!dialogRef.current?.contains(active) || active === last)) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.classList.remove('aura-trusted-gate-open');
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus?.({ preventScroll: true });
+      }
+    };
+  }, [deviceChallenge?.token, shouldRender]);
+
+  if (!shouldRender) return null;
+
+  const selectMethod = (method) => {
+    if (!supportedMethods.includes(method)) return;
+    setSelectedMethod(method);
+    setErrorMessage('');
+    window.requestAnimationFrame(() => methodRefs.current[method]?.focus({ preventScroll: true }));
   };
 
-  const handleMethodOptionKeyDown = (event, method) => {
-    const supportedMethods = displayedProofMethods.filter(isTrustedDeviceMethodSupported);
-    if (!supportedMethods.length) return;
-
+  const handleMethodKeyDown = (event, method) => {
     const currentIndex = Math.max(supportedMethods.indexOf(method), 0);
     let nextMethod = '';
-
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
       nextMethod = supportedMethods[(currentIndex + 1) % supportedMethods.length];
     } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
       nextMethod = supportedMethods[(currentIndex - 1 + supportedMethods.length) % supportedMethods.length];
-    } else if (event.key === 'Home') {
-      nextMethod = supportedMethods[0];
-    } else if (event.key === 'End') {
-      nextMethod = supportedMethods[supportedMethods.length - 1];
     }
-
-    if (!nextMethod) return;
-
-    event.preventDefault();
-    selectTrustedDeviceMethod(nextMethod);
+    if (nextMethod) {
+      event.preventDefault();
+      selectMethod(nextMethod);
+    }
   };
 
-  useEffect(() => {
-    if (!shouldLockTrustedGate || typeof document === 'undefined') {
-      return undefined;
-    }
-
-    const previouslyFocusedElement = document.activeElement;
-    const focusInitialElement = () => {
-      const target = primaryActionRef.current && !primaryActionRef.current.disabled
-        ? primaryActionRef.current
-        : getTrustedDeviceFocusableElements(dialogRef.current)[0];
-
-      target?.focus({ preventScroll: true });
-    };
-
-    const animationFrameId = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
-      ? window.requestAnimationFrame(focusInitialElement)
-      : window.setTimeout(focusInitialElement, 0);
-
-    const handleFocusTrapKeyDown = (event) => {
-      if (event.key !== 'Tab') return;
-
-      const dialog = dialogRef.current;
-      const focusableElements = getTrustedDeviceFocusableElements(dialog);
-      if (!dialog || !focusableElements.length) {
-        return;
-      }
-
-      const firstElement = focusableElements[0];
-      const lastElement = focusableElements[focusableElements.length - 1];
-      const activeElement = document.activeElement;
-      const focusIsInsideDialog = dialog.contains(activeElement);
-
-      if (event.shiftKey && (!focusIsInsideDialog || activeElement === firstElement)) {
-        event.preventDefault();
-        lastElement.focus({ preventScroll: true });
-        return;
-      }
-
-      if (!event.shiftKey && (!focusIsInsideDialog || activeElement === lastElement)) {
-        event.preventDefault();
-        firstElement.focus({ preventScroll: true });
-      }
-    };
-
-    document.addEventListener('keydown', handleFocusTrapKeyDown);
-
-    return () => {
-      if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
-        window.cancelAnimationFrame(animationFrameId);
-      } else if (typeof window !== 'undefined') {
-        window.clearTimeout(animationFrameId);
-      }
-
-      document.removeEventListener('keydown', handleFocusTrapKeyDown);
-      if (previouslyFocusedElement && document.contains(previouslyFocusedElement) && typeof previouslyFocusedElement.focus === 'function') {
-        previouslyFocusedElement.focus({ preventScroll: true });
-      }
-    };
-  }, [deviceChallenge?.token, shouldLockTrustedGate]);
-
-  if (!shouldRenderTrustedGate) {
-    return null;
-  }
-
-  if (!isBlockingRoute && isCollapsed) {
-    return (
-      <AnimatePresence>
-        <motion.button
-          key="trusted-device-minimized"
-          type="button"
-          aria-label={intl.formatMessage({
-            id: 'auth.accessibility.open.trusted.device.checkpoint',
-            defaultMessage: 'Open trusted device checkpoint',
-          })}
-          initial={{ opacity: 0, y: 18, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 18, scale: 0.96 }}
-          onClick={() => setIsCollapsed(false)}
-          className="trusted-device-minimized aura-floating-utility aura-floating-utility--trust fixed bottom-4 right-4 z-[73] grid w-[min(21.5rem,calc(100vw-1.5rem))] grid-cols-[auto,1fr,auto] items-center gap-2.5 rounded-[1.15rem] border px-3 py-2.5 text-left backdrop-blur-xl sm:bottom-5 sm:right-5"
-        >
-          <span className="aura-floating-utility__icon inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] border">
-            <ShieldCheck className="h-4 w-4" />
-          </span>
-          <span className="aura-floating-utility__copy min-w-0">
-            <span className="aura-floating-utility__eyebrow block text-[11px] font-black uppercase tracking-[0.18em]"><FormattedMessage id="auth.jsx.text.trust.checkpoint" defaultMessage="Trust Checkpoint" /></span>
-            <span className="aura-floating-utility__title block truncate text-sm font-semibold"><FormattedMessage id="auth.trustedDevice.publicCheckpoint.title" defaultMessage="Verify this browser to continue securely" /></span>
-            <span className="aura-floating-utility__detail mt-0.5 block truncate text-xs">
-              {selectedMethodLabel}
-            </span>
-          </span>
-          <span className="trusted-device-minimized__action rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]"><FormattedMessage id="auth.jsx.text.open" defaultMessage="Open" /></span>
-        </motion.button>
-      </AnimatePresence>
-    );
-  }
-
   const handleVerify = async () => {
-    if (verifyInFlightRef.current) {
-      return;
-    }
-
+    if (verifyInFlightRef.current) return;
     if (!selectedMethodSupported) {
-      setFailedAttemptCount((count) => count + 1);
-      setErrorMessage(
-        activeMethod === 'webauthn'
-          ? 'This browser cannot complete face/device passkey verification here. Use a secure browser with WebAuthn platform authenticator support, or use the browser fallback only when Aura offers it for this checkpoint.'
-          : (
-            hostUsesBrowserKeyOnly
-              ? `This host uses browser fallback verification because passkeys need localhost or a verified domain. Retry on ${fallbackHost} only after enabling WebCrypto and IndexedDB support.`
-              : 'This browser cannot complete trusted device verification. Use HTTPS or localhost with WebCrypto and IndexedDB enabled.'
-          )
-      );
+      setErrorMessage('This device cannot use the required verification method. Choose another supported device or browser.');
       return;
     }
-
     if (requiresPasswordReauth && !reauthPassword) {
-      setErrorMessage('Enter your password to refresh this protected session, then retry this action.');
-      passwordInputRef.current?.focus({ preventScroll: true });
+      setErrorMessage('Enter your password before retrying this device check.');
       return;
     }
 
     verifyInFlightRef.current = true;
     setIsWorking(true);
     setErrorMessage('');
-
-    let passwordReauthCompleted = false;
     try {
-      if (shouldReauthenticateBeforeDeviceProof || requiresPasswordReauth) {
+      if (shouldRequireExplicitReauth || requiresPasswordReauth) {
         await reauthenticateForSensitiveAction(
           reauthPassword ? { password: reauthPassword } : undefined
         );
-        passwordReauthCompleted = requiresPasswordReauth;
         setRequiresPasswordReauth(false);
         setReauthPassword('');
       }
@@ -631,628 +251,260 @@ const AuraTrustedDeviceChallenge = ({ disabled = false }) => {
         preferredMethod: activeMethod,
       });
       const response = await verifyDeviceChallenge(deviceChallenge.token, signedChallenge);
-
       if (!response?.success) {
-        throw new Error(response?.message || 'Trusted device verification failed.');
+        throw new Error(response?.message || 'This device could not be confirmed.');
       }
 
-      toast.success(
-        signedChallenge?.method === 'webauthn'
-          ? (challengeMode === 'enroll'
-            ? intl.formatMessage({ id: 'auth.feedback.face.device.passkey.registered', defaultMessage: 'Face/device passkey registered.' })
-            : intl.formatMessage({ id: 'auth.feedback.face.device.passkey.verified', defaultMessage: 'Face/device passkey verified.' }))
-          : (challengeMode === 'enroll'
-            ? intl.formatMessage({ id: 'auth.feedback.trusted.browser.registered', defaultMessage: 'Trusted browser registered.' })
-            : intl.formatMessage({ id: 'auth.feedback.trusted.browser.verified', defaultMessage: 'Trusted browser verified.' }))
-      );
-
-      if (currentUser) {
-        await refreshSession(currentUser, { force: true, silent: true }).catch(() => null);
-      }
       setFailedAttemptCount(0);
+      toast.success(
+        response?.status === 'mfa_challenge_required'
+          ? 'Device confirmed. Complete the extra security check.'
+          : 'Device confirmed.'
+      );
     } catch (error) {
       setFailedAttemptCount((count) => count + 1);
       if (isPasswordReauthRequiredError(error)) {
-        const nextMessage = getPasswordReauthErrorMessage(error);
         setRequiresPasswordReauth(true);
-        setErrorMessage(nextMessage);
-        toast.error(nextMessage);
-        return;
       }
-
-      if (requiresPasswordReauth && !passwordReauthCompleted) {
-        const nextMessage = getPasswordReauthErrorMessage(error);
-        setErrorMessage(nextMessage);
-        toast.error(nextMessage);
-        return;
-      }
-
-      const nextMessage = buildTrustedDeviceErrorMessage({
-        attemptedMethod: activeMethod,
-        browserKeyOffered,
-        error,
-        passkeyOffered,
-        supportProfile,
-      });
-      setErrorMessage(nextMessage);
-      toast.error(nextMessage);
+      const message = buildErrorMessage(error);
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       verifyInFlightRef.current = false;
       setIsWorking(false);
     }
   };
 
-  const passwordReauthPrompt = requiresPasswordReauth ? (
-    <div className="rounded-[1.1rem] border border-cyan-300/20 bg-cyan-300/10 p-3">
-      <label htmlFor="trusted-device-reauth-password" className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
-        <FormattedMessage id="auth.trustedDevice.reauth.passwordLabel" defaultMessage="Account password" />
-      </label>
-      <input
-        id="trusted-device-reauth-password"
-        ref={passwordInputRef}
-        type="password"
-        value={reauthPassword}
-        onChange={(event) => {
-          setReauthPassword(event.target.value);
-          if (errorMessage) setErrorMessage('');
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            handleVerify();
-          }
-        }}
-        autoComplete="current-password"
-        disabled={isWorking || isResetting}
-        className="mt-2 w-full rounded-[0.9rem] border border-white/10 bg-slate-950/70 px-3 py-3 text-sm font-semibold text-white outline-none transition-colors placeholder:text-slate-500 focus:border-cyan-300/70"
-      />
-      <p className="mt-2 text-xs leading-5 text-cyan-50/80">
-        <FormattedMessage id="auth.trustedDevice.reauth.passwordHint" defaultMessage="Fresh sign-in is required before this device can register a passkey." />
-      </p>
-    </div>
-  ) : null;
-
-  const handleResetBrowserIdentity = async () => {
+  const handleResetIdentity = async () => {
     setIsResetting(true);
     setErrorMessage('');
-
     try {
       await resetTrustedDeviceIdentity();
       if (currentUser) {
         await refreshSession(currentUser, { force: true, silent: true });
       }
-      toast.success(intl.formatMessage({
-        id: 'auth.feedback.local.device.identity.reset.you.can.register',
-        defaultMessage: 'Local device identity reset. You can register this device again.',
-      }));
+      toast.success(t('auth.trustedDevice.feedback.browserIdentityReset', {}, 'Browser identity reset. Start the device check again.'));
     } catch (error) {
-      const nextMessage = String(error?.message || 'Unable to reset this browser identity.');
-      setErrorMessage(nextMessage);
-      toast.error(nextMessage);
+      const message = buildErrorMessage(error);
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsResetting(false);
     }
   };
 
-  const handleResetBrowserSession = async () => {
-    if (typeof resetBrowserSession !== 'function') {
+  const handleExit = async () => {
+    if (typeof onExit === 'function') {
+      await onExit();
       return;
     }
+    await logout?.();
+    navigate('/', { replace: true });
+  };
 
+  const handleResetSession = async () => {
     setIsResetting(true);
     setErrorMessage('');
-
     try {
-      await resetBrowserSession({ reason: 'trusted-device-challenge' });
+      await resetBrowserSession?.({ reason: 'trusted-device-challenge' });
       setFailedAttemptCount(0);
     } catch (error) {
-      const nextMessage = String(error?.message || 'Unable to reset browser session.');
-      setErrorMessage(nextMessage);
-      toast.error(nextMessage);
+      const message = buildErrorMessage(error);
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsResetting(false);
     }
   };
 
+  const heading = isAdminCheckpoint ? 'Admin security check' : 'Confirm this device';
+  const description = isAdminCheckpoint
+    ? (requiresAdminPasskey
+      ? 'Admin access requires a fresh device passkey. Browser-only recognition cannot unlock admin controls.'
+      : 'First confirm this device. Aura may ask for a separate admin passkey before opening admin controls.')
+    : 'This quick check protects your account before Aura finishes signing you in.';
+
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        role="dialog"
-        aria-modal={isBlockingRoute}
-        aria-labelledby="trusted-device-gate-heading"
-        aria-describedby="trusted-device-gate-description"
-        ref={dialogRef}
-        className={
-          isBlockingRoute
-            ? 'trusted-device-gate trusted-device-gate--blocking fixed inset-0 z-[95] flex items-center justify-center px-3 py-3 backdrop-blur-xl sm:px-4 sm:py-5'
-            : 'trusted-device-gate trusted-device-gate--inline fixed inset-x-0 bottom-5 z-[73] flex justify-center px-3'
-        }
-      >
-        <motion.div
-          initial={{ scale: 0.97, y: isBlockingRoute ? 16 : 22 }}
-          animate={{ scale: 1, y: 0 }}
-          className={
-            isBlockingRoute
-              ? 'trusted-device-panel trusted-device-panel--blocking relative w-full max-w-4xl overflow-hidden rounded-[1.45rem] border'
-              : 'trusted-device-panel trusted-device-panel--inline relative w-full max-w-[44rem] overflow-hidden rounded-[2rem] border backdrop-blur-xl'
-          }
-        >
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent" />
-          <div className="absolute -top-24 right-[-3rem] h-64 w-64 rounded-full bg-cyan-400/12 blur-3xl" />
-          <div className="absolute -bottom-20 left-[-2rem] h-56 w-56 rounded-full bg-fuchsia-500/10 blur-3xl" />
-
-          {isBlockingRoute ? (
-            <div className="relative grid gap-0 lg:grid-cols-[0.94fr,1.06fr]">
-              <div className="trusted-device-panel__summary border-b border-white/8 p-5 sm:p-6 lg:border-b-0 lg:border-r">
-                <div className="space-y-4">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-100">
-                    <ShieldCheck className="h-3.5 w-3.5" /><FormattedMessage id="auth.jsx.text.trusted.device.checkpoint" defaultMessage="Trusted Device Checkpoint" /></div>
-
-                  <div className="space-y-3">
-                    <h2 id="trusted-device-gate-heading" className="max-w-lg text-2xl font-black tracking-tight text-white sm:text-3xl">
-                      {heading}
-                    </h2>
-                    <p id="trusted-device-gate-description" className="max-w-xl text-sm leading-6 text-slate-300">
-                      {introMessage}
-                    </p>
-                  </div>
-
-                  <div className="rounded-[1.15rem] border border-white/8 bg-white/[0.035] p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.why.aura.paused.here" defaultMessage="Why Aura paused here" /></p>
-                    <p className="mt-2 text-sm leading-6 text-slate-200">
-                      {checkpointReason}
-                    </p>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      <div className="rounded-[0.95rem] border border-white/8 bg-slate-950/60 px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><FormattedMessage id="auth.jsx.text.account" defaultMessage="Account" /></p>
-                        <p className="mt-1 truncate text-sm font-semibold text-white">{currentUser?.email || <FormattedMessage id="auth.jsx.expression.authenticated.session" defaultMessage="Authenticated session" />}</p>
-                      </div>
-                      <div className="rounded-[0.95rem] border border-white/8 bg-slate-950/60 px-3 py-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500"><FormattedMessage id="auth.jsx.text.device.lane" defaultMessage="Device lane" /></p>
-                        <p className="mt-1 truncate text-sm font-semibold text-white">{deviceChallenge?.registeredLabel || <FormattedMessage id="auth.jsx.expression.this.browser.session" defaultMessage="This browser session" />}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[1.15rem] border border-white/8 bg-slate-950/60 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.what.stays.private" defaultMessage="What stays private" /></p>
-                    <div className="mt-3 grid gap-2">
-                      {privacyHighlights.map((line) => (
-                        <div key={line} className="flex items-start gap-2.5">
-                          <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-400/12 text-cyan-200">
-                            <ShieldCheck className="h-3 w-3" />
-                          </span>
-                          <p className="text-xs leading-5 text-slate-300">{line}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="trusted-device-panel__actions p-5 sm:p-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                      {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.choose.verification.method" defaultMessage="Choose verification method" /> : <FormattedMessage id="auth.jsx.expression.verification.method" defaultMessage="Verification method" />}
-                    </p>
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                      {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.fresh.assertion.required" defaultMessage="Fresh assertion required" /> : intl.formatMessage({
-                        id: 'auth.jsx.expression.method.required',
-                        defaultMessage: '{method} required',
-                      }, { method: selectedMethodLabel })}
-                    </p>
-                  </div>
-
-                  <div
-                    role="radiogroup"
-                    aria-label={intl.formatMessage({
-                      id: 'auth.accessibility.trusted.device.proof.methods',
-                      defaultMessage: 'Trusted device proof methods',
-                    })}
-                    className="grid gap-2 sm:grid-cols-2"
-                  >
-                    {displayedProofMethods.map((method) => {
-                      const offered = availableMethods.includes(method);
-                      const supported = method === 'webauthn'
-                        ? canUsePasskey
-                        : canUseBrowserKey;
-                      const selected = activeMethod === method;
-                      const preferred = preferredMethod === method;
-                      const MethodIcon = method === 'webauthn' ? ShieldCheck : KeyRound;
-                      const methodLabel = getTrustedDeviceMethodLabel(method, supportProfile);
-                      const methodNote = getTrustedDeviceMethodNote({
-                        challengeMode,
-                        fallbackHost,
-                        hostUsesBrowserKeyOnly,
-                        method,
-                        offered,
-                        registeredMethod,
-                        supported,
-                      });
-                      const badge = getTrustedDeviceMethodBadge({
-                        offered,
-                        preferred,
-                        selected,
-                        supported,
-                      });
-
-                      return (
-                        <button
-                          key={method}
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          aria-label={methodLabel}
-                          aria-describedby={`trusted-device-blocking-${method}-description`}
-                          disabled={!supported}
-                          ref={(node) => {
-                            if (node) methodOptionRefs.current[method] = node;
-                          }}
-                          tabIndex={selected && supported ? 0 : -1}
-                          onClick={() => {
-                            selectTrustedDeviceMethod(method);
-                          }}
-                          onKeyDown={(event) => handleMethodOptionKeyDown(event, method)}
-                          className={[
-                            'rounded-[1.1rem] border p-3 text-left transition-colors',
-                            selected
-                              ? 'border-cyan-300/60 bg-cyan-400/10 shadow-[0_16px_60px_rgba(34,211,238,0.08)]'
-                              : 'border-white/8 bg-white/[0.03]',
-                            !supported ? 'cursor-not-allowed opacity-75' : 'hover:border-cyan-300/35 hover:bg-white/[0.05]',
-                          ].join(' ')}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <span className={`inline-flex h-9 w-9 items-center justify-center rounded-[0.9rem] ${selected ? 'bg-cyan-300 text-slate-950' : 'bg-white/[0.06] text-slate-200'}`}>
-                                <MethodIcon className="h-4 w-4" />
-                              </span>
-                              <div>
-                                <p className="text-sm font-semibold text-white">{methodLabel}</p>
-                                <p className={`mt-1 text-[10px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
-                                  {badge}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <span id={`trusted-device-blocking-${method}-description`} className="sr-only">
-                            {badge}. {methodNote}
-                          </span>
-                          <p className="mt-3 text-xs leading-5 text-slate-400">
-                            {methodNote}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="grid gap-3 lg:grid-cols-[0.82fr,1.18fr]">
-                    <div className="rounded-[1.1rem] border border-white/8 bg-white/[0.03] p-4">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-[0.9rem] bg-white/[0.06] text-cyan-200">
-                          <Laptop className="h-4 w-4" />
-                        </span>
-                        <div>
-                          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.device" defaultMessage="Device" /></p>
-                          <p className="mt-1 text-sm font-semibold text-white">
-                            {deviceChallenge?.registeredLabel || <FormattedMessage id="auth.jsx.expression.this.browser.session" defaultMessage="This browser session" />}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[1.1rem] border border-white/8 bg-white/[0.03] p-4">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.selected.proof" defaultMessage="Selected proof" /></p>
-                      <p className="mt-2 text-sm font-semibold text-white">{selectedMethodLabel}</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">
-                        {selectedMethodDetail}
-                      </p>
-                    </div>
-                  </div>
-
-                  {!selectedMethodSupported ? (
-                    <div className="rounded-[1.1rem] border border-amber-300/20 bg-amber-300/10 p-3 text-sm leading-6 text-amber-100">
-                      {activeMethod === 'webauthn'
-                        ? <FormattedMessage id="auth.jsx.expression.this.device.does.not.expose.the.platform" defaultMessage="This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey." />
-                        : (
-                          hostUsesBrowserKeyOnly
-                            ? <FormattedMessage id="auth.jsx.expression.this.host.stays.on.browser.fallback.verification" defaultMessage="This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains." />
-                            : <FormattedMessage id="auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification" defaultMessage="This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled." />
-                        )}
-                    </div>
-                  ) : null}
-
-                  {passwordReauthPrompt}
-
-                  {errorMessage ? (
-                    <div className="rounded-[1.1rem] border border-rose-300/20 bg-rose-300/10 p-3 text-sm leading-6 text-rose-100" role="alert">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                        <p>{errorMessage}</p>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {shouldShowBrowserSessionReset ? (
-                    <button
-                      type="button"
-                      onClick={handleResetBrowserSession}
-                      disabled={isWorking || isResetting}
-                      className="inline-flex w-full items-center justify-center gap-3 rounded-[1.1rem] border border-rose-200/25 bg-rose-200/10 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-rose-50 transition-colors hover:bg-rose-200/15 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                      <FormattedMessage id="auth.trustedDevice.resetBrowserSession" defaultMessage="Reset browser session" />
-                    </button>
-                  ) : null}
-
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={handleVerify}
-                      disabled={isWorking || isResetting || !selectedMethodSupported}
-                      ref={primaryActionRef}
-                      className="inline-flex flex-1 items-center justify-center gap-3 rounded-[1.1rem] bg-cyan-300 px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                      {actionLabel}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleResetBrowserIdentity}
-                      disabled={isWorking || isResetting}
-                      className="inline-flex items-center justify-center gap-3 rounded-[1.1rem] border border-white/10 bg-white/[0.04] px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}<FormattedMessage id="auth.jsx.text.reset.this.browser" defaultMessage="Reset This Browser" /></button>
-                  </div>
-                </div>
-              </div>
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="trusted-device-heading"
+      aria-describedby="trusted-device-description"
+      aria-busy={isWorking || isResetting}
+      className="trusted-device-gate trusted-device-gate--blocking fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-slate-950/90 px-3 py-5 backdrop-blur-xl sm:px-6"
+    >
+      <section className="relative w-full max-w-2xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-950 shadow-[0_32px_100px_rgba(0,0,0,0.6)]">
+        <div className="h-1 bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400" />
+        <div className="p-5 sm:p-7">
+          <div className="flex items-start gap-4">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-300 text-slate-950">
+              {isAdminCheckpoint ? <ShieldCheck className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-200">
+                {isAdminCheckpoint
+                  ? t('auth.trustedDevice.eyebrow.admin', {}, 'Admin access')
+                  : t('auth.trustedDevice.eyebrow.public', {}, 'Secure sign-in')}
+              </p>
+              <h2 id="trusted-device-heading" className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                {heading}
+              </h2>
+              <p id="trusted-device-description" className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
+                {description}
+              </p>
             </div>
-          ) : (
-            <div className="relative p-5 sm:p-6">
-              <div className="space-y-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
-                    <ShieldCheck className="h-3.5 w-3.5" /><FormattedMessage id="auth.jsx.text.privileged.mode" defaultMessage="Privileged Mode" /></div>
-                  <button
-                    type="button"
-                    onClick={() => setIsCollapsed(true)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-200 transition-colors hover:bg-white/[0.08]"
-                    aria-label={intl.formatMessage({
-                      id: 'auth.accessibility.minimize.trusted.device.panel',
-                      defaultMessage: 'Minimize trusted device panel',
-                    })}
-                  >
-                    <Minimize2 className="h-4 w-4" />
-                  </button>
-                </div>
+          </div>
 
-                <div className="grid gap-4 lg:grid-cols-[1.12fr,0.88fr]">
-                  <div className="space-y-4">
-                    <div className="space-y-3">
-                      <h2 id="trusted-device-gate-heading" className="text-2xl font-black tracking-tight text-white sm:text-[2rem]">
-                        {heading}
-                      </h2>
-                      <p id="trusted-device-gate-description" className="text-sm leading-6 text-slate-300">
-                        {introMessage}
-                      </p>
-                    </div>
+          <ol aria-label={t('auth.trustedDevice.progress.label', {}, 'Sign-in progress')} className="mt-6 grid gap-2 text-xs sm:grid-cols-3">
+            <li className="flex items-center gap-2 rounded-xl border border-emerald-300/15 bg-emerald-300/10 px-3 py-2.5 text-emerald-100">
+              <Check className="h-4 w-4" /> {t('auth.trustedDevice.progress.accountVerified', {}, 'Account verified')}
+            </li>
+            <li aria-current="step" className="flex items-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-300/10 px-3 py-2.5 font-bold text-cyan-100">
+              <Laptop className="h-4 w-4" /> {t('auth.trustedDevice.progress.confirmDevice', {}, 'Confirm device')}
+            </li>
+            <li className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2.5 text-slate-400">
+              <ShieldCheck className="h-4 w-4" /> {t('auth.trustedDevice.progress.extraCheck', {}, 'Extra check if needed')}
+            </li>
+          </ol>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.selected.proof" defaultMessage="Selected proof" /></p>
-                        <p className="mt-2 text-sm font-semibold text-white">{selectedMethodLabel}</p>
-                        <p className="mt-3 text-xs leading-5 text-slate-400">{selectedMethodNote}</p>
-                      </div>
-
-                      <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                        <div className="flex items-center gap-3">
-                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.06] text-cyan-200">
-                            <Laptop className="h-4 w-4" />
-                          </span>
-                          <div>
-                            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.device" defaultMessage="Device" /></p>
-                            <p className="mt-1 text-sm font-semibold text-white">
-                              {deviceChallenge?.registeredLabel || <FormattedMessage id="auth.jsx.expression.this.browser.session" defaultMessage="This browser session" />}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400"><FormattedMessage id="auth.jsx.text.why.this.appears" defaultMessage="Why this appears" /></p>
-                      <p className="mt-3 text-sm leading-6 text-slate-300">
-                        {publicRouteHighlights}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-[1.75rem] border border-white/8 bg-white/[0.04] p-5">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100/80"><FormattedMessage id="auth.jsx.text.quick.unlock" defaultMessage="Quick unlock" /></p>
-                    <p className="mt-3 text-base font-semibold text-white"><FormattedMessage id="auth.jsx.text.unlock.the.stronger.session.only.when.you" defaultMessage="Unlock the stronger session only when you actually need it." /></p>
-                    <p className="mt-3 text-sm leading-6 text-slate-300">
-                      {checkpointReason}
-                    </p>
-
-                    <div className="mt-5 flex flex-col gap-3">
-                      <button
-                        type="button"
-                        onClick={handleVerify}
-                        disabled={isWorking || isResetting || !selectedMethodSupported}
-                        ref={primaryActionRef}
-                        className="inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] bg-cyan-300 px-5 py-4 text-sm font-black uppercase tracking-[0.18em] text-slate-950 transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                        {actionLabel}
-                      </button>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowMethodChooser((current) => !current)}
-                          className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08]"
-                        >
-                          {showProofOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          {showProofOptions ? <FormattedMessage id="auth.jsx.expression.hide.proof.options" defaultMessage="Hide Proof Options" /> : <FormattedMessage id="auth.jsx.expression.change.proof.method" defaultMessage="Change Proof Method" />}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleResetBrowserIdentity}
-                          disabled={isWorking || isResetting}
-                          className="inline-flex items-center justify-center gap-3 rounded-[1.5rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-100 transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}<FormattedMessage id="auth.jsx.text.reset.identity" defaultMessage="Reset Identity" /></button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {showProofOptions ? (
-                  <div className="space-y-4 rounded-[1.75rem] border border-white/8 bg-slate-950/70 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
-                        {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.proof.methods" defaultMessage="Proof methods" /> : <FormattedMessage id="auth.jsx.expression.required.proof" defaultMessage="Required proof" />}
-                      </p>
-                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
-                        {hasMultipleProofMethods ? <FormattedMessage id="auth.jsx.expression.pick.the.smoothest.lane" defaultMessage="Pick the smoothest lane" /> : selectedMethodLabel}
-                      </p>
-                    </div>
-
-                    <div
-                      role="radiogroup"
-                      aria-label={intl.formatMessage({
-                        id: 'auth.accessibility.trusted.device.proof.methods',
-                        defaultMessage: 'Trusted device proof methods',
-                      })}
-                      className="grid gap-3 sm:grid-cols-2"
-                    >
-                      {displayedProofMethods.map((method) => {
-                        const offered = availableMethods.includes(method);
-                        const supported = method === 'webauthn'
-                          ? canUsePasskey
-                          : canUseBrowserKey;
-                        const selected = activeMethod === method;
-                        const preferred = preferredMethod === method;
-                        const MethodIcon = method === 'webauthn' ? ShieldCheck : KeyRound;
-                        const methodLabel = getTrustedDeviceMethodLabel(method, supportProfile);
-                        const methodNote = getTrustedDeviceMethodNote({
-                          challengeMode,
-                          fallbackHost,
-                          hostUsesBrowserKeyOnly,
-                          method,
-                          offered,
-                          registeredMethod,
-                          supported,
-                        });
-                        const badge = getTrustedDeviceMethodBadge({
-                          offered,
-                          preferred,
-                          selected,
-                          supported,
-                        });
-
-                        return (
-                          <button
-                            key={method}
-                            type="button"
-                            role="radio"
-                            aria-checked={selected}
-                            aria-label={methodLabel}
-                            aria-describedby={`trusted-device-inline-${method}-description`}
-                            disabled={!supported}
-                            ref={(node) => {
-                              if (node) methodOptionRefs.current[method] = node;
-                            }}
-                            tabIndex={selected && supported ? 0 : -1}
-                            onClick={() => {
-                              selectTrustedDeviceMethod(method);
-                            }}
-                            onKeyDown={(event) => handleMethodOptionKeyDown(event, method)}
-                            className={[
-                              'rounded-[1.5rem] border p-4 text-left transition-colors',
-                              selected
-                                ? 'border-cyan-300/60 bg-cyan-400/10'
-                                : 'border-white/8 bg-white/[0.03]',
-                              !supported ? 'cursor-not-allowed opacity-75' : 'hover:border-cyan-300/35 hover:bg-white/[0.05]',
-                            ].join(' ')}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-center gap-3">
-                                <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${selected ? 'bg-cyan-300 text-slate-950' : 'bg-white/[0.06] text-slate-200'}`}>
-                                  <MethodIcon className="h-4 w-4" />
-                                </span>
-                                <div>
-                                  <p className="text-sm font-semibold text-white">{methodLabel}</p>
-                                  <p className={`mt-1 text-[11px] font-black uppercase tracking-[0.18em] ${selected ? 'text-cyan-100' : 'text-slate-400'}`}>
-                                    {badge}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                            <span id={`trusted-device-inline-${method}-description`} className="sr-only">
-                              {badge}. {methodNote}
-                            </span>
-                            <p className="mt-4 text-xs leading-5 text-slate-400">
-                              {methodNote}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4 text-sm leading-6 text-slate-300">
-                      <p>
-                        {selectedMethodDetail}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {!selectedMethodSupported ? (
-                  <div className="rounded-[1.5rem] border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
-                    {activeMethod === 'webauthn'
-                      ? <FormattedMessage id="auth.jsx.expression.this.device.does.not.expose.the.platform" defaultMessage="This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey." />
-                      : (
-                        hostUsesBrowserKeyOnly
-                          ? <FormattedMessage id="auth.jsx.expression.this.host.stays.on.browser.fallback.verification" defaultMessage="This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains." />
-                          : <FormattedMessage id="auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification" defaultMessage="This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled." />
-                      )}
-                  </div>
-                ) : null}
-
-                {passwordReauthPrompt}
-
-                {errorMessage ? (
-                  <div className="rounded-[1.5rem] border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100" role="alert">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <p>{errorMessage}</p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {shouldShowBrowserSessionReset ? (
-                  <button
-                    type="button"
-                    onClick={handleResetBrowserSession}
-                    disabled={isWorking || isResetting}
-                    className="inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] border border-rose-200/25 bg-rose-200/10 px-5 py-3.5 text-sm font-black uppercase tracking-[0.16em] text-rose-50 transition-colors hover:bg-rose-200/15 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isResetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    <FormattedMessage id="auth.trustedDevice.resetBrowserSession" defaultMessage="Reset browser session" />
-                  </button>
-                ) : null}
+          <div className="mt-6 rounded-2xl border border-white/8 bg-white/[0.035] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                  {t('auth.trustedDevice.method.recommended', {}, 'Recommended')}
+                </p>
+                <p className="mt-1 font-semibold text-white">{getMethodLabel(activeMethod, supportProfile)}</p>
               </div>
+              <KeyRound className="h-5 w-5 text-cyan-200" />
             </div>
-          )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+            <p className="mt-2 text-sm leading-6 text-slate-300">
+              {getMethodDescription(activeMethod, challengeMode)}
+            </p>
+
+            {offeredMethods.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => setShowMethods((value) => !value)}
+                aria-expanded={showMethods}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-semibold text-cyan-200 outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+              >
+                {t('auth.trustedDevice.method.tryAnother', {}, 'Try another way')} <ChevronDown className={`h-4 w-4 transition-transform ${showMethods ? 'rotate-180' : ''}`} />
+              </button>
+            ) : null}
+
+            {showMethods ? (
+              <div role="radiogroup" aria-label={t('auth.trustedDevice.method.groupLabel', {}, 'Device verification methods')} className="mt-3 grid gap-2 sm:grid-cols-2">
+                {offeredMethods.map((method) => {
+                  const supported = supportedMethods.includes(method);
+                  const selected = activeMethod === method;
+                  return (
+                    <button
+                      key={method}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      aria-describedby={`trusted-device-${method}-description`}
+                      aria-label={getMethodLabel(method, supportProfile)}
+                      ref={(node) => {
+                        if (node) methodRefs.current[method] = node;
+                      }}
+                      disabled={!supported}
+                      tabIndex={selected && supported ? 0 : -1}
+                      onClick={() => selectMethod(method)}
+                      onKeyDown={(event) => handleMethodKeyDown(event, method)}
+                      className={`rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-cyan-300 ${selected ? 'border-cyan-300/60 bg-cyan-300/10' : 'border-white/10 bg-slate-900'} ${supported ? 'hover:border-cyan-300/40' : 'cursor-not-allowed opacity-50'}`}
+                    >
+                      <span className="text-sm font-semibold text-white">{getMethodLabel(method, supportProfile)}</span>
+                      <span id={`trusted-device-${method}-description`} className="mt-1 block text-xs leading-5 text-slate-400">
+                        {getMethodDescription(method, challengeMode)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+
+          {requiresPasswordReauth ? (
+            <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4">
+              <label htmlFor="trusted-device-reauth-password" className="text-sm font-semibold text-cyan-50">
+                {t('auth.trustedDevice.reauth.passwordLabel', {}, 'Account password')}
+              </label>
+              <input
+                id="trusted-device-reauth-password"
+                type="password"
+                autoComplete="current-password"
+                value={reauthPassword}
+                onChange={(event) => setReauthPassword(event.target.value)}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-3 text-white outline-none focus-visible:border-cyan-300 focus-visible:ring-2 focus-visible:ring-cyan-300/30"
+              />
+            </div>
+          ) : null}
+
+          {!selectedMethodSupported ? (
+            <div role="alert" className="mt-4 flex gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              {t('auth.trustedDevice.method.unavailable', {}, 'The required method is not available in this browser. Use a supported browser or another device.')}
+            </div>
+          ) : null}
+
+          {errorMessage ? (
+            <div role="alert" aria-live="assertive" className="mt-4 flex gap-3 rounded-2xl border border-rose-300/20 bg-rose-300/10 p-4 text-sm leading-6 text-rose-100">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              {errorMessage}
+            </div>
+          ) : null}
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-[1fr,auto]">
+            <button
+              ref={primaryActionRef}
+              type="button"
+              onClick={handleVerify}
+              disabled={isWorking || isResetting || !selectedMethodSupported}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-5 py-3 text-sm font-black text-slate-950 outline-none transition-colors hover:bg-cyan-200 focus-visible:ring-2 focus-visible:ring-cyan-100 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {isWorking
+                ? t('auth.trustedDevice.confirming', {}, 'Confirming device…')
+                : getMethodAction(activeMethod, challengeMode)}
+            </button>
+            <button
+              type="button"
+              onClick={handleExit}
+              disabled={isWorking || isResetting}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 outline-none hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-cyan-300"
+            >
+              <LogOut className="h-4 w-4" /> {t('auth.trustedDevice.exit.anotherAccount', {}, 'Use another account')}
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/8 pt-4 text-sm">
+            <button
+              type="button"
+              onClick={handleResetIdentity}
+              disabled={isWorking || isResetting}
+              className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-slate-300 outline-none hover:text-white focus-visible:ring-2 focus-visible:ring-cyan-300"
+            >
+              <RefreshCw className={`h-4 w-4 ${isResetting ? 'animate-spin' : ''}`} /> {t('auth.trustedDevice.resetBrowser', {}, 'Reset this browser')}
+            </button>
+            {failedAttemptCount >= 2 && typeof resetBrowserSession === 'function' ? (
+              <button
+                type="button"
+                onClick={handleResetSession}
+                disabled={isWorking || isResetting}
+                className="rounded-lg px-1 py-1 font-semibold text-rose-200 outline-none hover:text-rose-100 focus-visible:ring-2 focus-visible:ring-rose-300"
+              >
+                {t('auth.trustedDevice.resetBrowserSession', {}, 'Reset browser session')}
+              </button>
+            ) : null}
+            <span className="text-xs text-slate-500">
+              {t('auth.trustedDevice.proofBindingNote', {}, 'Device proof is short-lived and bound to this sign-in.')}
+            </span>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 };
 

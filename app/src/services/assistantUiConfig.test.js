@@ -53,6 +53,11 @@ describe('assistantUiConfig', () => {
         expect(shouldShowSiteChrome('/products')).toBe(true);
     });
 
+    it('keeps the ordinary login route focused on authentication', () => {
+        expect(shouldShowSiteChrome('/login')).toBe(false);
+        expect(shouldShowSiteChrome('/login/')).toBe(false);
+    });
+
     it('resolves the original listing route inside the assistant workspace', () => {
         expect(resolveAssistantOriginLocation({
             pathname: '/assistant',

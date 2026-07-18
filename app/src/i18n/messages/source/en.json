@@ -4120,15 +4120,6 @@
   "auth.acceleration.verificationReady.title": {
     "defaultMessage": "Verification ready"
   },
-  "auth.accessibility.minimize.trusted.device.panel": {
-    "defaultMessage": "Minimize trusted device panel"
-  },
-  "auth.accessibility.open.trusted.device.checkpoint": {
-    "defaultMessage": "Open trusted device checkpoint"
-  },
-  "auth.accessibility.trusted.device.proof.methods": {
-    "defaultMessage": "Trusted device proof methods"
-  },
   "auth.action.signIn": {
     "defaultMessage": "Sign in",
     "description": "Primary authentication action shown on sign-in CTAs."
@@ -4136,6 +4127,12 @@
   "auth.action.signUp": {
     "defaultMessage": "Sign up",
     "description": "Primary authentication action shown on account creation CTAs."
+  },
+  "auth.checkpoint.dialog.label": {
+    "defaultMessage": "Authentication checkpoint"
+  },
+  "auth.checkpoint.exitError": {
+    "defaultMessage": "Aura could not finish signing out. Retry before leaving this checkpoint."
   },
   "auth.deviceChallenge.message": {
     "defaultMessage": "Approve this browser in the security checkpoint to continue.",
@@ -5229,24 +5226,6 @@
     "defaultMessage": "Account Disabled",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."
   },
-  "auth.feedback.face.device.passkey.registered": {
-    "defaultMessage": "Face/device passkey registered."
-  },
-  "auth.feedback.face.device.passkey.verified": {
-    "defaultMessage": "Face/device passkey verified."
-  },
-  "auth.feedback.local.device.identity.reset.you.can.register": {
-    "defaultMessage": "Local device identity reset. You can register this device again."
-  },
-  "auth.feedback.trusted.browser.registered": {
-    "defaultMessage": "Trusted browser registered."
-  },
-  "auth.feedback.trusted.browser.verified": {
-    "defaultMessage": "Trusted browser verified."
-  },
-  "auth.jsx.expression.authenticated.session": {
-    "defaultMessage": "Authenticated session"
-  },
   "auth.jsx.expression.authentication.and.trusted.session.continuity": {
     "defaultMessage": "Authentication and trusted session continuity",
     "description": "Static UI/template coverage descriptor from stable text scanner."
@@ -5254,12 +5233,6 @@
   "auth.jsx.expression.authenticity.signals.unavailable": {
     "defaultMessage": "Authenticity signals unavailable.",
     "description": "Static UI/template coverage descriptor from stable text scanner."
-  },
-  "auth.jsx.expression.change.proof.method": {
-    "defaultMessage": "Change Proof Method"
-  },
-  "auth.jsx.expression.choose.verification.method": {
-    "defaultMessage": "Choose verification method"
   },
   "auth.jsx.expression.create.account.2428c1b6": {
     "defaultMessage": "Create account",
@@ -5276,24 +5249,9 @@
   "auth.jsx.expression.enter.the.secure.otp.to.continue": {
     "defaultMessage": "Enter the secure OTP to continue."
   },
-  "auth.jsx.expression.fresh.assertion.required": {
-    "defaultMessage": "Fresh assertion required"
-  },
-  "auth.jsx.expression.hide.proof.options": {
-    "defaultMessage": "Hide Proof Options"
-  },
-  "auth.jsx.expression.method.required": {
-    "defaultMessage": "{method} required"
-  },
   "auth.jsx.expression.phone.verification.94e84a2f": {
     "defaultMessage": "Phone verification",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "auth.jsx.expression.pick.the.smoothest.lane": {
-    "defaultMessage": "Pick the smoothest lane"
-  },
-  "auth.jsx.expression.proof.methods": {
-    "defaultMessage": "Proof methods"
   },
   "auth.jsx.expression.registered.email.27c6cef1": {
     "defaultMessage": "Registered Email *",
@@ -5307,21 +5265,6 @@
     "defaultMessage": "Request missing",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "auth.jsx.expression.required.proof": {
-    "defaultMessage": "Required proof"
-  },
-  "auth.jsx.expression.this.browser.cannot.complete.trusted.device.verification": {
-    "defaultMessage": "This browser cannot complete trusted device verification here. Use HTTPS or localhost with WebCrypto and IndexedDB enabled."
-  },
-  "auth.jsx.expression.this.browser.session": {
-    "defaultMessage": "This browser session"
-  },
-  "auth.jsx.expression.this.device.does.not.expose.the.platform": {
-    "defaultMessage": "This device does not expose the platform passkey APIs needed for face/device authentication here. Use a secure browser with passkey support, or switch to a device that already has the registered passkey."
-  },
-  "auth.jsx.expression.this.host.stays.on.browser.fallback.verification": {
-    "defaultMessage": "This host stays on browser fallback verification because passkeys are only offered on localhost or verified domains."
-  },
   "auth.jsx.expression.use.existing.account.78f61e74": {
     "defaultMessage": "Use existing account",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -5329,21 +5272,6 @@
   "auth.jsx.expression.verification.code.0c41bf58": {
     "defaultMessage": "Verification code",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "auth.jsx.expression.verification.method": {
-    "defaultMessage": "Verification method"
-  },
-  "auth.jsx.text.account": {
-    "defaultMessage": "Account"
-  },
-  "auth.jsx.text.apple": {
-    "defaultMessage": "Apple"
-  },
-  "auth.jsx.text.ar": {
-    "defaultMessage": "Ar"
-  },
-  "auth.jsx.text.aura": {
-    "defaultMessage": "Aura"
   },
   "auth.jsx.text.aura.desktop.9942bc8a": {
     "defaultMessage": "Aura Desktop",
@@ -5379,51 +5307,21 @@
     "defaultMessage": "Desktop request not active",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "auth.jsx.text.device": {
-    "defaultMessage": "Device"
-  },
-  "auth.jsx.text.device.lane": {
-    "defaultMessage": "Device lane"
-  },
-  "auth.jsx.text.duo": {
-    "defaultMessage": "Duo"
-  },
-  "auth.jsx.text.facebook": {
-    "defaultMessage": "Facebook"
-  },
   "auth.jsx.text.forgot.password.823e0b60": {
     "defaultMessage": "Forgot password?",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "auth.jsx.text.github": {
-    "defaultMessage": "GitHub"
-  },
-  "auth.jsx.text.google": {
-    "defaultMessage": "Google"
   },
   "auth.jsx.text.live.auth.67a9883c": {
     "defaultMessage": "Live auth",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "auth.jsx.text.microsoft": {
-    "defaultMessage": "Microsoft"
-  },
   "auth.jsx.text.one.focused.login.bridge.for.6e5ebd4f": {
     "defaultMessage": "One focused login bridge for",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "auth.jsx.text.open": {
-    "defaultMessage": "Open"
-  },
   "auth.jsx.text.password.464054c2": {
     "defaultMessage": "Password *",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "auth.jsx.text.privileged.mode": {
-    "defaultMessage": "Privileged Mode"
-  },
-  "auth.jsx.text.quick.unlock": {
-    "defaultMessage": "Quick unlock"
   },
   "auth.jsx.text.resend.in.eeb75215": {
     "defaultMessage": "Resend in",
@@ -5431,15 +5329,6 @@
   },
   "auth.jsx.text.resend.otp": {
     "defaultMessage": "Resend OTP"
-  },
-  "auth.jsx.text.reset.identity": {
-    "defaultMessage": "Reset Identity"
-  },
-  "auth.jsx.text.reset.this.browser": {
-    "defaultMessage": "Reset This Browser"
-  },
-  "auth.jsx.text.selected.proof": {
-    "defaultMessage": "Selected proof"
   },
   "auth.jsx.text.social.access.is.unavailable.for.this.deployment.3664c5e2": {
     "defaultMessage": "Social access is unavailable for this deployment.",
@@ -5449,27 +5338,9 @@
     "defaultMessage": "Start again from Aura Desktop so this browser lane can bind to the local session request.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "auth.jsx.text.trust.checkpoint": {
-    "defaultMessage": "Trust Checkpoint"
-  },
-  "auth.jsx.text.trusted.device.checkpoint": {
-    "defaultMessage": "Trusted Device Checkpoint"
-  },
-  "auth.jsx.text.unlock.the.stronger.session.only.when.you": {
-    "defaultMessage": "Unlock the stronger session only when you actually need it."
-  },
   "auth.jsx.text.upload.or.paste.a.screenshot.then.rank.9641b9df": {
     "defaultMessage": "Upload or paste a screenshot, then rank closest products with price-gap and authenticity hints.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "auth.jsx.text.what.stays.private": {
-    "defaultMessage": "What stays private"
-  },
-  "auth.jsx.text.why.aura.paused.here": {
-    "defaultMessage": "Why Aura paused here"
-  },
-  "auth.jsx.text.why.this.appears": {
-    "defaultMessage": "Why this appears"
   },
   "auth.jsx.text.your.browser.completes.the.identity.proof.then.d14bdbbe": {
     "defaultMessage": "Your browser completes the identity proof, then Aura Desktop receives a sealed session result through the trusted local bridge.",
@@ -5506,10 +5377,10 @@
     "defaultMessage": "Use {method}"
   },
   "auth.mfaChallenge.cancel.admin": {
-    "defaultMessage": "Leave admin checkpoint"
+    "defaultMessage": "Sign out and leave admin"
   },
   "auth.mfaChallenge.cancel.public": {
-    "defaultMessage": "Return to storefront"
+    "defaultMessage": "Sign out and return to storefront"
   },
   "auth.mfaChallenge.context.label": {
     "defaultMessage": "Verification context"
@@ -5534,6 +5405,9 @@
   },
   "auth.mfaChallenge.error.invalidTotp": {
     "defaultMessage": "Enter the 6-digit code from your authenticator app."
+  },
+  "auth.mfaChallenge.error.noAdminMethod": {
+    "defaultMessage": "No approved admin verification method is enrolled. Admin access remains locked. Sign out and ask the account owner or security operator to restore a passkey or MFA method."
   },
   "auth.mfaChallenge.error.noMethod": {
     "defaultMessage": "No supported verification method is available for this checkpoint. Sign out and try again."
@@ -5790,17 +5664,73 @@
     "defaultMessage": "Account Created!",
     "description": "Stable auth feedback message surfaced in login and desktop auth flows."
   },
-  "auth.trustedDevice.publicCheckpoint.title": {
-    "defaultMessage": "Verify this browser to continue securely"
+  "auth.trustedDevice.confirming": {
+    "defaultMessage": "Confirming device…",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "auth.trustedDevice.reauth.passwordHint": {
-    "defaultMessage": "Fresh sign-in is required before this device can register a passkey."
+  "auth.trustedDevice.exit.anotherAccount": {
+    "defaultMessage": "Use another account",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.eyebrow.admin": {
+    "defaultMessage": "Admin access",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.eyebrow.public": {
+    "defaultMessage": "Secure sign-in",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.feedback.browserIdentityReset": {
+    "defaultMessage": "Browser identity reset. Start the device check again.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.method.groupLabel": {
+    "defaultMessage": "Device verification methods",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.method.recommended": {
+    "defaultMessage": "Recommended",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.method.tryAnother": {
+    "defaultMessage": "Try another way",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.method.unavailable": {
+    "defaultMessage": "The required method is not available in this browser. Use a supported browser or another device.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.progress.accountVerified": {
+    "defaultMessage": "Account verified",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.progress.confirmDevice": {
+    "defaultMessage": "Confirm device",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.progress.extraCheck": {
+    "defaultMessage": "Extra check if needed",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.progress.label": {
+    "defaultMessage": "Sign-in progress",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.proofBindingNote": {
+    "defaultMessage": "Device proof is short-lived and bound to this sign-in.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "auth.trustedDevice.reauth.passwordLabel": {
-    "defaultMessage": "Account password"
+    "defaultMessage": "Account password",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "auth.trustedDevice.resetBrowser": {
+    "defaultMessage": "Reset this browser",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "auth.trustedDevice.resetBrowserSession": {
-    "defaultMessage": "Reset browser session"
+    "defaultMessage": "Reset browser session",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "backendFailure.catalog.failed.message": {
     "defaultMessage": "Unable to load products right now. Please retry."
@@ -8727,6 +8657,14 @@
     "defaultMessage": "Rename",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "common.retry": {
+    "defaultMessage": "Retry",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "common.retrying": {
+    "defaultMessage": "Retrying...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "common.revoke": {
     "defaultMessage": "Revoke",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -10357,16 +10295,40 @@
     "defaultMessage": "Use saved identity",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.action.backToForm": {
-    "defaultMessage": "Back to form",
+  "login.action.backToRecoveryDetails": {
+    "defaultMessage": "Back to recovery details",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.action.backToSignInDetails": {
+    "defaultMessage": "Back to sign-in details",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.action.forgotPassword": {
-    "defaultMessage": "Forgot Password?",
+    "defaultMessage": "Forgot password?",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.actionTemporarilyUnavailable": {
     "defaultMessage": "Temporarily Unavailable",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.brand.initials": {
+    "defaultMessage": "AR",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.checkpoint.body": {
+    "defaultMessage": "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.checkpoint.deviceTitle": {
+    "defaultMessage": "Verify this device",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.checkpoint.mfaTitle": {
+    "defaultMessage": "Complete multi-factor verification",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.checkpoint.stayHere": {
+    "defaultMessage": "Keep this page open. Do not submit your sign-in details again.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.desktopBrowser.button": {
@@ -10374,7 +10336,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.desktopBrowser.cancel": {
-    "defaultMessage": "Cancel Browser Sign-In",
+    "defaultMessage": "Cancel browser sign-in",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.desktopBrowser.completingDetail": {
@@ -10478,19 +10440,19 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.field.confirmPassword": {
-    "defaultMessage": "Confirm Password",
+    "defaultMessage": "Confirm password",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.field.email": {
-    "defaultMessage": "Email Address",
+    "defaultMessage": "Email address",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.field.fullName": {
-    "defaultMessage": "Full Name",
+    "defaultMessage": "Full name",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.field.newPassword": {
-    "defaultMessage": "New Password",
+    "defaultMessage": "New password",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.field.password": {
@@ -10498,19 +10460,15 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.field.phone": {
-    "defaultMessage": "Phone Number",
+    "defaultMessage": "Phone number",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.field.phoneCountry": {
     "defaultMessage": "Country calling code",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.field.phoneWithDialCode": {
-    "defaultMessage": "{label} {dialCode}",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "login.field.registeredEmail": {
-    "defaultMessage": "Registered Email",
+    "defaultMessage": "Registered email",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.info.forgot.dual": {
@@ -10629,12 +10587,8 @@
     "defaultMessage": "Remember your password?",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.or": {
-    "defaultMessage": "or",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.and": {
-    "defaultMessage": "and",
+  "login.otherOptions": {
+    "defaultMessage": "Other secure sign-in options",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.otp.backend.checkForCode.title": {
@@ -10649,8 +10603,24 @@
     "defaultMessage": "If the account details are valid, a 6-digit verification code has been sent.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.otp.defaultSent": {
-    "defaultMessage": "We sent a 6-digit code to",
+  "login.otp.codeLabel": {
+    "defaultMessage": "Six-digit verification code",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.otp.compactDefault": {
+    "defaultMessage": "Enter the 6-digit verification code we sent you.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.otp.compactEmail": {
+    "defaultMessage": "Enter the 6-digit code sent to {email}. Phone verification follows.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.otp.compactPhone": {
+    "defaultMessage": "Enter the 6-digit code sent to {phone}.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.otp.digitLabel": {
+    "defaultMessage": "Verification code digit {position}",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.otp.email.codeSent.detail": {
@@ -10667,34 +10637,6 @@
   },
   "login.otp.email.codesResent.title": {
     "defaultMessage": "Codes Re-Sent",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.emailStepForgotPrefix": {
-    "defaultMessage": "Your Firebase SMS code for",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.emailStepForgotSuffix": {
-    "defaultMessage": "will unlock password recovery next.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.emailStepPrefix": {
-    "defaultMessage": "Step 1 of 2. We sent a 6-digit email code to",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.emailStepSigninPrefix": {
-    "defaultMessage": "Your Firebase SMS code for",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.emailStepSigninSuffix": {
-    "defaultMessage": "will complete the same login next.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.emailStepSignupPrefix": {
-    "defaultMessage": "Your Firebase SMS code for",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.emailStepSignupSuffix": {
-    "defaultMessage": "will finish activating this account next.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.otp.error.incomplete": {
@@ -10723,10 +10665,6 @@
   },
   "login.otp.firebase.smsSent.title": {
     "defaultMessage": "Firebase SMS Sent",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.firebaseSent": {
-    "defaultMessage": "We sent a 6-digit Firebase SMS code to",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.otp.mode.accountSetup": {
@@ -10761,24 +10699,8 @@
     "defaultMessage": "unlock password reset",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.otp.phoneStepForgot": {
-    "defaultMessage": "to continue password recovery.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.phoneStepPrefix": {
-    "defaultMessage": "Step 2 of 2. Your email is verified. Enter the Firebase SMS code sent to",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.phoneStepSignin": {
-    "defaultMessage": "to finish signing in.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.otp.phoneStepSignup": {
-    "defaultMessage": "to activate the account.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
   "login.otp.resend": {
-    "defaultMessage": "Resend OTP",
+    "defaultMessage": "Resend code",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.otp.resendIn": {
@@ -10786,27 +10708,27 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.otp.title": {
-    "defaultMessage": "Enter Verification Code",
+    "defaultMessage": "Enter verification code",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.password.placeholder": {
+    "defaultMessage": "Enter your password",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.phone.inputLabel": {
+    "defaultMessage": "Phone number {dialCode}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.phoneHint.compact": {
+    "defaultMessage": "We will verify this sign-in with email and phone codes.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.phoneHint.default": {
-    "defaultMessage": "OTP will be sent to your email & phone",
+    "defaultMessage": "We will send a verification code to your email and phone.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.phoneHint.fallback": {
-    "defaultMessage": "Firebase SMS is unavailable here. Secure backup OTP will be sent through the available secure verification channel instead.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.phoneHint.forgot": {
-    "defaultMessage": "Recovery sends one code to email and one Firebase SMS code to your phone.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.phoneHint.signin": {
-    "defaultMessage": "Sign-in sends one code to email and one Firebase SMS code to your phone.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.phoneHint.signup": {
-    "defaultMessage": "Signup sends one code to email and one Firebase SMS code to your phone.",
+    "defaultMessage": "SMS delivery is unavailable here, so the available secure backup verification channel will be used.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.placeholder.email": {
@@ -10814,7 +10736,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.placeholder.fullName": {
-    "defaultMessage": "John Doe",
+    "defaultMessage": "Your full name",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.placeholder.phoneLocal": {
@@ -10822,19 +10744,19 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.processing": {
-    "defaultMessage": "PROCESSING...",
+    "defaultMessage": "Processing",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.reset.bodyPrefix": {
-    "defaultMessage": "Recovery is verified for",
+  "login.reset.compactBody": {
+    "defaultMessage": "Recovery is verified. Set a strong new password for this account.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.reset.bodySuffix": {
-    "defaultMessage": "Set a strong new password for the account tied to",
+  "login.reset.placeholder.confirmNewPassword": {
+    "defaultMessage": "Re-enter the new password",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.reset.title": {
-    "defaultMessage": "Create New Password",
+  "login.reset.placeholder.newPassword": {
+    "defaultMessage": "Enter a new password",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.reset.verifiedDual": {
@@ -10849,8 +10771,12 @@
     "defaultMessage": "Recovery Verified",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.secureEntry": {
-    "defaultMessage": "Secure Entry Layer",
+  "login.secureSignIn": {
+    "defaultMessage": "Secure sign-in",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.securityWarning": {
+    "defaultMessage": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.signal.delivery": {
@@ -10953,52 +10879,20 @@
     "defaultMessage": "Reset window",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.social.disabledHost": {
-    "defaultMessage": "Social sign-in is disabled on this host",
+  "login.signup.placeholder.confirmPassword": {
+    "defaultMessage": "Re-enter your password",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "login.social.enablePrefix": {
-    "defaultMessage": "Use email and OTP sign-in here. To enable Google, Facebook, GitHub, and X, authorize",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.enableSuffix": {
-    "defaultMessage": "in Firebase Authentication settings.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.mobileConfigBody": {
-    "defaultMessage": "The installed app is using the stable email and OTP lane until Android/iOS OAuth credentials are attached to the native build.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.mobileConfigTitle": {
-    "defaultMessage": "Mobile social sign-in needs native config",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.paused": {
-    "defaultMessage": "Social sign-in paused on this tab",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.runtimeBlockedPrefix": {
-    "defaultMessage": "Firebase rejected popup sign-in for",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.runtimeBlockedSuffix": {
-    "defaultMessage": "in this tab. Refresh after confirming the domain is authorized, or continue with email and OTP now.",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.runtimeCode": {
-    "defaultMessage": "Runtime code:",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.thisDomain": {
-    "defaultMessage": "this domain",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "login.social.unavailable": {
-    "defaultMessage": "Social sign-in is unavailable on this deployment",
+  "login.social.duo": {
+    "defaultMessage": "Continue with Duo",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.social.unavailableBody": {
-    "defaultMessage": "Firebase authentication did not initialize cleanly for this frontend build. Email and OTP sign-in remain available.",
+    "defaultMessage": "Social sign-in could not initialize. Email, phone, and password sign-in remain available.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "login.social.useStandard": {
+    "defaultMessage": "Social sign-in is unavailable here. Use email, phone, and password instead.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.submit.reset": {
@@ -11050,7 +10944,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.terms.middle": {
-    "defaultMessage": "and allow",
+    "defaultMessage": "and",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "login.terms.prefix": {
@@ -14476,12 +14370,12 @@
     "defaultMessage": "Device-bound or sync unknown",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "profile.settings.devices.emptyBody": {
-    "defaultMessage": "Register a passkey or complete a trusted-browser checkpoint to add one.",
+  "profile.settings.devices.emptySignedInBody": {
+    "defaultMessage": "A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "profile.settings.devices.emptyTitle": {
-    "defaultMessage": "No managed devices yet",
+  "profile.settings.devices.emptySignedInTitle": {
+    "defaultMessage": "No signed-in devices or remembered browsers",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.devices.lastVerified": {
@@ -14516,8 +14410,8 @@
     "defaultMessage": "Recognition passkey",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "profile.settings.devices.rememberedBrowser": {
-    "defaultMessage": "Remembered browser · not MFA",
+  "profile.settings.devices.rememberedBrowserNotMfa": {
+    "defaultMessage": "Remembered browser - not MFA",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.devices.renameAria": {
@@ -14540,16 +14434,16 @@
     "defaultMessage": "Revoking...",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.settings.devices.signedInTitle": {
+    "defaultMessage": "Signed-in devices and remembered browsers",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.settings.devices.syncEligible": {
     "defaultMessage": "Sync eligible",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.devices.syncedPasskey": {
     "defaultMessage": "Synced passkey",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "profile.settings.devices.title": {
-    "defaultMessage": "Devices, passkeys & remembered browsers",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.devices.unknown": {
@@ -14604,6 +14498,34 @@
     "defaultMessage": "Safety controls",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.settings.security.centerErrorBody": {
+    "defaultMessage": "Your security settings could not be loaded. Your factors and devices have not been changed.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.centerErrorReference": {
+    "defaultMessage": "Reference: {reference}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.centerErrorTitle": {
+    "defaultMessage": "Security settings could not load",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.centerLoadingBody": {
+    "defaultMessage": "Checking your passkeys, MFA methods, signed-in devices, and remembered browsers.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.centerLoadingTitle": {
+    "defaultMessage": "Loading security settings",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.centerRefreshing": {
+    "defaultMessage": "Refreshing security settings...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.centerStaleData": {
+    "defaultMessage": "Showing the last security settings loaded on this page.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.settings.security.incomplete": {
     "defaultMessage": "Incomplete",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -14632,6 +14554,14 @@
     "defaultMessage": "Checking factors...",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.settings.security.mfaEmptyBody": {
+    "defaultMessage": "Register a passkey or set up an authenticator app to add a second sign-in factor.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.mfaEmptyTitle": {
+    "defaultMessage": "No MFA method enrolled yet",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.settings.security.mfaFactorSummary": {
     "defaultMessage": "{passkeys} passkeys | {totp} authenticator apps",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -14642,10 +14572,6 @@
   },
   "profile.settings.security.mfaReady": {
     "defaultMessage": "MFA ready",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "profile.settings.security.mfaTitle": {
-    "defaultMessage": "Multi-factor security center",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.openRecovery": {
@@ -14666,6 +14592,10 @@
   },
   "profile.settings.security.passkeyRegistering": {
     "defaultMessage": "Registering...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.settings.security.passkeysAndMfaTitle": {
+    "defaultMessage": "Passkeys and MFA",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.settings.security.password": {

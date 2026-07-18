@@ -29,7 +29,7 @@ import MobileUpdateBanner from './components/shared/MobileUpdateBanner';
 import MobileNativeTabBar from './components/shared/MobileNativeTabBar';
 import SecurePathDock from './components/shared/SecurePathDock';
 import PremiumWelcomeCurtain from './components/welcome/PremiumWelcomeCurtain';
-import AuraTrustedDeviceChallenge from './components/features/auth/AuraTrustedDeviceChallenge';
+import AuthCheckpointLayer from './components/features/auth/AuthCheckpointLayer';
 import { trustRoutes } from './config/trustContent';
 import { FRONTEND_LAUNCH_HUB_PATH } from './config/frontendTargets';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
@@ -358,13 +358,13 @@ function AppContent() {
           </Suspense>
         )}
       </main>
+      <AppErrorBoundary>
+        <AuthCheckpointLayer disabled={Boolean(adminAccessLock)} />
+      </AppErrorBoundary>
       {showSiteChrome ? (
         <>
           <AppErrorBoundary>
             <SecurePathDock />
-          </AppErrorBoundary>
-          <AppErrorBoundary>
-            <AuraTrustedDeviceChallenge disabled={Boolean(adminAccessLock)} />
           </AppErrorBoundary>
           {!isNativeMobile ? (
             <AppErrorBoundary>

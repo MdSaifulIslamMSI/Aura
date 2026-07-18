@@ -408,8 +408,8 @@ addCheck(
 
 addCheck(
   'production admin access requires passkey in runtime compose',
-  includesAll(awsRuntimeCompose, ['ADMIN_REQUIRE_PASSKEY: "true"', 'AUTH_DEVICE_CHALLENGE_MODE: always']),
-  'admin passkey enforcement remains enabled for EC2 runtime'
+  includesAll(awsRuntimeCompose, ['ADMIN_REQUIRE_PASSKEY: "true"', 'AUTH_DEVICE_CHALLENGE_MODE: admin']),
+  'admin passkey enforcement remains enabled without forcing routine buyers through device proof'
 );
 
 addCheck(

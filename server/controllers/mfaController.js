@@ -107,6 +107,21 @@ const assertAdminPasskeyEnrollmentAssurance = (req = {}) => {
     throw error;
 };
 
+const buildPublicPasskeyChallenge = ({ challenge = null, user = null, purpose = 'login' } = {}) => {
+    if (!challenge || typeof challenge !== 'object') return null;
+    const adminAudience = isAdminSubject(user);
+    return {
+        ...challenge,
+        audience: adminAudience ? 'admin' : 'public',
+        surface: 'authentication',
+        purpose,
+        presentationPurpose: purpose === 'login' ? 'sign_in' : 'factor_enrollment',
+        requiredAssurance: adminAudience ? 'admin_passkey' : 'mfa_passkey',
+        blocking: true,
+        exitMode: 'sign_out',
+    };
+};
+
 const buildMfaState = (user = null, { currentDeviceId = '' } = {}) => {
     const trustedDevices = Array.isArray(user?.trustedDevices) ? user.trustedDevices : [];
     const normalizedCurrentDeviceId = normalizeText(currentDeviceId);
@@ -274,7 +289,14 @@ const persistMfaSession = async ({
     return authSession;
 };
 
-const respondWithAuthenticatedSession = ({ req, res, user, method, message = 'MFA verification successful.' } = {}) => {
+const respondWithAuthenticatedSession = ({
+    req,
+    res,
+    user,
+    method,
+    message = 'MFA verification successful.',
+    deviceVerification = null,
+} = {}) => {
     recordAuthSecurityEvent({
         event: 'mfa.challenge.consumed',
         outcome: 'success',
@@ -287,6 +309,12 @@ const respondWithAuthenticatedSession = ({ req, res, user, method, message = 'MF
     return res.json({
         success: true,
         message,
+        ...(deviceVerification?.deviceSessionToken
+            ? {
+                deviceSessionToken: deviceVerification.deviceSessionToken,
+                expiresAt: deviceVerification.expiresAt || null,
+            }
+            : {}),
         ...buildSessionPayload({
             authUser: {
                 uid: req.authUid || req.authToken?.uid || '',
@@ -392,6 +420,7 @@ const verifyTotpLogin = asyncHandler(async (req, res) => {
         method: MFA_METHODS.TOTP,
         purpose: normalizeText(req.body?.purpose) || 'login',
         action: normalizeText(req.body?.action),
+        req,
     });
     if (!inspected.success) {
         throw new AppError('MFA challenge is invalid or expired.', 401);
@@ -421,6 +450,7 @@ const verifyTotpLogin = asyncHandler(async (req, res) => {
         method: MFA_METHODS.TOTP,
         purpose: normalizeText(req.body?.purpose) || 'login',
         action: normalizeText(req.body?.action),
+        req,
     });
     if (!consumed.success) throw new AppError('MFA challenge is invalid or expired.', 401);
 
@@ -469,7 +499,14 @@ const passkeyRegisterOptions = asyncHandler(async (req, res) => {
         enrollmentContext: isAdminSubject(req.user) ? 'admin_step_up' : 'mfa_registration',
         adminEligibility: isAdminSubject(req.user) ? 'verified' : 'none',
     });
-    res.status(201).json({ success: true, deviceChallenge: challenge });
+    res.status(201).json({
+        success: true,
+        deviceChallenge: buildPublicPasskeyChallenge({
+            challenge,
+            user: req.user,
+            purpose: 'register',
+        }),
+    });
 });
 
 const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
@@ -595,6 +632,7 @@ const passkeyRegisterVerify = asyncHandler(async (req, res) => {
         user,
         method: MFA_METHODS.PASSKEY,
         message: 'Passkey registered.',
+        deviceVerification: verification,
     });
 });
 
@@ -615,23 +653,44 @@ const passkeyLoginOptions = asyncHandler(async (req, res) => {
         allowEnrollment: false,
         challengeScope: 'mfa-passkey-login',
     });
-    res.status(201).json({ success: true, deviceChallenge: challenge });
+    res.status(201).json({
+        success: true,
+        deviceChallenge: buildPublicPasskeyChallenge({
+            challenge,
+            user: req.user,
+            purpose: 'login',
+        }),
+    });
 });
 
 const passkeyLoginVerify = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.PASSKEY });
     const challengeId = normalizeText(req.body?.challengeId || req.body?.mfaChallengeId);
+    let inspectedChallenge = null;
     if (challengeId) {
-        const consumed = await consumeMfaChallenge({
+        const inspected = await inspectMfaChallenge({
             challengeId,
             userId: req.user?._id,
             method: MFA_METHODS.PASSKEY,
             purpose: normalizeText(req.body?.purpose) || 'login',
             action: normalizeText(req.body?.action),
+            req,
+        });
+        if (!inspected.success) throw new AppError('MFA challenge is invalid or expired.', 401);
+        inspectedChallenge = inspected.challenge || null;
+    }
+    const verification = await verifyPasskeyChallenge({ req, expectedScope: 'mfa-passkey-login' });
+    if (challengeId) {
+        const consumed = await consumeMfaChallenge({
+            challengeId,
+            userId: req.user?._id,
+            method: MFA_METHODS.PASSKEY,
+            purpose: inspectedChallenge?.purpose || normalizeText(req.body?.purpose) || 'login',
+            action: normalizeText(req.body?.action),
+            req,
         });
         if (!consumed.success) throw new AppError('MFA challenge is invalid or expired.', 401);
     }
-    const verification = await verifyPasskeyChallenge({ req, expectedScope: 'mfa-passkey-login' });
     const user = await syncPasskeyMfaState({
         userId: req.user?._id,
         trustedDevice: verification.trustedDevice,
@@ -652,6 +711,7 @@ const passkeyLoginVerify = asyncHandler(async (req, res) => {
         user,
         method: MFA_METHODS.PASSKEY,
         message: 'Passkey MFA verified.',
+        deviceVerification: verification,
     });
 });
 
@@ -805,6 +865,7 @@ const recoveryVerify = asyncHandler(async (req, res) => {
         method: MFA_METHODS.RECOVERY_CODE,
         purpose: normalizeText(req.body?.purpose) || 'login',
         action: normalizeText(req.body?.action),
+        req,
     });
     if (!inspected.success) throw new AppError('MFA challenge is invalid or expired.', 401);
 
@@ -832,6 +893,7 @@ const recoveryVerify = asyncHandler(async (req, res) => {
         method: MFA_METHODS.RECOVERY_CODE,
         purpose: inspected.challenge?.purpose || 'login',
         action: normalizeText(req.body?.action),
+        req,
     });
     if (!consumed.success) throw new AppError('MFA challenge is invalid or expired.', 401);
 

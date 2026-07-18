@@ -28,6 +28,23 @@ const getRequestIp = (req = {}) => normalizeText(
 
 const getRequestUserAgent = (req = {}) => normalizeText(req.headers?.['user-agent']);
 
+const getRequestHeader = (req = {}, headerName = '') => normalizeText(
+    req.get?.(headerName)
+    || req.headers?.[headerName]
+    || req.headers?.[headerName.toLowerCase()]
+);
+
+const resolveDeviceBinding = ({ req = {}, deviceBinding = null } = {}) => ({
+    deviceId: normalizeText(
+        deviceBinding?.deviceId
+        || getRequestHeader(req, 'x-aura-device-id')
+    ),
+    deviceSessionToken: normalizeText(
+        deviceBinding?.deviceSessionToken
+        || getRequestHeader(req, 'x-aura-device-session')
+    ),
+});
+
 const scheduleCleanup = () => {
     if (cleanupTimer) return;
     cleanupTimer = setInterval(() => {
@@ -144,6 +161,7 @@ const createMfaChallenge = async ({
     req = {},
     action = '',
     returnTo = '',
+    deviceBinding = null,
 } = {}) => {
     if (!user?._id) {
         const error = new Error('MFA challenge requires a user');
@@ -154,6 +172,7 @@ const createMfaChallenge = async ({
     const challengeId = crypto.randomBytes(16).toString('hex');
     const allowedMethods = Array.isArray(policy.allowedMethods) ? policy.allowedMethods : [];
     const expiresAt = new Date(Date.now() + config.challengeTtlSeconds * 1000).toISOString();
+    const resolvedDeviceBinding = resolveDeviceBinding({ req, deviceBinding });
     const record = {
         challengeId,
         userId: String(user._id),
@@ -169,6 +188,8 @@ const createMfaChallenge = async ({
         consumedAt: null,
         createdIpHash: hashBounded(getRequestIp(req)),
         createdUserAgentHash: hashBounded(getRequestUserAgent(req)),
+        deviceIdHash: hashBounded(resolvedDeviceBinding.deviceId),
+        deviceSessionHash: hashBounded(resolvedDeviceBinding.deviceSessionToken),
     };
 
     await persistChallenge(record);
@@ -181,6 +202,8 @@ const inspectMfaChallenge = async ({
     method = '',
     purpose = '',
     action = '',
+    req = {},
+    deviceBinding = null,
 } = {}) => {
     const record = await readChallenge(challengeId);
     const normalizedMethod = normalizeMethod(method);
@@ -194,6 +217,19 @@ const inspectMfaChallenge = async ({
     if (new Date(record.expiresAt).getTime() <= Date.now()) return { success: false, reason: 'expired' };
     if (normalizedMethod && !record.allowedMethods.map(normalizeMethod).includes(normalizedMethod)) {
         return { success: false, reason: 'method_not_allowed' };
+    }
+    const resolvedDeviceBinding = resolveDeviceBinding({ req, deviceBinding });
+    if (
+        record.deviceIdHash
+        && record.deviceIdHash !== hashBounded(resolvedDeviceBinding.deviceId)
+    ) {
+        return { success: false, reason: 'device_mismatch' };
+    }
+    if (
+        record.deviceSessionHash
+        && record.deviceSessionHash !== hashBounded(resolvedDeviceBinding.deviceSessionToken)
+    ) {
+        return { success: false, reason: 'device_session_mismatch' };
     }
     return { success: true, challenge: record };
 };

@@ -93,6 +93,11 @@ export const isDesktopLoginPath = (pathname = '/') => (
     normalizePathname(pathname).startsWith(DESKTOP_LOGIN_PATH)
 );
 
+export const isLoginPath = (pathname = '/') => {
+    const normalizedPathname = normalizePathname(pathname);
+    return normalizedPathname === '/login' || normalizedPathname.startsWith('/login/');
+};
+
 export const isStatusPath = (pathname = '/') => (
     normalizePathname(pathname).startsWith('/status')
 );
@@ -111,6 +116,7 @@ export const isDesktopAuthLoginRequest = (pathname = '/', search = '') => {
 
 export const shouldShowSiteChrome = (pathname = '/') => (
     !isFrontendLaunchHubPath(pathname)
+    && !isLoginPath(pathname)
     && !isDesktopLoginPath(pathname)
     && !isStatusPath(pathname)
     && !isAssistantWorkspacePath(pathname)

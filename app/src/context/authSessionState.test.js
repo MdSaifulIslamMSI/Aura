@@ -137,4 +137,26 @@ describe('authSessionState', () => {
         expect(sessionState.intelligence.readiness.recoveryCodesActiveCount).toBe(4);
         expect(isAuthenticatedSessionStatus(sessionState.status)).toBe(false);
     });
+
+    test('preserves a structured blocked MFA state for recovery UX', () => {
+        const sessionState = buildSessionStateFromPayload({
+            status: 'mfa_challenge_required',
+            mfaChallenge: null,
+            mfaPolicy: {
+                audience: 'admin',
+                allowedMethods: [],
+                reason: 'admin_policy',
+            },
+            mfaBlocked: true,
+            mfaError: {
+                code: 'MFA_METHOD_REQUIRED',
+                message: 'MFA is required but no allowed verification method is available.',
+            },
+        });
+
+        expect(sessionState.status).toBe(SESSION_STATUS.MFA_CHALLENGE);
+        expect(sessionState.mfaBlocked).toBe(true);
+        expect(sessionState.mfaError).toMatchObject({ code: 'MFA_METHOD_REQUIRED' });
+        expect(isAuthenticatedSessionStatus(sessionState.status)).toBe(false);
+    });
 });

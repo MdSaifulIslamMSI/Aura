@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 export const DEFAULT_ACTIVE_WINDOW_REFRESH_INTERVAL_MS = 30 * 1000;
 
@@ -10,26 +10,36 @@ const isWindowOnline = () => (
     typeof navigator === 'undefined' || navigator.onLine !== false
 );
 
+const useCommittedLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 export function useActiveWindowRefresh(callback, {
     enabled = true,
     intervalMs = DEFAULT_ACTIVE_WINDOW_REFRESH_INTERVAL_MS,
 } = {}) {
     const callbackRef = useRef(callback);
+    const enabledRef = useRef(enabled);
     const inFlightRefreshRef = useRef(null);
 
-    useEffect(() => {
+    useCommittedLayoutEffect(() => {
         callbackRef.current = callback;
-    }, [callback]);
+        enabledRef.current = enabled;
+    }, [callback, enabled]);
 
     useEffect(() => {
-        if (!enabled || typeof window === 'undefined' || typeof document === 'undefined') {
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
             return undefined;
         }
 
         let disposed = false;
 
         const runRefresh = () => {
-            if (disposed || typeof callbackRef.current !== 'function' || !isWindowVisible() || !isWindowOnline()) {
+            if (
+                disposed
+                || !enabledRef.current
+                || typeof callbackRef.current !== 'function'
+                || !isWindowVisible()
+                || !isWindowOnline()
+            ) {
                 return Promise.resolve();
             }
 
@@ -85,5 +95,5 @@ export function useActiveWindowRefresh(callback, {
             window.removeEventListener('online', handleOnline);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [enabled, intervalMs]);
+    }, [intervalMs]);
 }

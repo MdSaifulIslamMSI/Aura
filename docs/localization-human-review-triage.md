@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 425
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (97461/97461 required locale/message pairs)
+- Locale key coverage: 100% (96852/96852 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4641
+- Source message keys: 4612
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,12 +16,12 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 87407
-- Unique review locale/id pairs: 87407
-- Actionable grouped queue entries: 3173
-- Actionable affected locale/message pairs: 42108
-- Native-review audit grouped entries: 2518
-- Native-review audit affected locale/message pairs: 45299
+- Total tracked review pairs preserved: 86856
+- Unique review locale/id pairs: 86856
+- Actionable grouped queue entries: 3166
+- Actionable affected locale/message pairs: 42157
+- Native-review audit grouped entries: 2489
+- Native-review audit affected locale/message pairs: 44699
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -29,10 +29,10 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 1212 | 20636 | bn 972, hi 1140, te 1031, mr 1037, ur 1017, gu 1052, pa 1046, ml 1032, kn 1031, or 1045, as 1030, sa 1034, es 1161, fr 1193, de 1181, ar 1107, ja 1180, pt 1172, zh 1175 |
-| high | 223 | 908 | bn 9, hi 206, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 76, fr 83, de 81, ar 79, ja 83, pt 77, zh 80 |
-| medium | 1191 | 17126 | bn 767, hi 1083, te 774, mr 773, ur 772, gu 791, pa 785, ml 772, kn 772, or 782, as 771, sa 781, es 1081, fr 1065, de 1053, ar 1048, ja 1092, pt 1074, zh 1090 |
-| low | 547 | 3438 | bn 2, hi 537, te 1, mr 2, ur 3, gu 3, pa 2, ml 1, kn 2, or 3, as 1, sa 3, es 408, fr 415, de 411, ar 412, ja 412, pt 409, zh 411 |
+| critical | 1214 | 20701 | bn 975, hi 1144, te 1034, mr 1040, ur 1020, gu 1055, pa 1049, ml 1035, kn 1034, or 1048, as 1033, sa 1037, es 1165, fr 1197, de 1185, ar 1111, ja 1184, pt 1176, zh 1179 |
+| high | 213 | 880 | bn 9, hi 195, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 74, fr 80, de 78, ar 77, ja 81, pt 74, zh 78 |
+| medium | 1192 | 17145 | bn 768, hi 1084, te 775, mr 774, ur 773, gu 792, pa 786, ml 773, kn 773, or 783, as 772, sa 782, es 1082, fr 1066, de 1054, ar 1049, ja 1093, pt 1075, zh 1091 |
+| low | 547 | 3431 | bn 2, hi 537, te 1, mr 2, ur 3, gu 3, pa 2, ml 1, kn 2, or 3, as 1, sa 3, es 407, fr 414, de 410, ar 411, ja 411, pt 408, zh 410 |
 
 ## Examples
 
@@ -41,11 +41,11 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | critical | high | 57 | Recheck your email and phone details, then request a new code. | auth.error.noAccountFound.hint, auth.error.noAccountFoundWithThisEmail.hint, auth.error.noAccountFoundWithThisPhone.hint |
 | critical | high | 57 | Sign in for support | securePathDock.support.guest.title, support.jsx.text.sign.in.for.support, supportLauncher.guest.title |
 | critical | high | 57 | We could not verify those account details for OTP. | auth.error.noAccountFound.detail, auth.error.noAccountFoundWithThisEmail.detail, auth.error.noAccountFoundWithThisPhone.detail |
+| critical | high | 38 | Enter your password | desktopLogin.placeholder.password, login.password.placeholder |
 | critical | high | 38 | Owner Access | login.desktopOwnerAccess.button, login.desktopOwnerAccess.startedTitle |
 | critical | high | 38 | Revoking... | common.revoking, profile.settings.devices.revokingOthers |
-| critical | high | 38 | Account | auth.jsx.text.account, mobileTabBar.account |
+| critical | high | 38 | Secure sign-in | auth.trustedDevice.eyebrow.public, login.secureSignIn |
 | critical | high | 38 | Active incidents | status.incidents.active, support.jsx.prop.label.active.incidents |
-| critical | high | 38 | Authorize the exact live domain in Firebase Authentication settings, or continue with email and OTP sign-in. | auth.error.illegalIframe.hint, auth.error.illegalUrlForNewIframe.hint |
 | high | high | 10 | Aura Catalog | listing.catalogTitleFull |
 | high | high | 9 | Aura never asks for your OTP outside this secure verification step. | login.trust.otp.default.2 |
 | high | high | 9 | Keep all negotiation inside Aura chat. | listingDetail.safety.note4 |
@@ -75,25 +75,25 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Locale | Affected pairs |
 | --- | ---: |
-| bn | 2687 |
-| hi | 1471 |
-| te | 2821 |
-| mr | 2815 |
-| ur | 2674 |
-| gu | 2782 |
-| pa | 2795 |
-| ml | 2819 |
-| kn | 2822 |
-| or | 2790 |
-| as | 2834 |
-| sa | 2815 |
-| es | 1915 |
-| fr | 1885 |
-| de | 1915 |
-| ar | 1791 |
-| ja | 1874 |
-| pt | 1909 |
-| zh | 1885 |
+| bn | 2654 |
+| hi | 1448 |
+| te | 2788 |
+| mr | 2782 |
+| ur | 2641 |
+| gu | 2749 |
+| pa | 2762 |
+| ml | 2786 |
+| kn | 2789 |
+| or | 2757 |
+| as | 2801 |
+| sa | 2782 |
+| es | 1884 |
+| fr | 1855 |
+| de | 1885 |
+| ar | 1760 |
+| ja | 1843 |
+| pt | 1879 |
+| zh | 1854 |
 
 ## Files
 

@@ -13,8 +13,8 @@ import {
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 import { StableText } from '@/i18n/StableText';
-import MfaChallengePanel from '@/components/features/auth/MfaChallengePanel';
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
+const AUTH_CHECKPOINT_STATES = new Set(['device_challenge_required', 'mfa_challenge_required']);
 
 const AuthPendingState = ({ message = 'Resolving your session...', title = 'Session checkpoint' }) => (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
@@ -163,7 +163,6 @@ const useAuthGate = () => {
 };
 
 const renderResolvedGate = ({
-    auth,
     status,
     currentUser,
     sessionError,
@@ -173,7 +172,6 @@ const renderResolvedGate = ({
     location,
     pendingMessage,
     pendingTitle,
-    intl,
     t,
     children,
 }) => {
@@ -181,36 +179,8 @@ const renderResolvedGate = ({
         return <AuthPendingState message={pendingMessage} title={pendingTitle} />;
     }
 
-    if (status === 'device_challenge_required' && currentUser) {
-        return (
-            <AuthPendingState
-                title={intl.formatMessage(criticalMessages.authDeviceChallengeTitle)}
-                message={intl.formatMessage(criticalMessages.authDeviceChallengeMessage)}
-            />
-        );
-    }
-
-    if (status === 'mfa_challenge_required' && currentUser) {
-        return (
-            <MfaChallengePanel
-                challenge={auth?.mfaChallenge}
-                policy={auth?.mfaPolicy}
-                isAdmin={Boolean(auth?.roles?.isAdmin)}
-                onVerifyTotp={auth?.verifyMfaTotpChallenge}
-                onVerifyPasskey={auth?.verifyMfaPasskeyChallenge}
-                onVerifyRecoveryCode={auth?.verifyMfaRecoveryCodeChallenge}
-                onCancel={() => navigate('/', { replace: true })}
-                onSignOut={async () => {
-                    await logout?.();
-                    navigate('/login', {
-                        replace: true,
-                        state: {
-                            from: toRouteState(location),
-                        },
-                    });
-                }}
-            />
-        );
+    if (AUTH_CHECKPOINT_STATES.has(status)) {
+        return null;
     }
 
     if (status === 'recoverable_error' && currentUser) {
@@ -258,7 +228,6 @@ export const ProtectedRoute = ({ children }) => {
     const { status, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
-        auth,
         status,
         currentUser,
         sessionError,
@@ -268,7 +237,6 @@ export const ProtectedRoute = ({ children }) => {
         location,
         pendingMessage: intl.formatMessage(criticalMessages.authPendingResolveSession),
         pendingTitle: intl.formatMessage(criticalMessages.authPendingTitle),
-        intl,
         t,
         children,
     });
@@ -308,7 +276,6 @@ export const AdminRoute = ({ children }) => {
     }
 
     const resolved = renderResolvedGate({
-        auth,
         status,
         currentUser,
         sessionError,
@@ -318,7 +285,6 @@ export const AdminRoute = ({ children }) => {
         location,
         pendingMessage: t('auth.pending.admin', {}, 'Checking admin session access...'),
         pendingTitle: intl.formatMessage(criticalMessages.authPendingTitle),
-        intl,
         t,
         children,
     });
@@ -335,7 +301,6 @@ export const SellerRoute = ({ children }) => {
     const { status, roles, sessionError, refreshSession, currentUser, logout } = auth;
 
     const resolved = renderResolvedGate({
-        auth,
         status,
         currentUser,
         sessionError,
@@ -345,7 +310,6 @@ export const SellerRoute = ({ children }) => {
         location,
         pendingMessage: t('auth.pending.seller', {}, 'Checking seller account state...'),
         pendingTitle: intl.formatMessage(criticalMessages.authPendingTitle),
-        intl,
         t,
         children,
     });

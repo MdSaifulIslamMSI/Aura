@@ -221,6 +221,10 @@ const messages = defineMessages({
     id: 'auth.mfaChallenge.error.noMethod',
     defaultMessage: 'No supported verification method is available for this checkpoint. Sign out and try again.',
   },
+  noAdminMethod: {
+    id: 'auth.mfaChallenge.error.noAdminMethod',
+    defaultMessage: 'No approved admin verification method is enrolled. Admin access remains locked. Sign out and ask the account owner or security operator to restore a passkey or MFA method.',
+  },
   totpInputLabel: {
     id: 'auth.mfaChallenge.input.totpLabel',
     defaultMessage: '6-digit authenticator code',
@@ -247,11 +251,11 @@ const messages = defineMessages({
   },
   leaveAdmin: {
     id: 'auth.mfaChallenge.cancel.admin',
-    defaultMessage: 'Leave admin checkpoint',
+    defaultMessage: 'Sign out and leave admin',
   },
   returnStorefront: {
     id: 'auth.mfaChallenge.cancel.public',
-    defaultMessage: 'Return to storefront',
+    defaultMessage: 'Sign out and return to storefront',
   },
   signingOut: {
     id: 'auth.mfaChallenge.signOut.pending',
@@ -409,7 +413,9 @@ const describeReason = (challenge, policy, isAdmin, intl) => {
 };
 
 const describeRequiredStrength = (challenge, intl) => {
-  const strength = String(challenge?.requiredStrength || '').trim().toLowerCase();
+  const strength = String(
+    challenge?.requiredStrength || challenge?.requiredAssurance || ''
+  ).trim().toLowerCase();
   if (/passkey|webauthn/.test(strength)) return intl.formatMessage(messages.strengthPasskey);
   if (/totp|authenticator/.test(strength)) return intl.formatMessage(messages.strengthTotp);
   if (/recovery/.test(strength)) return intl.formatMessage(messages.strengthRecovery);
@@ -432,6 +438,7 @@ const MfaChallengePanel = ({
   onVerifyRecoveryCode,
   onCancel,
   onSignOut,
+  blocked = false,
 }) => {
   const intl = useIntl();
   const panelId = useId();
@@ -686,9 +693,9 @@ const MfaChallengePanel = ({
                   countdown: formatCountdown(expiryRemainingSeconds, intl),
                 })}
             </p>
-          ) : (
+          ) : !blocked ? (
             <p className="mt-2 text-slate-400">{intl.formatMessage(messages.shortLived)}</p>
-          )}
+          ) : null}
         </div>
 
         {completed ? (
@@ -697,7 +704,7 @@ const MfaChallengePanel = ({
           </p>
         ) : completionFailed ? null : offeredMethods.length === 0 ? (
           <p className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100" role="alert">
-            {intl.formatMessage(messages.noMethod)}
+            {intl.formatMessage(isAdmin && blocked ? messages.noAdminMethod : messages.noMethod)}
           </p>
         ) : (
           <>

@@ -1,9 +1,22 @@
 import { act, render } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useActiveWindowRefresh } from './useActiveWindowRefresh';
 
 const Probe = ({ onRefresh, intervalMs = 1000, enabled = true }) => {
     useActiveWindowRefresh(onRefresh, { enabled, intervalMs });
+    return null;
+};
+
+const FocusWhenEnabledProbe = ({ onRefresh, enabled }) => {
+    useActiveWindowRefresh(onRefresh, { enabled, intervalMs: 0 });
+
+    useLayoutEffect(() => {
+        if (enabled) {
+            window.dispatchEvent(new Event('focus'));
+        }
+    }, [enabled]);
+
     return null;
 };
 
@@ -66,5 +79,19 @@ describe('useActiveWindowRefresh', () => {
         });
 
         expect(onRefresh).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not miss focus when refresh becomes enabled in the same commit', async () => {
+        const onRefresh = vi.fn().mockResolvedValue(undefined);
+        const { rerender } = render(
+            <FocusWhenEnabledProbe onRefresh={onRefresh} enabled={false} />
+        );
+
+        await act(async () => {
+            rerender(<FocusWhenEnabledProbe onRefresh={onRefresh} enabled />);
+            await Promise.resolve();
+        });
+
+        expect(onRefresh).toHaveBeenCalledTimes(1);
     });
 });

@@ -48,6 +48,9 @@ const loadAuthContext = async () => {
       revokeOtherTrustedDevices: vi.fn(),
       regenerateMfaRecoveryCodes: vi.fn(),
       verifyDeviceChallenge: vi.fn(),
+      verifyMfaPasskeyLogin: vi.fn(),
+      verifyMfaRecoveryCode: vi.fn(),
+      verifyTotpLogin: vi.fn(),
     },
     mockUser: {
       uid: 'firebase-user-1',
@@ -267,6 +270,27 @@ describe('AuthProvider', () => {
         },
       },
     });
+    mocks.authApiMock.verifyMfaPasskeyLogin.mockResolvedValue({
+      success: true,
+      status: 'authenticated',
+      deviceSessionToken: 'rotated-passkey-device-token',
+      expiresAt: '2026-04-12T15:00:00.000Z',
+      session: {
+        sessionId: 'server-session-passkey-1',
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+    });
   });
 
   it('clears stale firebase sessions when the backend rejects the auth token', async () => {
@@ -453,6 +477,51 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it('does not start a focus refresh while trusted-device proof is pending', async () => {
+    mocks.authApiMock.getSession.mockResolvedValueOnce({
+      status: 'device_challenge_required',
+      deviceChallenge: {
+        token: 'focus-safe-challenge',
+        mode: 'assert',
+        availableMethods: ['webauthn'],
+        challenge: 'focus-safe-value',
+      },
+      session: {
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+    });
+
+    const Probe = () => {
+      const { status } = useAuth();
+      return <div data-testid="focus-proof-status">{status}</div>;
+    };
+
+    render(<AuthProvider><Probe /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('focus-proof-status')).toHaveTextContent('device_challenge_required');
+      expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'));
+      await Promise.resolve();
+    });
+
+    expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(1);
   });
 
   it('syncs X sign-in even when the provider does not return an email', async () => {
@@ -1517,6 +1586,145 @@ describe('AuthProvider', () => {
       'trusted-device-session-token-mfa',
       '2026-04-12T14:00:00.000Z'
     );
+  });
+
+  it('ignores an older session response that resolves after trusted-device verification', async () => {
+    let capturedContext = null;
+    let resolveStaleRefresh;
+    const staleRefresh = new Promise((resolve) => {
+      resolveStaleRefresh = resolve;
+    });
+    const pendingPayload = {
+      status: 'device_challenge_required',
+      deviceChallenge: {
+        token: 'initial-challenge-token',
+        mode: 'assert',
+        availableMethods: ['browser_key'],
+        challenge: 'initial-challenge-value',
+      },
+      session: {
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+    };
+
+    mocks.authApiMock.getSession
+      .mockResolvedValueOnce(pendingPayload)
+      .mockImplementationOnce(() => staleRefresh);
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="stale-response-status">{authContext.status}</div>;
+    };
+
+    render(<AuthProvider><Probe /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('stale-response-status')).toHaveTextContent('device_challenge_required');
+    });
+
+    let refreshPromise;
+    await act(async () => {
+      refreshPromise = capturedContext.refreshSession(mocks.mockUser, {
+        force: true,
+        silent: true,
+      });
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await capturedContext.verifyDeviceChallenge('initial-challenge-token', {
+        method: 'browser_key',
+        proofBase64: 'proof',
+      });
+    });
+
+    expect(screen.getByTestId('stale-response-status')).toHaveTextContent('authenticated');
+
+    await act(async () => {
+      resolveStaleRefresh({
+        ...pendingPayload,
+        deviceChallenge: {
+          ...pendingPayload.deviceChallenge,
+          token: 'stale-replacement-token',
+        },
+      });
+      await refreshPromise;
+    });
+
+    expect(screen.getByTestId('stale-response-status')).toHaveTextContent('authenticated');
+    expect(capturedContext.deviceChallenge).toBeNull();
+  });
+
+  it('stores the rotated device token returned by passkey MFA before authenticating', async () => {
+    let capturedContext = null;
+    mocks.authApiMock.getSession.mockResolvedValueOnce({
+      status: 'mfa_challenge_required',
+      mfaChallenge: {
+        challengeId: 'mfa-passkey-1',
+        purpose: 'login',
+        allowedMethods: ['passkey'],
+        preferredMethod: 'passkey',
+      },
+      mfaPolicy: {
+        mfaRequired: true,
+        allowedMethods: ['passkey'],
+      },
+      session: {
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+      },
+      profile: {
+        _id: 'db-user-1',
+        name: 'Stale Session',
+        email: 'stale@example.com',
+      },
+      roles: {
+        isAdmin: false,
+        isSeller: false,
+        isVerified: true,
+      },
+    });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="passkey-mfa-status">{authContext.status}</div>;
+    };
+
+    render(<AuthProvider><Probe /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('passkey-mfa-status')).toHaveTextContent('mfa_challenge_required');
+    });
+
+    await act(async () => {
+      await capturedContext.verifyMfaPasskeyChallenge({
+        challengeId: 'mfa-passkey-1',
+        purpose: 'login',
+      });
+    });
+
+    expect(mocks.cacheTrustedDeviceSessionTokenMock).toHaveBeenCalledWith(
+      'rotated-passkey-device-token',
+      '2026-04-12T15:00:00.000Z'
+    );
+    expect(screen.getByTestId('passkey-mfa-status')).toHaveTextContent('authenticated');
   });
 
   it('reauthenticates once and retries trusted-device verification when recent auth is required', async () => {

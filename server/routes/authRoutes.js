@@ -287,7 +287,7 @@ router.post('/mfa/recovery/regenerate', authGuardRateLimit, protect, authenticat
 router.post('/mfa/recovery/verify', authGuardRateLimit, protect, mfaVerifyLimiter, csrfTokenValidatorUnlessBearerAuth, recoveryVerify);
 router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorLogin);
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorVerification);
-router.post('/verify-device', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, verifyDeviceChallenge);
+router.post('/verify-device', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, csrfTokenValidatorUnlessBearerAuth, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;
