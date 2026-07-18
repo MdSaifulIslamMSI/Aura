@@ -6,6 +6,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { MarketProvider } from '@/context/MarketContext';
 import { authApi, otpApi } from '@/services/api';
 import {
+  buildDesktopAuthCancelUrl,
   buildDesktopDuoReturnTo,
   normalizeDesktopAuthCallbackUrl,
   persistDesktopBrowserHandoff,
@@ -38,6 +39,28 @@ const LocationProbe = () => {
 const LoginControllerProbe = () => {
   useLoginController();
   return <div>Login Screen</div>;
+};
+
+const DesktopBrowserHandoffProbe = () => {
+  const {
+    desktopBrowserConsentReady,
+    desktopBrowserConsentIdentity,
+    desktopBrowserConsentSubmitting,
+    desktopBrowserSessionHydrating,
+    handleDesktopBrowserConsent,
+    handleDesktopBrowserConsentCancel,
+  } = useLoginController();
+
+  return (
+    <>
+      <button type="button" onClick={handleDesktopBrowserConsent}>Continue desktop handoff</button>
+      <button type="button" onClick={handleDesktopBrowserConsentCancel}>Cancel desktop handoff</button>
+      <div data-testid="desktop-consent-ready">{String(desktopBrowserConsentReady)}</div>
+      <div data-testid="desktop-consent-identity">{desktopBrowserConsentIdentity}</div>
+      <div data-testid="desktop-consent-submitting">{String(desktopBrowserConsentSubmitting)}</div>
+      <div data-testid="desktop-session-hydrating">{String(desktopBrowserSessionHydrating)}</div>
+    </>
+  );
 };
 
 const SocialSignInProbe = () => {
@@ -419,6 +442,13 @@ describe('useLoginController', () => {
     expect(normalizeDesktopAuthCallbackUrl('https://localhost:47831/desktop-auth/complete')).toBe('');
     expect(normalizeDesktopAuthCallbackUrl('http://localhost:47842/desktop-auth/complete')).toBe('');
     expect(normalizeDesktopAuthCallbackUrl('https://evil.example.test/desktop-auth/complete')).toBe('');
+  });
+
+  it('derives cancellation only from a trusted loopback desktop callback', () => {
+    expect(buildDesktopAuthCancelUrl('http://localhost:47831/desktop-auth/complete?ignored=1#ignored'))
+      .toBe('http://127.0.0.1:47831/desktop-auth/cancel');
+    expect(buildDesktopAuthCancelUrl('/desktop-auth/complete')).toBe('/desktop-auth/cancel');
+    expect(buildDesktopAuthCancelUrl('https://evil.example.test/desktop-auth/complete')).toBe('');
   });
 
   it('parses a desktop browser handoff with capabilities in the URL fragment', () => {
@@ -1391,6 +1421,40 @@ describe('useLoginController', () => {
     }
   });
 
+  it('keeps an active desktop handoff neutral until session hydration resolves', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174009';
+    const currentUser = {
+      email: 'hydrated@example.com',
+      getIdToken: vi.fn(),
+    };
+    const renderTree = (loading) => (
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          currentUser,
+          isAuthenticated: true,
+          loading,
+        })}>
+          <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-hydration&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+            <Routes>
+              <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    const view = render(renderTree(true));
+    expect(screen.getByTestId('desktop-session-hydrating')).toHaveTextContent('true');
+    expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('false');
+
+    view.rerender(renderTree(false));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('desktop-session-hydrating')).toHaveTextContent('false');
+      expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+    });
+  });
+
   it('finishes a Duo desktop handoff with a top-level form navigation to loopback', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174000';
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
@@ -1409,12 +1473,19 @@ describe('useLoginController', () => {
           })}>
             <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&duo=success#desktopAuthSecret=secret-1&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post&desktopAuthReturnTo=%2Fcheckout`]}>
               <Routes>
-                <Route path="/desktop-login" element={<LoginControllerProbe />} />
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
               </Routes>
             </MemoryRouter>
           </AuthContext.Provider>
         </MarketProvider>
       );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+      expect(createToken).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
 
       await waitFor(() => {
         expect(createToken).toHaveBeenCalledWith({
@@ -1462,12 +1533,19 @@ describe('useLoginController', () => {
           })}>
             <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}&duo=success#desktopAuthSecret=secret-legacy&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete`]}>
               <Routes>
-                <Route path="/desktop-login" element={<LoginControllerProbe />} />
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
               </Routes>
             </MemoryRouter>
           </AuthContext.Provider>
         </MarketProvider>
       );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+      expect(createToken).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
 
       await waitFor(() => {
         expect(fetchMock).toHaveBeenCalledWith(
@@ -1484,6 +1562,80 @@ describe('useLoginController', () => {
       createToken.mockRestore();
       vi.stubGlobal('fetch', previousFetch);
     }
+  });
+
+  it('cancels a verified desktop handoff without minting a desktop token', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174002';
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken');
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser: { email: 'verified@example.com', getIdToken: vi.fn() },
+            isAuthenticated: true,
+            loading: false,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-cancel&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel desktop handoff' }));
+
+      expect(createToken).not.toHaveBeenCalled();
+      expect(submitSpy).toHaveBeenCalledTimes(1);
+      const form = document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/cancel"]');
+      expect(form).not.toBeNull();
+      expect(Object.fromEntries(new FormData(form).entries())).toEqual({
+        requestId,
+        secret: 'secret-cancel',
+      });
+    } finally {
+      createToken.mockRestore();
+      submitSpy.mockRestore();
+      document.querySelector('form[action="http://127.0.0.1:47831/desktop-auth/cancel"]')?.remove();
+    }
+  });
+
+  it('does not present a browser-editable email as the verified consent identity', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174003';
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({
+          currentUser: null,
+          isAuthenticated: false,
+          loading: false,
+        })}>
+          <MemoryRouter initialEntries={[{
+            pathname: '/desktop-login',
+            search: `?desktopAuthRequest=${requestId}&duo=success`,
+            hash: '#desktopAuthSecret=secret-neutral&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post',
+            state: { authPrefill: { email: 'browser-edited@example.com' } },
+          }]}
+          >
+            <Routes>
+              <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+    });
+    expect(screen.getByTestId('desktop-consent-identity')).toHaveTextContent('Verified Aura account');
+    expect(screen.getByTestId('desktop-consent-identity')).not.toHaveTextContent('browser-edited@example.com');
   });
 
   it('summarizes only enabled expanded social providers', () => {

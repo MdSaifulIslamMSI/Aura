@@ -1,6 +1,10 @@
 const request = require('supertest');
 
 const app = require('../index');
+const {
+    DESKTOP_AUTH_LOOPBACK_CONNECT_SOURCES,
+    DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES,
+} = require('../../config/desktopAuthLoopback.cjs');
 const { assertSafeStatus } = require('./helpers/securityTestHelpers');
 
 jest.setTimeout(15000);
@@ -36,6 +40,11 @@ describe('security headers', () => {
         expect(connectSrc).toContain('https://*.googleapis.com');
         expect(connectSrc).not.toContain('https:');
         expect(connectSrc).not.toContain('wss:');
+        expect(connectSrc).toEqual(expect.arrayContaining(DESKTOP_AUTH_LOOPBACK_CONNECT_SOURCES));
+        expect(connectSrc).not.toContain('http://127.0.0.1:*');
+
+        const formAction = getDirectiveSources(response.headers['content-security-policy'], 'form-action');
+        expect(formAction).toEqual(["'self'", ...DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES]);
     });
 
     test('auth/account/admin responses are not cacheable', async () => {

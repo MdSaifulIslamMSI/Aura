@@ -1,7 +1,23 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { revealWindow, runWithTimeout } = require('./startupReliability.cjs');
+const {
+    buildDesktopStartupUrl,
+    loadWindowUrlSafely,
+    revealWindow,
+    runWithTimeout,
+} = require('./startupReliability.cjs');
+
+test('desktop startup enters the local sign-in route without changing the runtime origin', () => {
+    assert.equal(
+        buildDesktopStartupUrl('http://localhost:47831/', '1.0.176'),
+        'http://localhost:47831/login?desktopRuntimeVersion=1.0.176'
+    );
+    assert.equal(
+        buildDesktopStartupUrl('http://localhost:47839/base?keep=1'),
+        'http://localhost:47839/login?keep=1'
+    );
+});
 
 test('desktop startup timeout does not wait forever for a blocked task', async () => {
     await assert.rejects(
@@ -12,6 +28,38 @@ test('desktop startup timeout does not wait forever for a blocked task', async (
 
 test('desktop startup timeout returns a completed task result', async () => {
     assert.equal(await runWithTimeout(Promise.resolve('ready'), 100), 'ready');
+});
+
+test('desktop window navigation tolerates a window closing before or during load', async () => {
+    const closedWindow = {
+        isDestroyed: () => true,
+        loadURL: () => assert.fail('a destroyed window must not navigate'),
+    };
+    assert.equal(await loadWindowUrlSafely(closedWindow, 'data:text/plain,closed'), false);
+
+    let destroyed = false;
+    const closingWindow = {
+        isDestroyed: () => destroyed,
+        loadURL: async () => {
+            destroyed = true;
+            throw new Error('ERR_ABORTED');
+        },
+    };
+    assert.equal(await loadWindowUrlSafely(closingWindow, 'data:text/plain,closing'), false);
+});
+
+test('desktop window navigation preserves real load failures', async () => {
+    const window = {
+        isDestroyed: () => false,
+        loadURL: async () => {
+            throw new Error('network failed');
+        },
+    };
+
+    await assert.rejects(
+        loadWindowUrlSafely(window, 'https://example.invalid'),
+        /network failed/
+    );
 });
 
 test('desktop window recovery restores, reveals, and focuses the window', () => {

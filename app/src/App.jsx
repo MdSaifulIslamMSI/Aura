@@ -43,6 +43,7 @@ import {
   shouldShowSiteChrome,
   shouldShowAmbientChrome,
   shouldShowBackendStatusBanner,
+  shouldShowPremiumWelcomeCurtain,
 } from './services/assistantUiConfig';
 
 // Pages (Lazy Loaded for Performance)
@@ -157,6 +158,10 @@ function AppContent() {
     () => shouldShowSiteChrome(chromePathname),
     [chromePathname]
   );
+  const showPremiumWelcomeCurtain = shouldShowPremiumWelcomeCurtain(
+    location.pathname,
+    location.search
+  );
 
   const showAmbientChrome = useMemo(
     () => shouldShowAmbientChrome(chromePathname),
@@ -236,7 +241,7 @@ function AppContent() {
         isNativeMobile ? 'aura-native-mobile-shell' : '',
       ].filter(Boolean).join(' ')}
     >
-      <PremiumWelcomeCurtain />
+      {showPremiumWelcomeCurtain ? <PremiumWelcomeCurtain /> : null}
       {/* Skip-to-main-content — first focusable element for keyboard/screen-reader users.
           Hidden by default, revealed on focus via sr-only + focus:not-sr-only pattern. */}
       <a

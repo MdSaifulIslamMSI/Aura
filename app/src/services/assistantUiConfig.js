@@ -114,6 +114,13 @@ export const isDesktopAuthLoginRequest = (pathname = '/', search = '') => {
         || params.has('desktopAuthReturnTo');
 };
 
+export const shouldShowPremiumWelcomeCurtain = (pathname = '/', search = '') => {
+    const authPathname = isDesktopAuthLoginRequest(pathname, search)
+        ? DESKTOP_LOGIN_PATH
+        : pathname;
+    return !isLoginPath(authPathname) && !isDesktopLoginPath(authPathname);
+};
+
 export const shouldShowSiteChrome = (pathname = '/') => (
     !isFrontendLaunchHubPath(pathname)
     && !isLoginPath(pathname)

@@ -9,6 +9,7 @@ import {
     buildNetlifyHostedBackendRedirects,
     assertDeployableHostedBackendOrigin,
     DEFAULT_HOSTED_BACKEND_ORIGIN,
+    FRONTEND_META_CONTENT_SECURITY_POLICY,
     resolveHostedBackendOrigin,
 } from '../config/vercelRoutingContract.mjs';
 
@@ -38,6 +39,19 @@ for (const target of targets) {
 
     await writeFile(target, `${JSON.stringify(nextConfig, null, 4)}\n`);
 }
+
+const appIndexTarget = path.join(repoRoot, 'app', 'index.html');
+const appIndexHtml = await readFile(appIndexTarget, 'utf8');
+const nextAppIndexHtml = appIndexHtml.replace(
+    /(<meta\s+http-equiv="Content-Security-Policy"\s*\r?\n\s*content=")[^"]*("\s*\/>)/,
+    `$1${FRONTEND_META_CONTENT_SECURITY_POLICY}$2`
+);
+
+if (nextAppIndexHtml === appIndexHtml && !appIndexHtml.includes(FRONTEND_META_CONTENT_SECURITY_POLICY)) {
+    throw new Error('Could not synchronize the app index Content-Security-Policy meta tag.');
+}
+
+await writeFile(appIndexTarget, nextAppIndexHtml);
 
 const renderNetlifyRedirects = (redirects) => redirects
     .map(({ from, to, status, force }) => [

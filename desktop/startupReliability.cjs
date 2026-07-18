@@ -19,6 +19,32 @@ const runWithTimeout = (task, timeoutMs, message = 'Desktop startup task timed o
     ]).finally(() => clearTimeout(timeoutId));
 };
 
+const buildDesktopStartupUrl = (runtimeUrl, appVersion = '') => {
+    const startupUrl = new URL(runtimeUrl);
+    startupUrl.pathname = '/login';
+    if (appVersion) {
+        startupUrl.searchParams.set('desktopRuntimeVersion', String(appVersion));
+    }
+    return startupUrl.toString();
+};
+
+const loadWindowUrlSafely = async (window, url) => {
+    if (!window || window.isDestroyed?.()) {
+        return false;
+    }
+
+    try {
+        await window.loadURL(url);
+    } catch (error) {
+        if (window.isDestroyed?.()) {
+            return false;
+        }
+        throw error;
+    }
+
+    return !window.isDestroyed?.();
+};
+
 const revealWindow = (window, { focus = false, maximize = false } = {}) => {
     if (!window || window.isDestroyed?.()) {
         return false;
@@ -38,6 +64,8 @@ const revealWindow = (window, { focus = false, maximize = false } = {}) => {
 };
 
 module.exports = {
+    buildDesktopStartupUrl,
+    loadWindowUrlSafely,
     revealWindow,
     runWithTimeout,
 };

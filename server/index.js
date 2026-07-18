@@ -172,6 +172,10 @@ const { attachSocketBackplane, getSocketHealth, initializeSocket } = require('./
 const { assertInvisibleFabricConfig } = require('./security/invisibleFabric/config');
 
 const app = express();
+const {
+    DESKTOP_AUTH_LOOPBACK_CONNECT_SOURCES,
+    DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES,
+} = require('../config/desktopAuthLoopback.cjs');
 initOtel();
 const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
 const AUTH_BODY_LIMIT = process.env.AUTH_BODY_LIMIT || '64kb';
@@ -186,6 +190,7 @@ const cspConnectSources = Array.from(new Set([
     "'self'",
     ...allowedOrigins,
     ...productionBackendCspSources,
+    ...DESKTOP_AUTH_LOOPBACK_CONNECT_SOURCES,
     ...allowedOrigins.map(toWebSocketOrigin),
     'https://api.github.com',
     'https://api.stripe.com',
@@ -214,7 +219,7 @@ const contentSecurityPolicyDirectives = {
     baseUri: ["'self'"],
     objectSrc: ["'none'"],
     frameAncestors: ["'none'"],
-    formAction: ["'self'"],
+    formAction: ["'self'", ...DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES],
     scriptSrc: [
         "'self'",
         'https://apis.google.com',
