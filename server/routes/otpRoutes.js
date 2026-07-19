@@ -5,10 +5,18 @@ const router = express.Router();
 const { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists } = require('../controllers/otpController');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const { requireTurnstile } = require('../middleware/turnstileMiddleware');
+const { startTrafficBudgetCommit } = require('../middleware/requestTimeouts');
 
 const RESET_PASSWORD_WINDOW_MS = 15 * 60 * 1000;
 const RESET_PASSWORD_FLOW_MAX = 5;
 const RESET_PASSWORD_NETWORK_MAX = 40;
+
+// Turnstile and abuse limiters must finish before OTP/password state can own
+// the response. Once admitted, do not emit a timeout while that state commits.
+const beginAtomicOtpResponse = (req, res, next) => {
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
+    return next();
+};
 
 const parseRateLimitKeyPart = (value) => String(value || '').trim();
 
@@ -88,9 +96,9 @@ const checkUserLimiter = createDistributedRateLimit({
 });
 
 router.post('/challenge', checkUserLimiter, getOtpChallenge);
-router.post('/send', requireTurnstile({ routeName: 'otp_send' }), otpLimiter, sendOtp);
-router.post('/verify', requireTurnstile({ routeName: 'otp_verify' }), verifyLimiter, verifyOtp);
-router.post('/reset-password', resetPasswordScannerRateLimit, requireTurnstile({ routeName: 'otp_reset_password' }), resetPasswordNetworkLimiter, resetPasswordLimiter, resetPasswordWithOtp);
+router.post('/send', requireTurnstile({ routeName: 'otp_send' }), otpLimiter, beginAtomicOtpResponse, sendOtp);
+router.post('/verify', requireTurnstile({ routeName: 'otp_verify' }), verifyLimiter, beginAtomicOtpResponse, verifyOtp);
+router.post('/reset-password', resetPasswordScannerRateLimit, requireTurnstile({ routeName: 'otp_reset_password' }), resetPasswordNetworkLimiter, resetPasswordLimiter, beginAtomicOtpResponse, resetPasswordWithOtp);
 router.post('/check-user', requireTurnstile({ routeName: 'otp_check_user' }), checkUserLimiter, checkUserExists);
 
 module.exports = router;

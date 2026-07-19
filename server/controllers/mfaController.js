@@ -47,6 +47,9 @@ const { resolveMfaConfig } = require('../config/mfaConfig');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const { hasObservedWebAuthnUserVerification } = require('../services/trustedDeviceAssuranceService');
 const { invalidateUserCache, invalidateUserCacheByEmail } = require('../middleware/authMiddleware');
+const {
+    startTrafficBudgetCommit,
+} = require('../middleware/requestTimeouts');
 
 const MFA_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa loyalty createdAt';
 
@@ -273,6 +276,7 @@ const persistMfaSession = async ({
         ? ['webauthn', 'passkey', 'mfa']
         : [normalizedMethod, 'mfa'].filter(Boolean);
     const stepUpUntil = getStepUpExpiry();
+    if (!startTrafficBudgetCommit(req, res)) return null;
     const authSession = await refreshBrowserSession({
         req,
         res,
@@ -369,6 +373,7 @@ const getMfaSecurityCenter = asyncHandler(async (req, res) => {
 
 const setupTotp = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.TOTP });
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const setup = await beginTotpSetup({ userId: req.user?._id });
     recordAuthSecurityEvent({
         event: 'mfa.totp.setup.started',
@@ -388,6 +393,7 @@ const getTotpQr = asyncHandler(async (req, res) => {
 
 const verifyTotpSetup = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.TOTP });
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const result = await enableTotpAfterVerification({
         userId: req.user?._id,
         code: req.body?.code,
@@ -427,6 +433,7 @@ const verifyTotpLogin = asyncHandler(async (req, res) => {
     if (!inspected.success) {
         throw new AppError('MFA challenge is invalid or expired.', 401);
     }
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
 
     let user;
     try {
@@ -470,6 +477,7 @@ const verifyTotpLogin = asyncHandler(async (req, res) => {
 
 const disableTotp = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.TOTP });
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const user = await disableTotpAfterFreshMfa({ userId: req.user?._id });
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(req.user?.email || '');
@@ -613,6 +621,7 @@ const verifyPasskeyChallenge = async ({ req, expectedScope = '' } = {}) => {
 const passkeyRegisterVerify = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.PASSKEY });
     assertAdminPasskeyEnrollmentAssurance(req);
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const verification = await verifyPasskeyChallenge({ req, expectedScope: 'mfa-passkey-register' });
     const user = await syncPasskeyMfaState({
         userId: req.user?._id,
@@ -681,6 +690,7 @@ const passkeyLoginVerify = asyncHandler(async (req, res) => {
         if (!inspected.success) throw new AppError('MFA challenge is invalid or expired.', 401);
         inspectedChallenge = inspected.challenge || null;
     }
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const verification = await verifyPasskeyChallenge({ req, expectedScope: 'mfa-passkey-login' });
     if (challengeId) {
         const consumed = await consumeMfaChallenge({
@@ -720,6 +730,7 @@ const passkeyLoginVerify = asyncHandler(async (req, res) => {
 const passkeyRemove = asyncHandler(async (req, res) => {
     const deviceId = normalizeText(req.body?.deviceId);
     const credentialId = normalizeText(req.body?.credentialId);
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const result = await revokeTrustedDevices({
         userId: req.user?._id,
         deviceId,
@@ -750,6 +761,7 @@ const passkeyRemove = asyncHandler(async (req, res) => {
 });
 
 const renameTrustedDevice = asyncHandler(async (req, res) => {
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const result = await renameTrustedDeviceRegistration({
         userId: req.user?._id,
         deviceId: req.params?.deviceId,
@@ -775,6 +787,7 @@ const renameTrustedDevice = asyncHandler(async (req, res) => {
 });
 
 const revokeTrustedDevice = asyncHandler(async (req, res) => {
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const result = await revokeTrustedDevices({
         userId: req.user?._id,
         deviceId: req.params?.deviceId,
@@ -804,6 +817,7 @@ const revokeTrustedDevice = asyncHandler(async (req, res) => {
 });
 
 const revokeOtherTrustedDevices = asyncHandler(async (req, res) => {
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const result = await revokeTrustedDevices({
         userId: req.user?._id,
         currentDeviceId: req.authSession?.deviceId,
@@ -836,6 +850,7 @@ const recoveryRegenerate = asyncHandler(async (req, res) => {
     if (!hasPasskey(user) && !hasTotp(user)) {
         throw new AppError('Add passkey or authenticator app MFA before generating recovery codes.', 409);
     }
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const result = await generateRecoveryCodes({
         userId: req.user?._id,
         requirePasskey: false,
@@ -870,6 +885,7 @@ const recoveryVerify = asyncHandler(async (req, res) => {
         req,
     });
     if (!inspected.success) throw new AppError('MFA challenge is invalid or expired.', 401);
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
 
     let result;
     try {
@@ -929,6 +945,7 @@ const createStepUpChallenge = asyncHandler(async (req, res) => {
         action: normalizeText(req.body?.action) || 'manual_step_up',
         route: normalizeText(req.body?.route || req.originalUrl),
     });
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const challenge = await createMfaChallenge({
         user,
         purpose: 'step_up',

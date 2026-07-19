@@ -2,14 +2,36 @@ const { ROUTE_CLASSES, getTrafficBudget } = require('../config/trafficBudgets');
 const { recordTrafficBudgetDenied } = require('../metrics/trafficResilienceMetrics');
 const logger = require('../utils/logger');
 
+const isRequestExecutionClosed = (req = {}, res = {}) => Boolean(
+    req.trafficBudgetTimedOut
+    || req.requestTimedOut
+    || req.aborted
+    || (req.destroyed && req.complete !== true)
+    || res.headersSent
+    || res.writableEnded
+    || res.destroyed
+);
+
+const startTrafficBudgetCommit = (req, res) => {
+    if (isRequestExecutionClosed(req, res)) return false;
+
+    req.clearTrafficBudgetTimeout?.();
+    req.clearTimeout?.();
+    req.trafficBudgetCommitStarted = true;
+    return true;
+};
+
 const budgetRequestTimeout = () => (req, res, next) => {
     const budget = req.trafficBudget || getTrafficBudget(req.trafficRouteClass);
     if (budget.routeClass === ROUTE_CLASSES.HEALTH) return next();
     const timeoutMs = Number(budget.timeoutMs || 0);
     if (!timeoutMs) return next();
 
+    req.trafficBudgetTimedOut = false;
+
     const timer = setTimeout(() => {
         if (res.headersSent) return;
+        req.trafficBudgetTimedOut = true;
         recordTrafficBudgetDenied({ routeClass: budget.routeClass, reason: 'timeout' });
         logger.warn('traffic.timeout_denied', {
             requestId: req.requestId || '',
@@ -37,4 +59,8 @@ const budgetRequestTimeout = () => (req, res, next) => {
     return next();
 };
 
-module.exports = { budgetRequestTimeout };
+module.exports = {
+    budgetRequestTimeout,
+    isRequestExecutionClosed,
+    startTrafficBudgetCommit,
+};

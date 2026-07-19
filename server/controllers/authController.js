@@ -64,6 +64,9 @@ const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnfo
 const { RISK_LEVELS, evaluateLoginRisk } = require('../services/authRiskEngineService');
 const { extractTrustedLoginRiskSignals } = require('../services/authRiskSignalService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const {
+    startTrafficBudgetCommit,
+} = require('../middleware/requestTimeouts');
 const { isEnabled: isEmergencyFlagEnabled } = require('../services/emergencyControlService');
 const { createMfaChallenge } = require('../services/mfaChallengeService');
 const {
@@ -458,6 +461,7 @@ const persistBrowserSessionForUser = async ({
         return null;
     }
 
+    if (!startTrafficBudgetCommit(req, res)) return null;
     const nextSession = await refreshBrowserSession({
         req,
         res,
@@ -493,12 +497,13 @@ const establishSessionCookie = asyncHandler(async (req, res, next) => {
         return next();
     }
 
-    await persistBrowserSessionForUser({
+    const authSession = await persistBrowserSessionForUser({
         req,
         res,
         user: req.user,
         rotate: false,
     });
+    if (!authSession) return undefined;
 
     return next();
 });
@@ -1146,6 +1151,7 @@ const syncSession = asyncHandler(async (req, res) => {
         }
     }
 
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     let user = await syncAuthenticatedUser({
         authUser,
         email: req.body?.email,
@@ -1835,6 +1841,7 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         throw new AppError('Trusted device identity is missing', 400);
     }
 
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
     const verification = await verifyTrustedDeviceChallenge({
         user: req.user,
         authUid: req.authUid || '',

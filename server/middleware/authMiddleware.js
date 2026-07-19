@@ -30,6 +30,7 @@ const getGlobalSessionRevokedAfter = typeof browserSessionService.getGlobalSessi
     ? browserSessionService.getGlobalSessionRevokedAfter
     : async () => 0;
 const { csrfTokenValidator } = require('./csrfMiddleware');
+const { isRequestExecutionClosed } = require('./requestTimeouts');
 const {
     shouldRequireTrustedDevice,
 } = require('../config/authTrustedDeviceFlags');
@@ -1335,6 +1336,9 @@ const finalizeProtectedRequest = async (req, res, next) => {
     enforceCompletedLoginMfa(req);
     await enforceContinuousAccessPosture(req);
     await enforceCookieSessionCsrf(req, res);
+    if (isRequestExecutionClosed(req, res)) {
+        return undefined;
+    }
     return next();
 };
 

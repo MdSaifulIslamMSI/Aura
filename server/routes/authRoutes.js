@@ -50,6 +50,7 @@ const {
     csrfTokenValidatorUnlessBearerAuth,
 } = require('../middleware/csrfMiddleware');
 const { requireTurnstile } = require('../middleware/turnstileMiddleware');
+const { startTrafficBudgetCommit } = require('../middleware/requestTimeouts');
 const otpRoutes = require('./otpRoutes');
 
 const router = express.Router();
@@ -59,6 +60,15 @@ const csrfTokenValidatorForCookieSession = (req, res, next) => {
         return next();
     }
     return csrfTokenValidator(req, res, next);
+};
+
+// Keep authentication and abuse admission inside the route budget, then claim
+// the response before consuming one-time proofs or rotating session state.
+// Either admission times out and nothing below runs, or the auth operation is
+// allowed to finish without a late timeout response racing its mutation.
+const beginAtomicAuthResponse = (req, res, next) => {
+    if (!startTrafficBudgetCommit(req, res)) return undefined;
+    return next();
 };
 
 const normalizeRateLimitEmail = (value) => (
@@ -254,40 +264,40 @@ const authenticatedSessionMutationLimiter = createDistributedRateLimit({
     keyGenerator: (req) => req.authUid || req.user?.email || req.ip,
 });
 
-router.get('/duo/start', duoOidcLimiter, startDuoLogin);
-router.get('/duo/step-up', protect, establishSessionCookie, duoOidcLimiter, startDuoStepUp);
-router.get('/duo/callback', duoOidcLimiter, completeDuoLogin);
-router.get('/enterprise/start', enterpriseOidcLimiter, startEnterpriseLogin);
-router.get('/enterprise/callback', enterpriseOidcLimiter, completeEnterpriseLogin);
-router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, establishSessionCookie, issueDesktopHandoffToken);
-router.post('/desktop-handoff/owner-access-token', desktopOwnerAccessLimiter, issueDesktopOwnerAccessToken);
-router.post('/exchange', protect, establishSessionCookie, csrfTokenGenerator, getSession);
-router.get('/session', protect, establishSessionCookie, csrfTokenGenerator, getSession);
-router.post('/sync', authGuardRateLimit, protect, authSyncLimiter, csrfTokenValidatorUnlessBearerAuth, validate(loginSchema), syncSession);
-router.post('/logout', protectOptional, authenticatedSessionMutationLimiter, csrfTokenValidatorForCookieSession, logoutSession);
-router.post('/bootstrap-device-challenge', requireTurnstile({ routeName: 'auth_bootstrap_device_challenge' }), bootstrapDeviceChallengeLimiter, requestBootstrapDeviceChallenge);
-router.post('/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authenticatedSessionMutationLimiter, sensitiveActions.accountRecoveryChange, generateBackupRecoveryCodes);
-router.post('/recovery-codes/verify', authGuardRateLimit, requireTurnstile({ routeName: 'auth_recovery_code_verify' }), recoveryCodeNetworkLimiter, recoveryCodeLimiter, verifyBackupRecoveryCode);
-router.get('/mfa', authGuardRateLimit, protect, mfaChallengeLimiter, establishSessionCookie, csrfTokenGenerator, getMfaSecurityCenter);
-router.post('/mfa/step-up', authGuardRateLimit, protect, mfaChallengeLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, createStepUpChallenge);
-router.post('/mfa/totp/setup', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, setupTotp);
-router.get('/mfa/totp/qr', authGuardRateLimit, protect, mfaChallengeLimiter, establishSessionCookie, sensitiveActions.authFactorChange, getTotpQr);
-router.post('/mfa/totp/verify-setup', authGuardRateLimit, protect, mfaVerifyLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, verifyTotpSetup);
-router.post('/mfa/totp/verify-login', authGuardRateLimit, protect, mfaVerifyLimiter, csrfTokenValidatorUnlessBearerAuth, verifyTotpLogin);
-router.post('/mfa/totp/disable', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, disableTotp);
-router.post('/mfa/passkey/register/options', authGuardRateLimit, protect, mfaChallengeLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, passkeyRegisterOptions);
-router.post('/mfa/passkey/register/verify', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, passkeyRegisterVerify);
-router.post('/mfa/passkey/login/options', authGuardRateLimit, protect, mfaChallengeLimiter, csrfTokenValidatorUnlessBearerAuth, passkeyLoginOptions);
-router.post('/mfa/passkey/login/verify', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, csrfTokenValidatorUnlessBearerAuth, passkeyLoginVerify);
-router.post('/mfa/passkey/remove', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, passkeyRemove);
-router.patch('/mfa/trusted-devices/:deviceId', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, renameTrustedDevice);
-router.post('/mfa/trusted-devices/revoke-others', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, revokeOtherTrustedDevices);
-router.post('/mfa/trusted-devices/:deviceId/revoke', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, revokeTrustedDevice);
-router.post('/mfa/recovery/regenerate', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.accountRecoveryChange, recoveryRegenerate);
-router.post('/mfa/recovery/verify', authGuardRateLimit, protect, mfaVerifyLimiter, csrfTokenValidatorUnlessBearerAuth, recoveryVerify);
-router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorLogin);
-router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, sensitiveActions.authFactorChange, completePhoneFactorVerification);
-router.post('/verify-device', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, csrfTokenValidatorUnlessBearerAuth, verifyDeviceChallenge);
+router.get('/duo/start', duoOidcLimiter, beginAtomicAuthResponse, startDuoLogin);
+router.get('/duo/step-up', protect, duoOidcLimiter, beginAtomicAuthResponse, establishSessionCookie, startDuoStepUp);
+router.get('/duo/callback', duoOidcLimiter, beginAtomicAuthResponse, completeDuoLogin);
+router.get('/enterprise/start', enterpriseOidcLimiter, beginAtomicAuthResponse, startEnterpriseLogin);
+router.get('/enterprise/callback', enterpriseOidcLimiter, beginAtomicAuthResponse, completeEnterpriseLogin);
+router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, beginAtomicAuthResponse, establishSessionCookie, issueDesktopHandoffToken);
+router.post('/desktop-handoff/owner-access-token', desktopOwnerAccessLimiter, beginAtomicAuthResponse, issueDesktopOwnerAccessToken);
+router.post('/exchange', protect, beginAtomicAuthResponse, establishSessionCookie, csrfTokenGenerator, getSession);
+router.get('/session', protect, beginAtomicAuthResponse, establishSessionCookie, csrfTokenGenerator, getSession);
+router.post('/sync', authGuardRateLimit, protect, authSyncLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, validate(loginSchema), syncSession);
+router.post('/logout', protectOptional, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, csrfTokenValidatorForCookieSession, logoutSession);
+router.post('/bootstrap-device-challenge', requireTurnstile({ routeName: 'auth_bootstrap_device_challenge' }), bootstrapDeviceChallengeLimiter, beginAtomicAuthResponse, requestBootstrapDeviceChallenge);
+router.post('/recovery-codes', protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.accountRecoveryChange, generateBackupRecoveryCodes);
+router.post('/recovery-codes/verify', authGuardRateLimit, requireTurnstile({ routeName: 'auth_recovery_code_verify' }), recoveryCodeNetworkLimiter, recoveryCodeLimiter, beginAtomicAuthResponse, verifyBackupRecoveryCode);
+router.get('/mfa', authGuardRateLimit, protect, mfaChallengeLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenGenerator, getMfaSecurityCenter);
+router.post('/mfa/step-up', authGuardRateLimit, protect, mfaChallengeLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, createStepUpChallenge);
+router.post('/mfa/totp/setup', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, setupTotp);
+router.get('/mfa/totp/qr', authGuardRateLimit, protect, mfaChallengeLimiter, beginAtomicAuthResponse, establishSessionCookie, sensitiveActions.authFactorChange, getTotpQr);
+router.post('/mfa/totp/verify-setup', authGuardRateLimit, protect, mfaVerifyLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, verifyTotpSetup);
+router.post('/mfa/totp/verify-login', authGuardRateLimit, protect, mfaVerifyLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, verifyTotpLogin);
+router.post('/mfa/totp/disable', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, disableTotp);
+router.post('/mfa/passkey/register/options', authGuardRateLimit, protect, mfaChallengeLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, passkeyRegisterOptions);
+router.post('/mfa/passkey/register/verify', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, passkeyRegisterVerify);
+router.post('/mfa/passkey/login/options', authGuardRateLimit, protect, mfaChallengeLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, passkeyLoginOptions);
+router.post('/mfa/passkey/login/verify', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, passkeyLoginVerify);
+router.post('/mfa/passkey/remove', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, passkeyRemove);
+router.patch('/mfa/trusted-devices/:deviceId', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, renameTrustedDevice);
+router.post('/mfa/trusted-devices/revoke-others', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, revokeOtherTrustedDevices);
+router.post('/mfa/trusted-devices/:deviceId/revoke', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.authFactorChange, revokeTrustedDevice);
+router.post('/mfa/recovery/regenerate', authGuardRateLimit, protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, sensitiveActions.accountRecoveryChange, recoveryRegenerate);
+router.post('/mfa/recovery/verify', authGuardRateLimit, protect, mfaVerifyLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, recoveryVerify);
+router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimiter, beginAtomicAuthResponse, sensitiveActions.authFactorChange, completePhoneFactorLogin);
+router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, beginAtomicAuthResponse, sensitiveActions.authFactorChange, completePhoneFactorVerification);
+router.post('/verify-device', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
 
 module.exports = router;
