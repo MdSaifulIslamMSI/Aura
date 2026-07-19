@@ -105,6 +105,7 @@ export const SocketProvider = ({ children }) => {
         let activeSocket = null;
         let handleConnect = () => {};
         let handleDisconnect = () => {};
+        let handleAuthExpired = () => {};
         let handleConnectError = () => {};
         let handleReconnectAttempt = () => {};
         let handleReconnect = () => {};
@@ -113,6 +114,7 @@ export const SocketProvider = ({ children }) => {
         let handleOnline = () => {};
         let handleVisibilityChange = () => {};
         let removeNativeResumeListener = () => {};
+        let authExpiryRecoveryPromise = null;
 
         const shouldMaintainSocket = SOCKET_RUNTIME_ENABLED && !loading && Boolean(currentUser);
         if (!shouldMaintainSocket) {
@@ -231,6 +233,36 @@ export const SocketProvider = ({ children }) => {
                     enterReconnectGrace();
                 };
 
+                handleAuthExpired = (payload = {}) => {
+                    if (!isActive || authExpiryRecoveryPromise) return;
+
+                    if (payload?.retryable !== true) {
+                        clearReconnectGraceTimer();
+                        activeSocket.disconnect();
+                        setIsConnected(false);
+                        setConnectionState('disconnected');
+                        return;
+                    }
+
+                    authExpiryRecoveryPromise = (async () => {
+                        try {
+                            await syncSocketAuth(true);
+                            if (!isActive) return;
+                            activeSocket.disconnect();
+                            activeSocket.connect();
+                        } catch (error) {
+                            if (import.meta.env.DEV) {
+                                console.error('Socket authentication refresh failed:', error);
+                            }
+                            clearReconnectGraceTimer();
+                            setIsConnected(false);
+                            setConnectionState('disconnected');
+                        } finally {
+                            authExpiryRecoveryPromise = null;
+                        }
+                    })();
+                };
+
                 handleReconnectAttempt = () => {
                     if (!isActive) return;
                     void syncSocketAuth();
@@ -270,6 +302,7 @@ export const SocketProvider = ({ children }) => {
                 activeSocket.on('connect', handleConnect);
                 activeSocket.on('disconnect', handleDisconnect);
                 activeSocket.on('connect_error', handleConnectError);
+                activeSocket.on('auth:expired', handleAuthExpired);
                 activeSocket.io?.on?.('reconnect_attempt', handleReconnectAttempt);
                 activeSocket.io?.on?.('reconnect', handleReconnect);
                 activeSocket.io?.on?.('reconnect_error', handleReconnectError);
@@ -306,6 +339,7 @@ export const SocketProvider = ({ children }) => {
                 activeSocket.off('connect', handleConnect);
                 activeSocket.off('disconnect', handleDisconnect);
                 activeSocket.off('connect_error', handleConnectError);
+                activeSocket.off('auth:expired', handleAuthExpired);
                 activeSocket.io?.off?.('reconnect_attempt', handleReconnectAttempt);
                 activeSocket.io?.off?.('reconnect', handleReconnect);
                 activeSocket.io?.off?.('reconnect_error', handleReconnectError);

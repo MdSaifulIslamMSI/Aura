@@ -135,6 +135,92 @@ describe('browserSessionService', () => {
         expect(refreshedSession.amr).toEqual(expect.arrayContaining(['webauthn', 'otp', 'mfa']));
     });
 
+    test('atomic session touch preserves a concurrently refreshed Firebase expiry snapshot', async () => {
+        const redisData = new Map();
+        const redisClient = {
+            setEx: jest.fn(async (key, _ttl, value) => redisData.set(key, value)),
+            get: jest.fn(async (key) => redisData.get(key) || null),
+            del: jest.fn(async (key) => redisData.delete(key)),
+            sAdd: jest.fn().mockResolvedValue(1),
+            sRem: jest.fn().mockResolvedValue(1),
+            expire: jest.fn().mockResolvedValue(1),
+            eval: jest.fn(async (_script, { keys, arguments: args }) => {
+                const raw = redisData.get(keys[0]);
+                if (!raw) return null;
+                const record = JSON.parse(raw);
+                record.lastSeenAt = args[0];
+                record.idleExpiresAt = args[1];
+                const serialized = JSON.stringify(record);
+                redisData.set(keys[0], serialized);
+                return serialized;
+            }),
+        };
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => redisClient,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-atomic-touch',
+                    deviceLabel: 'Atomic Touch Browser',
+                }),
+            }));
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const user = {
+            _id: '507f1f77bcf86cd799439099',
+            email: 'atomic-touch@example.com',
+            name: 'Atomic Touch User',
+            isAdmin: false,
+            isSeller: false,
+            isVerified: true,
+        };
+        const originalSession = await browserSessionService.createBrowserSession({
+            req: { headers: { host: 'app.aura.local' } },
+            user,
+            authUid: 'firebase-atomic-touch',
+            authToken: {
+                email: user.email,
+                email_verified: true,
+                auth_time: nowSeconds - 30,
+                iat: nowSeconds - 30,
+                exp: nowSeconds + 3600,
+                firebase: { sign_in_provider: 'password' },
+            },
+        });
+        const refreshedExpiry = nowSeconds + 7200;
+        await browserSessionService.refreshBrowserSession({
+            req: { headers: { host: 'app.aura.local' } },
+            currentSession: originalSession,
+            user,
+            authUid: 'firebase-atomic-touch',
+            authToken: {
+                email: user.email,
+                email_verified: true,
+                auth_time: nowSeconds - 10,
+                iat: nowSeconds + 30,
+                exp: refreshedExpiry,
+                firebase: { sign_in_provider: 'password' },
+            },
+        });
+
+        const touched = await browserSessionService.touchBrowserSession({
+            ...originalSession,
+            lastSeenAt: new Date(Date.now() - (10 * 60 * 1000)).toISOString(),
+        });
+        const stored = await browserSessionService.getBrowserSession(originalSession.sessionId);
+
+        expect(redisClient.eval).toHaveBeenCalledTimes(1);
+        expect(touched.firebaseExpiresAtSeconds).toBe(refreshedExpiry);
+        expect(stored.firebaseExpiresAtSeconds).toBe(refreshedExpiry);
+        expect(stored.issuedAtSeconds).toBe(nowSeconds + 30);
+    });
+
     test('does not infer AAL2 from a WebAuthn transport when UV was not observed', async () => {
         let browserSessionService;
 

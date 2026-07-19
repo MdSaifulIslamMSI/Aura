@@ -633,13 +633,34 @@ describe('authMiddleware cookie session authentication', () => {
 
         const successRes = new EventEmitter();
         successRes.statusCode = 200;
-        await protect(makeReq(), successRes, jest.fn());
+        const successReq = makeReq();
+        await protect(successReq, successRes, jest.fn());
         expect(touchBrowserSession).not.toHaveBeenCalled();
+        const refreshedSessionRecord = {
+            ...successReq.authSession,
+            firebaseExpiresAtSeconds: nowSeconds + 7200,
+            aal: 'aal2',
+        };
+        successReq.authSession = refreshedSessionRecord;
         successRes.emit('finish');
         await new Promise((resolve) => setImmediate(resolve));
 
         expect(touchBrowserSession).toHaveBeenCalledTimes(1);
-        expect(touchBrowserSession).toHaveBeenCalledWith(sessionRecord);
+        expect(touchBrowserSession).toHaveBeenCalledWith(refreshedSessionRecord);
+
+        touchBrowserSession.mockClear();
+        const rotatedRes = new EventEmitter();
+        rotatedRes.statusCode = 200;
+        const rotatedReq = makeReq();
+        await protect(rotatedReq, rotatedRes, jest.fn());
+        rotatedReq.authSession = {
+            ...rotatedReq.authSession,
+            sessionId: 'session-cookie-rotated',
+        };
+        rotatedRes.emit('finish');
+        await new Promise((resolve) => setImmediate(resolve));
+
+        expect(touchBrowserSession).not.toHaveBeenCalled();
 
         const crossSiteRes = new EventEmitter();
         crossSiteRes.statusCode = 200;
@@ -653,7 +674,7 @@ describe('authMiddleware cookie session authentication', () => {
         crossSiteRes.emit('finish');
         await new Promise((resolve) => setImmediate(resolve));
 
-        expect(touchBrowserSession).toHaveBeenCalledTimes(1);
+        expect(touchBrowserSession).not.toHaveBeenCalled();
     }, 30000);
 
     test('protect requires signed trusted-device proof for a same-device browser session when mode is always', async () => {

@@ -15,6 +15,7 @@ const paths = {
     bootstrapSecurityPosture: path.join(repoRoot, 'infra', 'aws', 'bootstrap-security-posture.ps1'),
     bootstrapUserData: path.join(repoRoot, 'infra', 'aws', 'bootstrap-instance-user-data.sh'),
     deployRelease: path.join(repoRoot, 'infra', 'aws', 'deploy-release.sh'),
+    rollbackBackend: path.join(repoRoot, 'infra', 'aws', 'rollback-backend.sh'),
     renderRuntimeSecrets: path.join(repoRoot, 'infra', 'aws', 'render-runtime-secrets.sh'),
     envExample: path.join(serverRoot, '.env.example'),
     awsSecretsExample: path.join(serverRoot, '.env.aws-secrets.example'),
@@ -177,6 +178,7 @@ const bootstrapGithubOidc = fs.existsSync(paths.bootstrapGithubOidc) ? readText(
 const bootstrapSecurityPosture = fs.existsSync(paths.bootstrapSecurityPosture) ? readText(paths.bootstrapSecurityPosture) : '';
 const bootstrapUserData = fs.existsSync(paths.bootstrapUserData) ? readText(paths.bootstrapUserData) : '';
 const deployRelease = fs.existsSync(paths.deployRelease) ? readText(paths.deployRelease) : '';
+const rollbackBackend = fs.existsSync(paths.rollbackBackend) ? readText(paths.rollbackBackend) : '';
 const renderRuntimeSecrets = fs.existsSync(paths.renderRuntimeSecrets) ? readText(paths.renderRuntimeSecrets) : '';
 const envExample = fs.existsSync(paths.envExample) ? readText(paths.envExample) : '';
 const awsSecretsExample = fs.existsSync(paths.awsSecretsExample) ? readText(paths.awsSecretsExample) : '';
@@ -262,6 +264,9 @@ if (!publicUrlHost || webAuthnRpId !== publicUrlHost) {
     addFailure('AWS base.env AUTH_WEBAUTHN_RP_ID must match the APP_PUBLIC_URL hostname');
 }
 requireEnvValue(baseEnv, 'AUTH_WEBAUTHN_USER_VERIFICATION', 'required', 'AWS base.env');
+requireTruthyEnv(baseEnv, 'MFA_ENABLED', 'AWS base.env');
+requireTruthyEnv(baseEnv, 'MFA_PASSKEY_ENABLED', 'AWS base.env');
+requireEnvValue(baseEnv, 'AURA_DESKTOP_OWNER_ACCESS_ENABLED', 'false', 'AWS base.env');
 
 const backendPublicHost = String(baseEnv.get('AURA_BACKEND_PUBLIC_HOST') || '').trim();
 if (!/^[a-z0-9.-]+$/i.test(backendPublicHost)) {
@@ -277,6 +282,9 @@ requireIncludes(awsCompose, 'runtime-secrets.env', 'AWS Compose services must lo
 requireIncludes(awsCompose, 'redis-server", "--appendonly", "yes"', 'AWS Redis service must enable appendonly persistence.');
 requireRegex(awsCompose, /AUTH_DEVICE_CHALLENGE_MODE:\s*(admin|always)/, 'AWS API service must keep trusted-device mode enabled (admin or always).');
 requireIncludes(awsCompose, 'ADMIN_REQUIRE_PASSKEY: "true"', 'AWS API service must require passkey-backed admin access.');
+requireIncludes(awsCompose, 'MFA_ENABLED: "true"', 'AWS API service must keep the MFA subsystem enabled.');
+requireIncludes(awsCompose, 'MFA_PASSKEY_ENABLED: "true"', 'AWS API service must keep passkey MFA enabled.');
+requireIncludes(awsCompose, 'AURA_DESKTOP_OWNER_ACCESS_ENABLED: "false"', 'AWS API service must disable shared-key desktop owner access.');
 requireIncludes(awsCompose, '"127.0.0.1:5000:5000"', 'AWS API port 5000 must bind to loopback only.');
 if (/["']?5000:5000["']?/.test(awsCompose) && !awsCompose.includes('"127.0.0.1:5000:5000"')) {
     addFailure('AWS Compose must not publish API port 5000 on all interfaces.');
@@ -330,6 +338,12 @@ requireIncludes(deployRelease, 'render-runtime-secrets.sh', 'AWS deploy must ren
 requireIncludes(deployRelease, 'AURA_BACKEND_PUBLIC_HOST', 'AWS deploy must validate the TLS edge host.');
 requireIncludes(deployRelease, '--resolve "${backend_public_host}:443:127.0.0.1"', 'AWS deploy must validate HTTPS through the local TLS edge.');
 requireIncludes(deployRelease, 'AURA_INFRA_BUNDLE_SHA256', 'AWS deploy must require an expected infra bundle SHA-256.');
+requireIncludes(deployRelease, 'upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"', 'AWS deploy must persist MFA_ENABLED=true.');
+requireIncludes(deployRelease, 'upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"', 'AWS deploy must persist MFA_PASSKEY_ENABLED=true.');
+requireIncludes(deployRelease, 'upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"', 'AWS deploy must persistently disable shared-key desktop owner access.');
+requireIncludes(rollbackBackend, 'upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"', 'AWS rollback must preserve MFA_ENABLED=true.');
+requireIncludes(rollbackBackend, 'upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"', 'AWS rollback must preserve MFA_PASSKEY_ENABLED=true.');
+requireIncludes(rollbackBackend, 'upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"', 'AWS rollback must preserve the shared-key owner-access shutdown.');
 requireIncludes(deployRelease, 'AURA_IMAGE_BUNDLE_SHA256', 'AWS deploy must require an expected image bundle SHA-256.');
 requireIncludes(deployRelease, 'verify_sha256 "${release_dir}/image.tar.gz"', 'AWS deploy must verify the image bundle before docker load.');
 

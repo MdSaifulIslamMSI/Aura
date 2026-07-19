@@ -906,6 +906,115 @@ describe('AuthProvider', () => {
     }
   });
 
+  it('retries once after a completion event overtakes an older not-ready poll', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+
+    let statusListener = null;
+    let resolveConsume;
+    const stalePollResult = new Promise((resolve) => {
+      resolveConsume = resolve;
+    });
+    const consumeBrowserSignIn = vi.fn()
+      .mockImplementationOnce(() => stalePollResult)
+      .mockResolvedValueOnce({
+        success: true,
+        customToken: 'desktop-browser-race-token',
+      });
+    const cancelBrowserSignIn = vi.fn().mockResolvedValue({ success: true });
+
+    const desktopUser = {
+      uid: 'desktop-browser-race-user',
+      email: 'desktop-race@example.com',
+      displayName: 'Desktop Race User',
+      providerData: [],
+      getIdTokenResult: vi.fn().mockResolvedValue({
+        claims: {
+          desktop_handoff: true,
+          desktop_request_id: 'desktop-browser-consume-race-1',
+          desktop_handoff_grant_id: 'r'.repeat(43),
+          desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 60,
+        },
+      }),
+    };
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
+    mocks.authApiMock.syncSession.mockResolvedValue({
+      user: { email: desktopUser.email },
+      trustedDevice: null,
+    });
+
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn,
+      consumeBrowserSignIn,
+      onBrowserSignInStatus: vi.fn((listener) => {
+        statusListener = listener;
+        return () => {};
+      }),
+      startBrowserSignIn: vi.fn().mockResolvedValue({
+        requestId: 'desktop-browser-consume-race-1',
+        expiresAt: Date.now() + 60_000,
+      }),
+    };
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('success'))
+          .catch((error) => setResult(error.message));
+      }, [signInWithDesktopBrowser]);
+
+      return <div data-testid="desktop-browser-consume-race-result">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => {
+        expect(statusListener).toEqual(expect.any(Function));
+        expect(consumeBrowserSignIn).toHaveBeenCalledTimes(1);
+      });
+
+      let completion;
+      act(() => {
+        completion = statusListener({
+          type: 'completed',
+          requestId: 'desktop-browser-consume-race-1',
+        });
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(consumeBrowserSignIn).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        resolveConsume({
+          success: false,
+          message: 'Desktop browser sign-in is not ready or has expired.',
+        });
+        await completion;
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-browser-consume-race-result'))
+          .toHaveTextContent('success');
+      });
+      expect(consumeBrowserSignIn).toHaveBeenCalledTimes(2);
+      expect(mocks.signInWithCustomTokenMock).toHaveBeenCalledWith(
+        {},
+        'desktop-browser-race-token'
+      );
+      expect(cancelBrowserSignIn).not.toHaveBeenCalled();
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
   it('rejects a desktop browser token that is not bound to the pending request', async () => {
     mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
     const desktopUser = {

@@ -1354,7 +1354,6 @@ const issueDesktopOwnerAccessToken = asyncHandler(async (req, res) => {
     let customToken = '';
     try {
         customToken = await firebaseAdmin.auth().createCustomToken(verification.ownerUid, {
-            desktop_handoff: true,
             desktop_owner_access: true,
             desktop_request_id: requestId,
         });

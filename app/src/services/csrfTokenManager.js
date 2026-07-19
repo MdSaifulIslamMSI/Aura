@@ -132,7 +132,7 @@ export const cacheToken = (token, owner = '') => {
 
     // Validate token format (should be 64-char hex = 32 bytes)
     if (!CSRF_TOKEN_FORMAT.test(token)) {
-        console.error('[CSRF] Invalid token format. Expected 64-char hex, got:', token.substring(0, 20) + '...');
+        console.error('[CSRF] Invalid token format. Expected a 64-character hexadecimal value.');
         throw new Error('Invalid CSRF token format from server');
     }
 
@@ -155,13 +155,10 @@ const consumeCachedCsrfToken = (authToken = '') => {
 /**
  * Fetch a fresh CSRF token from the server
  * Requires active auth token
- * Uses request deduplication to prevent concurrent requests
- * 
  * @param {string|object} input - Optional Firebase ID token or request options
  * @returns {Promise<string>} CSRF token
  */
-export const fetchCsrfToken = async (input = {}) => {
-    const requestOptions = normalizeCsrfRequestOptions(input);
+const requestCsrfToken = async (requestOptions = {}) => {
     const { authToken } = requestOptions;
 
     try {
@@ -192,14 +189,23 @@ export const fetchCsrfToken = async (input = {}) => {
         }
 
         console.debug('[CSRF] Token received, validating format...');
-        cacheToken(token, resolveCsrfOwner(requestOptions));
+        if (!CSRF_TOKEN_FORMAT.test(token)) {
+            console.error('[CSRF] Invalid token format. Expected a 64-character hexadecimal value.');
+            throw new Error('Invalid CSRF token format from server');
+        }
 
         return token;
     } catch (error) {
         console.error('[CSRF] Token fetch failed:', error.message);
-        clearCsrfTokenCache();
         throw error;
     }
+};
+
+export const fetchCsrfToken = async (input = {}) => {
+    const requestOptions = normalizeCsrfRequestOptions(input);
+    const token = await requestCsrfToken(requestOptions);
+    cacheToken(token, resolveCsrfOwner(requestOptions));
+    return token;
 };
 
 /**
@@ -227,12 +233,9 @@ export const ensureCsrfToken = async (input = '', options = {}) => {
         }
     }
 
-    await fetchCsrfToken(requestOptions);
-    const reserved = consumeCachedCsrfToken(requestOptions);
-    if (!reserved) {
-        throw new Error('Unable to reserve a fresh CSRF token');
-    }
-    return reserved;
+    // One-time tokens cannot be shared through the global cache: each concurrent
+    // writer owns the exact token returned by its own bootstrap request.
+    return requestCsrfToken(requestOptions);
 };
 
 /**

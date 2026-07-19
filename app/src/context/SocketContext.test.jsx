@@ -286,4 +286,59 @@ describe('SocketProvider', () => {
         expect(instance.socket.auth).toEqual({ token: 'socket-token-1' });
         expect(instance.socket.io.opts.auth).toEqual({ token: 'socket-token-1' });
     });
+
+    it('force-refreshes exactly once when the server expires a renewable credential', async () => {
+        render(
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        const [instance] = socketInstances;
+        const authExpired = instance.socketHandlers.get('auth:expired');
+        await act(async () => {
+            authExpired?.({ reason: 'credential_expired', retryable: true });
+            authExpired?.({ reason: 'credential_expired', retryable: true });
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(authState.currentUser.getIdToken).toHaveBeenCalledTimes(2);
+        expect(authState.currentUser.getIdToken).toHaveBeenLastCalledWith(true);
+        expect(instance.socket.disconnect).toHaveBeenCalledTimes(1);
+        expect(instance.socket.connect).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not reconnect after the server reports a revoked credential', async () => {
+        render(
+            <AuthContext.Provider value={authState}>
+                <SocketProvider>
+                    <div>child</div>
+                </SocketProvider>
+            </AuthContext.Provider>
+        );
+
+        await waitFor(() => {
+            expect(ioMock).toHaveBeenCalledTimes(1);
+        });
+
+        const [instance] = socketInstances;
+        await act(async () => {
+            instance.socketHandlers.get('auth:expired')?.({
+                reason: 'SOCKET_AUTH_REVOKED',
+                retryable: false,
+            });
+            await Promise.resolve();
+        });
+
+        expect(authState.currentUser.getIdToken).toHaveBeenCalledTimes(1);
+        expect(instance.socket.disconnect).toHaveBeenCalledTimes(1);
+        expect(instance.socket.connect).toHaveBeenCalledTimes(1);
+    });
 });

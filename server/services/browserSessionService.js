@@ -1125,11 +1125,102 @@ const touchBrowserSession = async (sessionRecord = {}) => {
         return sessionRecord;
     }
 
-    const nextRecord = await storeSessionRecord({
-        ...sessionRecord,
-        lastSeenAt: new Date().toISOString(),
-    });
-    return nextRecord;
+    const now = Date.now();
+    const absoluteExpiresAt = new Date(sessionRecord.absoluteExpiresAt || 0).getTime();
+    if (!Number.isFinite(absoluteExpiresAt) || absoluteExpiresAt <= now) {
+        return null;
+    }
+
+    const lastSeenAtIso = new Date(now).toISOString();
+    const idleExpiresAtIso = new Date(Math.min(
+        now + SESSION_IDLE_TTL_MS,
+        absoluteExpiresAt
+    )).toISOString();
+    const ttlMs = Math.max(
+        Math.min(new Date(idleExpiresAtIso).getTime(), absoluteExpiresAt) - now,
+        1
+    );
+    const storageMode = getStorageMode();
+
+    if (storageMode === 'memory') {
+        const latestRecord = readMemorySessionRecord(sessionRecord.sessionId);
+        if (!latestRecord) return null;
+        const nextRecord = {
+            ...latestRecord,
+            lastSeenAt: lastSeenAtIso,
+            idleExpiresAt: idleExpiresAtIso,
+        };
+        writeMemorySessionRecord(nextRecord);
+        return nextRecord;
+    }
+
+    if (storageMode === 'unavailable') {
+        const error = new Error('Browser session store unavailable');
+        error.code = 'AUTH_SESSION_STORE_UNAVAILABLE';
+        throw error;
+    }
+
+    const redisClient = getRedisClient();
+    try {
+        const serializedRecord = await redisClient.eval(
+            `
+local raw = redis.call('GET', KEYS[1])
+if not raw then return false end
+local decoded, record = pcall(cjson.decode, raw)
+if not decoded or type(record) ~= 'table' then
+  redis.call('DEL', KEYS[1])
+  return false
+end
+if record['revokedAt'] ~= nil and record['revokedAt'] ~= cjson.null and tostring(record['revokedAt']) ~= '' then
+  return false
+end
+record['lastSeenAt'] = ARGV[1]
+record['idleExpiresAt'] = ARGV[2]
+local next = cjson.encode(record)
+redis.call('SET', KEYS[1], next, 'PX', ARGV[3])
+if ARGV[4] ~= '' then
+  redis.call('SADD', KEYS[2], ARGV[4])
+  redis.call('PEXPIRE', KEYS[2], ARGV[3])
+end
+return next
+`,
+            {
+                keys: [
+                    getRedisKey(sessionRecord.sessionId),
+                    getUserSessionsKey(sessionRecord.userId || '_'),
+                ],
+                arguments: [
+                    lastSeenAtIso,
+                    idleExpiresAtIso,
+                    String(ttlMs),
+                    String(sessionRecord.sessionId),
+                ],
+            }
+        );
+        if (!serializedRecord) return null;
+        return JSON.parse(String(serializedRecord));
+    } catch (error) {
+        if (!isMemorySessionFallbackAllowed()) {
+            logger.error('browser_session.touch_failed_no_fallback', {
+                sessionId: sessionRecord.sessionId,
+                error: error?.message || 'unknown',
+            });
+            throw error;
+        }
+
+        logger.warn('browser_session.touch_failed_memory_fallback', {
+            sessionId: sessionRecord.sessionId,
+            error: error?.message || 'unknown',
+        });
+        const latestRecord = readMemorySessionRecord(sessionRecord.sessionId) || sessionRecord;
+        const nextRecord = {
+            ...latestRecord,
+            lastSeenAt: lastSeenAtIso,
+            idleExpiresAt: idleExpiresAtIso,
+        };
+        writeMemorySessionRecord(nextRecord);
+        return nextRecord;
+    }
 };
 
 const getBrowserSession = async (sessionId = '') => loadSessionRecord(sessionId);
