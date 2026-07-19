@@ -5,6 +5,7 @@ const path = require('path');
 const DESKTOP_OWNER_ACCESS_AUDIENCE = 'aura.desktop.owner.access.v1';
 const DESKTOP_OWNER_ACCESS_ENDPOINT = '/api/auth/desktop-handoff/owner-access-token';
 const MIN_OWNER_ACCESS_KEY_BYTES = 32;
+const DEFAULT_OWNER_ACCESS_TIMEOUT_MS = 8000;
 
 const parseBooleanEnv = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -50,6 +51,11 @@ const isDesktopOwnerAccessSignInConfigured = (env = process.env) => (
     && readOwnerAccessKeyMaterial(env).length >= MIN_OWNER_ACCESS_KEY_BYTES
 );
 
+const isDesktopOwnerAccessSignInAvailable = ({
+    env = process.env,
+    isPackaged = false,
+} = {}) => !isPackaged && isDesktopOwnerAccessSignInConfigured(env);
+
 const buildDesktopOwnerAccessPayload = ({
     requestId = '',
     issuedAt = '',
@@ -71,6 +77,7 @@ const createDesktopOwnerAccessSignIn = async ({
     env = process.env,
     fetchImpl = globalThis.fetch,
     now = () => Date.now(),
+    timeoutMs = DEFAULT_OWNER_ACCESS_TIMEOUT_MS,
 } = {}) => {
     const key = readOwnerAccessKeyMaterial(env);
     if (!parseBooleanEnv(env?.AURA_DESKTOP_OWNER_ACCESS_ENABLED, false) || key.length < MIN_OWNER_ACCESS_KEY_BYTES) {
@@ -90,19 +97,41 @@ const createDesktopOwnerAccessSignIn = async ({
     });
     const signature = createDesktopOwnerAccessSignature(payload, key);
 
-    const response = await fetchImpl(`${trimTrailingSlash(backendOrigin)}${DESKTOP_OWNER_ACCESS_ENDPOINT}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            requestId,
-            issuedAt,
-            nonce,
-            signature,
-        }),
+    const controller = new AbortController();
+    const resolvedTimeoutMs = Math.max(Number(timeoutMs) || DEFAULT_OWNER_ACCESS_TIMEOUT_MS, 1);
+    let timeoutId;
+    const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            controller.abort();
+            reject(new Error('Desktop owner access timed out. Continue in your browser instead.'));
+        }, resolvedTimeoutMs);
     });
-    const result = await response.json().catch(() => ({}));
+    let response;
+    let result;
+    try {
+        ({ response, result } = await Promise.race([
+            (async () => {
+                const nextResponse = await fetchImpl(`${trimTrailingSlash(backendOrigin)}${DESKTOP_OWNER_ACCESS_ENDPOINT}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        requestId,
+                        issuedAt,
+                        nonce,
+                        signature,
+                    }),
+                    signal: controller.signal,
+                });
+                const nextResult = await nextResponse.json().catch(() => ({}));
+                return { response: nextResponse, result: nextResult };
+            })(),
+            timeout,
+        ]));
+    } finally {
+        clearTimeout(timeoutId);
+    }
 
     if (!response.ok || !result?.success || !result?.customToken) {
         throw new Error(result?.message || 'Desktop owner access failed.');
@@ -116,10 +145,12 @@ const createDesktopOwnerAccessSignIn = async ({
 };
 
 module.exports = {
+    DEFAULT_OWNER_ACCESS_TIMEOUT_MS,
     DESKTOP_OWNER_ACCESS_AUDIENCE,
     DESKTOP_OWNER_ACCESS_ENDPOINT,
     buildDesktopOwnerAccessPayload,
     createDesktopOwnerAccessSignIn,
     createDesktopOwnerAccessSignature,
+    isDesktopOwnerAccessSignInAvailable,
     isDesktopOwnerAccessSignInConfigured,
 };

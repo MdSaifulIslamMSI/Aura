@@ -65,6 +65,19 @@ describe('desktop owner access service', () => {
         expect(result.keyFingerprint).toMatch(/^[a-f0-9]{16}$/);
     });
 
+    test('is disabled unconditionally in production', async () => {
+        const env = {
+            ...buildEnv(),
+            NODE_ENV: 'production',
+        };
+
+        expect(isDesktopOwnerAccessConfigured(env)).toBe(false);
+        await expect(verifyAsync(buildAssertion({ env }), { env })).rejects.toMatchObject({
+            code: 'DESKTOP_OWNER_ACCESS_DISABLED_IN_PRODUCTION',
+            statusCode: 503,
+        });
+    });
+
     test('rejects tampered signatures and replayed assertions', async () => {
         const env = buildEnv();
         const nowMs = Date.now();
@@ -91,7 +104,6 @@ describe('desktop owner access service', () => {
     test('distributed replay protection survives a process-local cache reset', async () => {
         const env = {
             ...buildEnv(),
-            NODE_ENV: 'production',
             REDIS_REQUIRED: 'true',
         };
         const nowMs = Date.now();
@@ -119,7 +131,6 @@ describe('desktop owner access service', () => {
     test('fails closed when production replay storage is unavailable', async () => {
         const env = {
             ...buildEnv(),
-            NODE_ENV: 'production',
             REDIS_REQUIRED: 'true',
         };
         const assertion = buildAssertion({ env });

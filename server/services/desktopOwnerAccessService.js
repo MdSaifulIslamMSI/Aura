@@ -76,6 +76,9 @@ const resolveOwnerAccessConfig = (env = process.env) => {
 };
 
 const isDesktopOwnerAccessConfigured = (env = process.env) => {
+    if (String(env?.NODE_ENV || '').trim().toLowerCase() === 'production') {
+        return false;
+    }
     if (!parseBooleanEnv(env?.AURA_DESKTOP_OWNER_ACCESS_ENABLED, false)) {
         return false;
     }
@@ -191,6 +194,13 @@ const verifyDesktopOwnerAccessAssertion = async ({
     now = () => Date.now(),
     redisClient = getRedisClient(),
 } = {}) => {
+    if (String(env?.NODE_ENV || '').trim().toLowerCase() === 'production') {
+        throw new DesktopOwnerAccessError(
+            'Desktop owner access is disabled in production.',
+            503,
+            'DESKTOP_OWNER_ACCESS_DISABLED_IN_PRODUCTION'
+        );
+    }
     if (!parseBooleanEnv(env?.AURA_DESKTOP_OWNER_ACCESS_ENABLED, false)) {
         throw new DesktopOwnerAccessError(
             'Desktop owner access is not configured.',

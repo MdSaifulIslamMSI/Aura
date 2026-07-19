@@ -9,6 +9,7 @@ const {
     buildDesktopOwnerAccessPayload,
     createDesktopOwnerAccessSignIn,
     createDesktopOwnerAccessSignature,
+    isDesktopOwnerAccessSignInAvailable,
     isDesktopOwnerAccessSignInConfigured,
 } = require('./ownerAccessAuth.cjs');
 
@@ -78,4 +79,49 @@ test('desktop owner access can read a local key file outside the bundle', () => 
     } finally {
         fs.rmSync(tmpDir, { force: true, recursive: true });
     }
+});
+
+test('desktop owner access is never exposed by a packaged public build', () => {
+    const env = {
+        AURA_DESKTOP_OWNER_ACCESS_ENABLED: 'true',
+        AURA_DESKTOP_OWNER_ACCESS_KEY: crypto.randomBytes(48).toString('base64url'),
+    };
+
+    assert.equal(isDesktopOwnerAccessSignInAvailable({ env, isPackaged: false }), true);
+    assert.equal(isDesktopOwnerAccessSignInAvailable({ env, isPackaged: true }), false);
+});
+
+test('development owner access times out instead of blocking browser sign-in indefinitely', async () => {
+    const env = {
+        AURA_DESKTOP_OWNER_ACCESS_ENABLED: 'true',
+        AURA_DESKTOP_OWNER_ACCESS_KEY: crypto.randomBytes(48).toString('base64url'),
+    };
+
+    await assert.rejects(() => createDesktopOwnerAccessSignIn({
+        backendOrigin: 'https://api.example.test',
+        env,
+        timeoutMs: 5,
+        fetchImpl: async (_url, options = {}) => new Promise((_resolve, reject) => {
+            options.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+        }),
+    }), /timed out/);
+});
+
+test('development owner access timeout also covers a stalled response body', async () => {
+    const env = {
+        AURA_DESKTOP_OWNER_ACCESS_ENABLED: 'true',
+        AURA_DESKTOP_OWNER_ACCESS_KEY: crypto.randomBytes(48).toString('base64url'),
+    };
+
+    await assert.rejects(() => createDesktopOwnerAccessSignIn({
+        backendOrigin: 'https://api.example.test',
+        env,
+        timeoutMs: 5,
+        fetchImpl: async (_url, options = {}) => ({
+            ok: true,
+            json: async () => new Promise((_resolve, reject) => {
+                options.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+            }),
+        }),
+    }), /timed out/);
 });

@@ -45,6 +45,40 @@ describe('csrfTokenManager', () => {
         });
     });
 
+    it('gives concurrent first writes distinct caller-owned token reservations', async () => {
+        vi.resetModules();
+        vi.doMock('./deviceTrustClient', () => ({
+            getTrustedDeviceHeaders: () => ({}),
+        }));
+        const manager = await import('./csrfTokenManager');
+        manager.clearCsrfTokenCache();
+
+        const fetchMock = vi.spyOn(globalThis, 'fetch')
+            .mockResolvedValueOnce(createTokenResponse('e'.repeat(64)))
+            .mockResolvedValueOnce(createTokenResponse('f'.repeat(64)));
+        const authToken = makeJwt('concurrent-user');
+
+        await expect(Promise.all([
+            manager.ensureCsrfToken(authToken),
+            manager.ensureCsrfToken(authToken),
+        ])).resolves.toEqual(['e'.repeat(64), 'f'.repeat(64)]);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not log any server-supplied token fragment when format validation fails', async () => {
+        vi.resetModules();
+        vi.doMock('./deviceTrustClient', () => ({
+            getTrustedDeviceHeaders: () => ({}),
+        }));
+        const manager = await import('./csrfTokenManager');
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const malformedToken = 'sensitive-malformed-token-value';
+
+        expect(() => manager.cacheToken(malformedToken, 'user-1')).toThrow(/Invalid CSRF token format/);
+        expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining(malformedToken));
+        expect(errorSpy.mock.calls.flat().join(' ')).not.toContain(malformedToken);
+    });
+
     it('drops cached tokens when the auth owner changes', async () => {
         vi.resetModules();
         vi.doMock('./deviceTrustClient', () => ({

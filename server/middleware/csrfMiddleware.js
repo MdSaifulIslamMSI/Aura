@@ -13,6 +13,7 @@ const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetrySe
  */
 
 const CSRF_TOKEN_LENGTH = 32;
+const CSRF_TOKEN_FORMAT = /^[a-f0-9]{64}$/;
 const CSRF_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 const CSRF_TOKEN_PREFIX = `${redisFlags.redisPrefix}:csrf:token:`;
 const CSRF_STRICT_CLIENT_SIGNALS = ['1', 'true', 'yes', 'on']
@@ -102,7 +103,7 @@ const storeCsrfToken = async (token, metadata = {}) => {
 };
 
 const verifyCsrfToken = async (token, requestContext = {}) => {
-    if (!token || typeof token !== 'string') {
+    if (!token || typeof token !== 'string' || !CSRF_TOKEN_FORMAT.test(token)) {
         return false;
     }
 
@@ -112,87 +113,90 @@ const verifyCsrfToken = async (token, requestContext = {}) => {
         return false;
     }
 
-    const storedRaw = await client.get(buildTokenKey(token));
-    if (!storedRaw) {
-        return false;
-    }
-
-    let stored;
-    try {
-        stored = JSON.parse(storedRaw);
-    } catch (_) {
-        await client.del(buildTokenKey(token));
-        return false;
-    }
-
-    if (stored.expiresAt < Date.now()) {
-        await client.del(buildTokenKey(token));
-        return false;
-    }
-
-    const metadata = stored.metadata || {};
     const context = requestContext || {};
-
-    const expectedUid = normalizePrincipalId(metadata.uid) || 'anonymous';
     const currentUid = normalizePrincipalId(context.uid) || 'anonymous';
+    const result = await client.eval(
+        `
+local raw = redis.call('GET', KEYS[1])
+if not raw then return 'missing' end
+local decoded, stored = pcall(cjson.decode, raw)
+if not decoded or type(stored) ~= 'table' then
+  redis.call('DEL', KEYS[1])
+  return 'invalid_record'
+end
+if tonumber(stored['expiresAt'] or '0') <= tonumber(ARGV[1]) then
+  redis.call('DEL', KEYS[1])
+  return 'expired'
+end
+local metadata = stored['metadata'] or {}
+local function text(value)
+  if value == nil or value == cjson.null then return '' end
+  return tostring(value)
+end
+local expectedUid = text(metadata['uid'])
+if expectedUid == '' then expectedUid = 'anonymous' end
+if expectedUid ~= ARGV[2] then return 'principal_mismatch' end
+local strictOrigin = text(metadata['strictOrigin'])
+if strictOrigin ~= '' and strictOrigin ~= ARGV[3] then return 'origin_mismatch' end
+local sessionId = text(metadata['sessionId'])
+if sessionId ~= '' and sessionId ~= ARGV[4] then return 'session_mismatch' end
+local fingerprint = text(metadata['deviceFingerprint'])
+if fingerprint ~= '' and fingerprint ~= ARGV[5] then return 'device_mismatch' end
+local storedIp = text(metadata['ip'])
+local storedUserAgent = text(metadata['userAgent'])
+local ipMismatch = storedIp ~= '' and ARGV[6] ~= '' and storedIp ~= ARGV[6]
+local userAgentMismatch = storedUserAgent ~= '' and ARGV[7] ~= '' and storedUserAgent ~= ARGV[7]
+if ARGV[8] == '1' and (ipMismatch or userAgentMismatch) then
+  return 'client_signal_mismatch'
+end
+redis.call('DEL', KEYS[1])
+if ipMismatch and userAgentMismatch then return 'ok:ip,user_agent' end
+if ipMismatch then return 'ok:ip' end
+if userAgentMismatch then return 'ok:user_agent' end
+return 'ok'
+`,
+        {
+            keys: [buildTokenKey(token)],
+            arguments: [
+                String(Date.now()),
+                currentUid,
+                String(context.strictOrigin || ''),
+                String(context.sessionId || ''),
+                String(context.deviceFingerprint || ''),
+                String(context.ip || ''),
+                normalizeUserAgent(context.userAgent),
+                CSRF_STRICT_CLIENT_SIGNALS ? '1' : '0',
+            ],
+        }
+    );
 
-    if (currentUid !== expectedUid) {
+    if (result === 'principal_mismatch') {
         logger.warn('csrf.principal_mismatch', {
             requestUid: currentUid,
-            tokenOwnerUid: expectedUid,
             ip: context.ip || null,
             timestamp: new Date().toISOString(),
         });
         return false;
     }
-
-    if (metadata.strictOrigin && context.strictOrigin !== metadata.strictOrigin) {
+    if (result === 'client_signal_mismatch') {
+        logger.warn('csrf.client_signal_mismatch_rejected', {
+            strictMode: true,
+            requestIp: context.ip || '',
+            requestUserAgent: normalizeUserAgent(context.userAgent),
+        });
         return false;
     }
-
-    if (metadata.sessionId && context.sessionId !== metadata.sessionId) {
-        return false;
-    }
-
-    if (metadata.deviceFingerprint && context.deviceFingerprint !== metadata.deviceFingerprint) {
-        return false;
-    }
-
-    // IP and UserAgent check (respecting CSRF_STRICT_CLIENT_SIGNALS)
-    const storedIp = metadata.ip || '';
-    const storedUserAgent = normalizeUserAgent(metadata.userAgent);
-    const requestIp = context.ip || '';
-    const requestUserAgent = normalizeUserAgent(context.userAgent);
-
-    const ipMismatch = Boolean(storedIp && requestIp && storedIp !== requestIp);
-    const userAgentMismatch = Boolean(
-        storedUserAgent &&
-        requestUserAgent &&
-        storedUserAgent !== requestUserAgent
-    );
-
-    if (ipMismatch || userAgentMismatch) {
+    if (String(result || '').startsWith('ok:')) {
         const signalPayload = {
-            strictMode: CSRF_STRICT_CLIENT_SIGNALS,
-            ipMismatch,
-            userAgentMismatch,
-            storedIp,
-            requestIp,
-            storedUserAgent,
-            requestUserAgent,
+            strictMode: false,
+            ipMismatch: String(result).includes('ip'),
+            userAgentMismatch: String(result).includes('user_agent'),
+            requestIp: context.ip || '',
+            requestUserAgent: normalizeUserAgent(context.userAgent),
         };
-
-        if (CSRF_STRICT_CLIENT_SIGNALS) {
-            logger.warn('csrf.client_signal_mismatch_rejected', signalPayload);
-            return false;
-        }
-
         logger.warn('csrf.client_signal_mismatch_detected', signalPayload);
     }
-
-    // Consume token (one-time use)
-    await client.del(buildTokenKey(token));
-    return true;
+    return String(result || '').startsWith('ok');
 };
 
 /**

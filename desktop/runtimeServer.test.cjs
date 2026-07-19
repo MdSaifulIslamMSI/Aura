@@ -41,7 +41,6 @@ const {
     DEFAULT_BACKEND_ORIGIN,
     DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN,
     DEFAULT_RUNTIME_PORT,
-    MAX_STABLE_RUNTIME_PORT,
     DESKTOP_AUTH_PROTOCOL_VERSION,
     DESKTOP_AUTH_REQUEST_TTL_MS,
     DESKTOP_AUTH_CANCEL_PATH,
@@ -60,18 +59,14 @@ const {
     validateDesktopAuthFrontend,
 } = require('./runtimeServer.cjs');
 
-test('desktop runtime only uses the callback ports accepted by the hosted handoff', () => {
-    const allowedPorts = Array.from(
-        { length: 11 },
-        (_value, index) => DEFAULT_RUNTIME_PORT + index
-    );
+test('desktop runtime uses only the requested stable callback origin', () => {
     assert.deepEqual(
         buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT),
-        allowedPorts
+        [DEFAULT_RUNTIME_PORT]
     );
     assert.deepEqual(
         buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT + 10),
-        [DEFAULT_RUNTIME_PORT + 10, ...allowedPorts.slice(0, -1)]
+        [DEFAULT_RUNTIME_PORT + 10]
     );
     assert.equal(buildRuntimePortCandidates(DEFAULT_RUNTIME_PORT).includes(0), false);
     assert.throws(() => buildRuntimePortCandidates(0), /requires a fixed loopback port/);
@@ -248,7 +243,7 @@ test('desktop runtime defaults to the hosted HTTPS backend origin', () => {
     }
 });
 
-test('desktop runtime has a stable default port but falls back if it is busy', async () => {
+test('desktop runtime fails closed instead of splitting auth state across fallback ports', async () => {
     const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-runtime-'));
     fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
 
@@ -256,33 +251,17 @@ test('desktop runtime has a stable default port but falls back if it is busy', a
     await new Promise((resolve) => blocker.listen(DEFAULT_RUNTIME_PORT, '127.0.0.1', resolve));
     const busyPort = DEFAULT_RUNTIME_PORT;
 
-    const runtime = await startRuntimeServer({ distDir, port: busyPort });
-
     try {
-        assert.notEqual(runtime.port, busyPort);
-        assert.match(runtime.url, /^http:\/\/localhost:\d+$/);
-        assert.equal(runtime.callbackUrl, buildRuntimeCallbackUrl(runtime.port));
-        assert.equal(new URL(runtime.callbackUrl).hostname, RUNTIME_CALLBACK_HOST);
-        const desktopAuthUrl = new URL(runtime.createDesktopAuthRequest().url);
-        const handoffParams = new URLSearchParams(desktopAuthUrl.hash.slice(1));
-        assert.equal(
-            handoffParams.get('desktopAuthCallback'),
-            `${runtime.callbackUrl}${DESKTOP_AUTH_COMPLETE_PATH}`
+        await assert.rejects(
+            startRuntimeServer({ distDir, port: busyPort }),
+            (error) => error?.code === 'EADDRINUSE'
+                && /port 47831 is already in use/.test(error.message)
         );
-        assert.equal(desktopAuthUrl.searchParams.has('desktopAuthCallback'), false);
-        assert.equal(desktopAuthUrl.searchParams.has('desktopAuthSecret'), false);
-        assert.equal(DEFAULT_RUNTIME_PORT, 47831);
-        assert.ok(runtime.port <= MAX_STABLE_RUNTIME_PORT);
 
-        const rootResponse = await fetch(`${runtime.url}/`);
-        assert.equal(rootResponse.status, 200);
-        assert.match(await rootResponse.text(), /<title>Aura<\/title>/);
-
-        const spaResponse = await fetch(`${runtime.url}/login`);
-        assert.equal(spaResponse.status, 200);
-        assert.match(await spaResponse.text(), /<title>Aura<\/title>/);
+        const nextPortProbe = http.createServer((_request, response) => response.end('available'));
+        await new Promise((resolve) => nextPortProbe.listen(DEFAULT_RUNTIME_PORT + 1, '127.0.0.1', resolve));
+        await new Promise((resolve) => nextPortProbe.close(resolve));
     } finally {
-        await runtime.close();
         await new Promise((resolve) => blocker.close(resolve));
         fs.rmSync(distDir, { force: true, recursive: true });
     }
@@ -342,6 +321,27 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     assert.equal(consumed.customToken, 'custom-token');
     assert.equal(typeof consumed.completedAt, 'number');
     assert.equal(broker.consumeResult(request.requestId), null);
+});
+
+test('desktop auth broker rejects encoded authority-like return targets', () => {
+    const broker = createDesktopAuthBroker();
+    const unsafeTargets = [
+        '//evil.example/steal',
+        '/\\evil.example/steal',
+        '/%2f%2fevil.example/steal',
+        '/%5cevil.example/steal',
+        '/%252f%252fevil.example/steal',
+    ];
+
+    for (const returnTo of unsafeTargets) {
+        const request = broker.createRequest({
+            callbackUrl: 'http://127.0.0.1:47831',
+            runtimeUrl: 'http://localhost:47831',
+            returnTo,
+        });
+        const handoffParams = new URLSearchParams(new URL(request.url).hash.slice(1));
+        assert.equal(handoffParams.has('desktopAuthReturnTo'), false, returnTo);
+    }
 });
 
 test('desktop auth broker requires its timing-safe secret and cancels a browser handoff once', () => {

@@ -1354,6 +1354,18 @@ describe('repo environment contract scripts', () => {
         expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_RP_ID" "aurapilot.vercel.app"');
         expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_ORIGIN" "https://aurapilot.vercel.app"');
         expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AUTH_WEBAUTHN_USER_VERIFICATION" "required"');
+        expect(instanceBootstrap).toMatch(/^MFA_ENABLED=true$/m);
+        expect(instanceBootstrap).toMatch(/^MFA_PASSKEY_ENABLED=true$/m);
+        expect(instanceBootstrap).toMatch(/^AURA_DESKTOP_OWNER_ACCESS_ENABLED=false$/m);
+        expect(awsCompose).toContain('MFA_ENABLED: "true"');
+        expect(awsCompose).toContain('MFA_PASSKEY_ENABLED: "true"');
+        expect(awsCompose).toContain('AURA_DESKTOP_OWNER_ACCESS_ENABLED: "false"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"');
         expect(instanceBootstrap).toMatch(/^COMPOSE_PROFILES=$/m);
         expect(instanceBootstrap).toMatch(/^AI_MODEL_PROVIDER=disabled$/m);
         expect(instanceBootstrap).toMatch(/^AI_MODEL_PROVIDER_FALLBACKS=$/m);

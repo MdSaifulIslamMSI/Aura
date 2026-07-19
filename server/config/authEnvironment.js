@@ -199,6 +199,16 @@ const validateAuthEnvironment = ({
     failures.push(...mfaValidation.failures);
     warnings.push(...mfaValidation.warnings);
 
+    const adminPasskeyRequired = parseBoolean(env.ADMIN_REQUIRE_PASSKEY, production);
+    if (production && adminPasskeyRequired) {
+        if (!config.mfa.enabled) {
+            failures.push('MFA_ENABLED must be true when production admin passkeys are required');
+        }
+        if (!config.mfa.passkeyEnabled) {
+            failures.push('MFA_PASSKEY_ENABLED must be true when production admin passkeys are required');
+        }
+    }
+
     return {
         ok: failures.length === 0,
         safe: failures.length === 0,

@@ -8,9 +8,16 @@ const {
     startRuntimeServer,
     validateDesktopAuthFrontend,
 } = require('./runtimeServer.cjs');
-const { isDesktopOwnerAccessSignInConfigured } = require('./ownerAccessAuth.cjs');
+const { isDesktopOwnerAccessSignInAvailable } = require('./ownerAccessAuth.cjs');
 const { formatDesktopAuthResultForRenderer } = require('./browserAuthResult.cjs');
 const { buildLaunchShellDataUrl } = require('./launchShell.cjs');
+const {
+    canGrantDesktopRuntimePermission,
+    isAuthWindowUrl,
+    isInternalUrl,
+    isSafeExternalUrl,
+    isTrustedDesktopIpcSender,
+} = require('./securityPolicy.cjs');
 const {
     buildDesktopStartupUrl,
     loadWindowUrlSafely,
@@ -55,17 +62,38 @@ const DESKTOP_AUTH_USER_AGENT = buildDesktopAuthUserAgent();
 
 let lastUpdateCheckAt = 0;
 
+const assertTrustedDesktopIpcSender = (event) => {
+    if (!isTrustedDesktopIpcSender({
+        event,
+        mainWindow,
+        runtimeUrl: runtime?.url || '',
+    })) {
+        throw new Error('Desktop IPC request rejected because its origin is not trusted.');
+    }
+};
+
+const openSafeExternalUrl = async (candidate) => {
+    if (!isSafeExternalUrl(candidate)) {
+        throw new Error('Desktop refused to open an unsafe external URL.');
+    }
+    await shell.openExternal(candidate);
+};
+
 app.userAgentFallback = DESKTOP_AUTH_USER_AGENT;
 app.commandLine.appendSwitch('user-agent', DESKTOP_AUTH_USER_AGENT);
 
-ipcMain.handle('desktop:app-info', () => ({
-    ownerAccessSignInAvailable: isDesktopOwnerAccessSignInConfigured(),
-    platform: process.platform,
-    runtimeUrl: runtime?.url || '',
-    version: app.getVersion(),
-}));
+ipcMain.handle('desktop:app-info', (event) => {
+    assertTrustedDesktopIpcSender(event);
+    return ({
+        ownerAccessSignInAvailable: isDesktopOwnerAccessSignInAvailable({ isPackaged: app.isPackaged }),
+        platform: process.platform,
+        runtimeUrl: runtime?.url || '',
+        version: app.getVersion(),
+    });
+});
 
-ipcMain.handle('desktop:auth:start-browser-sign-in', async (_event, options = {}) => {
+ipcMain.handle('desktop:auth:start-browser-sign-in', async (event, options = {}) => {
+    assertTrustedDesktopIpcSender(event);
     if (!runtime?.createDesktopAuthRequest) {
         throw new Error('Desktop auth runtime is not ready yet.');
     }
@@ -78,14 +106,15 @@ ipcMain.handle('desktop:auth:start-browser-sign-in', async (_event, options = {}
         path: options?.path || '/login',
         returnTo: options?.returnTo || '/',
     });
-    await shell.openExternal(request.url);
+    await openSafeExternalUrl(request.url);
     return {
         requestId: request.requestId,
         expiresAt: request.expiresAt,
     };
 });
 
-ipcMain.handle('desktop:auth:consume-browser-sign-in', (_event, requestId = '') => {
+ipcMain.handle('desktop:auth:consume-browser-sign-in', (event, requestId = '') => {
+    assertTrustedDesktopIpcSender(event);
     if (!runtime?.consumeDesktopAuthResult) {
         throw new Error('Desktop auth runtime is not ready yet.');
     }
@@ -93,7 +122,8 @@ ipcMain.handle('desktop:auth:consume-browser-sign-in', (_event, requestId = '') 
     return formatDesktopAuthResultForRenderer(runtime.consumeDesktopAuthResult(requestId));
 });
 
-ipcMain.handle('desktop:auth:reopen-browser-sign-in', async (_event, requestId = '') => {
+ipcMain.handle('desktop:auth:reopen-browser-sign-in', async (event, requestId = '') => {
+    assertTrustedDesktopIpcSender(event);
     if (!runtime?.getDesktopAuthRequest) {
         throw new Error('Desktop auth runtime is not ready yet.');
     }
@@ -103,7 +133,7 @@ ipcMain.handle('desktop:auth:reopen-browser-sign-in', async (_event, requestId =
         throw new Error('Desktop browser sign-in is expired or no longer pending.');
     }
 
-    await shell.openExternal(request.url);
+    await openSafeExternalUrl(request.url);
     return {
         success: true,
         requestId: request.requestId,
@@ -111,7 +141,8 @@ ipcMain.handle('desktop:auth:reopen-browser-sign-in', async (_event, requestId =
     };
 });
 
-ipcMain.handle('desktop:auth:cancel-browser-sign-in', (_event, requestId = '') => {
+ipcMain.handle('desktop:auth:cancel-browser-sign-in', (event, requestId = '') => {
+    assertTrustedDesktopIpcSender(event);
     if (!runtime?.cancelDesktopAuthRequest) {
         return { success: false };
     }
@@ -121,7 +152,11 @@ ipcMain.handle('desktop:auth:cancel-browser-sign-in', (_event, requestId = '') =
     };
 });
 
-ipcMain.handle('desktop:auth:owner-access-sign-in', async () => {
+ipcMain.handle('desktop:auth:owner-access-sign-in', async (event) => {
+    assertTrustedDesktopIpcSender(event);
+    if (!isDesktopOwnerAccessSignInAvailable({ isPackaged: app.isPackaged })) {
+        throw new Error('Desktop owner access is unavailable in packaged builds. Continue in your browser instead.');
+    }
     if (!runtime?.createDesktopOwnerAccessSignIn) {
         throw new Error('Desktop owner access runtime is not ready yet.');
     }
@@ -129,7 +164,8 @@ ipcMain.handle('desktop:auth:owner-access-sign-in', async () => {
     return runtime.createDesktopOwnerAccessSignIn();
 });
 
-ipcMain.handle('desktop:api:public-catalog-get', async (_event, request = {}) => {
+ipcMain.handle('desktop:api:public-catalog-get', async (event, request = {}) => {
+    assertTrustedDesktopIpcSender(event);
     if (!runtime?.fetchPublicCatalog) {
         throw new Error('Desktop catalog runtime is not ready yet.');
     }
@@ -170,6 +206,8 @@ const resolveLaunchIconDataUrl = () => {
 };
 
 const resolveRequestedRuntimePort = () => {
+    if (app.isPackaged) return DEFAULT_RUNTIME_PORT;
+
     const rawValue = String(process.env.AURA_DESKTOP_PORT || '').trim();
     if (!rawValue) return undefined;
 
@@ -188,113 +226,6 @@ const getInitialWindowBounds = () => {
         height: Math.max(760, Math.min(height, 1040)),
     };
 };
-
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
-const AUTH_WINDOW_HOSTS = new Set([
-    'accounts.google.com',
-    'apis.google.com',
-    'facebook.com',
-    'github.com',
-    'google.com',
-    'm.facebook.com',
-    'mobile.facebook.com',
-    'oauth.twitter.com',
-    'twitter.com',
-    'www.facebook.com',
-    'www.github.com',
-    'www.google.com',
-    'x.com',
-]);
-const AUTH_WINDOW_HOST_SUFFIXES = [
-    '.facebook.com',
-    '.firebaseapp.com',
-    '.github.com',
-    '.google.com',
-    '.twitter.com',
-    '.web.app',
-    '.x.com',
-];
-const TRUSTED_PERMISSION_HOSTS = new Set([
-    'aura-gateway.vercel.app',
-    'aurapilot.netlify.app',
-    'aurapilot.vercel.app',
-    'localhost',
-    '127.0.0.1',
-    '::1',
-]);
-const DESKTOP_RUNTIME_PERMISSIONS = new Set([
-    'display-capture',
-    'fullscreen',
-    'media',
-    'notifications',
-]);
-
-const isInternalUrl = (candidate, runtimeUrl) => {
-    try {
-        const target = new URL(candidate);
-        const runtimeTarget = new URL(runtimeUrl);
-
-        if (target.origin === runtimeTarget.origin) {
-            return true;
-        }
-
-        const sameLoopbackOrigin = target.protocol === runtimeTarget.protocol
-            && target.port === runtimeTarget.port
-            && LOOPBACK_HOSTS.has(target.hostname)
-            && LOOPBACK_HOSTS.has(runtimeTarget.hostname);
-
-        return sameLoopbackOrigin;
-    } catch {
-        return false;
-    }
-};
-
-const isAuthWindowUrl = (candidate) => {
-    try {
-        const target = new URL(candidate);
-        if (target.protocol !== 'https:') {
-            return false;
-        }
-
-        const hostname = target.hostname.toLowerCase();
-        return AUTH_WINDOW_HOSTS.has(hostname)
-            || AUTH_WINDOW_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix));
-    } catch {
-        return false;
-    }
-};
-
-const isTrustedDesktopPermissionUrl = (candidate) => {
-    try {
-        const target = new URL(candidate);
-        const hostname = target.hostname.toLowerCase();
-
-        if (target.protocol === 'file:' || target.protocol === 'app:') {
-            return true;
-        }
-
-        if (LOOPBACK_HOSTS.has(hostname)) {
-            return true;
-        }
-
-        return target.protocol === 'https:' && TRUSTED_PERMISSION_HOSTS.has(hostname);
-    } catch {
-        return false;
-    }
-};
-
-const normalizeRuntimePermission = (permission) => {
-    const nextPermission = String(permission || '').trim();
-    if (nextPermission === 'audioCapture' || nextPermission === 'videoCapture') {
-        return 'media';
-    }
-    return nextPermission;
-};
-
-const canGrantDesktopRuntimePermission = (permission, requestUrl) => (
-    DESKTOP_RUNTIME_PERMISSIONS.has(normalizeRuntimePermission(permission))
-    && isTrustedDesktopPermissionUrl(requestUrl)
-);
 
 const clearDesktopRuntimeWebCaches = async (runtimeUrl = '') => {
     try {
@@ -318,7 +249,7 @@ const installDesktopPermissionPolicy = () => {
             || webContents?.getURL?.()
             || runtime?.url
             || '';
-        callback(canGrantDesktopRuntimePermission(permission, requestUrl));
+        callback(canGrantDesktopRuntimePermission(permission, requestUrl, runtime?.url || ''));
     });
 
     defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details = {}) => {
@@ -328,7 +259,7 @@ const installDesktopPermissionPolicy = () => {
             || webContents?.getURL?.()
             || runtime?.url
             || '';
-        return canGrantDesktopRuntimePermission(permission, requestUrl);
+        return canGrantDesktopRuntimePermission(permission, requestUrl, runtime?.url || '');
     });
 };
 
@@ -351,7 +282,11 @@ const buildAuthWindowOptions = (parentWindow) => ({
 });
 
 const sendDesktopUpdateStatus = (type, payload = {}) => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
+    if (
+        !mainWindow
+        || mainWindow.isDestroyed()
+        || !isInternalUrl(mainWindow.webContents.getURL(), runtime?.url || '')
+    ) {
         return;
     }
 
@@ -362,7 +297,11 @@ const sendDesktopUpdateStatus = (type, payload = {}) => {
 };
 
 const sendDesktopAuthStatus = (type, payload = {}) => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
+    if (
+        !mainWindow
+        || mainWindow.isDestroyed()
+        || !isInternalUrl(mainWindow.webContents.getURL(), runtime?.url || '')
+    ) {
         return;
     }
 
@@ -483,6 +422,19 @@ const createMainWindow = async () => {
         return null;
     }
 
+    const guardMainFrameNavigation = (event, url) => {
+        if (isInternalUrl(url, runtime.url)) {
+            return;
+        }
+
+        event.preventDefault();
+        if (isSafeExternalUrl(url)) {
+            void shell.openExternal(url);
+        }
+    };
+    activeWindow.webContents.on('will-navigate', guardMainFrameNavigation);
+    activeWindow.webContents.on('will-redirect', guardMainFrameNavigation);
+
     activeWindow.webContents.setWindowOpenHandler(({ url }) => {
         if (isInternalUrl(url, runtime.url)) {
             return { action: 'allow' };
@@ -495,7 +447,9 @@ const createMainWindow = async () => {
             };
         }
 
-        void shell.openExternal(url);
+        if (isSafeExternalUrl(url)) {
+            void shell.openExternal(url);
+        }
         return { action: 'deny' };
     });
 
@@ -513,7 +467,9 @@ const createMainWindow = async () => {
                 };
             }
 
-            void shell.openExternal(url);
+            if (isSafeExternalUrl(url)) {
+                void shell.openExternal(url);
+            }
             return { action: 'deny' };
         });
     });
@@ -639,12 +595,14 @@ const startAutoUpdateChecks = () => {
     updateCheckTimer = setInterval(() => checkForUpdates('scheduled'), UPDATE_CHECK_INTERVAL_MS);
     updateCheckTimer.unref?.();
 
-    ipcMain.handle('desktop:update:check', () => {
+    ipcMain.handle('desktop:update:check', (event) => {
+        assertTrustedDesktopIpcSender(event);
         checkForUpdates('manual');
         return { ok: true };
     });
 
-    ipcMain.handle('desktop:update:install-now', () => {
+    ipcMain.handle('desktop:update:install-now', (event) => {
+        assertTrustedDesktopIpcSender(event);
         isQuitting = true;
         autoUpdater.quitAndInstall(false, true);
         return { ok: true };

@@ -518,6 +518,9 @@ AURA_RUNTIME_SECRETS_FILE="${staged_runtime_env}" \
 configured_compose_profiles="$(resolve_env_value COMPOSE_PROFILES "${staged_base_env}" "${staged_runtime_env}" "${release_env}")"
 compose_profiles="$(sanitize_compose_profiles "${configured_compose_profiles}")"
 
+upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"
+upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"
+upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"
 upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"
 upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER" "disabled"
 upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER_FALLBACKS" ""

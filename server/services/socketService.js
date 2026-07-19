@@ -5,7 +5,12 @@ const { allowedOrigins } = require('../config/corsFlags');
 const { getRedisClient } = require('../config/redis');
 const User = require('../models/User');
 const logger = require('../utils/logger');
-const { getBrowserSession, resolveSessionIdFromCookieHeader, touchBrowserSession } = require('./browserSessionService');
+const {
+    getBrowserSession,
+    getGlobalSessionRevokedAfter,
+    resolveSessionIdFromCookieHeader,
+    touchBrowserSession,
+} = require('./browserSessionService');
 const {
     loadAdminTicketView,
     loadUserTicketView,
@@ -24,9 +29,11 @@ const pendingVideoSessionDisconnectCleanups = new Map();
 const ADMIN_ROOM = 'admins';
 let socketAdapterPubClient = null;
 let socketAdapterSubClient = null;
+let socketAuthRevalidationTimer = null;
 const DEFAULT_VIDEO_SESSION_DISCONNECT_GRACE_MS = 15000;
 const DEFAULT_RINGING_VIDEO_SESSION_DISCONNECT_GRACE_MS = 45000;
 const DEFAULT_CONNECTED_VIDEO_SESSION_DISCONNECT_GRACE_MS = 180000;
+const DEFAULT_SOCKET_AUTH_REVALIDATION_INTERVAL_MS = 60 * 1000;
 
 const socketHealth = {
     initialized: false,
@@ -69,69 +76,275 @@ const toSocketUserPayload = (user = {}, identity = {}) => ({
     sessionId: String(identity.sessionId || ''),
 });
 
-const resolveSocketUserFromSessionCookie = async (cookieHeader = '') => {
-    const sessionId = resolveSessionIdFromCookieHeader(cookieHeader);
-    if (!sessionId) {
+const buildSocketAuthError = (message, code = 'SOCKET_AUTH_REJECTED') => {
+    const error = new Error(message);
+    error.code = code;
+    return error;
+};
+
+const getSocketAuthRevalidationIntervalMs = () => parsePositiveInteger(
+    process.env.SOCKET_AUTH_REVALIDATION_INTERVAL_MS,
+    DEFAULT_SOCKET_AUTH_REVALIDATION_INTERVAL_MS,
+);
+
+const getTokenIssuedAtMs = (identity = {}) => {
+    const candidates = [identity.auth_time, identity.iat]
+        .map((value) => Number(value || 0) * 1000);
+    return candidates.find((value) => Number.isFinite(value) && value > 0) || 0;
+};
+
+const enforceSocketUserAccess = async (user = {}, identity = {}) => {
+    if (user.softDeleted || user.accountState === 'deleted') {
+        throw buildSocketAuthError('Authenticated socket account is not active', 'SOCKET_ACCOUNT_INACTIVE');
+    }
+
+    const issuedAtMs = getTokenIssuedAtMs(identity);
+    const userRevokedAfterMs = new Date(user.authTokensRevokedAfter || 0).getTime();
+    if (
+        Number.isFinite(userRevokedAfterMs)
+        && userRevokedAfterMs > 0
+        && (!issuedAtMs || issuedAtMs <= userRevokedAfterMs)
+    ) {
+        throw buildSocketAuthError('Authenticated socket session was revoked', 'SOCKET_AUTH_REVOKED');
+    }
+
+    const globalRevokedAfterMs = Number(await getGlobalSessionRevokedAfter() || 0);
+    if (globalRevokedAfterMs > 0 && (!issuedAtMs || issuedAtMs <= globalRevokedAfterMs)) {
+        throw buildSocketAuthError('Authenticated socket session was globally revoked', 'SOCKET_AUTH_REVOKED');
+    }
+};
+
+const buildSocketAuthentication = ({ user, identity, credential }) => ({
+    user: toSocketUserPayload(user, identity),
+    credential,
+});
+
+const getBrowserSessionDeadlineMs = (session = {}) => {
+    const deadlines = [session.idleExpiresAt, session.absoluteExpiresAt]
+        .map((value) => new Date(value || 0).getTime())
+        .filter((value) => Number.isFinite(value) && value > 0);
+    return deadlines.length > 0 ? Math.min(...deadlines) : 0;
+};
+
+const resolveSocketUserFromBrowserSessionId = async (sessionId = '', { touch = true } = {}) => {
+    const normalizedSessionId = normalizeId(sessionId);
+    if (!normalizedSessionId) return null;
+
+    const session = await getBrowserSession(normalizedSessionId);
+    if (!session?.sessionId || !session.userId) {
         return null;
     }
 
-    const session = await getBrowserSession(sessionId);
-    if (!session?.sessionId || !session.userId) {
-        throw new Error('Authenticated socket session expired');
-    }
-
     const user = await User.findById(session.userId)
-        .select('_id authUid email name isAdmin isSeller isVerified')
+        .select('_id authUid email name isAdmin isSeller isVerified authTokensRevokedAfter accountState softDeleted')
         .lean();
 
     if (!user?._id) {
-        throw new Error('Authenticated socket user profile was not found');
+        throw buildSocketAuthError('Authenticated socket user profile was not found', 'SOCKET_ACCOUNT_MISSING');
     }
 
-    await touchBrowserSession(session);
-
-    return toSocketUserPayload(user, {
+    await enforceSocketUserAccess(user, {
         uid: session.firebaseUid,
-        email: session.email,
-        displayName: session.displayName,
-        sessionId: session.sessionId,
+        auth_time: session.authTimeSeconds,
+        iat: session.issuedAtSeconds,
+    });
+
+    // Initial connection is user activity; periodic authorization checks are
+    // not. Revalidation must not keep an otherwise idle cookie session alive.
+    const activeSession = touch ? await touchBrowserSession(session) : session;
+    const expiresAtMs = getBrowserSessionDeadlineMs(activeSession);
+    if (!expiresAtMs || expiresAtMs <= Date.now()) {
+        throw buildSocketAuthError('Authenticated socket session expired', 'SOCKET_AUTH_EXPIRED');
+    }
+
+    return buildSocketAuthentication({
+        user,
+        identity: {
+            uid: activeSession.firebaseUid,
+            email: activeSession.email,
+            displayName: activeSession.displayName,
+            sessionId: activeSession.sessionId,
+        },
+        credential: {
+            source: 'browser_session',
+            sessionId: activeSession.sessionId,
+            expiresAtMs,
+        },
     });
 };
 
+const resolveSocketUserFromSessionCookie = async (cookieHeader = '') => (
+    resolveSocketUserFromBrowserSessionId(resolveSessionIdFromCookieHeader(cookieHeader))
+);
+
 const resolveSocketUserFromFirebaseToken = async (token = '') => {
-    const decoded = await firebaseAdmin.auth().verifyIdToken(token);
+    let decoded;
+    try {
+        decoded = await firebaseAdmin.auth().verifyIdToken(token, true);
+    } catch (error) {
+        const firebaseCode = String(error?.code || '').trim().toLowerCase();
+        if (firebaseCode === 'auth/id-token-expired') {
+            throw buildSocketAuthError('Authenticated socket token expired', 'SOCKET_AUTH_EXPIRED');
+        }
+        if (firebaseCode === 'auth/id-token-revoked') {
+            throw buildSocketAuthError('Authenticated socket token was revoked', 'SOCKET_AUTH_REVOKED');
+        }
+        if (firebaseCode === 'auth/user-disabled') {
+            throw buildSocketAuthError('Authenticated socket account is not active', 'SOCKET_ACCOUNT_INACTIVE');
+        }
+        throw buildSocketAuthError('Authenticated socket token could not be verified');
+    }
     const email = normalizeEmail(decoded?.email);
 
     if (!email) {
-        throw new Error('Authenticated socket account is missing email');
+        throw buildSocketAuthError('Authenticated socket account is missing email', 'SOCKET_ACCOUNT_MISSING');
     }
 
     const user = await User.findOne({ email })
-        .select('_id authUid email name isAdmin isSeller isVerified')
+        .select('_id authUid email name isAdmin isSeller isVerified authTokensRevokedAfter accountState softDeleted')
         .lean();
 
     if (!user?._id) {
-        throw new Error('Authenticated socket user profile was not found');
+        throw buildSocketAuthError('Authenticated socket user profile was not found', 'SOCKET_ACCOUNT_MISSING');
     }
 
-    return toSocketUserPayload(user, {
-        uid: decoded.uid,
-        email,
+    await enforceSocketUserAccess(user, decoded);
+    const expiresAtMs = Number(decoded?.exp || 0) * 1000;
+    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+        throw buildSocketAuthError('Authenticated socket token expired', 'SOCKET_AUTH_EXPIRED');
+    }
+
+    return buildSocketAuthentication({
+        user,
+        identity: {
+            uid: decoded.uid,
+            email,
+        },
+        credential: {
+            source: 'firebase_bearer',
+            token,
+            expiresAtMs,
+        },
     });
 };
 
-const resolveSocketUser = async ({ token = '', cookieHeader = '' } = {}) => {
-    const sessionUser = await resolveSocketUserFromSessionCookie(cookieHeader);
-    if (sessionUser) {
-        return sessionUser;
-    }
-
+const resolveSocketAuthentication = async ({ token = '', cookieHeader = '' } = {}) => {
     const normalizedToken = String(token || '').trim();
-    if (!normalizedToken) {
-        throw new Error('Authentication session missing');
+    if (normalizedToken) {
+        const bearerAuthentication = await resolveSocketUserFromFirebaseToken(normalizedToken);
+        let cookieAuthentication = null;
+        try {
+            cookieAuthentication = await resolveSocketUserFromSessionCookie(cookieHeader);
+        } catch (error) {
+            // The explicit, freshly verified bearer is authoritative. An old
+            // cookie may be expired or revoked after token refresh; compare
+            // identities only when that optional cookie is independently valid.
+            logger.warn('socket.stale_cookie_ignored_with_valid_bearer', {
+                code: error?.code || 'SOCKET_AUTH_REJECTED',
+            });
+        }
+        if (
+            cookieAuthentication?.user?.id
+            && cookieAuthentication.user.id !== bearerAuthentication.user.id
+        ) {
+            throw buildSocketAuthError(
+                'Authenticated socket cookie and bearer identities do not match',
+                'SOCKET_AUTH_IDENTITY_MISMATCH'
+            );
+        }
+        return bearerAuthentication;
     }
 
-    return resolveSocketUserFromFirebaseToken(normalizedToken);
+    const sessionAuthentication = await resolveSocketUserFromSessionCookie(cookieHeader);
+    if (!sessionAuthentication) {
+        throw buildSocketAuthError('Authentication session missing or expired', 'SOCKET_AUTH_EXPIRED');
+    }
+    return sessionAuthentication;
+};
+
+const revalidateSocketAuthentication = async (credential = {}, expectedUserId = '') => {
+    const authentication = credential.source === 'firebase_bearer'
+        ? await resolveSocketUserFromFirebaseToken(credential.token)
+        : await resolveSocketUserFromBrowserSessionId(credential.sessionId, { touch: false });
+
+    if (!authentication) {
+        throw buildSocketAuthError('Authenticated socket session expired', 'SOCKET_AUTH_EXPIRED');
+    }
+    if (normalizeId(authentication.user.id) !== normalizeId(expectedUserId)) {
+        throw buildSocketAuthError('Authenticated socket identity changed', 'SOCKET_AUTH_IDENTITY_MISMATCH');
+    }
+    return authentication;
+};
+
+const clearSocketAuthExpiryTimer = (socket) => {
+    if (socket?._auraAuthExpiryTimer) {
+        clearTimeout(socket._auraAuthExpiryTimer);
+        socket._auraAuthExpiryTimer = null;
+    }
+};
+
+const expireSocketAuthentication = (socket, {
+    reason = 'authentication_expired',
+    retryable = false,
+} = {}) => {
+    if (!socket || socket._auraAuthExpired) return;
+    socket._auraAuthExpired = true;
+    clearSocketAuthExpiryTimer(socket);
+    socket.emit('auth:expired', { reason, retryable });
+    setImmediate(() => {
+        if (socket.connected !== false) {
+            socket.disconnect(true);
+        }
+    });
+};
+
+const applySocketAuthentication = (socket, authentication) => {
+    const previousUser = socket.user || null;
+    socket.user = authentication.user;
+    socket.authContext = authentication.credential;
+    socket._auraAuthExpired = false;
+
+    if (previousUser?.isAdmin && !socket.user.isAdmin) {
+        socket.leave(ADMIN_ROOM);
+    } else if (previousUser && !previousUser.isAdmin && socket.user.isAdmin) {
+        socket.join(ADMIN_ROOM);
+    }
+
+    clearSocketAuthExpiryTimer(socket);
+    const delayMs = Number(authentication.credential?.expiresAtMs || 0) - Date.now();
+    if (!Number.isFinite(delayMs) || delayMs <= 0) {
+        expireSocketAuthentication(socket, { reason: 'credential_expired', retryable: true });
+        return;
+    }
+
+    socket._auraAuthExpiryTimer = setTimeout(() => {
+        expireSocketAuthentication(socket, { reason: 'credential_expired', retryable: true });
+    }, Math.min(delayMs, 0x7fffffff));
+    socket._auraAuthExpiryTimer.unref?.();
+};
+
+const revalidateConnectedSockets = async () => {
+    const sockets = Array.from(io?.sockets?.sockets?.values?.() || []);
+    await Promise.all(sockets.map(async (socket) => {
+        if (!socket?.authContext || socket._auraAuthExpired) return;
+        try {
+            const authentication = await revalidateSocketAuthentication(
+                socket.authContext,
+                socket.user?.id
+            );
+            applySocketAuthentication(socket, authentication);
+        } catch (error) {
+            logger.warn('socket.authentication_revalidation_failed', {
+                socketId: socket.id,
+                userId: normalizeId(socket.user?.id),
+                code: error?.code || 'SOCKET_AUTH_REJECTED',
+            });
+            expireSocketAuthentication(socket, {
+                reason: error?.code || 'authentication_revoked',
+                retryable: error?.code === 'SOCKET_AUTH_EXPIRED',
+            });
+        }
+    }));
 };
 
 const registerSupportVideoSession = ({
@@ -474,6 +687,13 @@ const resetSocketStateForTests = () => {
     activeSupportVideoSessions.clear();
     activeListingVideoSessions.clear();
     pendingVideoSessionDisconnectCleanups.clear();
+    if (socketAuthRevalidationTimer) {
+        clearInterval(socketAuthRevalidationTimer);
+        socketAuthRevalidationTimer = null;
+    }
+    for (const socket of io?.sockets?.sockets?.values?.() || []) {
+        clearSocketAuthExpiryTimer(socket);
+    }
 };
 
 const countSessionStatus = (sessionsMap, status) => {
@@ -704,7 +924,8 @@ const initializeSocket = (httpServer) => {
         const cookieHeader = String(socket.handshake.headers?.cookie || '').trim();
 
         try {
-            socket.user = await resolveSocketUser({ token, cookieHeader });
+            const authentication = await resolveSocketAuthentication({ token, cookieHeader });
+            applySocketAuthentication(socket, authentication);
             next();
         } catch (error) {
             next(new Error(`Authentication error: ${error.message}`));
@@ -731,6 +952,7 @@ const initializeSocket = (httpServer) => {
         // ── Video Calling Signaling ──────────────────────────────────
         // Initiate a call: peer A -> server -> peer B
         socket.on('disconnect', async (reason) => {
+            clearSocketAuthExpiryTimer(socket);
             const userSet = userSockets.get(userId);
             let userStillConnected = false;
             if (userSet) {
@@ -753,6 +975,14 @@ const initializeSocket = (httpServer) => {
             logger.info('socket.client_disconnected', { userId, socketId: socket.id, reason });
         });
     });
+
+    if (socketAuthRevalidationTimer) {
+        clearInterval(socketAuthRevalidationTimer);
+    }
+    socketAuthRevalidationTimer = setInterval(() => {
+        void revalidateConnectedSockets();
+    }, getSocketAuthRevalidationIntervalMs());
+    socketAuthRevalidationTimer.unref?.();
 
     return io;
 };
@@ -793,6 +1023,7 @@ const sendMessageToAdmins = (eventName, payload, options = {}) => {
 };
 
 module.exports = {
+    applySocketAuthentication,
     attachSocketBackplane,
     cancelPendingVideoSessionDisconnectCleanup,
     clearListingVideoSession,
@@ -808,6 +1039,9 @@ module.exports = {
     markSupportVideoSessionConnected,
     registerListingVideoSession,
     registerSupportVideoSession,
+    resolveSocketAuthentication,
+    revalidateSocketAuthentication,
+    revalidateConnectedSockets,
     resetSocketStateForTests,
     scheduleVideoSessionDisconnectCleanup,
     sendMessageToUser,

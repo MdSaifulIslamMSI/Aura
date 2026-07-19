@@ -69,6 +69,8 @@ describe('authEnvironment', () => {
             AUTH_REDIRECT_URI: 'https://app.company.test/auth/callback',
             AUTH_POST_LOGOUT_REDIRECT_URI: 'https://app.company.test/login',
             AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
+            MFA_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
         };
 
         const result = validateAuthEnvironment({ env, runtimeEnv: 'production' });
@@ -123,5 +125,38 @@ describe('authEnvironment', () => {
             requiredForAdmins: false,
             requiredForSellers: false,
         });
+    });
+
+    test('fails closed when production requires admin passkeys but passkey MFA is disabled', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                ADMIN_REQUIRE_PASSKEY: 'true',
+                MFA_ENABLED: 'false',
+                MFA_PASSKEY_ENABLED: 'false',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures).toEqual(expect.arrayContaining([
+            'MFA_ENABLED must be true when production admin passkeys are required',
+            'MFA_PASSKEY_ENABLED must be true when production admin passkeys are required',
+        ]));
+    });
+
+    test('accepts passkey-only MFA for the production admin passkey contract', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                ADMIN_REQUIRE_PASSKEY: 'true',
+                MFA_ENABLED: 'true',
+                MFA_PASSKEY_ENABLED: 'true',
+                MFA_TOTP_ENABLED: 'false',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(true);
     });
 });

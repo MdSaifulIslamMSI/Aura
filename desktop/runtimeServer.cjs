@@ -230,7 +230,39 @@ const normalizeDesktopAuthString = (value = '') => String(value || '').trim();
 
 const isSafeRelativePath = (value = '') => {
     const normalized = normalizeDesktopAuthString(value);
-    return normalized.startsWith('/') && !normalized.startsWith('//') && !normalized.startsWith('/\\');
+    if (
+        !normalized.startsWith('/')
+        || normalized.startsWith('//')
+        || normalized.includes('\\')
+        || /[\u0000-\u001f\u007f]/.test(normalized)
+    ) {
+        return false;
+    }
+
+    // Reject encoded and double-encoded network-path/backslash variants. A
+    // return target may be decoded by more than one browser/router layer, so
+    // validating only the raw string can turn an apparently relative path into
+    // an authority-like path later in the handoff.
+    let decoded = normalized;
+    try {
+        for (let pass = 0; pass < 2; pass += 1) {
+            const next = decodeURIComponent(decoded);
+            if (
+                next.startsWith('//')
+                || next.startsWith('/\\')
+                || next.includes('\\')
+                || /[\u0000-\u001f\u007f]/.test(next)
+            ) {
+                return false;
+            }
+            if (next === decoded) break;
+            decoded = next;
+        }
+    } catch {
+        return false;
+    }
+
+    return true;
 };
 
 const safeEquals = (left = '', right = '') => {
@@ -536,11 +568,7 @@ const buildRuntimePortCandidates = (port) => {
         throw new Error('Desktop runtime requires a fixed loopback port.');
     }
 
-    const stablePorts = Array.from(
-        { length: STABLE_RUNTIME_FALLBACK_PORTS + 1 },
-        (_value, index) => DEFAULT_RUNTIME_PORT + index
-    );
-    return [requestedPort, ...stablePorts.filter((candidate) => candidate !== requestedPort)];
+    return [requestedPort];
 };
 
 const listenOnPort = (server, port) => new Promise((resolve, reject) => {
@@ -684,32 +712,19 @@ const startRuntimeServer = async ({
 
     server.on('upgrade', socketProxy.upgrade);
 
-    const portCandidates = buildRuntimePortCandidates(port);
-    let lastListenError = null;
-
-    for (const candidatePort of portCandidates) {
-        try {
-            await listenOnPort(server, candidatePort);
-            if (candidatePort !== port) {
-                console.info(`[desktop] runtime server using fallback port ${candidatePort}.`);
-            }
-            lastListenError = null;
-            break;
-        } catch (error) {
-            lastListenError = error;
-            if (error?.code !== 'EADDRINUSE') {
-                throw error;
-            }
-            console.warn(`[desktop] runtime port ${candidatePort} is busy; trying another local port.`);
+    const [runtimePort] = buildRuntimePortCandidates(port);
+    try {
+        await listenOnPort(server, runtimePort);
+    } catch (listenError) {
+        if (listenError?.code !== 'EADDRINUSE') {
+            throw listenError;
         }
-    }
 
-    if (lastListenError) {
         const error = new Error(
-            `Aura could not start its secure local sign-in service because ports ${DEFAULT_RUNTIME_PORT}-${MAX_STABLE_RUNTIME_PORT} are busy.`
+            `Aura could not start its secure local sign-in service because port ${runtimePort} is already in use. Close the other Aura instance or process using this port, then reopen Aura.`
         );
-        error.code = lastListenError.code;
-        error.cause = lastListenError;
+        error.code = listenError.code;
+        error.cause = listenError;
         throw error;
     }
 

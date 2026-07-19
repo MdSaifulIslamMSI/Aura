@@ -3,6 +3,44 @@ const request = require('supertest');
 
 const mockCsrfRedisStore = new Map();
 
+const mockEvaluateCsrfToken = async (_script, options = {}) => {
+    const key = options.keys?.[0];
+    const args = options.arguments || [];
+    const record = mockCsrfRedisStore.get(key);
+    if (!record) return 'missing';
+
+    let stored;
+    try {
+        stored = JSON.parse(record.value);
+    } catch (_) {
+        mockCsrfRedisStore.delete(key);
+        return 'invalid_record';
+    }
+
+    if (!stored || typeof stored !== 'object' || Number(stored.expiresAt || 0) <= Number(args[0])) {
+        mockCsrfRedisStore.delete(key);
+        return 'expired';
+    }
+
+    const metadata = stored.metadata || {};
+    const text = (value) => (value === undefined || value === null ? '' : String(value));
+    const expectedUid = text(metadata.uid) || 'anonymous';
+    if (expectedUid !== args[1]) return 'principal_mismatch';
+    if (text(metadata.strictOrigin) && text(metadata.strictOrigin) !== args[2]) return 'origin_mismatch';
+    if (text(metadata.sessionId) && text(metadata.sessionId) !== args[3]) return 'session_mismatch';
+    if (text(metadata.deviceFingerprint) && text(metadata.deviceFingerprint) !== args[4]) return 'device_mismatch';
+
+    const ipMismatch = Boolean(text(metadata.ip) && args[5] && text(metadata.ip) !== args[5]);
+    const userAgentMismatch = Boolean(text(metadata.userAgent) && args[6] && text(metadata.userAgent) !== args[6]);
+    if (args[7] === '1' && (ipMismatch || userAgentMismatch)) return 'client_signal_mismatch';
+
+    mockCsrfRedisStore.delete(key);
+    if (ipMismatch && userAgentMismatch) return 'ok:ip,user_agent';
+    if (ipMismatch) return 'ok:ip';
+    if (userAgentMismatch) return 'ok:user_agent';
+    return 'ok';
+};
+
 jest.mock('../config/redis', () => ({
     getRedisClient: () => ({
         setEx: async (key, ttl, value) => {
@@ -25,6 +63,7 @@ jest.mock('../config/redis', () => ({
             mockCsrfRedisStore.delete(key);
             return 1;
         },
+        eval: mockEvaluateCsrfToken,
     }),
     flags: { redisPrefix: 'csrf-security-test' },
 }));

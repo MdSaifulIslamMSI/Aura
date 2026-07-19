@@ -1162,7 +1162,18 @@ const scheduleBrowserSessionTouch = (req, res, session) => {
             return;
         }
 
-        touchBrowserSession(session)
+        // A route may refresh or rotate the browser session after authentication.
+        // Never persist the stale snapshot captured by the middleware, and never
+        // recreate a session that the route has replaced or revoked.
+        const latestSession = req.authSession;
+        if (
+            !latestSession?.sessionId
+            || latestSession.sessionId !== session.sessionId
+        ) {
+            return;
+        }
+
+        touchBrowserSession(latestSession)
             .then((touchedSession) => {
                 if (
                     touchedSession?.sessionId
@@ -1173,7 +1184,7 @@ const scheduleBrowserSessionTouch = (req, res, session) => {
             })
             .catch((error) => {
                 logger.warn('auth.session_touch_failed', {
-                    sessionId: session.sessionId,
+                    sessionId: latestSession.sessionId,
                     error: error?.message || 'unknown',
                 });
             });

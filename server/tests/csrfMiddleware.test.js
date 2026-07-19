@@ -15,6 +15,36 @@ const mockRedisClient = {
     del: jest.fn(async (key) => {
         mockRedisData.delete(key);
     }),
+    eval: jest.fn(async (_script, { keys, arguments: args }) => {
+        const [key] = keys;
+        const raw = mockRedisData.get(key);
+        if (!raw) return 'missing';
+        let stored;
+        try {
+            stored = JSON.parse(raw);
+        } catch {
+            mockRedisData.delete(key);
+            return 'invalid_record';
+        }
+        if (Number(stored.expiresAt || 0) <= Number(args[0])) {
+            mockRedisData.delete(key);
+            return 'expired';
+        }
+        const metadata = stored.metadata || {};
+        const expectedUid = String(metadata.uid || 'anonymous');
+        if (expectedUid !== args[1]) return 'principal_mismatch';
+        if (metadata.strictOrigin && metadata.strictOrigin !== args[2]) return 'origin_mismatch';
+        if (metadata.sessionId && metadata.sessionId !== args[3]) return 'session_mismatch';
+        if (metadata.deviceFingerprint && metadata.deviceFingerprint !== args[4]) return 'device_mismatch';
+        const ipMismatch = Boolean(metadata.ip && args[5] && metadata.ip !== args[5]);
+        const userAgentMismatch = Boolean(metadata.userAgent && args[6] && metadata.userAgent !== args[6]);
+        if (args[7] === '1' && (ipMismatch || userAgentMismatch)) return 'client_signal_mismatch';
+        mockRedisData.delete(key);
+        if (ipMismatch && userAgentMismatch) return 'ok:ip,user_agent';
+        if (ipMismatch) return 'ok:ip';
+        if (userAgentMismatch) return 'ok:user_agent';
+        return 'ok';
+    }),
 };
 
 jest.mock('../config/redis', () => ({
@@ -35,6 +65,7 @@ describe('csrf middleware', () => {
         mockRedisClient.setEx.mockClear();
         mockRedisClient.get.mockClear();
         mockRedisClient.del.mockClear();
+        mockRedisClient.eval.mockClear();
     });
 
     test('rejects cross-user token reuse', async () => {
@@ -88,6 +119,25 @@ describe('csrf middleware', () => {
         });
 
         expect(valid).toBe(true);
+        expect(mockRedisData.size).toBe(0);
+    });
+
+    test('atomically accepts exactly one concurrent use of a one-time token', async () => {
+        const token = generateCsrfToken();
+        const context = {
+            uid: 'user-a',
+            strictOrigin: 'https://app.example.com',
+            sessionId: 'session-a',
+        };
+        await storeCsrfToken(token, context);
+
+        const results = await Promise.all([
+            verifyCsrfToken(token, context),
+            verifyCsrfToken(token, context),
+        ]);
+
+        expect(results.sort()).toEqual([false, true]);
+        expect(mockRedisClient.eval).toHaveBeenCalledTimes(2);
         expect(mockRedisData.size).toBe(0);
     });
 

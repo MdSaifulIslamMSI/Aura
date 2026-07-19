@@ -89,7 +89,6 @@ describe('desktop owner access controller', () => {
             customToken: 'owner-custom-token',
         });
         expect(mockCreateCustomToken).toHaveBeenCalledWith('configured-owner-uid', {
-            desktop_handoff: true,
             desktop_owner_access: true,
             desktop_request_id: expect.any(String),
         });

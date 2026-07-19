@@ -31,8 +31,8 @@ To scale, the system uses a **Token-to-Session Exchange** model:
 ## 2. Session Lifecycle & TTL Parameters
 
 Browser sessions are governed by two distinct timeouts to balance security and database storage:
-* **Idle TTL (`SESSION_IDLE_TTL_MS`)**: 30 minutes. The session is touched (last seen timestamp updated) on activity, resetting this timer.
-* **Absolute TTL (`SESSION_ABSOLUTE_TTL_MS`)**: 7 days. The absolute maximum lifetime of a session, regardless of activity.
+* **Idle TTL (`AUTH_SESSION_IDLE_TTL_MS`)**: 8 hours by default. Authenticated activity atomically advances `lastSeenAt` and the idle deadline without overwriting a newer identity-token or assurance snapshot.
+* **Absolute TTL (`AUTH_SESSION_ABSOLUTE_TTL_MS`)**: 7 days by default. This is the maximum lifetime of one opaque session regardless of activity; rotation creates a new session identifier.
 
 ### 2.1 Set-Based Revocation Scaling
 By implementing Redis Set tracking (`auth:user_sessions:<userId>`), we ensure that when a user changes their password, revoking their sessions takes $O(M)$ time (where $M$ is the number of active sessions for that user, typically $\le 5$), rather than an $O(N)$ database scan (where $N$ is all active sessions in the system).

@@ -916,6 +916,7 @@ export const AuthProvider = ({ children }) => {
 
   const waitForDesktopBrowserCustomToken = async (desktop, request, { signal } = {}) => new Promise((resolve, reject) => {
     let settled = false;
+    let consumeInFlight = null;
     const cleanupHandlers = [];
 
     const settle = (callback, value) => {
@@ -935,7 +936,42 @@ export const AuthProvider = ({ children }) => {
       if (settled) return;
 
       try {
-        const result = await desktop.consumeBrowserSignIn(request.requestId);
+        const joinedExistingConsume = Boolean(consumeInFlight);
+        if (!consumeInFlight) {
+          consumeInFlight = (async () => {
+            try {
+              return await desktop.consumeBrowserSignIn(request.requestId);
+            } finally {
+              consumeInFlight = null;
+            }
+          })();
+        }
+
+        let result = await consumeInFlight;
+        if (settled) return;
+
+        // A completion event can overtake the IPC response from a poll that
+        // started just before the main process stored the result. Once that
+        // older poll finishes, make one serialized post-completion consume.
+        if (
+          rejectOnFailure
+          && joinedExistingConsume
+          && !result?.cancelled
+          && !(result?.success && result?.customToken)
+        ) {
+          if (!consumeInFlight) {
+            consumeInFlight = (async () => {
+              try {
+                return await desktop.consumeBrowserSignIn(request.requestId);
+              } finally {
+                consumeInFlight = null;
+              }
+            })();
+          }
+          result = await consumeInFlight;
+          if (settled) return;
+        }
+
         if (result?.cancelled || result?.code === 'auth/desktop-browser-sign-in-cancelled') {
           cancelWithMessage(result?.message);
           return;
