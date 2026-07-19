@@ -959,15 +959,13 @@ export const AuthProvider = ({ children }) => {
           && !result?.cancelled
           && !(result?.success && result?.customToken)
         ) {
-          if (!consumeInFlight) {
-            consumeInFlight = (async () => {
-              try {
-                return await desktop.consumeBrowserSignIn(request.requestId);
-              } finally {
-                consumeInFlight = null;
-              }
-            })();
-          }
+          consumeInFlight = (async () => {
+            try {
+              return await desktop.consumeBrowserSignIn(request.requestId);
+            } finally {
+              consumeInFlight = null;
+            }
+          })();
           result = await consumeInFlight;
           if (settled) return;
         }
