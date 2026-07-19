@@ -1,9 +1,9 @@
 /**
  * requestTimeout.js — Per-request timeout middleware
  *
- * Aborts hanging requests after a configurable timeout and returns 503.
- * Prevents slow upstream calls (Mongo, AI providers, email) from holding
- * connections open indefinitely and exhausting the event loop.
+ * Marks hanging requests after a configurable timeout and returns 503.
+ * Downstream code can use the marker to refuse security-sensitive mutations
+ * after the response deadline has already won.
  *
  * Config:
  *   REQUEST_TIMEOUT_MS  — default 30000 (30 seconds)
@@ -33,10 +33,10 @@ const isExempt = (path = '') =>
 const createRequestTimeout = (timeoutMs = DEFAULT_TIMEOUT_MS) => (req, res, next) => {
     if (isExempt(req.path)) return next();
 
-    let timedOut = false;
+    req.requestTimedOut = false;
 
     const timer = setTimeout(() => {
-        timedOut = true;
+        req.requestTimedOut = true;
         logger.warn('request.timeout', {
             requestId: req.requestId || '',
             method: req.method,

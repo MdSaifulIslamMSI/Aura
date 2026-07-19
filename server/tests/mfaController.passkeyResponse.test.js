@@ -152,6 +152,7 @@ describe('mfaController passkey response contract', () => {
             }));
 
             const { passkeyLoginVerify } = require('../controllers/mfaController');
+            const { budgetRequestTimeout } = require('../middleware/requestTimeouts');
             app = express();
             app.use(express.json());
             app.post('/api/auth/mfa/passkey/login/verify', (req, _res, next) => {
@@ -163,8 +164,13 @@ describe('mfaController passkey response contract', () => {
                     email_verified: true,
                 };
                 req.authSession = null;
+                req.requestId = 'passkey-timeout-race';
+                req.trafficBudget = {
+                    routeClass: 'AUTH_WEBAUTHN',
+                    timeoutMs: 75,
+                };
                 next();
-            }, passkeyLoginVerify);
+            }, budgetRequestTimeout(), passkeyLoginVerify);
             app.use((error, _req, res, _next) => {
                 res.status(error.statusCode || 500).json({ message: error.message });
             });
@@ -224,5 +230,36 @@ describe('mfaController passkey response contract', () => {
         }));
         const persistedSession = refreshBrowserSession.mock.calls.at(-1)[0];
         expect(persistedSession.webAuthnStepUpUntil).toBe(persistedSession.stepUpUntil);
+
+        let releaseInspection;
+        inspectMfaChallenge.mockImplementationOnce(() => new Promise((resolve) => {
+            releaseInspection = () => resolve({
+                success: true,
+                challenge: { purpose: 'login' },
+            });
+        }));
+        const verificationCallsBeforeTimeout = verifyTrustedDeviceChallenge.mock.calls.length;
+        const consumeCallsBeforeTimeout = consumeMfaChallenge.mock.calls.length;
+        const refreshCallsBeforeTimeout = refreshBrowserSession.mock.calls.length;
+
+        const timedOut = await request(app)
+            .post('/api/auth/mfa/passkey/login/verify')
+            .set('x-aura-device-id', trustedDevice.deviceId)
+            .send(requestBody);
+
+        expect(timedOut.statusCode).toBe(503);
+        expect(timedOut.body).toMatchObject({
+            success: false,
+            code: 'TRAFFIC_ROUTE_TIMEOUT',
+            requestId: 'passkey-timeout-race',
+        });
+
+        releaseInspection();
+        await new Promise((resolve) => setImmediate(resolve));
+
+        expect(inspectMfaChallenge).toHaveBeenCalledTimes(3);
+        expect(verifyTrustedDeviceChallenge).toHaveBeenCalledTimes(verificationCallsBeforeTimeout);
+        expect(consumeMfaChallenge).toHaveBeenCalledTimes(consumeCallsBeforeTimeout);
+        expect(refreshBrowserSession).toHaveBeenCalledTimes(refreshCallsBeforeTimeout);
     });
 });

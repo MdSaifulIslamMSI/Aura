@@ -8,6 +8,10 @@ const notFound = (req, res, next) => {
 };
 
 const errorHandler = (err, req, res, next) => {
+    if (res.headersSent || res.writableEnded || res.destroyed) {
+        return next(err);
+    }
+
     if (err?.type === 'entity.too.large' || err?.status === 413) {
         return res.status(413).json({
             status: 'error',

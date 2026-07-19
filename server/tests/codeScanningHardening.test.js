@@ -49,7 +49,7 @@ describe('code scanning hardening contracts', () => {
         const notificationRoutes = readRepoFile('server/routes/userNotificationRoutes.js');
 
         expect(authRoutes).toMatch(/router\.post\('\/logout', protectOptional, authenticatedSessionMutationLimiter/);
-        expect(authRoutes).toMatch(/router\.post\('\/recovery-codes', protect, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, authenticatedSessionMutationLimiter/);
+        expect(authRoutes).toMatch(/router\.post\('\/recovery-codes', protect, authenticatedSessionMutationLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth/);
         expect(notificationRoutes).toMatch(/router\.use\(protect, userNotificationLimiter\)/);
     });
 

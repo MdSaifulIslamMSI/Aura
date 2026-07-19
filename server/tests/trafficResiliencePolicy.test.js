@@ -67,6 +67,12 @@ describe('traffic resilience policy', () => {
     test('dangerous route families classify into bounded budgets', () => {
         expect(classifyRoute({ method: 'POST', path: '/api/auth/login' })).toBe(ROUTE_CLASSES.AUTH_LOGIN);
         expect(classifyRoute({ method: 'POST', path: '/api/auth/verify-device' })).toBe(ROUTE_CLASSES.AUTH_WEBAUTHN);
+        expect(classifyRoute({ method: 'POST', path: '/api/auth/mfa/passkey/register/options' })).toBe(ROUTE_CLASSES.AUTH_WEBAUTHN);
+        expect(classifyRoute({ method: 'POST', path: '/api/auth/mfa/passkey/register/verify' })).toBe(ROUTE_CLASSES.AUTH_WEBAUTHN);
+        expect(classifyRoute({ method: 'POST', path: '/api/auth/mfa/passkey/login/options' })).toBe(ROUTE_CLASSES.AUTH_WEBAUTHN);
+        expect(classifyRoute({ method: 'POST', path: '/api/auth/mfa/passkey/login/verify' })).toBe(ROUTE_CLASSES.AUTH_WEBAUTHN);
+        expect(classifyRoute({ method: 'POST', path: '/api/auth/mfa/passkey/remove' })).toBe(ROUTE_CLASSES.AUTH_WEBAUTHN);
+        expect(classifyRoute({ method: 'POST', path: '/api/auth/mfa/passkeyish' })).toBe(ROUTE_CLASSES.AUTH_LOGIN);
         expect(classifyRoute({ method: 'POST', path: '/api/otp/send' })).toBe(ROUTE_CLASSES.OTP);
         expect(classifyRoute({ method: 'POST', path: '/api/auth/otp/reset-password' })).toBe(ROUTE_CLASSES.OTP_RESET);
         expect(classifyRoute({ method: 'POST', path: '/api/payments/create-order' })).toBe(ROUTE_CLASSES.PAYMENT);
