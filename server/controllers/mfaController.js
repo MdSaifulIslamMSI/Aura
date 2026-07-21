@@ -37,7 +37,9 @@ const {
     evaluateLogin,
     hasPasskey,
     hasTotp,
+    isCurrentLegacyAdminPasskeyCandidate,
     isAdminSubject,
+    isEligiblePasskeyMfaDevice,
 } = require('../services/mfaPolicyService');
 const {
     generateRecoveryCodes,
@@ -128,23 +130,8 @@ const buildPublicPasskeyChallenge = ({ challenge = null, user = null, purpose = 
 const buildMfaState = (user = null, { currentDeviceId = '' } = {}) => {
     const trustedDevices = Array.isArray(user?.trustedDevices) ? user.trustedDevices : [];
     const normalizedCurrentDeviceId = normalizeText(currentDeviceId);
-    const activeMfaCredentialIds = new Set(
-        (Array.isArray(user?.mfa?.passkeys) ? user.mfa.passkeys : [])
-            .filter((passkey) => !passkey?.revokedAt)
-            .map((passkey) => normalizeText(passkey?.credentialId))
-            .filter(Boolean)
-    );
     const passkeys = trustedDevices.filter((device) => (
-        isActiveTrustedDevice(device)
-        && (
-            normalizeMethod(device?.method) === 'webauthn'
-            || Boolean(normalizeText(device?.webauthnCredentialIdBase64Url))
-        )
-        && hasObservedWebAuthnUserVerification(device)
-        && (
-            ['mfa', 'admin'].includes(normalizeMethod(device?.credentialScope))
-            || activeMfaCredentialIds.has(normalizeText(device?.webauthnCredentialIdBase64Url))
-        )
+        isEligiblePasskeyMfaDevice({ user, device })
     ));
     const trustedDeviceViews = trustedDevices.map((device) => {
         const method = normalizeMethod(device.method)
@@ -164,11 +151,7 @@ const buildMfaState = (user = null, { currentDeviceId = '' } = {}) => {
         const isMfaFactor = Boolean(
             active
             && isPasskey
-            && hasObservedWebAuthnUserVerification(device)
-            && (
-                ['mfa', 'admin'].includes(credentialScope)
-                || activeMfaCredentialIds.has(normalizeText(device.webauthnCredentialIdBase64Url))
-            )
+            && isEligiblePasskeyMfaDevice({ user, device })
         );
         const backupEligible = Boolean(device.webauthnBackupEligible);
         const backedUp = Boolean(device.webauthnBackedUp);
@@ -618,6 +601,20 @@ const verifyPasskeyChallenge = async ({ req, expectedScope = '' } = {}) => {
     return verification;
 };
 
+const assertPasskeyLoginDeviceEligible = ({ user = null, session = null, device = null } = {}) => {
+    const eligible = isEligiblePasskeyMfaDevice({ user, device });
+    const legacyAdminCandidate = Boolean(
+        isAdminSubject(user)
+        && isCurrentLegacyAdminPasskeyCandidate({ user, session })
+        && String(device?.deviceId || '').trim() === String(session?.deviceId || '').trim()
+    );
+    if (eligible || legacyAdminCandidate) return;
+
+    const error = new AppError('This passkey is not approved for MFA on the current device.', 403);
+    error.code = 'PASSKEY_MFA_NOT_ELIGIBLE';
+    throw error;
+};
+
 const passkeyRegisterVerify = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.PASSKEY });
     assertAdminPasskeyEnrollmentAssurance(req);
@@ -649,11 +646,31 @@ const passkeyRegisterVerify = asyncHandler(async (req, res) => {
 
 const passkeyLoginOptions = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.PASSKEY });
+    const challengeId = normalizeText(req.body?.challengeId || req.body?.mfaChallengeId);
+    if (!challengeId) throw new AppError('MFA challenge is required.', 400);
+    const purpose = normalizeText(req.body?.purpose) || 'login';
+    const action = normalizeText(req.body?.action);
+    const inspected = await inspectMfaChallenge({
+        challengeId,
+        userId: req.user?._id,
+        method: MFA_METHODS.PASSKEY,
+        purpose,
+        action,
+        req,
+    });
+    if (!inspected.success) throw new AppError('MFA challenge is invalid or expired.', 401);
+
     const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
     if (!deviceId) throw new AppError('Trusted device identity is missing.', 400);
-    if (!getTrustedDeviceRegistration(req.user, deviceId)) {
+    const registeredDevice = getTrustedDeviceRegistration(req.user, deviceId);
+    if (!registeredDevice) {
         throw new AppError('Registered passkey is required for this device.', 404);
     }
+    assertPasskeyLoginDeviceEligible({
+        user: req.user,
+        session: req.authSession || null,
+        device: registeredDevice,
+    });
     const challenge = await issueTrustedDeviceChallenge({
         user: req.user,
         authUid: req.authUid || '',
@@ -677,32 +694,67 @@ const passkeyLoginOptions = asyncHandler(async (req, res) => {
 const passkeyLoginVerify = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.PASSKEY });
     const challengeId = normalizeText(req.body?.challengeId || req.body?.mfaChallengeId);
-    let inspectedChallenge = null;
-    if (challengeId) {
-        const inspected = await inspectMfaChallenge({
-            challengeId,
-            userId: req.user?._id,
-            method: MFA_METHODS.PASSKEY,
-            purpose: normalizeText(req.body?.purpose) || 'login',
-            action: normalizeText(req.body?.action),
-            req,
-        });
-        if (!inspected.success) throw new AppError('MFA challenge is invalid or expired.', 401);
-        inspectedChallenge = inspected.challenge || null;
-    }
+    if (!challengeId) throw new AppError('MFA challenge is required.', 400);
+    const purpose = normalizeText(req.body?.purpose) || 'login';
+    const action = normalizeText(req.body?.action);
+    const inspected = await inspectMfaChallenge({
+        challengeId,
+        userId: req.user?._id,
+        method: MFA_METHODS.PASSKEY,
+        purpose,
+        action,
+        req,
+    });
+    if (!inspected.success) throw new AppError('MFA challenge is invalid or expired.', 401);
+    const inspectedChallenge = inspected.challenge || null;
     if (!startTrafficBudgetCommit(req, res)) return undefined;
     const verification = await verifyPasskeyChallenge({ req, expectedScope: 'mfa-passkey-login' });
-    if (challengeId) {
-        const consumed = await consumeMfaChallenge({
-            challengeId,
-            userId: req.user?._id,
-            method: MFA_METHODS.PASSKEY,
-            purpose: inspectedChallenge?.purpose || normalizeText(req.body?.purpose) || 'login',
-            action: normalizeText(req.body?.action),
-            req,
-        });
-        if (!consumed.success) throw new AppError('MFA challenge is invalid or expired.', 401);
+    const verifiedPolicyUser = {
+        ...req.user,
+        trustedDevices: [
+            ...(Array.isArray(req.user?.trustedDevices)
+                ? req.user.trustedDevices.filter((device) => (
+                    String(device?.deviceId || '').trim()
+                    !== String(verification.trustedDevice?.deviceId || '').trim()
+                ))
+                : []),
+            verification.trustedDevice,
+        ],
+    };
+    assertPasskeyLoginDeviceEligible({
+        user: verifiedPolicyUser,
+        session: req.authSession || null,
+        device: verification.trustedDevice,
+    });
+    const projectedSession = {
+        ...(req.authSession || {}),
+        deviceId: verification.trustedDevice?.deviceId || req.authSession?.deviceId || '',
+        amr: Array.from(new Set([
+            ...(Array.isArray(req.authSession?.amr) ? req.authSession.amr : []),
+            'mfa',
+            'passkey',
+            'webauthn',
+        ])),
+        stepUpUntil: getStepUpExpiry(),
+    };
+    const postVerificationPolicy = evaluateLogin({
+        user: verifiedPolicyUser,
+        context: { session: projectedSession },
+    });
+    if (postVerificationPolicy.mfaRequired) {
+        const error = new AppError('Passkey proof did not satisfy the current MFA policy.', 403);
+        error.code = 'PASSKEY_MFA_ASSURANCE_INSUFFICIENT';
+        throw error;
     }
+    const consumed = await consumeMfaChallenge({
+        challengeId,
+        userId: req.user?._id,
+        method: MFA_METHODS.PASSKEY,
+        purpose: inspectedChallenge?.purpose || purpose,
+        action,
+        req,
+    });
+    if (!consumed.success) throw new AppError('MFA challenge is invalid or expired.', 401);
     const user = await syncPasskeyMfaState({
         userId: req.user?._id,
         trustedDevice: verification.trustedDevice,

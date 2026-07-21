@@ -17,7 +17,7 @@ The packaged app uses the configured hosted backend origin:
 - `AURA_DESKTOP_AUTH_FRONTEND_ORIGIN`
 - `AURA_DESKTOP_AUTH_ALLOWED_ORIGINS`
 
-Override that target at launch or build time with:
+For local development only, set `NODE_ENV=development` before using a loopback HTTP override. Packaged and unset-runtime builds require HTTPS. Override that target at launch or build time with:
 
 - PowerShell: `$env:AURA_DESKTOP_BACKEND_ORIGIN='http://127.0.0.1:5000'`
 - PowerShell: `$env:AURA_DESKTOP_AUTH_FRONTEND_ORIGIN='https://aurapilot.vercel.app'`
@@ -50,6 +50,7 @@ Server-side requirements:
 Desktop-side requirements:
 
 - `AURA_DESKTOP_OWNER_ACCESS_ENABLED=true`
+- `AURA_DESKTOP_OWNER_FIREBASE_UID=<same owner Firebase uid configured on the local backend>`
 - `AURA_DESKTOP_OWNER_ACCESS_KEY=<same high-entropy owner key>` or `AURA_DESKTOP_OWNER_ACCESS_KEY_FILE=<local uncommitted key file>`
 
 Security invariants:

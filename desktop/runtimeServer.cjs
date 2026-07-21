@@ -1,6 +1,7 @@
 const fs = require('fs');
 const crypto = require('crypto');
 const http = require('http');
+const net = require('net');
 const path = require('path');
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
@@ -26,7 +27,7 @@ const DESKTOP_AUTH_FORM_TRANSPORT = 'form_post';
 const DESKTOP_AUTH_PROTOCOL_META_NAME = 'aura-desktop-auth-protocol';
 const DESKTOP_AUTH_PROTOCOL_VERSION = '2';
 const DESKTOP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
-const DESKTOP_AUTH_RESULT_TTL_MS = 60 * 1000;
+const DESKTOP_AUTH_RESULT_TTL_MS = DESKTOP_AUTH_REQUEST_TTL_MS;
 const DESKTOP_AUTH_TOKEN_MAX_LENGTH = 8192;
 const createDesktopAuthResultHtml = ({ title, heading, message }) => `<!doctype html>
 <html lang="en">
@@ -60,6 +61,12 @@ const DESKTOP_AUTH_CANCEL_HTML = createDesktopAuthResultHtml({
     message: 'Aura Desktop cancelled this browser sign-in.',
 });
 
+const DESKTOP_AUTH_FAILURE_HTML = createDesktopAuthResultHtml({
+    title: 'Aura Desktop Sign-In Could Not Be Completed',
+    heading: 'Sign-in could not be completed',
+    message: 'Aura Desktop could not verify this browser response. Return to the desktop app and start a fresh sign-in.',
+});
+
 const trimTrailingSlash = (value = '') => String(value || '').replace(/\/+$/, '');
 
 const parseBooleanEnv = (value, fallback = false) => {
@@ -70,21 +77,57 @@ const parseBooleanEnv = (value, fallback = false) => {
     return fallback;
 };
 
+const isDevelopmentRuntime = () => ['development', 'test'].includes(
+    String(process.env.NODE_ENV || '').trim().toLowerCase()
+);
+
+const isExactLoopbackHostname = (hostname = '') => {
+    const normalizedHostname = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+    if (normalizedHostname === 'localhost' || normalizedHostname === '::1') {
+        return true;
+    }
+    return net.isIP(normalizedHostname) === 4
+        && normalizedHostname.split('.')[0] === '127';
+};
+
 const isLoopbackBackendOrigin = (backendOrigin = '') => {
     try {
-        const hostname = new URL(backendOrigin).hostname.toLowerCase();
-        return hostname === 'localhost'
-            || hostname === '::1'
-            || hostname === '[::1]'
-            || hostname === '0.0.0.0'
-            || hostname.startsWith('127.');
+        const url = new URL(backendOrigin);
+        return ['http:', 'https:'].includes(url.protocol)
+            && isExactLoopbackHostname(url.hostname);
     } catch {
         return false;
     }
 };
 
+const normalizeDesktopServiceOrigin = (value, {
+    label,
+    preservePath = false,
+} = {}) => {
+    let url;
+    try {
+        url = new URL(String(value || '').trim());
+    } catch {
+        throw new Error(`${label} is not a valid URL.`);
+    }
+
+    if (url.username || url.password || url.search || url.hash) {
+        throw new Error(`${label} must not include credentials, query parameters, or fragments.`);
+    }
+
+    const allowsDevelopmentLoopbackHttp = isDevelopmentRuntime()
+        && url.protocol === 'http:'
+        && isExactLoopbackHostname(url.hostname);
+    if (url.protocol !== 'https:' && !allowsDevelopmentLoopbackHttp) {
+        throw new Error(`${label} must use HTTPS, except for an exact loopback development origin.`);
+    }
+
+    const pathname = preservePath ? url.pathname.replace(/\/+$/, '') : '';
+    return trimTrailingSlash(`${url.origin}${pathname}`);
+};
+
 const shouldAllowInsecureBackendProxy = (backendOrigin = '') => (
-    process.env.NODE_ENV !== 'production'
+    isDevelopmentRuntime()
     && parseBooleanEnv(process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY, false)
     && isLoopbackBackendOrigin(backendOrigin)
 );
@@ -96,7 +139,10 @@ const resolveBackendOrigin = () => {
         || DEFAULT_BACKEND_ORIGIN
     ).trim();
 
-    return trimTrailingSlash(configured);
+    return normalizeDesktopServiceOrigin(configured, {
+        label: 'Desktop backend origin',
+        preservePath: true,
+    });
 };
 
 const resolveDesktopAuthFrontendOrigin = () => {
@@ -108,16 +154,10 @@ const resolveDesktopAuthFrontendOrigin = () => {
         || DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN
     ).trim();
 
-    try {
-        const url = new URL(configured);
-        if (!['http:', 'https:'].includes(url.protocol)) {
-            throw new Error('Unsupported desktop auth frontend protocol');
-        }
-        const pathname = url.pathname.replace(/\/+$/, '');
-        return trimTrailingSlash(`${url.origin}${pathname}`);
-    } catch {
-        return DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN;
-    }
+    return normalizeDesktopServiceOrigin(configured, {
+        label: 'Desktop auth frontend origin',
+        preservePath: true,
+    });
 };
 
 const assertDistExists = (distDir) => {
@@ -150,13 +190,23 @@ const validateDesktopAuthFrontend = async ({
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-        const response = await fetchImpl(new URL(DESKTOP_AUTH_FRONTEND_PATH, authFrontendOrigin), {
+        const normalizedAuthFrontendOrigin = normalizeDesktopServiceOrigin(authFrontendOrigin, {
+            label: 'Desktop auth frontend origin',
+            preservePath: true,
+        });
+        const expectedOrigin = new URL(normalizedAuthFrontendOrigin).origin;
+        const response = await fetchImpl(new URL(DESKTOP_AUTH_FRONTEND_PATH, normalizedAuthFrontendOrigin), {
             headers: { Accept: 'text/html' },
             redirect: 'follow',
             signal: controller.signal,
         });
         if (!response.ok) {
             throw new Error(`Hosted desktop sign-in returned HTTP ${response.status}.`);
+        }
+        if (response.url && new URL(response.url).origin !== expectedOrigin) {
+            const error = new Error('Hosted desktop sign-in redirected to an untrusted origin.');
+            error.code = 'auth/desktop-browser-origin-mismatch';
+            throw error;
         }
 
         const protocolVersion = readDesktopAuthProtocolVersion(await response.text());
@@ -170,7 +220,10 @@ const validateDesktopAuthFrontend = async ({
 
         return { protocolVersion };
     } catch (error) {
-        if (error?.code === 'auth/desktop-browser-protocol-mismatch') {
+        if (
+            error?.code === 'auth/desktop-browser-protocol-mismatch'
+            || error?.code === 'auth/desktop-browser-origin-mismatch'
+        ) {
             throw error;
         }
         const compatibilityError = new Error(
@@ -191,20 +244,26 @@ const stripBrowserOnlyProxyHeaders = (proxyReq) => {
     proxyReq.setHeader?.('X-Aura-Desktop-Proxy', '1');
 };
 
-const buildProxyOptions = (backendOrigin) => ({
-    target: backendOrigin,
-    changeOrigin: true,
-    ws: true,
-    xfwd: true,
-    secure: !shouldAllowInsecureBackendProxy(backendOrigin),
-    cookieDomainRewrite: '',
-    logLevel: 'warn',
-    on: {
-        proxyReq: stripBrowserOnlyProxyHeaders,
-        proxyReqWs: stripBrowserOnlyProxyHeaders,
-    },
-    pathRewrite: (_path, request) => request.originalUrl || request.url,
-});
+const buildProxyOptions = (backendOrigin) => {
+    const normalizedBackendOrigin = normalizeDesktopServiceOrigin(backendOrigin, {
+        label: 'Desktop backend origin',
+        preservePath: true,
+    });
+    return ({
+        target: normalizedBackendOrigin,
+        changeOrigin: true,
+        ws: true,
+        xfwd: true,
+        secure: !shouldAllowInsecureBackendProxy(normalizedBackendOrigin),
+        cookieDomainRewrite: '',
+        logLevel: 'warn',
+        on: {
+            proxyReq: stripBrowserOnlyProxyHeaders,
+            proxyReqWs: stripBrowserOnlyProxyHeaders,
+        },
+        pathRewrite: (_path, request) => request.originalUrl || request.url,
+    });
+};
 
 const applyLocalFrontendCachePolicy = (request, response, next) => {
     const pathname = String(request.path || request.url || '');
@@ -280,7 +339,14 @@ const buildDesktopAuthUrl = ({
     secret,
     returnTo = '',
 } = {}) => {
-    const url = new URL(isSafeRelativePath(requestPath) ? requestPath : DESKTOP_AUTH_FRONTEND_PATH, authFrontendOrigin);
+    const normalizedAuthFrontendOrigin = normalizeDesktopServiceOrigin(authFrontendOrigin, {
+        label: 'Desktop auth frontend origin',
+        preservePath: true,
+    });
+    const url = new URL(
+        isSafeRelativePath(requestPath) ? requestPath : DESKTOP_AUTH_FRONTEND_PATH,
+        normalizedAuthFrontendOrigin
+    );
     const trustedCallbackUrl = callbackUrl || runtimeUrl;
     url.searchParams.set('desktopAuthRequest', requestId);
     const handoffParams = new URLSearchParams();
@@ -305,9 +371,16 @@ const getDesktopAuthOrigin = (value = '') => {
 const resolveAllowedDesktopAuthOrigins = (authFrontendOrigin = DEFAULT_DESKTOP_AUTH_FRONTEND_ORIGIN) => {
     const configuredOrigins = String(process.env.AURA_DESKTOP_AUTH_ALLOWED_ORIGINS || '')
         .split(',')
-        .map((origin) => getDesktopAuthOrigin(origin.trim()))
+        .filter((origin) => origin.trim())
+        .map((origin) => normalizeDesktopServiceOrigin(origin.trim(), {
+            label: 'Allowed desktop auth origin',
+        }))
+        .map((origin) => getDesktopAuthOrigin(origin))
         .filter(Boolean);
-    const primaryOrigin = getDesktopAuthOrigin(authFrontendOrigin);
+    const primaryOrigin = getDesktopAuthOrigin(normalizeDesktopServiceOrigin(authFrontendOrigin, {
+        label: 'Desktop auth frontend origin',
+        preservePath: true,
+    }));
     return new Set([primaryOrigin, ...configuredOrigins].filter(Boolean));
 };
 
@@ -340,6 +413,43 @@ const isOpaqueDesktopAuthNavigation = (request = {}) => {
         && String(headers['sec-fetch-site'] || '').trim().toLowerCase() === 'cross-site'
         && String(headers['sec-fetch-mode'] || '').trim().toLowerCase() === 'navigate'
         && String(headers['sec-fetch-dest'] || '').trim().toLowerCase() === 'document';
+};
+
+const isTopLevelDesktopAuthFormNavigation = (request = {}) => {
+    const headers = request.headers || {};
+    const contentType = String(headers['content-type'] || '')
+        .split(';')[0]
+        .trim()
+        .toLowerCase();
+    return contentType === 'application/x-www-form-urlencoded'
+        && String(headers['sec-fetch-mode'] || '').trim().toLowerCase() === 'navigate'
+        && String(headers['sec-fetch-dest'] || '').trim().toLowerCase() === 'document';
+};
+
+const applyDesktopAuthResponseSecurityHeaders = (_request, response, next) => {
+    response.setHeader('Cache-Control', 'no-store, max-age=0');
+    response.setHeader('Pragma', 'no-cache');
+    response.setHeader('Referrer-Policy', 'no-referrer');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    );
+    next();
+};
+
+const sendDesktopAuthFailure = (request, response, {
+    statusCode = 400,
+    message = 'Desktop sign-in could not be completed.',
+} = {}) => {
+    if (isTopLevelDesktopAuthFormNavigation(request)) {
+        response.status(statusCode).type('html').send(DESKTOP_AUTH_FAILURE_HTML);
+        return;
+    }
+    response.status(statusCode).json({
+        success: false,
+        message,
+    });
 };
 
 const createLocalRateLimiter = ({ windowMs, max }) => {
@@ -471,10 +581,14 @@ const createDesktopAuthBroker = ({ onComplete = null, onCancel = null, now = () 
             expiresAt: completedAt + DESKTOP_AUTH_RESULT_TTL_MS,
         });
 
-        onComplete?.({
-            requestId: normalizedRequestId,
-            completedAt,
-        });
+        try {
+            onComplete?.({
+                requestId: normalizedRequestId,
+                completedAt,
+            });
+        } catch (error) {
+            console.warn('[desktop] completed auth notification failed:', error?.message || error);
+        }
 
         return {
             requestId: normalizedRequestId,
@@ -531,10 +645,14 @@ const createDesktopAuthBroker = ({ onComplete = null, onCancel = null, now = () 
             cancelledAt,
             expiresAt: cancelledAt + DESKTOP_AUTH_RESULT_TTL_MS,
         });
-        onCancel?.({
-            requestId: normalizedRequestId,
-            cancelledAt,
-        });
+        try {
+            onCancel?.({
+                requestId: normalizedRequestId,
+                cancelledAt,
+            });
+        } catch (error) {
+            console.warn('[desktop] cancelled auth notification failed:', error?.message || error);
+        }
 
         return {
             requestId: normalizedRequestId,
@@ -605,13 +723,33 @@ const startRuntimeServer = async ({
         onComplete: onDesktopAuthComplete,
         onCancel: onDesktopAuthCancel,
     });
+    const desktopAuthTransportLimiter = rateLimit({
+        windowMs: 60 * 1000,
+        limit: 120,
+        standardHeaders: false,
+        legacyHeaders: false,
+        keyGenerator: (request) => {
+            const origin = String(request.headers.origin || '').trim();
+            if (allowedDesktopAuthOrigins.has(origin)) {
+                return `trusted:${origin}`;
+            }
+            if (isOpaqueDesktopAuthNavigation(request)) {
+                return 'opaque-navigation';
+            }
+            return 'untrusted';
+        },
+        handler: (request, response) => sendDesktopAuthFailure(request, response, {
+            statusCode: 429,
+            message: 'Too many desktop sign-in transport requests. Please try again shortly.',
+        }),
+    });
     const desktopAuthCallbackLimiter = rateLimit({
         windowMs: 60 * 1000,
         limit: 60,
         standardHeaders: false,
         legacyHeaders: false,
-        handler: (_request, response) => response.status(429).json({
-            success: false,
+        handler: (request, response) => sendDesktopAuthFailure(request, response, {
+            statusCode: 429,
             message: 'Too many desktop sign-in callback requests. Please try again shortly.',
         }),
     });
@@ -626,32 +764,52 @@ const startRuntimeServer = async ({
     app.use('/api', apiProxy);
     app.use('/health', apiProxy);
     app.use('/uploads', apiProxy);
-    const handleDesktopAuthPreflight = (request, response) => {
+    const requireTrustedDesktopAuthPreflightOrigin = (request, response, next) => {
         if (!applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)) {
             response.status(403).end();
             return;
         }
+        next();
+    };
+    const requireTrustedDesktopAuthTransport = (request, response, next) => {
+        if (
+            applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins)
+            || isOpaqueDesktopAuthNavigation(request)
+        ) {
+            next();
+            return;
+        }
+        sendDesktopAuthFailure(request, response, {
+            statusCode: 403,
+            message: 'Desktop sign-in callback origin is not trusted.',
+        });
+    };
+    const handleDesktopAuthPreflight = (_request, response) => {
         response.status(204).end();
     };
-    app.options(DESKTOP_AUTH_COMPLETE_PATH, desktopAuthCallbackLimiter, handleDesktopAuthPreflight);
-    app.options(DESKTOP_AUTH_CANCEL_PATH, desktopAuthCallbackLimiter, handleDesktopAuthPreflight);
+    const desktopAuthPreflightHandlers = [
+        applyDesktopAuthResponseSecurityHeaders,
+        requireTrustedDesktopAuthPreflightOrigin,
+        desktopAuthCallbackLimiter,
+        handleDesktopAuthPreflight,
+    ];
+    app.options(DESKTOP_AUTH_COMPLETE_PATH, ...desktopAuthPreflightHandlers);
+    app.options(DESKTOP_AUTH_CANCEL_PATH, ...desktopAuthPreflightHandlers);
+    // Reject untrusted browser transports before they reach the counted callback
+    // route. Keeping this gate outside the POST handler prevents hostile origins
+    // from exhausting the rate-limit budget reserved for legitimate handoffs.
+    app.use(
+        [DESKTOP_AUTH_COMPLETE_PATH, DESKTOP_AUTH_CANCEL_PATH],
+        desktopAuthTransportLimiter,
+        applyDesktopAuthResponseSecurityHeaders,
+        requireTrustedDesktopAuthTransport,
+    );
     app.post(
         DESKTOP_AUTH_COMPLETE_PATH,
         desktopAuthCallbackLimiter,
         express.json({ limit: '16kb' }),
         express.urlencoded({ extended: false, limit: '16kb' }),
         (request, response) => {
-        const hasOrigin = Boolean(String(request.headers.origin || '').trim());
-        const hasTrustedCorsOrigin = hasOrigin
-            && applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins);
-        if (hasOrigin && !hasTrustedCorsOrigin && !isOpaqueDesktopAuthNavigation(request)) {
-            response.status(403).json({
-                success: false,
-                message: 'Desktop sign-in callback origin is not trusted.',
-            });
-            return;
-        }
-
         try {
             const result = desktopAuthBroker.completeRequest(request.body || {});
             if (request.is('application/x-www-form-urlencoded')) {
@@ -663,8 +821,8 @@ const startRuntimeServer = async ({
                 requestId: result.requestId,
             });
         } catch (error) {
-            response.status(error.statusCode || 400).json({
-                success: false,
+            sendDesktopAuthFailure(request, response, {
+                statusCode: error.statusCode || 400,
                 message: error?.message || 'Desktop sign-in could not be completed.',
             });
         }
@@ -675,17 +833,6 @@ const startRuntimeServer = async ({
         express.json({ limit: '16kb' }),
         express.urlencoded({ extended: false, limit: '16kb' }),
         (request, response) => {
-        const hasOrigin = Boolean(String(request.headers.origin || '').trim());
-        const hasTrustedCorsOrigin = hasOrigin
-            && applyDesktopAuthCors(request, response, allowedDesktopAuthOrigins);
-        if (hasOrigin && !hasTrustedCorsOrigin && !isOpaqueDesktopAuthNavigation(request)) {
-            response.status(403).json({
-                success: false,
-                message: 'Desktop sign-in callback origin is not trusted.',
-            });
-            return;
-        }
-
         try {
             const result = desktopAuthBroker.cancelAuthenticatedRequest(request.body || {});
             if (request.is('application/x-www-form-urlencoded')) {
@@ -697,8 +844,8 @@ const startRuntimeServer = async ({
                 requestId: result.requestId,
             });
         } catch (error) {
-            response.status(error.statusCode || 400).json({
-                success: false,
+            sendDesktopAuthFailure(request, response, {
+                statusCode: error.statusCode || 400,
                 message: error?.message || 'Desktop sign-in could not be cancelled.',
             });
         }

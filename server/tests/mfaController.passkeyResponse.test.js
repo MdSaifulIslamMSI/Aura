@@ -4,6 +4,8 @@ const request = require('supertest');
 const ORIGINAL_ENV = { ...process.env };
 const TEST_PRIMARY_FACTOR_METHOD = 'pwd';
 
+jest.setTimeout(30_000);
+
 describe('mfaController passkey response contract', () => {
     afterEach(() => {
         process.env = { ...ORIGINAL_ENV };
@@ -11,10 +13,11 @@ describe('mfaController passkey response contract', () => {
         jest.clearAllMocks();
     });
 
-    test('preserves the MFA challenge after a cancelled passkey assertion and consumes it after a successful retry', async () => {
+    test('binds a legacy admin passkey to the MFA challenge and exact current device before promotion', async () => {
         let app;
         let consumeMfaChallenge;
         let inspectMfaChallenge;
+        let issueTrustedDeviceChallenge;
         let refreshBrowserSession;
         let verifyTrustedDeviceChallenge;
         const deviceSessionToken = 'fixture-rotated-device-session';
@@ -25,23 +28,38 @@ describe('mfaController passkey response contract', () => {
             method: 'webauthn',
             webauthnCredentialIdBase64Url: 'fixture-passkey-credential',
             webauthnUserVerified: true,
-            credentialScope: 'mfa',
+            credentialScope: 'recognition',
+            adminEligibility: 'legacy_candidate',
+            enrollmentContext: 'legacy_admin_snapshot',
             createdAt: new Date('2026-07-18T00:00:00.000Z'),
             expiresAt: new Date('2099-07-18T00:00:00.000Z'),
+        };
+        const otherLegacyDevice = {
+            ...trustedDevice,
+            deviceId: 'device-passkey-other',
+            webauthnCredentialIdBase64Url: 'fixture-passkey-other-credential',
+        };
+        const verifiedTrustedDevice = {
+            ...trustedDevice,
+            credentialScope: 'admin',
+            adminEligibility: 'verified',
+            enrollmentContext: 'mfa',
         };
         const currentUser = {
             _id: '507f1f77bcf86cd799439015',
             __v: 4,
             name: 'Passkey User',
             email: 'passkey-user@example.test',
+            isAdmin: true,
             isVerified: true,
-            trustedDevices: [trustedDevice],
+            trustedDevices: [trustedDevice, otherLegacyDevice],
             mfa: { enabled: true, passkeys: [] },
             recoveryCodeState: { activeCount: 0 },
         };
         const updatedUser = {
             ...currentUser,
             __v: 5,
+            trustedDevices: [verifiedTrustedDevice, otherLegacyDevice],
             mfa: {
                 enabled: true,
                 defaultMethod: 'passkey',
@@ -89,17 +107,25 @@ describe('mfaController passkey response contract', () => {
                 .mockResolvedValueOnce({
                     success: true,
                     method: 'webauthn',
-                    trustedDevice,
+                    trustedDevice: verifiedTrustedDevice,
                     deviceSessionToken,
                     expiresAt,
                 });
+            issueTrustedDeviceChallenge = jest.fn().mockResolvedValue({
+                token: 'fixture-passkey-options-token',
+                method: 'webauthn',
+                deviceId: trustedDevice.deviceId,
+                challengeScope: 'mfa-passkey-login',
+            });
             jest.doMock('../services/trustedDeviceChallengeService', () => ({
-                extractTrustedDeviceContext: jest.fn().mockReturnValue({
-                    deviceId: trustedDevice.deviceId,
-                    deviceLabel: trustedDevice.label,
-                }),
-                getTrustedDeviceRegistration: jest.fn(),
-                issueTrustedDeviceChallenge: jest.fn(),
+                extractTrustedDeviceContext: jest.fn((req) => ({
+                    deviceId: String(req.headers['x-aura-device-id'] || ''),
+                    deviceLabel: 'Fixture security key',
+                })),
+                getTrustedDeviceRegistration: jest.fn((user, deviceId) => (
+                    user?.trustedDevices?.find((device) => device.deviceId === deviceId) || null
+                )),
+                issueTrustedDeviceChallenge,
                 verifyTrustedDeviceChallenge,
             }));
             jest.doMock('../services/trustedDeviceManagementService', () => ({
@@ -126,10 +152,31 @@ describe('mfaController passkey response contract', () => {
                 },
                 buildPublicMfaPolicy: jest.fn(),
                 evaluateAction: jest.fn(),
-                evaluateLogin: jest.fn(),
+                evaluateLogin: jest.fn().mockReturnValue({ mfaRequired: false }),
                 hasPasskey: jest.fn(),
                 hasTotp: jest.fn(),
                 isAdminSubject: jest.fn((user) => Boolean(user?.isAdmin)),
+                isCurrentLegacyAdminPasskeyCandidate: jest.fn(({ user, session }) => {
+                    const current = user?.trustedDevices?.find((device) => (
+                        device.deviceId === session?.deviceId
+                    ));
+                    return Boolean(
+                        user?.isAdmin
+                        && current?.credentialScope === 'recognition'
+                        && current?.adminEligibility === 'legacy_candidate'
+                        && current?.enrollmentContext === 'legacy_admin_snapshot'
+                    );
+                }),
+                isEligiblePasskeyMfaDevice: jest.fn(({ user, device }) => Boolean(
+                    device?.webauthnUserVerified
+                    && (
+                        !user?.isAdmin
+                        || (
+                            device?.credentialScope === 'admin'
+                            && device?.adminEligibility === 'verified'
+                        )
+                    )
+                )),
             }));
             jest.doMock('../services/recoveryCodeService', () => ({}));
             jest.doMock('../config/mfaConfig', () => ({
@@ -151,11 +198,11 @@ describe('mfaController passkey response contract', () => {
                 invalidateUserCacheByEmail: jest.fn().mockResolvedValue(undefined),
             }));
 
-            const { passkeyLoginVerify } = require('../controllers/mfaController');
+            const { passkeyLoginOptions, passkeyLoginVerify } = require('../controllers/mfaController');
             const { budgetRequestTimeout } = require('../middleware/requestTimeouts');
             app = express();
             app.use(express.json());
-            app.post('/api/auth/mfa/passkey/login/verify', (req, _res, next) => {
+            const attachAuthContext = (req, _res, next) => {
                 req.user = currentUser;
                 req.authUid = 'uid-passkey-user';
                 req.authToken = {
@@ -163,14 +210,30 @@ describe('mfaController passkey response contract', () => {
                     email: currentUser.email,
                     email_verified: true,
                 };
-                req.authSession = null;
+                req.authSession = {
+                    sessionId: 'fixture-browser-session',
+                    deviceId: trustedDevice.deviceId,
+                    amr: [TEST_PRIMARY_FACTOR_METHOD],
+                };
                 req.requestId = 'passkey-timeout-race';
                 req.trafficBudget = {
                     routeClass: 'AUTH_WEBAUTHN',
                     timeoutMs: 75,
                 };
                 next();
-            }, budgetRequestTimeout(), passkeyLoginVerify);
+            };
+            app.post(
+                '/api/auth/mfa/passkey/login/options',
+                attachAuthContext,
+                budgetRequestTimeout(),
+                passkeyLoginOptions
+            );
+            app.post(
+                '/api/auth/mfa/passkey/login/verify',
+                attachAuthContext,
+                budgetRequestTimeout(),
+                passkeyLoginVerify
+            );
             app.use((error, _req, res, _next) => {
                 res.status(error.statusCode || 500).json({ message: error.message });
             });
@@ -182,6 +245,39 @@ describe('mfaController passkey response contract', () => {
             method: 'webauthn',
             proof: 'fixture-passkey-proof',
         };
+        const missingChallenge = await request(app)
+            .post('/api/auth/mfa/passkey/login/options')
+            .set('x-aura-device-id', trustedDevice.deviceId)
+            .send({});
+
+        expect(missingChallenge.statusCode).toBe(400);
+        expect(missingChallenge.body.message).toBe('MFA challenge is required.');
+        expect(inspectMfaChallenge).not.toHaveBeenCalled();
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+
+        const wrongDevice = await request(app)
+            .post('/api/auth/mfa/passkey/login/options')
+            .set('x-aura-device-id', otherLegacyDevice.deviceId)
+            .send({ challengeId: requestBody.challengeId });
+
+        expect(wrongDevice.statusCode).toBe(403);
+        expect(wrongDevice.body.message).toBe(
+            'This passkey is not approved for MFA on the current device.'
+        );
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
+
+        const options = await request(app)
+            .post('/api/auth/mfa/passkey/login/options')
+            .set('x-aura-device-id', trustedDevice.deviceId)
+            .send({ challengeId: requestBody.challengeId });
+
+        expect(options.statusCode).toBe(201);
+        expect(issueTrustedDeviceChallenge).toHaveBeenCalledWith(expect.objectContaining({
+            deviceId: trustedDevice.deviceId,
+            challengeScope: 'mfa-passkey-login',
+            allowEnrollment: false,
+        }));
+
         const cancelled = await request(app)
             .post('/api/auth/mfa/passkey/login/verify')
             .set('x-aura-device-id', trustedDevice.deviceId)
@@ -189,7 +285,7 @@ describe('mfaController passkey response contract', () => {
 
         expect(cancelled.statusCode).toBe(403);
         expect(cancelled.body.message).toBe('Passkey verification failed: assertion_cancelled');
-        expect(inspectMfaChallenge).toHaveBeenCalledTimes(1);
+        expect(inspectMfaChallenge).toHaveBeenCalledTimes(3);
         expect(verifyTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
         expect(consumeMfaChallenge).not.toHaveBeenCalled();
         expect(refreshBrowserSession).not.toHaveBeenCalled();
@@ -212,7 +308,7 @@ describe('mfaController passkey response contract', () => {
             deviceId: trustedDevice.deviceId,
             expectedScope: 'mfa-passkey-login',
         }));
-        expect(inspectMfaChallenge).toHaveBeenCalledTimes(2);
+        expect(inspectMfaChallenge).toHaveBeenCalledTimes(4);
         expect(consumeMfaChallenge).toHaveBeenCalledTimes(1);
         expect(consumeMfaChallenge).toHaveBeenCalledWith(expect.objectContaining({
             challengeId: requestBody.challengeId,
@@ -257,7 +353,7 @@ describe('mfaController passkey response contract', () => {
         releaseInspection();
         await new Promise((resolve) => setImmediate(resolve));
 
-        expect(inspectMfaChallenge).toHaveBeenCalledTimes(3);
+        expect(inspectMfaChallenge).toHaveBeenCalledTimes(5);
         expect(verifyTrustedDeviceChallenge).toHaveBeenCalledTimes(verificationCallsBeforeTimeout);
         expect(consumeMfaChallenge).toHaveBeenCalledTimes(consumeCallsBeforeTimeout);
         expect(refreshBrowserSession).toHaveBeenCalledTimes(refreshCallsBeforeTimeout);

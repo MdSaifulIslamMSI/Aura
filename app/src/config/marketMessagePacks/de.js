@@ -1299,6 +1299,7 @@ export const MARKET_MESSAGE_PACK = {
   "desktopLogin.action.temporarilyUnavailable": "Vor?bergehend nicht verf?gbar",
   "desktopLogin.action.waitingForBrowser": "Waiting for browser",
   "desktopLogin.consent.accountFallback": "Signed-in Aura account",
+  "desktopLogin.consent.checkingDevice": "Checking this browser",
   "desktopLogin.consent.checkingPasskey": "Checking passkey",
   "desktopLogin.consent.passkeyStatus": "Waiting for passkey verification before returning sign-in to Aura Desktop.",
   "desktopLogin.consent.registerPasskey": "Register passkey & continue",

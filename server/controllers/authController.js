@@ -15,11 +15,13 @@ const {
     TRUSTED_DEVICE_SESSION_HEADER,
     extractTrustedDeviceChallengePayload,
     extractTrustedDeviceContext,
+    getTrustedDeviceRegistration,
     getTrustedDeviceSessionToken,
     issueTrustedDeviceBootstrapChallenge,
     hashTrustedDeviceSessionToken,
     issueTrustedDeviceChallenge,
     resolveTrustedDeviceBootstrapSignal,
+    shouldReproveTrustedDeviceSession,
     verifyTrustedDeviceChallenge,
     verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
@@ -75,9 +77,11 @@ const {
 const {
     createDesktopHandoffAssuranceGrant,
     consumeDesktopHandoffAssuranceGrant,
+    inspectDesktopHandoffAssurance,
 } = require('../services/desktopHandoffAssuranceService');
 const {
     buildPublicMfaPolicy,
+    buildDesktopHandoffMfaMarker,
     evaluateLogin: evaluateMfaLoginPolicy,
     isAdminSubject,
 } = require('../services/mfaPolicyService');
@@ -128,8 +132,12 @@ const buildPublicTrustedDeviceChallenge = ({ challenge = null, user = null } = {
     if (!challenge || typeof challenge !== 'object') return null;
 
     const adminAudience = isAdminSubject(user);
+    const normalizedScope = String(challenge.scope || '').trim();
+    const publicChallenge = { ...challenge };
+    delete publicChallenge.scope;
     return {
-        ...challenge,
+        ...publicChallenge,
+        ...(normalizedScope ? { scope: normalizedScope } : {}),
         audience: adminAudience ? 'admin' : 'public',
         purpose: 'sign_in',
         surface: 'authentication',
@@ -456,17 +464,26 @@ const persistBrowserSessionForUser = async ({
     webAuthnStepUpUntil = null,
     additionalAmr = [],
     riskState = '',
+    resetAssurance = false,
 } = {}) => {
     if (!user?._id) {
         return null;
     }
 
     if (!startTrafficBudgetCommit(req, res)) return null;
+    const previousSession = req.authSession || null;
+    const sessionUser = resetAssurance
+        ? {
+            ...user,
+            authAssurance: '',
+            loginOtpAssuranceExpiresAt: null,
+        }
+        : user;
     const nextSession = await refreshBrowserSession({
         req,
         res,
-        currentSession: req.authSession || null,
-        user,
+        currentSession: resetAssurance ? null : previousSession,
+        user: sessionUser,
         authUid: req.authUid || '',
         authToken: req.authToken || null,
         deviceMethod,
@@ -478,6 +495,13 @@ const persistBrowserSessionForUser = async ({
     });
 
     req.authSession = nextSession;
+    if (
+        resetAssurance
+        && previousSession?.sessionId
+        && previousSession.sessionId !== nextSession.sessionId
+    ) {
+        await revokeBrowserSession(previousSession.sessionId);
+    }
     const supersededSessionId = String(req.supersededAuthSessionId || '').trim();
     if (supersededSessionId && supersededSessionId !== nextSession.sessionId) {
         await revokeBrowserSession(supersededSessionId);
@@ -515,10 +539,12 @@ const resolveDeviceChallengeState = async ({
     authUid = '',
     user = null,
     forceStepUp = false,
+    requireTrustedDevice = false,
+    allowDeviceEnrollment = true,
     stepUpReason = 'trusted_device_required',
     riskDecision = null,
 }) => {
-    if (!forceStepUp && !shouldRequireTrustedDevice({ user })) {
+    if (!forceStepUp && !requireTrustedDevice && !shouldRequireTrustedDevice({ user })) {
         return { status: 'authenticated', deviceChallenge: null };
     }
 
@@ -527,12 +553,12 @@ const resolveDeviceChallengeState = async ({
         recordAuthSecurityEvent({
             event: 'step_up_required',
             outcome: 'blocked',
-            reason: forceStepUp ? 'required' : 'trusted_device_missing',
+            reason: forceStepUp || requireTrustedDevice ? 'required' : 'trusted_device_missing',
             surface: 'trusted_device',
             req,
             meta: {
                 statusCode: 400,
-                stepUpReason: forceStepUp ? stepUpReason : '',
+                stepUpReason: forceStepUp ? stepUpReason : (requireTrustedDevice ? 'desktop_handoff' : ''),
                 riskScore: riskDecision?.score,
                 riskLevel: riskDecision?.level,
             },
@@ -546,10 +572,38 @@ const resolveDeviceChallengeState = async ({
         authToken,
         deviceId,
         deviceSessionToken: resolveTrustedDeviceSessionToken(req),
-    });
+    }, { includeMetadata: true });
 
-    if (trustedDeviceSession.success) {
+    if (
+        trustedDeviceSession.success
+        && !shouldReproveTrustedDeviceSession(trustedDeviceSession)
+    ) {
         return { status: 'authenticated', deviceChallenge: null };
+    }
+
+    if (!allowDeviceEnrollment) {
+        const registration = getTrustedDeviceRegistration(user, deviceId);
+        const registrationMethod = String(registration?.method || '').trim().toLowerCase();
+        const hasWebAuthnCredential = Boolean(
+            String(registration?.webauthnCredentialIdBase64Url || '').trim()
+        );
+        const isBrowserKeyRegistration = Boolean(
+            registration
+            && !hasWebAuthnCredential
+            && (!registrationMethod || registrationMethod === 'browser_key')
+        );
+
+        if (!isBrowserKeyRegistration) {
+            if (req.authSession?.sessionId) {
+                await revokeBrowserSession(req.authSession.sessionId);
+            }
+            const error = new AppError(
+                'Aura Desktop must start a fresh browser sign-in because this device registration is no longer active.',
+                401
+            );
+            error.code = 'DESKTOP_HANDOFF_FRESH_SIGN_IN_REQUIRED';
+            throw error;
+        }
     }
 
     const issuedDeviceChallenge = await issueTrustedDeviceChallenge({
@@ -559,6 +613,7 @@ const resolveDeviceChallengeState = async ({
         authToken,
         deviceId,
         deviceLabel,
+        allowEnrollment: allowDeviceEnrollment,
         postDeviceMfaRequired: forceStepUp,
         postDeviceMfaReason: forceStepUp ? stepUpReason : '',
     });
@@ -570,13 +625,13 @@ const resolveDeviceChallengeState = async ({
     recordAuthSecurityEvent({
         event: 'trusted_device_challenge',
         outcome: 'required',
-        reason: forceStepUp ? 'required' : 'trusted_device_required',
+        reason: forceStepUp || requireTrustedDevice ? 'required' : 'trusted_device_required',
         surface: 'trusted_device',
         req,
         meta: {
             mode: deviceChallenge?.mode || '',
             method: deviceChallenge?.method || '',
-            stepUpReason: forceStepUp ? stepUpReason : '',
+            stepUpReason: forceStepUp ? stepUpReason : (requireTrustedDevice ? 'desktop_handoff' : ''),
             riskScore: riskDecision?.score,
             riskLevel: riskDecision?.level,
             riskReasons: riskDecision?.reasons,
@@ -610,7 +665,24 @@ const buildRequestAuthUser = (req) => ({
     }),
 });
 
-const resolveLoginMfaState = async ({ req, user, loginRisk = null, deviceBinding = null } = {}) => {
+const isEstablishedDesktopHandoffSession = (req = {}) => {
+    const amr = Array.isArray(req.authSession?.amr)
+        ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
+        : [];
+    return Boolean(
+        req.authSession?.sessionId
+        && amr.includes('desktop_handoff')
+        && String(req.authSession?.deviceMethod || '').trim().toLowerCase() === 'browser_key'
+    );
+};
+
+const resolveLoginMfaState = async ({
+    req,
+    user,
+    loginRisk = null,
+    deviceBinding = null,
+    session = req?.authSession || null,
+} = {}) => {
     const mfaPolicy = evaluateMfaLoginPolicy({
         user,
         context: {
@@ -618,7 +690,7 @@ const resolveLoginMfaState = async ({ req, user, loginRisk = null, deviceBinding
             risk: loginRisk?.risk || null,
             riskState: loginRisk?.riskState || '',
             stepUpReason: loginRisk?.stepUpReason || '',
-            session: req.authSession || null,
+            session,
         },
     });
 
@@ -688,6 +760,87 @@ const resolveLoginMfaState = async ({ req, user, loginRisk = null, deviceBinding
     };
 };
 
+const assertDesktopHandoffMfaReady = ({ req, user } = {}) => {
+    const policy = evaluateMfaLoginPolicy({
+        user,
+        context: {
+            session: req?.authSession || null,
+        },
+    });
+    if (!policy.mfaRequired) return;
+
+    const error = new AppError('Desktop handoff requires the current MFA checkpoint to be completed.', 403);
+    error.code = 'DESKTOP_HANDOFF_MFA_REQUIRED';
+    error.requiresMfa = true;
+    throw error;
+};
+
+const prepareDesktopHandoff = asyncHandler(async (req, res) => {
+    const requestId = typeof req.body?.requestId === 'string'
+        ? req.body.requestId.trim()
+        : '';
+    if (!DESKTOP_HANDOFF_REQUEST_ID_REGEX.test(requestId)) {
+        throw new AppError('Desktop sign-in request is invalid.', 400);
+    }
+
+    const resolved = await resolveAuthenticatedSession({
+        authUser: buildRequestAuthUser(req),
+        authToken: req.authToken || null,
+        authUid: req.authUid || '',
+        authSession: req.authSession || null,
+    });
+    const user = resolved.user;
+    const deviceState = await resolveDeviceChallengeState({
+        req,
+        authUser: buildRequestAuthUser(req),
+        authToken: req.authToken || null,
+        authUid: req.authUid || '',
+        user,
+        requireTrustedDevice: true,
+        stepUpReason: 'desktop_handoff',
+    });
+    const mfaState = deviceState.status === 'authenticated'
+        ? await resolveLoginMfaState({ req, user })
+        : { status: deviceState.status, mfaChallenge: null, mfaPolicy: null, mfaBlocked: false, mfaError: null };
+
+    if (mfaState.status === 'authenticated') {
+        inspectDesktopHandoffAssurance({
+            requestId,
+            user,
+            authUid: req.authUid || req.authToken?.uid || '',
+            authToken: req.authToken || null,
+            authSession: req.authSession || null,
+            deviceId: extractTrustedDeviceContext(req).deviceId,
+            deviceSessionToken: resolveTrustedDeviceSessionToken(req),
+        });
+    }
+
+    const status = mfaState.status === 'authenticated'
+        ? 'handoff_ready'
+        : mfaState.status;
+    recordAuthSecurityEvent({
+        event: 'desktop_handoff_preflight',
+        outcome: status === 'handoff_ready' ? 'success' : 'required',
+        reason: status === 'handoff_ready' ? 'none' : status,
+        surface: 'auth',
+        req,
+        meta: { requestId, status },
+    });
+
+    res.json({
+        ...resolved.payload,
+        success: true,
+        status,
+        handoffReady: status === 'handoff_ready',
+        deviceChallenge: deviceState.deviceChallenge || null,
+        mfaChallenge: mfaState.mfaChallenge || null,
+        requiresMfa: Boolean(mfaState.mfaPolicy?.mfaRequired || mfaState.mfaChallenge),
+        mfaPolicy: mfaState.mfaPolicy || null,
+        mfaBlocked: Boolean(mfaState.mfaBlocked),
+        mfaError: mfaState.mfaError || null,
+    });
+});
+
 const getSession = asyncHandler(async (req, res) => {
     const resolved = await resolveAuthenticatedSession({
         authUser: buildRequestAuthUser(req),
@@ -697,12 +850,15 @@ const getSession = asyncHandler(async (req, res) => {
     });
 
     const loginRisk = evaluateRuntimeLoginRisk({ req, user: resolved.user });
+    const establishedDesktopHandoffSession = isEstablishedDesktopHandoffSession(req);
     const deviceState = await resolveDeviceChallengeState({
         req,
         authUser: buildRequestAuthUser(req),
         authToken: req.authToken || null,
         authUid: req.authUid || '',
         user: resolved.user,
+        requireTrustedDevice: establishedDesktopHandoffSession,
+        allowDeviceEnrollment: !establishedDesktopHandoffSession,
         forceStepUp: shouldEnforceRuntimeRiskSessionStepUp(req) || loginRisk.forceStepUp,
         stepUpReason: 'login_risk_high',
         riskDecision: loginRisk.risk,
@@ -1180,7 +1336,32 @@ const syncSession = asyncHandler(async (req, res) => {
         deviceId: requestDeviceContext.deviceId,
         deviceSessionToken: resolveTrustedDeviceSessionToken(req),
     });
-    const desktopHandoffGrant = req.authToken?.desktop_handoff === true && !existingDeviceSession.success
+    const requiresDesktopHandoffTargetBootstrap = (
+        req.authToken?.desktop_handoff === true
+        && !existingDeviceSession.success
+    );
+    if (requiresDesktopHandoffTargetBootstrap && !requestDeviceContext.deviceId) {
+        throw new AppError('Aura Desktop must provide its local trusted-device identity.', 400);
+    }
+    const existingTargetRegistration = req.authToken?.desktop_handoff === true
+        ? getTrustedDeviceRegistration(user, requestDeviceContext.deviceId)
+        : null;
+    if (
+        !existingDeviceSession.success
+        && existingTargetRegistration
+        && (
+            String(existingTargetRegistration.method || '').trim().toLowerCase() === 'webauthn'
+            || String(existingTargetRegistration.webauthnCredentialIdBase64Url || '').trim()
+        )
+    ) {
+        const error = new AppError(
+            'Aura Desktop must rotate its legacy trusted-device identity before continuing.',
+            409
+        );
+        error.code = 'DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED';
+        throw error;
+    }
+    const desktopHandoffGrant = requiresDesktopHandoffTargetBootstrap
         ? await consumeDesktopHandoffAssuranceGrant({
             authToken: req.authToken || null,
             authUid: req.authUid || req.authToken?.uid || '',
@@ -1189,19 +1370,65 @@ const syncSession = asyncHandler(async (req, res) => {
         })
         : null;
 
-    if (desktopHandoffGrant) {
-        req.headers['x-aura-device-id'] = desktopHandoffGrant.deviceId;
-        req.headers[TRUSTED_DEVICE_SESSION_HEADER] = desktopHandoffGrant.deviceSessionToken;
-        await persistBrowserSessionForUser({
-            req,
-            res,
+    if (desktopHandoffGrant && !existingDeviceSession.success) {
+        let challenge;
+        try {
+            challenge = await issueTrustedDeviceChallenge({
+                user,
+                authUid: req.authUid || req.authToken?.uid || '',
+                authToken: req.authToken || null,
+                deviceId: requestDeviceContext.deviceId,
+                deviceLabel: requestDeviceContext.deviceLabel,
+                req,
+                challengeScope: 'desktop_handoff_target',
+                desktopHandoffBootstrap: {
+                    expiresAt: desktopHandoffGrant.bootstrapExpiresAt,
+                    requestId: desktopHandoffGrant.requestId,
+                    loginMfaSatisfied: desktopHandoffGrant.loginMfaSatisfied,
+                    adminPasskeySatisfied: desktopHandoffGrant.adminPasskeySatisfied,
+                },
+            });
+        } catch (error) {
+            const statusCode = Number(error?.statusCode || 0);
+            if (statusCode >= 400 && statusCode < 500) {
+                throw error;
+            }
+
+            const unavailable = new AppError(
+                'Aura Desktop could not start the target device proof. Start a fresh browser sign-in and try again.',
+                503
+            );
+            unavailable.code = 'DESKTOP_HANDOFF_TARGET_CHALLENGE_UNAVAILABLE';
+            throw unavailable;
+        }
+        const deviceChallenge = buildPublicTrustedDeviceChallenge({ challenge, user });
+        const sessionPayload = buildSessionPayload({
+            authUser,
+            authToken: req.authToken || null,
+            authUid: req.authUid || '',
+            authSession: null,
             user,
-            rotate: Boolean(req.authSession?.sessionId),
-            deviceMethod: desktopHandoffGrant.deviceMethod,
-            stepUpUntil: desktopHandoffGrant.stepUpUntil,
-            webAuthnStepUpUntil: desktopHandoffGrant.webAuthnStepUpUntil,
-            additionalAmr: desktopHandoffGrant.additionalAmr,
-            riskState: user?.isAdmin ? 'privileged' : user?.isSeller ? 'heightened' : 'standard',
+            status: 'device_challenge_required',
+            deviceChallenge,
+        });
+
+        recordAuthSecurityEvent({
+            event: 'desktop_handoff_target_device_challenge',
+            outcome: 'required',
+            reason: 'target_device_proof_required',
+            surface: 'auth',
+            req,
+            meta: { requestId: req.body?.desktopHandoffRequestId || '', mode: challenge.mode },
+        });
+
+        return res.json({
+            ...sessionPayload,
+            requiresMfa: false,
+            mfaBlocked: false,
+            mfaError: null,
+            desktopHandoff: {
+                targetDeviceProofRequired: true,
+            },
         });
     }
 
@@ -1262,15 +1489,6 @@ const syncSession = asyncHandler(async (req, res) => {
         requiresMfa: Boolean(mfaState.mfaPolicy?.mfaRequired || mfaState.mfaChallenge),
         mfaBlocked: Boolean(mfaState.mfaBlocked),
         mfaError: mfaState.mfaError || null,
-        ...(desktopHandoffGrant ? {
-            deviceSessionToken: desktopHandoffGrant.deviceSessionToken,
-            expiresAt: desktopHandoffGrant.expiresAt,
-            desktopHandoff: {
-                assuranceTransferred: true,
-                deviceId: desktopHandoffGrant.deviceId,
-                deviceMethod: desktopHandoffGrant.deviceMethod,
-            },
-        } : {}),
     });
 });
 
@@ -1288,6 +1506,7 @@ const issueDesktopHandoffToken = asyncHandler(async (req, res) => {
         throw new AppError('Desktop sign-in requires an authenticated Firebase user.', 401);
     }
 
+    assertDesktopHandoffMfaReady({ req, user: req.user });
     const { deviceId } = extractTrustedDeviceContext(req);
     const assuranceGrant = await createDesktopHandoffAssuranceGrant({
         requestId,
@@ -1842,6 +2061,11 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     }
 
     if (!startTrafficBudgetCommit(req, res)) return undefined;
+    const desktopHandoffTargetProof = req.body?.desktopHandoffTarget === true;
+    if (desktopHandoffTargetProof && req.authToken?.desktop_handoff !== true) {
+        throw new AppError('Desktop handoff target proof is not authorized for this session.', 403);
+    }
+    const expectedScope = desktopHandoffTargetProof ? 'desktop_handoff_target' : '';
     const verification = await verifyTrustedDeviceChallenge({
         user: req.user,
         authUid: req.authUid || '',
@@ -1853,6 +2077,7 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         deviceLabel,
         publicKeySpkiBase64,
         credential,
+        expectedScope,
     });
 
     if (!verification.success) {
@@ -1881,6 +2106,39 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
     const policyUser = verification.trustedDevice
         ? { ...req.user, trustedDevices: [...trustedDevices, verification.trustedDevice] }
         : req.user;
+    const desktopHandoffBootstrap = desktopHandoffTargetProof
+        ? verification.desktopHandoffBootstrap
+        : null;
+    const desktopHandoffMfaSatisfied = Boolean(
+        desktopHandoffBootstrap?.loginMfaSatisfied
+        && (
+            !isAdminSubject(policyUser)
+            || desktopHandoffBootstrap?.adminPasskeySatisfied
+        )
+    );
+    const desktopHandoffMfaMarker = desktopHandoffMfaSatisfied
+        ? buildDesktopHandoffMfaMarker(
+            verification.trustedDevice?.deviceId || deviceId,
+            { admin: isAdminSubject(policyUser) }
+        )
+        : '';
+    const desktopHandoffAmr = desktopHandoffTargetProof
+        ? [
+            'desktop_handoff',
+            'device_binding',
+            ...(desktopHandoffMfaMarker ? ['mfa', desktopHandoffMfaMarker] : []),
+        ]
+        : [];
+    const projectedLoginSession = desktopHandoffTargetProof
+        ? {
+            deviceId: verification.trustedDevice?.deviceId || deviceId,
+            deviceMethod: 'browser_key',
+            aal: desktopHandoffMfaMarker ? 'aal2' : 'aal1',
+            amr: desktopHandoffAmr,
+            stepUpUntil: null,
+            webAuthnStepUpUntil: null,
+        }
+        : (req.authSession || null);
     const loginRisk = verification.postDeviceMfaRequired
         ? {
             forceStepUp: true,
@@ -1893,6 +2151,7 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         req,
         user: policyUser,
         loginRisk,
+        session: projectedLoginSession,
         deviceBinding: {
             deviceId: verification.trustedDevice?.deviceId || '',
             deviceSessionToken: verification.deviceSessionToken || '',
@@ -1907,11 +2166,17 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
             req,
             res,
             user: policyUser,
-            rotate: Boolean(req.authSession?.sessionId),
-            deviceMethod: webAuthnProof ? 'webauthn' : 'browser_key',
-            stepUpUntil: webAuthnStepUpUntil,
-            webAuthnStepUpUntil,
-            additionalAmr: [webAuthnVerified ? 'webauthn' : 'device_binding'],
+            rotate: !desktopHandoffTargetProof && Boolean(req.authSession?.sessionId),
+            resetAssurance: desktopHandoffTargetProof,
+            deviceMethod: desktopHandoffTargetProof
+                ? 'browser_key'
+                : (webAuthnProof ? 'webauthn' : 'browser_key'),
+            stepUpUntil: desktopHandoffTargetProof ? new Date(0) : webAuthnStepUpUntil,
+            webAuthnStepUpUntil: desktopHandoffTargetProof ? new Date(0) : webAuthnStepUpUntil,
+            additionalAmr: desktopHandoffTargetProof
+                ? desktopHandoffAmr
+                : [webAuthnVerified ? 'webauthn' : 'device_binding'],
+            riskState: loginRisk.riskState,
         });
     }
 
@@ -1941,6 +2206,7 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
         },
     });
 
+    const { desktopHandoffBootstrap: _desktopHandoffBootstrap, ...publicVerification } = verification;
     res.json({
         success: true,
         message: verification.mode === 'enroll'
@@ -1951,7 +2217,7 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
                 ? 'Trusted device verified'
                 : 'Trusted device verified. Complete MFA to finish signing in.'),
         ...sessionPayload,
-        ...verification,
+        ...publicVerification,
         status: mfaState.status,
         deviceChallenge: null,
         mfaChallenge: mfaState.mfaChallenge,
@@ -1984,6 +2250,7 @@ module.exports = {
     generateBackupRecoveryCodes,
     getSession,
     issueDesktopHandoffToken,
+    prepareDesktopHandoff,
     issueDesktopOwnerAccessToken,
     requestBootstrapDeviceChallenge,
     startDuoStepUp,

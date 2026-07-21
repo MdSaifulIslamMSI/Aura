@@ -52,7 +52,11 @@ const { recordSensitiveActionDecision } = require('../services/securityAuditServ
 const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 const { hasObservedWebAuthnUserVerification } = require('../services/trustedDeviceAssuranceService');
 const { shadowCompareTrustedDeviceRequest } = require('../services/trustedDeviceV2RuntimeService');
-const { evaluateLogin, isAdminSubject } = require('../services/mfaPolicyService');
+const {
+    evaluateLogin,
+    isAdminSubject,
+    isDesktopHandoffAdminMfaSatisfied,
+} = require('../services/mfaPolicyService');
 
 // Redis-backed token cache.
 // Replaces the in-process Map which broke horizontal scaling:
@@ -71,6 +75,8 @@ const parsedRevocationCacheTtl = Number(process.env.AUTH_REVOCATION_CACHE_TTL_SE
 const AUTH_REVOCATION_CACHE_TTL_SECONDS = Number.isFinite(parsedRevocationCacheTtl) && parsedRevocationCacheTtl > 0
     ? Math.max(Math.trunc(parsedRevocationCacheTtl), 60)
     : 7 * 24 * 60 * 60;
+const DESKTOP_HANDOFF_REQUEST_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DESKTOP_HANDOFF_GRANT_ID_REGEX = /^[A-Za-z0-9_-]{43}$/;
 
 const getCachedUser = async (uid) => {
     try {
@@ -605,7 +611,8 @@ const hasSessionSecondFactor = (req = {}) => {
         ? req.authSession.amr.map((entry) => String(entry || '').trim().toLowerCase())
         : [];
 
-    return sessionAmr.some((entry) => (
+    return isDesktopHandoffAdminMfaSatisfied(req.authSession)
+        || sessionAmr.some((entry) => (
         entry === 'firebase_mfa'
         || entry === 'webauthn'
     ));
@@ -717,6 +724,99 @@ const enforceCompletedLoginMfa = (req = {}) => {
 
 const normalizePath = (value) => String(value || '').trim().toLowerCase();
 
+const resolveExactRequestPath = (req = {}) => {
+    const normalized = normalizePath(req.originalUrl || req.path || '').split('?', 1)[0];
+    if (!normalized || normalized === '/') return normalized || '/';
+    return normalized.replace(/\/+$/, '');
+};
+
+const isDesktopHandoffContinuationPath = (req = {}) => {
+    const method = String(req.method || '').trim().toUpperCase();
+    const path = resolveExactRequestPath(req);
+    return method === 'POST' && (
+        path === '/api/auth/sync'
+        || path === '/api/auth/verify-device'
+        || path === '/api/auth/logout'
+    );
+};
+
+const isDesktopHandoffTargetSession = (req = {}) => {
+    const session = req.authSession || null;
+    const sessionAmr = Array.isArray(session?.amr)
+        ? session.amr.map((entry) => String(entry || '').trim().toLowerCase())
+        : [];
+    const sessionDeviceMethod = String(session?.deviceMethod || '').trim().toLowerCase();
+
+    return Boolean(
+        session?.sessionId
+        && sessionAmr.includes('desktop_handoff')
+        && sessionDeviceMethod === 'browser_key'
+    );
+};
+
+const hasDesktopHandoffTargetSessionBinding = (req = {}) => {
+    const requestDeviceId = String(extractTrustedDeviceContext(req)?.deviceId || '').trim();
+    const sessionDeviceId = String(req.authSession?.deviceId || '').trim();
+    return Boolean(
+        isDesktopHandoffTargetSession(req)
+        && requestDeviceId
+        && requestDeviceId === sessionDeviceId
+    );
+};
+
+const hasCompletedDesktopHandoffTargetProof = (req = {}) => (
+    hasDesktopHandoffTargetSessionBinding(req)
+    && getTrustedDeviceSessionVerification(req).success
+);
+
+const isDesktopHandoffDeviceRecoveryPath = (req = {}) => {
+    const method = String(req.method || '').trim().toUpperCase();
+    const path = resolveExactRequestPath(req);
+    return (method === 'GET' && path === '/api/auth/session')
+        || (method === 'POST' && path === '/api/auth/verify-device')
+        || (method === 'POST' && path === '/api/auth/logout');
+};
+
+const enforceDesktopHandoffTokenQuarantine = (req = {}) => {
+    const handoffToken = req.authToken?.desktop_handoff === true;
+    const handoffSession = isDesktopHandoffTargetSession(req);
+    const handoffSessionBinding = hasDesktopHandoffTargetSessionBinding(req);
+    if (!handoffToken && !handoffSession) return;
+    if (hasCompletedDesktopHandoffTargetProof(req)) return;
+
+    const path = resolveExactRequestPath(req);
+    const logoutOnly = String(req.method || '').trim().toUpperCase() === 'POST'
+        && path === '/api/auth/logout';
+    if (logoutOnly) return;
+    if (handoffSession) {
+        if (handoffSessionBinding && isDesktopHandoffDeviceRecoveryPath(req)) return;
+
+        const error = new AppError('Aura Desktop must reprove this device before accessing protected resources.', 401);
+        error.code = 'DESKTOP_HANDOFF_DEVICE_REPROOF_REQUIRED';
+        throw error;
+    }
+
+    const requestId = String(req.authToken?.desktop_request_id || '').trim();
+    const grantId = String(req.authToken?.desktop_handoff_grant_id || '').trim();
+    const grantExpiresAtSeconds = Number(req.authToken?.desktop_handoff_grant_exp || 0);
+    if (
+        !DESKTOP_HANDOFF_REQUEST_ID_REGEX.test(requestId)
+        || !DESKTOP_HANDOFF_GRANT_ID_REGEX.test(grantId)
+        || !Number.isFinite(grantExpiresAtSeconds)
+        || grantExpiresAtSeconds <= Math.floor(Date.now() / 1000)
+    ) {
+        const error = new AppError('Desktop handoff assurance claims are invalid or expired.', 401);
+        error.code = 'DESKTOP_HANDOFF_ASSURANCE_CLAIMS_INVALID';
+        throw error;
+    }
+
+    if (isDesktopHandoffContinuationPath(req)) return;
+
+    const error = new AppError('Complete Aura Desktop target-device proof before accessing this resource.', 403);
+    error.code = 'DESKTOP_HANDOFF_TARGET_PROOF_REQUIRED';
+    throw error;
+};
+
 const hasBearerAuthorizationHeader = (req = {}) => String(req.headers?.authorization || '').startsWith('Bearer ');
 
 const shouldBypassCookieSessionCsrf = (req = {}) => {
@@ -809,6 +909,10 @@ const hasActivePasskeySessionStepUp = (req = {}) => {
 };
 
 const hasPasskeySecondFactor = (req = {}) => {
+    if (isDesktopHandoffAdminMfaSatisfied(req.authSession)) {
+        return true;
+    }
+
     const firebaseSecondFactor = String(req.authToken?.firebase?.sign_in_second_factor || '')
         .trim()
         .toLowerCase();
@@ -1323,6 +1427,7 @@ const enforceCookieSessionCsrf = async (req, res) => {
 };
 
 const finalizeProtectedRequest = async (req, res, next) => {
+    enforceDesktopHandoffTokenQuarantine(req);
     const { deviceId } = extractTrustedDeviceContext(req);
     await shadowCompareTrustedDeviceRequest({
         user: req.user,

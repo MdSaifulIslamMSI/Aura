@@ -54,6 +54,7 @@ describe('trusted-device verification route regression', () => {
             verifyBackupRecoveryCode: endpoint,
             verifyDeviceChallenge,
             issueDesktopHandoffToken: endpoint,
+            prepareDesktopHandoff: endpoint,
             issueDesktopOwnerAccessToken: endpoint,
             startEnterpriseLogin: endpoint,
             startDuoLogin: endpoint,

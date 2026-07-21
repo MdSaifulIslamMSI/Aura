@@ -15,6 +15,7 @@ const {
     verifyBackupRecoveryCode,
     verifyDeviceChallenge,
     issueDesktopHandoffToken,
+    prepareDesktopHandoff,
     issueDesktopOwnerAccessToken,
     startEnterpriseLogin,
     startDuoLogin,
@@ -269,7 +270,8 @@ router.get('/duo/step-up', protect, duoOidcLimiter, beginAtomicAuthResponse, est
 router.get('/duo/callback', duoOidcLimiter, beginAtomicAuthResponse, completeDuoLogin);
 router.get('/enterprise/start', enterpriseOidcLimiter, beginAtomicAuthResponse, startEnterpriseLogin);
 router.get('/enterprise/callback', enterpriseOidcLimiter, beginAtomicAuthResponse, completeEnterpriseLogin);
-router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, beginAtomicAuthResponse, establishSessionCookie, issueDesktopHandoffToken);
+router.post('/desktop-handoff/prepare', protect, desktopHandoffLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, prepareDesktopHandoff);
+router.post('/desktop-handoff/custom-token', protect, desktopHandoffLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenValidatorUnlessBearerAuth, issueDesktopHandoffToken);
 router.post('/desktop-handoff/owner-access-token', desktopOwnerAccessLimiter, beginAtomicAuthResponse, issueDesktopOwnerAccessToken);
 router.post('/exchange', protect, beginAtomicAuthResponse, establishSessionCookie, csrfTokenGenerator, getSession);
 router.get('/session', protect, beginAtomicAuthResponse, establishSessionCookie, csrfTokenGenerator, getSession);

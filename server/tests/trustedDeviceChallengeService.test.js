@@ -158,6 +158,7 @@ describe('trustedDeviceChallengeService', () => {
         AUTH_WEBAUTHN_RP_ID: process.env.AUTH_WEBAUTHN_RP_ID,
         AUTH_WEBAUTHN_ORIGIN: process.env.AUTH_WEBAUTHN_ORIGIN,
         AUTH_WEBAUTHN_USER_VERIFICATION: process.env.AUTH_WEBAUTHN_USER_VERIFICATION,
+        AUTH_TRUSTED_DEVICE_LIMIT: process.env.AUTH_TRUSTED_DEVICE_LIMIT,
     };
 
     afterEach(() => {
@@ -247,6 +248,81 @@ describe('trustedDeviceChallengeService', () => {
             verified: false,
             reason: 'Fresh trusted device verification is required.',
         });
+    });
+
+    test('requires target identity rotation without mutating an existing desktop passkey', async () => {
+        process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN = 'true';
+        process.env.AUTH_WEBAUTHN_ORIGIN = 'https://aurapilot.vercel.app';
+        process.env.AUTH_WEBAUTHN_RP_ID = 'aurapilot.vercel.app';
+        const userId = '507f1f77bcf86cd799439108';
+        const deviceId = 'desktop_legacy_passkey_123456';
+        const existingDevice = {
+            deviceId,
+            label: 'Aura Desktop',
+            method: 'webauthn',
+            publicKeySpkiBase64: Buffer.from('legacy-desktop-spki').toString('base64'),
+            webauthnCredentialIdBase64Url: 'legacy-desktop-credential',
+            webauthnUserVerified: true,
+            createdAt: new Date(),
+            lastSeenAt: new Date(),
+            lastVerifiedAt: new Date(),
+        };
+        const dbState = { trustedDevices: [existingDevice] };
+        const service = loadServiceWithDbState({
+            dbState,
+            userId,
+        });
+        const req = {
+            headers: {
+                host: '127.0.0.1:47832',
+                origin: 'http://127.0.0.1:47832',
+            },
+            protocol: 'http',
+            get(name) {
+                return this.headers[String(name || '').toLowerCase()] || '';
+            },
+        };
+        const authContext = {
+            authUid: 'firebase-uid-desktop-legacy',
+            authToken: {
+                iat: 1710000003,
+                desktop_handoff: true,
+                desktop_request_id: '123e4567-e89b-42d3-a456-426614174003',
+            },
+        };
+
+        const regularChallenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [existingDevice] },
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            req,
+            ...authContext,
+        });
+        expect(regularChallenge).toMatchObject({
+            mode: 'assert',
+            availableMethods: ['webauthn'],
+            registeredMethod: 'webauthn',
+        });
+        expect(regularChallenge).not.toHaveProperty('scope');
+
+        await expect(service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [existingDevice] },
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            req,
+            challengeScope: 'desktop_handoff_target',
+            desktopHandoffBootstrap: {
+                requestId: authContext.authToken.desktop_request_id,
+                expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                loginMfaSatisfied: true,
+                adminPasskeySatisfied: true,
+            },
+            ...authContext,
+        })).rejects.toMatchObject({
+            code: 'DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED',
+            statusCode: 409,
+        });
+        expect(dbState.trustedDevices).toEqual([existingDevice]);
     });
 
     test('enrolls a new trusted device and then verifies future assertions for the same Firebase session', async () => {
@@ -353,6 +429,41 @@ describe('trustedDeviceChallengeService', () => {
 
         expect(trustedSession).toEqual({ success: true });
 
+        const trustedSessionMetadata = service.verifyTrustedDeviceSession({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            deviceId,
+            deviceSessionToken: assertResult.deviceSessionToken,
+            ...authContext,
+        }, { includeMetadata: true });
+
+        expect(trustedSessionMetadata).toMatchObject({
+            success: true,
+            deviceId,
+            sessionVersion: dbState.trustedDevices[0].sessionVersion,
+        });
+        expect(Number.isFinite(trustedSessionMetadata.expiresAtMs)).toBe(true);
+        expect(service.shouldReproveTrustedDeviceSession(trustedSessionMetadata, {
+            now: () => trustedSessionMetadata.expiresAtMs - 1,
+        })).toBe(true);
+        expect(service.shouldReproveTrustedDeviceSession(trustedSessionMetadata, {
+            now: () => trustedSessionMetadata.expiresAtMs - (24 * 60 * 60 * 1000),
+        })).toBe(false);
+
+        const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(trustedSessionMetadata.expiresAtMs);
+        try {
+            expect(service.verifyTrustedDeviceSession({
+                user: { _id: userId, trustedDevices: dbState.trustedDevices },
+                deviceId,
+                deviceSessionToken: assertResult.deviceSessionToken,
+                ...authContext,
+            })).toEqual({
+                success: false,
+                reason: 'Trusted device session expired',
+            });
+        } finally {
+            nowSpy.mockRestore();
+        }
+
         const bootstrapVerification = service.verifyTrustedDeviceBootstrapSession({
             user: { _id: userId, trustedDevices: dbState.trustedDevices },
             deviceId,
@@ -405,6 +516,333 @@ describe('trustedDeviceChallengeService', () => {
             success: false,
             reason: 'Trusted device registration revoked',
         });
+    });
+
+    test('rejects an unscoped challenge when desktop handoff target scope is expected', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439111';
+        const deviceId = 'desktop_unscoped_123456';
+        const authContext = {
+            authUid: 'firebase-uid-desktop-unscoped',
+            authToken: {
+                iat: 1710000005,
+                desktop_handoff: true,
+                desktop_request_id: '123e4567-e89b-42d3-a456-426614174005',
+            },
+        };
+        const service = loadServiceWithDbState({ dbState, userId });
+        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { format: 'der', type: 'spki' },
+            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+        });
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            ...authContext,
+        });
+        const proof = createRsaProof({
+            challenge: challenge.challenge,
+            mode: challenge.mode,
+            deviceId,
+            privateKeyPem: privateKey,
+        });
+
+        expect(challenge).not.toHaveProperty('scope');
+        await expect(service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            token: challenge.token,
+            proof,
+            publicKeySpkiBase64: Buffer.from(publicKey).toString('base64'),
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            expectedScope: 'desktop_handoff_target',
+            ...authContext,
+        })).resolves.toEqual({
+            success: false,
+            reason: 'Device challenge scope mismatch',
+        });
+        expect(dbState.trustedDevices).toEqual([]);
+    });
+
+    test('binds a desktop handoff bootstrap to one target-scoped device proof', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439109';
+        const deviceId = 'desktop_target_123456';
+        const authContext = {
+            authUid: 'firebase-uid-desktop-target',
+            authToken: {
+                iat: 1710000002,
+                desktop_handoff: true,
+                desktop_request_id: '123e4567-e89b-42d3-a456-426614174002',
+            },
+        };
+        const service = loadServiceWithDbState({ dbState, userId });
+        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { format: 'der', type: 'spki' },
+            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+        });
+        const publicKeySpkiBase64 = Buffer.from(publicKey).toString('base64');
+        await expect(service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            challengeScope: 'desktop_handoff_target',
+            desktopHandoffBootstrap: {
+                requestId: '123e4567-e89b-42d3-a456-426614174099',
+                expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                loginMfaSatisfied: true,
+                adminPasskeySatisfied: true,
+            },
+            ...authContext,
+        })).rejects.toMatchObject({
+            code: 'DESKTOP_HANDOFF_TARGET_BINDING_INVALID',
+            statusCode: 403,
+        });
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            challengeScope: 'desktop_handoff_target',
+            desktopHandoffBootstrap: {
+                requestId: authContext.authToken.desktop_request_id,
+                expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                loginMfaSatisfied: true,
+                adminPasskeySatisfied: true,
+            },
+            ...authContext,
+        });
+        const proof = createRsaProof({
+            challenge: challenge.challenge,
+            mode: challenge.mode,
+            deviceId,
+            privateKeyPem: privateKey,
+        });
+
+        expect(challenge.scope).toBe('desktop_handoff_target');
+
+        await expect(service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            token: challenge.token,
+            proof,
+            publicKeySpkiBase64,
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            ...authContext,
+        })).resolves.toEqual({
+            success: false,
+            reason: 'Device challenge scope mismatch',
+        });
+
+        const targetVerification = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            token: challenge.token,
+            proof,
+            publicKeySpkiBase64,
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            expectedScope: 'desktop_handoff_target',
+            ...authContext,
+        });
+
+        expect(targetVerification).toMatchObject({
+            success: true,
+            mode: 'enroll',
+            desktopHandoffBootstrap: {
+                requestId: authContext.authToken.desktop_request_id,
+                loginMfaSatisfied: true,
+                adminPasskeySatisfied: true,
+            },
+        });
+        expect(targetVerification.trustedDevice.deviceId).toBe(deviceId);
+
+        await expect(service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            token: challenge.token,
+            proof,
+            publicKeySpkiBase64,
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            expectedScope: 'desktop_handoff_target',
+            ...authContext,
+        })).resolves.toEqual({
+            success: false,
+            reason: 'Device challenge already used',
+        });
+
+        await expect(service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            challengeScope: 'desktop_handoff_target',
+            ...authContext,
+        })).rejects.toMatchObject({
+            code: 'DESKTOP_HANDOFF_TARGET_BINDING_INVALID',
+            statusCode: 403,
+        });
+    });
+
+    test('rejects an unoffered WebAuthn method for a browser-key-only desktop target challenge', async () => {
+        const dbState = { trustedDevices: [] };
+        const userId = '507f1f77bcf86cd799439119';
+        const deviceId = 'desktop_target_method_binding_123456';
+        const origin = 'https://console.aura.test';
+        const rpId = 'console.aura.test';
+        const authContext = {
+            authUid: 'firebase-uid-desktop-method-binding',
+            authToken: {
+                iat: 1710000012,
+                desktop_handoff: true,
+                desktop_request_id: '123e4567-e89b-42d3-a456-426614174012',
+            },
+        };
+        process.env.NODE_ENV = 'test';
+        process.env.AUTH_TRUSTED_DEVICE_PREFER_WEBAUTHN = 'true';
+        process.env.AUTH_WEBAUTHN_RP_ID = rpId;
+        process.env.AUTH_WEBAUTHN_ORIGIN = origin;
+
+        const service = loadServiceWithDbState({ dbState, userId });
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            req: { headers: { origin } },
+            challengeScope: 'desktop_handoff_target',
+            desktopHandoffBootstrap: {
+                requestId: authContext.authToken.desktop_request_id,
+                expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                loginMfaSatisfied: true,
+                adminPasskeySatisfied: true,
+            },
+            ...authContext,
+        });
+        const webauthnKeyPair = createWebAuthnKeyPair();
+        const credential = buildWebAuthnRegistrationCredential({
+            challenge: challenge.challenge,
+            origin,
+            rpId,
+            credentialIdBuffer: crypto.randomBytes(32),
+            publicJwk: webauthnKeyPair.publicJwk,
+        });
+
+        expect(challenge.availableMethods).toEqual(['browser_key']);
+        expect(challenge.webauthn).toBeNull();
+        await expect(service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            token: challenge.token,
+            method: 'webauthn',
+            credential,
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            expectedScope: 'desktop_handoff_target',
+            ...authContext,
+        })).resolves.toEqual({
+            success: false,
+            reason: 'Trusted device challenge method not allowed',
+        });
+        expect(dbState.trustedDevices).toEqual([]);
+
+        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { format: 'der', type: 'spki' },
+            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+        });
+        const browserKeyResult = await service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, trustedDevices: [] },
+            token: challenge.token,
+            method: 'browser_key',
+            proof: createRsaProof({
+                challenge: challenge.challenge,
+                mode: challenge.mode,
+                deviceId,
+                privateKeyPem: privateKey,
+            }),
+            publicKeySpkiBase64: Buffer.from(publicKey).toString('base64'),
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            expectedScope: 'desktop_handoff_target',
+            ...authContext,
+        });
+
+        expect(browserKeyResult).toMatchObject({
+            success: true,
+            mode: 'enroll',
+            method: 'browser_key',
+        });
+        expect(dbState.trustedDevices).toHaveLength(1);
+    });
+
+    test('fails desktop enrollment instead of evicting the last verified admin passkey', async () => {
+        process.env.AUTH_TRUSTED_DEVICE_LIMIT = '1';
+        const userId = '507f1f77bcf86cd799439110';
+        const deviceId = 'aura_desktop_target_limit_123';
+        const adminPasskey = {
+            deviceId: 'hosted_admin_passkey_123456',
+            label: 'Admin Windows Hello',
+            method: 'webauthn',
+            webauthnCredentialIdBase64Url: 'admin-limit-credential',
+            webauthnUserVerification: 'required',
+            webauthnUserVerified: true,
+            credentialScope: 'admin',
+            enrollmentContext: 'admin_step_up',
+            adminEligibility: 'verified',
+            sessionVersion: 'admin-limit-session-v1',
+            createdAt: new Date(Date.now() - 10_000),
+            lastSeenAt: new Date(Date.now() - 10_000),
+            lastVerifiedAt: new Date(Date.now() - 10_000),
+            revokedAt: null,
+        };
+        const dbState = { trustedDevices: [adminPasskey] };
+        const service = loadServiceWithDbState({ dbState, userId });
+        const authContext = {
+            authUid: 'firebase-uid-desktop-limit',
+            authToken: {
+                iat: 1710000004,
+                desktop_handoff: true,
+                desktop_request_id: '123e4567-e89b-42d3-a456-426614174004',
+            },
+        };
+        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { format: 'der', type: 'spki' },
+            privateKeyEncoding: { format: 'pem', type: 'pkcs8' },
+        });
+        const challenge = await service.issueTrustedDeviceChallenge({
+            user: { _id: userId, isAdmin: true, trustedDevices: [adminPasskey] },
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            challengeScope: 'desktop_handoff_target',
+            desktopHandoffBootstrap: {
+                requestId: authContext.authToken.desktop_request_id,
+                expiresAt: new Date(Date.now() + 60_000).toISOString(),
+                loginMfaSatisfied: true,
+                adminPasskeySatisfied: true,
+            },
+            ...authContext,
+        });
+        const proof = createRsaProof({
+            challenge: challenge.challenge,
+            mode: challenge.mode,
+            deviceId,
+            privateKeyPem: privateKey,
+        });
+
+        await expect(service.verifyTrustedDeviceChallenge({
+            user: { _id: userId, isAdmin: true, trustedDevices: [adminPasskey] },
+            token: challenge.token,
+            proof,
+            publicKeySpkiBase64: Buffer.from(publicKey).toString('base64'),
+            deviceId,
+            deviceLabel: 'Aura Desktop',
+            expectedScope: 'desktop_handoff_target',
+            ...authContext,
+        })).rejects.toMatchObject({
+            code: 'TRUSTED_DEVICE_LIMIT_PRESERVES_ADMIN_PASSKEY',
+            statusCode: 409,
+        });
+        expect(dbState.trustedDevices).toEqual([adminPasskey]);
     });
 
     test('rejects browser-key trusted-device challenge replay', async () => {
@@ -1209,11 +1647,52 @@ describe('trustedDeviceChallengeService', () => {
             isAdmin: true,
             trustedDevices: dbState.trustedDevices,
         };
-        const adminUpgradeChallenge = await service.issueTrustedDeviceChallenge({
+        const adminRecognitionChallenge = await service.issueTrustedDeviceChallenge({
             user: adminUser,
             deviceId,
             deviceLabel: 'Passkey laptop',
             req,
+            ...authContext,
+        });
+        const adminRecognitionCredential = buildWebAuthnAssertionCredential({
+            challenge: adminRecognitionChallenge.challenge,
+            origin,
+            rpId,
+            credentialIdBuffer,
+            privateKey: webauthnKeyPair.privateKey,
+            signCount: 6,
+        });
+        const adminRecognitionResult = await service.verifyTrustedDeviceChallenge({
+            user: adminUser,
+            token: adminRecognitionChallenge.token,
+            method: 'webauthn',
+            credential: adminRecognitionCredential,
+            deviceId,
+            deviceLabel: 'Passkey laptop',
+            ...authContext,
+        });
+
+        expect(adminRecognitionResult).toMatchObject({
+            success: true,
+            method: 'webauthn',
+            trustedDevice: {
+                credentialScope: 'recognition',
+                enrollmentContext: 'legacy_admin_snapshot',
+                adminEligibility: 'legacy_candidate',
+            },
+        });
+        expect(dbState.trustedDevices[0]).toMatchObject({
+            credentialScope: 'recognition',
+            enrollmentContext: 'legacy_admin_snapshot',
+            adminEligibility: 'legacy_candidate',
+        });
+
+        const adminUpgradeChallenge = await service.issueTrustedDeviceChallenge({
+            user: { ...adminUser, trustedDevices: dbState.trustedDevices },
+            deviceId,
+            deviceLabel: 'Passkey laptop',
+            req,
+            challengeScope: 'mfa-passkey-login',
             ...authContext,
         });
         const adminUpgradeCredential = buildWebAuthnAssertionCredential({
@@ -1222,15 +1701,16 @@ describe('trustedDeviceChallengeService', () => {
             rpId,
             credentialIdBuffer,
             privateKey: webauthnKeyPair.privateKey,
-            signCount: 6,
+            signCount: 7,
         });
         const adminUpgradeResult = await service.verifyTrustedDeviceChallenge({
-            user: adminUser,
+            user: { ...adminUser, trustedDevices: dbState.trustedDevices },
             token: adminUpgradeChallenge.token,
             method: 'webauthn',
             credential: adminUpgradeCredential,
             deviceId,
             deviceLabel: 'Passkey laptop',
+            expectedScope: 'mfa-passkey-login',
             ...authContext,
         });
 
@@ -1253,6 +1733,15 @@ describe('trustedDeviceChallengeService', () => {
             user: { _id: userId, trustedDevices: dbState.trustedDevices },
             deviceId,
             deviceSessionToken: publicSessionToken,
+            ...authContext,
+        })).toEqual({
+            success: false,
+            reason: 'Trusted device session superseded',
+        });
+        expect(service.verifyTrustedDeviceSession({
+            user: { _id: userId, trustedDevices: dbState.trustedDevices },
+            deviceId,
+            deviceSessionToken: adminRecognitionResult.deviceSessionToken,
             ...authContext,
         })).toEqual({
             success: false,

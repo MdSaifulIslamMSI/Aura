@@ -49,15 +49,47 @@ const DesktopBrowserHandoffProbe = () => {
     desktopBrowserConsentReady,
     desktopBrowserConsentIdentity,
     desktopBrowserConsentSubmitting,
+    desktopBrowserHandoffCheckpoint,
+    desktopBrowserHandoffPreflightFailed,
     desktopBrowserSessionHydrating,
     handleDesktopBrowserConsent,
     handleDesktopBrowserConsentCancel,
+    handleDesktopBrowserDeviceChallenge,
+    handleDesktopBrowserMfaPasskey,
+    handleDesktopBrowserMfaTotp,
   } = useLoginController();
 
   return (
     <>
       <button type="button" onClick={handleDesktopBrowserConsent}>Continue desktop handoff</button>
       <button type="button" onClick={handleDesktopBrowserConsentCancel}>Cancel desktop handoff</button>
+      <button
+        type="button"
+        onClick={() => {
+          void handleDesktopBrowserDeviceChallenge('browser-device-challenge', {
+            method: 'browser_key',
+            proofBase64: 'browser-device-proof',
+          }).catch(() => {});
+        }}
+      >
+        Verify browser device
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void handleDesktopBrowserMfaPasskey({ challengeId: 'desktop-mfa-challenge' }).catch(() => {});
+        }}
+      >
+        Verify browser passkey
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          void handleDesktopBrowserMfaTotp({ challengeId: 'desktop-mfa-challenge', code: '123456' }).catch(() => {});
+        }}
+      >
+        Verify browser TOTP
+      </button>
       <div data-testid="desktop-consent-ready">{String(desktopBrowserConsentReady)}</div>
       <div data-testid="desktop-consent-identity">{desktopBrowserConsentIdentity}</div>
       <div data-testid="desktop-consent-submitting">{String(desktopBrowserConsentSubmitting)}</div>
@@ -65,6 +97,8 @@ const DesktopBrowserHandoffProbe = () => {
       <div data-testid="desktop-consent-action-label">{desktopBrowserConsentActionLabel}</div>
       <div data-testid="desktop-consent-error">{authError?.detail || 'none'}</div>
       <div data-testid="desktop-consent-success">{authSuccess?.title || 'none'}</div>
+      <div data-testid="desktop-preflight-status">{desktopBrowserHandoffCheckpoint?.status || 'none'}</div>
+      <div data-testid="desktop-preflight-failed">{String(desktopBrowserHandoffPreflightFailed)}</div>
     </>
   );
 };
@@ -475,6 +509,7 @@ const renderLoginController = (authValue, initialEntry) => render(
 
 describe('useLoginController', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     localStorage.clear();
     sessionStorage.clear();
     delete window.auraDesktop;
@@ -489,6 +524,10 @@ describe('useLoginController', () => {
       initErrorCode: '',
       initErrorMessage: '',
       runtimeElectronDesktop: false,
+    });
+    vi.spyOn(authApi, 'prepareDesktopHandoff').mockResolvedValue({
+      status: 'handoff_ready',
+      handoffReady: true,
     });
   });
 
@@ -1516,6 +1555,7 @@ describe('useLoginController', () => {
     await waitFor(() => {
       expect(screen.getByTestId('desktop-session-hydrating')).toHaveTextContent('false');
       expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      expect(screen.getByTestId('desktop-consent-submitting')).toHaveTextContent('false');
     });
   });
 
@@ -1586,30 +1626,28 @@ describe('useLoginController', () => {
     }
   });
 
-  it('hydrates a cookie-only Duo admin session and verifies its passkey before token minting', async () => {
+  it('completes a cookie-only MFA preflight before token minting', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174013';
-    const staleAdminSession = buildDesktopCookieSessionPayload({
+    const cookieSession = buildDesktopCookieSessionPayload({
       email: 'duo-admin@example.com',
       isAdmin: true,
       deviceMethod: 'webauthn',
       webAuthnStepUpActive: false,
     });
-    const refreshedAdminSession = {
-      ...staleAdminSession,
+    const getSession = vi.spyOn(authApi, 'getSession').mockResolvedValue(cookieSession);
+    const prepareDesktopHandoff = vi.spyOn(authApi, 'prepareDesktopHandoff')
+      .mockResolvedValueOnce({
+        status: 'mfa_challenge_required',
+        mfaChallenge: { id: 'desktop-mfa-challenge' },
+        mfaPolicy: { allowedMethods: ['passkey'] },
+        roles: { isAdmin: true },
+      })
+      .mockResolvedValueOnce({ status: 'handoff_ready', handoffReady: true });
+    const verifyMfaPasskeyLogin = vi.spyOn(authApi, 'verifyMfaPasskeyLogin').mockResolvedValue({
+      success: true,
       deviceSessionToken: 'duo-admin-passkey-device-session',
       expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
-      session: {
-        ...staleAdminSession.session,
-        webAuthnStepUpActive: true,
-      },
-    };
-    const getSession = vi.spyOn(authApi, 'getSession').mockResolvedValue(staleAdminSession);
-    let resolvePasskey;
-    const verifyMfaPasskeyLogin = vi.spyOn(authApi, 'verifyMfaPasskeyLogin').mockImplementation(
-      () => new Promise((resolve) => {
-        resolvePasskey = resolve;
-      })
-    );
+    });
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
       success: true,
       customToken: 'duo-admin-desktop-custom-token',
@@ -1636,21 +1674,20 @@ describe('useLoginController', () => {
       await waitFor(() => {
         expect(getSession).toHaveBeenCalledTimes(1);
         expect(screen.getByTestId('desktop-consent-identity')).toHaveTextContent('duo-admin@example.com');
-        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Verify passkey & continue');
-      });
-
-      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
-      await waitFor(() => {
-        expect(verifyMfaPasskeyLogin).toHaveBeenCalledWith({
-          purpose: 'step_up',
-          action: 'desktop_handoff',
-        }, { preferCookieSession: true });
+        expect(screen.getByTestId('desktop-preflight-status')).toHaveTextContent('mfa_challenge_required');
       });
       expect(createToken).not.toHaveBeenCalled();
 
-      await act(async () => {
-        resolvePasskey(refreshedAdminSession);
+      fireEvent.click(screen.getByRole('button', { name: 'Verify browser passkey' }));
+      await waitFor(() => {
+        expect(verifyMfaPasskeyLogin).toHaveBeenCalledWith({
+          challengeId: 'desktop-mfa-challenge',
+        }, { preferCookieSession: true });
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
       });
+      expect(createToken).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
 
       await waitFor(() => {
         expect(createToken).toHaveBeenCalledWith({
@@ -1659,6 +1696,14 @@ describe('useLoginController', () => {
           requestId,
         });
         expect(submitSpy).toHaveBeenCalledTimes(1);
+      });
+      expect(prepareDesktopHandoff).toHaveBeenNthCalledWith(1, {
+        requestId,
+        preferCookieSession: true,
+      });
+      expect(prepareDesktopHandoff).toHaveBeenNthCalledWith(2, {
+        requestId,
+        preferCookieSession: true,
       });
     } finally {
       getSession.mockRestore();
@@ -1669,17 +1714,16 @@ describe('useLoginController', () => {
     }
   });
 
-  it('recovers from a server-required admin passkey without showing contradictory success', async () => {
+  it('blocks token minting when preflight fails and allows an explicit retry', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174014';
     const currentUser = { email: 'admin-fallback@example.com', getIdToken: vi.fn() };
-    const verifyMfaPasskeyChallenge = vi.fn().mockResolvedValue({ success: true });
-    const assuranceError = Object.assign(
-      new Error('Admin desktop handoff requires a fresh verified passkey session.'),
-      { data: { code: 'DESKTOP_HANDOFF_ADMIN_ASSURANCE_REQUIRED' } }
-    );
-    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken')
-      .mockRejectedValueOnce(assuranceError)
-      .mockResolvedValueOnce({ success: true, customToken: 'admin-fallback-custom-token' });
+    const prepareDesktopHandoff = vi.spyOn(authApi, 'prepareDesktopHandoff')
+      .mockRejectedValueOnce(new Error('Desktop browser assurance expired.'))
+      .mockResolvedValueOnce({ status: 'handoff_ready', handoffReady: true });
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
+      success: true,
+      customToken: 'admin-retry-custom-token',
+    });
     const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
 
     try {
@@ -1690,7 +1734,6 @@ describe('useLoginController', () => {
             isAuthenticated: true,
             roles: { isAdmin: true, isSeller: false, isVerified: true },
             session: { deviceMethod: 'webauthn', webAuthnStepUpActive: true },
-            verifyMfaPasskeyChallenge,
           })}>
             <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-admin-fallback&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
               <Routes>
@@ -1701,20 +1744,22 @@ describe('useLoginController', () => {
         </MarketProvider>
       );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
       await waitFor(() => {
-        expect(createToken).toHaveBeenCalledTimes(1);
-        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Verify passkey & continue');
-        expect(screen.getByTestId('desktop-consent-success')).toHaveTextContent('none');
+        expect(screen.getByTestId('desktop-preflight-failed')).toHaveTextContent('true');
+        expect(screen.getByTestId('desktop-consent-error')).not.toHaveTextContent('none');
       });
+      expect(createToken).not.toHaveBeenCalled();
 
       fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
       await waitFor(() => {
-        expect(verifyMfaPasskeyChallenge).toHaveBeenCalledWith({
-          purpose: 'step_up',
-          action: 'desktop_handoff',
-        });
-        expect(createToken).toHaveBeenCalledTimes(2);
+        expect(prepareDesktopHandoff).toHaveBeenCalledTimes(2);
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+      expect(createToken).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      await waitFor(() => {
+        expect(createToken).toHaveBeenCalledTimes(1);
         expect(submitSpy).toHaveBeenCalledTimes(1);
       });
     } finally {
@@ -1724,15 +1769,20 @@ describe('useLoginController', () => {
     }
   });
 
-  it('clears server passkey fallback state when Aura Desktop starts a new sealed request', async () => {
+  it('does not transfer a browser-device checkpoint to a replacement desktop request', async () => {
     const firstRequestId = '123e4567-e89b-12d3-a456-426614174015';
     const nextRequestId = '123e4567-e89b-12d3-a456-426614174016';
     const currentUser = { email: 'admin-reset@example.com', getIdToken: vi.fn() };
-    const assuranceError = Object.assign(
-      new Error('Admin desktop handoff requires a fresh verified passkey session.'),
-      { data: { code: 'DESKTOP_HANDOFF_ADMIN_ASSURANCE_REQUIRED' } }
-    );
-    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockRejectedValue(assuranceError);
+    const prepareDesktopHandoff = vi.spyOn(authApi, 'prepareDesktopHandoff')
+      .mockResolvedValueOnce({
+        status: 'device_challenge_required',
+        deviceChallenge: {
+          token: 'first-browser-device-challenge',
+          scope: 'desktop_handoff_source',
+        },
+      })
+      .mockResolvedValueOnce({ status: 'handoff_ready', handoffReady: true });
+    const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken');
 
     try {
       render(
@@ -1755,16 +1805,24 @@ describe('useLoginController', () => {
         </MarketProvider>
       );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
       await waitFor(() => {
-        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Verify passkey & continue');
+        expect(screen.getByTestId('desktop-preflight-status')).toHaveTextContent('device_challenge_required');
       });
 
       fireEvent.click(screen.getByRole('button', { name: 'Start next desktop request' }));
       await waitFor(() => {
-        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Continue');
+        expect(screen.getByTestId('desktop-preflight-status')).toHaveTextContent('none');
         expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
       });
+      expect(prepareDesktopHandoff).toHaveBeenNthCalledWith(1, {
+        requestId: firstRequestId,
+        firebaseUser: currentUser,
+      });
+      expect(prepareDesktopHandoff).toHaveBeenNthCalledWith(2, {
+        requestId: nextRequestId,
+        firebaseUser: currentUser,
+      });
+      expect(createToken).not.toHaveBeenCalled();
     } finally {
       createToken.mockRestore();
     }
@@ -1803,6 +1861,7 @@ describe('useLoginController', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Continue');
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
       });
       fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
 
@@ -1819,13 +1878,23 @@ describe('useLoginController', () => {
     }
   });
 
-  it('completes the admin passkey step before minting a one-time desktop token', async () => {
+  it('waits for the server-issued admin MFA checkpoint before minting a token', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174011';
     const currentUser = { email: 'admin@example.com', getIdToken: vi.fn() };
     let resolvePasskey;
-    const verifyMfaPasskeyChallenge = vi.fn(() => new Promise((resolve) => {
-      resolvePasskey = resolve;
-    }));
+    vi.spyOn(authApi, 'prepareDesktopHandoff')
+      .mockResolvedValueOnce({
+        status: 'mfa_challenge_required',
+        mfaChallenge: { id: 'desktop-mfa-challenge' },
+        mfaPolicy: { allowedMethods: ['passkey'] },
+        roles: { isAdmin: true },
+      })
+      .mockResolvedValueOnce({ status: 'handoff_ready', handoffReady: true });
+    const verifyMfaPasskeyLogin = vi.spyOn(authApi, 'verifyMfaPasskeyLogin').mockImplementation(
+      () => new Promise((resolve) => {
+        resolvePasskey = resolve;
+      })
+    );
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken').mockResolvedValue({
       success: true,
       customToken: 'admin-desktop-custom-token',
@@ -1840,7 +1909,6 @@ describe('useLoginController', () => {
             isAuthenticated: true,
             roles: { isAdmin: true, isSeller: false, isVerified: true },
             session: { deviceMethod: 'webauthn', webAuthnStepUpActive: false },
-            verifyMfaPasskeyChallenge,
           })}>
             <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-admin&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
               <Routes>
@@ -1852,15 +1920,15 @@ describe('useLoginController', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId('desktop-consent-action-label')).toHaveTextContent('Verify passkey & continue');
+        expect(screen.getByTestId('desktop-preflight-status')).toHaveTextContent('mfa_challenge_required');
       });
-      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Verify browser passkey' }));
 
       await waitFor(() => {
-        expect(verifyMfaPasskeyChallenge).toHaveBeenCalledWith({
-          purpose: 'step_up',
-          action: 'desktop_handoff',
-        });
+        expect(verifyMfaPasskeyLogin).toHaveBeenCalledWith(
+          { challengeId: 'desktop-mfa-challenge' },
+          { firebaseUser: currentUser }
+        );
       });
       expect(createToken).not.toHaveBeenCalled();
       expect(screen.getByTestId('desktop-consent-success')).toHaveTextContent('none');
@@ -1869,6 +1937,12 @@ describe('useLoginController', () => {
         resolvePasskey({ success: true });
       });
 
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+      expect(createToken).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
       await waitFor(() => {
         expect(createToken).toHaveBeenCalledWith({ firebaseUser: currentUser, requestId });
         expect(submitSpy).toHaveBeenCalledTimes(1);
@@ -1880,16 +1954,24 @@ describe('useLoginController', () => {
     }
   });
 
-  it('does not transfer a pending passkey approval to a replacement desktop request', async () => {
-    const firstRequestId = '123e4567-e89b-12d3-a456-426614174017';
-    const nextRequestId = '123e4567-e89b-12d3-a456-426614174018';
-    const currentUser = { email: 'admin-request-race@example.com', getIdToken: vi.fn() };
-    let resolveFirstPasskey;
-    const verifyMfaPasskeyChallenge = vi.fn(() => new Promise((resolve) => {
-      resolveFirstPasskey = resolve;
-    }));
+  it('completes the browser-device checkpoint before enabling consent', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174017';
+    const currentUser = { email: 'device-checkpoint@example.com', getIdToken: vi.fn() };
+    vi.spyOn(authApi, 'prepareDesktopHandoff')
+      .mockResolvedValueOnce({
+        status: 'device_challenge_required',
+        deviceChallenge: {
+          token: 'browser-device-challenge',
+          scope: 'desktop_handoff_source',
+        },
+      })
+      .mockResolvedValueOnce({ status: 'handoff_ready', handoffReady: true });
+    const verifyDeviceChallenge = vi.spyOn(authApi, 'verifyDeviceChallenge').mockResolvedValue({
+      success: true,
+      deviceSessionToken: 'browser-device-session',
+      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+    });
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken');
-    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
 
     try {
       render(
@@ -1897,49 +1979,39 @@ describe('useLoginController', () => {
           <AuthContext.Provider value={buildAuthValue({
             currentUser,
             isAuthenticated: true,
-            roles: { isAdmin: true, isSeller: false, isVerified: true },
-            session: { deviceMethod: 'webauthn', webAuthnStepUpActive: false },
-            verifyMfaPasskeyChallenge,
+            roles: { isAdmin: false, isSeller: false, isVerified: true },
           })}>
-            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${firstRequestId}#desktopAuthSecret=secret-race-first&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-device-checkpoint&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
               <Routes>
-                <Route
-                  path="/desktop-login"
-                  element={<DesktopBrowserHandoffNavigationProbe nextRequestId={nextRequestId} />}
-                />
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
               </Routes>
             </MemoryRouter>
           </AuthContext.Provider>
         </MarketProvider>
       );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
       await waitFor(() => {
-        expect(verifyMfaPasskeyChallenge).toHaveBeenCalledTimes(1);
-      });
-
-      fireEvent.click(screen.getByRole('button', { name: 'Start next desktop request' }));
-      await waitFor(() => {
-        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
-      });
-
-      await act(async () => {
-        resolveFirstPasskey({ success: true });
-      });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
-        expect(screen.getByTestId('desktop-consent-submitting')).toHaveTextContent('false');
+        expect(screen.getByTestId('desktop-preflight-status')).toHaveTextContent('device_challenge_required');
       });
       expect(createToken).not.toHaveBeenCalled();
-      expect(submitSpy).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Verify browser device' }));
+      await waitFor(() => {
+        expect(verifyDeviceChallenge).toHaveBeenCalledWith(
+          'browser-device-challenge',
+          { method: 'browser_key', proofBase64: 'browser-device-proof' },
+          '',
+          { firebaseUser: currentUser }
+        );
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+      expect(createToken).not.toHaveBeenCalled();
     } finally {
       createToken.mockRestore();
-      submitSpy.mockRestore();
     }
   });
 
-  it('allows the same desktop request to restart after an older mint attempt is cancelled', async () => {
+  it('clears preflight submission state when the same desktop request restarts', async () => {
     const firstRequestId = '123e4567-e89b-12d3-a456-426614174019';
     const nextRequestId = '123e4567-e89b-12d3-a456-426614174020';
     const currentUser = { email: 'desktop-reopen@example.com', getIdToken: vi.fn() };
@@ -1976,6 +2048,9 @@ describe('useLoginController', () => {
         </MarketProvider>
       );
 
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
       fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
       await waitFor(() => {
         expect(createToken).toHaveBeenCalledTimes(1);
@@ -1989,6 +2064,7 @@ describe('useLoginController', () => {
       await waitFor(() => {
         expect(screen.getByTestId('desktop-roundtrip-location')).toHaveTextContent(firstRequestId);
         expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+        expect(screen.getByTestId('desktop-consent-submitting')).toHaveTextContent('false');
       });
 
       await act(async () => {
@@ -2012,10 +2088,17 @@ describe('useLoginController', () => {
     }
   });
 
-  it('does not mint or display success when admin passkey verification fails', async () => {
+  it('does not mint or display success when an MFA checkpoint fails', async () => {
     const requestId = '123e4567-e89b-12d3-a456-426614174012';
     const currentUser = { email: 'admin@example.com', getIdToken: vi.fn() };
-    const verifyMfaPasskeyChallenge = vi.fn().mockRejectedValue(new Error('Passkey verification was cancelled.'));
+    vi.spyOn(authApi, 'prepareDesktopHandoff').mockResolvedValueOnce({
+      status: 'mfa_challenge_required',
+      mfaChallenge: { id: 'desktop-mfa-challenge' },
+      mfaPolicy: { allowedMethods: ['passkey'] },
+      roles: { isAdmin: true },
+    });
+    const verifyMfaPasskeyLogin = vi.spyOn(authApi, 'verifyMfaPasskeyLogin')
+      .mockRejectedValue(new Error('Passkey verification was cancelled.'));
     const createToken = vi.spyOn(authApi, 'createDesktopHandoffToken');
 
     try {
@@ -2026,7 +2109,6 @@ describe('useLoginController', () => {
             isAuthenticated: true,
             roles: { isAdmin: true, isSeller: false, isVerified: true },
             session: { deviceMethod: 'webauthn', webAuthnStepUpActive: false },
-            verifyMfaPasskeyChallenge,
           })}>
             <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-admin-cancel&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
               <Routes>
@@ -2037,9 +2119,14 @@ describe('useLoginController', () => {
         </MarketProvider>
       );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Continue desktop handoff' }));
       await waitFor(() => {
-        expect(screen.getByTestId('desktop-consent-submitting')).toHaveTextContent('false');
+        expect(screen.getByTestId('desktop-preflight-status')).toHaveTextContent('mfa_challenge_required');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Verify browser passkey' }));
+      await waitFor(() => {
+        expect(verifyMfaPasskeyLogin).toHaveBeenCalled();
+        expect(screen.getByTestId('desktop-preflight-failed')).toHaveTextContent('true');
         expect(screen.getByTestId('desktop-consent-error')).not.toHaveTextContent('none');
       });
       expect(createToken).not.toHaveBeenCalled();

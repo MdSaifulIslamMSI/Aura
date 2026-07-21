@@ -50,6 +50,10 @@ const isAuthWindowUrl = (candidate) => {
     }
 };
 
+const isAllowedAuthWindowNavigation = (candidate, runtimeUrl) => (
+    isAuthWindowUrl(candidate) || isInternalUrl(candidate, runtimeUrl)
+);
+
 const isSafeExternalUrl = (candidate) => {
     try {
         return new Set(['https:', 'mailto:', 'tel:']).has(new URL(candidate).protocol);
@@ -91,6 +95,7 @@ const isTrustedDesktopIpcSender = ({ event, mainWindow, runtimeUrl }) => {
 
 module.exports = {
     canGrantDesktopRuntimePermission,
+    isAllowedAuthWindowNavigation,
     isAuthWindowUrl,
     isInternalUrl,
     isSafeExternalUrl,

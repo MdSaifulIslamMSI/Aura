@@ -116,6 +116,38 @@ describe('admin passkey enrollment assurance', () => {
         });
     });
 
+    test('keeps a legacy admin candidate disabled until a dedicated verified assertion promotes it', () => {
+        const legacyCredentialId = 'legacy-admin-credential';
+        const state = buildMfaState({
+            isAdmin: true,
+            trustedDevices: [{
+                deviceId: 'device-legacy-admin-passkey',
+                label: 'Legacy admin passkey',
+                method: 'webauthn',
+                webauthnCredentialIdBase64Url: legacyCredentialId,
+                credentialScope: 'recognition',
+                adminEligibility: 'legacy_candidate',
+                enrollmentContext: 'legacy_admin_snapshot',
+                webauthnUserVerification: 'required',
+                webauthnUserVerified: true,
+                revokedAt: null,
+            }],
+            mfa: {
+                enabled: true,
+                passkeys: [{ credentialId: legacyCredentialId, revokedAt: null }],
+            },
+        }, { currentDeviceId: 'device-legacy-admin-passkey' });
+
+        expect(state.methods.passkey).toMatchObject({ enabled: false, count: 0 });
+        expect(state.trustedDevices[0]).toMatchObject({
+            isCurrent: true,
+            isMfaFactor: false,
+            credentialScope: 'recognition',
+            adminEligibility: 'legacy_candidate',
+            adminEligible: false,
+        });
+    });
+
     test('marks only a verified UV admin passkey as admin eligible and reports sync state', () => {
         const state = buildMfaState({
             isAdmin: true,

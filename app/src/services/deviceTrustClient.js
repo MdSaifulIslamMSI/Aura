@@ -6,6 +6,8 @@ const DEVICE_SESSION_STORAGE_KEY = 'aura_trusted_device_session_v1';
 const DEVICE_DB_NAME = 'aura_trusted_device_keys';
 const DEVICE_STORE_NAME = 'keys';
 const CLIENT_ORIGIN_HEADER = 'X-Aura-Client-Origin';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DESKTOP_DEVICE_ID_PATTERN = /^aura_desktop_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 let keyDbPromise = null;
 let inMemoryDeviceId = '';
@@ -267,6 +269,26 @@ const generateDeviceId = () => {
   return `aura_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
 };
 
+const generateDesktopDeviceId = () => {
+  const randomUuid = String(window.crypto?.randomUUID?.() || '').trim().toLowerCase();
+  if (UUID_PATTERN.test(randomUuid)) {
+    return `aura_desktop_${randomUuid}`;
+  }
+
+  const bytes = new Uint8Array(16);
+  if (typeof window.crypto?.getRandomValues === 'function') {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `aura_desktop_${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
 export const getTrustedDeviceId = () => {
   const storage = readStorage('localStorage');
   if (storage) {
@@ -364,6 +386,44 @@ export const adoptTrustedDeviceSession = ({
 
 export const clearTrustedDeviceSessionToken = () => {
   cacheTrustedDeviceSessionToken('');
+};
+
+export const ensureDesktopHandoffTargetIdentity = async (options = {}) => {
+  const forceRotation = options?.force === true;
+  const storage = readStorage('localStorage');
+  const existingDeviceId = String(
+    storage?.getItem(DEVICE_ID_STORAGE_KEY) || inMemoryDeviceId || ''
+  ).trim();
+
+  if (!isDesktopLoopbackRuntime()) {
+    return { deviceId: existingDeviceId, rotated: false };
+  }
+
+  if (!forceRotation && DESKTOP_DEVICE_ID_PATTERN.test(existingDeviceId)) {
+    inMemoryDeviceId = existingDeviceId;
+    return { deviceId: existingDeviceId, rotated: false };
+  }
+
+  clearTrustedDeviceSessionStorage(readStorage('sessionStorage'));
+  clearTrustedDeviceSessionStorage(storage);
+
+  if (existingDeviceId) {
+    try {
+      await deleteKeyRecord(existingDeviceId);
+    } catch (error) {
+      const migrationError = new Error(
+        'Aura Desktop could not safely rotate its existing device identity. Retry the browser sign-in.'
+      );
+      migrationError.code = 'trusted_device_desktop_identity_migration_failed';
+      migrationError.cause = error;
+      throw migrationError;
+    }
+  }
+
+  const deviceId = generateDesktopDeviceId();
+  storage?.setItem(DEVICE_ID_STORAGE_KEY, deviceId);
+  inMemoryDeviceId = deviceId;
+  return { deviceId, rotated: true };
 };
 
 export const getTrustedDeviceClientOrigin = () => {
@@ -605,6 +665,11 @@ export const signTrustedDeviceChallenge = async (challenge = {}, options = {}) =
     : [];
   const selectedMethod = normalizeTrustedDeviceMethod(options?.preferredMethod);
   const challengeAllowsMethod = (method) => !availableMethods.length || availableMethods.includes(method);
+  const bindProofToChallenge = (proof) => ({
+    ...proof,
+    challengeToken: String(challenge?.token || '').trim(),
+    challengeScope: String(challenge?.scope || '').trim(),
+  });
 
   if (selectedMethod === 'webauthn' && !challengeAllowsMethod('webauthn')) {
     throw new Error('Passkey verification is not available for this challenge.');
@@ -620,9 +685,10 @@ export const signTrustedDeviceChallenge = async (challenge = {}, options = {}) =
 
   if (shouldTryWebAuthn) {
     try {
-      return challenge?.mode === 'enroll'
+      const proof = challenge?.mode === 'enroll'
         ? await runWebAuthnEnrollment(challenge)
         : await runWebAuthnAssertion(challenge);
+      return bindProofToChallenge(proof);
     } catch (error) {
       if (selectedMethod === 'webauthn') {
         throw error;
@@ -664,13 +730,13 @@ export const signTrustedDeviceChallenge = async (challenge = {}, options = {}) =
     })
   );
 
-  return {
+  return bindProofToChallenge({
     method: 'browser_key',
     deviceId,
     deviceLabel: getTrustedDeviceLabel(),
     proofBase64: toBase64(signature),
     publicKeySpkiBase64: mode === 'enroll' ? keyRecord.publicKeySpkiBase64 : '',
-  };
+  });
 };
 
 export const resetTrustedDeviceIdentity = async () => {

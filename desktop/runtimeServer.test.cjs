@@ -52,6 +52,7 @@ const {
     isOpaqueDesktopAuthNavigation,
     resolveBackendOrigin,
     resolveAllowedDesktopAuthOrigins,
+    resolveDesktopAuthFrontendOrigin,
     readDesktopAuthProtocolVersion,
     shouldAllowInsecureBackendProxy,
     startRuntimeServer,
@@ -132,6 +133,18 @@ test('desktop validates the hosted browser protocol before opening a request', a
         }),
         /Hosted desktop sign-in is out of date/
     );
+
+    await assert.rejects(
+        validateDesktopAuthFrontend({
+            authFrontendOrigin: 'https://aurapilot.vercel.app',
+            fetchImpl: async () => ({
+                ok: true,
+                url: 'https://evil.example.test/desktop-login',
+                text: async () => sourceHtml,
+            }),
+        }),
+        /redirected to an untrusted origin/
+    );
 });
 
 test('desktop default backend origin matches the hosted backend routing contract', async () => {
@@ -156,9 +169,9 @@ test('desktop proxy strips browser-only CORS headers before forwarding to AWS', 
 });
 
 test('desktop proxy applies header stripping to HTTP and WebSocket proxy requests', () => {
-    const options = buildProxyOptions('http://backend.example.test');
+    const options = buildProxyOptions('https://backend.example.test');
 
-    assert.equal(options.target, 'http://backend.example.test');
+    assert.equal(options.target, 'https://backend.example.test');
     assert.equal(options.secure, true);
     assert.equal(options.on.proxyReq, stripBrowserOnlyProxyHeaders);
     assert.equal(options.on.proxyReqWs, stripBrowserOnlyProxyHeaders);
@@ -175,13 +188,19 @@ test('desktop proxy verifies backend TLS by default and only allows insecure loo
         assert.equal(buildProxyOptions('https://api.example.test').secure, true);
         assert.equal(shouldAllowInsecureBackendProxy('https://api.example.test'), false);
         assert.equal(isLoopbackBackendOrigin('https://127.0.0.1:5001'), true);
+        assert.equal(isLoopbackBackendOrigin('https://127.attacker.example:5001'), false);
+        assert.equal(isLoopbackBackendOrigin('https://0.0.0.0:5001'), false);
 
         process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY = 'true';
         assert.equal(buildProxyOptions('https://127.0.0.1:5001').secure, false);
         assert.equal(buildProxyOptions('https://localhost:5001').secure, false);
         assert.equal(buildProxyOptions('https://api.example.test').secure, true);
+        assert.equal(buildProxyOptions('https://127.attacker.example:5001').secure, true);
 
         process.env.NODE_ENV = 'production';
+        assert.equal(buildProxyOptions('https://127.0.0.1:5001').secure, true);
+
+        delete process.env.NODE_ENV;
         assert.equal(buildProxyOptions('https://127.0.0.1:5001').secure, true);
     } finally {
         if (previousNodeEnv === undefined) {
@@ -195,6 +214,46 @@ test('desktop proxy verifies backend TLS by default and only allows insecure loo
         } else {
             process.env.AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY = previousAllowInsecure;
         }
+    }
+});
+
+test('desktop runtime rejects remote HTTP origins while preserving development loopback HTTP', () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousBackendOrigin = process.env.AURA_DESKTOP_BACKEND_ORIGIN;
+    const previousAuthOrigin = process.env.AURA_DESKTOP_AUTH_FRONTEND_ORIGIN;
+
+    try {
+        process.env.NODE_ENV = 'development';
+        process.env.AURA_DESKTOP_BACKEND_ORIGIN = 'http://127.0.0.1:5000';
+        process.env.AURA_DESKTOP_AUTH_FRONTEND_ORIGIN = 'http://localhost:5173';
+        assert.equal(resolveBackendOrigin(), 'http://127.0.0.1:5000');
+        assert.equal(resolveDesktopAuthFrontendOrigin(), 'http://localhost:5173');
+
+        process.env.AURA_DESKTOP_BACKEND_ORIGIN = 'http://api.example.test';
+        assert.throws(resolveBackendOrigin, /must use HTTPS/);
+        process.env.AURA_DESKTOP_AUTH_FRONTEND_ORIGIN = 'http://login.example.test';
+        assert.throws(resolveDesktopAuthFrontendOrigin, /must use HTTPS/);
+        assert.throws(
+            () => buildProxyOptions('http://127.attacker.example:5001'),
+            /must use HTTPS/
+        );
+
+        process.env.NODE_ENV = 'production';
+        process.env.AURA_DESKTOP_BACKEND_ORIGIN = 'http://127.0.0.1:5000';
+        process.env.AURA_DESKTOP_AUTH_FRONTEND_ORIGIN = 'http://localhost:5173';
+        assert.throws(resolveBackendOrigin, /must use HTTPS/);
+        assert.throws(resolveDesktopAuthFrontendOrigin, /must use HTTPS/);
+
+        delete process.env.NODE_ENV;
+        assert.throws(resolveBackendOrigin, /must use HTTPS/);
+        assert.throws(resolveDesktopAuthFrontendOrigin, /must use HTTPS/);
+    } finally {
+        if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = previousNodeEnv;
+        if (previousBackendOrigin === undefined) delete process.env.AURA_DESKTOP_BACKEND_ORIGIN;
+        else process.env.AURA_DESKTOP_BACKEND_ORIGIN = previousBackendOrigin;
+        if (previousAuthOrigin === undefined) delete process.env.AURA_DESKTOP_AUTH_FRONTEND_ORIGIN;
+        else process.env.AURA_DESKTOP_AUTH_FRONTEND_ORIGIN = previousAuthOrigin;
     }
 });
 
@@ -323,6 +382,70 @@ test('desktop auth broker completes and consumes a handoff exactly once', () => 
     assert.equal(broker.consumeResult(request.requestId), null);
 });
 
+test('desktop auth broker preserves completion when its notification callback throws', () => {
+    const warnings = [];
+    const previousWarn = console.warn;
+    console.warn = (...args) => warnings.push(args.join(' '));
+
+    try {
+        const broker = createDesktopAuthBroker({
+            onComplete: () => {
+                throw new Error('renderer notification failed');
+            },
+        });
+        const request = broker.createRequest({
+            callbackUrl: 'http://127.0.0.1:47831',
+            runtimeUrl: 'http://localhost:47831',
+        });
+        const handoff = new URLSearchParams(new URL(request.url).hash.slice(1));
+
+        assert.doesNotThrow(() => broker.completeRequest({
+            requestId: request.requestId,
+            secret: handoff.get('desktopAuthSecret'),
+            customToken: 'notification-failure-token',
+        }));
+        assert.equal(warnings.length, 1);
+        assert.match(warnings[0], /renderer notification failed/);
+        assert.equal(
+            broker.consumeResult(request.requestId).customToken,
+            'notification-failure-token'
+        );
+        assert.equal(broker.consumeResult(request.requestId), null);
+    } finally {
+        console.warn = previousWarn;
+    }
+});
+
+test('desktop auth broker retains a completed handoff through a renderer sleep', () => {
+    let currentTime = 1_000_000;
+    const broker = createDesktopAuthBroker({ now: () => currentTime });
+    const createCompletedRequest = (customToken) => {
+        const request = broker.createRequest({
+            callbackUrl: 'http://127.0.0.1:47831',
+            runtimeUrl: 'http://localhost:47831',
+        });
+        const handoff = new URLSearchParams(new URL(request.url).hash.slice(1));
+        broker.completeRequest({
+            requestId: request.requestId,
+            secret: handoff.get('desktopAuthSecret'),
+            customToken,
+        });
+        return request;
+    };
+
+    const delayedRequest = createCompletedRequest('delayed-custom-token');
+    currentTime += 60 * 1000 + 1;
+    assert.deepEqual(broker.consumeResult(delayedRequest.requestId), {
+        requestId: delayedRequest.requestId,
+        customToken: 'delayed-custom-token',
+        completedAt: 1_000_000,
+    });
+
+    const expiredRequest = createCompletedRequest('expired-custom-token');
+    currentTime += DESKTOP_AUTH_REQUEST_TTL_MS + 1;
+    assert.equal(broker.consumeResult(expiredRequest.requestId), null);
+});
+
 test('desktop auth broker rejects encoded authority-like return targets', () => {
     const broker = createDesktopAuthBroker();
     const unsafeTargets = [
@@ -439,6 +562,19 @@ test('desktop auth callback completes the HTTP handoff and consumes its token on
 
         const formRequest = runtime.createDesktopAuthRequest();
         const formHandoff = new URLSearchParams(new URL(formRequest.url).hash.slice(1));
+        const missingOriginResponse = await fetch(formHandoff.get('desktopAuthCallback'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                requestId: formRequest.requestId,
+                secret: formHandoff.get('desktopAuthSecret'),
+                customToken: 'must-not-be-consumed',
+            }),
+        });
+        assert.equal(missingOriginResponse.status, 403);
+        assert.match((await missingOriginResponse.json()).message, /origin is not trusted/);
+        assert.notEqual(runtime.getDesktopAuthRequest(formRequest.requestId), null);
+
         const rejectedOpaqueJson = await fetch(formHandoff.get('desktopAuthCallback'), {
             method: 'POST',
             headers: {
@@ -469,6 +605,24 @@ test('desktop auth callback completes the HTTP handoff and consumes its token on
         assert.equal(rejectedNestedNavigation.status, 403);
         assert.notEqual(runtime.getDesktopAuthRequest(formRequest.requestId), null);
 
+        const rejectedWrongSecretNavigation = await postOpaqueFormNavigation(
+            formHandoff.get('desktopAuthCallback'),
+            new URLSearchParams({
+                requestId: formRequest.requestId,
+                secret: 'wrong-secret',
+                customToken: 'must-not-be-consumed',
+            })
+        );
+        assert.equal(rejectedWrongSecretNavigation.status, 403);
+        assert.match(rejectedWrongSecretNavigation.headers['content-type'], /^text\/html/);
+        assert.match(rejectedWrongSecretNavigation.headers['cache-control'], /no-store/);
+        assert.equal(rejectedWrongSecretNavigation.headers['referrer-policy'], 'no-referrer');
+        assert.match(rejectedWrongSecretNavigation.headers['content-security-policy'], /default-src 'none'/);
+        assert.match(rejectedWrongSecretNavigation.body, /Sign-in could not be completed/);
+        assert.doesNotMatch(rejectedWrongSecretNavigation.body, /could not be verified/);
+        assert.doesNotMatch(rejectedWrongSecretNavigation.body, /wrong-secret/);
+        assert.notEqual(runtime.getDesktopAuthRequest(formRequest.requestId), null);
+
         const formResponse = await postOpaqueFormNavigation(
             formHandoff.get('desktopAuthCallback'),
             new URLSearchParams({
@@ -480,6 +634,9 @@ test('desktop auth callback completes the HTTP handoff and consumes its token on
         assert.equal(formResponse.status, 200);
         assert.equal(formResponse.headers['access-control-allow-origin'], undefined);
         assert.match(formResponse.headers['content-type'], /^text\/html/);
+        assert.match(formResponse.headers['cache-control'], /no-store/);
+        assert.equal(formResponse.headers['referrer-policy'], 'no-referrer');
+        assert.match(formResponse.headers['content-security-policy'], /default-src 'none'/);
         const completionHtml = formResponse.body;
         assert.match(completionHtml, /Aura Desktop received the secure result/);
         assert.match(completionHtml, /background:#1f1f1f/);
@@ -654,11 +811,63 @@ test('desktop auth callback routes share the recognized route rate limiter', asy
         const responses = await Promise.all(Array.from({ length: 61 }, (_, index) => fetch(
             runtime.callbackUrl + (index % 2 === 0 ? DESKTOP_AUTH_COMPLETE_PATH : DESKTOP_AUTH_CANCEL_PATH), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: 'https://aurapilot.vercel.app',
+            },
             body: '{}',
         })));
         assert.equal(responses.filter((response) => response.status === 429).length, 1);
         assert.match(await responses.find((response) => response.status === 429).text(), /Too many desktop sign-in callback requests/);
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
+});
+
+test('hostile callback origins cannot exhaust the trusted callback rate limiter', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-auth-hostile-origin-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 5,
+    });
+    try {
+        const request = runtime.createDesktopAuthRequest();
+        const handoff = new URLSearchParams(new URL(request.url).hash.slice(1));
+        const callbackUrl = handoff.get('desktopAuthCallback');
+        const hostileResponses = await Promise.all(Array.from({ length: 121 }, () => fetch(callbackUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: 'https://evil.example.test',
+            },
+            body: '{}',
+        })));
+
+        assert.equal(hostileResponses.filter((response) => response.status === 403).length, 120);
+        assert.equal(hostileResponses.filter((response) => response.status === 429).length, 1);
+        assert.notEqual(runtime.getDesktopAuthRequest(request.requestId), null);
+
+        const trustedResponse = await fetch(callbackUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Origin: 'https://aurapilot.vercel.app',
+            },
+            body: JSON.stringify({
+                requestId: request.requestId,
+                secret: handoff.get('desktopAuthSecret'),
+                customToken: 'trusted-after-hostile-origin-token',
+            }),
+        });
+        assert.equal(trustedResponse.status, 200);
+        assert.equal((await trustedResponse.json()).success, true);
+        assert.equal(
+            runtime.consumeDesktopAuthResult(request.requestId).customToken,
+            'trusted-after-hostile-origin-token'
+        );
     } finally {
         await runtime.close();
         fs.rmSync(distDir, { force: true, recursive: true });
