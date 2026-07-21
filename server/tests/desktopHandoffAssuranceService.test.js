@@ -6,7 +6,6 @@ const {
 } = require('../services/desktopHandoffAssuranceService');
 const {
     issueTrustedDeviceSession,
-    verifyTrustedDeviceSession,
 } = require('../services/trustedDeviceChallengeService');
 
 const REQUEST_ID = '123e4567-e89b-42d3-a456-426614174000';
@@ -104,7 +103,13 @@ const issueGrant = async (context, { nowMs, redisClient = null, env = TEST_ENV }
     })
 );
 
-const consumeGrant = async (context, grant, { nowMs, redisClient = null, env = TEST_ENV, requestId = REQUEST_ID } = {}) => {
+const consumeGrant = async (context, grant, {
+    nowMs,
+    redisClient = null,
+    env = TEST_ENV,
+    requestId = REQUEST_ID,
+    getBrowserSessionById = jest.fn(async () => context.authSession),
+} = {}) => {
     const desktopAuthToken = {
         uid: context.authUid,
         sub: context.authUid,
@@ -121,6 +126,7 @@ const consumeGrant = async (context, grant, { nowMs, redisClient = null, env = T
         env,
         now: () => nowMs,
         redisClient,
+        getBrowserSessionById,
     });
     return { desktopAuthToken, result };
 };
@@ -131,7 +137,7 @@ describe('desktopHandoffAssuranceService', () => {
         jest.clearAllMocks();
     });
 
-    test('transfers a public trusted-device and MFA assurance exactly once through Redis', async () => {
+    test('authorizes one target-device bootstrap without transferring browser assurance', async () => {
         const nowMs = Date.now();
         const context = buildContext({ nowMs });
         const redisClient = createFakeRedis();
@@ -148,43 +154,50 @@ describe('desktopHandoffAssuranceService', () => {
             expect.any(String),
             { NX: true, PX: DESKTOP_HANDOFF_ASSURANCE_TTL_MS }
         );
+        expect(JSON.parse([...redisClient.records.values()][0])).toMatchObject({
+            sourceSessionId: context.authSession.sessionId,
+        });
 
-        const { desktopAuthToken, result } = await consumeGrant(context, grant, {
+        const getBrowserSessionById = jest.fn(async () => context.authSession);
+        const { result } = await consumeGrant(context, grant, {
             nowMs: nowMs + 1000,
             redisClient,
+            getBrowserSessionById,
         });
 
-        expect(result).toMatchObject({
-            deviceId: context.deviceId,
-            deviceMethod: 'browser_key',
-            deviceSessionToken: expect.any(String),
-            expiresAt: expect.any(String),
-            additionalAmr: expect.arrayContaining(['otp', 'device_binding', 'desktop_handoff']),
+        expect(result).toEqual({
+            bootstrapExpiresAt: new Date(
+                grant.claims.desktop_handoff_grant_exp * 1000
+            ).toISOString(),
+            requestId: REQUEST_ID,
+            loginMfaSatisfied: false,
+            adminPasskeySatisfied: false,
         });
-        expect(verifyTrustedDeviceSession({
-            user: context.user,
-            authUid: context.authUid,
-            authToken: desktopAuthToken,
-            deviceId: context.deviceId,
-            deviceSessionToken: result.deviceSessionToken,
-        })).toEqual({ success: true });
+        expect(result).not.toHaveProperty('deviceId');
+        expect(result).not.toHaveProperty('deviceSessionToken');
+        expect(result).not.toHaveProperty('additionalAmr');
+        expect(getBrowserSessionById).toHaveBeenCalledWith(context.authSession.sessionId);
         expect(redisClient.eval).toHaveBeenCalledTimes(1);
         expect(redisClient.records.size).toBe(0);
     });
 
-    test('transfers fresh admin WebAuthn UV and step-up assurance', async () => {
+    test('does not transfer admin WebAuthn or step-up assurance to the target runtime', async () => {
         const nowMs = Date.now();
         const context = buildContext({ admin: true, nowMs });
         const grant = await issueGrant(context, { nowMs });
         const { result } = await consumeGrant(context, grant, { nowMs: nowMs + 1000 });
 
-        expect(result).toMatchObject({
-            deviceId: context.deviceId,
-            deviceMethod: 'webauthn',
-            stepUpUntil: context.authSession.stepUpUntil,
-            webAuthnStepUpUntil: context.authSession.webAuthnStepUpUntil,
-            additionalAmr: expect.arrayContaining(['webauthn', 'passkey', 'mfa', 'desktop_handoff']),
+        expect(result).toEqual({
+            bootstrapExpiresAt: new Date(
+                grant.claims.desktop_handoff_grant_exp * 1000
+            ).toISOString(),
+            requestId: REQUEST_ID,
+            loginMfaSatisfied: true,
+            adminPasskeySatisfied: true,
         });
+        expect(result).not.toHaveProperty('deviceMethod');
+        expect(result).not.toHaveProperty('stepUpUntil');
+        expect(result).not.toHaveProperty('webAuthnStepUpUntil');
     });
 
     test('accepts an active browser session after its Firebase token snapshot expires', async () => {
@@ -198,6 +211,24 @@ describe('desktopHandoffAssuranceService', () => {
                 desktop_request_id: REQUEST_ID,
             },
         });
+    });
+
+    test('rejects grant creation while the source login MFA policy remains incomplete', async () => {
+        const originalMfaEnabled = process.env.MFA_ENABLED;
+        const nowMs = Date.now();
+        const context = buildContext({ nowMs });
+        context.user.mfa = { enabled: true };
+        process.env.MFA_ENABLED = 'true';
+
+        try {
+            await expect(issueGrant(context, { nowMs })).rejects.toMatchObject({
+                statusCode: 403,
+                code: 'DESKTOP_HANDOFF_MFA_REQUIRED',
+            });
+        } finally {
+            if (originalMfaEnabled === undefined) delete process.env.MFA_ENABLED;
+            else process.env.MFA_ENABLED = originalMfaEnabled;
+        }
     });
 
     test.each([
@@ -264,6 +295,77 @@ describe('desktopHandoffAssuranceService', () => {
         await expect(issueGrant(context, { nowMs })).rejects.toMatchObject({
             statusCode: 403,
             code: 'DESKTOP_HANDOFF_ASSURANCE_SOURCE_RELAYED',
+        });
+    });
+
+    test('rejects and burns a grant after the exact source browser session is revoked', async () => {
+        const nowMs = Date.now();
+        const context = buildContext({ nowMs });
+        const redisClient = createFakeRedis();
+        const grant = await issueGrant(context, { nowMs, redisClient });
+        const getBrowserSessionById = jest.fn().mockResolvedValue(null);
+
+        await expect(consumeGrant(context, grant, {
+            nowMs: nowMs + 1000,
+            redisClient,
+            getBrowserSessionById,
+        })).rejects.toMatchObject({
+            statusCode: 403,
+            code: 'DESKTOP_HANDOFF_ASSURANCE_SESSION_MISMATCH',
+        });
+        expect(getBrowserSessionById).toHaveBeenCalledWith(context.authSession.sessionId);
+        expect(redisClient.records.size).toBe(0);
+
+        await expect(consumeGrant(context, grant, {
+            nowMs: nowMs + 2000,
+            redisClient,
+        })).rejects.toMatchObject({
+            statusCode: 409,
+            code: 'DESKTOP_HANDOFF_ASSURANCE_GRANT_CONSUMED',
+        });
+    });
+
+    test.each([
+        ['session ID', 'sessionId', 'browser-session-other'],
+        ['user ID', 'userId', '507f1f77bcf86cd799439099'],
+        ['Firebase UID', 'firebaseUid', 'firebase-other-user'],
+        ['device ID', 'deviceId', 'device_other_handoff_123'],
+    ])('rejects a source browser session with a mismatched %s', async (_label, field, value) => {
+        const nowMs = Date.now();
+        const context = buildContext({ nowMs });
+        const grant = await issueGrant(context, { nowMs });
+        const sourceSession = {
+            ...context.authSession,
+            [field]: value,
+        };
+
+        await expect(consumeGrant(context, grant, {
+            nowMs: nowMs + 1000,
+            getBrowserSessionById: jest.fn().mockResolvedValue(sourceSession),
+        })).rejects.toMatchObject({
+            statusCode: 403,
+            code: 'DESKTOP_HANDOFF_ASSURANCE_SESSION_MISMATCH',
+        });
+    });
+
+    test('fails closed when the source browser session store errors during consumption', async () => {
+        const nowMs = Date.now();
+        const context = buildContext({ nowMs });
+        const grant = await issueGrant(context, { nowMs });
+
+        await expect(consumeGrant(context, grant, {
+            nowMs: nowMs + 1000,
+            getBrowserSessionById: jest.fn().mockRejectedValue(new Error('session store unavailable')),
+        })).rejects.toMatchObject({
+            statusCode: 503,
+            code: 'DESKTOP_HANDOFF_ASSURANCE_SESSION_STORE_UNAVAILABLE',
+        });
+
+        await expect(consumeGrant(context, grant, {
+            nowMs: nowMs + 2000,
+        })).rejects.toMatchObject({
+            statusCode: 409,
+            code: 'DESKTOP_HANDOFF_ASSURANCE_GRANT_CONSUMED',
         });
     });
 

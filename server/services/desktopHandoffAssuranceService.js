@@ -1,10 +1,14 @@
 const crypto = require('crypto');
 const { getRedisClient, flags: redisFlags, isRedisRequired } = require('../config/redis');
-const { isAdminSubject } = require('./mfaPolicyService');
+const { getBrowserSession } = require('./browserSessionService');
+const {
+    evaluateLogin,
+    isAdminSubject,
+    isLoginMfaSatisfied,
+} = require('./mfaPolicyService');
 const { hasObservedWebAuthnUserVerification } = require('./trustedDeviceAssuranceService');
 const {
     getTrustedDeviceRegistration,
-    issueTrustedDeviceSession,
     normalizeDeviceId,
     verifyTrustedDeviceSession,
 } = require('./trustedDeviceChallengeService');
@@ -22,6 +26,8 @@ class DesktopHandoffAssuranceError extends Error {
         super(message);
         this.name = 'DesktopHandoffAssuranceError';
         this.statusCode = statusCode;
+        this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
+        this.isOperational = true;
         this.code = code;
     }
 }
@@ -141,6 +147,42 @@ const assertOriginalBrowserAssurance = (authSession = null) => {
     }
 };
 
+const assertCurrentSourceBrowserSession = async ({
+    sourceSessionId = '',
+    identity,
+    deviceId = '',
+    nowMs,
+    getBrowserSessionById,
+} = {}) => {
+    let sourceSession;
+    try {
+        sourceSession = await getBrowserSessionById(sourceSessionId);
+    } catch {
+        throw new DesktopHandoffAssuranceError(
+            'Desktop handoff source browser session could not be verified.',
+            503,
+            'DESKTOP_HANDOFF_ASSURANCE_SESSION_STORE_UNAVAILABLE'
+        );
+    }
+
+    if (normalizeText(sourceSession?.sessionId) !== normalizeText(sourceSessionId)) {
+        throw new DesktopHandoffAssuranceError(
+            'Desktop handoff source browser session is no longer active.',
+            403,
+            'DESKTOP_HANDOFF_ASSURANCE_SESSION_MISMATCH'
+        );
+    }
+
+    assertActiveAuthSession({
+        authSession: sourceSession,
+        authUid: identity.authUid,
+        userId: identity.userId,
+        deviceId,
+        nowMs,
+    });
+    assertOriginalBrowserAssurance(sourceSession);
+};
+
 const assertAdminAssurance = ({ user, registration, authSession, nowMs }) => {
     if (!isAdminSubject(user)) return;
 
@@ -256,7 +298,7 @@ return raw
     return record;
 };
 
-const createDesktopHandoffAssuranceGrant = async ({
+const inspectDesktopHandoffAssurance = ({
     requestId = '',
     user = null,
     authUid = '',
@@ -264,12 +306,7 @@ const createDesktopHandoffAssuranceGrant = async ({
     authSession = null,
     deviceId = '',
     deviceSessionToken = '',
-} = {}, {
-    env = process.env,
-    now = () => Date.now(),
-    randomBytes = crypto.randomBytes,
-    redisClient = getRedisClient(),
-} = {}) => {
+} = {}, { now = () => Date.now() } = {}) => {
     const normalizedRequestId = normalizeText(requestId);
     if (!DESKTOP_HANDOFF_REQUEST_ID_REGEX.test(normalizedRequestId)) {
         throw new DesktopHandoffAssuranceError(
@@ -324,9 +361,18 @@ const createDesktopHandoffAssuranceGrant = async ({
     }
 
     assertAdminAssurance({ user, registration, authSession, nowMs });
+    const sourceMfaPolicy = evaluateLogin({
+        user,
+        context: { session: authSession },
+    });
+    if (sourceMfaPolicy.mfaRequired) {
+        throw new DesktopHandoffAssuranceError(
+            'Desktop handoff requires the current MFA checkpoint to be completed.',
+            403,
+            'DESKTOP_HANDOFF_MFA_REQUIRED'
+        );
+    }
 
-    const grantId = randomBytes(32).toString('base64url');
-    const expiresAtMs = nowMs + DESKTOP_HANDOFF_ASSURANCE_TTL_MS;
     const deviceMethod = getRegistrationMethod(registration);
     const sourceAmr = normalizeAmr(authSession?.amr);
     const stepUpUntilMs = getDateMs(authSession?.stepUpUntil);
@@ -344,20 +390,65 @@ const createDesktopHandoffAssuranceGrant = async ({
     const webAuthnStepUpUntil = activeWebAuthnStepUpUntilMs > 0
         ? new Date(activeWebAuthnStepUpUntilMs).toISOString()
         : null;
+
+    return {
+        requestId: normalizedRequestId,
+        identity,
+        sourceSessionId: normalizeText(authSession?.sessionId),
+        deviceId: normalizedDeviceId,
+        deviceMethod,
+        registration,
+        sourceAal: normalizeLower(authSession?.aal),
+        sourceAmr,
+        stepUpUntil,
+        webAuthnStepUpUntil,
+        admin: isAdminSubject(user),
+        loginMfaSatisfied: isLoginMfaSatisfied({ user, session: authSession }),
+        sessionVersion: normalizeText(registration?.sessionVersion),
+    };
+};
+
+const createDesktopHandoffAssuranceGrant = async (input = {}, {
+    env = process.env,
+    now = () => Date.now(),
+    randomBytes = crypto.randomBytes,
+    redisClient = getRedisClient(),
+} = {}) => {
+    const assurance = inspectDesktopHandoffAssurance(input, { now });
+    const nowMs = Number(now());
+    const {
+        requestId: normalizedRequestId,
+        identity,
+        sourceSessionId,
+        deviceId: normalizedDeviceId,
+        deviceMethod,
+        sessionVersion,
+        sourceAal,
+        sourceAmr,
+        stepUpUntil,
+        webAuthnStepUpUntil,
+        admin,
+        loginMfaSatisfied,
+    } = assurance;
+
+    const grantId = randomBytes(32).toString('base64url');
+    const expiresAtMs = nowMs + DESKTOP_HANDOFF_ASSURANCE_TTL_MS;
     const record = {
         typ: DESKTOP_HANDOFF_GRANT_TYPE,
         grantId,
         requestId: normalizedRequestId,
         uid: identity.authUid,
         userId: identity.userId,
+        sourceSessionId,
         deviceId: normalizedDeviceId,
         deviceMethod,
-        sessionVersion: normalizeText(registration?.sessionVersion),
-        admin: isAdminSubject(user),
-        sourceAal: normalizeLower(authSession?.aal),
+        sessionVersion,
+        admin,
+        sourceAal,
         sourceAmr,
         stepUpUntil,
         webAuthnStepUpUntil,
+        loginMfaSatisfied,
         expiresAtMs,
     };
 
@@ -388,6 +479,7 @@ const consumeDesktopHandoffAssuranceGrant = async ({
     env = process.env,
     now = () => Date.now(),
     redisClient = getRedisClient(),
+    getBrowserSessionById = getBrowserSession,
 } = {}) => {
     const nowMs = Number(now());
     const identity = assertIdentityBinding({ user, authUid, authToken });
@@ -420,6 +512,8 @@ const consumeDesktopHandoffAssuranceGrant = async ({
             'DESKTOP_HANDOFF_ASSURANCE_GRANT_CONSUMED'
         );
     }
+    const recordExpiresAtMs = Number(record.expiresAtMs || 0);
+    const recordAmr = normalizeAmr(record.sourceAmr);
 
     if (
         record.typ !== DESKTOP_HANDOFF_GRANT_TYPE
@@ -427,9 +521,11 @@ const consumeDesktopHandoffAssuranceGrant = async ({
         || record.requestId !== requestId
         || record.uid !== identity.authUid
         || record.userId !== identity.userId
-        || Number(record.expiresAtMs || 0) <= nowMs
-        || Math.floor(Number(record.expiresAtMs || 0) / 1000) !== claimExpiresAtSeconds
-        || normalizeAmr(record.sourceAmr).includes('desktop_handoff')
+        || !normalizeText(record.sourceSessionId)
+        || !Number.isFinite(recordExpiresAtMs)
+        || recordExpiresAtMs <= nowMs
+        || Math.floor(recordExpiresAtMs / 1000) !== claimExpiresAtSeconds
+        || recordAmr.includes('desktop_handoff')
     ) {
         throw new DesktopHandoffAssuranceError(
             'Desktop handoff assurance grant binding is invalid.',
@@ -437,6 +533,14 @@ const consumeDesktopHandoffAssuranceGrant = async ({
             'DESKTOP_HANDOFF_ASSURANCE_GRANT_INVALID'
         );
     }
+
+    await assertCurrentSourceBrowserSession({
+        sourceSessionId: record.sourceSessionId,
+        identity,
+        deviceId: record.deviceId,
+        nowMs,
+        getBrowserSessionById,
+    });
 
     const registration = getTrustedDeviceRegistration(user, record.deviceId, { includeInactive: true });
     const currentSessionVersion = normalizeText(registration?.sessionVersion);
@@ -456,36 +560,56 @@ const consumeDesktopHandoffAssuranceGrant = async ({
         assertAdminAssurance({
             user: { ...user, isAdmin: true },
             registration,
-        authSession: {
-            aal: record.sourceAal,
-            amr: record.sourceAmr,
-            stepUpUntil: record.stepUpUntil,
-            webAuthnStepUpUntil: record.webAuthnStepUpUntil,
-        },
+            authSession: {
+                aal: record.sourceAal,
+                amr: record.sourceAmr,
+                stepUpUntil: record.stepUpUntil,
+                webAuthnStepUpUntil: record.webAuthnStepUpUntil,
+            },
             nowMs,
         });
     }
 
-    const trustedDeviceSession = issueTrustedDeviceSession({
+    const sourceMfaPolicy = evaluateLogin({
         user,
-        authUid: identity.authUid,
-        authToken,
-        deviceId: record.deviceId,
-        sessionVersion: currentSessionVersion,
+        context: {
+            session: {
+                deviceId: record.deviceId,
+                aal: record.sourceAal,
+                amr: record.sourceAmr,
+                stepUpUntil: record.stepUpUntil,
+                webAuthnStepUpUntil: record.webAuthnStepUpUntil,
+            },
+        },
     });
-    const additionalAmr = normalizeAmr([
-        ...(record.sourceAmr || []),
-        'desktop_handoff',
-    ]);
+    if (sourceMfaPolicy.mfaRequired) {
+        throw new DesktopHandoffAssuranceError(
+            'Desktop handoff source MFA assurance is no longer valid.',
+            403,
+            'DESKTOP_HANDOFF_MFA_REQUIRED'
+        );
+    }
 
     return {
-        deviceId: record.deviceId,
-        deviceMethod: record.deviceMethod,
-        deviceSessionToken: trustedDeviceSession.deviceSessionToken,
-        expiresAt: trustedDeviceSession.expiresAt,
-        stepUpUntil: record.stepUpUntil || null,
-        webAuthnStepUpUntil: record.webAuthnStepUpUntil || null,
-        additionalAmr,
+        // The browser grant authorizes only one target-device challenge. It
+        // must not transfer the browser's key, trusted-device session, AMR,
+        // AAL, or step-up window into Electron.
+        bootstrapExpiresAt: new Date(Math.min(
+            recordExpiresAtMs,
+            claimExpiresAtSeconds * 1000
+        )).toISOString(),
+        requestId: record.requestId,
+        loginMfaSatisfied: isLoginMfaSatisfied({
+            user,
+            session: {
+                deviceId: record.deviceId,
+                aal: record.sourceAal,
+                amr: record.sourceAmr,
+                stepUpUntil: record.stepUpUntil,
+                webAuthnStepUpUntil: record.webAuthnStepUpUntil,
+            },
+        }),
+        adminPasskeySatisfied: Boolean(record.admin || isAdminSubject(user)),
     };
 };
 
@@ -498,6 +622,7 @@ module.exports = {
     DesktopHandoffAssuranceError,
     consumeDesktopHandoffAssuranceGrant,
     createDesktopHandoffAssuranceGrant,
+    inspectDesktopHandoffAssurance,
     isDistributedGrantStoreRequired,
     resetDesktopHandoffAssuranceGrantsForTests,
 };

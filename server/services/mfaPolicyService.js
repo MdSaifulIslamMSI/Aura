@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { resolveMfaConfig } = require('../config/mfaConfig');
 const { hasObservedWebAuthnUserVerification } = require('./trustedDeviceAssuranceService');
 
@@ -16,6 +17,54 @@ const METHOD_STRENGTH = Object.freeze({
 });
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
+const DESKTOP_HANDOFF_MFA_PREFIX = 'desktop_handoff_mfa:';
+const DESKTOP_HANDOFF_ADMIN_MFA_PREFIX = 'desktop_handoff_admin_mfa:';
+
+const buildDesktopHandoffMfaMarker = (deviceId = '', { admin = false } = {}) => {
+    const normalizedDeviceId = String(deviceId || '').trim();
+    if (!normalizedDeviceId) return '';
+    const deviceBinding = crypto
+        .createHash('sha256')
+        .update(normalizedDeviceId, 'utf8')
+        .digest('hex')
+        .slice(0, 32);
+    return `${admin ? DESKTOP_HANDOFF_ADMIN_MFA_PREFIX : DESKTOP_HANDOFF_MFA_PREFIX}${deviceBinding}`;
+};
+
+const resolveDesktopHandoffMfaBinding = (session = null, amr = []) => {
+    const normalizedAmr = Array.isArray(amr) ? amr : [];
+    const genericMarker = buildDesktopHandoffMfaMarker(session?.deviceId);
+    const adminMarker = buildDesktopHandoffMfaMarker(session?.deviceId, { admin: true });
+    const hasTargetDeviceProof = Boolean(
+        normalizeText(session?.deviceMethod) === 'browser_key'
+        && normalizedAmr.includes('desktop_handoff')
+        && normalizedAmr.includes('device_binding')
+    );
+    return {
+        markerPresent: normalizedAmr.some((entry) => (
+            entry.startsWith(DESKTOP_HANDOFF_MFA_PREFIX)
+            || entry.startsWith(DESKTOP_HANDOFF_ADMIN_MFA_PREFIX)
+        )),
+        genericBound: Boolean(
+            hasTargetDeviceProof
+            && genericMarker
+            && normalizedAmr.includes(genericMarker)
+        ),
+        adminBound: Boolean(
+            hasTargetDeviceProof
+            && adminMarker
+            && normalizedAmr.includes(adminMarker)
+        ),
+    };
+};
+
+const isDesktopHandoffAdminMfaSatisfied = (session = null) => {
+    const amr = Array.isArray(session?.amr)
+        ? session.amr.map((entry) => normalizeText(entry)).filter(Boolean)
+        : [];
+    const binding = resolveDesktopHandoffMfaBinding(session, amr);
+    return Boolean(amr.includes('mfa') && binding.adminBound);
+};
 
 const hasAdminRole = (user = null, role = '') => (
     Array.isArray(user?.adminRoles)
@@ -34,40 +83,67 @@ const resolveRole = (user = null) => {
     return 'buyer';
 };
 
-const hasPasskey = (user = null) => {
-    const adminSubject = isAdminSubject(user);
+const isActiveTrustedDevice = (device = null) => {
+    if (!device || device?.revokedAt) return false;
+    const expiresAt = device?.expiresAt ? new Date(device.expiresAt).getTime() : 0;
+    return !(Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt <= Date.now());
+};
+
+const isWebAuthnTrustedDevice = (device = null) => Boolean(
+    normalizeText(device?.method) === 'webauthn'
+    || String(device?.webauthnCredentialIdBase64Url || '').trim()
+);
+
+const getCurrentTrustedDevice = (user = null, session = null) => {
+    const currentDeviceId = String(session?.deviceId || '').trim();
+    if (!currentDeviceId || !Array.isArray(user?.trustedDevices)) return null;
+    return user.trustedDevices.find((device) => (
+        String(device?.deviceId || '').trim() === currentDeviceId
+    )) || null;
+};
+
+const isVerifiedAdminPasskeyDevice = (device = null) => Boolean(
+    isActiveTrustedDevice(device)
+    && isWebAuthnTrustedDevice(device)
+    && hasObservedWebAuthnUserVerification(device)
+    && normalizeText(device?.credentialScope) === 'admin'
+    && normalizeText(device?.adminEligibility) === 'verified'
+);
+
+const isCurrentLegacyAdminPasskeyCandidate = ({ user = null, session = null } = {}) => {
+    if (!isAdminSubject(user)) return false;
+    const device = getCurrentTrustedDevice(user, session);
+    return Boolean(
+        isActiveTrustedDevice(device)
+        && isWebAuthnTrustedDevice(device)
+        && normalizeText(device?.credentialScope) === 'recognition'
+        && normalizeText(device?.adminEligibility) === 'legacy_candidate'
+        && normalizeText(device?.enrollmentContext) === 'legacy_admin_snapshot'
+    );
+};
+
+const isEligiblePasskeyMfaDevice = ({ user = null, device = null } = {}) => {
+    if (!isActiveTrustedDevice(device) || !isWebAuthnTrustedDevice(device)) return false;
+    if (!hasObservedWebAuthnUserVerification(device)) return false;
+    if (isAdminSubject(user)) return isVerifiedAdminPasskeyDevice(device);
+
     const activeMfaCredentialIds = new Set(
         (Array.isArray(user?.mfa?.passkeys) ? user.mfa.passkeys : [])
             .filter((passkey) => !passkey?.revokedAt)
             .map((passkey) => String(passkey?.credentialId || '').trim())
             .filter(Boolean)
     );
+    const credentialScope = normalizeText(device?.credentialScope);
+    const credentialId = String(device?.webauthnCredentialIdBase64Url || '').trim();
+    return credentialScope === 'mfa'
+        || credentialScope === 'admin'
+        || (credentialId && activeMfaCredentialIds.has(credentialId));
+};
 
+const hasPasskey = (user = null) => {
     return Boolean(
         Array.isArray(user?.trustedDevices)
-        && user.trustedDevices.some((device) => {
-            if (device?.revokedAt) return false;
-            const expiresAt = device?.expiresAt ? new Date(device.expiresAt).getTime() : 0;
-            if (Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt <= Date.now()) return false;
-            if (
-                normalizeText(device?.method) !== 'webauthn'
-                && !String(device?.webauthnCredentialIdBase64Url || '').trim()
-            ) {
-                return false;
-            }
-            if (!hasObservedWebAuthnUserVerification(device)) return false;
-
-            const credentialScope = normalizeText(device?.credentialScope);
-            if (adminSubject) {
-                return credentialScope === 'admin'
-                    && normalizeText(device?.adminEligibility) === 'verified';
-            }
-
-            const credentialId = String(device?.webauthnCredentialIdBase64Url || '').trim();
-            return credentialScope === 'mfa'
-                || credentialScope === 'admin'
-                || (credentialId && activeMfaCredentialIds.has(credentialId));
-        })
+        && user.trustedDevices.some((device) => isEligiblePasskeyMfaDevice({ user, device }))
     );
 };
 
@@ -89,21 +165,71 @@ const isHighRiskLogin = (context = {}) => {
     );
 };
 
-const isLoginMfaSatisfied = ({ session = null, highRisk = false } = {}) => {
+const isLoginMfaSatisfied = ({ user = null, session = null, highRisk = false } = {}) => {
     const amr = Array.isArray(session?.amr)
         ? session.amr.map((entry) => normalizeText(entry))
         : [];
-    const completedMfa = amr.includes('mfa') || amr.includes('firebase_mfa');
+    const handoffBinding = resolveDesktopHandoffMfaBinding(session, amr);
+    const independentMethodEvidence = [
+        'firebase_mfa',
+        'totp',
+        'duo',
+        'duo_oidc',
+        'recovery_code',
+        'email_otp',
+        'webauthn',
+        'passkey',
+    ].some((method) => amr.includes(method));
+    const derivedHandoffMfaValid = handoffBinding.genericBound || handoffBinding.adminBound;
+    const completedMfa = amr.includes('firebase_mfa') || Boolean(
+        amr.includes('mfa')
+        && (
+            !handoffBinding.markerPresent
+            || derivedHandoffMfaValid
+            || independentMethodEvidence
+        )
+    );
     if (!completedMfa) return false;
+    if (isAdminSubject(user)) {
+        const independentAdminFactor = [
+            'firebase_mfa',
+            'totp',
+            'duo',
+            'duo_oidc',
+            'recovery_code',
+        ].some((method) => amr.includes(method));
+        if (handoffBinding.adminBound) {
+            if (!highRisk) return true;
+            const stepUpUntil = session?.stepUpUntil ? new Date(session.stepUpUntil).getTime() : 0;
+            return Number.isFinite(stepUpUntil) && stepUpUntil > Date.now();
+        }
+        const passkeyClaimed = amr.includes('webauthn') || amr.includes('passkey');
+        if (!independentAdminFactor) {
+            const currentDevice = getCurrentTrustedDevice(user, session);
+            if (!passkeyClaimed || !isVerifiedAdminPasskeyDevice(currentDevice)) return false;
+        }
+    }
     if (!highRisk) return true;
 
     const stepUpUntil = session?.stepUpUntil ? new Date(session.stepUpUntil).getTime() : 0;
     return Number.isFinite(stepUpUntil) && stepUpUntil > Date.now();
 };
 
-const buildAllowedMethods = ({ user = null, config = resolveMfaConfig(), role = resolveRole(user), lowRiskBuyer = false } = {}) => {
+const buildAllowedMethods = ({
+    user = null,
+    config = resolveMfaConfig(),
+    role = resolveRole(user),
+    lowRiskBuyer = false,
+    session = null,
+    allowLegacyAdminRecovery = false,
+} = {}) => {
     const methods = [];
-    if (config.passkeyEnabled && hasPasskey(user)) methods.push(MFA_METHODS.PASSKEY);
+    const passkeyAvailable = hasPasskey(user)
+        || (
+            allowLegacyAdminRecovery
+            && isCurrentLegacyAdminPasskeyCandidate({ user, session })
+        );
+    if (config.passkeyEnabled && passkeyAvailable) methods.push(MFA_METHODS.PASSKEY);
     if (config.totpEnabled && hasTotp(user)) methods.push(MFA_METHODS.TOTP);
     if (config.recoveryCodesEnabled && hasRecoveryCodes(user)) methods.push(MFA_METHODS.RECOVERY_CODE);
     if (config.emailOtpFallbackEnabled && role === 'buyer' && lowRiskBuyer) methods.push(MFA_METHODS.EMAIL_OTP);
@@ -129,15 +255,23 @@ const evaluateLogin = ({ user = null, context = {}, env = process.env } = {}) =>
     const policyRequired = Boolean(config.enabled && (userEnabled || adminRequired || sellerRequired || highRisk));
     const satisfied = Boolean(
         policyRequired
-        && isLoginMfaSatisfied({ session: context.session, highRisk })
+        && isLoginMfaSatisfied({ user, session: context.session, highRisk })
     );
     const mfaRequired = Boolean(policyRequired && !satisfied);
     const allowedMethods = mfaRequired
-        ? buildAllowedMethods({ user, config, role, lowRiskBuyer: !highRisk && role === 'buyer' })
+        ? buildAllowedMethods({
+            user,
+            config,
+            role,
+            lowRiskBuyer: !highRisk && role === 'buyer',
+            session: context.session,
+            allowLegacyAdminRecovery: true,
+        })
         : [];
     const preferredMethod = choosePreferredMethod(allowedMethods, {
         role,
-        passkeyAvailable: hasPasskey(user),
+        passkeyAvailable: hasPasskey(user)
+            || isCurrentLegacyAdminPasskeyCandidate({ user, session: context.session }),
     });
 
     const reason = !policyRequired
@@ -244,6 +378,7 @@ const buildPublicMfaPolicy = (policy = {}) => ({
 module.exports = {
     MFA_METHODS,
     METHOD_STRENGTH,
+    buildDesktopHandoffMfaMarker,
     buildAllowedMethods,
     buildPublicMfaPolicy,
     evaluateAction,
@@ -251,8 +386,12 @@ module.exports = {
     hasPasskey,
     hasRecoveryCodes,
     hasTotp,
+    isCurrentLegacyAdminPasskeyCandidate,
+    isDesktopHandoffAdminMfaSatisfied,
+    isEligiblePasskeyMfaDevice,
     isFreshMfaSatisfied,
     isAdminSubject,
     isLoginMfaSatisfied,
+    isVerifiedAdminPasskeyDevice,
     resolveRole,
 };

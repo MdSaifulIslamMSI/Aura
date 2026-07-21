@@ -145,6 +145,7 @@ const buildCsrfAttackApp = () => {
             startEnterpriseLogin: (_req, res) => res.redirect('https://enterprise.example.test/authorize'),
             completeEnterpriseLogin: (_req, res) => res.redirect('/login?enterprise=success'),
             issueDesktopHandoffToken: (_req, res) => res.json({ customToken: 'desktop-handoff-token' }),
+            prepareDesktopHandoff: (_req, res) => res.json({ status: 'handoff_ready' }),
             issueDesktopOwnerAccessToken: (_req, res) => res.json({ customToken: 'desktop-owner-access-token' }),
             requestBootstrapDeviceChallenge: (_req, res) => res.json({ success: true, deviceChallenge: null }),
             verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),

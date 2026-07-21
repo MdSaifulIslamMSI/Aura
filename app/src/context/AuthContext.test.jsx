@@ -33,6 +33,10 @@ const loadAuthContext = async () => {
     adoptTrustedDeviceSessionMock: vi.fn(),
     cacheTrustedDeviceSessionTokenMock: vi.fn(),
     clearTrustedDeviceSessionTokenMock: vi.fn(),
+    ensureDesktopHandoffTargetIdentityMock: vi.fn().mockResolvedValue({
+      deviceId: 'aura_desktop_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      rotated: true,
+    }),
     resetTrustedDeviceIdentityMock: vi.fn(),
     authApiMock: {
       exchangeSession: vi.fn(),
@@ -122,6 +126,7 @@ const loadAuthContext = async () => {
     adoptTrustedDeviceSession: mocks.adoptTrustedDeviceSessionMock,
     cacheTrustedDeviceSessionToken: mocks.cacheTrustedDeviceSessionTokenMock,
     clearTrustedDeviceSessionToken: mocks.clearTrustedDeviceSessionTokenMock,
+    ensureDesktopHandoffTargetIdentity: mocks.ensureDesktopHandoffTargetIdentityMock,
     resetTrustedDeviceIdentity: mocks.resetTrustedDeviceIdentityMock,
   }));
 
@@ -733,7 +738,56 @@ describe('AuthProvider', () => {
 
       expect(signInWithOwnerAccess).toHaveBeenCalledTimes(1);
       expect(mocks.signInWithCustomTokenMock).toHaveBeenCalledWith({}, 'owner-custom-token');
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock).toHaveBeenCalledTimes(1);
       expect(mocks.authApiMock.syncSession).toHaveBeenCalled();
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock.mock.invocationCallOrder[0])
+        .toBeLessThan(mocks.authApiMock.syncSession.mock.invocationCallOrder[0]);
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it('rolls back desktop owner access when local identity rotation fails', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    const ownerUser = {
+      uid: 'owner-rotation-failure-uid',
+      email: 'owner-rotation-failure@example.com',
+      providerData: [],
+    };
+    const failure = new Error('desktop owner identity rotation failed');
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: ownerUser });
+    mocks.ensureDesktopHandoffTargetIdentityMock.mockRejectedValue(failure);
+    window.auraDesktop = {
+      isDesktop: true,
+      signInWithOwnerAccess: vi.fn().mockResolvedValue({
+        success: true,
+        customToken: 'owner-rotation-failure-token',
+      }),
+    };
+
+    const Probe = () => {
+      const { signInWithDesktopOwnerAccess } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopOwnerAccess()
+          .then(() => setResult('unexpected-success'))
+          .catch((error) => setResult(error.message));
+      }, [signInWithDesktopOwnerAccess]);
+      return <div data-testid="desktop-owner-rotation-failure">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-owner-rotation-failure'))
+          .toHaveTextContent(failure.message);
+      });
+      expect(mocks.authApiMock.logoutSession).toHaveBeenCalledWith({ firebaseUser: ownerUser });
+      expect(mocks.signOutMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.authApiMock.syncSession).not.toHaveBeenCalled();
     } finally {
       delete window.auraDesktop;
     }
@@ -785,13 +839,12 @@ describe('AuthProvider', () => {
 
     mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
     mocks.authApiMock.syncSession.mockResolvedValue({
-      status: 'authenticated',
-      deviceSessionToken: 'desktop-bound-device-session',
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      desktopHandoff: {
-        assuranceTransferred: true,
-        deviceId: 'aura_hosted_browser_device_1',
-        deviceMethod: 'webauthn',
+      status: 'device_challenge_required',
+      deviceChallenge: {
+        token: 'desktop-target-challenge-token',
+        scope: 'desktop_handoff_target',
+        mode: 'register',
+        availableMethods: ['browser_key'],
       },
       session: {
         uid: desktopUser.uid,
@@ -872,7 +925,7 @@ describe('AuthProvider', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByTestId('desktop-browser-status')).toHaveTextContent('authenticated');
+        expect(screen.getByTestId('desktop-browser-status')).toHaveTextContent('device_challenge_required');
         expect(screen.getByTestId('desktop-browser-result')).toHaveTextContent('desktop-browser@example.com');
       }, { timeout: 4000 });
 
@@ -888,6 +941,7 @@ describe('AuthProvider', () => {
       expect(consumeBrowserSignIn).toHaveBeenCalledTimes(2);
       expect(mocks.signInWithCustomTokenMock).toHaveBeenCalledWith({}, 'desktop-browser-custom-token');
       expect(desktopUser.getIdTokenResult).toHaveBeenCalledWith(true);
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock).toHaveBeenCalledTimes(1);
       expect(mocks.authApiMock.syncSession).toHaveBeenCalledWith(
         desktopUser.email,
         desktopUser.displayName,
@@ -897,10 +951,377 @@ describe('AuthProvider', () => {
           firebaseUser: desktopUser,
         })
       );
-      expect(mocks.adoptTrustedDeviceSessionMock).toHaveBeenCalledWith(expect.objectContaining({
-        deviceId: 'aura_hosted_browser_device_1',
-        deviceSessionToken: 'desktop-bound-device-session',
-      }));
+      expect(desktopUser.getIdTokenResult.mock.invocationCallOrder[0])
+        .toBeLessThan(mocks.ensureDesktopHandoffTargetIdentityMock.mock.invocationCallOrder[0]);
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock.mock.invocationCallOrder[0])
+        .toBeLessThan(mocks.authApiMock.syncSession.mock.invocationCallOrder[0]);
+      expect(mocks.adoptTrustedDeviceSessionMock).not.toHaveBeenCalled();
+      expect(mocks.cacheTrustedDeviceSessionTokenMock).not.toHaveBeenCalled();
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it.each([
+    ['forced claim refresh', 'claim_refresh'],
+    ['target identity rotation', 'identity_rotation'],
+  ])('rolls back the Firebase session when desktop %s fails', async (_label, failureStage) => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+
+    const requestId = `desktop-browser-rollback-${failureStage}`;
+    const failure = new Error(`desktop ${failureStage} failed`);
+    const desktopUser = {
+      uid: `desktop-browser-${failureStage}-user`,
+      email: `${failureStage}@example.com`,
+      displayName: 'Desktop Rollback User',
+      providerData: [],
+      getIdTokenResult: vi.fn().mockResolvedValue({
+        claims: {
+          desktop_handoff: true,
+          desktop_request_id: requestId,
+          desktop_handoff_grant_id: 'g'.repeat(43),
+          desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 60,
+        },
+      }),
+    };
+    if (failureStage === 'claim_refresh') {
+      desktopUser.getIdTokenResult.mockRejectedValue(failure);
+    } else {
+      mocks.ensureDesktopHandoffTargetIdentityMock.mockRejectedValue(failure);
+    }
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
+
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn: vi.fn().mockResolvedValue({ success: true }),
+      consumeBrowserSignIn: vi.fn().mockResolvedValue({
+        success: true,
+        customToken: `desktop-browser-${failureStage}-token`,
+      }),
+      onBrowserSignInStatus: vi.fn(() => () => {}),
+      startBrowserSignIn: vi.fn().mockResolvedValue({
+        requestId,
+        expiresAt: Date.now() + 60_000,
+      }),
+    };
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('unexpected-success'))
+          .catch((error) => setResult(error.message));
+      }, [signInWithDesktopBrowser]);
+      return <div data-testid={`desktop-browser-${failureStage}-result`}>{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => {
+        expect(screen.getByTestId(`desktop-browser-${failureStage}-result`))
+          .toHaveTextContent(failure.message);
+      });
+
+      expect(mocks.authApiMock.logoutSession).toHaveBeenCalledWith({ firebaseUser: desktopUser });
+      expect(mocks.signOutMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalled();
+      expect(mocks.clearTrustedDeviceSessionTokenMock).toHaveBeenCalled();
+      expect(mocks.authApiMock.syncSession).not.toHaveBeenCalled();
+      if (failureStage === 'claim_refresh') {
+        expect(mocks.ensureDesktopHandoffTargetIdentityMock).not.toHaveBeenCalled();
+      } else {
+        expect(mocks.ensureDesktopHandoffTargetIdentityMock).toHaveBeenCalledTimes(1);
+      }
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it('force-rotates a colliding desktop identity and restarts the handoff once', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    const requestIds = ['desktop-collision-request-1', 'desktop-collision-request-2'];
+    const collisionError = new Error('Desktop target identity must be rotated.');
+    collisionError.status = 409;
+    collisionError.code = 'DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED';
+    const desktopUser = {
+      uid: 'desktop-collision-user',
+      email: 'desktop-collision@example.com',
+      displayName: 'Desktop Collision User',
+      providerData: [],
+      getIdTokenResult: vi.fn()
+        .mockResolvedValueOnce({
+          claims: {
+            desktop_handoff: true,
+            desktop_request_id: requestIds[0],
+            desktop_handoff_grant_id: 'c'.repeat(43),
+            desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 60,
+          },
+        })
+        .mockResolvedValueOnce({
+          claims: {
+            desktop_handoff: true,
+            desktop_request_id: requestIds[1],
+            desktop_handoff_grant_id: 'd'.repeat(43),
+            desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 60,
+          },
+        }),
+    };
+    const startBrowserSignIn = vi.fn()
+      .mockResolvedValueOnce({ requestId: requestIds[0], expiresAt: Date.now() + 60_000 })
+      .mockResolvedValueOnce({ requestId: requestIds[1], expiresAt: Date.now() + 60_000 });
+    const cancelBrowserSignIn = vi.fn().mockResolvedValue({ success: true });
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn,
+      consumeBrowserSignIn: vi.fn()
+        .mockResolvedValueOnce({ success: true, customToken: 'collision-custom-token-1' })
+        .mockResolvedValueOnce({ success: true, customToken: 'collision-custom-token-2' }),
+      onBrowserSignInStatus: vi.fn(() => () => {}),
+      startBrowserSignIn,
+    };
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
+    mocks.authApiMock.syncSession
+      .mockRejectedValueOnce(collisionError)
+      .mockResolvedValueOnce({
+        status: 'device_challenge_required',
+        deviceChallenge: {
+          token: 'rotated-desktop-target-challenge',
+          scope: 'desktop_handoff_target',
+          mode: 'enroll',
+          availableMethods: ['browser_key'],
+        },
+        session: { uid: desktopUser.uid, email: desktopUser.email },
+        profile: {
+          _id: 'desktop-collision-profile',
+          email: desktopUser.email,
+          name: desktopUser.displayName,
+          isAdmin: false,
+          isVerified: true,
+          isSeller: false,
+        },
+        roles: { isAdmin: false, isVerified: true, isSeller: false },
+      });
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('success'))
+          .catch((error) => setResult(error.code || error.message));
+      }, [signInWithDesktopBrowser]);
+      return <div data-testid="desktop-collision-retry-result">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-collision-retry-result')).toHaveTextContent('success');
+      });
+
+      expect(startBrowserSignIn).toHaveBeenCalledTimes(2);
+      expect(cancelBrowserSignIn).toHaveBeenCalledTimes(1);
+      expect(cancelBrowserSignIn).toHaveBeenCalledWith(requestIds[0]);
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock.mock.calls).toEqual([
+        [],
+        [{ force: true }],
+        [],
+      ]);
+      expect(cancelBrowserSignIn.mock.invocationCallOrder[0])
+        .toBeLessThan(mocks.ensureDesktopHandoffTargetIdentityMock.mock.invocationCallOrder[1]);
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock.mock.invocationCallOrder[1])
+        .toBeLessThan(startBrowserSignIn.mock.invocationCallOrder[1]);
+      expect(mocks.authApiMock.syncSession).toHaveBeenCalledTimes(2);
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it('does not loop when the rotated desktop identity is rejected again', async () => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    const requestIds = ['desktop-collision-repeat-1', 'desktop-collision-repeat-2'];
+    const collisionError = new Error('Desktop target identity still collides.');
+    collisionError.status = 409;
+    collisionError.code = 'DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED';
+    const desktopUser = {
+      uid: 'desktop-repeat-collision-user',
+      email: 'desktop-repeat-collision@example.com',
+      providerData: [],
+      getIdTokenResult: vi.fn()
+        .mockResolvedValueOnce({
+          claims: {
+            desktop_handoff: true,
+            desktop_request_id: requestIds[0],
+            desktop_handoff_grant_id: 'r'.repeat(43),
+            desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 60,
+          },
+        })
+        .mockResolvedValueOnce({
+          claims: {
+            desktop_handoff: true,
+            desktop_request_id: requestIds[1],
+            desktop_handoff_grant_id: 's'.repeat(43),
+            desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 60,
+          },
+        }),
+    };
+    const startBrowserSignIn = vi.fn()
+      .mockResolvedValueOnce({ requestId: requestIds[0], expiresAt: Date.now() + 60_000 })
+      .mockResolvedValueOnce({ requestId: requestIds[1], expiresAt: Date.now() + 60_000 });
+    const cancelBrowserSignIn = vi.fn().mockResolvedValue({ success: true });
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn,
+      consumeBrowserSignIn: vi.fn()
+        .mockResolvedValueOnce({ success: true, customToken: 'repeat-collision-token-1' })
+        .mockResolvedValueOnce({ success: true, customToken: 'repeat-collision-token-2' }),
+      onBrowserSignInStatus: vi.fn(() => () => {}),
+      startBrowserSignIn,
+    };
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
+    mocks.authApiMock.syncSession.mockRejectedValue(collisionError);
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('unexpected-success'))
+          .catch((error) => setResult(error.code || error.message));
+      }, [signInWithDesktopBrowser]);
+      return <div data-testid="desktop-collision-bounded-result">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-collision-bounded-result'))
+          .toHaveTextContent('DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED');
+      });
+
+      expect(startBrowserSignIn).toHaveBeenCalledTimes(2);
+      expect(cancelBrowserSignIn).toHaveBeenCalledTimes(2);
+      expect(mocks.authApiMock.syncSession).toHaveBeenCalledTimes(2);
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock.mock.calls.filter(
+        ([options]) => options?.force === true
+      )).toHaveLength(1);
+    } finally {
+      delete window.auraDesktop;
+    }
+  });
+
+  it.each([
+    ['DESKTOP_HANDOFF_ASSURANCE_SESSION_STORE_UNAVAILABLE', false],
+    ['DESKTOP_HANDOFF_TARGET_CHALLENGE_UNAVAILABLE', true],
+  ])('restarts a fresh handoff at most once for %s', async (failureCode, rejectAgain) => {
+    mocks.onAuthStateChangedMock.mockImplementation(() => () => {});
+    const requestIds = [
+      `desktop-transient-${failureCode.toLowerCase()}-1`,
+      `desktop-transient-${failureCode.toLowerCase()}-2`,
+    ];
+    const transientError = new Error('Desktop handoff must restart after a consumed grant failure.');
+    transientError.status = 503;
+    transientError.data = { code: failureCode };
+    const desktopUser = {
+      uid: 'desktop-transient-user',
+      email: 'desktop-transient@example.com',
+      displayName: 'Desktop Transient User',
+      providerData: [],
+      getIdTokenResult: vi.fn()
+        .mockResolvedValueOnce({
+          claims: {
+            desktop_handoff: true,
+            desktop_request_id: requestIds[0],
+            desktop_handoff_grant_id: 't'.repeat(43),
+            desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 60,
+          },
+        })
+        .mockResolvedValueOnce({
+          claims: {
+            desktop_handoff: true,
+            desktop_request_id: requestIds[1],
+            desktop_handoff_grant_id: 'u'.repeat(43),
+            desktop_handoff_grant_exp: Math.floor(Date.now() / 1000) + 60,
+          },
+        }),
+    };
+    const startBrowserSignIn = vi.fn()
+      .mockResolvedValueOnce({ requestId: requestIds[0], expiresAt: Date.now() + 60_000 })
+      .mockResolvedValueOnce({ requestId: requestIds[1], expiresAt: Date.now() + 60_000 });
+    const cancelBrowserSignIn = vi.fn().mockResolvedValue({ success: true });
+    window.auraDesktop = {
+      isDesktop: true,
+      cancelBrowserSignIn,
+      consumeBrowserSignIn: vi.fn()
+        .mockResolvedValueOnce({ success: true, customToken: 'transient-custom-token-1' })
+        .mockResolvedValueOnce({ success: true, customToken: 'transient-custom-token-2' }),
+      onBrowserSignInStatus: vi.fn(() => () => {}),
+      startBrowserSignIn,
+    };
+    mocks.signInWithCustomTokenMock.mockResolvedValue({ user: desktopUser });
+    mocks.authApiMock.syncSession.mockRejectedValueOnce(transientError);
+    if (rejectAgain) {
+      mocks.authApiMock.syncSession.mockRejectedValueOnce(transientError);
+    } else {
+      mocks.authApiMock.syncSession.mockResolvedValueOnce({
+        status: 'device_challenge_required',
+        deviceChallenge: {
+          token: 'fresh-desktop-target-challenge',
+          scope: 'desktop_handoff_target',
+          mode: 'enroll',
+          availableMethods: ['browser_key'],
+        },
+        session: { uid: desktopUser.uid, email: desktopUser.email },
+        profile: {
+          _id: 'desktop-transient-profile',
+          email: desktopUser.email,
+          name: desktopUser.displayName,
+          isAdmin: false,
+          isVerified: true,
+          isSeller: false,
+        },
+        roles: { isAdmin: false, isVerified: true, isSeller: false },
+      });
+    }
+
+    const Probe = () => {
+      const { signInWithDesktopBrowser } = useAuth();
+      const [result, setResult] = React.useState('idle');
+      const startedRef = React.useRef(false);
+      React.useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+        signInWithDesktopBrowser()
+          .then(() => setResult('success'))
+          .catch((error) => setResult(error.code || error.data?.code || error.message));
+      }, [signInWithDesktopBrowser]);
+      return <div data-testid="desktop-transient-retry-result">{result}</div>;
+    };
+
+    try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-transient-retry-result'))
+          .toHaveTextContent(rejectAgain ? failureCode : 'success');
+      });
+
+      expect(startBrowserSignIn).toHaveBeenCalledTimes(2);
+      expect(mocks.authApiMock.syncSession).toHaveBeenCalledTimes(2);
+      expect(cancelBrowserSignIn).toHaveBeenCalledTimes(rejectAgain ? 2 : 1);
+      expect(cancelBrowserSignIn).toHaveBeenNthCalledWith(1, requestIds[0]);
+      if (rejectAgain) {
+        expect(cancelBrowserSignIn).toHaveBeenNthCalledWith(2, requestIds[1]);
+      }
     } finally {
       delete window.auraDesktop;
     }
@@ -1064,6 +1485,7 @@ describe('AuthProvider', () => {
           .toHaveTextContent('auth/desktop-browser-sign-in-token-mismatch');
       });
       expect(mocks.signOutMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock).not.toHaveBeenCalled();
       expect(mocks.authApiMock.syncSession).not.toHaveBeenCalled();
     } finally {
       delete window.auraDesktop;
@@ -1122,6 +1544,7 @@ describe('AuthProvider', () => {
       });
       expect(desktopUser.getIdTokenResult).toHaveBeenCalledWith(true);
       expect(mocks.signOutMock).toHaveBeenCalledWith(expect.anything());
+      expect(mocks.ensureDesktopHandoffTargetIdentityMock).not.toHaveBeenCalled();
       expect(mocks.authApiMock.syncSession).not.toHaveBeenCalled();
       expect(window.auraDesktop.startBrowserSignIn).toHaveBeenCalledTimes(2);
       expect(window.auraDesktop.cancelBrowserSignIn).toHaveBeenCalledTimes(2);
@@ -1761,13 +2184,14 @@ describe('AuthProvider', () => {
     expect(mocks.signInWithRedirectMock).not.toHaveBeenCalled();
   });
 
-  it('adopts the verified session payload directly after trusted-device verification', async () => {
+  it('marks a desktop handoff target proof without affecting generic device refresh', async () => {
     let capturedContext = null;
 
     mocks.authApiMock.getSession.mockResolvedValueOnce({
       status: 'device_challenge_required',
       deviceChallenge: {
         token: 'challenge-token',
+        scope: 'desktop_handoff_target',
         mode: 'assert',
         availableMethods: ['browser_key'],
         challenge: 'challenge-value',
@@ -1839,6 +2263,7 @@ describe('AuthProvider', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('verify-status')).toHaveTextContent('device_challenge_required');
+      expect(capturedContext?.deviceChallenge?.scope).toBe('desktop_handoff_target');
     });
 
     await act(async () => {
@@ -1846,6 +2271,8 @@ describe('AuthProvider', () => {
         method: 'browser_key',
         proofBase64: 'proof',
         publicKeySpkiBase64: '',
+        challengeToken: 'challenge-token',
+        challengeScope: 'desktop_handoff_target',
       });
     });
 
@@ -1864,6 +2291,7 @@ describe('AuthProvider', () => {
       expect.objectContaining({
         firebaseUser: mocks.mockUser,
         forceRefreshAuth: true,
+        desktopHandoffTarget: true,
       })
     );
     expect(mocks.cacheTrustedDeviceSessionTokenMock).toHaveBeenCalledWith(
@@ -1872,6 +2300,70 @@ describe('AuthProvider', () => {
     );
     expect(mocks.authApiMock.getSession).toHaveBeenCalledTimes(1);
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
+  });
+
+  it('does not inherit desktop target scope from a different mutable challenge', async () => {
+    let capturedContext = null;
+
+    mocks.authApiMock.getSession.mockResolvedValueOnce({
+      status: 'device_challenge_required',
+      deviceChallenge: {
+        token: 'current-desktop-target-token',
+        scope: 'desktop_handoff_target',
+        mode: 'assert',
+        availableMethods: ['browser_key'],
+        challenge: 'current-desktop-target-challenge',
+      },
+      session: {
+        sessionId: 'server-session-scope-binding',
+        uid: 'firebase-user-1',
+        email: 'stale@example.com',
+      },
+      profile: {
+        _id: 'db-user-scope-binding',
+        name: 'Scope Binding',
+        email: 'stale@example.com',
+        isAdmin: false,
+        isVerified: true,
+        isSeller: false,
+      },
+      roles: { isAdmin: false, isSeller: false, isVerified: true },
+    });
+
+    const Probe = () => {
+      const authContext = useAuth();
+      React.useEffect(() => {
+        capturedContext = authContext;
+      }, [authContext]);
+      return <div data-testid="scope-binding-status">{authContext.status}</div>;
+    };
+
+    render(<AuthProvider><Probe /></AuthProvider>);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('scope-binding-status')).toHaveTextContent('device_challenge_required');
+    });
+
+    await act(async () => {
+      await capturedContext.verifyDeviceChallenge('submitted-generic-token', {
+        method: 'browser_key',
+        proofBase64: 'generic-proof',
+        challengeToken: 'submitted-generic-token',
+        challengeScope: 'trusted_device',
+      });
+    });
+
+    expect(mocks.authApiMock.verifyDeviceChallenge).toHaveBeenCalledWith(
+      'submitted-generic-token',
+      expect.objectContaining({
+        challengeToken: 'submitted-generic-token',
+        challengeScope: 'trusted_device',
+      }),
+      '',
+      expect.objectContaining({
+        desktopHandoffTarget: false,
+      })
+    );
   });
 
   it('preserves the MFA checkpoint returned after trusted-device verification', async () => {

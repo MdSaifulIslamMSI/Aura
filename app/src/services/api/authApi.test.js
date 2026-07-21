@@ -176,6 +176,37 @@ describe('authApi', () => {
     });
   });
 
+  it('preflights desktop handoff assurance before minting a one-time token', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('fresh-token'),
+    };
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ Authorization: 'Bearer fresh-token' });
+    global.fetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      status: 'handoff_ready',
+      handoffReady: true,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await expect(authApi.prepareDesktopHandoff({
+      firebaseUser,
+      requestId: '123e4567-e89b-12d3-a456-426614174000',
+    })).resolves.toEqual({
+      status: 'handoff_ready',
+      handoffReady: true,
+    });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
+      useFirebaseBearer: true,
+    });
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/auth/desktop-handoff/prepare');
+    expect(JSON.parse(requestOptions.body)).toEqual({
+      requestId: '123e4567-e89b-12d3-a456-426614174000',
+    });
+  });
+
   it('creates a desktop handoff token from the token already issued by browser sign-in', async () => {
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),
@@ -600,6 +631,37 @@ describe('authApi', () => {
     expect(url).toContain('/auth/verify-device');
     expect(requestOptions.headers.get('Authorization')).toBe('Bearer fresh-token');
     expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
+    expect(JSON.parse(requestOptions.body)).not.toHaveProperty('desktopHandoffTarget');
+  });
+
+  it('marks only an explicit desktop target challenge as handoff-scoped', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue('desktop-handoff-token'),
+    };
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ Authorization: 'Bearer desktop-handoff-token' });
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, status: 'authenticated' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await authApi.verifyDeviceChallenge(
+      'desktop-target-challenge',
+      {
+        method: 'browser_key',
+        proofBase64: 'desktop-target-proof',
+        publicKeySpkiBase64: 'desktop-target-key',
+      },
+      '',
+      { firebaseUser, desktopHandoffTarget: true }
+    );
+
+    const [, requestOptions] = global.fetch.mock.calls[0];
+    expect(JSON.parse(requestOptions.body)).toMatchObject({
+      token: 'desktop-target-challenge',
+      desktopHandoffTarget: true,
+    });
   });
 
   it('keeps trusted-device cookie verification available when no Firebase user is present', async () => {

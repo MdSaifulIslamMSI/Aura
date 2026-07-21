@@ -7208,19 +7208,14 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Signed-in Aura account",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "desktopLogin.consent.checkingPasskey": {
-        id: "desktopLogin.consent.checkingPasskey",
-        defaultMessage: "Checking passkey",
+    "desktopLogin.consent.checkingDevice": {
+        id: "desktopLogin.consent.checkingDevice",
+        defaultMessage: "Checking this browser",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.consent.passkeyStatus": {
         id: "desktopLogin.consent.passkeyStatus",
         defaultMessage: "Waiting for passkey verification before returning sign-in to Aura Desktop.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "desktopLogin.consent.registerPasskey": {
-        id: "desktopLogin.consent.registerPasskey",
-        defaultMessage: "Register passkey & continue",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.consent.security": {
@@ -7246,11 +7241,6 @@ export const stableUiMessages = defineMessages({
     "desktopLogin.consent.verifiedAccount": {
         id: "desktopLogin.consent.verifiedAccount",
         defaultMessage: "Verified Aura account",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "desktopLogin.consent.verifyPasskey": {
-        id: "desktopLogin.consent.verifyPasskey",
-        defaultMessage: "Verify passkey & continue",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.field.confirmPassword": {
@@ -7300,12 +7290,12 @@ export const stableUiMessages = defineMessages({
     },
     "desktopLogin.hydration.detail": {
         id: "desktopLogin.hydration.detail",
-        defaultMessage: "Confirming whether this trusted browser is already signed in before showing the next secure step.",
+        defaultMessage: "Confirming your browser session before Aura verifies this device for the desktop handoff.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.hydration.title": {
         id: "desktopLogin.hydration.title",
-        defaultMessage: "Checking your Aura session",
+        defaultMessage: "Checking your browser session",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "desktopLogin.inactive.detail": {

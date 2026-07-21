@@ -371,13 +371,24 @@ const resolveSameSite = (req = {}) => {
     return 'lax';
 };
 
-const getCookieOptions = (req = {}) => ({
-    httpOnly: true,
-    secure: isSecureRequest(req),
-    sameSite: resolveSameSite(req),
-    path: '/',
-    maxAge: Math.floor(SESSION_ABSOLUTE_TTL_MS / 1000),
-});
+const getCookieOptions = (req = {}, { absoluteExpiresAt } = {}) => {
+    const options = {
+        httpOnly: true,
+        secure: isSecureRequest(req),
+        sameSite: resolveSameSite(req),
+        path: '/',
+        maxAge: Math.floor(SESSION_ABSOLUTE_TTL_MS / 1000),
+    };
+
+    if (absoluteExpiresAt !== undefined) {
+        const absoluteExpiresAtMs = new Date(absoluteExpiresAt).getTime();
+        options.maxAge = Number.isFinite(absoluteExpiresAtMs)
+            ? Math.max(Math.floor((absoluteExpiresAtMs - Date.now()) / 1000), 0)
+            : 0;
+    }
+
+    return options;
+};
 
 const generateSessionId = () => crypto.randomBytes(32).toString('base64url');
 
@@ -491,6 +502,13 @@ const calculateTtlSeconds = (record = {}) => {
     return Math.max(Math.ceil(ttlMs / 1000), 1);
 };
 
+const createSessionStoreUnavailableError = (cause = null) => {
+    const error = new Error('Browser session store unavailable');
+    error.code = 'AUTH_SESSION_STORE_UNAVAILABLE';
+    if (cause) error.cause = cause;
+    return error;
+};
+
 const persistSessionRecord = async (record = {}) => {
     const storageMode = getStorageMode();
     if (storageMode === 'memory') {
@@ -498,8 +516,7 @@ const persistSessionRecord = async (record = {}) => {
         return record;
     }
     if (storageMode === 'unavailable') {
-        const error = new Error('Browser session store unavailable');
-        error.code = 'AUTH_SESSION_STORE_UNAVAILABLE';
+        const error = createSessionStoreUnavailableError();
         logger.error('browser_session.store_unavailable', {
             sessionId: String(record.sessionId || '').trim(),
         });
@@ -553,7 +570,7 @@ const loadSessionRecord = async (sessionId = '') => {
         logger.error('browser_session.store_unavailable_read', {
             sessionId: normalizedSessionId,
         });
-        return null;
+        throw createSessionStoreUnavailableError();
     } else {
         try {
             const raw = await getRedisClient().get(getRedisKey(normalizedSessionId));
@@ -565,7 +582,7 @@ const loadSessionRecord = async (sessionId = '') => {
             };
             if (!isMemorySessionFallbackAllowed()) {
                 logger.error('browser_session.read_failed_no_fallback', logPayload);
-                return null;
+                throw createSessionStoreUnavailableError(error);
             }
             logger.warn('browser_session.read_failed', logPayload);
         }
@@ -717,8 +734,12 @@ const buildBrowserSessionRecord = ({
     };
 };
 
-const setBrowserSessionCookie = (res, sessionId, req = {}) => {
-    appendSetCookieHeader(res, serializeCookie(SESSION_COOKIE_NAME, sessionId, getCookieOptions(req)));
+const setBrowserSessionCookie = (res, sessionId, req = {}, absoluteExpiresAt) => {
+    appendSetCookieHeader(res, serializeCookie(
+        SESSION_COOKIE_NAME,
+        sessionId,
+        getCookieOptions(req, { absoluteExpiresAt })
+    ));
 };
 
 const clearBrowserSessionCookie = (res, req = {}) => {
@@ -1057,7 +1078,7 @@ const createBrowserSession = async ({
     }));
 
     if (res) {
-        setBrowserSessionCookie(res, sessionRecord.sessionId, req);
+        setBrowserSessionCookie(res, sessionRecord.sessionId, req, sessionRecord.absoluteExpiresAt);
     }
 
     return sessionRecord;
@@ -1111,7 +1132,7 @@ const rotateBrowserSession = async ({
     }
 
     if (res) {
-        setBrowserSessionCookie(res, nextSession.sessionId, req);
+        setBrowserSessionCookie(res, nextSession.sessionId, req, nextSession.absoluteExpiresAt);
     }
 
     return nextSession;
@@ -1304,7 +1325,7 @@ const refreshBrowserSession = async ({
     }));
 
     if (res) {
-        setBrowserSessionCookie(res, nextRecord.sessionId, req);
+        setBrowserSessionCookie(res, nextRecord.sessionId, req, nextRecord.absoluteExpiresAt);
     }
 
     return nextRecord;

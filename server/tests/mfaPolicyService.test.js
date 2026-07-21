@@ -1,5 +1,6 @@
 const {
     MFA_METHODS,
+    buildDesktopHandoffMfaMarker,
     evaluateAction,
     evaluateLogin,
 } = require('../services/mfaPolicyService');
@@ -207,6 +208,91 @@ describe('mfaPolicyService', () => {
         })).toMatchObject({ mfaRequired: true, satisfied: false, reason: 'user_enabled' });
     });
 
+    test('requires an exact verified admin device before accepting passkey MFA session claims', () => {
+        const env = {
+            MFA_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'true',
+        };
+        const session = {
+            deviceId: 'admin-device-1',
+            amr: ['webauthn', 'passkey', 'mfa'],
+        };
+        const baseDevice = {
+            deviceId: 'admin-device-1',
+            method: 'webauthn',
+            webauthnCredentialIdBase64Url: 'admin-credential-1',
+            webauthnUserVerified: true,
+        };
+
+        expect(evaluateLogin({
+            env,
+            user: {
+                isAdmin: true,
+                trustedDevices: [{
+                    ...baseDevice,
+                    credentialScope: 'recognition',
+                    adminEligibility: 'none',
+                }],
+            },
+            context: { session },
+        })).toMatchObject({ mfaRequired: true, satisfied: false, block: true });
+
+        expect(evaluateLogin({
+            env,
+            user: {
+                isAdmin: true,
+                trustedDevices: [{
+                    ...baseDevice,
+                    credentialScope: 'admin',
+                    adminEligibility: 'verified',
+                }],
+            },
+            context: { session },
+        })).toMatchObject({ mfaRequired: false, satisfied: true, reason: 'satisfied' });
+    });
+
+    test('offers legacy admin passkey restoration only on the exact current device', () => {
+        const env = {
+            MFA_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'true',
+        };
+        const user = {
+            isAdmin: true,
+            trustedDevices: [{
+                deviceId: 'legacy-admin-device-1',
+                method: 'webauthn',
+                webauthnCredentialIdBase64Url: 'legacy-admin-credential-1',
+                credentialScope: 'recognition',
+                enrollmentContext: 'legacy_admin_snapshot',
+                adminEligibility: 'legacy_candidate',
+            }],
+        };
+
+        expect(evaluateLogin({
+            env,
+            user,
+            context: { session: { deviceId: 'legacy-admin-device-1', amr: [] } },
+        })).toMatchObject({
+            mfaRequired: true,
+            allowedMethods: [MFA_METHODS.PASSKEY],
+            preferredMethod: MFA_METHODS.PASSKEY,
+            block: false,
+        });
+
+        expect(evaluateLogin({
+            env,
+            user,
+            context: { session: { deviceId: 'different-device-2', amr: [] } },
+        })).toMatchObject({
+            mfaRequired: true,
+            allowedMethods: [],
+            preferredMethod: null,
+            block: true,
+        });
+    });
+
     test('does not let recognition-only WebAuthn step-up satisfy a TOTP action policy', () => {
         const user = {
             mfa: {
@@ -256,6 +342,106 @@ describe('mfaPolicyService', () => {
 
         expect(decision).toMatchObject({
             allowedMethods: [MFA_METHODS.PASSKEY],
+            satisfied: false,
+        });
+    });
+
+    test('accepts only an exact target-bound admin handoff marker for login, never fresh action step-up', () => {
+        const targetDeviceId = 'aura_desktop_target_marker_123';
+        const sourcePasskey = {
+            deviceId: 'hosted-admin-passkey-123',
+            method: 'webauthn',
+            webauthnCredentialIdBase64Url: 'admin-marker-credential',
+            webauthnUserVerified: true,
+            credentialScope: 'admin',
+            adminEligibility: 'verified',
+        };
+        const user = {
+            isAdmin: true,
+            trustedDevices: [sourcePasskey, {
+                deviceId: targetDeviceId,
+                method: 'browser_key',
+            }],
+            mfa: { enabled: true },
+        };
+        const env = {
+            MFA_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+        };
+        const adminMarker = buildDesktopHandoffMfaMarker(targetDeviceId, { admin: true });
+        const targetSession = {
+            deviceId: targetDeviceId,
+            deviceMethod: 'browser_key',
+            aal: 'aal2',
+            amr: ['device_binding', 'desktop_handoff', 'mfa', adminMarker],
+            stepUpUntil: null,
+            webAuthnStepUpUntil: null,
+        };
+
+        expect(evaluateLogin({ user, env, context: { session: targetSession } })).toMatchObject({
+            mfaRequired: false,
+            satisfied: true,
+        });
+        expect(evaluateLogin({
+            user,
+            env,
+            context: {
+                session: {
+                    ...targetSession,
+                    amr: ['mfa', adminMarker],
+                },
+            },
+        })).toMatchObject({
+            mfaRequired: true,
+            satisfied: false,
+        });
+        expect(evaluateLogin({
+            user,
+            env,
+            context: {
+                session: {
+                    ...targetSession,
+                    deviceMethod: 'webauthn',
+                },
+            },
+        })).toMatchObject({
+            mfaRequired: true,
+            satisfied: false,
+        });
+        expect(evaluateLogin({
+            user,
+            env,
+            context: { session: { ...targetSession, deviceId: 'aura_desktop_other_marker_456' } },
+        })).toMatchObject({
+            mfaRequired: true,
+            satisfied: false,
+        });
+        expect(evaluateLogin({
+            user,
+            env,
+            context: {
+                session: {
+                    ...targetSession,
+                    amr: [
+                        'device_binding',
+                        'desktop_handoff',
+                        'mfa',
+                        buildDesktopHandoffMfaMarker(targetDeviceId),
+                    ],
+                },
+            },
+        })).toMatchObject({
+            mfaRequired: true,
+            satisfied: false,
+        });
+        expect(evaluateAction({
+            user,
+            env,
+            action: 'admin.security_config.change',
+            session: targetSession,
+        })).toMatchObject({
+            freshMfaRequired: true,
             satisfied: false,
         });
     });

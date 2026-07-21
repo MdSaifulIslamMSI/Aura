@@ -31,6 +31,28 @@ vi.mock('@/components/features/auth/TurnstileChallenge', () => ({
   default: ({ action }) => <div data-testid="turnstile-challenge">{action}</div>,
 }));
 
+vi.mock('@/components/features/auth/AuraTrustedDeviceChallenge', () => ({
+  default: ({ challengeOverride, onVerifyChallenge }) => (
+    <button
+      type="button"
+      data-testid="desktop-device-checkpoint"
+      onClick={() => onVerifyChallenge(challengeOverride.token, { method: 'browser_key', proofBase64: 'proof' })}
+    >
+      Verify this device
+    </button>
+  ),
+}));
+
+vi.mock('@/components/features/auth/MfaChallengePanel', () => ({
+  default: ({ challenge, onVerifyPasskey, onVerifyTotp }) => (
+    <section data-testid="desktop-mfa-checkpoint">
+      <span>{challenge?.id}</span>
+      <button type="button" onClick={() => onVerifyPasskey({ challengeId: challenge?.id })}>Verify passkey</button>
+      <button type="button" onClick={() => onVerifyTotp({ challengeId: challenge?.id, code: '123456' })}>Verify TOTP</button>
+    </section>
+  ),
+}));
+
 const buildController = (overrides = {}) => ({
   OTP_TRANSPORT: { FIREBASE_SMS: 'firebase_sms' },
   authError: null,
@@ -44,6 +66,8 @@ const buildController = (overrides = {}) => ({
   desktopBrowserConsentSubmitting: false,
   desktopBrowserConsentSubmittingLabel: 'Opening Aura Desktop',
   desktopBrowserHandoff: { active: true },
+  desktopBrowserHandoffCheckpoint: null,
+  desktopBrowserHandoffPreflightFailed: false,
   desktopBrowserSessionHydrating: false,
   desktopBrowserSignInPending: false,
   firebasePhoneFallback: null,
@@ -52,6 +76,10 @@ const buildController = (overrides = {}) => ({
   handleChange: vi.fn(),
   handleDesktopBrowserConsent: vi.fn(),
   handleDesktopBrowserConsentCancel: vi.fn(),
+  handleDesktopBrowserDeviceChallenge: vi.fn(),
+  handleDesktopBrowserMfaPasskey: vi.fn(),
+  handleDesktopBrowserMfaRecoveryCode: vi.fn(),
+  handleDesktopBrowserMfaTotp: vi.fn(),
   handleDuoSignIn: vi.fn(),
   handleFeedbackAction: vi.fn(),
   handleOtpChange: vi.fn(),
@@ -192,36 +220,49 @@ describe('DesktopLogin tactile hosted browser flow', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Securely returning sign-in to Aura Desktop.');
   });
 
-  it('shows the passkey step honestly before opening Aura Desktop', () => {
+  it('renders and submits the browser device checkpoint before consent', () => {
     controller = buildController({
-      desktopBrowserConsentActionLabel: 'Verify passkey & continue',
-      desktopBrowserConsentIdentity: 'admin@example.com',
-      desktopBrowserConsentReady: true,
+      desktopBrowserHandoffCheckpoint: {
+        status: 'device_challenge_required',
+        deviceChallenge: {
+          token: 'browser-device-challenge',
+          scope: 'desktop_handoff_source',
+        },
+      },
     });
-    const view = renderDesktopLogin();
+    renderDesktopLogin();
 
-    expect(screen.getByRole('button', { name: 'Verify passkey & continue' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Verify this device' }));
+    expect(controller.handleDesktopBrowserDeviceChallenge).toHaveBeenCalledWith(
+      'browser-device-challenge',
+      { method: 'browser_key', proofBase64: 'proof' }
+    );
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+  });
 
-    controller = {
-      ...controller,
-      desktopBrowserConsentReady: false,
-      desktopBrowserConsentStage: 'passkey',
-      desktopBrowserConsentSubmitting: true,
-      desktopBrowserConsentSubmittingLabel: 'Checking passkey',
-    };
-    view.rerender(<DesktopLoginHarness />);
+  it('renders the server-issued MFA checkpoint before consent', () => {
+    controller = buildController({
+      desktopBrowserHandoffCheckpoint: {
+        status: 'mfa_challenge_required',
+        mfaChallenge: { id: 'desktop-mfa-challenge' },
+        mfaPolicy: { allowedMethods: ['passkey', 'totp'] },
+      },
+    });
+    renderDesktopLogin();
 
-    expect(screen.getByRole('button', { name: 'Checking passkey' })).toBeDisabled();
-    expect(screen.getByRole('status')).toHaveTextContent('Waiting for passkey verification');
-    expect(screen.queryByText('Finishing Desktop Sign-In')).not.toBeInTheDocument();
+    expect(screen.getByTestId('desktop-mfa-checkpoint')).toHaveTextContent('desktop-mfa-challenge');
+    fireEvent.click(screen.getByRole('button', { name: 'Verify passkey' }));
+    expect(controller.handleDesktopBrowserMfaPasskey).toHaveBeenCalledWith({
+      challengeId: 'desktop-mfa-challenge',
+    });
   });
 
   it('holds the credential form behind a neutral session hydration state', () => {
     controller = buildController({ desktopBrowserSessionHydrating: true });
     renderDesktopLogin();
 
-    expect(screen.getByRole('heading', { name: 'Checking your Aura session' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/confirming whether this trusted browser is already signed in/i);
+    expect(screen.getByRole('heading', { name: 'Checking your browser session' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/before Aura verifies this device for the desktop handoff/i);
     expect(screen.queryByLabelText('Email address')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Google' })).not.toBeInTheDocument();

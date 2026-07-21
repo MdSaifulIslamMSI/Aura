@@ -201,8 +201,8 @@ addCheck(
 addCheck(
   'desktop proxy verifies TLS by default',
   includesAll(desktopRuntime, [
-    'secure: !shouldAllowInsecureBackendProxy(backendOrigin)',
-    "process.env.NODE_ENV !== 'production'",
+    'secure: !shouldAllowInsecureBackendProxy(normalizedBackendOrigin)',
+    'isDevelopmentRuntime()',
     'isLoopbackBackendOrigin(backendOrigin)',
     'AURA_DESKTOP_ALLOW_INSECURE_BACKEND_PROXY',
   ]),

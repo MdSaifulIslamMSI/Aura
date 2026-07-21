@@ -343,6 +343,18 @@ export const authApi = {
             forceRefreshAuth: Boolean(firebaseUser?.getIdToken),
         });
     },
+    prepareDesktopHandoff: async ({
+        requestId = '',
+        firebaseUser = null,
+        preferCookieSession = false,
+    } = {}) => postAuthBootstrap('/auth/desktop-handoff/prepare', {
+        requestId,
+    }, {
+        firebaseUser,
+        preferCookieSession,
+        useFirebaseBearer: !preferCookieSession && Boolean(firebaseUser?.getIdToken),
+        disableSessionExchangeOnUnauthorized: preferCookieSession,
+    }),
     getSession: async (options = {}) => {
         const execute = async () => {
             const headers = options.preferCookieSession === true
@@ -562,6 +574,10 @@ export const authApi = {
         return data;
     },
     verifyDeviceChallenge: async (token, proofOrPayload, publicKeySpkiBase64 = '', options = {}) => {
+        const {
+            desktopHandoffTarget = false,
+            ...requestOptions
+        } = options;
         const normalizedPayload = proofOrPayload && typeof proofOrPayload === 'object' && !Array.isArray(proofOrPayload)
             ? {
                 method: proofOrPayload.method || 'browser_key',
@@ -582,27 +598,28 @@ export const authApi = {
             proof: normalizedPayload.proof,
             publicKeySpkiBase64: normalizedPayload.publicKeySpkiBase64,
             credential: normalizedPayload.credential,
+            ...(desktopHandoffTarget === true ? { desktopHandoffTarget: true } : {}),
         };
 
-        const canUseFirebaseBearer = Boolean(options.firebaseUser?.getIdToken);
+        const canUseFirebaseBearer = Boolean(requestOptions.firebaseUser?.getIdToken);
         const verifyWithBearer = () => postAuthBootstrap('/auth/verify-device', body, {
-            ...options,
+            ...requestOptions,
             preferCookieSession: false,
             useFirebaseBearer: canUseFirebaseBearer,
         });
         const verifyWithCookieSession = () => postAuthBootstrap('/auth/verify-device', body, {
-            ...options,
+            ...requestOptions,
             // Desktop can have Firebase auth without a backend cookie. Do not
             // rebuild a cookie session around an already-signed challenge.
             disableSessionExchangeOnUnauthorized: true,
             preferCookieSession: true,
         });
 
-        if (options.preferCookieSession === false) {
+        if (requestOptions.preferCookieSession === false) {
             return verifyWithBearer();
         }
 
-        if (canUseFirebaseBearer && options.preferCookieSession !== true) {
+        if (canUseFirebaseBearer && requestOptions.preferCookieSession !== true) {
             return verifyWithBearer().catch((error) => {
                 if (isDeviceChallengeBindingMismatchError(error)) {
                     return verifyWithCookieSession();

@@ -341,6 +341,8 @@ describe('deviceTrustClient', () => {
 
     const deviceTrustClient = await loadDeviceTrustModule();
     const result = await deviceTrustClient.signTrustedDeviceChallenge({
+      token: 'desktop-target-proof-token',
+      scope: 'desktop_handoff_target',
       availableMethods: ['webauthn', 'browser_key'],
       challenge: 'explicit-browser-key',
       mode: 'enroll',
@@ -356,6 +358,8 @@ describe('deviceTrustClient', () => {
       deviceId: expect.stringContaining('aura_'),
       publicKeySpkiBase64: expect.any(String),
       proofBase64: expect.any(String),
+      challengeToken: 'desktop-target-proof-token',
+      challengeScope: 'desktop_handoff_target',
     });
   });
 
@@ -795,6 +799,189 @@ describe('deviceTrustClient', () => {
 
     expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-bridge-token');
     expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-bridge-token');
+  });
+
+  it('rotates a legacy loopback Electron identity into the desktop namespace before handoff sync', async () => {
+    const indexedDbMock = createIndexedDbMock();
+    const legacyDeviceId = 'aura_legacy_browser_device_123';
+    const desktopDeviceId = 'aura_desktop_123e4567-e89b-42d3-a456-426614174000';
+    indexedDbMock.records.set(legacyDeviceId, {
+      deviceId: legacyDeviceId,
+      privateKey: { type: 'private' },
+    });
+    localStorage.setItem('aura_trusted_device_id_v1', legacyDeviceId);
+    localStorage.setItem('aura_trusted_device_session_v1', 'legacy-shared-session');
+    localStorage.setItem('unrelated-desktop-setting', 'preserve-me');
+    sessionStorage.setItem('aura_trusted_device_session_v1', 'legacy-tab-session');
+    setRuntimeHost({
+      hostname: '127.0.0.1',
+      host: '127.0.0.1:47832',
+      protocol: 'http:',
+      origin: 'http://127.0.0.1:47832',
+    });
+    setDesktopBridge({ isDesktop: true });
+    Object.defineProperty(window, 'indexedDB', {
+      configurable: true,
+      value: indexedDbMock.indexedDB,
+    });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: {
+        randomUUID: () => desktopDeviceId.slice('aura_desktop_'.length),
+      },
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    await expect(deviceTrustClient.ensureDesktopHandoffTargetIdentity()).resolves.toEqual({
+      deviceId: desktopDeviceId,
+      rotated: true,
+    });
+
+    expect(localStorage.getItem('aura_trusted_device_id_v1')).toBe(desktopDeviceId);
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+    expect(localStorage.getItem('unrelated-desktop-setting')).toBe('preserve-me');
+    expect(indexedDbMock.records.has(legacyDeviceId)).toBe(false);
+  });
+
+  it('preserves an existing namespaced loopback Electron identity and its local proof state', async () => {
+    const indexedDbMock = createIndexedDbMock();
+    const desktopDeviceId = 'aura_desktop_123e4567-e89b-42d3-a456-426614174000';
+    const randomUUID = vi.fn(() => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    indexedDbMock.records.set(desktopDeviceId, {
+      deviceId: desktopDeviceId,
+      privateKey: { type: 'private' },
+    });
+    localStorage.setItem('aura_trusted_device_id_v1', desktopDeviceId);
+    localStorage.setItem('aura_trusted_device_session_v1', 'desktop-shared-session');
+    sessionStorage.setItem('aura_trusted_device_session_v1', 'desktop-tab-session');
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:47832',
+      protocol: 'http:',
+      origin: 'http://localhost:47832',
+    });
+    setDesktopBridge({ isDesktop: true });
+    Object.defineProperty(window, 'indexedDB', {
+      configurable: true,
+      value: indexedDbMock.indexedDB,
+    });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: { randomUUID },
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    await expect(deviceTrustClient.ensureDesktopHandoffTargetIdentity()).resolves.toEqual({
+      deviceId: desktopDeviceId,
+      rotated: false,
+    });
+
+    expect(randomUUID).not.toHaveBeenCalled();
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-shared-session');
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('desktop-tab-session');
+    expect(indexedDbMock.records.has(desktopDeviceId)).toBe(true);
+  });
+
+  it('force-rotates a namespaced loopback identity after the server reports a legacy collision', async () => {
+    const indexedDbMock = createIndexedDbMock();
+    const existingDeviceId = 'aura_desktop_123e4567-e89b-42d3-a456-426614174000';
+    const rotatedDeviceId = 'aura_desktop_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    indexedDbMock.records.set(existingDeviceId, {
+      deviceId: existingDeviceId,
+      privateKey: { type: 'private' },
+    });
+    localStorage.setItem('aura_trusted_device_id_v1', existingDeviceId);
+    localStorage.setItem('aura_trusted_device_session_v1', 'colliding-shared-session');
+    sessionStorage.setItem('aura_trusted_device_session_v1', 'colliding-tab-session');
+    setRuntimeHost({
+      hostname: '127.0.0.1',
+      host: '127.0.0.1:47832',
+      protocol: 'http:',
+      origin: 'http://127.0.0.1:47832',
+    });
+    setDesktopBridge({ isDesktop: true });
+    Object.defineProperty(window, 'indexedDB', {
+      configurable: true,
+      value: indexedDbMock.indexedDB,
+    });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: {
+        randomUUID: () => rotatedDeviceId.slice('aura_desktop_'.length),
+      },
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    await expect(deviceTrustClient.ensureDesktopHandoffTargetIdentity({ force: true })).resolves.toEqual({
+      deviceId: rotatedDeviceId,
+      rotated: true,
+    });
+
+    expect(localStorage.getItem('aura_trusted_device_id_v1')).toBe(rotatedDeviceId);
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+    expect(indexedDbMock.records.has(existingDeviceId)).toBe(false);
+  });
+
+  it('fails closed and keeps the legacy identity retryable when its local key cannot be removed', async () => {
+    const legacyDeviceId = 'aura_legacy_browser_device_456';
+    const randomUUID = vi.fn(() => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    localStorage.setItem('aura_trusted_device_id_v1', legacyDeviceId);
+    localStorage.setItem('aura_trusted_device_session_v1', 'legacy-shared-session');
+    sessionStorage.setItem('aura_trusted_device_session_v1', 'legacy-tab-session');
+    setRuntimeHost({
+      hostname: 'localhost',
+      host: 'localhost:47832',
+      protocol: 'http:',
+      origin: 'http://localhost:47832',
+    });
+    setDesktopBridge({ isDesktop: true });
+    Object.defineProperty(window, 'indexedDB', {
+      configurable: true,
+      value: {
+        open: () => {
+          throw new Error('desktop key store unavailable');
+        },
+      },
+    });
+    Object.defineProperty(window, 'crypto', {
+      configurable: true,
+      value: { randomUUID },
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    await expect(deviceTrustClient.ensureDesktopHandoffTargetIdentity()).rejects.toMatchObject({
+      code: 'trusted_device_desktop_identity_migration_failed',
+    });
+
+    expect(randomUUID).not.toHaveBeenCalled();
+    expect(localStorage.getItem('aura_trusted_device_id_v1')).toBe(legacyDeviceId);
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBeNull();
+  });
+
+  it('does not migrate a hosted browser identity or clear its session state', async () => {
+    const hostedDeviceId = 'aura_hosted_browser_device_123';
+    localStorage.setItem('aura_trusted_device_id_v1', hostedDeviceId);
+    localStorage.setItem('aura_trusted_device_session_v1', 'hosted-shared-session');
+    sessionStorage.setItem('aura_trusted_device_session_v1', 'hosted-tab-session');
+    setRuntimeHost({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+      protocol: 'https:',
+      origin: 'https://aurapilot.vercel.app',
+    });
+    const deviceTrustClient = await loadDeviceTrustModule();
+
+    await expect(deviceTrustClient.ensureDesktopHandoffTargetIdentity()).resolves.toEqual({
+      deviceId: hostedDeviceId,
+      rotated: false,
+    });
+
+    expect(localStorage.getItem('aura_trusted_device_id_v1')).toBe(hostedDeviceId);
+    expect(localStorage.getItem('aura_trusted_device_session_v1')).toBe('hosted-shared-session');
+    expect(sessionStorage.getItem('aura_trusted_device_session_v1')).toBe('hosted-tab-session');
   });
 
   it('does not promote an existing tab-scoped trusted-device token into shared storage on hosted web by default', async () => {

@@ -43,9 +43,9 @@ import { authApi, userApi } from '../services/api';
 import { resetBrowserSessionState } from '../services/browserSessionReset';
 import { clearCsrfTokenCache } from '../services/csrfTokenManager';
 import {
-  adoptTrustedDeviceSession,
   cacheTrustedDeviceSessionToken,
   clearTrustedDeviceSessionToken,
+  ensureDesktopHandoffTargetIdentity,
   resetTrustedDeviceIdentity,
 } from '../services/deviceTrustClient';
 import {
@@ -88,11 +88,14 @@ const AUTH_SYNC_DEDUPE_MS = 5 * 1000;  // Reduced from 30s for faster security u
 const BOOTSTRAP_TIMEOUT_MS = 6000;
 const DESKTOP_BROWSER_SIGN_IN_TIMEOUT_MS = 10 * 60 * 1000;
 const DESKTOP_HANDOFF_GRANT_ID_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED_CODE = 'DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED';
 const RETRYABLE_DESKTOP_HANDOFF_ASSURANCE_CODES = new Set([
   'AUTH/DESKTOP-BROWSER-SIGN-IN-ASSURANCE-EXPIRED',
   'DESKTOP_HANDOFF_ASSURANCE_CLAIMS_INVALID',
   'DESKTOP_HANDOFF_ASSURANCE_GRANT_CONSUMED',
   'DESKTOP_HANDOFF_ASSURANCE_GRANT_INVALID',
+  'DESKTOP_HANDOFF_ASSURANCE_SESSION_STORE_UNAVAILABLE',
+  'DESKTOP_HANDOFF_TARGET_CHALLENGE_UNAVAILABLE',
 ]);
 const REDIRECT_AUTH_PENDING_KEY = 'aura-social-auth-redirect-pending';
 const REDIRECT_AUTH_PENDING_TTL_MS = 5 * 60 * 1000;
@@ -105,6 +108,10 @@ const authContextMessages = defineMessages({
 });
 const shouldRetryDesktopHandoffAssurance = (error) => RETRYABLE_DESKTOP_HANDOFF_ASSURANCE_CODES.has(
   normalizeText(error?.code || error?.data?.code || '').toUpperCase()
+);
+const isDesktopTargetIdentityRotationRequired = (error) => (
+  normalizeText(error?.code || error?.data?.code || '').toUpperCase()
+  === DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED_CODE
 );
 const OAUTH_CREDENTIAL_EXTRACTORS = [
   GithubAuthProvider,
@@ -440,13 +447,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const applyResolvedSession = (payload, firebaseUser, identity) => {
-    if (payload?.desktopHandoff?.assuranceTransferred && payload?.deviceSessionToken) {
-      adoptTrustedDeviceSession({
-        deviceId: payload.desktopHandoff.deviceId,
-        deviceSessionToken: payload.deviceSessionToken,
-        expiresAt: payload.expiresAt,
-      });
-    } else if (payload?.deviceSessionToken) {
+    if (payload?.deviceSessionToken) {
       cacheTrustedDeviceSessionToken(payload.deviceSessionToken, payload.expiresAt);
     }
     setSessionState(buildSessionStateFromPayload(payload, firebaseUser));
@@ -1039,6 +1040,7 @@ export const AuthProvider = ({ children }) => {
     signal,
     onRequestStarted,
     retryExpiredAssurance = true,
+    retryTargetIdentityRotation = true,
   } = {}) => {
     assertFirebaseReady('Desktop browser sign-in');
     const desktop = getDesktopBridge();
@@ -1068,30 +1070,35 @@ export const AuthProvider = ({ children }) => {
           });
           const customToken = await waitForDesktopBrowserCustomToken(desktop, request, { signal });
           const result = await signInWithCustomToken(auth, customToken);
-          const tokenResult = await result?.user?.getIdTokenResult?.(true);
-          const claims = tokenResult?.claims || {};
-          if (
-            claims.desktop_handoff !== true
-            || normalizeText(claims.desktop_request_id) !== normalizeText(request?.requestId)
-          ) {
-            await signOut(auth);
-            const error = new Error('Desktop browser sign-in token is not bound to this request.');
-            error.code = 'auth/desktop-browser-sign-in-token-mismatch';
+          const firebaseUser = result?.user || auth?.currentUser || null;
+          try {
+            const tokenResult = await firebaseUser?.getIdTokenResult?.(true);
+            const claims = tokenResult?.claims || {};
+            if (
+              claims.desktop_handoff !== true
+              || normalizeText(claims.desktop_request_id) !== normalizeText(request?.requestId)
+            ) {
+              const error = new Error('Desktop browser sign-in token is not bound to this request.');
+              error.code = 'auth/desktop-browser-sign-in-token-mismatch';
+              throw error;
+            }
+            const grantId = normalizeText(claims.desktop_handoff_grant_id);
+            const grantExpiresAtSeconds = Number(claims.desktop_handoff_grant_exp || 0);
+            if (
+              !DESKTOP_HANDOFF_GRANT_ID_PATTERN.test(grantId)
+              || !Number.isFinite(grantExpiresAtSeconds)
+              || grantExpiresAtSeconds <= Math.floor(Date.now() / 1000)
+            ) {
+              const error = new Error('Desktop browser sign-in proof expired. Start a fresh browser sign-in and try again.');
+              error.code = 'auth/desktop-browser-sign-in-assurance-expired';
+              throw error;
+            }
+            await ensureDesktopHandoffTargetIdentity();
+            return result;
+          } catch (error) {
+            await rollbackProviderAuthSession(error, firebaseUser);
             throw error;
           }
-          const grantId = normalizeText(claims.desktop_handoff_grant_id);
-          const grantExpiresAtSeconds = Number(claims.desktop_handoff_grant_exp || 0);
-          if (
-            !DESKTOP_HANDOFF_GRANT_ID_PATTERN.test(grantId)
-            || !Number.isFinite(grantExpiresAtSeconds)
-            || grantExpiresAtSeconds <= Math.floor(Date.now() / 1000)
-          ) {
-            await signOut(auth);
-            const error = new Error('Desktop browser sign-in proof expired. Start a fresh browser sign-in and try again.');
-            error.code = 'auth/desktop-browser-sign-in-assurance-expired';
-            throw error;
-          }
-          return result;
         },
         finalize: async (_result, firebaseUser) => resolveOAuthUser(firebaseUser, {
           isNewUser: false,
@@ -1103,6 +1110,20 @@ export const AuthProvider = ({ children }) => {
         await desktop.cancelBrowserSignIn(request.requestId).catch(() => {});
       }
       if (
+        retryTargetIdentityRotation
+        && !signal?.aborted
+        && isDesktopTargetIdentityRotationRequired(error)
+      ) {
+        await ensureDesktopHandoffTargetIdentity({ force: true });
+        return signInWithDesktopBrowser({
+          returnTo,
+          signal,
+          onRequestStarted,
+          retryExpiredAssurance,
+          retryTargetIdentityRotation: false,
+        });
+      }
+      if (
         retryExpiredAssurance
         && !signal?.aborted
         && shouldRetryDesktopHandoffAssurance(error)
@@ -1112,6 +1133,7 @@ export const AuthProvider = ({ children }) => {
           signal,
           onRequestStarted,
           retryExpiredAssurance: false,
+          retryTargetIdentityRotation,
         });
       }
       throw error;
@@ -1145,7 +1167,15 @@ export const AuthProvider = ({ children }) => {
         if (!result?.success || !result?.customToken) {
           throw new Error(result?.message || 'Desktop owner access did not return a usable token.');
         }
-        return signInWithCustomToken(auth, result.customToken);
+        const firebaseResult = await signInWithCustomToken(auth, result.customToken);
+        const firebaseUser = firebaseResult?.user || auth?.currentUser || null;
+        try {
+          await ensureDesktopHandoffTargetIdentity();
+          return firebaseResult;
+        } catch (error) {
+          await rollbackProviderAuthSession(error, firebaseUser);
+          throw error;
+        }
       },
       finalize: async (_result, firebaseUser) => resolveOAuthUser(firebaseUser, {
         isNewUser: false,
@@ -1637,9 +1667,15 @@ export const AuthProvider = ({ children }) => {
         publicKeySpkiBase64,
       };
     const activeUser = currentUser || auth?.currentUser || null;
+    const desktopHandoffTarget = Boolean(
+      normalizeText(challengePayload.challengeToken)
+      && normalizeText(challengePayload.challengeToken) === normalizeText(token)
+      && normalizeText(challengePayload.challengeScope).toLowerCase() === 'desktop_handoff_target'
+    );
     const submitChallenge = (options = {}) => authApi.verifyDeviceChallenge(token, challengePayload, '', {
       firebaseUser: activeUser,
       forceRefreshAuth: true,
+      desktopHandoffTarget,
       ...options,
     });
     let response;

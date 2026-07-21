@@ -21,6 +21,7 @@ describe('auth route rate-limit security', () => {
         let requestBootstrapDeviceChallenge;
         let establishSessionCookie;
         let issueDesktopHandoffToken;
+        let prepareDesktopHandoff;
 
         jest.isolateModules(() => {
             const limiterCounts = new Map();
@@ -85,6 +86,7 @@ describe('auth route rate-limit security', () => {
             }));
             establishSessionCookie = jest.fn((_req, _res, next) => next());
             issueDesktopHandoffToken = jest.fn((_req, res) => res.json({ customToken: 'handoff' }));
+            prepareDesktopHandoff = jest.fn((_req, res) => res.json({ status: 'handoff_ready' }));
 
             jest.doMock('../controllers/authController', () => ({
                 establishSessionCookie,
@@ -100,6 +102,7 @@ describe('auth route rate-limit security', () => {
                 verifyBackupRecoveryCode: (_req, res) => res.json({ success: true }),
                 verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
                 issueDesktopHandoffToken,
+                prepareDesktopHandoff,
                 issueDesktopOwnerAccessToken: (_req, res) => res.json({ customToken: 'owner-access' }),
                 startEnterpriseLogin: (_req, res) => res.json({ ok: true }),
                 startDuoLogin: (_req, res) => res.json({ ok: true }),
@@ -141,6 +144,7 @@ describe('auth route rate-limit security', () => {
             app: buildApp.app,
             establishSessionCookie,
             issueDesktopHandoffToken,
+            prepareDesktopHandoff,
             requestBootstrapDeviceChallenge,
         };
     };
@@ -254,5 +258,20 @@ describe('auth route rate-limit security', () => {
         expect(issueDesktopHandoffToken).toHaveBeenCalledTimes(1);
         expect(establishSessionCookie.mock.invocationCallOrder[0])
             .toBeLessThan(issueDesktopHandoffToken.mock.invocationCallOrder[0]);
+    });
+
+    test('desktop handoff preflight refreshes the authenticated browser session before checking readiness', async () => {
+        const { app, establishSessionCookie, prepareDesktopHandoff } = buildApp();
+
+        const response = await request(app)
+            .post('/api/auth/desktop-handoff/prepare')
+            .send({ requestId: '123e4567-e89b-42d3-a456-426614174000' });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.body.status).toBe('handoff_ready');
+        expect(establishSessionCookie).toHaveBeenCalledTimes(1);
+        expect(prepareDesktopHandoff).toHaveBeenCalledTimes(1);
+        expect(establishSessionCookie.mock.invocationCallOrder[0])
+            .toBeLessThan(prepareDesktopHandoff.mock.invocationCallOrder[0]);
     });
 });

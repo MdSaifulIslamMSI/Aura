@@ -14,6 +14,16 @@ jest.mock('../middleware/authMiddleware', () => ({
     protect: (req, _res, next) => {
         const authHeader = req.headers.authorization || '';
         const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+        const cookie = String(req.headers.cookie || '');
+
+        if (!token && cookie.includes('aura_sid=session-cookie-a')) {
+            req.authUid = 'uid-user-a';
+            req.authToken = { email: 'user-a@example.com', auth_time: Math.floor(Date.now() / 1000) };
+            req.user = { _id: 'uid-user-a', id: 'uid-user-a', email: 'user-a@example.com' };
+            req.authSession = { sessionId: 'session-cookie-a' };
+            req.authzPosture = { fresh: true, authAgeSeconds: 0, stepUpFresh: true };
+            return next();
+        }
 
         if (token === 'token-user-a') {
             req.authUid = 'uid-user-a';
@@ -186,6 +196,7 @@ jest.mock('../controllers/authController', () => ({
     startEnterpriseLogin: (_req, res) => res.redirect('https://enterprise.example.test/authorize'),
     completeEnterpriseLogin: (_req, res) => res.redirect('/login?enterprise=success'),
     issueDesktopHandoffToken: (_req, res) => res.json({ customToken: 'desktop-handoff-token' }),
+    prepareDesktopHandoff: (_req, res) => res.json({ status: 'handoff_ready' }),
     issueDesktopOwnerAccessToken: (_req, res) => res.json({ customToken: 'desktop-owner-access-token' }),
     requestBootstrapDeviceChallenge: (_req, res) => res.json({ success: true, deviceChallenge: null }),
     verifyDeviceChallenge: (_req, res) => res.json({ ok: true }),
@@ -261,6 +272,45 @@ describe('CSRF auth route integration', () => {
 
         expect(validRes.statusCode).toBe(200);
         expect(validRes.body.synced).toBe(true);
+    });
+
+    test('protects cookie-session desktop handoff token minting with csrf while bearer bootstrap remains allowed', async () => {
+        const bearerRes = await request(app)
+            .post('/api/auth/desktop-handoff/custom-token')
+            .set('Authorization', 'Bearer token-user-a')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({ requestId: '123e4567-e89b-42d3-a456-426614174000' });
+
+        expect(bearerRes.statusCode).toBe(200);
+        expect(bearerRes.body.customToken).toBe('desktop-handoff-token');
+
+        const missingCsrfRes = await request(app)
+            .post('/api/auth/desktop-handoff/custom-token')
+            .set('Cookie', 'aura_sid=session-cookie-a')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({ requestId: '123e4567-e89b-42d3-a456-426614174000' });
+
+        expect(missingCsrfRes.statusCode).toBe(403);
+
+        const sessionRes = await request(app)
+            .get('/api/auth/session')
+            .set('Cookie', 'aura_sid=session-cookie-a')
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000');
+        const csrfToken = sessionRes.headers['x-csrf-token'];
+
+        const validCookieRes = await request(app)
+            .post('/api/auth/desktop-handoff/custom-token')
+            .set('Cookie', 'aura_sid=session-cookie-a')
+            .set('X-CSRF-Token', csrfToken)
+            .set('User-Agent', 'test-agent-a')
+            .set('Host', 'localhost:3000')
+            .send({ requestId: '123e4567-e89b-42d3-a456-426614174000' });
+
+        expect(validCookieRes.statusCode).toBe(200);
+        expect(validCookieRes.body.customToken).toBe('desktop-handoff-token');
     });
 
     test('allows bearer-auth csrf token across auth bootstrap session rotation', async () => {

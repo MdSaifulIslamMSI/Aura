@@ -9,6 +9,12 @@ describe('browserSessionService', () => {
         };
     };
 
+    const getCookieMaxAge = (res) => {
+        const [cookie = ''] = res.getHeader('Set-Cookie') || [];
+        const match = cookie.match(/(?:^|;\s*)Max-Age=(\d+)/);
+        return match ? Number(match[1]) : null;
+    };
+
     afterEach(() => {
         process.env = { ...originalEnv };
         jest.resetModules();
@@ -133,6 +139,82 @@ describe('browserSessionService', () => {
         expect(refreshedSession.issuedAtSeconds).toBe(refreshedIssuedAt);
         expect(refreshedSession.firebaseExpiresAtSeconds).toBe(refreshedExpiresAt);
         expect(refreshedSession.amr).toEqual(expect.arrayContaining(['webauthn', 'otp', 'mfa']));
+    });
+
+    test.each([
+        ['near its absolute deadline', 10 * 1000],
+        ['after its absolute deadline', -1000],
+    ])('caps a refreshed cookie by the session record when it is %s', async (_label, remainingMs) => {
+        process.env.AUTH_SESSION_IDLE_TTL_MS = String(5 * 60 * 1000);
+        process.env.AUTH_SESSION_ABSOLUTE_TTL_MS = String(5 * 60 * 1000);
+
+        let browserSessionService;
+
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../services/trustedDeviceChallengeService', () => ({
+                extractTrustedDeviceContext: jest.fn().mockReturnValue({
+                    deviceId: 'device-cookie-deadline',
+                    deviceLabel: 'Cookie Deadline Browser',
+                }),
+            }));
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const req = {
+            headers: { host: 'localhost:5173' },
+            secure: false,
+        };
+        const user = {
+            _id: '507f1f77bcf86cd799439098',
+            email: 'cookie-deadline@example.com',
+            name: 'Cookie Deadline User',
+            isAdmin: false,
+            isSeller: false,
+            isVerified: true,
+        };
+        const authToken = {
+            email: user.email,
+            email_verified: true,
+            auth_time: nowSeconds - 30,
+            iat: nowSeconds - 30,
+            exp: nowSeconds + 3600,
+            firebase: { sign_in_provider: 'password' },
+        };
+        const originalSession = await browserSessionService.createBrowserSession({
+            req,
+            user,
+            authUid: 'firebase-cookie-deadline',
+            authToken,
+        });
+        const expectedAbsoluteExpiresAtMs = Date.now() + remainingMs;
+        const currentSession = {
+            ...originalSession,
+            createdAt: new Date(expectedAbsoluteExpiresAtMs - (5 * 60 * 1000)).toISOString(),
+            absoluteExpiresAt: new Date(expectedAbsoluteExpiresAtMs).toISOString(),
+        };
+        const res = createResponseStub();
+
+        const refreshedSession = await browserSessionService.refreshBrowserSession({
+            req,
+            res,
+            currentSession,
+            user,
+            authUid: 'firebase-cookie-deadline',
+            authToken,
+        });
+
+        expect(new Date(refreshedSession.absoluteExpiresAt).getTime()).toBe(expectedAbsoluteExpiresAtMs);
+        if (remainingMs > 0) {
+            expect(getCookieMaxAge(res)).toBeGreaterThan(0);
+            expect(getCookieMaxAge(res)).toBeLessThanOrEqual(Math.floor(remainingMs / 1000));
+        } else {
+            expect(getCookieMaxAge(res)).toBe(0);
+        }
     });
 
     test('atomic session touch preserves a concurrently refreshed Firebase expiry snapshot', async () => {
@@ -814,6 +896,54 @@ describe('browserSessionService', () => {
 
         await browserSessionService.revokeBrowserSession(session.sessionId);
         await expect(browserSessionService.getBrowserSession(session.sessionId)).resolves.toBeNull();
+    });
+
+    test('surfaces an unavailable required session store instead of treating the session as missing', async () => {
+        process.env.NODE_ENV = 'production';
+        process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK = 'false';
+
+        let browserSessionService;
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => null,
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../utils/logger', () => ({
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }));
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        await expect(browserSessionService.getBrowserSession('browser-session-required-store'))
+            .rejects.toMatchObject({ code: 'AUTH_SESSION_STORE_UNAVAILABLE' });
+    });
+
+    test('surfaces required Redis read failures instead of treating the session as missing', async () => {
+        process.env.NODE_ENV = 'production';
+        process.env.AUTH_SESSION_ALLOW_MEMORY_FALLBACK = 'false';
+
+        let browserSessionService;
+        jest.isolateModules(() => {
+            jest.doMock('../config/redis', () => ({
+                getRedisClient: () => ({
+                    get: jest.fn().mockRejectedValue(new Error('redis read failed')),
+                }),
+                flags: { redisPrefix: 'test' },
+            }));
+            jest.doMock('../utils/logger', () => ({
+                info: jest.fn(),
+                warn: jest.fn(),
+                error: jest.fn(),
+                debug: jest.fn(),
+            }));
+            browserSessionService = require('../services/browserSessionService');
+        });
+
+        await expect(browserSessionService.getBrowserSession('browser-session-redis-failure'))
+            .rejects.toMatchObject({ code: 'AUTH_SESSION_STORE_UNAVAILABLE' });
     });
 
     test('sets Secure on production cookies even when proxy headers are missing', async () => {

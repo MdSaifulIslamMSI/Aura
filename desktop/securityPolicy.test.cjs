@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     canGrantDesktopRuntimePermission,
+    isAllowedAuthWindowNavigation,
     isAuthWindowUrl,
     isInternalUrl,
     isSafeExternalUrl,
@@ -22,6 +23,13 @@ test('auth popups only trust exact provider and project-owned hosts', () => {
     assert.equal(isAuthWindowUrl('https://evil.web.app/__/auth/handler'), false);
     assert.equal(isAuthWindowUrl('https://attacker.firebaseapp.com/__/auth/handler'), false);
     assert.equal(isAuthWindowUrl('https://login.google.com.example.test/'), false);
+});
+
+test('auth windows may navigate only to their exact provider hosts or the active local runtime', () => {
+    assert.equal(isAllowedAuthWindowNavigation('https://accounts.google.com/o/oauth2/auth', runtimeUrl), true);
+    assert.equal(isAllowedAuthWindowNavigation(`${runtimeUrl}/desktop-auth/complete`, runtimeUrl), true);
+    assert.equal(isAllowedAuthWindowNavigation('https://evil.example.test/redirect', runtimeUrl), false);
+    assert.equal(isAllowedAuthWindowNavigation('http://127.attacker.example:47831/', runtimeUrl), false);
 });
 
 test('external launching rejects local files and arbitrary OS schemes', () => {

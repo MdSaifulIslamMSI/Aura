@@ -22,6 +22,11 @@ const ORIGINAL_ENV = {
     DUO_REDIRECT_URI: process.env.DUO_REDIRECT_URI,
 };
 
+const buildVaultSecret = () => Array.from(
+    { length: 48 },
+    (_, index) => String.fromCharCode(65 + (index % 26))
+).join('');
+
 const loadAdminMiddleware = () => {
     jest.resetModules();
     return require('../middleware/authMiddleware').admin;
@@ -60,7 +65,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         process.env.ADMIN_ALLOWLIST_EMAILS = 'admin@example.com';
         process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
         process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK = 'true';
-        process.env.AUTH_VAULT_SECRET = 'vault-secret-ABCDEFGHIJKLMNOPQRSTUVWXYZ12';
+        process.env.AUTH_VAULT_SECRET = buildVaultSecret();
         process.env.AUTH_VAULT_SECRET_VERSION = 'vault-v1';
 
         const nowSeconds = Math.floor(Date.now() / 1000);
@@ -123,7 +128,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         process.env.ADMIN_ALLOWLIST_EMAILS = 'admin@example.com';
         process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
         process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK = 'true';
-        process.env.AUTH_VAULT_SECRET = 'vault-secret-ABCDEFGHIJKLMNOPQRSTUVWXYZ12';
+        process.env.AUTH_VAULT_SECRET = buildVaultSecret();
         process.env.AUTH_VAULT_SECRET_VERSION = 'vault-v1';
 
         const nowSeconds = Math.floor(Date.now() / 1000);
@@ -178,6 +183,80 @@ describe('authMiddleware admin second-factor enforcement', () => {
         }));
     });
 
+    test('accepts a target-proved admin desktop handoff when the admin passkey policy requires it', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
+        process.env.ADMIN_REQUIRE_EMAIL_VERIFIED = 'true';
+        process.env.ADMIN_REQUIRE_2FA = 'true';
+        process.env.ADMIN_REQUIRE_PASSKEY = 'true';
+        process.env.ADMIN_REQUIRE_ALLOWLIST = 'false';
+        process.env.ADMIN_REQUIRE_FRESH_LOGIN_MINUTES = '30';
+        process.env.ADMIN_ALLOWLIST_EMAILS = 'admin@example.com';
+        process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
+        process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK = 'true';
+        process.env.AUTH_VAULT_SECRET = buildVaultSecret();
+        process.env.AUTH_VAULT_SECRET_VERSION = 'vault-v1';
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const {
+            TRUSTED_DEVICE_ID_HEADER,
+            TRUSTED_DEVICE_SESSION_HEADER,
+            issueTrustedDeviceSession,
+        } = loadTrustedDeviceService();
+        const { buildDesktopHandoffMfaMarker } = require('../services/mfaPolicyService');
+        const admin = loadAdminMiddleware();
+        const deviceId = 'device-desktop-admin-abcdefghijkl';
+        const user = {
+            _id: 'user-1',
+            isAdmin: true,
+            email: 'admin@example.com',
+            trustedDevices: [{ deviceId, method: 'browser_key' }],
+        };
+        const authToken = {
+            email: 'admin@example.com',
+            email_verified: true,
+            auth_time: nowSeconds - 60,
+            iat: nowSeconds - 60,
+        };
+        const { deviceSessionToken } = issueTrustedDeviceSession({
+            user,
+            authUid: 'firebase-admin-uid',
+            authToken,
+            deviceId,
+        });
+        const headers = {
+            [TRUSTED_DEVICE_ID_HEADER]: deviceId,
+            [TRUSTED_DEVICE_SESSION_HEADER]: deviceSessionToken,
+        };
+        const req = {
+            user,
+            authUid: 'firebase-admin-uid',
+            authToken,
+            authSession: {
+                sessionId: 'desktop-admin-session-1',
+                userId: 'user-1',
+                firebaseUid: 'firebase-admin-uid',
+                deviceId,
+                deviceMethod: 'browser_key',
+                amr: [
+                    'desktop_handoff',
+                    'device_binding',
+                    'mfa',
+                    buildDesktopHandoffMfaMarker(deviceId, { admin: true }),
+                ],
+            },
+            headers,
+            originalUrl: '/api/admin/dashboard',
+            get: (header) => headers[header],
+        };
+        const next = jest.fn();
+
+        await admin(req, {}, next);
+
+        expect(next).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledWith();
+    });
+
     test('accepts WebAuthn trusted devices when the admin passkey policy requires it', async () => {
         process.env.NODE_ENV = 'test';
         process.env.ADMIN_STRICT_ACCESS_ENABLED = 'true';
@@ -189,7 +268,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         process.env.ADMIN_ALLOWLIST_EMAILS = 'admin@example.com';
         process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
         process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK = 'true';
-        process.env.AUTH_VAULT_SECRET = 'vault-secret-ABCDEFGHIJKLMNOPQRSTUVWXYZ12';
+        process.env.AUTH_VAULT_SECRET = buildVaultSecret();
         process.env.AUTH_VAULT_SECRET_VERSION = 'vault-v1';
 
         const nowSeconds = Math.floor(Date.now() / 1000);
@@ -324,7 +403,7 @@ describe('authMiddleware admin second-factor enforcement', () => {
         process.env.ADMIN_ALLOWLIST_EMAILS = 'admin@example.com';
         process.env.AUTH_DEVICE_CHALLENGE_MODE = 'admin';
         process.env.AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK = 'true';
-        process.env.AUTH_VAULT_SECRET = 'vault-secret-ABCDEFGHIJKLMNOPQRSTUVWXYZ12';
+        process.env.AUTH_VAULT_SECRET = buildVaultSecret();
         process.env.AUTH_VAULT_SECRET_VERSION = 'vault-v1';
 
         const nowSeconds = Math.floor(Date.now() / 1000);

@@ -13,6 +13,7 @@ const { formatDesktopAuthResultForRenderer } = require('./browserAuthResult.cjs'
 const { buildLaunchShellDataUrl } = require('./launchShell.cjs');
 const {
     canGrantDesktopRuntimePermission,
+    isAllowedAuthWindowNavigation,
     isAuthWindowUrl,
     isInternalUrl,
     isSafeExternalUrl,
@@ -62,6 +63,11 @@ const DESKTOP_AUTH_USER_AGENT = buildDesktopAuthUserAgent();
 
 let lastUpdateCheckAt = 0;
 
+const isOwnerAccessSignInAvailable = () => isDesktopOwnerAccessSignInAvailable({
+    backendOrigin: runtime?.backendOrigin || '',
+    isPackaged: app.isPackaged,
+});
+
 const assertTrustedDesktopIpcSender = (event) => {
     if (!isTrustedDesktopIpcSender({
         event,
@@ -79,13 +85,19 @@ const openSafeExternalUrl = async (candidate) => {
     await shell.openExternal(candidate);
 };
 
+const openSafeExternalUrlInBackground = (candidate) => {
+    void openSafeExternalUrl(candidate).catch((error) => {
+        console.warn('[desktop] unable to open external URL:', error?.message || error);
+    });
+};
+
 app.userAgentFallback = DESKTOP_AUTH_USER_AGENT;
 app.commandLine.appendSwitch('user-agent', DESKTOP_AUTH_USER_AGENT);
 
 ipcMain.handle('desktop:app-info', (event) => {
     assertTrustedDesktopIpcSender(event);
     return ({
-        ownerAccessSignInAvailable: isDesktopOwnerAccessSignInAvailable({ isPackaged: app.isPackaged }),
+        ownerAccessSignInAvailable: isOwnerAccessSignInAvailable(),
         platform: process.platform,
         runtimeUrl: runtime?.url || '',
         version: app.getVersion(),
@@ -106,7 +118,12 @@ ipcMain.handle('desktop:auth:start-browser-sign-in', async (event, options = {})
         path: options?.path || '/login',
         returnTo: options?.returnTo || '/',
     });
-    await openSafeExternalUrl(request.url);
+    try {
+        await openSafeExternalUrl(request.url);
+    } catch (error) {
+        runtime.cancelDesktopAuthRequest?.(request.requestId);
+        throw error;
+    }
     return {
         requestId: request.requestId,
         expiresAt: request.expiresAt,
@@ -154,8 +171,8 @@ ipcMain.handle('desktop:auth:cancel-browser-sign-in', (event, requestId = '') =>
 
 ipcMain.handle('desktop:auth:owner-access-sign-in', async (event) => {
     assertTrustedDesktopIpcSender(event);
-    if (!isDesktopOwnerAccessSignInAvailable({ isPackaged: app.isPackaged })) {
-        throw new Error('Desktop owner access is unavailable in packaged builds. Continue in your browser instead.');
+    if (!isOwnerAccessSignInAvailable()) {
+        throw new Error('Desktop owner access is unavailable for this desktop configuration. Continue in your browser instead.');
     }
     if (!runtime?.createDesktopOwnerAccessSignIn) {
         throw new Error('Desktop owner access runtime is not ready yet.');
@@ -429,7 +446,7 @@ const createMainWindow = async () => {
 
         event.preventDefault();
         if (isSafeExternalUrl(url)) {
-            void shell.openExternal(url);
+            openSafeExternalUrlInBackground(url);
         }
     };
     activeWindow.webContents.on('will-navigate', guardMainFrameNavigation);
@@ -448,7 +465,7 @@ const createMainWindow = async () => {
         }
 
         if (isSafeExternalUrl(url)) {
-            void shell.openExternal(url);
+            openSafeExternalUrlInBackground(url);
         }
         return { action: 'deny' };
     });
@@ -459,8 +476,20 @@ const createMainWindow = async () => {
             childWindow.webContents.setUserAgent(DESKTOP_AUTH_USER_AGENT);
             childWindow.center();
         }
+        const guardAuthWindowNavigation = (event, url) => {
+            if (isAllowedAuthWindowNavigation(url, runtime.url)) {
+                return;
+            }
+
+            event.preventDefault();
+            if (isSafeExternalUrl(url)) {
+                openSafeExternalUrlInBackground(url);
+            }
+        };
+        childWindow.webContents.on('will-navigate', guardAuthWindowNavigation);
+        childWindow.webContents.on('will-redirect', guardAuthWindowNavigation);
         childWindow.webContents.setWindowOpenHandler(({ url }) => {
-            if (isAuthWindowUrl(url) || isInternalUrl(url, runtime.url)) {
+            if (isAllowedAuthWindowNavigation(url, runtime.url)) {
                 return {
                     action: 'allow',
                     overrideBrowserWindowOptions: buildAuthWindowOptions(activeWindow),
@@ -468,7 +497,7 @@ const createMainWindow = async () => {
             }
 
             if (isSafeExternalUrl(url)) {
-                void shell.openExternal(url);
+                openSafeExternalUrlInBackground(url);
             }
             return { action: 'deny' };
         });

@@ -15,6 +15,8 @@ import {
   User,
 } from 'lucide-react';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
+import AuraTrustedDeviceChallenge from '@/components/features/auth/AuraTrustedDeviceChallenge';
+import MfaChallengePanel from '@/components/features/auth/MfaChallengePanel';
 import TurnstileChallenge from '@/components/features/auth/TurnstileChallenge';
 import { useEmergencyStatus } from '@/context/EmergencyStatusContext';
 import { cn } from '@/lib/utils';
@@ -266,13 +268,13 @@ const SessionHydrationView = ({ t }) => (
       aria-hidden="true"
     />
     <h1 id="desktop-session-hydration-title" className="mt-6 text-3xl font-semibold tracking-[-0.02em] text-white sm:text-4xl">
-      {t('desktopLogin.hydration.title', {}, 'Checking your Aura session')}
+      {t('desktopLogin.hydration.title', {}, 'Checking your browser session')}
     </h1>
     <p id="desktop-session-hydration-detail" className="mt-4 text-base leading-7 text-[#a8a8a8]" role="status" aria-live="polite">
       {t(
         'desktopLogin.hydration.detail',
         {},
-        'Confirming whether this trusted browser is already signed in before showing the next secure step.'
+        'Confirming your browser session before Aura verifies this device for the desktop handoff.'
       )}
     </p>
   </section>
@@ -299,9 +301,20 @@ const DesktopLogin = () => {
   const socialDisabled = controller.isLoading || loginDisabled || !handoffActive;
   const showProviderStack = controller.isDuoLoginEnabled || controller.socialAuthStatus.supported;
   const showConsent = handoffActive && Boolean(
-    controller.desktopBrowserConsentReady || controller.desktopBrowserConsentSubmitting
+    controller.desktopBrowserConsentReady
+    || controller.desktopBrowserConsentSubmitting
+    || controller.desktopBrowserHandoffPreflightFailed
   );
   const sessionHydrationPending = handoffActive && Boolean(controller.desktopBrowserSessionHydrating);
+  const desktopBrowserHandoffCheckpoint = controller.desktopBrowserHandoffCheckpoint;
+  const showDeviceCheckpoint = handoffActive && Boolean(
+    desktopBrowserHandoffCheckpoint?.status === 'device_challenge_required'
+    && desktopBrowserHandoffCheckpoint?.deviceChallenge
+  );
+  const showMfaCheckpoint = handoffActive && Boolean(
+    desktopBrowserHandoffCheckpoint?.status === 'mfa_challenge_required'
+    || desktopBrowserHandoffCheckpoint?.mfaBlocked === true
+  );
   const pageTitle = controller.step === 'reset-password'
     ? t('desktopLogin.title.newPassword', {}, 'Choose a new password')
     : controller.step === 'otp'
@@ -330,6 +343,23 @@ const DesktopLogin = () => {
       <main className="flex min-h-[calc(100vh-5.5rem)] items-center justify-center px-5 pb-16 pt-8 sm:px-8 sm:pb-20 sm:pt-10">
         {sessionHydrationPending ? (
           <SessionHydrationView t={t} />
+        ) : showDeviceCheckpoint ? (
+          <AuraTrustedDeviceChallenge
+            challengeOverride={desktopBrowserHandoffCheckpoint.deviceChallenge}
+            onVerifyChallenge={controller.handleDesktopBrowserDeviceChallenge}
+            onExit={controller.handleDesktopBrowserConsentCancel}
+          />
+        ) : showMfaCheckpoint ? (
+          <MfaChallengePanel
+            challenge={desktopBrowserHandoffCheckpoint.mfaChallenge}
+            policy={desktopBrowserHandoffCheckpoint.mfaPolicy}
+            isAdmin={desktopBrowserHandoffCheckpoint?.roles?.isAdmin === true}
+            blocked={desktopBrowserHandoffCheckpoint.mfaBlocked === true}
+            onVerifyPasskey={controller.handleDesktopBrowserMfaPasskey}
+            onVerifyTotp={controller.handleDesktopBrowserMfaTotp}
+            onVerifyRecoveryCode={controller.handleDesktopBrowserMfaRecoveryCode}
+            onCancel={controller.handleDesktopBrowserConsentCancel}
+          />
         ) : showConsent ? (
           <ConsentView controller={controller} t={t} />
         ) : !handoffActive ? (

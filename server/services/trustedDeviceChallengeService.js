@@ -18,6 +18,7 @@ const {
 } = require('./webauthnTrustedDeviceService');
 const { mirrorVerifiedTrustedDevice } = require('./trustedDeviceV2RuntimeService');
 const { isAdminSubject } = require('./mfaPolicyService');
+const { hasObservedWebAuthnUserVerification } = require('./trustedDeviceAssuranceService');
 
 const TRUSTED_DEVICE_ID_HEADER = 'x-aura-device-id';
 const TRUSTED_DEVICE_LABEL_HEADER = 'x-aura-device-label';
@@ -25,6 +26,10 @@ const TRUSTED_DEVICE_SESSION_HEADER = 'x-aura-device-session';
 const DEVICE_CHALLENGE_TTL_MS = Math.max(Number(process.env.AUTH_DEVICE_CHALLENGE_TTL_MS || 90_000), 30_000);
 const MAX_TRUSTED_DEVICES = Math.max(Number(process.env.AUTH_TRUSTED_DEVICE_LIMIT || 5), 1);
 const DEVICE_SESSION_TTL_MS = Math.max(Number(process.env.AUTH_DEVICE_SESSION_TTL_MS || (12 * 60 * 60 * 1000)), 5 * 60 * 1000);
+const DEVICE_SESSION_REPROOF_WINDOW_MS = Math.min(
+    Math.max(Number(process.env.AUTH_DEVICE_SESSION_REPROOF_WINDOW_MS || (5 * 60 * 1000)), 60_000),
+    Math.floor(DEVICE_SESSION_TTL_MS / 2)
+);
 
 const TOKEN_KEY_DERIVATION_SALT = 'aura-trusted-device-token';
 const BROWSER_KEY_METHOD = 'browser_key';
@@ -38,6 +43,7 @@ const TRUSTED_DEVICE_ENROLLMENT_CONTEXTS = Object.freeze([
 ]);
 const TRUSTED_DEVICE_ADMIN_ELIGIBILITY = Object.freeze(['none', 'legacy_candidate', 'verified']);
 const CHALLENGE_REPLAY_PREFIX = `${redisFlags.redisPrefix}:trusted-device:challenge-used:`;
+const DESKTOP_HANDOFF_REQUEST_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const consumedChallengeMemoryStore = new Map();
 let consumedChallengeCleanup = null;
@@ -76,6 +82,30 @@ const normalizeChallengeScope = (value = '') => {
     if (!normalized) return '';
     if (!/^[a-z0-9:_-]{1,64}$/.test(normalized)) return '';
     return normalized;
+};
+
+const normalizeDesktopHandoffBootstrap = (value = null) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+    const expiresAtMs = new Date(value.expiresAt || '').getTime();
+    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) return null;
+
+    const requestId = String(value.requestId || '').trim();
+    if (!DESKTOP_HANDOFF_REQUEST_ID_REGEX.test(requestId)) return null;
+
+    return {
+        requestId,
+        expiresAt: new Date(expiresAtMs).toISOString(),
+        loginMfaSatisfied: value.loginMfaSatisfied === true,
+        adminPasskeySatisfied: value.adminPasskeySatisfied === true,
+    };
+};
+
+const createTrustedDeviceError = (message, code, statusCode = 409) => {
+    const error = new Error(message);
+    error.code = code;
+    error.statusCode = statusCode;
+    return error;
 };
 
 const normalizeChallengeId = (value = '') => {
@@ -314,6 +344,12 @@ const normalizeChallengeMethod = (value) => {
     return BROWSER_KEY_METHOD;
 };
 
+const normalizeAllowedChallengeMethods = (values = []) => [...new Set(
+    (Array.isArray(values) ? values : [])
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter((value) => value === PASSKEY_METHOD || value === BROWSER_KEY_METHOD)
+)];
+
 const normalizeCredentialScope = (value, fallback = 'recognition') => {
     const normalized = String(value || '').trim().toLowerCase();
     return TRUSTED_DEVICE_CREDENTIAL_SCOPES.includes(normalized) ? normalized : fallback;
@@ -389,10 +425,11 @@ const verifyTrustedDeviceSession = ({
     authToken = null,
     deviceId = '',
     deviceSessionToken = '',
-} = {}) => {
+} = {}, { includeMetadata = false } = {}) => {
     try {
         const { payload } = openToken(deviceSessionToken);
         const normalizedDeviceId = normalizeDeviceId(deviceId);
+        const nowMs = Date.now();
 
         if (payload?.typ !== 'trusted_device_session') {
             return { success: false, reason: 'Trusted device session type mismatch' };
@@ -403,7 +440,8 @@ const verifyTrustedDeviceSession = ({
         if (payload?.deviceId !== normalizedDeviceId) {
             return { success: false, reason: 'Trusted device session device mismatch' };
         }
-        if (Date.now() > Number(payload?.exp || 0)) {
+        const expiresAtMs = Number(payload?.exp || 0);
+        if (!Number.isFinite(expiresAtMs) || nowMs >= expiresAtMs) {
             return { success: false, reason: 'Trusted device session expired' };
         }
         if (!sessionBindingMatches(payload?.sessionBinding, { authUid, authToken })) {
@@ -418,7 +456,7 @@ const verifyTrustedDeviceSession = ({
             return { success: false, reason: 'Trusted device registration revoked' };
         }
         const registrationExpiry = registration.expiresAt ? new Date(registration.expiresAt).getTime() : 0;
-        if (Number.isFinite(registrationExpiry) && registrationExpiry > 0 && registrationExpiry <= Date.now()) {
+        if (Number.isFinite(registrationExpiry) && registrationExpiry > 0 && registrationExpiry <= nowMs) {
             return { success: false, reason: 'Trusted device registration expired' };
         }
         const payloadSessionVersion = String(payload?.sessionVersion || '').trim();
@@ -430,10 +468,30 @@ const verifyTrustedDeviceSession = ({
             return { success: false, reason: 'Trusted device session superseded' };
         }
 
-        return { success: true };
+        return includeMetadata
+            ? {
+                success: true,
+                deviceId: normalizedDeviceId,
+                expiresAt: new Date(expiresAtMs).toISOString(),
+                expiresAtMs,
+                sessionVersion: registrationSessionVersion,
+            }
+            : { success: true };
     } catch {
         return { success: false, reason: 'Trusted device session invalid' };
     }
+};
+
+const shouldReproveTrustedDeviceSession = (verification = {}, { now = () => Date.now() } = {}) => {
+    const nowMs = Number(now());
+    const expiresAtMs = Number(verification?.expiresAtMs || 0);
+    return Boolean(
+        verification?.success
+        && Number.isFinite(nowMs)
+        && Number.isFinite(expiresAtMs)
+        && expiresAtMs > nowMs
+        && expiresAtMs - nowMs <= DEVICE_SESSION_REPROOF_WINDOW_MS
+    );
 };
 
 const verifyTrustedDeviceBootstrapSession = ({
@@ -910,10 +968,31 @@ const upsertTrustedDevice = async ({
     const sortByRecentVerification = (left, right) => (
         new Date(right?.lastVerifiedAt || 0).getTime() - new Date(left?.lastVerifiedAt || 0).getTime()
     );
-    const activeDevices = currentDevices
+    const sortedActiveDevices = currentDevices
         .filter((entry) => isTrustedDeviceRegistrationActive(entry))
-        .sort(sortByRecentVerification)
-        .slice(0, MAX_TRUSTED_DEVICES);
+        .sort(sortByRecentVerification);
+    const protectedDeviceIds = new Set(
+        sortedActiveDevices
+            .filter((entry) => (
+                getTrustedDeviceMethod(entry) === PASSKEY_METHOD
+                && normalizeCredentialScope(entry?.credentialScope) === 'admin'
+                && normalizeAdminEligibility(entry?.adminEligibility) === 'verified'
+                && hasObservedWebAuthnUserVerification(entry)
+            ))
+            .map((entry) => normalizeDeviceId(entry?.deviceId))
+            .filter(Boolean)
+    );
+    protectedDeviceIds.add(normalizedDeviceId);
+    if (protectedDeviceIds.size > MAX_TRUSTED_DEVICES) {
+        throw createTrustedDeviceError(
+            'Trusted-device limit reached. Revoke an old device before adding Aura Desktop.',
+            'TRUSTED_DEVICE_LIMIT_PRESERVES_ADMIN_PASSKEY'
+        );
+    }
+    const activeDevices = [
+        ...sortedActiveDevices.filter((entry) => protectedDeviceIds.has(normalizeDeviceId(entry?.deviceId))),
+        ...sortedActiveDevices.filter((entry) => !protectedDeviceIds.has(normalizeDeviceId(entry?.deviceId))),
+    ].slice(0, MAX_TRUSTED_DEVICES);
     const inactiveDevices = currentDevices
         .filter((entry) => !isTrustedDeviceRegistrationActive(entry))
         .sort((left, right) => (
@@ -964,6 +1043,7 @@ const issueTrustedDeviceChallenge = async ({
     adminEligibility = 'none',
     postDeviceMfaRequired = false,
     postDeviceMfaReason = '',
+    desktopHandoffBootstrap = null,
 }) => {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     if (!user?._id || !normalizedDeviceId) {
@@ -975,11 +1055,48 @@ const issueTrustedDeviceChallenge = async ({
         throw new Error('Trusted device registration missing');
     }
     const challenge = crypto.randomBytes(32).toString('base64url');
-    const expiresAt = Date.now() + DEVICE_CHALLENGE_TTL_MS;
-    const mode = existingDevice ? 'assert' : 'enroll';
+    const normalizedDesktopHandoffBootstrap = normalizeDesktopHandoffBootstrap(desktopHandoffBootstrap);
+    if (desktopHandoffBootstrap && !normalizedDesktopHandoffBootstrap) {
+        throw new Error('Desktop handoff bootstrap assurance is invalid or expired');
+    }
+    const bootstrapExpiresAtMs = normalizedDesktopHandoffBootstrap
+        ? new Date(normalizedDesktopHandoffBootstrap.expiresAt).getTime()
+        : Number.POSITIVE_INFINITY;
+    const expiresAt = Math.min(Date.now() + DEVICE_CHALLENGE_TTL_MS, bootstrapExpiresAtMs);
     const registeredMethod = existingDevice ? getTrustedDeviceMethod(existingDevice) : '';
+    const normalizedScope = normalizeChallengeScope(challengeScope);
+    const isDesktopHandoffTarget = normalizedScope === 'desktop_handoff_target';
+    if (normalizedDesktopHandoffBootstrap && !isDesktopHandoffTarget) {
+        throw createTrustedDeviceError(
+            'Desktop handoff assurance is valid only for a target-scoped challenge.',
+            'DESKTOP_HANDOFF_TARGET_SCOPE_REQUIRED',
+            403
+        );
+    }
+    if (isDesktopHandoffTarget) {
+        const claimRequestId = String(authToken?.desktop_request_id || '').trim();
+        if (
+            authToken?.desktop_handoff !== true
+            || !normalizedDesktopHandoffBootstrap
+            || normalizedDesktopHandoffBootstrap.requestId !== claimRequestId
+        ) {
+            throw createTrustedDeviceError(
+                'Desktop handoff target assurance binding is invalid.',
+                'DESKTOP_HANDOFF_TARGET_BINDING_INVALID',
+                403
+            );
+        }
+        if (existingDevice && registeredMethod === PASSKEY_METHOD) {
+            throw createTrustedDeviceError(
+                'Aura Desktop must rotate its legacy trusted-device identity before continuing.',
+                'DESKTOP_TARGET_IDENTITY_ROTATION_REQUIRED'
+            );
+        }
+    }
     const webauthnContext = resolveWebAuthnRequestContext(req);
-    const canOfferWebAuthnEnrollment = mode !== 'enroll' || webauthnContext.isEnrollmentEligible;
+    const mode = existingDevice ? 'assert' : 'enroll';
+    const canOfferWebAuthnEnrollment = !isDesktopHandoffTarget
+        && (mode !== 'enroll' || webauthnContext.isEnrollmentEligible);
     const preferredMethod = mode === 'enroll'
         ? (
             trustedDeviceFlags.authTrustedDevicePreferWebAuthn && canOfferWebAuthnEnrollment
@@ -1006,15 +1123,17 @@ const issueTrustedDeviceChallenge = async ({
         deviceLabel: normalizeDeviceLabel(deviceLabel),
         preferredMethod,
         registeredMethod,
+        allowedMethods: availableMethods,
         webauthnContext,
         sessionBinding: buildSessionBinding({ authUid, authToken }),
         expectedDeviceSessionHash: String(expectedDeviceSessionHash || '').trim(),
-        scope: normalizeChallengeScope(challengeScope),
+        scope: normalizedScope,
         credentialScope: normalizeCredentialScope(credentialScope),
         enrollmentContext: normalizeEnrollmentContext(enrollmentContext),
         adminEligibility: normalizeAdminEligibility(adminEligibility),
         postDeviceMfaRequired: postDeviceMfaRequired === true,
         postDeviceMfaReason: normalizeChallengeScope(postDeviceMfaReason),
+        desktopHandoffBootstrap: normalizedDesktopHandoffBootstrap,
         exp: expiresAt,
     });
 
@@ -1053,6 +1172,7 @@ const issueTrustedDeviceChallenge = async ({
         preferredMethod,
         availableMethods,
         registeredMethod,
+        ...(normalizedScope ? { scope: normalizedScope } : {}),
         webauthn,
     };
 };
@@ -1097,24 +1217,48 @@ const verifyTrustedDeviceChallenge = async ({
     }
     const challengeScope = normalizeChallengeScope(payload?.scope || '');
     const requestedScope = normalizeChallengeScope(expectedScope);
-    if (challengeScope && challengeScope !== requestedScope) {
+    if (challengeScope !== requestedScope) {
         return { success: false, reason: 'Device challenge scope mismatch' };
     }
     const postDeviceMfaRequired = payload?.postDeviceMfaRequired === true;
     const postDeviceMfaReason = normalizeChallengeScope(payload?.postDeviceMfaReason || '');
+    const desktopHandoffBootstrap = normalizeDesktopHandoffBootstrap(payload?.desktopHandoffBootstrap);
+    if (requestedScope === 'desktop_handoff_target' && !desktopHandoffBootstrap) {
+        return { success: false, reason: 'Desktop handoff target assurance is invalid or expired' };
+    }
+    if (
+        requestedScope === 'desktop_handoff_target'
+        && (
+            authToken?.desktop_handoff !== true
+            || desktopHandoffBootstrap.requestId !== String(authToken?.desktop_request_id || '').trim()
+        )
+    ) {
+        return { success: false, reason: 'Desktop handoff target assurance binding mismatch' };
+    }
     const consumeVerifiedChallenge = () => consumeChallengeOnce({
         challengeId: payload?.jti,
         expiresAt: payload?.exp,
     });
 
+    const explicitMethod = String(method || '').trim().toLowerCase();
+    if (explicitMethod && explicitMethod !== PASSKEY_METHOD && explicitMethod !== BROWSER_KEY_METHOD) {
+        return { success: false, reason: 'Trusted device challenge method not allowed' };
+    }
     const requestedMethod = normalizeChallengeMethod(
-        method
+        explicitMethod
         || (credential ? PASSKEY_METHOD : '')
         || (proof ? BROWSER_KEY_METHOD : '')
         || payload.registeredMethod
         || payload.preferredMethod
         || BROWSER_KEY_METHOD
     );
+    const allowedMethods = normalizeAllowedChallengeMethods(payload?.allowedMethods);
+    if (!allowedMethods.includes(requestedMethod)) {
+        return { success: false, reason: 'Trusted device challenge method not allowed' };
+    }
+    if (challengeScope === 'desktop_handoff_target' && requestedMethod !== BROWSER_KEY_METHOD) {
+        return { success: false, reason: 'Desktop handoff target requires browser-key verification' };
+    }
 
     const message = buildChallengeMessage({
         challenge: payload.challenge,
@@ -1159,8 +1303,10 @@ const verifyTrustedDeviceChallenge = async ({
 
                 const shouldUpgradeLegacyAdminCandidate = Boolean(
                     isAdminSubject(user)
+                    && challengeScope === 'mfa-passkey-login'
                     && normalizeAdminEligibility(registeredDevice?.adminEligibility) === 'legacy_candidate'
                 );
+                const shouldApplyPasskeyEnrollmentMetadata = challengeScope === 'mfa-passkey-register';
                 const { trustedDevice, sessionVersion } = await upsertTrustedDevice({
                     userId: user._id,
                     deviceId: normalizedDeviceId,
@@ -1182,13 +1328,19 @@ const verifyTrustedDeviceChallenge = async ({
                     authenticatorAttachment: registeredDevice.authenticatorAttachment || '',
                     credentialScope: shouldUpgradeLegacyAdminCandidate
                         ? 'admin'
-                        : (payload.credentialScope || registeredDevice.credentialScope || 'recognition'),
+                        : (shouldApplyPasskeyEnrollmentMetadata
+                            ? (payload.credentialScope || 'mfa')
+                            : (registeredDevice.credentialScope || 'recognition')),
                     enrollmentContext: shouldUpgradeLegacyAdminCandidate
                         ? 'admin_step_up'
-                        : (payload.enrollmentContext || registeredDevice.enrollmentContext || 'device_recognition'),
+                        : (shouldApplyPasskeyEnrollmentMetadata
+                            ? (payload.enrollmentContext || 'mfa_registration')
+                            : (registeredDevice.enrollmentContext || 'device_recognition')),
                     adminEligibility: shouldUpgradeLegacyAdminCandidate
                         ? 'verified'
-                        : (payload.adminEligibility || registeredDevice.adminEligibility || 'none'),
+                        : (shouldApplyPasskeyEnrollmentMetadata
+                            ? (payload.adminEligibility || 'none')
+                            : (registeredDevice.adminEligibility || 'none')),
                 });
 
                 return {
@@ -1198,6 +1350,7 @@ const verifyTrustedDeviceChallenge = async ({
                     trustedDevice,
                     postDeviceMfaRequired,
                     postDeviceMfaReason,
+                    ...(desktopHandoffBootstrap ? { desktopHandoffBootstrap } : {}),
                     ...issueTrustedDeviceSession({
                         user,
                         authUid,
@@ -1252,6 +1405,7 @@ const verifyTrustedDeviceChallenge = async ({
                 trustedDevice,
                 postDeviceMfaRequired,
                 postDeviceMfaReason,
+                ...(desktopHandoffBootstrap ? { desktopHandoffBootstrap } : {}),
                 ...issueTrustedDeviceSession({
                     user,
                     authUid,
@@ -1310,6 +1464,7 @@ const verifyTrustedDeviceChallenge = async ({
             trustedDevice,
             postDeviceMfaRequired,
             postDeviceMfaReason,
+            ...(desktopHandoffBootstrap ? { desktopHandoffBootstrap } : {}),
             ...issueTrustedDeviceSession({
                 user,
                 authUid,
@@ -1360,6 +1515,7 @@ const verifyTrustedDeviceChallenge = async ({
         trustedDevice,
         postDeviceMfaRequired,
         postDeviceMfaReason,
+        ...(desktopHandoffBootstrap ? { desktopHandoffBootstrap } : {}),
         ...issueTrustedDeviceSession({
             user,
             authUid,
@@ -1387,5 +1543,6 @@ module.exports = {
     verifyTrustedDeviceSession,
     verifyTrustedDeviceBootstrapSession,
     normalizeDeviceId,
+    shouldReproveTrustedDeviceSession,
     verifyTrustedDeviceChallenge,
 };

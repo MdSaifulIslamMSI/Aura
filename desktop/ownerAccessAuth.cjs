@@ -1,10 +1,12 @@
 const crypto = require('crypto');
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 
 const DESKTOP_OWNER_ACCESS_AUDIENCE = 'aura.desktop.owner.access.v1';
 const DESKTOP_OWNER_ACCESS_ENDPOINT = '/api/auth/desktop-handoff/owner-access-token';
 const MIN_OWNER_ACCESS_KEY_BYTES = 32;
+const MAX_OWNER_ACCESS_KEY_FILE_BYTES = 4096;
 const DEFAULT_OWNER_ACCESS_TIMEOUT_MS = 8000;
 
 const parseBooleanEnv = (value, fallback = false) => {
@@ -39,8 +41,37 @@ const readOwnerAccessKeyMaterial = (env = process.env) => {
     if (base64) return decodeBase64Url(base64);
 
     const keyFile = resolveOwnerAccessKeyFile(env);
-    if (keyFile && fs.existsSync(keyFile)) {
-        return Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'utf8');
+    if (keyFile) {
+        let fileDescriptor = null;
+        try {
+            fileDescriptor = fs.openSync(keyFile, 'r');
+            const stats = fs.fstatSync(fileDescriptor);
+            if (!stats.isFile() || stats.size <= 0 || stats.size > MAX_OWNER_ACCESS_KEY_FILE_BYTES) {
+                return Buffer.alloc(0);
+            }
+            const boundedBuffer = Buffer.alloc(MAX_OWNER_ACCESS_KEY_FILE_BYTES + 1);
+            const bytesRead = fs.readSync(
+                fileDescriptor,
+                boundedBuffer,
+                0,
+                boundedBuffer.length,
+                0
+            );
+            if (bytesRead <= 0 || bytesRead > MAX_OWNER_ACCESS_KEY_FILE_BYTES) {
+                return Buffer.alloc(0);
+            }
+            return Buffer.from(boundedBuffer.subarray(0, bytesRead).toString('utf8').trim(), 'utf8');
+        } catch {
+            return Buffer.alloc(0);
+        } finally {
+            if (fileDescriptor !== null) {
+                try {
+                    fs.closeSync(fileDescriptor);
+                } catch {
+                    // The key remains unavailable if the descriptor cannot be closed cleanly.
+                }
+            }
+        }
     }
 
     return Buffer.alloc(0);
@@ -48,13 +79,32 @@ const readOwnerAccessKeyMaterial = (env = process.env) => {
 
 const isDesktopOwnerAccessSignInConfigured = (env = process.env) => (
     parseBooleanEnv(env?.AURA_DESKTOP_OWNER_ACCESS_ENABLED, false)
+    && Boolean(String(env?.AURA_DESKTOP_OWNER_FIREBASE_UID || '').trim())
     && readOwnerAccessKeyMaterial(env).length >= MIN_OWNER_ACCESS_KEY_BYTES
 );
 
+const isLoopbackBackendOrigin = (backendOrigin = '') => {
+    try {
+        const url = new URL(backendOrigin);
+        if (!['http:', 'https:'].includes(url.protocol)) return false;
+
+        const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+        if (hostname === 'localhost' || hostname === '::1') return true;
+        return net.isIP(hostname) === 4 && hostname.split('.')[0] === '127';
+    } catch {
+        return false;
+    }
+};
+
 const isDesktopOwnerAccessSignInAvailable = ({
+    backendOrigin = '',
     env = process.env,
     isPackaged = false,
-} = {}) => !isPackaged && isDesktopOwnerAccessSignInConfigured(env);
+} = {}) => (
+    !isPackaged
+    && isLoopbackBackendOrigin(backendOrigin)
+    && isDesktopOwnerAccessSignInConfigured(env)
+);
 
 const buildDesktopOwnerAccessPayload = ({
     requestId = '',
@@ -80,8 +130,11 @@ const createDesktopOwnerAccessSignIn = async ({
     timeoutMs = DEFAULT_OWNER_ACCESS_TIMEOUT_MS,
 } = {}) => {
     const key = readOwnerAccessKeyMaterial(env);
-    if (!parseBooleanEnv(env?.AURA_DESKTOP_OWNER_ACCESS_ENABLED, false) || key.length < MIN_OWNER_ACCESS_KEY_BYTES) {
+    if (!isDesktopOwnerAccessSignInConfigured(env)) {
         throw new Error('Desktop owner access is not configured for this app.');
+    }
+    if (!isLoopbackBackendOrigin(backendOrigin)) {
+        throw new Error('Desktop owner access requires a loopback backend. Continue in your browser instead.');
     }
     if (typeof fetchImpl !== 'function') {
         throw new Error('Desktop owner access requires fetch support.');
@@ -148,9 +201,11 @@ module.exports = {
     DEFAULT_OWNER_ACCESS_TIMEOUT_MS,
     DESKTOP_OWNER_ACCESS_AUDIENCE,
     DESKTOP_OWNER_ACCESS_ENDPOINT,
+    MAX_OWNER_ACCESS_KEY_FILE_BYTES,
     buildDesktopOwnerAccessPayload,
     createDesktopOwnerAccessSignIn,
     createDesktopOwnerAccessSignature,
     isDesktopOwnerAccessSignInAvailable,
     isDesktopOwnerAccessSignInConfigured,
+    isLoopbackBackendOrigin,
 };

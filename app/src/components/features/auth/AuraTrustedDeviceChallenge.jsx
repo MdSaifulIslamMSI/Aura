@@ -102,7 +102,13 @@ const buildErrorMessage = (error) => {
   return String(error?.message || 'This device could not be confirmed. Try again or choose another method.');
 };
 
-const AuraTrustedDeviceChallenge = ({ disabled = false, onExit = null }) => {
+const AuraTrustedDeviceChallenge = ({
+  disabled = false,
+  onExit = null,
+  challengeOverride = null,
+  onVerifyChallenge = null,
+  onVerified = null,
+}) => {
   const navigate = useNavigate();
   const t = useStableIcuMessages();
   const {
@@ -130,29 +136,32 @@ const AuraTrustedDeviceChallenge = ({ disabled = false, onExit = null }) => {
   const [requiresPasswordReauth, setRequiresPasswordReauth] = useState(false);
   const [reauthPassword, setReauthPassword] = useState('');
 
-  const challengeMode = deviceChallenge?.mode === 'enroll' ? 'enroll' : 'assert';
-  const audience = deviceChallenge?.audience === 'admin' ? 'admin' : 'public';
-  const requiredAssurance = String(deviceChallenge?.requiredAssurance || 'device_proof');
+  const activeDeviceChallenge = challengeOverride || deviceChallenge;
+  const controlledChallenge = Boolean(challengeOverride);
+  const challengeMode = activeDeviceChallenge?.mode === 'enroll' ? 'enroll' : 'assert';
+  const audience = activeDeviceChallenge?.audience === 'admin' ? 'admin' : 'public';
+  const requiredAssurance = String(activeDeviceChallenge?.requiredAssurance || 'device_proof');
   const isAdminCheckpoint = audience === 'admin';
   const requiresAdminPasskey = requiredAssurance === 'admin_passkey';
   const offeredMethods = useMemo(() => {
-    const methods = Array.isArray(deviceChallenge?.availableMethods)
-      ? deviceChallenge.availableMethods.map(normalizeMethod).filter(Boolean)
+    const methods = Array.isArray(activeDeviceChallenge?.availableMethods)
+      ? activeDeviceChallenge.availableMethods.map(normalizeMethod).filter(Boolean)
       : [];
     return requiresAdminPasskey ? methods.filter((method) => method === 'webauthn') : methods;
-  }, [deviceChallenge?.availableMethods, requiresAdminPasskey]);
+  }, [activeDeviceChallenge?.availableMethods, requiresAdminPasskey]);
   const supportedMethods = offeredMethods.filter((method) => isMethodSupported(method, supportProfile));
-  const preferredMethod = normalizeMethod(deviceChallenge?.preferredMethod);
+  const preferredMethod = normalizeMethod(activeDeviceChallenge?.preferredMethod);
   const defaultMethod = supportedMethods.includes(preferredMethod)
     ? preferredMethod
     : (supportedMethods[0] || offeredMethods[0] || '');
   const activeMethod = normalizeMethod(selectedMethod) || defaultMethod;
   const selectedMethodSupported = supportedMethods.includes(activeMethod);
   const shouldRender = !disabled
-    && status === 'device_challenge_required'
-    && Boolean(deviceChallenge)
+    && (controlledChallenge || status === 'device_challenge_required')
+    && Boolean(activeDeviceChallenge)
     && import.meta.env.MODE !== 'test';
-  const shouldRequireExplicitReauth = deviceChallenge?.requiresRecentAuth === true
+  const shouldRequireExplicitReauth = !controlledChallenge
+    && activeDeviceChallenge?.requiresRecentAuth === true
     && challengeMode === 'enroll'
     && !hasFreshSensitiveActionAuth(sessionIntelligence)
     && typeof reauthenticateForSensitiveAction === 'function';
@@ -164,7 +173,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false, onExit = null }) => {
     setFailedAttemptCount(0);
     setRequiresPasswordReauth(false);
     setReauthPassword('');
-  }, [defaultMethod, deviceChallenge?.token, offeredMethods.length]);
+  }, [defaultMethod, activeDeviceChallenge?.token, offeredMethods.length]);
 
   useEffect(() => {
     if (!shouldRender || typeof document === 'undefined') return undefined;
@@ -199,7 +208,7 @@ const AuraTrustedDeviceChallenge = ({ disabled = false, onExit = null }) => {
         previouslyFocused.focus?.({ preventScroll: true });
       }
     };
-  }, [deviceChallenge?.token, shouldRender]);
+  }, [activeDeviceChallenge?.token, shouldRender]);
 
   if (!shouldRender) return null;
 
@@ -247,12 +256,21 @@ const AuraTrustedDeviceChallenge = ({ disabled = false, onExit = null }) => {
         setReauthPassword('');
       }
 
-      const signedChallenge = await signTrustedDeviceChallenge(deviceChallenge, {
+      const signedChallenge = await signTrustedDeviceChallenge(activeDeviceChallenge, {
         preferredMethod: activeMethod,
       });
-      const response = await verifyDeviceChallenge(deviceChallenge.token, signedChallenge);
+      if (controlledChallenge && typeof onVerifyChallenge !== 'function') {
+        throw new Error('This device verification checkpoint is unavailable. Start a fresh sign-in and try again.');
+      }
+      const response = controlledChallenge
+        ? await onVerifyChallenge(activeDeviceChallenge.token, signedChallenge)
+        : await verifyDeviceChallenge(activeDeviceChallenge.token, signedChallenge);
       if (!response?.success) {
         throw new Error(response?.message || 'This device could not be confirmed.');
+      }
+
+      if (controlledChallenge && typeof onVerified === 'function') {
+        await onVerified(response);
       }
 
       setFailedAttemptCount(0);
