@@ -225,6 +225,7 @@ const mirrorVerifiedTrustedDevice = async ({
     user,
     device,
     provenance = 'v2_reverification',
+    mongoSession = null,
     env = process.env,
     model = TrustedDeviceCredential,
     recordEvent = recordAuthSecurityEvent,
@@ -258,6 +259,7 @@ const mirrorVerifiedTrustedDevice = async ({
                 upsert: true,
                 runValidators: true,
                 setDefaultsOnInsert: true,
+                session: mongoSession || undefined,
             }
         );
         const wrote = Number(result?.matchedCount || 0) > 0

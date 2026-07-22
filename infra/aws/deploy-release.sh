@@ -690,6 +690,17 @@ assert_no_model_compose_contract "${staged_compose_file}" \
 
 gunzip -c "${release_dir}/image.tar.gz" | docker load
 
+if ! docker run --rm \
+  --env-file "${staged_base_env}" \
+  --env-file "${staged_runtime_env}" \
+  --env-file "${staged_release_env}" \
+  --entrypoint node \
+  "aura-backend:${release_sha}" \
+  -e "require('./config/adminSecurityConfig').assertAdminSecurityConfig();"; then
+  echo "Refusing deploy: admin security runtime contract validation failed." >&2
+  exit 1
+fi
+
 for recovery_path in \
   "${activation_backup_dir}" \
   "${activation_backup_env}" \

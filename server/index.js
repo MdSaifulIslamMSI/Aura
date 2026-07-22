@@ -77,6 +77,7 @@ const adminFraudRoutes = require('./routes/adminFraudRoutes');
 const adminAbuseRoutes = require('./routes/adminAbuseRoutes');
 const statusRoutes = require('./routes/statusRoutes');
 const adminStatusRoutes = require('./routes/adminStatusRoutes');
+const adminSecurityRoutes = require('./routes/adminSecurityRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
@@ -92,6 +93,7 @@ const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const { assertAuthVaultConfig } = require('./config/authVaultFlags');
 const { assertAuthEnvironmentConfig } = require('./config/authEnvironment');
 const { assertTrustedDeviceConfig } = require('./config/authTrustedDeviceFlags');
+const { assertAdminSecurityConfig } = require('./config/adminSecurityConfig');
 const { assertTrustedDeviceV2RolloutConfig } = require('./config/trustedDeviceV2Rollout');
 const {
     startPaymentOutboxWorker,
@@ -549,6 +551,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/i18n', i18nRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/status', statusRoutes);
+app.use('/api/admin/security', adminSecurityRoutes);
 app.use('/api/admin/emergency-controls', adminEmergencyControlRoutes);
 app.use('/api/admin/payments', adminPaymentRoutes);
 app.use('/api/admin/order-emails', adminOrderEmailRoutes);
@@ -878,6 +881,7 @@ assertProductionRedisConfig();
     assertAuthVaultConfig();
     assertAuthEnvironmentConfig();
     assertTrustedDeviceConfig();
+    assertAdminSecurityConfig();
     assertTrustedDeviceV2RolloutConfig();
 
     connectDB().then(() => {

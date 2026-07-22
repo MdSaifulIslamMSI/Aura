@@ -17,6 +17,12 @@ describe('Admin Route Surface Security Matrix', () => {
     });
 
     const cases = [
+        ['GET', '/api/admin/security/status'],
+        ['POST', '/api/admin/security/recovery/exchange'],
+        ['POST', '/api/admin/security/passkeys/enrollment/options'],
+        ['POST', '/api/admin/security/passkeys/enrollment/verify'],
+        ['POST', '/api/admin/security/passkeys/challenge/options'],
+        ['POST', '/api/admin/security/passkeys/challenge/verify'],
         ['GET', '/api/admin/notifications/summary'],
         ['GET', '/api/admin/notifications'],
         ['PATCH', '/api/admin/notifications/read-all'],

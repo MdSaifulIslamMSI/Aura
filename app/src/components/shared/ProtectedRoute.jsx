@@ -13,6 +13,7 @@ import {
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 import { StableText } from '@/i18n/StableText';
+import { AdminSecurityCheckpoint } from '@/components/auth/AdminSecurityCheckpoint';
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 const AUTH_CHECKPOINT_STATES = new Set(['device_challenge_required', 'mfa_challenge_required']);
 
@@ -293,7 +294,11 @@ export const AdminRoute = ({ children }) => {
         return resolved;
     }
 
-    return children;
+    return (
+        <AdminSecurityCheckpoint auth={auth}>
+            {children}
+        </AdminSecurityCheckpoint>
+    );
 };
 
 export const SellerRoute = ({ children }) => {

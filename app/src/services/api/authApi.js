@@ -404,6 +404,42 @@ export const authApi = {
     getMfaSecurityCenter: async (options = {}) => (
         getProtectedAuthJson('/auth/mfa', options)
     ),
+    getAdminSecurityStatus: async (options = {}) => (
+        getProtectedAuthJson('/admin/security/status', options)
+    ),
+    exchangeAdminRecoveryGrant: async (grant, options = {}) => (
+        postAuthBootstrap('/admin/security/recovery/exchange', { grant }, {
+            ...options,
+            preferCookieSession: true,
+            disableSessionExchangeOnUnauthorized: true,
+        })
+    ),
+    enrollAdminRecoveryPasskey: async (options = {}) => {
+        const requestOptions = {
+            ...options,
+            preferCookieSession: true,
+            disableSessionExchangeOnUnauthorized: true,
+        };
+        const start = await postAuthBootstrap('/admin/security/passkeys/enrollment/options', {}, requestOptions);
+        const proofPayload = await signMfaPasskeyChallenge(start?.deviceChallenge, options);
+        return postAuthBootstrap('/admin/security/passkeys/enrollment/verify', buildTrustedDeviceProofBody(
+            start?.deviceChallenge,
+            proofPayload,
+        ), requestOptions);
+    },
+    verifyAdminPasskey: async (options = {}) => {
+        const requestOptions = {
+            ...options,
+            preferCookieSession: true,
+            disableSessionExchangeOnUnauthorized: true,
+        };
+        const start = await postAuthBootstrap('/admin/security/passkeys/challenge/options', {}, requestOptions);
+        const proofPayload = await signMfaPasskeyChallenge(start?.deviceChallenge, options);
+        return postAuthBootstrap('/admin/security/passkeys/challenge/verify', buildTrustedDeviceProofBody(
+            start?.deviceChallenge,
+            proofPayload,
+        ), requestOptions);
+    },
     requestMfaStepUp: async ({ action = 'manual_step_up', route = '', returnTo = '' } = {}, options = {}) => (
         postAuthBootstrap('/auth/mfa/step-up', { action, route, returnTo }, {
             ...options,
