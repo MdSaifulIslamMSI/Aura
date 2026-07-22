@@ -83,6 +83,8 @@ The administrator signs in normally, opens the admin destination, pastes the gra
 
 ## Verification ladder
 
+Use the dated [staging preflight and evidence checklist](./admin-security-staging-preflight-2026-07-22.md) before any staging activation or production-readiness claim.
+
 1. Run focused backend tests for configuration, states, grants, admin route coverage, and passkey enrollment policy.
 2. Run frontend checkpoint tests and the production frontend build.
 3. Run `npm --prefix server run migrate:admin-security-v2` in audit mode against staging.
