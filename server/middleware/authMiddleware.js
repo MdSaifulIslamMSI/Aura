@@ -740,6 +740,27 @@ const isDesktopHandoffContinuationPath = (req = {}) => {
     );
 };
 
+const isDesktopHandoffSyncContinuationPath = (req = {}) => (
+    String(req.method || '').trim().toUpperCase() === 'POST'
+    && resolveExactRequestPath(req) === '/api/auth/sync'
+);
+
+const enforceValidDesktopHandoffAssuranceClaims = (req = {}) => {
+    const requestId = String(req.authToken?.desktop_request_id || '').trim();
+    const grantId = String(req.authToken?.desktop_handoff_grant_id || '').trim();
+    const grantExpiresAtSeconds = Number(req.authToken?.desktop_handoff_grant_exp || 0);
+    if (
+        !DESKTOP_HANDOFF_REQUEST_ID_REGEX.test(requestId)
+        || !DESKTOP_HANDOFF_GRANT_ID_REGEX.test(grantId)
+        || !Number.isFinite(grantExpiresAtSeconds)
+        || grantExpiresAtSeconds <= Math.floor(Date.now() / 1000)
+    ) {
+        const error = new AppError('Desktop handoff assurance claims are invalid or expired.', 401);
+        error.code = 'DESKTOP_HANDOFF_ASSURANCE_CLAIMS_INVALID';
+        throw error;
+    }
+};
+
 const isDesktopHandoffTargetSession = (req = {}) => {
     const session = req.authSession || null;
     const sessionAmr = Array.isArray(session?.amr)
@@ -789,6 +810,10 @@ const enforceDesktopHandoffTokenQuarantine = (req = {}) => {
         && path === '/api/auth/logout';
     if (logoutOnly) return;
     if (handoffSession) {
+        if (handoffToken && isDesktopHandoffSyncContinuationPath(req)) {
+            enforceValidDesktopHandoffAssuranceClaims(req);
+            return;
+        }
         if (handoffSessionBinding && isDesktopHandoffDeviceRecoveryPath(req)) return;
 
         const error = new AppError('Aura Desktop must reprove this device before accessing protected resources.', 401);
@@ -796,19 +821,7 @@ const enforceDesktopHandoffTokenQuarantine = (req = {}) => {
         throw error;
     }
 
-    const requestId = String(req.authToken?.desktop_request_id || '').trim();
-    const grantId = String(req.authToken?.desktop_handoff_grant_id || '').trim();
-    const grantExpiresAtSeconds = Number(req.authToken?.desktop_handoff_grant_exp || 0);
-    if (
-        !DESKTOP_HANDOFF_REQUEST_ID_REGEX.test(requestId)
-        || !DESKTOP_HANDOFF_GRANT_ID_REGEX.test(grantId)
-        || !Number.isFinite(grantExpiresAtSeconds)
-        || grantExpiresAtSeconds <= Math.floor(Date.now() / 1000)
-    ) {
-        const error = new AppError('Desktop handoff assurance claims are invalid or expired.', 401);
-        error.code = 'DESKTOP_HANDOFF_ASSURANCE_CLAIMS_INVALID';
-        throw error;
-    }
+    enforceValidDesktopHandoffAssuranceClaims(req);
 
     if (isDesktopHandoffContinuationPath(req)) return;
 

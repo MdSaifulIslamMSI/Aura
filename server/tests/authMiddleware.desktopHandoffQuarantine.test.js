@@ -213,6 +213,30 @@ describe('desktop handoff bearer quarantine', () => {
         expect(res.statusCode).toBe(200);
     });
 
+    test('allows a fresh handoff sync to replace a stale same-user target session', async () => {
+        const app = buildApp({
+            session: buildTargetSession(),
+        });
+        const res = await authorize(request(app).post('/api/auth/sync'), {
+            sessionId: 'desktop-target-session',
+        });
+
+        expect(res.statusCode).toBe(200);
+    });
+
+    test('rejects an expired fresh handoff sync even when a stale target session exists', async () => {
+        const app = buildApp({
+            claims: buildClaims({ expired: true }),
+            session: buildTargetSession(),
+        });
+        const res = await authorize(request(app).post('/api/auth/sync'), {
+            sessionId: 'desktop-target-session',
+        });
+
+        expect(res.statusCode).toBe(401);
+        expect(res.body.code).toBe('DESKTOP_HANDOFF_ASSURANCE_CLAIMS_INVALID');
+    });
+
     test.each([
         ['/api/auth/sync'],
         ['/api/auth/verify-device'],
