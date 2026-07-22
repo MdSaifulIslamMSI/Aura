@@ -2,15 +2,15 @@
 
 Inventory date: 2026-07-22 (Asia/Calcutta)
 
-Implementation candidate: `f955b4b3` in draft PR #358; this checklist is a later docs-only commit
+Implementation candidate: draft PR #358. Latest exact staging application artifact verified before this checklist update: `37547e08`.
 
 Scope: read-only staging, GitHub, AWS, and repository inspection
 
 ## Decision
 
-**STAGING NO-GO for admin security recovery V2.**
+**STAGING NO-GO for admin security recovery V2 activation. PRODUCTION NO-GO.**
 
-The existing staging service is running and its generic health, isolation, budget, CloudTrail, Redis connectivity, and repository contracts are healthy. The V2 candidate is not deployed, however, and the environment cannot currently qualify WebAuthn or recovery behavior. No staging deployment, Parameter Store write, backup, migration, recovery-grant issuance, provider change, or production mutation was performed during this inventory.
+The reviewed branch is now deployed to staging in the explicit `legacy` phase behind a staging-only CloudFront HTTPS endpoint, and generic health, isolation, origin protection, budget, CloudTrail, Redis connectivity, and repository contracts are healthy. A current encrypted/versioned staging archive also exists. V2 remains disabled: no migration, recovery-grant issuance, provider change, Redis outage drill, frontend activation, or production mutation was performed. The archive has not been restored into an isolated target, and the single-instance deployment produced transient `504` responses during replacement; neither backup recoverability nor massive-production availability is proven.
 
 ## Current evidence
 
@@ -18,35 +18,36 @@ The existing staging service is running and its generic health, isolation, budge
 
 | Gate | Evidence observed | Verdict |
 |---|---|---|
-| Candidate identity and CI | The completed implementation-head watch at `f955b4b3` reported 70 passed checks, 10 conditional skips, zero failures, and zero pending checks. PR #358 remains draft; this checklist triggers a new docs-head watch. | PASS |
-| Generic staging runtime | EC2 instance `i-0af0bd44f6463b11b` is running and managed by SSM. `/health`, `/health/live`, and `/api/health` returned `200`; database and Redis reported connected. | PASS |
-| Immutable V2 deployment | Staging reports release `3330aaf6`, not candidate `f955b4b3`. `GET /api/admin/security/status` returned `404`. | BLOCKED |
-| Secure WebAuthn origin | The public staging URL is HTTP on an EC2 hostname. The production-mode configuration requires an HTTPS origin and matching RP ID. | BLOCKED |
+| Candidate identity and CI | Exact-head CI passed for the prior qualification commit. The latest operations fixes in this checklist require a fresh exact-head watch. PR #358 remains draft. | PENDING EXACT-HEAD CI |
+| Generic staging runtime | EC2 instance `i-0af0bd44f6463b11b` is running and managed by SSM. CloudFront `/health`, `/health/live`, `/`, and the bounded upload route returned the expected `200`/`404` results; database and Redis reported connected. | PASS |
+| Immutable V2 deployment | Staging release `37547e08` was deployed from the reviewed branch in the explicit `legacy` phase. `GET /api/admin/security/status` returned `404`, proving V2 remained inactive. | PASS FOR LEGACY BASELINE / V2 OFF |
+| Secure WebAuthn origin | Staging uses the AWS default hostname `dmgqqlzv2ewgl.cloudfront.net` with HTTPS. Its sole HTTPS origin is the active EC2 `sslip.io` hostname. This can support a staging-only RP/origin pair after V2 configuration is reviewed. | PASS FOR HTTPS EDGE |
+| Origin protection | The CloudFront admin-status request reached the legacy app and returned `404`; a direct-origin request returned `403 ORIGIN_PROTECTION_REQUIRED`. Direct health access remains intentionally available. | PASS |
 | V2 runtime configuration | Parameter names were inspected without printing secrets. All V2 flag names, `ADMIN_SECURITY_HASH_SECRET`, the WebAuthn RP/origin/UV names, and the mandatory session-fallback name are absent under `/aura/staging`. | BLOCKED |
 | Staging automation safety | Live staging was produced by legacy scripts that select challenge-off/passkey-off settings. The draft branch now has an opt-in, fail-closed qualification contract, but it is not deployed. | CODE FIXED / NOT DEPLOYED |
 | Redis baseline | `REDIS_ENABLED=true`, a Redis URL name exists, and health reports connected. The API reports Redis as not required, and no approved outage drill proved fail-closed `503` behavior. | BLOCKED |
-| Current backup | The staging bucket has encryption, versioning, public-access blocking, and lifecycle controls, but `backups/` is empty. The backup key recorded in local state no longer exists. | BLOCKED |
-| Restore proof | The disposable fixture drill passed with four collections and five documents. It used no live data and does not prove restoration of the real staging database or objects. No real isolated staging restore workflow was found. | BLOCKED |
+| Current backup | An encrypted, versioned object exists at `backups/20260722-181315/aura-staging-backup.tar.gz`, size `271372074`, version `9JfCJphkt6UjOXrtxqjeVcC2OXOsNYhy`, full-object CRC64NVME `lw5Va9KQHII=`. No secret or backup contents were printed. | PASS FOR ARCHIVE EXISTENCE ONLY |
+| Restore proof | The new archive contains live Docker volume snapshots; no database-consistent logical snapshot or isolated restoration of this real archive has been proven. The earlier disposable fixture drill does not satisfy this gate. | BLOCKED |
 | Migration | Neither audit mode nor apply mode was run against staging because the candidate is not deployed and current backup/restore evidence is absent. | NOT PROVEN |
 | Duo baseline | Duo configuration names exist; enabled and fail-closed booleans match the expected values. No V2 redirect, callback, cancellation, or provider-outage ceremony was performed. | NOT PROVEN |
 | Audit baseline | The multi-region CloudTrail is logging, log-file validation is enabled, and delivery is current. Application-level immutable V2 audit records and correlation were not exercised. | NOT PROVEN |
 | V2 monitoring | Repository observability assets validate, CloudWatch log retention and four infrastructure alarms exist, and generic synthetic/latency checks passed. No V2 recovery/provider alert evidence or dashboard exists. | NOT PROVEN |
 | Security findings | Open labeled code-scanning findings include zero high and zero critical; Dependabot and secret-scanning reported no open alerts. One unrelated unclassified/error Checkov alert still requires disposition before signoff. | PASS WITH FOLLOW-UP |
 | Owners and factors | No database or identity-provider inspection was authorized. Two independently factored owner/admin accounts and an independent backup admin method were not demonstrated. | NOT PROVEN |
-| Rollback | CI verified the captured production rollback artifacts. A staging-specific immutable V2 artifact and a tested V2 rollback were not demonstrated. | NOT PROVEN |
+| Rollback and availability | The exact staging SHA is observable, but no V2 rollback was executed. Deploying the single EC2 Compose runtime produced transient `504` responses, so zero-downtime or blue/green rollback is not demonstrated. | BLOCKED |
 | Signoffs | No recorded security, SRE/operations, or product-owner approval was found for this activation. | NOT PROVEN |
 
-Implementation update: the draft PR now contains an opt-in `legacy` -> `baseline` -> `backend` -> `frontend` staging contract. Local contract tests and positive/negative dry-runs pass. Live staging remains on the old HTTP release and no staging parameter or infrastructure mutation has occurred, so this changes the automation finding to **CODE FIXED / NOT DEPLOYED**, not to staging PASS.
+Implementation update: the draft PR contains an opt-in `legacy` -> `baseline` -> `backend` -> `frontend` staging contract. The exact reviewed `37547e08` application artifact was deployed in `legacy` behind the dedicated HTTPS edge and passed live health/origin checks. V2 Parameter Store values and non-legacy phases remain untouched. The CI state-refresh path now validates the live CloudFront distribution, origin, tags, and configured URLs instead of replacing the HTTPS state with a raw EC2 HTTP URL. The backup workflow now uses root-disk workspace because the instance `/tmp` tmpfs was too small; it cleans the bounded workspace after upload.
 
 ## Hard blockers to clear first
 
 1. Complete review and exact-head CI for the new qualification mode, then retain evidence that legacy remains the default and every non-legacy phase fails closed without HTTPS and the complete V2 contract.
-2. Provision an approved HTTPS staging hostname, certificate, and exact WebAuthn RP ID/origin pair.
-3. Produce an immutable staging artifact from the reviewed commit and deploy it with every new backend and frontend flag off.
-4. Create a current staging database/object backup and prove an isolated, non-destructive restore. A local fixture drill is insufficient.
+2. Review and record the exact CloudFront staging RP ID/origin pair for V2 qualification; do not reuse it for production.
+3. Retain the immutable staging artifact identity and keep every new backend and frontend flag off until the activation window.
+4. Prove a transaction-consistent database/object backup and an isolated, non-destructive restore of the real staging archive. Archive existence alone is insufficient.
 5. Make Redis mandatory for the V2 security limiters and prove recovery endpoints fail closed during a controlled Redis outage.
 6. Exercise V2 audit events and alerts without logging grant plaintext, authority cookies, WebAuthn material, raw IPs, or raw user agents.
-7. Demonstrate two independently factored owners/admins, an independent backup admin method, a tested rollback, and recorded security/SRE/product signoffs.
+7. Demonstrate two independently factored owners/admins, an independent backup admin method, a tested zero-downtime/blue-green rollback, and recorded security/SRE/product signoffs.
 
 ## Ordered activation checklist
 
@@ -85,16 +86,16 @@ Items marked **MUTATING - APPROVAL REQUIRED** are future change-window actions. 
 
 ### 1. Establish a secure, immutable baseline
 
-- [ ] **MUTATING - APPROVAL REQUIRED:** provision the HTTPS staging hostname/certificate and record the exact RP ID and origin.
+- [x] Provision the staging-only CloudFront HTTPS endpoint and HTTPS origin; record the exact staging RP ID and origin before V2 activation.
 - [ ] Build the candidate once from the reviewed SHA; retain its image digest, frontend deployment ID, SBOM/scan result, and artifact checksum.
-- [ ] **MUTATING - APPROVAL REQUIRED:** deploy the candidate with all V2 backend flags and `VITE_ADMIN_SECURITY_STATE_ENGINE_V2` off.
-- [ ] Confirm the release marker equals the reviewed SHA and `GET /api/admin/security/status` exists but cannot weaken the legacy admin boundary.
-- [ ] Re-run generic staging health, isolation, synthetic, latency, cost, observability, secret-scan, dependency, and branch-protection checks.
+- [x] Deploy the reviewed branch artifact in explicit `legacy` phase with all V2 backend flags and `VITE_ADMIN_SECURITY_STATE_ENGINE_V2` off.
+- [x] Confirm the release marker equals `37547e08`; the absent legacy endpoint returns `404` and cannot weaken the legacy admin boundary.
+- [x] Re-run bounded generic staging health and origin-protection checks. Exact-head CI for this checklist update remains required.
 
 ### 2. Prove backup and rollback before migration
 
-- [ ] **MUTATING - APPROVAL REQUIRED:** run `npm run staging:backup` for a fresh database/object backup.
-- [ ] Record the backup object version, checksum, timestamp, source commit, database name, object counts, and retention window without recording credentials or data contents.
+- [x] Run `npm run staging:backup` for a fresh encrypted/versioned staging archive.
+- [x] Record the backup object version, checksum, timestamp, and object size without recording credentials or data contents. Database name/count consistency still requires the isolated restore evidence.
 - [ ] **MUTATING - APPROVAL REQUIRED:** restore that backup into a disposable isolated staging target. Never overwrite the live staging database for the drill.
 - [ ] Compare indexes, collection/document counts, required records, representative object checksums, and application startup health.
 - [ ] Destroy the disposable restore target only under the approved cleanup procedure; retain the evidence report.

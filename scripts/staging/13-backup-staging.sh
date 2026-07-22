@@ -13,7 +13,8 @@ ensure_state
 assert_staging_bucket_safe "$STAGING_BUCKET_NAME"
 
 backup_id="$(date -u +"%Y%m%d-%H%M%S")"
-remote_archive="/tmp/aura-staging-backup-$backup_id.tar.gz"
+remote_backup_root="/opt/aura-staging/backup-work-$backup_id"
+remote_archive="$remote_backup_root/aura-staging-backup.tar.gz"
 remote_job="/tmp/aura-staging-backup-$backup_id.sh"
 remote_log="/tmp/aura-staging-backup-$backup_id.log"
 s3_key="backups/$backup_id/aura-staging-backup.tar.gz"
@@ -22,12 +23,17 @@ runner_file="$STATE_DIR/backup-runner-$backup_id.sh"
 cat > "$runner_file" <<'RUNNER'
 #!/usr/bin/env bash
 set -euo pipefail
-backup_dir="/tmp/aura-staging-backup-${BACKUP_ID}"
+backup_root="${REMOTE_BACKUP_ROOT}"
+backup_dir="$backup_root/data"
 compose_dir="/opt/aura-staging/src/infra/staging"
+cleanup_backup_workspace() {
+  rm -rf -- "$backup_root"
+}
+trap cleanup_backup_workspace EXIT
 echo "Creating remote staging backup archive with Docker volume snapshots" >&2
-sudo rm -rf "$backup_dir"
+sudo rm -rf "$backup_root"
 sudo mkdir -p "$backup_dir"
-sudo chown "$(id -u):$(id -g)" "$backup_dir"
+sudo chown -R "$(id -u):$(id -g)" "$backup_root"
 cd "$compose_dir"
 
 sudo docker compose ps --format json > "$backup_dir/compose.json" || true
@@ -80,14 +86,14 @@ run_backup_over_ssh() {
   ssh -F "$STATE_DIR/ssh_config" aura-staging "cat > '$remote_job' && chmod 700 '$remote_job'" < "$runner_file"
   local backup_pid
   backup_pid="$(ssh -F "$STATE_DIR/ssh_config" aura-staging \
-    "nohup env BACKUP_ID='$backup_id' REMOTE_ARCHIVE='$remote_archive' AWS_REGION='$AWS_REGION' STAGING_BUCKET_NAME='$STAGING_BUCKET_NAME' S3_KEY='$s3_key' bash '$remote_job' > '$remote_log' 2>&1 < /dev/null & echo \$!")"
+    "nohup env BACKUP_ID='$backup_id' REMOTE_BACKUP_ROOT='$remote_backup_root' REMOTE_ARCHIVE='$remote_archive' AWS_REGION='$AWS_REGION' STAGING_BUCKET_NAME='$STAGING_BUCKET_NAME' S3_KEY='$s3_key' bash '$remote_job' > '$remote_log' 2>&1 < /dev/null & echo \$!")"
   log "Started detached staging backup over SSH (pid $backup_pid); polling S3 for completion"
 
   local wait_attempts="${STAGING_BACKUP_WAIT_ATTEMPTS:-90}"
   local wait_delay="${STAGING_BACKUP_WAIT_DELAY_SECONDS:-10}"
   for attempt in $(seq 1 "$wait_attempts"); do
     if aws_cli s3api head-object --bucket "$STAGING_BUCKET_NAME" --key "$s3_key" --region "$AWS_REGION" >/dev/null 2>&1; then
-      ssh -F "$STATE_DIR/ssh_config" aura-staging "rm -f '$remote_job' '$remote_archive'; tail -20 '$remote_log' 2>/dev/null || true" >&2 || true
+      ssh -F "$STATE_DIR/ssh_config" aura-staging "rm -f '$remote_job'; rm -rf -- '$remote_backup_root'; tail -20 '$remote_log' 2>/dev/null || true" >&2 || true
       return 0
     fi
     if ! ssh -F "$STATE_DIR/ssh_config" aura-staging "kill -0 '$backup_pid' 2>/dev/null" >/dev/null 2>&1; then
@@ -110,17 +116,18 @@ run_backup_over_ssm() {
   params_file="$STATE_DIR/backup-ssm-$backup_id.json"
   node -e '
 const fs = require("fs");
-const [out, runnerB64, remoteJob, backupId, remoteArchive, region, bucket, s3Key] = process.argv.slice(1);
+const [out, runnerB64, remoteJob, backupId, remoteArchive, remoteBackupRoot, region, bucket, s3Key] = process.argv.slice(1);
 const commands = [
   "set -euo pipefail",
   `cat > /tmp/aura-staging-backup-runner.b64 <<'\''B64'\''\n${runnerB64}\nB64`,
   `base64 -d /tmp/aura-staging-backup-runner.b64 > ${remoteJob}`,
   `chmod 700 ${remoteJob}`,
-  `BACKUP_ID=${backupId} REMOTE_ARCHIVE=${remoteArchive} AWS_REGION=${region} STAGING_BUCKET_NAME=${bucket} S3_KEY=${s3Key} bash ${remoteJob}`,
-  `rm -f ${remoteJob} /tmp/aura-staging-backup-runner.b64 ${remoteArchive}`,
+  `BACKUP_ID=${backupId} REMOTE_BACKUP_ROOT=${remoteBackupRoot} REMOTE_ARCHIVE=${remoteArchive} AWS_REGION=${region} STAGING_BUCKET_NAME=${bucket} S3_KEY=${s3Key} bash ${remoteJob}`,
+  `rm -f ${remoteJob} /tmp/aura-staging-backup-runner.b64`,
+  `rm -rf -- ${remoteBackupRoot}`,
 ];
 fs.writeFileSync(out, JSON.stringify({ commands }, null, 2));
-' "$(node_path "$params_file")" "$runner_b64" "$remote_job" "$backup_id" "$remote_archive" "$AWS_REGION" "$STAGING_BUCKET_NAME" "$s3_key"
+' "$(node_path "$params_file")" "$runner_b64" "$remote_job" "$backup_id" "$remote_archive" "$remote_backup_root" "$AWS_REGION" "$STAGING_BUCKET_NAME" "$s3_key"
 
   command_id="$(aws_cli ssm send-command \
     --region "$AWS_REGION" \

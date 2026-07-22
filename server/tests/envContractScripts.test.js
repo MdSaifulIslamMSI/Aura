@@ -936,6 +936,10 @@ describe('repo environment contract scripts', () => {
         expect(backupScript).toMatch(/STAGING_BACKUP_TRANSPORT/);
         expect(backupScript).toMatch(/ssm send-command/);
         expect(backupScript).toMatch(/ec2-direct-s3/);
+        expect(backupScript).toContain('remote_backup_root="/opt/aura-staging/backup-work-$backup_id"');
+        expect(backupScript).toContain('trap cleanup_backup_workspace EXIT');
+        expect(backupScript).toContain('REMOTE_BACKUP_ROOT');
+        expect(backupScript).not.toMatch(/remote_archive="\/tmp\//);
 
         const deployScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '16-deploy-all.sh'), 'utf8');
         expect(deployScript).toMatch(/07-deploy-compose\.sh/);
@@ -1751,6 +1755,12 @@ describe('repo environment contract scripts', () => {
         expect(stateRefresh).toContain('Name=tag:Environment,Values=staging');
         expect(stateRefresh).toContain('expectedManagedBy');
         expect(stateRefresh).toContain('more than one');
+        expect(stateRefresh).toContain('STAGING_CLOUDFRONT_DISTRIBUTION_ID');
+        expect(stateRefresh).toContain("'get-distribution'");
+        expect(stateRefresh).toContain("'list-tags-for-resource'");
+        expect(stateRefresh).toContain("status !== 'Deployed'");
+        expect(stateRefresh).toContain("distributionTags.Environment !== 'staging'");
+        expect(stateRefresh).toContain('originHost !== expectedOriginHost');
         expect(stateRefresh).toContain('writeJsonAtomic(stateFile, nextState)');
         expect(stateRefresh).not.toContain('Environment=production');
 
@@ -1795,6 +1805,9 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('name: aws:observability:guard');
         expect(workflow).toContain('name: release:rollback-ready');
         expect(workflow).toContain('ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA }}');
+        expect(workflow).toContain("STAGING_HTTPS_MODE: ${{ vars.STAGING_HTTPS_MODE || 'direct' }}");
+        expect(workflow).toContain('STAGING_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.STAGING_CLOUDFRONT_DISTRIBUTION_ID }}');
+        expect(workflow).toContain('STAGING_ORIGIN_HOST: ${{ vars.STAGING_ORIGIN_HOST }}');
         expect(workflow).not.toContain('github.event.pull_request.base.sha');
         expect(workflow).toContain('npm run staging:state:refresh');
         expect(workflow).toContain('npm run aws:observability:guard');
