@@ -1422,11 +1422,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = async () => {
-    try {
-      await authApi.logoutSession({ firebaseUser: currentUser });
-    } catch {
-      // best-effort cleanup only
-    }
+    const activeUser = currentUser || auth?.currentUser || null;
 
     clearCsrfTokenCache();
     clearAuthJourneyDraft();
@@ -1434,13 +1430,22 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(null);
     applySignedOutState();
 
+    const backendLogout = Promise.resolve()
+      .then(() => authApi.logoutSession({ firebaseUser: activeUser }))
+      .catch(() => {
+        // best-effort cleanup only
+      });
+
     if (!isFirebaseReady || !auth) {
-      await signOutNativeSocialAuth();
+      await Promise.all([backendLogout, signOutNativeSocialAuth()]);
       return;
     }
 
-    await signOut(auth);
-    await signOutNativeSocialAuth();
+    await Promise.all([
+      backendLogout,
+      signOut(auth),
+      signOutNativeSocialAuth(),
+    ]);
   };
 
   const resetBrowserSession = async (options = {}) => {

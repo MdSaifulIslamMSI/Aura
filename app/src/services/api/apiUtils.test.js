@@ -75,4 +75,24 @@ describe('getAuthHeader', () => {
         await expect(getAuthHeader()).resolves.toEqual(trustedHeaders);
         expect(currentUser.getIdToken).not.toHaveBeenCalled();
     });
+
+    it('fails closed when Firebase token acquisition does not settle', async () => {
+        vi.useFakeTimers();
+        const currentUser = {
+            getIdToken: vi.fn(() => new Promise(() => {})),
+        };
+        const { getAuthHeader } = await loadApiUtils({ currentUser });
+
+        try {
+            const result = getAuthHeader(null, { tokenTimeoutMs: 50 });
+            const assertion = expect(result).rejects.toMatchObject({
+                code: 'AUTH_TOKEN_TIMEOUT',
+            });
+
+            await vi.advanceTimersByTimeAsync(50);
+            await assertion;
+        } finally {
+            vi.useRealTimers();
+        }
+    }, 1000);
 });

@@ -334,6 +334,44 @@ describe('AuthProvider', () => {
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();
   });
 
+  it('clears local and Firebase sessions before a slow backend logout finishes', async () => {
+    let resolveBackendLogout;
+    mocks.authApiMock.logoutSession.mockImplementation(() => new Promise((resolve) => {
+      resolveBackendLogout = resolve;
+    }));
+
+    const AuthProbe = () => {
+      const { logout, status } = useAuth();
+      return (
+        <>
+          <div data-testid="auth-status">{status}</div>
+          <button type="button" onClick={() => { void logout(); }}>Log out</button>
+        </>
+      );
+    };
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent('authenticated');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent('signed_out');
+      expect(mocks.signOutMock).toHaveBeenCalledOnce();
+    });
+
+    await act(async () => {
+      resolveBackendLogout({ success: true });
+    });
+  });
+
   it('reset clears local app storage during browser session recovery', async () => {
     window.localStorage.setItem('aura_trusted_device_id_v1', 'device-1');
     window.localStorage.setItem('firebase:authUser:project:web', 'firebase-user');

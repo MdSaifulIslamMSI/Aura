@@ -4,6 +4,28 @@ import { getTrustedDeviceHeaders } from '../deviceTrustClient';
 
 export const PROFILE_CACHE_TTL_MS = 15 * 1000;
 export const PRODUCT_DETAIL_CACHE_TTL_MS = 30 * 1000;
+export const AUTH_TOKEN_TIMEOUT_MS = 5 * 1000;
+
+const getFirebaseIdToken = (user, forceRefresh, timeoutMs = AUTH_TOKEN_TIMEOUT_MS) => {
+    const parsedTimeoutMs = Number(timeoutMs);
+    const boundedTimeoutMs = Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0
+        ? parsedTimeoutMs
+        : AUTH_TOKEN_TIMEOUT_MS;
+    let timeoutId;
+
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            const error = new Error('Authentication session check timed out. Sign in again or use another account.');
+            error.code = 'AUTH_TOKEN_TIMEOUT';
+            reject(error);
+        }, boundedTimeoutMs);
+    });
+
+    return Promise.race([
+        Promise.resolve().then(() => user.getIdToken(forceRefresh)),
+        timeoutPromise,
+    ]).finally(() => clearTimeout(timeoutId));
+};
 
 /**
  * Returns trusted-device headers for steady-state API traffic.
@@ -24,7 +46,11 @@ export const getAuthHeader = async (firebaseUser = null, options = {}) => {
     }
     const user = firebaseUser || auth.currentUser;
     if (user) {
-        const token = await user.getIdToken(options?.forceRefresh === true);
+        const token = await getFirebaseIdToken(
+            user,
+            options?.forceRefresh === true,
+            options?.tokenTimeoutMs
+        );
         return {
             'Authorization': `Bearer ${token}`,
             ...trustedDeviceHeaders,
