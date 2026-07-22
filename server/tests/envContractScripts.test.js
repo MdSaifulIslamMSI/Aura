@@ -744,14 +744,19 @@ describe('repo environment contract scripts', () => {
         expect(result.output).toMatch(/must not equal PROD_BASE_URL/);
     });
 
-    test('staging upload proxy preserves large backend security headers', () => {
+    test('staging backend proxies preserve large security headers', () => {
         const template = fs.readFileSync(path.join(repoRoot, 'infra', 'staging', 'nginx-frontend.conf.template'), 'utf8');
-        const uploadsLocation = template.match(/location \/uploads\/ \{[\s\S]*?\n    \}/);
+        const firstLocationIndex = template.indexOf('    location ');
 
-        expect(uploadsLocation).toBeTruthy();
-        expect(uploadsLocation[0]).toContain('proxy_buffer_size 32k;');
-        expect(uploadsLocation[0]).toContain('proxy_buffers 8 32k;');
-        expect(uploadsLocation[0]).toContain('proxy_busy_buffers_size 64k;');
+        expect(firstLocationIndex).toBeGreaterThan(-1);
+        for (const directive of [
+            'proxy_buffer_size 32k;',
+            'proxy_buffers 8 32k;',
+            'proxy_busy_buffers_size 64k;',
+        ]) {
+            expect(template.indexOf(directive)).toBeLessThan(firstLocationIndex);
+            expect(template.split(directive)).toHaveLength(2);
+        }
     });
 
     test('backend staging route smoke only requires scanner readiness when explicitly configured', async () => {
