@@ -1,64 +1,67 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi, getDuoStepUpUrl } from '@/services/api/authApi';
+import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const ADMIN_SECURITY_UI_ENABLED = String(
     import.meta.env.VITE_ADMIN_SECURITY_STATE_ENGINE_V2 || 'false'
 ).trim().toLowerCase() === 'true';
 
-const STATE_COPY = {
+const buildStateCopy = (t) => ({
     ACCOUNT_DISABLED: {
-        badge: 'Account unavailable',
-        title: 'This admin account cannot continue.',
-        body: 'The server reports that the account is disabled or suspended. Contact a security administrator before trying again.',
+        badge: t('admin.security.accountDisabled.badge', {}, 'Account unavailable'),
+        title: t('admin.security.accountDisabled.title', {}, 'This admin account cannot continue.'),
+        body: t('admin.security.accountDisabled.body', {}, 'The server reports that the account is disabled or suspended. Contact a security administrator before trying again.'),
     },
     EMAIL_VERIFICATION_REQUIRED: {
-        badge: 'Identity check',
-        title: 'Verify the admin email first.',
-        body: 'Admin security setup starts only after the identity provider confirms this email address.',
+        badge: t('admin.security.emailVerification.badge', {}, 'Identity check'),
+        title: t('admin.security.emailVerification.title', {}, 'Verify the admin email first.'),
+        body: t('admin.security.emailVerification.body', {}, 'Admin security setup starts only after the identity provider confirms this email address.'),
     },
     NOT_AUTHORIZED_AS_ADMIN: {
-        badge: 'Access denied',
-        title: 'This account is not authorized for admin access.',
-        body: 'Admin role and allowlist decisions come from the server and cannot be changed on this page.',
+        badge: t('admin.security.notAuthorized.badge', {}, 'Access denied'),
+        title: t('admin.security.notAuthorized.title', {}, 'This account is not authorized for admin access.'),
+        body: t('admin.security.notAuthorized.body', {}, 'Admin role and allowlist decisions come from the server and cannot be changed on this page.'),
     },
     PRIMARY_REAUTH_REQUIRED: {
-        badge: 'Fresh sign-in required',
-        title: 'Sign in again before continuing.',
-        body: 'Recovery and admin verification require a recent primary sign-in. Your destination will be preserved in memory for this sign-in flow.',
+        badge: t('admin.security.primaryReauth.badge', {}, 'Fresh sign-in required'),
+        title: t('admin.security.primaryReauth.title', {}, 'Sign in again before continuing.'),
+        body: t('admin.security.primaryReauth.body', {}, 'Recovery and admin verification require a recent primary sign-in. Your destination will be preserved in memory for this sign-in flow.'),
     },
     ADMIN_CHALLENGE_REQUIRED: {
-        badge: 'Admin verification',
-        title: 'Verify an approved admin factor.',
-        body: 'Use the passkey registered for this browser, or complete Duo when it is available. Verification creates only a short-lived server session assurance.',
+        badge: t('admin.security.challenge.badge', {}, 'Admin verification'),
+        title: t('admin.security.challenge.title', {}, 'Verify an approved admin factor.'),
+        body: t('admin.security.challenge.body', {}, 'Use the passkey registered for this browser, or complete Duo when it is available. Verification creates only a short-lived server session assurance.'),
     },
     ADMIN_RECOVERY_REQUIRED: {
-        badge: 'Supervised recovery',
-        title: 'An approved admin factor must be enrolled.',
-        body: 'Ask an authorized operator for a short-lived, one-time recovery grant. The grant can enroll a factor; it cannot open the admin console.',
+        badge: t('admin.security.recovery.badge', {}, 'Supervised recovery'),
+        title: t('admin.security.recovery.title', {}, 'An approved admin factor must be enrolled.'),
+        body: t('admin.security.recovery.body', {}, 'Ask an authorized operator for a short-lived, one-time recovery grant. The grant can enroll a factor; it cannot open the admin console.'),
     },
     ADMIN_ENROLLMENT_REQUIRED: {
-        badge: 'Enroll admin passkey',
-        title: 'Create the required admin passkey.',
-        body: 'Your recovery grant is now bound to this browser session. Complete the passkey ceremony before the authority expires.',
+        badge: t('admin.security.enrollment.badge', {}, 'Enroll admin passkey'),
+        title: t('admin.security.enrollment.title', {}, 'Create the required admin passkey.'),
+        body: t('admin.security.enrollment.body', {}, 'Your recovery grant is now bound to this browser session. Complete the passkey ceremony before the authority expires.'),
     },
     ADMIN_PROVIDER_UNAVAILABLE: {
-        badge: 'Provider unavailable',
-        title: 'Admin verification is temporarily unavailable.',
-        body: 'The server cannot reach or safely configure an approved admin verification provider. Access remains locked.',
+        badge: t('admin.security.providerUnavailable.badge', {}, 'Provider unavailable'),
+        title: t('admin.security.providerUnavailable.title', {}, 'Admin verification is temporarily unavailable.'),
+        body: t('admin.security.providerUnavailable.body', {}, 'The server cannot reach or safely configure an approved admin verification provider. Access remains locked.'),
     },
     ADMIN_SECURITY_CONFIGURATION_ERROR: {
-        badge: 'Configuration lock',
-        title: 'Admin security configuration is incomplete.',
-        body: 'The backend failed its admin security contract. Access remains locked until an operator repairs the configuration.',
+        badge: t('admin.security.configurationError.badge', {}, 'Configuration lock'),
+        title: t('admin.security.configurationError.title', {}, 'Admin security configuration is incomplete.'),
+        body: t('admin.security.configurationError.body', {}, 'The backend failed its admin security contract. Access remains locked until an operator repairs the configuration.'),
     },
-};
+});
 
-const normalizeError = (error) => {
+const normalizeError = (error, t) => {
     if (error?.name === 'NotAllowedError') {
-        return 'The passkey prompt was cancelled, timed out, or could not use this authenticator. No security state was changed.';
+        return t('admin.security.error.passkeyCancelled', {}, 'The passkey prompt was cancelled, timed out, or could not use this authenticator. No security state was changed.');
     }
-    return error?.data?.message || error?.message || 'The security checkpoint could not be completed.';
+    return error?.data?.message
+        || error?.message
+        || t('admin.security.error.generic', {}, 'The security checkpoint could not be completed.');
 };
 
 const safeReturnPath = (location) => {
@@ -67,6 +70,7 @@ const safeReturnPath = (location) => {
 };
 
 export const AdminSecurityCheckpoint = ({ auth, children }) => {
+    const t = useStableIcuMessages();
     const location = useLocation();
     const navigate = useNavigate();
     const mountedRef = useRef(true);
@@ -87,11 +91,11 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
             });
             if (mountedRef.current) setStatus(next);
         } catch (requestError) {
-            if (mountedRef.current) setError(normalizeError(requestError));
+            if (mountedRef.current) setError(normalizeError(requestError, t));
         } finally {
             if (mountedRef.current) setLoading(false);
         }
-    }, [auth?.currentUser]);
+    }, [auth?.currentUser, t]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -107,10 +111,10 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
     const state = status?.enabled === false
         ? 'ADMIN_SECURITY_CONFIGURATION_ERROR'
         : (status?.state || '');
-    const copy = STATE_COPY[state] || {
-        badge: 'Admin security checkpoint',
-        title: 'Checking admin security state.',
-        body: 'The server is resolving the required verification path.',
+    const copy = buildStateCopy(t)[state] || {
+        badge: t('admin.security.default.badge', {}, 'Admin security checkpoint'),
+        title: t('admin.security.default.title', {}, 'Checking admin security state.'),
+        body: t('admin.security.default.body', {}, 'The server is resolving the required verification path.'),
     };
     const returnTo = safeReturnPath(location);
 
@@ -128,7 +132,7 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
             }
             await refresh();
         } catch (operationError) {
-            setError(normalizeError(operationError));
+            setError(normalizeError(operationError, t));
         } finally {
             if (mountedRef.current) setBusy('');
         }
@@ -149,13 +153,15 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                 aria-busy={loading || Boolean(busy)}
             >
                 <div className="inline-flex rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
-                    {loading ? 'Checking server policy' : copy.badge}
+                    {loading ? t('admin.security.loading.badge', {}, 'Checking server policy') : copy.badge}
                 </div>
                 <h1 id="admin-security-title" className="mt-5 text-3xl font-black text-white">
-                    {loading ? 'Resolving the admin checkpoint…' : copy.title}
+                    {loading ? t('admin.security.loading.title', {}, 'Resolving the admin checkpoint…') : copy.title}
                 </h1>
                 <p className="mt-4 text-sm leading-6 text-slate-300">
-                    {loading ? 'No admin content is loaded until the backend returns an authoritative security state.' : copy.body}
+                    {loading
+                        ? t('admin.security.loading.body', {}, 'No admin content is loaded until the backend returns an authoritative security state.')
+                        : copy.body}
                 </p>
 
                 {state === 'ADMIN_RECOVERY_REQUIRED' ? (
@@ -172,10 +178,10 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                         }}
                     >
                         <label htmlFor="admin-recovery-grant" className="block text-sm font-bold text-white">
-                            One-time recovery grant
+                            {t('admin.security.recoveryGrant.label', {}, 'One-time recovery grant')}
                         </label>
                         <p id="admin-recovery-help" className="mt-2 text-xs leading-5 text-slate-400">
-                            Paste the operator-issued grant. It stays only in this field until exchange and is never saved in browser storage.
+                            {t('admin.security.recoveryGrant.help', {}, 'Paste the operator-issued grant. It stays only in this field until exchange and is never saved in browser storage.')}
                         </p>
                         <input
                             id="admin-recovery-grant"
@@ -192,7 +198,9 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                             disabled={busy || grant.trim().length < 32}
                             className="mt-4 inline-flex min-h-11 items-center justify-center rounded-full bg-cyan-300 px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
                         >
-                            {busy === 'exchange' ? 'Exchanging…' : 'Continue to passkey setup'}
+                            {busy === 'exchange'
+                                ? t('admin.security.recoveryGrant.exchanging', {}, 'Exchanging…')
+                                : t('admin.security.recoveryGrant.continue', {}, 'Continue to passkey setup')}
                         </button>
                     </form>
                 ) : null}
@@ -206,7 +214,9 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                         }), { signOutAfter: true })}
                         className="mt-7 inline-flex min-h-11 items-center justify-center rounded-full bg-cyan-300 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
                     >
-                        {busy === 'enroll' ? 'Waiting for passkey…' : 'Set up admin passkey'}
+                        {busy === 'enroll'
+                            ? t('admin.security.passkey.waiting', {}, 'Waiting for passkey…')
+                            : t('admin.security.passkey.enroll', {}, 'Set up admin passkey')}
                     </button>
                 ) : null}
 
@@ -221,7 +231,9 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                                 }))}
                                 className="inline-flex min-h-11 items-center justify-center rounded-full bg-cyan-300 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-slate-950 disabled:cursor-not-allowed disabled:opacity-45"
                             >
-                                {busy === 'verify' ? 'Waiting for passkey…' : 'Verify with passkey'}
+                                {busy === 'verify'
+                                    ? t('admin.security.passkey.waiting', {}, 'Waiting for passkey…')
+                                    : t('admin.security.passkey.verify', {}, 'Verify with passkey')}
                             </button>
                         ) : null}
                         {status?.actions?.canUseDuo ? (
@@ -229,7 +241,7 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                                 href={getDuoStepUpUrl(returnTo, { action: 'admin-sensitive' })}
                                 className="inline-flex min-h-11 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-cyan-100"
                             >
-                                Verify with Duo
+                                {t('admin.security.duo.verify', {}, 'Verify with Duo')}
                             </a>
                         ) : null}
                     </div>
@@ -241,7 +253,7 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                         onClick={signOut}
                         className="mt-7 inline-flex min-h-11 items-center justify-center rounded-full bg-cyan-300 px-6 py-3 text-sm font-black uppercase tracking-[0.14em] text-slate-950"
                     >
-                        Sign in again
+                        {t('admin.security.primaryReauth.action', {}, 'Sign in again')}
                     </button>
                 ) : null}
 
@@ -258,22 +270,24 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                         disabled={loading || Boolean(busy)}
                         className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-200 disabled:opacity-45"
                     >
-                        Retry server check
+                        {t('admin.security.retry', {}, 'Retry server check')}
                     </button>
                     <button
                         type="button"
                         onClick={signOut}
                         className="inline-flex min-h-10 items-center justify-center rounded-full border border-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-slate-300"
                     >
-                        Sign out
+                        {t('admin.security.signOut', {}, 'Sign out')}
                     </button>
                     <a href="/" className="px-2 py-2 text-xs font-bold text-cyan-200 hover:text-white">
-                        Return to storefront
+                        {t('admin.security.returnToStorefront', {}, 'Return to storefront')}
                     </a>
                 </div>
 
                 {status?.requestId ? (
-                    <p className="mt-5 text-[11px] text-slate-500">Request ID: {status.requestId}</p>
+                    <p className="mt-5 text-[11px] text-slate-500">
+                        {t('admin.security.requestId', {}, 'Request ID:')} {status.requestId}
+                    </p>
                 ) : null}
             </section>
         </main>
