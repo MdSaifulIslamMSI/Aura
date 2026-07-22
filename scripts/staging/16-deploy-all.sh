@@ -19,6 +19,9 @@ bash "$SCRIPT_DIR/07-deploy-compose.sh"
 bash "$SCRIPT_DIR/12-deploy-frontend-docker.sh"
 if [ "$ENABLE_STAGING_HTTPS" = "true" ] && [ "$https_configured_before_deploy" = "false" ]; then
   bash "$SCRIPT_DIR/11-configure-https-domain.sh"
+elif [ "$ENABLE_STAGING_HTTPS" = "true" ] && [ "$STAGING_HTTPS_MODE" = "cloudfront" ]; then
+  # The frontend deploy replaces the Nginx file, so re-apply origin TLS before edge verification.
+  bash "$SCRIPT_DIR/11-configure-https-domain.sh"
 fi
 bash "$SCRIPT_DIR/10-verify-staging.sh"
 

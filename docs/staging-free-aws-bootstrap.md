@@ -143,7 +143,7 @@ ENABLE_STAGING_HTTPS=true npm run staging:https
 
 The operations layer is documented in `docs/staging-operations-upgrades.md`.
 
-Admin security V2 qualification uses the same direct-EC2 HTTPS path and requires an explicit `baseline`, `backend`, then `frontend` progression. It does not use or modify the production CloudFront distribution. See `docs/security/admin-security-staging-preflight-2026-07-22.md` before changing the phase from `legacy`.
+Admin security V2 qualification supports either the direct-EC2 certificate path or a separate staging-only CloudFront default hostname. The zero-domain-cost path is `STAGING_HTTPS_MODE=cloudfront npm run staging:https:cloudfront`; it never uses or modifies the production distribution. Qualification still requires an explicit `baseline`, `backend`, then `frontend` progression. See `docs/security/admin-security-staging-preflight-2026-07-22.md` before changing the phase from `legacy`.
 
 ## Teardown
 
@@ -163,7 +163,7 @@ CONFIRM_DESTROY_STAGING=true DELETE_STAGING_BUCKET=true DELETE_STAGING_SSM=true 
 
 - Use `t3.micro` or another Free Tier eligible instance type when available in the account.
 - Use a 20 GB gp3 root volume unless you have a reason to increase it.
-- Do not enable NAT Gateway, ALB, RDS, ElastiCache, CloudFront, Route53, Elastic IP, or Certbot/domain flows without understanding the cost and ownership model.
+- Do not enable NAT Gateway, ALB, RDS, ElastiCache, Route53, Elastic IP, custom-domain CloudFront, or Certbot/domain flows without understanding the cost and ownership model. The dedicated staging CloudFront default-domain path must stay inside the current free allowance and existing budget alarms.
 - The S3 bucket includes a lifecycle rule that expires objects under `uploads/` after 14 days.
 
 ## Safety Notes

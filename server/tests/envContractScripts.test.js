@@ -882,6 +882,7 @@ describe('repo environment contract scripts', () => {
     test('staging operational scripts keep fail-closed staging guards', () => {
         const scriptNames = [
             '11-configure-https-domain.sh',
+            '11b-bootstrap-cloudfront-edge.sh',
             '13-backup-staging.sh',
             '14-install-observability.sh',
             '15-cost-watch.sh',
@@ -896,6 +897,23 @@ describe('repo environment contract scripts', () => {
         const httpsScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '11-configure-https-domain.sh'), 'utf8');
         expect(httpsScript).toMatch(/ENABLE_STAGING_HTTPS/);
         expect(httpsScript).toMatch(/resolve_dns_ipv4/);
+        expect(httpsScript).toMatch(/STAGING_HTTPS_MODE/);
+        expect(httpsScript).toMatch(/cloudfront get-distribution/);
+
+        const cloudFrontBootstrap = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '11b-bootstrap-cloudfront-edge.sh'), 'utf8');
+        expect(cloudFrontBootstrap).toContain('Aura isolated staging HTTPS edge');
+        expect(cloudFrontBootstrap).toContain('AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET');
+        expect(cloudFrontBootstrap).toContain('X-Aura-Origin-Verify');
+        expect(cloudFrontBootstrap).toContain('CloudFrontDefaultCertificate');
+        expect(cloudFrontBootstrap).toContain('OriginProtocolPolicy');
+        expect(cloudFrontBootstrap).toContain('https-only');
+        expect(cloudFrontBootstrap).toContain('redirect-to-https');
+        expect(cloudFrontBootstrap).toContain('4135ea2d-6df8-44a3-9df3-4b5a84be39ad');
+        expect(cloudFrontBootstrap).toContain('b689b0a8-53d0-40ab-baf2-68738e2966ac');
+        expect(cloudFrontBootstrap).toContain('Key=Environment,Value=staging');
+        expect(cloudFrontBootstrap).toContain('Key=ManagedBy,Value=codex-staging-bootstrap');
+        expect(cloudFrontBootstrap).not.toContain('E34Z9POGIQYOCS');
+        expect(cloudFrontBootstrap).not.toContain('dbtrhsolhec1s.cloudfront.net');
 
         const backupScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '13-backup-staging.sh'), 'utf8');
         expect(backupScript).toMatch(/assert_staging_bucket_safe/);
@@ -936,6 +954,7 @@ describe('repo environment contract scripts', () => {
         expect(composeScript).toMatch(/append_env_if_set DUO_ENABLED "\$duo_enabled"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_CLIENT_SECRET "\$duo_client_secret"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_DISCOVERY_URL "\$duo_discovery_url"/);
+        expect(composeScript).toMatch(/append_env_if_set AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET "\$cloudfront_origin_verify_secret"/);
 
         const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
         expect(ssmScript).toMatch(/^\s+put_string ADMIN_REQUIRE_PASSKEY false$/m);

@@ -74,6 +74,7 @@ duo_discovery_url="$(ssm_get_optional DUO_DISCOVERY_URL)"
 duo_redirect_uri="$(ssm_get_optional DUO_REDIRECT_URI)"
 duo_oidc_state_secret="$(ssm_get_optional DUO_OIDC_STATE_SECRET)"
 duo_fail_closed="$(ssm_get_optional DUO_FAIL_CLOSED)"
+cloudfront_origin_verify_secret="$(ssm_get_optional AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET)"
 cors_origin="${STAGING_CORS_ORIGIN:-$staging_base_url}"
 
 auth_device_challenge_mode=off
@@ -213,6 +214,7 @@ append_env_if_set DUO_DISCOVERY_URL "$duo_discovery_url"
 append_env_if_set DUO_REDIRECT_URI "$duo_redirect_uri"
 append_env_if_set DUO_OIDC_STATE_SECRET "$duo_oidc_state_secret"
 append_env_if_set DUO_FAIL_CLOSED "$duo_fail_closed"
+append_env_if_set AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET "$cloudfront_origin_verify_secret"
 if staging_admin_security_enabled; then
   append_env_if_set ADMIN_SECURITY_ROLLOUT_PHASE "$admin_security_rollout_phase"
   append_env_if_set AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK "$auth_device_challenge_allow_vault_fallback"

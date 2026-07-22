@@ -19,6 +19,7 @@ STATE_FILE="$STATE_DIR/state.json"
 : "${ENABLE_EIP:=false}"
 : "${ENABLE_ROUTE53:=false}"
 : "${ENABLE_STAGING_HTTPS:=false}"
+: "${STAGING_HTTPS_MODE:=direct}"
 : "${ENABLE_CLOUDWATCH_AGENT:=false}"
 : "${STAGING_BACKUP_RETENTION_DAYS:=14}"
 : "${STAGING_DEPLOY_ENABLED:=false}"
@@ -48,12 +49,36 @@ need_env() {
   fi
 }
 
+require_dns_hostname() {
+  local name="$1"
+  local value="${2:-}"
+  node -e '
+const [name, value] = process.argv.slice(1);
+const normalized = String(value || "").trim().toLowerCase();
+const labels = normalized.split(".");
+const valid = normalized === value
+  && labels.length >= 2
+  && labels.every((label) => label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label));
+if (!valid) {
+  console.error(`[staging][error] ${name} must be a lowercase DNS hostname`);
+  process.exit(1);
+}
+' "$name" "$value" || exit 1
+}
+
 require_boolean_value() {
   local name="$1"
   local value="${2:-}"
   case "$value" in
     true|false) ;;
     *) die "$name must be true or false" ;;
+  esac
+}
+
+validate_staging_https_mode() {
+  case "$STAGING_HTTPS_MODE" in
+    direct|cloudfront) ;;
+    *) die "STAGING_HTTPS_MODE must be direct or cloudfront" ;;
   esac
 }
 
@@ -84,9 +109,15 @@ validate_staging_admin_security_phase() {
 
   staging_admin_security_enabled || return 0
 
+  validate_staging_https_mode
   [ "$ENABLE_STAGING_HTTPS" = "true" ] || die "ENABLE_STAGING_HTTPS=true is required outside the legacy admin security phase"
   need_env STAGING_API_HOST
-  need_env STAGING_ADMIN_EMAIL
+  if [ "$STAGING_HTTPS_MODE" = "direct" ]; then
+    need_env STAGING_ADMIN_EMAIL
+  else
+    need_env STAGING_ORIGIN_HOST
+    need_env STAGING_CLOUDFRONT_DISTRIBUTION_ID
+  fi
   need_env STAGING_ADMIN_ALLOWLIST_EMAILS
   need_env STAGING_ADMIN_DUO_PROVIDER
   need_env STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED
@@ -100,7 +131,9 @@ validate_staging_admin_security_phase() {
 
   node - \
     "$STAGING_API_HOST" \
-    "$STAGING_ADMIN_EMAIL" \
+    "$STAGING_HTTPS_MODE" \
+    "${STAGING_ORIGIN_HOST:-}" \
+    "${STAGING_ADMIN_EMAIL:-}" \
     "$STAGING_ADMIN_ALLOWLIST_EMAILS" \
     "$STAGING_BASE_URL" \
     "$STAGING_FRONTEND_URL" \
@@ -111,6 +144,8 @@ validate_staging_admin_security_phase() {
     "${PROD_API_BASE_URL:-}" <<'NODE'
 const [
   host,
+  httpsMode,
+  originHost,
   certificateEmail,
   allowlist,
   baseUrl,
@@ -131,16 +166,27 @@ const hostLabels = normalizedHost.split('.');
 const validHostname = hostLabels.length >= 2 && hostLabels.every((label) => (
   label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
 ));
-if (
-  host !== normalizedHost
-  ||
-  !validHostname
-  || normalizedHost.endsWith('.compute.amazonaws.com')
-) {
-  fail('STAGING_API_HOST must be a dedicated DNS hostname that can receive a public certificate');
+if (host !== normalizedHost || !validHostname || normalizedHost.endsWith('.compute.amazonaws.com')) {
+  fail('STAGING_API_HOST must be a dedicated DNS hostname');
 }
-if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(certificateEmail || '').trim())) {
+if (httpsMode === 'direct' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(certificateEmail || '').trim())) {
   fail('STAGING_ADMIN_EMAIL must be a valid certificate contact address');
+}
+  if (httpsMode === 'cloudfront') {
+  if (!/^d[a-z0-9]+\.cloudfront\.net$/.test(normalizedHost)) {
+    fail('STAGING_API_HOST must be the dedicated staging CloudFront hostname in cloudfront mode');
+  }
+  const normalizedOriginHost = String(originHost || '').trim().toLowerCase();
+  const originLabels = normalizedOriginHost.split('.');
+  const validOriginHostname = originHost === normalizedOriginHost && originLabels.length >= 2 && originLabels.every((label) => (
+    label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
+  ));
+  if (!validOriginHostname || normalizedOriginHost === normalizedHost || normalizedOriginHost.endsWith('.cloudfront.net')) {
+    fail('STAGING_ORIGIN_HOST must be a separate non-CloudFront TLS origin hostname');
+  }
+  if (certificateEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(certificateEmail).trim())) {
+    fail('STAGING_ADMIN_EMAIL must be a valid certificate contact address when set');
+  }
 }
 const emails = String(allowlist || '').split(',').map((value) => value.trim()).filter(Boolean);
 if (!emails.length || emails.some((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
@@ -279,6 +325,12 @@ nginx_staging_server_name() {
   local source_url="${1:-}"
   local host
 
+  if [ "$STAGING_HTTPS_MODE" = "cloudfront" ]; then
+    [ -n "${STAGING_ORIGIN_HOST:-}" ] || die "STAGING_ORIGIN_HOST is required for CloudFront origin rendering"
+    printf '%s' "$STAGING_ORIGIN_HOST"
+    return 0
+  fi
+
   if [ -n "$explicit" ] && [ "$explicit" != "_" ]; then
     printf '%s' "$explicit"
     return 0
@@ -358,6 +410,25 @@ retry() {
     sleep "$delay"
     count=$((count + 1))
   done
+}
+
+wait_for_cloudfront_deployed() {
+  local distribution_id="$1"
+  local attempts="${2:-90}"
+  local delay="${3:-10}"
+  local status=""
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    status="$(aws_cli cloudfront get-distribution \
+      --id "$distribution_id" \
+      --query 'Distribution.Status' \
+      --output text)"
+    if [ "$status" = "Deployed" ]; then
+      return 0
+    fi
+    sleep "$delay"
+  done
+  die "CloudFront distribution $distribution_id did not reach Deployed; last status was $status"
 }
 
 wait_for_ssh() {

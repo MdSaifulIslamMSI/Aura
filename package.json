@@ -214,6 +214,7 @@
     "staging:teardown": "node scripts/run-bash.mjs scripts/staging/99-teardown.sh",
     "staging:frontend:docker": "node scripts/run-bash.mjs scripts/staging/12-deploy-frontend-docker.sh",
     "staging:https": "node scripts/run-bash.mjs scripts/staging/11-configure-https-domain.sh",
+    "staging:https:cloudfront": "node scripts/run-bash.mjs scripts/staging/11b-bootstrap-cloudfront-edge.sh",
     "staging:backup": "node scripts/run-bash.mjs scripts/staging/13-backup-staging.sh",
     "staging:observability": "node scripts/run-bash.mjs scripts/staging/14-install-observability.sh",
     "staging:cost-watch": "node scripts/run-bash.mjs scripts/staging/15-cost-watch.sh",

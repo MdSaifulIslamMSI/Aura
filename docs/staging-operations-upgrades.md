@@ -13,7 +13,8 @@ This layer adds the remaining safe staging operations around the AWS Free Tier s
 | Local observability | `npm run staging:observability` | Installs a systemd timer on the staging EC2 instance and writes JSONL health evidence to `/opt/aura-staging/logs/staging-health.jsonl`. |
 | Live staging DAST | `staging-ops-watch.yml` | Runs `npm run security:free-scanners -- --only=zap-baseline` against explicit `STAGING_URL` after staging smoke passes, fails if the target is missing, and uploads the ZAP artifacts. |
 | Cost watch | `npm run staging:cost-watch` | Reads Cost Explorer for tagged staging spend and compares it with `STAGING_MONTHLY_BUDGET_USD`. |
-| HTTPS/domain | `npm run staging:https` | Skips unless `ENABLE_STAGING_HTTPS=true` and a real `STAGING_API_HOST` resolves to the staging EC2 public IP. |
+| Direct HTTPS/domain | `npm run staging:https` | Uses Certbot when `STAGING_HTTPS_MODE=direct` and the hostname resolves to staging EC2. |
+| Free CloudFront HTTPS edge | `npm run staging:https:cloudfront` | One-time bootstrap for a dedicated AWS-managed `cloudfront.net` hostname, free TLS origin, disabled caching, and staging-only origin verification. |
 
 ## Fail-Closed Rules
 
@@ -22,6 +23,8 @@ This layer adds the remaining safe staging operations around the AWS Free Tier s
 - The backup script refuses buckets that are not tagged `Environment=staging` and `ManagedBy=codex-staging-bootstrap`.
 - The backup script does not stream backup archives through the laptop. It starts the Docker backup on EC2 and uploads from EC2 directly to S3. Set `STAGING_BACKUP_TRANSPORT=ssm` to bypass SSH entirely.
 - HTTPS activation refuses to run unless DNS resolves to the staging EC2 public IP.
+- CloudFront bootstrap creates or reuses only the distribution tagged `Environment=staging` and `ManagedBy=codex-staging-bootstrap`; it never reuses the production distribution.
+- CloudFront mode requires an HTTPS-only origin, the AWS-managed default viewer certificate, no aliases, and exact matching origin secrets in CloudFront and `/aura/staging`.
 - `ENABLE_CLOUDWATCH_AGENT=true` is intentionally blocked until a retention and cost plan exists.
 - GitHub staging deployment requires both the workflow input and the staging environment variable `STAGING_DEPLOY_ENABLED=true`.
 - `npm run staging:deploy` keeps Vercel out of the deploy path and uses the Docker-hosted AWS frontend plus smoke checks. `npm run staging:vercel:autopilot` is separate and stops before creating a Preview URL if staging or branch-scoped Preview env writes fail.
@@ -50,6 +53,14 @@ npm run staging:verify
 ```
 
 If DNS points anywhere else, the script exits before calling Certbot.
+
+For the no-domain-cost path, use a dedicated CloudFront default hostname. The bootstrap derives a free TLS origin hostname from the isolated staging IP, installs an auto-renewed certificate on EC2, creates a separate uncached distribution, and stores a create-once origin-verification secret without printing it:
+
+```sh
+AWS_PROFILE=staging-admin STAGING_HTTPS_MODE=cloudfront npm run staging:https:cloudfront
+```
+
+Record the returned distribution ID, CloudFront hostname, and origin hostname as the GitHub `staging` environment variables `STAGING_CLOUDFRONT_DISTRIBUTION_ID`, `STAGING_API_HOST`, and `STAGING_ORIGIN_HOST`. Set `STAGING_HTTPS_MODE=cloudfront`, `ENABLE_STAGING_HTTPS=true`, and make every staging URL use the returned HTTPS CloudFront origin. CloudFront pricing and AWS free-plan terms can change; the script minimizes cost but does not claim the EC2 backend is free forever.
 
 ## Admin Security Qualification Phases
 

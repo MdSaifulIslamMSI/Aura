@@ -103,6 +103,8 @@ cat > "$operator_policy" <<JSON
         "ssm:GetParameters",
         "ssm:GetParametersByPath",
         "budgets:ViewBudget",
+        "cloudfront:GetDistribution",
+        "cloudfront:ListTagsForResource",
         "cloudfront:ListDistributions",
         "cloudtrail:DescribeTrails",
         "cloudwatch:DescribeAlarms",
