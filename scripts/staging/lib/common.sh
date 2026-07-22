@@ -22,6 +22,7 @@ STATE_FILE="$STATE_DIR/state.json"
 : "${ENABLE_CLOUDWATCH_AGENT:=false}"
 : "${STAGING_BACKUP_RETENTION_DAYS:=14}"
 : "${STAGING_DEPLOY_ENABLED:=false}"
+: "${STAGING_ADMIN_SECURITY_PHASE:=legacy}"
 
 log() {
   printf '[staging] %s\n' "$*" >&2
@@ -45,6 +46,134 @@ need_env() {
   if [ -z "${!name:-}" ]; then
     die "Missing required environment variable: $name"
   fi
+}
+
+require_boolean_value() {
+  local name="$1"
+  local value="${2:-}"
+  case "$value" in
+    true|false) ;;
+    *) die "$name must be true or false" ;;
+  esac
+}
+
+staging_admin_security_enabled() {
+  [ "$STAGING_ADMIN_SECURITY_PHASE" != "legacy" ]
+}
+
+staging_admin_security_backend_enabled() {
+  case "$STAGING_ADMIN_SECURITY_PHASE" in
+    backend|frontend) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+staging_admin_security_frontend_enabled() {
+  [ "$STAGING_ADMIN_SECURITY_PHASE" = "frontend" ]
+}
+
+staging_admin_security_origin() {
+  printf 'https://%s' "$STAGING_API_HOST"
+}
+
+validate_staging_admin_security_phase() {
+  case "$STAGING_ADMIN_SECURITY_PHASE" in
+    legacy|baseline|backend|frontend) ;;
+    *) die "STAGING_ADMIN_SECURITY_PHASE must be legacy, baseline, backend, or frontend" ;;
+  esac
+
+  staging_admin_security_enabled || return 0
+
+  [ "$ENABLE_STAGING_HTTPS" = "true" ] || die "ENABLE_STAGING_HTTPS=true is required outside the legacy admin security phase"
+  need_env STAGING_API_HOST
+  need_env STAGING_ADMIN_EMAIL
+  need_env STAGING_ADMIN_ALLOWLIST_EMAILS
+  need_env STAGING_ADMIN_DUO_PROVIDER
+  need_env STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED
+  need_env STAGING_BASE_URL
+  need_env STAGING_FRONTEND_URL
+  need_env STAGING_API_BASE_URL
+  need_env STAGING_HEALTH_URL
+  require_boolean_value STAGING_ADMIN_DUO_PROVIDER "$STAGING_ADMIN_DUO_PROVIDER"
+  require_boolean_value STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED "$STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED"
+  require_no_prod_value STAGING_API_HOST "$STAGING_API_HOST" "${PROD_API_BASE_URL:-}"
+
+  node - \
+    "$STAGING_API_HOST" \
+    "$STAGING_ADMIN_EMAIL" \
+    "$STAGING_ADMIN_ALLOWLIST_EMAILS" \
+    "$STAGING_BASE_URL" \
+    "$STAGING_FRONTEND_URL" \
+    "$STAGING_API_BASE_URL" \
+    "$STAGING_HEALTH_URL" \
+    "${STAGING_CORS_ORIGIN:-}" \
+    "${PROD_BASE_URL:-}" \
+    "${PROD_API_BASE_URL:-}" <<'NODE'
+const [
+  host,
+  certificateEmail,
+  allowlist,
+  baseUrl,
+  frontendUrl,
+  apiUrl,
+  healthUrl,
+  corsOrigin,
+  prodBaseUrl,
+  prodApiUrl,
+] = process.argv.slice(2);
+
+const fail = (message) => {
+  console.error(`[staging][error] ${message}`);
+  process.exit(1);
+};
+const normalizedHost = String(host || '').trim().toLowerCase();
+const hostLabels = normalizedHost.split('.');
+const validHostname = hostLabels.length >= 2 && hostLabels.every((label) => (
+  label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
+));
+if (
+  host !== normalizedHost
+  ||
+  !validHostname
+  || normalizedHost.endsWith('.compute.amazonaws.com')
+) {
+  fail('STAGING_API_HOST must be a dedicated DNS hostname that can receive a public certificate');
+}
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(certificateEmail || '').trim())) {
+  fail('STAGING_ADMIN_EMAIL must be a valid certificate contact address');
+}
+const emails = String(allowlist || '').split(',').map((value) => value.trim()).filter(Boolean);
+if (!emails.length || emails.some((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+  fail('STAGING_ADMIN_ALLOWLIST_EMAILS must be a comma-separated list of valid email addresses');
+}
+const expectedOrigin = `https://${normalizedHost}`;
+const requiredUrls = new Map([
+  ['STAGING_BASE_URL', baseUrl],
+  ['STAGING_FRONTEND_URL', frontendUrl],
+  ['STAGING_API_BASE_URL', apiUrl],
+]);
+for (const [name, value] of requiredUrls) {
+  if (String(value || '').replace(/\/+$/, '') !== expectedOrigin) {
+    fail(`${name} must equal the dedicated HTTPS staging origin`);
+  }
+}
+if (String(healthUrl || '').replace(/\/+$/, '') !== `${expectedOrigin}/health`) {
+  fail('STAGING_HEALTH_URL must use the dedicated HTTPS staging origin');
+}
+if (corsOrigin && String(corsOrigin).replace(/\/+$/, '') !== expectedOrigin) {
+  fail('STAGING_CORS_ORIGIN must equal the dedicated HTTPS staging origin when set');
+}
+for (const productionUrl of [prodBaseUrl, prodApiUrl]) {
+  if (!productionUrl) continue;
+  try {
+    if (new URL(productionUrl).hostname.toLowerCase() === normalizedHost) {
+      fail('STAGING_API_HOST must not reuse a production hostname');
+    }
+  } catch {
+    fail('Production comparison URL is invalid');
+  }
+}
+NODE
 }
 
 aws_cli() {

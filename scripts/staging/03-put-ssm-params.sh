@@ -44,8 +44,12 @@ put_string OTP_SMS_ENABLED false
 put_string ORDER_EMAILS_ENABLED false
 put_string REDIS_ENABLED true
 put_string DISTRIBUTED_SECURITY_CONTROLS_ENABLED false
-put_string AUTH_DEVICE_CHALLENGE_MODE off
-put_string ADMIN_REQUIRE_PASSKEY false
+if staging_admin_security_enabled; then
+  log "Legacy admin challenge/passkey defaults are skipped for phase $STAGING_ADMIN_SECURITY_PHASE"
+else
+  put_string AUTH_DEVICE_CHALLENGE_MODE off
+  put_string ADMIN_REQUIRE_PASSKEY false
+fi
 put_string STAGING_SSM_PREFIX "$STAGING_SSM_PREFIX"
 put_string AWS_PARAMETER_STORE_PATH_PREFIX "$STAGING_SSM_PREFIX"
 put_string S3_BUCKET "$STAGING_BUCKET_NAME"

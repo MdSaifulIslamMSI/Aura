@@ -930,14 +930,16 @@ describe('repo environment contract scripts', () => {
         const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
         expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);
         expect(composeScript).toMatch(/MONGO_REQUIRE_TLS=false/);
-        expect(composeScript).toMatch(/^ADMIN_REQUIRE_PASSKEY=false$/m);
+        expect(composeScript).toMatch(/^admin_require_passkey=false$/m);
+        expect(composeScript).toMatch(/^ADMIN_REQUIRE_PASSKEY=\$admin_require_passkey$/m);
         expect(composeScript).toMatch(/ssm_get_optional\(\)/);
         expect(composeScript).toMatch(/append_env_if_set DUO_ENABLED "\$duo_enabled"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_CLIENT_SECRET "\$duo_client_secret"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_DISCOVERY_URL "\$duo_discovery_url"/);
 
         const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
-        expect(ssmScript).toMatch(/^put_string ADMIN_REQUIRE_PASSKEY false$/m);
+        expect(ssmScript).toMatch(/^\s+put_string ADMIN_REQUIRE_PASSKEY false$/m);
+        expect(ssmScript).toMatch(/if staging_admin_security_enabled; then/);
 
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
@@ -946,6 +948,57 @@ describe('repo environment contract scripts', () => {
         const guardIndex = frontendDockerScript.indexOf('Refusing to deploy staging frontend with production signals');
         expect(sanitizerIndex).toBeGreaterThan(-1);
         expect(sanitizerIndex).toBeLessThan(guardIndex);
+    });
+
+    test('staging admin security qualification is opt-in and fail-closed', () => {
+        const commonScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', 'lib', 'common.sh'), 'utf8');
+        const preflightScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-preflight.sh'), 'utf8');
+        const adminParamsScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03b-put-admin-security-ssm-params.sh'), 'utf8');
+        const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
+        const frontendScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
+        const deployScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '16-deploy-all.sh'), 'utf8');
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-aws-deploy.yml'), 'utf8');
+
+        expect(commonScript).toContain('STAGING_ADMIN_SECURITY_PHASE:=legacy');
+        expect(commonScript).toMatch(/legacy\|baseline\|backend\|frontend/);
+        expect(commonScript).toContain('validate_staging_admin_security_phase');
+        expect(commonScript).toContain('ENABLE_STAGING_HTTPS=true is required');
+        expect(commonScript).toContain('STAGING_ADMIN_ALLOWLIST_EMAILS');
+        expect(preflightScript).toContain('validate_staging_admin_security_phase');
+
+        [
+            'ADMIN_SECURITY_HASH_SECRET',
+            'ADMIN_SECURITY_STATE_ENGINE_V2',
+            'ADMIN_PASSKEY_ENROLLMENT',
+            'ADMIN_PASSKEY_CHALLENGE',
+            'ADMIN_RECOVERY_GRANTS',
+            'ADMIN_ASSURANCE_ENFORCEMENT',
+            'ADMIN_ACTION_BOUND_ASSURANCE',
+            'ADMIN_RECOVERY_TWO_PERSON_REQUIRED',
+            'AUTH_SESSION_ALLOW_MEMORY_FALLBACK',
+            'AUTH_DEVICE_CHALLENGE_SECRET',
+            'AUTH_WEBAUTHN_RP_ID',
+            'AUTH_WEBAUTHN_ORIGIN',
+            'AUTH_WEBAUTHN_USER_VERIFICATION',
+            'MFA_ENABLED',
+            'MFA_PASSKEY_ENABLED',
+        ].forEach((name) => expect(adminParamsScript).toContain(name));
+        expect(adminParamsScript).toMatch(/^put_secure_once ADMIN_SECURITY_HASH_SECRET /m);
+        expect(adminParamsScript).not.toMatch(/^put_secure .*ADMIN_SECURITY_HASH_SECRET/m);
+        expect(adminParamsScript).toMatch(/^put_secure ADMIN_ALLOWLIST_EMAILS /m);
+
+        expect(composeScript).toContain('ADMIN_SECURITY_ROLLOUT_PHASE');
+        expect(composeScript).toContain('ADMIN_SECURITY_HASH_SECRET');
+        expect(composeScript).toContain('AUTH_SESSION_ALLOW_MEMORY_FALLBACK');
+        expect(composeScript).toContain('DUO_FAIL_CLOSED');
+        expect(frontendScript).toContain('VITE_ADMIN_SECURITY_STATE_ENGINE_V2');
+        expect(deployScript).toContain('staging_admin_security_enabled');
+        expect(deployScript).toContain('03b-put-admin-security-ssm-params.sh');
+        expect(workflow).toContain('STAGING_ADMIN_SECURITY_PHASE');
+        expect(workflow).toContain('STAGING_ADMIN_DUO_PROVIDER: ${{ vars.STAGING_ADMIN_DUO_PROVIDER }}');
+        expect(workflow).toContain('STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED: ${{ vars.STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED }}');
+        expect(workflow).toContain('Validate staging qualification contract without mutation');
+        expect(workflow).toContain('STAGING_PREFLIGHT_DRY_RUN: "true"');
     });
 
     test('staging IAM operator grants only the Cost Explorer read used by cost watch', () => {

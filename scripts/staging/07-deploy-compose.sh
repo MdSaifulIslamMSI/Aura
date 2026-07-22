@@ -9,6 +9,7 @@ need_cmd git
 need_cmd tar
 need_env AWS_REGION
 ensure_state
+validate_staging_admin_security_phase
 
 [ -f "$STATE_DIR/ssh_config" ] || die "Missing $STATE_DIR/ssh_config. Run 06-render-ssh-config.sh first."
 if [ -z "${STAGING_BACKEND_IMAGE:-}" ] && [ ! -f "$REPO_ROOT/server/Dockerfile" ]; then
@@ -50,6 +51,11 @@ staging_base_url="$(state_get staging_base_url)"
 staging_health_url="$(state_get staging_health_url)"
 bucket="$(state_get bucket)"
 [ -n "$bucket" ] || bucket="$STAGING_BUCKET_NAME"
+if staging_admin_security_enabled; then
+  staging_api_url="$STAGING_API_BASE_URL"
+  staging_base_url="$STAGING_BASE_URL"
+  staging_health_url="$STAGING_HEALTH_URL"
+fi
 
 database_url="$(ssm_get DATABASE_URL)"
 mongo_uri="$(ssm_get MONGO_URI)"
@@ -70,6 +76,87 @@ duo_oidc_state_secret="$(ssm_get_optional DUO_OIDC_STATE_SECRET)"
 duo_fail_closed="$(ssm_get_optional DUO_FAIL_CLOSED)"
 cors_origin="${STAGING_CORS_ORIGIN:-$staging_base_url}"
 
+auth_device_challenge_mode=off
+admin_require_passkey=false
+if staging_admin_security_enabled; then
+  admin_security_rollout_phase="$(ssm_get ADMIN_SECURITY_ROLLOUT_PHASE)"
+  auth_device_challenge_mode="$(ssm_get AUTH_DEVICE_CHALLENGE_MODE)"
+  auth_device_challenge_allow_vault_fallback="$(ssm_get AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK)"
+  auth_device_challenge_secret="$(ssm_get AUTH_DEVICE_CHALLENGE_SECRET)"
+  auth_device_challenge_secret_version="$(ssm_get AUTH_DEVICE_CHALLENGE_SECRET_VERSION)"
+  admin_require_2fa="$(ssm_get ADMIN_REQUIRE_2FA)"
+  admin_require_passkey="$(ssm_get ADMIN_REQUIRE_PASSKEY)"
+  admin_require_allowlist="$(ssm_get ADMIN_REQUIRE_ALLOWLIST)"
+  admin_allowlist_emails="$(ssm_get ADMIN_ALLOWLIST_EMAILS)"
+  auth_session_allow_memory_fallback="$(ssm_get AUTH_SESSION_ALLOW_MEMORY_FALLBACK)"
+  mfa_enabled="$(ssm_get MFA_ENABLED)"
+  mfa_passkey_enabled="$(ssm_get MFA_PASSKEY_ENABLED)"
+  auth_webauthn_rp_id="$(ssm_get AUTH_WEBAUTHN_RP_ID)"
+  auth_webauthn_origin="$(ssm_get AUTH_WEBAUTHN_ORIGIN)"
+  auth_webauthn_user_verification="$(ssm_get AUTH_WEBAUTHN_USER_VERIFICATION)"
+  admin_security_state_engine_v2="$(ssm_get ADMIN_SECURITY_STATE_ENGINE_V2)"
+  admin_passkey_enrollment="$(ssm_get ADMIN_PASSKEY_ENROLLMENT)"
+  admin_passkey_challenge="$(ssm_get ADMIN_PASSKEY_CHALLENGE)"
+  admin_duo_provider="$(ssm_get ADMIN_DUO_PROVIDER)"
+  admin_recovery_grants="$(ssm_get ADMIN_RECOVERY_GRANTS)"
+  admin_assurance_enforcement="$(ssm_get ADMIN_ASSURANCE_ENFORCEMENT)"
+  admin_action_bound_assurance="$(ssm_get ADMIN_ACTION_BOUND_ASSURANCE)"
+  admin_legacy_factor_read="$(ssm_get ADMIN_LEGACY_FACTOR_READ)"
+  admin_recovery_two_person_required="$(ssm_get ADMIN_RECOVERY_TWO_PERSON_REQUIRED)"
+  admin_security_hash_secret="$(ssm_get ADMIN_SECURITY_HASH_SECRET)"
+
+  expected_backend_enabled=false
+  expected_duo_provider=false
+  if staging_admin_security_backend_enabled; then
+    expected_backend_enabled=true
+    expected_duo_provider="$STAGING_ADMIN_DUO_PROVIDER"
+  fi
+  require_contract_value() {
+    local name="$1"
+    local actual="$2"
+    local expected="$3"
+    [ "$actual" = "$expected" ] || die "$name does not match the requested staging admin security phase"
+  }
+  require_contract_value ADMIN_SECURITY_ROLLOUT_PHASE "$admin_security_rollout_phase" "$STAGING_ADMIN_SECURITY_PHASE"
+  require_contract_value AUTH_DEVICE_CHALLENGE_MODE "$auth_device_challenge_mode" admin
+  require_contract_value AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK "$auth_device_challenge_allow_vault_fallback" false
+  require_contract_value ADMIN_REQUIRE_2FA "$admin_require_2fa" true
+  require_contract_value ADMIN_REQUIRE_PASSKEY "$admin_require_passkey" true
+  require_contract_value ADMIN_REQUIRE_ALLOWLIST "$admin_require_allowlist" true
+  require_contract_value ADMIN_ALLOWLIST_EMAILS "$admin_allowlist_emails" "$STAGING_ADMIN_ALLOWLIST_EMAILS"
+  require_contract_value AUTH_SESSION_ALLOW_MEMORY_FALLBACK "$auth_session_allow_memory_fallback" false
+  require_contract_value MFA_ENABLED "$mfa_enabled" true
+  require_contract_value MFA_PASSKEY_ENABLED "$mfa_passkey_enabled" true
+  require_contract_value AUTH_WEBAUTHN_RP_ID "$auth_webauthn_rp_id" "$STAGING_API_HOST"
+  require_contract_value AUTH_WEBAUTHN_ORIGIN "$auth_webauthn_origin" "$(staging_admin_security_origin)"
+  require_contract_value AUTH_WEBAUTHN_USER_VERIFICATION "$auth_webauthn_user_verification" required
+  require_contract_value ADMIN_SECURITY_STATE_ENGINE_V2 "$admin_security_state_engine_v2" "$expected_backend_enabled"
+  require_contract_value ADMIN_PASSKEY_ENROLLMENT "$admin_passkey_enrollment" "$expected_backend_enabled"
+  require_contract_value ADMIN_PASSKEY_CHALLENGE "$admin_passkey_challenge" "$expected_backend_enabled"
+  require_contract_value ADMIN_DUO_PROVIDER "$admin_duo_provider" "$expected_duo_provider"
+  require_contract_value ADMIN_RECOVERY_GRANTS "$admin_recovery_grants" "$expected_backend_enabled"
+  require_contract_value ADMIN_ASSURANCE_ENFORCEMENT "$admin_assurance_enforcement" "$expected_backend_enabled"
+  require_contract_value ADMIN_ACTION_BOUND_ASSURANCE "$admin_action_bound_assurance" "$expected_backend_enabled"
+  require_contract_value ADMIN_LEGACY_FACTOR_READ "$admin_legacy_factor_read" true
+  require_contract_value ADMIN_RECOVERY_TWO_PERSON_REQUIRED "$admin_recovery_two_person_required" "$STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED"
+  [ "${#admin_security_hash_secret}" -ge 32 ] || die "ADMIN_SECURITY_HASH_SECRET is not strong enough for staging qualification"
+  [ "${#auth_device_challenge_secret}" -ge 32 ] || die "AUTH_DEVICE_CHALLENGE_SECRET is not strong enough for staging qualification"
+  [ -n "$auth_device_challenge_secret_version" ] || die "AUTH_DEVICE_CHALLENGE_SECRET_VERSION is required for staging qualification"
+  if [ "$expected_duo_provider" = "true" ]; then
+    require_contract_value DUO_ENABLED "$duo_enabled" true
+    require_contract_value DUO_FAIL_CLOSED "$duo_fail_closed" true
+    [ -n "$duo_client_id" ] || die "DUO_CLIENT_ID is required when the staging admin Duo provider is enabled"
+    [ -n "$duo_client_secret" ] || die "DUO_CLIENT_SECRET is required when the staging admin Duo provider is enabled"
+    [ -n "$duo_redirect_uri" ] || die "DUO_REDIRECT_URI is required when the staging admin Duo provider is enabled"
+    if [ -n "$duo_oidc_issuer" ] || [ -n "$duo_discovery_url" ]; then
+      [ -n "$duo_oidc_issuer" ] || die "DUO_OIDC_ISSUER is required for staging Duo OIDC qualification"
+      [ -n "$duo_discovery_url" ] || die "DUO_DISCOVERY_URL is required for staging Duo OIDC qualification"
+    else
+      [ -n "$duo_api_host" ] || die "DUO_API_HOST is required for staging Duo Web SDK qualification"
+    fi
+  fi
+fi
+
 env_file="$STATE_DIR/.env.staging"
 cat > "$env_file" <<ENV
 APP_ENV=staging
@@ -83,8 +170,8 @@ OTP_SMS_ENABLED=false
 ORDER_EMAILS_ENABLED=false
 REDIS_ENABLED=true
 DISTRIBUTED_SECURITY_CONTROLS_ENABLED=false
-AUTH_DEVICE_CHALLENGE_MODE=off
-ADMIN_REQUIRE_PASSKEY=false
+AUTH_DEVICE_CHALLENGE_MODE=$auth_device_challenge_mode
+ADMIN_REQUIRE_PASSKEY=$admin_require_passkey
 PORT=$STAGING_BACKEND_PORT
 BACKEND_PORT=$STAGING_BACKEND_PORT
 STAGING_SSM_PREFIX=$STAGING_SSM_PREFIX
@@ -126,6 +213,31 @@ append_env_if_set DUO_DISCOVERY_URL "$duo_discovery_url"
 append_env_if_set DUO_REDIRECT_URI "$duo_redirect_uri"
 append_env_if_set DUO_OIDC_STATE_SECRET "$duo_oidc_state_secret"
 append_env_if_set DUO_FAIL_CLOSED "$duo_fail_closed"
+if staging_admin_security_enabled; then
+  append_env_if_set ADMIN_SECURITY_ROLLOUT_PHASE "$admin_security_rollout_phase"
+  append_env_if_set AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK "$auth_device_challenge_allow_vault_fallback"
+  append_env_if_set AUTH_DEVICE_CHALLENGE_SECRET "$auth_device_challenge_secret"
+  append_env_if_set AUTH_DEVICE_CHALLENGE_SECRET_VERSION "$auth_device_challenge_secret_version"
+  append_env_if_set ADMIN_REQUIRE_2FA "$admin_require_2fa"
+  append_env_if_set ADMIN_REQUIRE_ALLOWLIST "$admin_require_allowlist"
+  append_env_if_set ADMIN_ALLOWLIST_EMAILS "$admin_allowlist_emails"
+  append_env_if_set AUTH_SESSION_ALLOW_MEMORY_FALLBACK "$auth_session_allow_memory_fallback"
+  append_env_if_set MFA_ENABLED "$mfa_enabled"
+  append_env_if_set MFA_PASSKEY_ENABLED "$mfa_passkey_enabled"
+  append_env_if_set AUTH_WEBAUTHN_RP_ID "$auth_webauthn_rp_id"
+  append_env_if_set AUTH_WEBAUTHN_ORIGIN "$auth_webauthn_origin"
+  append_env_if_set AUTH_WEBAUTHN_USER_VERIFICATION "$auth_webauthn_user_verification"
+  append_env_if_set ADMIN_SECURITY_STATE_ENGINE_V2 "$admin_security_state_engine_v2"
+  append_env_if_set ADMIN_PASSKEY_ENROLLMENT "$admin_passkey_enrollment"
+  append_env_if_set ADMIN_PASSKEY_CHALLENGE "$admin_passkey_challenge"
+  append_env_if_set ADMIN_DUO_PROVIDER "$admin_duo_provider"
+  append_env_if_set ADMIN_RECOVERY_GRANTS "$admin_recovery_grants"
+  append_env_if_set ADMIN_ASSURANCE_ENFORCEMENT "$admin_assurance_enforcement"
+  append_env_if_set ADMIN_ACTION_BOUND_ASSURANCE "$admin_action_bound_assurance"
+  append_env_if_set ADMIN_LEGACY_FACTOR_READ "$admin_legacy_factor_read"
+  append_env_if_set ADMIN_RECOVERY_TWO_PERSON_REQUIRED "$admin_recovery_two_person_required"
+  append_env_if_set ADMIN_SECURITY_HASH_SECRET "$admin_security_hash_secret"
+fi
 chmod 600 "$env_file"
 
 release_tar="$STATE_DIR/release.tar.gz"

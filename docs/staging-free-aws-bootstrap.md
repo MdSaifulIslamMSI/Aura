@@ -57,6 +57,10 @@ STAGING_CORS_ORIGIN=https://staging.example.com
 STAGING_JWT_SECRET=generated-if-missing
 STAGING_DATABASE_PASSWORD=generated-if-missing
 STAGING_ADMIN_EMAIL=ops@example.com
+STAGING_ADMIN_SECURITY_PHASE=legacy
+STAGING_ADMIN_ALLOWLIST_EMAILS=owner@example.com
+STAGING_ADMIN_DUO_PROVIDER=false
+STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED=false
 ENABLE_CERTBOT=false
 ENABLE_STAGING_HTTPS=false
 ENABLE_EIP=false
@@ -138,6 +142,8 @@ ENABLE_STAGING_HTTPS=true npm run staging:https
 ```
 
 The operations layer is documented in `docs/staging-operations-upgrades.md`.
+
+Admin security V2 qualification uses the same direct-EC2 HTTPS path and requires an explicit `baseline`, `backend`, then `frontend` progression. It does not use or modify the production CloudFront distribution. See `docs/security/admin-security-staging-preflight-2026-07-22.md` before changing the phase from `legacy`.
 
 ## Teardown
 

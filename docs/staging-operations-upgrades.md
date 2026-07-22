@@ -50,3 +50,35 @@ npm run staging:verify
 ```
 
 If DNS points anywhere else, the script exits before calling Certbot.
+
+## Admin Security Qualification Phases
+
+Admin security qualification is opt-in. `STAGING_ADMIN_SECURITY_PHASE=legacy` preserves the existing HTTP staging behavior and remains the default.
+
+| Phase | Backend V2 | Frontend V2 | Purpose |
+| --- | --- | --- | --- |
+| `legacy` | Off | Off | Existing HTTP-compatible staging behavior. |
+| `baseline` | Off | Off | HTTPS, passkey, allowlist, Redis, and secret prerequisites are present before V2 activation. |
+| `backend` | On | Off | Exercise the authoritative backend state, recovery, challenge, and audit surfaces before exposing the V2 UI. |
+| `frontend` | On | On | Exercise the complete checkpoint flow after backend evidence and rollback are approved. |
+
+Every non-legacy phase requires:
+
+```sh
+ENABLE_STAGING_HTTPS=true
+STAGING_API_HOST=admin-staging.example.com
+STAGING_BASE_URL=https://admin-staging.example.com
+STAGING_FRONTEND_URL=https://admin-staging.example.com
+STAGING_API_BASE_URL=https://admin-staging.example.com
+STAGING_HEALTH_URL=https://admin-staging.example.com/health
+STAGING_ADMIN_EMAIL=ops@example.com
+STAGING_ADMIN_ALLOWLIST_EMAILS=owner-one@example.com,owner-two@example.com
+STAGING_ADMIN_DUO_PROVIDER=false
+STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED=false
+```
+
+The hostname must be dedicated to staging, resolve to the tagged staging EC2 public IP, and differ from every production hostname. The email values should be provided as staging-environment secrets in GitHub. The Duo and two-person values must be explicit `true` or `false`; the scripts never infer them from repository ownership.
+
+During a non-legacy deploy, `scripts/staging/16-deploy-all.sh` establishes HTTPS first, writes the reviewed admin-security Parameter Store names, deploys the backend and frontend, and then runs staging verification. Dedicated admin-security and trusted-device hashing secrets are generated only when their secure parameters do not already exist. Existing secure parameters are retained and no secret value is printed.
+
+The `baseline` phase must precede `backend`, and `backend` evidence must precede `frontend`. A phase change is a staging mutation and does not authorize migration, recovery-grant issuance, Redis interruption, provider outage simulation, or production activation.

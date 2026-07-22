@@ -23,7 +23,7 @@ The existing staging service is running and its generic health, isolation, budge
 | Immutable V2 deployment | Staging reports release `3330aaf6`, not candidate `f955b4b3`. `GET /api/admin/security/status` returned `404`. | BLOCKED |
 | Secure WebAuthn origin | The public staging URL is HTTP on an EC2 hostname. The production-mode configuration requires an HTTPS origin and matching RP ID. | BLOCKED |
 | V2 runtime configuration | Parameter names were inspected without printing secrets. All V2 flag names, `ADMIN_SECURITY_HASH_SECRET`, the WebAuthn RP/origin/UV names, and the mandatory session-fallback name are absent under `/aura/staging`. | BLOCKED |
-| Staging automation safety | `scripts/staging/03-put-ssm-params.sh` and `scripts/staging/07-deploy-compose.sh` currently select `AUTH_DEVICE_CHALLENGE_MODE=off` and `ADMIN_REQUIRE_PASSKEY=false`; they do not materialize the V2 contract. | BLOCKED |
+| Staging automation safety | Live staging was produced by legacy scripts that select challenge-off/passkey-off settings. The draft branch now has an opt-in, fail-closed qualification contract, but it is not deployed. | CODE FIXED / NOT DEPLOYED |
 | Redis baseline | `REDIS_ENABLED=true`, a Redis URL name exists, and health reports connected. The API reports Redis as not required, and no approved outage drill proved fail-closed `503` behavior. | BLOCKED |
 | Current backup | The staging bucket has encryption, versioning, public-access blocking, and lifecycle controls, but `backups/` is empty. The backup key recorded in local state no longer exists. | BLOCKED |
 | Restore proof | The disposable fixture drill passed with four collections and five documents. It used no live data and does not prove restoration of the real staging database or objects. No real isolated staging restore workflow was found. | BLOCKED |
@@ -36,9 +36,11 @@ The existing staging service is running and its generic health, isolation, budge
 | Rollback | CI verified the captured production rollback artifacts. A staging-specific immutable V2 artifact and a tested V2 rollback were not demonstrated. | NOT PROVEN |
 | Signoffs | No recorded security, SRE/operations, or product-owner approval was found for this activation. | NOT PROVEN |
 
+Implementation update: the draft PR now contains an opt-in `legacy` -> `baseline` -> `backend` -> `frontend` staging contract. Local contract tests and positive/negative dry-runs pass. Live staging remains on the old HTTP release and no staging parameter or infrastructure mutation has occurred, so this changes the automation finding to **CODE FIXED / NOT DEPLOYED**, not to staging PASS.
+
 ## Hard blockers to clear first
 
-1. Add a qualification mode to the staging scripts that materializes the complete V2 contract without weakening the production contract or changing legacy staging defaults implicitly.
+1. Complete review and exact-head CI for the new qualification mode, then retain evidence that legacy remains the default and every non-legacy phase fails closed without HTTPS and the complete V2 contract.
 2. Provision an approved HTTPS staging hostname, certificate, and exact WebAuthn RP ID/origin pair.
 3. Produce an immutable staging artifact from the reviewed commit and deploy it with every new backend and frontend flag off.
 4. Create a current staging database/object backup and prove an isolated, non-destructive restore. A local fixture drill is insufficient.
@@ -52,7 +54,7 @@ Items marked **MUTATING - APPROVAL REQUIRED** are future change-window actions. 
 
 ### 0. Repair the staging qualification contract
 
-- [ ] Add a reviewed staging qualification path for these configuration names:
+- [x] Add a staging qualification path, pending exact-head review, for these configuration names:
   - `ADMIN_SECURITY_HASH_SECRET`
   - `ADMIN_SECURITY_STATE_ENGINE_V2`
   - `ADMIN_PASSKEY_ENROLLMENT`
@@ -67,6 +69,8 @@ Items marked **MUTATING - APPROVAL REQUIRED** are future change-window actions. 
   - `ADMIN_REQUIRE_PASSKEY`
   - `ADMIN_REQUIRE_ALLOWLIST`
   - `ADMIN_ALLOWLIST_EMAILS`
+  - `AUTH_DEVICE_CHALLENGE_SECRET`
+  - `AUTH_DEVICE_CHALLENGE_SECRET_VERSION`
   - `AUTH_SESSION_ALLOW_MEMORY_FALLBACK`
   - `AUTH_WEBAUTHN_RP_ID`
   - `AUTH_WEBAUTHN_ORIGIN`
@@ -74,9 +78,9 @@ Items marked **MUTATING - APPROVAL REQUIRED** are future change-window actions. 
   - `MFA_ENABLED`
   - `MFA_PASSKEY_ENABLED`
 - [ ] Generate a new, staging-only `ADMIN_SECURITY_HASH_SECRET` of at least 32 characters. Store it as a secure parameter; never print it, reuse another auth secret, or commit it.
-- [ ] Keep `AUTH_SESSION_ALLOW_MEMORY_FALLBACK=false`, WebAuthn user verification `required`, and the admin 2FA/passkey/allowlist protections enabled for qualification.
-- [ ] Make the two-person recovery setting an explicit reviewed decision. Do not silently infer it from repository ownership.
-- [ ] Add contract tests proving the staging renderer cannot select challenge-off/passkey-off settings in V2 qualification mode.
+- [x] Keep `AUTH_SESSION_ALLOW_MEMORY_FALLBACK=false`, WebAuthn user verification `required`, and the admin 2FA/passkey/allowlist protections enabled for qualification.
+- [x] Make the two-person recovery setting an explicit reviewed decision. Do not silently infer it from repository ownership.
+- [x] Add contract tests proving the staging renderer cannot select challenge-off/passkey-off settings in V2 qualification mode.
 - [ ] Obtain security review of the configuration diff and confirm no secret values appear in git, logs, CI output, or the change ticket.
 
 ### 1. Establish a secure, immutable baseline

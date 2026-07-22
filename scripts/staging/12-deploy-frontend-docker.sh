@@ -9,6 +9,7 @@ need_cmd npm
 need_cmd tar
 need_env AWS_REGION
 ensure_state
+validate_staging_admin_security_phase
 
 [ -f "$STATE_DIR/ssh_config" ] || die "Missing $STATE_DIR/ssh_config. Run 06-render-ssh-config.sh first."
 [ "$STAGING_SSM_PREFIX" = "/aura/staging" ] || die "STAGING_SSM_PREFIX must be /aura/staging"
@@ -18,11 +19,23 @@ staging_health_url="$(state_get staging_health_url)"
 [ -n "$staging_api_url" ] || staging_api_url="${STAGING_API_BASE_URL:-}"
 [ -n "$staging_health_url" ] || staging_health_url="${STAGING_HEALTH_URL:-$staging_api_url/health}"
 [ -n "$staging_api_url" ] || die "Missing staging API base URL in state or STAGING_API_BASE_URL"
+if staging_admin_security_enabled; then
+  staging_api_url="$STAGING_API_BASE_URL"
+  staging_health_url="$STAGING_HEALTH_URL"
+fi
 
 frontend_port="${STAGING_FRONTEND_CONTAINER_PORT:-8080}"
 frontend_url="${STAGING_FRONTEND_URL:-$staging_api_url}"
 require_no_prod_value STAGING_FRONTEND_URL "$frontend_url" "${PROD_BASE_URL:-}"
 require_no_prod_value STAGING_API_BASE_URL "$staging_api_url" "${PROD_API_BASE_URL:-}"
+
+frontend_admin_security_v2=false
+if staging_admin_security_frontend_enabled; then
+  frontend_admin_security_v2=true
+fi
+if staging_admin_security_enabled && [ "${STAGING_FRONTEND_SKIP_BUILD:-false}" = "true" ]; then
+  die "STAGING_FRONTEND_SKIP_BUILD=true is not allowed during admin security qualification"
+fi
 
 if [ "${STAGING_FRONTEND_SKIP_BUILD:-false}" = "true" ] && [ -f "$REPO_ROOT/app/dist/index.html" ]; then
   log "Using existing app/dist for staging frontend deploy"
@@ -33,6 +46,7 @@ else
     VITE_API_URL=/api \
     VITE_DEPLOY_TARGET=docker-staging \
     VITE_RELEASE_CHANNEL=staging \
+    VITE_ADMIN_SECURITY_STATE_ENGINE_V2="$frontend_admin_security_v2" \
     AURA_SKIP_FRONTEND_AUTH_ENV_VALIDATION=true \
     npm run build
   )
