@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useIntl } from 'react-intl';
 import {
@@ -14,23 +15,69 @@ import {
   Phone,
   Shield,
   User,
+  WifiOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TurnstileChallenge from '@/components/features/auth/TurnstileChallenge';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
 import DesktopBrowserAuthShell from '@/components/features/auth/DesktopBrowserAuthShell';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
+import BrandVisualPanel from './BrandVisualPanel';
+import CountryCodePicker from './CountryCodePicker';
+import './LoginView.css';
 
-const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neo-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950';
+const focusRing = 'login-focus-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neo-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950';
 const fieldClass = cn(
-  'w-full rounded-xl border border-white/10 bg-zinc-950/70 py-3.5 pl-11 pr-4 text-base text-white shadow-inner transition-colors placeholder:text-slate-600',
+  'login-input w-full rounded-xl border border-white/10 bg-zinc-950/70 py-3.5 pl-11 pr-4 text-base text-white shadow-inner transition-colors placeholder:text-slate-600',
   'hover:border-white/20 focus:border-neo-cyan focus:outline-none focus:ring-2 focus:ring-neo-cyan/35'
 );
 const secondaryButtonClass = cn(
-  'flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors',
+  'login-secondary-button flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors',
   'hover:border-white/25 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50',
   focusRing
 );
+
+const LoginJourney = ({ isSessionCheckpointPending, mode, step, t }) => {
+  const activeIndex = isSessionCheckpointPending || step === 'reset-password'
+    ? 2
+    : step === 'otp'
+      ? 1
+      : 0;
+  const labels = mode === 'forgot-password'
+    ? [
+        t('login.journey.account', {}, 'Account'),
+        t('login.journey.verify', {}, 'Verify'),
+        t('login.journey.reset', {}, 'Reset'),
+      ]
+    : mode === 'signup'
+      ? [
+          t('login.journey.profile', {}, 'Profile'),
+          t('login.journey.verify', {}, 'Verify'),
+          t('login.journey.join', {}, 'Join'),
+        ]
+      : [
+          t('login.journey.details', {}, 'Details'),
+          t('login.journey.verify', {}, 'Verify'),
+          t('login.journey.access', {}, 'Access'),
+        ];
+
+  return (
+    <nav className="login-journey" aria-label={t('login.journey.label', {}, 'Secure access progress')}>
+      <ol>
+        {labels.map((label, index) => (
+          <li
+            key={label}
+            className={index < activeIndex ? 'login-journey__step login-journey__step--complete' : 'login-journey__step'}
+            aria-current={index === activeIndex ? 'step' : undefined}
+          >
+            <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+            <strong>{label}</strong>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+};
 
 const LoginView = ({
   OTP_TRANSPORT,
@@ -71,7 +118,6 @@ const LoginView = ({
   otpRefs,
   otpTransport,
   otpValues = [],
-  phoneCountryCode,
   phoneCountryOptions = [],
   phoneLocalValue,
   recaptchaContainerRef,
@@ -100,13 +146,31 @@ const LoginView = ({
   emergencySignupDisabled = false,
 }) => {
   const intl = useIntl();
+  const [isOnline, setIsOnline] = useState(() => (
+    typeof navigator === 'undefined' || navigator.onLine
+  ));
+
+  useEffect(() => {
+    const markOnline = () => setIsOnline(true);
+    const markOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', markOnline);
+    window.addEventListener('offline', markOffline);
+    return () => {
+      window.removeEventListener('online', markOnline);
+      window.removeEventListener('offline', markOffline);
+    };
+  }, []);
+
   const signInActionLabel = intl.formatMessage(criticalMessages.signInAction);
   const signUpActionLabel = intl.formatMessage(criticalMessages.signUpAction);
   const hidePasswordLabel = intl.formatMessage(criticalMessages.passwordVisible);
   const showPasswordLabel = intl.formatMessage(criticalMessages.passwordHidden);
   const processingLabel = t('login.processing', {}, 'Processing');
   const unavailableLabel = t('login.actionTemporarilyUnavailable', {}, 'Temporarily unavailable');
-  const primaryActionLabel = emergencyActionDisabled
+  const primaryActionLabel = !isOnline
+    ? t('login.offlineAction', {}, 'Reconnect to continue')
+    : emergencyActionDisabled
     ? unavailableLabel
     : isLoading
       ? processingLabel
@@ -135,41 +199,45 @@ const LoginView = ({
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-zinc-950 px-4 py-8 text-white sm:px-6 sm:py-12">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(6,182,212,0.12),transparent_42%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:48px_48px]" />
+    <div
+      className="login-experience"
+      data-auth-state={authSuccess ? 'success' : authError ? 'error' : isLoading ? 'loading' : 'idle'}
+      data-login-mode={mode}
+      data-login-step={step}
+    >
+      <div className="login-experience__frame">
+        <BrandVisualPanel t={t} />
 
-      <section
-        aria-labelledby="login-title"
-        className="relative mx-auto w-full max-w-xl rounded-3xl border border-white/10 bg-zinc-900/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-8"
-      >
-        <header className="mb-7">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <Link
-              to="/"
-              className={cn('inline-flex items-center gap-2 rounded-lg text-sm font-black uppercase tracking-[0.18em] text-white transition-colors hover:text-neo-cyan', focusRing)}
-            >
-              <span aria-hidden="true" className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neo-cyan to-neo-fuchsia text-sm text-zinc-950">
-                {t('login.brand.initials', {}, 'AR')}
+        <section className="login-auth-panel" aria-labelledby="login-title">
+          <div className="login-auth-panel__inner">
+            <div className="login-auth-tools">
+              <span className="login-secure-badge">
+                <Shield aria-hidden="true" />
+                {t('login.secureSignIn', {}, 'Secure sign-in')}
               </span>
-              Aura
-            </Link>
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-1.5 text-xs font-semibold text-emerald-100">
-              <Shield className="h-3.5 w-3.5" aria-hidden="true" />
-              {t('login.secureSignIn', {}, 'Secure sign-in')}
-            </span>
-          </div>
+            </div>
 
-          <h1 id="login-title" className="text-3xl font-black tracking-tight text-white sm:text-4xl">
-            {info.title}
-          </h1>
-          <p className="mt-3 max-w-lg text-sm leading-6 text-slate-400 sm:text-base">
-            {info.desc}
-          </p>
-        </header>
+            <header className="login-auth-header">
+              <p className="login-auth-eyebrow">
+                {t('login.memberAccess', {}, 'Aura member access')}
+              </p>
+              <h1 id="login-title" className="login-auth-title">
+                {info.title}
+              </h1>
+              <p className="login-auth-description">
+                {info.desc}
+              </p>
+            </header>
+
+            <LoginJourney
+              isSessionCheckpointPending={isSessionCheckpointPending}
+              mode={mode}
+              step={step}
+              t={t}
+            />
 
         {authError && (
-          <div className="mb-5" aria-live="assertive">
+          <div className="login-feedback login-feedback--error mb-5" aria-live="assertive">
             <AuthFeedback
               type="error"
               title={authError.title}
@@ -182,7 +250,7 @@ const LoginView = ({
         )}
 
         {authSuccess && (
-          <div className="mb-5" aria-live="polite">
+          <div className="login-feedback login-feedback--success mb-5" aria-live="polite">
             <AuthFeedback
               type="success"
               title={authSuccess.title}
@@ -191,9 +259,18 @@ const LoginView = ({
           </div>
         )}
 
+        {!isOnline && (
+          <div id="login-offline-status" className="login-offline-note" role="status" aria-live="polite">
+            <WifiOff className="mt-0.5 h-4 w-4" aria-hidden="true" />
+            <span>
+              {t('login.offlineBody', {}, 'You are offline. Your details stay here; reconnect to continue securely.')}
+            </span>
+          </div>
+        )}
+
         {isSessionCheckpointPending ? (
           <section
-            className="rounded-2xl border border-neo-cyan/25 bg-neo-cyan/[0.07] p-6 text-center"
+            className="login-checkpoint rounded-2xl border border-neo-cyan/25 bg-neo-cyan/[0.07] p-6 text-center"
             data-session-status={sessionStatus}
             role="status"
             aria-live="polite"
@@ -267,7 +344,13 @@ const LoginView = ({
           </div>
         ) : (
           <>
-            <form onSubmit={handleSubmit} className="space-y-5" autoComplete="on" aria-busy={isLoading}>
+            <form
+              onSubmit={handleSubmit}
+              className="login-form"
+              autoComplete="on"
+              aria-busy={isLoading}
+              aria-describedby={!isOnline ? 'login-offline-status' : undefined}
+            >
               <div ref={recaptchaContainerRef} id="firebase-phone-recaptcha" className="sr-only" aria-hidden="true" />
 
               {step === 'form' && (
@@ -318,28 +401,21 @@ const LoginView = ({
                     <legend className="mb-2 text-sm font-semibold text-slate-200">
                       {t('login.field.phone', {}, 'Phone number')}
                     </legend>
-                    <div className="relative grid grid-cols-[minmax(7.5rem,8.5rem),minmax(0,1fr)] overflow-hidden rounded-xl border border-white/10 bg-zinc-950/70 shadow-inner transition-colors focus-within:border-neo-cyan focus-within:ring-2 focus-within:ring-neo-cyan/35">
-                      <Phone className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-slate-500" aria-hidden="true" />
-                      <label htmlFor="login-phone-country" className="sr-only">
-                        {t('login.field.phoneCountry', {}, 'Country calling code')}
-                      </label>
-                      <select
-                        id="login-phone-country"
-                        name="phoneCountry"
-                        value={phoneCountryCode}
-                        onChange={handlePhoneCountryChange}
-                        autoComplete="tel-country-code"
-                        aria-label={t('login.field.phoneCountry', {}, 'Country calling code')}
-                        className={cn('min-h-12 appearance-none border-0 border-r border-white/10 bg-transparent py-3.5 pl-10 pr-7 text-sm font-bold text-white outline-none', focusRing)}
-                      >
-                        {phoneCountryOptions.map((option) => (
-                          <option key={option.countryCode} value={option.countryCode} title={option.label} className="bg-zinc-950 text-white">
-                            {option.flag || option.countryCode} {option.dialCode || option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute left-[6.7rem] top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+                    <div className="login-phone-row">
+                      <CountryCodePicker
+                        disabled={isLoading}
+                        onSelect={(countryCode) => handlePhoneCountryChange({ target: { value: countryCode } })}
+                        options={phoneCountryOptions}
+                        selectedCountry={selectedPhoneCountry}
+                        t={t}
+                      />
+                      <div className="login-phone-input">
+                        <Phone className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+                        <label htmlFor="login-phone" className="sr-only">
+                          {t('login.field.phone', {}, 'Phone number')}
+                        </label>
                       <input
+                        id="login-phone"
                         type="tel"
                         name="phone"
                         value={phoneLocalValue || ''}
@@ -347,15 +423,17 @@ const LoginView = ({
                         placeholder={t('login.placeholder.phoneLocal', {}, 'Phone number')}
                         autoComplete="tel-national"
                         inputMode="tel"
+                        aria-describedby="login-phone-hint"
                         aria-label={t(
                           'login.phone.inputLabel',
                           { dialCode: selectedPhoneCountry?.dialCode || '' },
                           'Phone number {dialCode}'
                         ).trim()}
-                        className="min-w-0 border-0 bg-transparent px-4 py-3.5 text-base text-white outline-none placeholder:text-slate-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neo-cyan"
+                        className="min-w-0 border bg-transparent py-3.5 pl-11 pr-4 text-base text-white outline-none placeholder:text-slate-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neo-cyan"
                       />
+                      </div>
                     </div>
-                    <p className={cn('mt-2 text-xs leading-5', firebasePhoneFallback?.disableFirebasePhoneOtp ? 'text-amber-200' : 'text-slate-500')}>
+                    <p id="login-phone-hint" className={cn('mt-2 text-xs leading-5', firebasePhoneFallback?.disableFirebasePhoneOtp ? 'text-amber-200' : 'text-slate-500')}>
                       {firebasePhoneFallback?.disableFirebasePhoneOtp
                         ? t('login.phoneHint.fallback', {}, 'SMS delivery is unavailable here, so the available secure backup verification channel will be used.')
                         : canUseFirebasePhoneOtp
@@ -375,7 +453,7 @@ const LoginView = ({
                             type="button"
                             onClick={() => switchMode('forgot-password')}
                             disabled={emergencyPasswordResetDisabled}
-                            className={cn('rounded-md text-xs font-semibold text-neo-cyan transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
+                            className={cn('login-text-action rounded-md text-xs font-semibold text-neo-cyan transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
                           >
                             {t('login.action.forgotPassword', {}, 'Forgot password?')}
                           </button>
@@ -397,6 +475,7 @@ const LoginView = ({
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
                           aria-label={showPassword ? hidePasswordLabel : showPasswordLabel}
+                          aria-pressed={showPassword}
                           className={cn('absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:text-white', focusRing)}
                         >
                           {showPassword ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
@@ -435,7 +514,7 @@ const LoginView = ({
                     {t('login.action.backToSignInDetails', {}, 'Back to sign-in details')}
                   </button>
 
-                  <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="login-otp-note mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                     <h2 className="font-bold text-white">{t('login.otp.title', {}, 'Enter verification code')}</h2>
                     <p className="mt-1 text-sm leading-6 text-slate-400">
                       {isEmailOtpStage
@@ -448,7 +527,7 @@ const LoginView = ({
 
                   <fieldset>
                     <legend className="sr-only">{t('login.otp.codeLabel', {}, 'Six-digit verification code')}</legend>
-                    <div className="mb-5 flex justify-center gap-2 sm:gap-3">
+                    <div className="login-otp-grid mb-5 flex justify-center gap-2 sm:gap-3">
                       {otpValues.map((digit, index) => (
                         <input
                           key={index}
@@ -463,8 +542,9 @@ const LoginView = ({
                           onPaste={index === 0 ? handleOtpPaste : undefined}
                           disabled={emergencyOtpDisabled}
                           aria-label={t('login.otp.digitLabel', { position: index + 1 }, 'Verification code digit {{position}}')}
+                          data-filled={Boolean(digit)}
                           className={cn(
-                            'h-12 w-10 rounded-xl border-2 bg-zinc-950/70 text-center text-xl font-black text-white outline-none transition-colors sm:h-14 sm:w-12',
+                            'login-otp-input h-12 w-10 rounded-xl border-2 bg-zinc-950/70 text-center text-xl font-black text-white outline-none transition-colors sm:h-14 sm:w-12',
                             digit ? 'border-neo-cyan' : 'border-white/10',
                             'focus-visible:border-neo-cyan focus-visible:ring-2 focus-visible:ring-neo-cyan/50 disabled:cursor-not-allowed disabled:opacity-50'
                           )}
@@ -482,8 +562,8 @@ const LoginView = ({
                       <button
                         type="button"
                         onClick={handleResendOtp}
-                        disabled={isLoading || emergencyOtpDisabled}
-                        className={cn('rounded-md text-sm font-semibold text-neo-cyan transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
+                        disabled={isLoading || emergencyOtpDisabled || !isOnline}
+                        className={cn('login-text-action rounded-md text-sm font-semibold text-neo-cyan transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
                       >
                         {t('login.otp.resend', {}, 'Resend code')}
                       </button>
@@ -498,7 +578,7 @@ const LoginView = ({
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     {t('login.action.backToRecoveryDetails', {}, 'Back to recovery details')}
                   </button>
-                  <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-slate-400">
+                  <p className="login-reset-note rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-slate-400">
                     {t('login.reset.compactBody', {}, 'Recovery is verified. Set a strong new password for this account.')}
                   </p>
 
@@ -522,6 +602,7 @@ const LoginView = ({
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         aria-label={showPassword ? hidePasswordLabel : showPasswordLabel}
+                        aria-pressed={showPassword}
                         className={cn('absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:text-white', focusRing)}
                       >
                         {showPassword ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
@@ -553,7 +634,7 @@ const LoginView = ({
               {turnstileEnabled && (
                 <TurnstileChallenge
                   action={turnstileAction}
-                  disabled={emergencyActionDisabled}
+                  disabled={emergencyActionDisabled || !isOnline}
                   onError={handleTurnstileError}
                   onToken={handleTurnstileToken}
                   refreshKey={`${turnstileAction}:${turnstileRefreshKey}`}
@@ -562,10 +643,10 @@ const LoginView = ({
 
               <button
                 type="submit"
-                disabled={isLoading || emergencyActionDisabled}
+                disabled={isLoading || emergencyActionDisabled || !isOnline}
                 aria-label={primaryActionLabel}
                 className={cn(
-                  'btn-primary flex min-h-12 w-full items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60',
+                  'login-primary-button btn-primary flex min-h-12 w-full items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60',
                   focusRing
                 )}
               >
@@ -574,18 +655,50 @@ const LoginView = ({
               </button>
             </form>
 
+            {step === 'form' && (
+              <div className="login-mode-toggle mt-5 border-t border-white/10 pt-4 text-center text-sm text-slate-400">
+                {mode === 'forgot-password' ? (
+                  <>
+                    {t('login.modeToggle.rememberPassword', {}, 'Remember your password?')}{' '}
+                    <button
+                      type="button"
+                      onClick={() => switchMode('signin')}
+                      disabled={emergencyAuthDisabled}
+                      className={cn('login-text-action rounded-md font-semibold text-neo-cyan transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
+                    >
+                      {signInActionLabel}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {mode === 'signin'
+                      ? t('login.modeToggle.noAccount', {}, "Don't have an account?")
+                      : t('login.modeToggle.haveAccount', {}, 'Already have an account?')}{' '}
+                    <button
+                      type="button"
+                      onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
+                      disabled={(mode === 'signin' && emergencySignupDisabled) || (mode === 'signup' && emergencyAuthDisabled)}
+                      className={cn('login-text-action rounded-md font-semibold text-neo-cyan transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
+                    >
+                      {mode === 'signin' ? signUpActionLabel : signInActionLabel}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
             {step === 'form' && mode !== 'forgot-password' && (
-              <details className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.02]">
-                <summary className={cn('flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-4 py-3.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white', focusRing)}>
+              <details className="login-social-options group mt-5 rounded-2xl border border-white/10 bg-white/[0.02]">
+                <summary className={cn('login-social-options__summary flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl px-4 py-3.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white', focusRing)}>
                   {t('login.otherOptions', {}, 'Other secure sign-in options')}
                   <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
                 </summary>
-                <div className="space-y-3 border-t border-white/10 p-4">
+                <div className="login-social-options__body space-y-3 border-t border-white/10 p-4">
                   {isDuoLoginEnabled && (
                     <button
                       type="button"
                       onClick={handleDuoSignIn}
-                      disabled={isLoading || emergencyAuthDisabled}
+                      disabled={isLoading || emergencyAuthDisabled || !isOnline}
                       className={cn(secondaryButtonClass, 'w-full')}
                     >
                       <Shield className="h-4 w-4 text-neo-cyan" aria-hidden="true" />
@@ -595,24 +708,24 @@ const LoginView = ({
 
                   {socialAuthStatus.supported ? (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      <button type="button" onClick={() => handleSocialSignIn(signInWithGoogle, 'Google')} disabled={isLoading || emergencyAuthDisabled} className={secondaryButtonClass}>
+                      <button type="button" onClick={() => handleSocialSignIn(signInWithGoogle, 'Google')} disabled={isLoading || emergencyAuthDisabled || !isOnline} className={secondaryButtonClass}>
                         <span className="text-sm font-black text-sky-300" aria-hidden="true">G</span>
                         Google
                       </button>
-                      <button type="button" onClick={() => handleSocialSignIn(signInWithFacebook, 'Facebook')} disabled={isLoading || emergencyAuthDisabled} className={secondaryButtonClass}>
+                      <button type="button" onClick={() => handleSocialSignIn(signInWithFacebook, 'Facebook')} disabled={isLoading || emergencyAuthDisabled || !isOnline} className={secondaryButtonClass}>
                         <span className="text-sm font-black text-blue-400" aria-hidden="true">f</span>
                         Facebook
                       </button>
-                      <button type="button" onClick={() => handleSocialSignIn(signInWithGitHub, 'GitHub')} disabled={isLoading || emergencyAuthDisabled} className={secondaryButtonClass}>
+                      <button type="button" onClick={() => handleSocialSignIn(signInWithGitHub, 'GitHub')} disabled={isLoading || emergencyAuthDisabled || !isOnline} className={secondaryButtonClass}>
                         <Github className="h-4 w-4" aria-hidden="true" />
                         GitHub
                       </button>
-                      <button type="button" onClick={() => handleSocialSignIn(signInWithX, 'X')} disabled={isLoading || emergencyAuthDisabled} className={secondaryButtonClass}>
+                      <button type="button" onClick={() => handleSocialSignIn(signInWithX, 'X')} disabled={isLoading || emergencyAuthDisabled || !isOnline} className={secondaryButtonClass}>
                         <span className="text-sm font-black" aria-hidden="true">X</span>
                         X
                       </button>
                       {socialAuthStatus.microsoftEnabled && (
-                        <button type="button" onClick={() => handleSocialSignIn(signInWithMicrosoft, 'Microsoft')} disabled={isLoading || emergencyAuthDisabled} className={secondaryButtonClass}>
+                        <button type="button" onClick={() => handleSocialSignIn(signInWithMicrosoft, 'Microsoft')} disabled={isLoading || emergencyAuthDisabled || !isOnline} className={secondaryButtonClass}>
                           <span className="grid h-4 w-4 grid-cols-2 gap-px" aria-hidden="true">
                             <span className="bg-[#f25022]" /><span className="bg-[#7fba00]" />
                             <span className="bg-[#00a4ef]" /><span className="bg-[#ffb900]" />
@@ -621,7 +734,7 @@ const LoginView = ({
                         </button>
                       )}
                       {socialAuthStatus.appleEnabled && (
-                        <button type="button" onClick={() => handleSocialSignIn(signInWithApple, 'Apple')} disabled={isLoading || emergencyAuthDisabled} className={secondaryButtonClass}>
+                        <button type="button" onClick={() => handleSocialSignIn(signInWithApple, 'Apple')} disabled={isLoading || emergencyAuthDisabled || !isOnline} className={secondaryButtonClass}>
                           <AppleIcon className="h-4 w-4" aria-hidden="true" />
                           Apple
                         </button>
@@ -638,46 +751,14 @@ const LoginView = ({
               </details>
             )}
 
-            <div className="mt-5 flex items-start gap-3 rounded-xl border border-white/8 bg-white/[0.025] px-4 py-3 text-xs leading-5 text-slate-400" role="note">
+            <div className="login-security-note mt-5 flex items-start gap-3 rounded-xl border border-white/8 bg-white/[0.025] px-4 py-3 text-xs leading-5 text-slate-400" role="note">
               <Shield className="mt-0.5 h-4 w-4 shrink-0 text-neo-cyan" aria-hidden="true" />
               <span>{t('login.securityWarning', {}, 'Keep passwords and verification codes private. Aura support will never ask you to share a code.')}</span>
             </div>
           </>
         )}
 
-        {!isSessionCheckpointPending && !canUseDesktopBrowserSignIn && step === 'form' && (
-          <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-slate-400">
-            {mode === 'forgot-password' ? (
-              <>
-                {t('login.modeToggle.rememberPassword', {}, 'Remember your password?')}{' '}
-                <button
-                  type="button"
-                  onClick={() => switchMode('signin')}
-                  disabled={emergencyAuthDisabled}
-                  className={cn('rounded-md font-semibold text-neo-cyan transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
-                >
-                  {signInActionLabel}
-                </button>
-              </>
-            ) : (
-              <>
-                {mode === 'signin'
-                  ? t('login.modeToggle.noAccount', {}, "Don't have an account?")
-                  : t('login.modeToggle.haveAccount', {}, 'Already have an account?')}{' '}
-                <button
-                  type="button"
-                  onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
-                  disabled={(mode === 'signin' && emergencySignupDisabled) || (mode === 'signup' && emergencyAuthDisabled)}
-                  className={cn('rounded-md font-semibold text-neo-cyan transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
-                >
-                  {mode === 'signin' ? signUpActionLabel : signInActionLabel}
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        <p className="mt-6 text-center text-xs leading-5 text-slate-500">
+        <p className="login-terms mt-6 text-center text-xs leading-5 text-slate-500">
           {t('login.terms.prefix', {}, 'By continuing, you accept our')}{' '}
           <Link to="/terms" className={cn('rounded text-slate-300 underline decoration-white/30 underline-offset-2 transition-colors hover:text-white', focusRing)}>
             {t('login.terms.use', {}, 'Terms of Use')}
@@ -686,8 +767,10 @@ const LoginView = ({
           <Link to="/privacy" className={cn('rounded text-slate-300 underline decoration-white/30 underline-offset-2 transition-colors hover:text-white', focusRing)}>
             {t('login.terms.privacy', {}, 'Privacy Policy')}
           </Link>.
-        </p>
-      </section>
+            </p>
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

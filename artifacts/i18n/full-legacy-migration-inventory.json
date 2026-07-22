@@ -190,14 +190,12 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 159,
+      "messageIdCount": 157,
       "messageIds": [
         "common.action.continue",
-        "desktopLogin.consent.checkingPasskey",
-        "desktopLogin.consent.registerPasskey",
+        "desktopLogin.consent.checkingDevice",
         "desktopLogin.consent.submitting",
         "desktopLogin.consent.verifiedAccount",
-        "desktopLogin.consent.verifyPasskey",
         "login.acceleration.identity",
         "login.acceleration.identityBody",
         "login.acceleration.identityBodyFallback",
@@ -353,7 +351,7 @@
         "login.trust.signup.3"
       ],
       "risk": "high",
-      "stableLiteralCount": 170,
+      "stableLiteralCount": 168,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -1152,6 +1150,85 @@
     },
     {
       "dynamicLookupCount": 0,
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 65,
+      "messageIds": [
+        "login.action.backToRecoveryDetails",
+        "login.action.backToSignInDetails",
+        "login.action.forgotPassword",
+        "login.actionTemporarilyUnavailable",
+        "login.checkpoint.body",
+        "login.checkpoint.deviceTitle",
+        "login.checkpoint.mfaTitle",
+        "login.checkpoint.stayHere",
+        "login.desktopBrowser.button",
+        "login.desktopBrowser.cancel",
+        "login.desktopBrowser.startedDetail",
+        "login.desktopBrowser.startedTitle",
+        "login.desktopOwnerAccess.button",
+        "login.field.confirmPassword",
+        "login.field.email",
+        "login.field.fullName",
+        "login.field.newPassword",
+        "login.field.password",
+        "login.field.phone",
+        "login.field.registeredEmail",
+        "login.journey.access",
+        "login.journey.account",
+        "login.journey.details",
+        "login.journey.join",
+        "login.journey.label",
+        "login.journey.profile",
+        "login.journey.reset",
+        "login.journey.verify",
+        "login.memberAccess",
+        "login.modeToggle.haveAccount",
+        "login.modeToggle.noAccount",
+        "login.modeToggle.rememberPassword",
+        "login.offlineAction",
+        "login.offlineBody",
+        "login.otherOptions",
+        "login.otp.codeLabel",
+        "login.otp.compactDefault",
+        "login.otp.compactEmail",
+        "login.otp.compactPhone",
+        "login.otp.digitLabel",
+        "login.otp.resend",
+        "login.otp.resendIn",
+        "login.otp.title",
+        "login.password.placeholder",
+        "login.phone.inputLabel",
+        "login.phoneHint.compact",
+        "login.phoneHint.default",
+        "login.phoneHint.fallback",
+        "login.placeholder.email",
+        "login.placeholder.fullName",
+        "login.placeholder.phoneLocal",
+        "login.processing",
+        "login.reset.compactBody",
+        "login.reset.placeholder.confirmNewPassword",
+        "login.reset.placeholder.newPassword",
+        "login.secureSignIn",
+        "login.securityWarning",
+        "login.signup.placeholder.confirmPassword",
+        "login.social.duo",
+        "login.social.unavailableBody",
+        "login.social.useStandard",
+        "login.terms.middle",
+        "login.terms.prefix",
+        "login.terms.privacy",
+        "login.terms.use"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 69,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
       "file": "app/src/pages/DesktopLogin/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -1223,76 +1300,6 @@
       ],
       "risk": "high",
       "stableLiteralCount": 66,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
-    },
-    {
-      "dynamicLookupCount": 0,
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 56,
-      "messageIds": [
-        "login.action.backToRecoveryDetails",
-        "login.action.backToSignInDetails",
-        "login.action.forgotPassword",
-        "login.actionTemporarilyUnavailable",
-        "login.brand.initials",
-        "login.checkpoint.body",
-        "login.checkpoint.deviceTitle",
-        "login.checkpoint.mfaTitle",
-        "login.checkpoint.stayHere",
-        "login.desktopBrowser.button",
-        "login.desktopBrowser.cancel",
-        "login.desktopBrowser.startedDetail",
-        "login.desktopBrowser.startedTitle",
-        "login.desktopOwnerAccess.button",
-        "login.field.confirmPassword",
-        "login.field.email",
-        "login.field.fullName",
-        "login.field.newPassword",
-        "login.field.password",
-        "login.field.phone",
-        "login.field.phoneCountry",
-        "login.field.registeredEmail",
-        "login.modeToggle.haveAccount",
-        "login.modeToggle.noAccount",
-        "login.modeToggle.rememberPassword",
-        "login.otherOptions",
-        "login.otp.codeLabel",
-        "login.otp.compactDefault",
-        "login.otp.compactEmail",
-        "login.otp.compactPhone",
-        "login.otp.digitLabel",
-        "login.otp.resend",
-        "login.otp.resendIn",
-        "login.otp.title",
-        "login.password.placeholder",
-        "login.phone.inputLabel",
-        "login.phoneHint.compact",
-        "login.phoneHint.default",
-        "login.phoneHint.fallback",
-        "login.placeholder.email",
-        "login.placeholder.fullName",
-        "login.placeholder.phoneLocal",
-        "login.processing",
-        "login.reset.compactBody",
-        "login.reset.placeholder.confirmNewPassword",
-        "login.reset.placeholder.newPassword",
-        "login.secureSignIn",
-        "login.securityWarning",
-        "login.signup.placeholder.confirmPassword",
-        "login.social.duo",
-        "login.social.unavailableBody",
-        "login.social.useStandard",
-        "login.terms.middle",
-        "login.terms.prefix",
-        "login.terms.privacy",
-        "login.terms.use"
-      ],
-      "risk": "high",
-      "stableLiteralCount": 58,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -2049,6 +2056,57 @@
       ],
       "risk": "high",
       "stableLiteralCount": 14,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 12,
+      "messageIds": [
+        "login.brand.homeLabel",
+        "login.brand.initials",
+        "login.editorial.benefit.orders",
+        "login.editorial.benefit.personal",
+        "login.editorial.benefit.saved",
+        "login.editorial.benefitsLabel",
+        "login.editorial.copy",
+        "login.editorial.edition",
+        "login.editorial.eyebrow",
+        "login.editorial.label",
+        "login.editorial.title",
+        "login.editorial.trust"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 12,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 11,
+      "messageIds": [
+        "login.country.changeAriaLabel",
+        "login.country.close",
+        "login.country.controlLabel",
+        "login.country.noResults",
+        "login.country.panelEyebrow",
+        "login.country.panelLabel",
+        "login.country.panelTitle",
+        "login.country.results",
+        "login.country.resultsLabel",
+        "login.country.searchLabel",
+        "login.country.searchPlaceholder"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 11,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -5224,7 +5282,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-07-18T18:46:11.233Z",
+  "generatedAt": "2026-07-22T07:26:28.345Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -5313,7 +5371,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 286,
+      "line": 304,
       "reason": ""
     },
     {
@@ -5326,7 +5384,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 347,
+      "line": 365,
       "reason": ""
     },
     {
@@ -5339,7 +5397,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 348,
+      "line": 366,
       "reason": ""
     },
     {
@@ -5352,7 +5410,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 359,
+      "line": 377,
       "reason": ""
     },
     {
@@ -5365,7 +5423,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 361,
+      "line": 379,
       "reason": ""
     },
     {
@@ -5378,7 +5436,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 364,
+      "line": 382,
       "reason": ""
     },
     {
@@ -5391,7 +5449,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 367,
+      "line": 385,
       "reason": ""
     },
     {
@@ -5404,7 +5462,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 375,
+      "line": 393,
       "reason": ""
     },
     {
@@ -5417,7 +5475,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 392,
+      "line": 410,
       "reason": ""
     },
     {
@@ -5430,7 +5488,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 397,
+      "line": 415,
       "reason": ""
     },
     {
@@ -5443,7 +5501,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 432,
+      "line": 450,
       "reason": ""
     },
     {
@@ -5456,7 +5514,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 448,
+      "line": 466,
       "reason": ""
     },
     {
@@ -5469,7 +5527,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 469,
+      "line": 487,
       "reason": ""
     },
     {
@@ -5482,7 +5540,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 478,
+      "line": 496,
       "reason": ""
     },
     {
@@ -5495,7 +5553,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 489,
+      "line": 507,
       "reason": ""
     },
     {
@@ -5508,7 +5566,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 498,
+      "line": 516,
       "reason": ""
     },
     {
@@ -5521,7 +5579,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 502,
+      "line": 520,
       "reason": ""
     },
     {
@@ -29468,7 +29526,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 84,
+      "line": 86,
       "reason": ""
     },
     {
@@ -29481,7 +29539,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 97,
+      "line": 99,
       "reason": ""
     },
     {
@@ -29494,7 +29552,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 108,
+      "line": 110,
       "reason": ""
     },
     {
@@ -29507,7 +29565,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 113,
+      "line": 115,
       "reason": ""
     },
     {
@@ -29520,7 +29578,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 115,
+      "line": 117,
       "reason": ""
     },
     {
@@ -29533,7 +29591,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 120,
+      "line": 122,
       "reason": ""
     },
     {
@@ -29546,7 +29604,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 146,
+      "line": 148,
       "reason": ""
     },
     {
@@ -29559,7 +29617,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 157,
+      "line": 159,
       "reason": ""
     },
     {
@@ -29572,7 +29630,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 191,
+      "line": 193,
       "reason": ""
     },
     {
@@ -29585,7 +29643,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 205,
+      "line": 207,
       "reason": ""
     },
     {
@@ -29598,7 +29656,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 207,
+      "line": 209,
       "reason": ""
     },
     {
@@ -29611,7 +29669,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 213,
+      "line": 215,
       "reason": ""
     },
     {
@@ -29624,7 +29682,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 226,
+      "line": 228,
       "reason": ""
     },
     {
@@ -29637,7 +29695,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 227,
+      "line": 229,
       "reason": ""
     },
     {
@@ -29650,7 +29708,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 238,
+      "line": 240,
       "reason": ""
     },
     {
@@ -29663,33 +29721,33 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 241,
+      "line": 243,
       "reason": ""
     },
     {
       "column": 8,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Checking your Aura session",
+      "fallback": "Checking your browser session",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Checking your Aura session",
+      "icuDefaultMessage": "Checking your browser session",
       "id": "desktopLogin.hydration.title",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 269,
+      "line": 271,
       "reason": ""
     },
     {
       "column": 8,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Confirming whether this trusted browser is already signed in before showing the next secure step.",
+      "fallback": "Confirming your browser session before Aura verifies this device for the desktop handoff.",
       "file": "app/src/pages/DesktopLogin/index.jsx",
-      "icuDefaultMessage": "Confirming whether this trusted browser is already signed in before showing the next secure step.",
+      "icuDefaultMessage": "Confirming your browser session before Aura verifies this device for the desktop handoff.",
       "id": "desktopLogin.hydration.detail",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 272,
+      "line": 274,
       "reason": ""
     },
     {
@@ -29702,7 +29760,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 306,
+      "line": 319,
       "reason": ""
     },
     {
@@ -29715,7 +29773,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 309,
+      "line": 322,
       "reason": ""
     },
     {
@@ -29728,7 +29786,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 311,
+      "line": 324,
       "reason": ""
     },
     {
@@ -29741,7 +29799,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 312,
+      "line": 325,
       "reason": ""
     },
     {
@@ -29754,7 +29812,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 314,
+      "line": 327,
       "reason": ""
     },
     {
@@ -29767,7 +29825,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 316,
+      "line": 329,
       "reason": ""
     },
     {
@@ -29780,7 +29838,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 317,
+      "line": 330,
       "reason": ""
     },
     {
@@ -29793,7 +29851,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 319,
+      "line": 332,
       "reason": ""
     },
     {
@@ -29806,7 +29864,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 320,
+      "line": 333,
       "reason": ""
     },
     {
@@ -29819,7 +29877,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 379,
+      "line": 409,
       "reason": ""
     },
     {
@@ -29832,7 +29890,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 388,
+      "line": 418,
       "reason": ""
     },
     {
@@ -29845,7 +29903,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 398,
+      "line": 428,
       "reason": ""
     },
     {
@@ -29858,7 +29916,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 399,
+      "line": 429,
       "reason": ""
     },
     {
@@ -29871,7 +29929,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 409,
+      "line": 439,
       "reason": ""
     },
     {
@@ -29884,7 +29942,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 417,
+      "line": 447,
       "reason": ""
     },
     {
@@ -29897,7 +29955,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 424,
+      "line": 454,
       "reason": ""
     },
     {
@@ -29910,7 +29968,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 442,
+      "line": 472,
       "reason": ""
     },
     {
@@ -29923,7 +29981,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 459,
+      "line": 489,
       "reason": ""
     },
     {
@@ -29936,7 +29994,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 463,
+      "line": 493,
       "reason": ""
     },
     {
@@ -29949,7 +30007,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 473,
+      "line": 503,
       "reason": ""
     },
     {
@@ -29962,7 +30020,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 481,
+      "line": 511,
       "reason": ""
     },
     {
@@ -29975,7 +30033,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 482,
+      "line": 512,
       "reason": ""
     },
     {
@@ -29988,7 +30046,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 493,
+      "line": 523,
       "reason": ""
     },
     {
@@ -30001,7 +30059,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 503,
+      "line": 533,
       "reason": ""
     },
     {
@@ -30014,7 +30072,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 520,
+      "line": 550,
       "reason": ""
     },
     {
@@ -30027,7 +30085,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 525,
+      "line": 555,
       "reason": ""
     },
     {
@@ -30040,7 +30098,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 527,
+      "line": 557,
       "reason": ""
     },
     {
@@ -30053,7 +30111,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 528,
+      "line": 558,
       "reason": ""
     },
     {
@@ -30066,7 +30124,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 536,
+      "line": 566,
       "reason": ""
     },
     {
@@ -30079,7 +30137,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 557,
+      "line": 587,
       "reason": ""
     },
     {
@@ -30092,7 +30150,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 566,
+      "line": 596,
       "reason": ""
     },
     {
@@ -30105,7 +30163,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 581,
+      "line": 611,
       "reason": ""
     },
     {
@@ -30118,7 +30176,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 585,
+      "line": 615,
       "reason": ""
     },
     {
@@ -30131,7 +30189,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 595,
+      "line": 625,
       "reason": ""
     },
     {
@@ -30144,7 +30202,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 602,
+      "line": 632,
       "reason": ""
     },
     {
@@ -30157,7 +30215,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 612,
+      "line": 642,
       "reason": ""
     },
     {
@@ -30170,7 +30228,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 633,
+      "line": 663,
       "reason": ""
     },
     {
@@ -30183,7 +30241,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 635,
+      "line": 665,
       "reason": ""
     },
     {
@@ -30196,7 +30254,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 644,
+      "line": 674,
       "reason": ""
     },
     {
@@ -30209,7 +30267,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 645,
+      "line": 675,
       "reason": ""
     },
     {
@@ -30222,7 +30280,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 653,
+      "line": 683,
       "reason": ""
     },
     {
@@ -30235,7 +30293,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 654,
+      "line": 684,
       "reason": ""
     },
     {
@@ -30248,7 +30306,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 660,
+      "line": 690,
       "reason": ""
     },
     {
@@ -30261,7 +30319,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 669,
+      "line": 699,
       "reason": ""
     },
     {
@@ -30274,7 +30332,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 713,
+      "line": 743,
       "reason": ""
     },
     {
@@ -30287,7 +30345,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 725,
+      "line": 755,
       "reason": ""
     },
     {
@@ -30300,7 +30358,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 732,
+      "line": 762,
       "reason": ""
     },
     {
@@ -30313,7 +30371,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 745,
+      "line": 775,
       "reason": ""
     },
     {
@@ -33583,6 +33641,305 @@
       "reason": ""
     },
     {
+      "column": 17,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Aura home",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Aura home",
+      "id": "login.brand.homeLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 9,
+      "reason": ""
+    },
+    {
+      "column": 14,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "AR",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "AR",
+      "id": "login.brand.initials",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 12,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Your edit",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Your edit",
+      "id": "login.editorial.benefit.saved",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 22,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Order archive",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Order archive",
+      "id": "login.editorial.benefit.orders",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 27,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Private by design",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Private by design",
+      "id": "login.editorial.benefit.personal",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 32,
+      "reason": ""
+    },
+    {
+      "column": 19,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Aura member benefits",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Aura member benefits",
+      "id": "login.editorial.label",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 42,
+      "reason": ""
+    },
+    {
+      "column": 12,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Private access / 01",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Private access / 01",
+      "id": "login.editorial.edition",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 50,
+      "reason": ""
+    },
+    {
+      "column": 12,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Your Aura, held in one place",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Your Aura, held in one place",
+      "id": "login.editorial.eyebrow",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 56,
+      "reason": ""
+    },
+    {
+      "column": 14,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Everything you chose. Still here.",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Everything you chose. Still here.",
+      "id": "login.editorial.title",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 58,
+      "reason": ""
+    },
+    {
+      "column": 12,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Saved pieces, orders, preferences, and the next thing worth finding—remembered privately.",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Saved pieces, orders, preferences, and the next thing worth finding—remembered privately.",
+      "id": "login.editorial.copy",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 60,
+      "reason": ""
+    },
+    {
+      "column": 63,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Member benefits",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Member benefits",
+      "id": "login.editorial.benefitsLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 67,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Protected by multi-step verification",
+      "file": "app/src/pages/Login/BrandVisualPanel.jsx",
+      "icuDefaultMessage": "Protected by multi-step verification",
+      "id": "login.editorial.trust",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 78,
+      "reason": ""
+    },
+    {
+      "column": 21,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Change country code: {country} {dialCode}",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Change country code: {country} {dialCode}",
+      "id": "login.country.changeAriaLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 123,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Country code",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Country code",
+      "id": "login.country.controlLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 136,
+      "reason": ""
+    },
+    {
+      "column": 128,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Choose country code",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Choose country code",
+      "id": "login.country.panelLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 146,
+      "reason": ""
+    },
+    {
+      "column": 21,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Phone verification",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Phone verification",
+      "id": "login.country.panelEyebrow",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 149,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Choose country code",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Choose country code",
+      "id": "login.country.panelTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 150,
+      "reason": ""
+    },
+    {
+      "column": 118,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Close country code picker",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Close country code picker",
+      "id": "login.country.close",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 152,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Search countries or dial codes",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Search countries or dial codes",
+      "id": "login.country.searchLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 158,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Search country, code, or +91",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Search country, code, or +91",
+      "id": "login.country.searchPlaceholder",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 171,
+      "reason": ""
+    },
+    {
+      "column": 41,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "countries available",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "countries available",
+      "id": "login.country.results",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 177,
+      "reason": ""
+    },
+    {
+      "column": 89,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Country code results",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "Country code results",
+      "id": "login.country.resultsLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 181,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "No country codes match that search.",
+      "file": "app/src/pages/Login/CountryCodePicker.jsx",
+      "icuDefaultMessage": "No country codes match that search.",
+      "id": "login.country.noResults",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 207,
+      "reason": ""
+    },
+    {
       "column": 12,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "If the account details are valid, continue with OTP verification.",
@@ -33596,6 +33953,136 @@
       "reason": ""
     },
     {
+      "column": 9,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Account",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Account",
+      "id": "login.journey.account",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 48,
+      "reason": ""
+    },
+    {
+      "column": 9,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verify",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Verify",
+      "id": "login.journey.verify",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 49,
+      "reason": ""
+    },
+    {
+      "column": 9,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Reset",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Reset",
+      "id": "login.journey.reset",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 50,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Profile",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Profile",
+      "id": "login.journey.profile",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 54,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verify",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Verify",
+      "id": "login.journey.verify",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 55,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Join",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Join",
+      "id": "login.journey.join",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 56,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Details",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Details",
+      "id": "login.journey.details",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 59,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Verify",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Verify",
+      "id": "login.journey.verify",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 60,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Access",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Access",
+      "id": "login.journey.access",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 61,
+      "reason": ""
+    },
+    {
+      "column": 48,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Secure access progress",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Secure access progress",
+      "id": "login.journey.label",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 65,
+      "reason": ""
+    },
+    {
       "column": 27,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Processing",
@@ -33605,7 +34092,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 107,
+      "line": 169,
       "reason": ""
     },
     {
@@ -33618,24 +34105,24 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Temporarily Unavailable",
-      "line": 108,
+      "line": 170,
+      "reason": ""
+    },
+    {
+      "column": 7,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Reconnect to continue",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Reconnect to continue",
+      "id": "login.offlineAction",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 172,
       "reason": ""
     },
     {
       "column": 18,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "AR",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "AR",
-      "id": "login.brand.initials",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 153,
-      "reason": ""
-    },
-    {
-      "column": 16,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Secure sign-in",
       "file": "app/src/pages/Login/LoginView.jsx",
@@ -33644,7 +34131,33 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 159,
+      "line": 216,
+      "reason": ""
+    },
+    {
+      "column": 18,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Aura member access",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Aura member access",
+      "id": "login.memberAccess",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 222,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "You are offline. Your details stay here; reconnect to continue securely.",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "You are offline. Your details stay here; reconnect to continue securely.",
+      "id": "login.offlineBody",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 266,
       "reason": ""
     },
     {
@@ -33657,7 +34170,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 206,
+      "line": 283,
       "reason": ""
     },
     {
@@ -33670,7 +34183,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 207,
+      "line": 284,
       "reason": ""
     },
     {
@@ -33683,7 +34196,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 210,
+      "line": 287,
       "reason": ""
     },
     {
@@ -33696,7 +34209,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 217,
+      "line": 294,
       "reason": ""
     },
     {
@@ -33709,7 +34222,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 225,
+      "line": 302,
       "reason": ""
     },
     {
@@ -33722,7 +34235,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 228,
+      "line": 305,
       "reason": ""
     },
     {
@@ -33735,7 +34248,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 243,
+      "line": 320,
       "reason": ""
     },
     {
@@ -33748,7 +34261,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 252,
+      "line": 329,
       "reason": ""
     },
     {
@@ -33761,7 +34274,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 264,
+      "line": 341,
       "reason": ""
     },
     {
@@ -33774,7 +34287,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 278,
+      "line": 361,
       "reason": ""
     },
     {
@@ -33787,7 +34300,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 288,
+      "line": 371,
       "reason": ""
     },
     {
@@ -33800,7 +34313,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 299,
+      "line": 382,
       "reason": ""
     },
     {
@@ -33813,7 +34326,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 300,
+      "line": 383,
       "reason": ""
     },
     {
@@ -33826,7 +34339,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 310,
+      "line": 393,
       "reason": ""
     },
     {
@@ -33839,33 +34352,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 319,
+      "line": 402,
       "reason": ""
     },
     {
-      "column": 26,
+      "column": 28,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Country calling code",
+      "fallback": "Phone number",
       "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Country calling code",
-      "id": "login.field.phoneCountry",
+      "icuDefaultMessage": "Phone number",
+      "id": "login.field.phone",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 324,
-      "reason": ""
-    },
-    {
-      "column": 37,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Country calling code",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Country calling code",
-      "id": "login.field.phoneCountry",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 332,
+      "line": 415,
       "reason": ""
     },
     {
@@ -33878,7 +34378,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 347,
+      "line": 423,
       "reason": ""
     },
     {
@@ -33891,7 +34391,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 350,
+      "line": 427,
       "reason": ""
     },
     {
@@ -33904,7 +34404,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 360,
+      "line": 438,
       "reason": ""
     },
     {
@@ -33917,7 +34417,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 362,
+      "line": 440,
       "reason": ""
     },
     {
@@ -33930,7 +34430,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 363,
+      "line": 441,
       "reason": ""
     },
     {
@@ -33943,7 +34443,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 371,
+      "line": 449,
       "reason": ""
     },
     {
@@ -33956,7 +34456,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 380,
+      "line": 458,
       "reason": ""
     },
     {
@@ -33969,7 +34469,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 392,
+      "line": 470,
       "reason": ""
     },
     {
@@ -33982,7 +34482,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 411,
+      "line": 490,
       "reason": ""
     },
     {
@@ -33995,7 +34495,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 421,
+      "line": 500,
       "reason": ""
     },
     {
@@ -34008,7 +34508,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 435,
+      "line": 514,
       "reason": ""
     },
     {
@@ -34021,7 +34521,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 439,
+      "line": 518,
       "reason": ""
     },
     {
@@ -34036,7 +34536,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 442,
+      "line": 521,
       "reason": ""
     },
     {
@@ -34051,7 +34551,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 444,
+      "line": 523,
       "reason": ""
     },
     {
@@ -34064,7 +34564,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 445,
+      "line": 524,
       "reason": ""
     },
     {
@@ -34077,7 +34577,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 450,
+      "line": 529,
       "reason": ""
     },
     {
@@ -34092,7 +34592,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 465,
+      "line": 544,
       "reason": ""
     },
     {
@@ -34107,7 +34607,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 479,
+      "line": 559,
       "reason": ""
     },
     {
@@ -34120,7 +34620,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 488,
+      "line": 568,
       "reason": ""
     },
     {
@@ -34133,7 +34633,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 499,
+      "line": 579,
       "reason": ""
     },
     {
@@ -34146,7 +34646,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 502,
+      "line": 582,
       "reason": ""
     },
     {
@@ -34159,7 +34659,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 507,
+      "line": 587,
       "reason": ""
     },
     {
@@ -34172,7 +34672,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 517,
+      "line": 597,
       "reason": ""
     },
     {
@@ -34185,7 +34685,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 534,
+      "line": 615,
       "reason": ""
     },
     {
@@ -34198,7 +34698,46 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 544,
+      "line": 625,
+      "reason": ""
+    },
+    {
+      "column": 22,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Remember your password?",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Remember your password?",
+      "id": "login.modeToggle.rememberPassword",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 662,
+      "reason": ""
+    },
+    {
+      "column": 25,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Don't have an account?",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Don't have an account?",
+      "id": "login.modeToggle.noAccount",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 675,
+      "reason": ""
+    },
+    {
+      "column": 25,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Already have an account?",
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "icuDefaultMessage": "Already have an account?",
+      "id": "login.modeToggle.haveAccount",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 676,
       "reason": ""
     },
     {
@@ -34211,7 +34750,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 580,
+      "line": 693,
       "reason": ""
     },
     {
@@ -34224,7 +34763,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 592,
+      "line": 705,
       "reason": ""
     },
     {
@@ -34237,7 +34776,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 633,
+      "line": 746,
       "reason": ""
     },
     {
@@ -34250,7 +34789,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 634,
+      "line": 747,
       "reason": ""
     },
     {
@@ -34263,46 +34802,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 643,
-      "reason": ""
-    },
-    {
-      "column": 18,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Remember your password?",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Remember your password?",
-      "id": "login.modeToggle.rememberPassword",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 652,
-      "reason": ""
-    },
-    {
-      "column": 21,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Don't have an account?",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Don't have an account?",
-      "id": "login.modeToggle.noAccount",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 665,
-      "reason": ""
-    },
-    {
-      "column": 21,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Already have an account?",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Already have an account?",
-      "id": "login.modeToggle.haveAccount",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 666,
+      "line": 756,
       "reason": ""
     },
     {
@@ -34315,7 +34815,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 681,
+      "line": 762,
       "reason": ""
     },
     {
@@ -34328,7 +34828,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 683,
+      "line": 764,
       "reason": ""
     },
     {
@@ -34341,7 +34841,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 685,
+      "line": 766,
       "reason": ""
     },
     {
@@ -34354,37 +34854,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 687,
+      "line": 768,
       "reason": ""
     },
     {
-      "column": 11,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Verify passkey & continue",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Verify passkey & continue",
-      "id": "desktopLogin.consent.verifyPasskey",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 673,
-      "reason": ""
-    },
-    {
-      "column": 11,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Register passkey & continue",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Register passkey & continue",
-      "id": "desktopLogin.consent.registerPasskey",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 674,
-      "reason": ""
-    },
-    {
-      "column": 7,
+      "column": 44,
       "defaultMessageSource": "call-site-fallback",
       "fallback": "Continue",
       "file": "app/src/pages/Login/useLoginController.js",
@@ -34393,20 +34867,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 676,
+      "line": 670,
       "reason": ""
     },
     {
       "column": 7,
       "defaultMessageSource": "call-site-fallback",
-      "fallback": "Checking passkey",
+      "fallback": "Checking this browser",
       "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Checking passkey",
-      "id": "desktopLogin.consent.checkingPasskey",
+      "icuDefaultMessage": "Checking this browser",
+      "id": "desktopLogin.consent.checkingDevice",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 678,
+      "line": 672,
       "reason": ""
     },
     {
@@ -34419,7 +34893,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 679,
+      "line": 673,
       "reason": ""
     },
     {
@@ -34432,7 +34906,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 687,
+      "line": 681,
       "reason": ""
     },
     {
@@ -34445,7 +34919,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 782,
+      "line": 833,
       "reason": ""
     },
     {
@@ -34458,7 +34932,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 783,
+      "line": 834,
       "reason": ""
     },
     {
@@ -34471,7 +34945,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 873,
+      "line": 922,
       "reason": ""
     },
     {
@@ -34484,7 +34958,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 931,
+      "line": 980,
       "reason": ""
     },
     {
@@ -34497,7 +34971,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1315,
+      "line": 1423,
       "reason": ""
     },
     {
@@ -34510,7 +34984,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1317,
+      "line": 1425,
       "reason": ""
     },
     {
@@ -34523,7 +34997,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1318,
+      "line": 1426,
       "reason": ""
     },
     {
@@ -34536,7 +35010,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1320,
+      "line": 1428,
       "reason": ""
     },
     {
@@ -34549,7 +35023,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1322,
+      "line": 1430,
       "reason": ""
     },
     {
@@ -34562,7 +35036,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1323,
+      "line": 1431,
       "reason": ""
     },
     {
@@ -34575,7 +35049,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1332,
+      "line": 1440,
       "reason": ""
     },
     {
@@ -34588,7 +35062,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1333,
+      "line": 1441,
       "reason": ""
     },
     {
@@ -34603,7 +35077,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1335,
+      "line": 1443,
       "reason": ""
     },
     {
@@ -34618,7 +35092,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1336,
+      "line": 1444,
       "reason": ""
     },
     {
@@ -34631,7 +35105,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1342,
+      "line": 1450,
       "reason": ""
     },
     {
@@ -34646,7 +35120,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1343,
+      "line": 1451,
       "reason": ""
     },
     {
@@ -34659,7 +35133,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1350,
+      "line": 1458,
       "reason": ""
     },
     {
@@ -34672,7 +35146,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1351,
+      "line": 1459,
       "reason": ""
     },
     {
@@ -34685,7 +35159,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1353,
+      "line": 1461,
       "reason": ""
     },
     {
@@ -34698,7 +35172,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1354,
+      "line": 1462,
       "reason": ""
     },
     {
@@ -34711,7 +35185,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1359,
+      "line": 1467,
       "reason": ""
     },
     {
@@ -34724,7 +35198,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1361,
+      "line": 1469,
       "reason": ""
     },
     {
@@ -34737,7 +35211,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1362,
+      "line": 1470,
       "reason": ""
     },
     {
@@ -34750,7 +35224,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1482,
+      "line": 1590,
       "reason": ""
     },
     {
@@ -34763,7 +35237,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1483,
+      "line": 1591,
       "reason": ""
     },
     {
@@ -34776,7 +35250,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1484,
+      "line": 1592,
       "reason": ""
     },
     {
@@ -34789,7 +35263,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1485,
+      "line": 1593,
       "reason": ""
     },
     {
@@ -34802,7 +35276,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1486,
+      "line": 1594,
       "reason": ""
     },
     {
@@ -34815,7 +35289,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1487,
+      "line": 1595,
       "reason": ""
     },
     {
@@ -34828,7 +35302,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1488,
+      "line": 1596,
       "reason": ""
     },
     {
@@ -34841,7 +35315,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1494,
+      "line": 1602,
       "reason": ""
     },
     {
@@ -34854,7 +35328,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1498,
+      "line": 1606,
       "reason": ""
     },
     {
@@ -34867,7 +35341,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1502,
+      "line": 1610,
       "reason": ""
     },
     {
@@ -34880,7 +35354,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1503,
+      "line": 1611,
       "reason": ""
     },
     {
@@ -34893,7 +35367,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1504,
+      "line": 1612,
       "reason": ""
     },
     {
@@ -34906,7 +35380,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1513,
+      "line": 1621,
       "reason": ""
     },
     {
@@ -34919,7 +35393,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1514,
+      "line": 1622,
       "reason": ""
     },
     {
@@ -34932,7 +35406,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1515,
+      "line": 1623,
       "reason": ""
     },
     {
@@ -34945,7 +35419,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1518,
+      "line": 1626,
       "reason": ""
     },
     {
@@ -34958,7 +35432,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1519,
+      "line": 1627,
       "reason": ""
     },
     {
@@ -34971,7 +35445,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1527,
+      "line": 1635,
       "reason": ""
     },
     {
@@ -34984,7 +35458,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1590,
+      "line": 1698,
       "reason": ""
     },
     {
@@ -34997,7 +35471,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1629,
+      "line": 1737,
       "reason": ""
     },
     {
@@ -35010,7 +35484,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1666,
+      "line": 1774,
       "reason": ""
     },
     {
@@ -35023,7 +35497,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1700,
+      "line": 1808,
       "reason": ""
     },
     {
@@ -35036,7 +35510,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1761,
+      "line": 1869,
       "reason": ""
     },
     {
@@ -35049,7 +35523,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1895,
+      "line": 2003,
       "reason": ""
     },
     {
@@ -35062,7 +35536,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1896,
+      "line": 2004,
       "reason": ""
     },
     {
@@ -35075,7 +35549,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1903,
+      "line": 2011,
       "reason": ""
     },
     {
@@ -35088,7 +35562,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1905,
+      "line": 2013,
       "reason": ""
     },
     {
@@ -35101,7 +35575,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1907,
+      "line": 2015,
       "reason": ""
     },
     {
@@ -35114,7 +35588,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1908,
+      "line": 2016,
       "reason": ""
     },
     {
@@ -35127,7 +35601,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1914,
+      "line": 2022,
       "reason": ""
     },
     {
@@ -35140,7 +35614,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1916,
+      "line": 2024,
       "reason": ""
     },
     {
@@ -35153,7 +35627,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1918,
+      "line": 2026,
       "reason": ""
     },
     {
@@ -35166,7 +35640,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1919,
+      "line": 2027,
       "reason": ""
     },
     {
@@ -35179,7 +35653,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1924,
+      "line": 2032,
       "reason": ""
     },
     {
@@ -35192,7 +35666,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1926,
+      "line": 2034,
       "reason": ""
     },
     {
@@ -35207,7 +35681,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1927,
+      "line": 2035,
       "reason": ""
     },
     {
@@ -35220,7 +35694,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1927,
+      "line": 2035,
       "reason": ""
     },
     {
@@ -35233,7 +35707,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1934,
+      "line": 2042,
       "reason": ""
     },
     {
@@ -35246,7 +35720,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1936,
+      "line": 2044,
       "reason": ""
     },
     {
@@ -35259,7 +35733,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1938,
+      "line": 2046,
       "reason": ""
     },
     {
@@ -35272,7 +35746,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1939,
+      "line": 2047,
       "reason": ""
     },
     {
@@ -35285,7 +35759,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1943,
+      "line": 2051,
       "reason": ""
     },
     {
@@ -35298,7 +35772,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1945,
+      "line": 2053,
       "reason": ""
     },
     {
@@ -35311,7 +35785,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1947,
+      "line": 2055,
       "reason": ""
     },
     {
@@ -35324,7 +35798,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1948,
+      "line": 2056,
       "reason": ""
     },
     {
@@ -35337,7 +35811,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1952,
+      "line": 2060,
       "reason": ""
     },
     {
@@ -35350,7 +35824,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1954,
+      "line": 2062,
       "reason": ""
     },
     {
@@ -35363,7 +35837,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1956,
+      "line": 2064,
       "reason": ""
     },
     {
@@ -35376,7 +35850,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1957,
+      "line": 2065,
       "reason": ""
     },
     {
@@ -35389,7 +35863,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1965,
+      "line": 2073,
       "reason": ""
     },
     {
@@ -35402,7 +35876,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1966,
+      "line": 2074,
       "reason": ""
     },
     {
@@ -35415,7 +35889,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1967,
+      "line": 2075,
       "reason": ""
     },
     {
@@ -35428,7 +35902,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1975,
+      "line": 2083,
       "reason": ""
     },
     {
@@ -35441,7 +35915,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1977,
+      "line": 2085,
       "reason": ""
     },
     {
@@ -35454,7 +35928,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1978,
+      "line": 2086,
       "reason": ""
     },
     {
@@ -35467,7 +35941,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1979,
+      "line": 2087,
       "reason": ""
     },
     {
@@ -35480,7 +35954,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1980,
+      "line": 2088,
       "reason": ""
     },
     {
@@ -35493,7 +35967,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1987,
+      "line": 2095,
       "reason": ""
     },
     {
@@ -35506,7 +35980,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1989,
+      "line": 2097,
       "reason": ""
     },
     {
@@ -35519,7 +35993,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1990,
+      "line": 2098,
       "reason": ""
     },
     {
@@ -35532,7 +36006,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1991,
+      "line": 2099,
       "reason": ""
     },
     {
@@ -35545,7 +36019,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1992,
+      "line": 2100,
       "reason": ""
     },
     {
@@ -35558,7 +36032,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1997,
+      "line": 2105,
       "reason": ""
     },
     {
@@ -35571,7 +36045,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1998,
+      "line": 2106,
       "reason": ""
     },
     {
@@ -35584,7 +36058,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 1999,
+      "line": 2107,
       "reason": ""
     },
     {
@@ -35597,7 +36071,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2006,
+      "line": 2114,
       "reason": ""
     },
     {
@@ -35610,7 +36084,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2008,
+      "line": 2116,
       "reason": ""
     },
     {
@@ -35623,7 +36097,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2009,
+      "line": 2117,
       "reason": ""
     },
     {
@@ -35636,7 +36110,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2010,
+      "line": 2118,
       "reason": ""
     },
     {
@@ -35649,7 +36123,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2011,
+      "line": 2119,
       "reason": ""
     },
     {
@@ -35662,7 +36136,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2018,
+      "line": 2126,
       "reason": ""
     },
     {
@@ -35675,7 +36149,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2020,
+      "line": 2128,
       "reason": ""
     },
     {
@@ -35688,7 +36162,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2021,
+      "line": 2129,
       "reason": ""
     },
     {
@@ -35701,7 +36175,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2022,
+      "line": 2130,
       "reason": ""
     },
     {
@@ -35714,7 +36188,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2023,
+      "line": 2131,
       "reason": ""
     },
     {
@@ -35727,7 +36201,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2029,
+      "line": 2137,
       "reason": ""
     },
     {
@@ -35740,7 +36214,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2031,
+      "line": 2139,
       "reason": ""
     },
     {
@@ -35753,7 +36227,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2032,
+      "line": 2140,
       "reason": ""
     },
     {
@@ -35766,7 +36240,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2033,
+      "line": 2141,
       "reason": ""
     },
     {
@@ -35779,7 +36253,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2034,
+      "line": 2142,
       "reason": ""
     },
     {
@@ -35792,7 +36266,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2046,
+      "line": 2154,
       "reason": ""
     },
     {
@@ -35805,7 +36279,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2046,
+      "line": 2154,
       "reason": ""
     },
     {
@@ -35818,7 +36292,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2046,
+      "line": 2154,
       "reason": ""
     },
     {
@@ -35831,7 +36305,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2048,
+      "line": 2156,
       "reason": ""
     },
     {
@@ -35844,7 +36318,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2050,
+      "line": 2158,
       "reason": ""
     },
     {
@@ -35857,7 +36331,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2051,
+      "line": 2159,
       "reason": ""
     },
     {
@@ -35870,7 +36344,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2054,
+      "line": 2162,
       "reason": ""
     },
     {
@@ -35883,7 +36357,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2056,
+      "line": 2164,
       "reason": ""
     },
     {
@@ -35896,7 +36370,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2058,
+      "line": 2166,
       "reason": ""
     },
     {
@@ -35909,7 +36383,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2060,
+      "line": 2168,
       "reason": ""
     },
     {
@@ -35922,7 +36396,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2062,
+      "line": 2170,
       "reason": ""
     },
     {
@@ -35935,7 +36409,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2063,
+      "line": 2171,
       "reason": ""
     },
     {
@@ -35948,7 +36422,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2063,
+      "line": 2171,
       "reason": ""
     },
     {
@@ -35961,7 +36435,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2066,
+      "line": 2174,
       "reason": ""
     },
     {
@@ -35974,7 +36448,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2068,
+      "line": 2176,
       "reason": ""
     },
     {
@@ -35987,7 +36461,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2071,
+      "line": 2179,
       "reason": ""
     },
     {
@@ -36000,7 +36474,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2072,
+      "line": 2180,
       "reason": ""
     },
     {
@@ -36013,7 +36487,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2073,
+      "line": 2181,
       "reason": ""
     },
     {
@@ -36026,7 +36500,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2076,
+      "line": 2184,
       "reason": ""
     },
     {
@@ -36041,7 +36515,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{providers}} ready",
-      "line": 2079,
+      "line": 2187,
       "reason": ""
     },
     {
@@ -36054,7 +36528,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2080,
+      "line": 2188,
       "reason": ""
     },
     {
@@ -36067,7 +36541,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2082,
+      "line": 2190,
       "reason": ""
     },
     {
@@ -36080,7 +36554,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2084,
+      "line": 2192,
       "reason": ""
     },
     {
@@ -36095,7 +36569,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2085,
+      "line": 2193,
       "reason": ""
     },
     {
@@ -36108,7 +36582,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2085,
+      "line": 2193,
       "reason": ""
     },
     {
@@ -36121,7 +36595,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2112,
+      "line": 2220,
       "reason": ""
     },
     {
@@ -36134,7 +36608,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2113,
+      "line": 2221,
       "reason": ""
     },
     {
@@ -36147,7 +36621,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2114,
+      "line": 2222,
       "reason": ""
     },
     {
@@ -36162,7 +36636,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2116,
+      "line": 2224,
       "reason": ""
     },
     {
@@ -36175,7 +36649,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2122,
+      "line": 2230,
       "reason": ""
     },
     {
@@ -36192,7 +36666,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2124,
+      "line": 2232,
       "reason": ""
     },
     {
@@ -36205,7 +36679,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2129,
+      "line": 2237,
       "reason": ""
     },
     {
@@ -36221,7 +36695,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2133,
+      "line": 2241,
       "reason": ""
     },
     {
@@ -36234,7 +36708,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2137,
+      "line": 2245,
       "reason": ""
     },
     {
@@ -36247,7 +36721,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2145,
+      "line": 2253,
       "reason": ""
     },
     {
@@ -36260,7 +36734,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2149,
+      "line": 2257,
       "reason": ""
     },
     {
@@ -36273,7 +36747,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2165,
+      "line": 2273,
       "reason": ""
     },
     {
@@ -36286,7 +36760,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2231,
+      "line": 2339,
       "reason": ""
     },
     {
@@ -36299,7 +36773,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2243,
+      "line": 2351,
       "reason": ""
     },
     {
@@ -36312,7 +36786,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2244,
+      "line": 2352,
       "reason": ""
     },
     {
@@ -36325,7 +36799,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2271,
+      "line": 2379,
       "reason": ""
     },
     {
@@ -36338,7 +36812,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2279,
+      "line": 2387,
       "reason": ""
     },
     {
@@ -36351,7 +36825,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2280,
+      "line": 2388,
       "reason": ""
     },
     {
@@ -36364,7 +36838,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2387,
+      "line": 2530,
       "reason": ""
     },
     {
@@ -36377,7 +36851,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2394,
+      "line": 2537,
       "reason": ""
     },
     {
@@ -36390,7 +36864,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2395,
+      "line": 2538,
       "reason": ""
     },
     {
@@ -36403,7 +36877,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2420,
+      "line": 2563,
       "reason": ""
     },
     {
@@ -36416,7 +36890,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2434,
+      "line": 2577,
       "reason": ""
     },
     {
@@ -36429,7 +36903,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2437,
+      "line": 2580,
       "reason": ""
     },
     {
@@ -36442,7 +36916,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2439,
+      "line": 2582,
       "reason": ""
     },
     {
@@ -36455,7 +36929,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2440,
+      "line": 2583,
       "reason": ""
     },
     {
@@ -36468,7 +36942,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2441,
+      "line": 2584,
       "reason": ""
     },
     {
@@ -36481,7 +36955,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2443,
+      "line": 2586,
       "reason": ""
     },
     {
@@ -36494,7 +36968,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2443,
+      "line": 2586,
       "reason": ""
     },
     {
@@ -36507,7 +36981,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2446,
+      "line": 2589,
       "reason": ""
     },
     {
@@ -36520,7 +36994,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2447,
+      "line": 2590,
       "reason": ""
     },
     {
@@ -36533,7 +37007,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2447,
+      "line": 2590,
       "reason": ""
     },
     {
@@ -36546,7 +37020,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2448,
+      "line": 2591,
       "reason": ""
     },
     {
@@ -36559,7 +37033,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2448,
+      "line": 2591,
       "reason": ""
     },
     {
@@ -36572,7 +37046,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2449,
+      "line": 2592,
       "reason": ""
     },
     {
@@ -36585,7 +37059,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 2449,
+      "line": 2592,
       "reason": ""
     },
     {
@@ -54766,15 +55240,15 @@
     "dynamicLookupReferences": 14,
     "legacyPackInternalFiles": 21,
     "parseErrors": 0,
-    "productionFiles": 81,
-    "productionStableReferences": 3748,
+    "productionFiles": 83,
+    "productionStableReferences": 3780,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 364,
+    "sourceFilesScanned": 366,
     "testHarnessReferences": 4,
-    "totalTrackedFiles": 113,
-    "uniqueProductionStableIds": 3391,
+    "totalTrackedFiles": 115,
+    "uniqueProductionStableIds": 3421,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -56275,15 +56749,13 @@
     "desktopLogin.action.temporarilyUnavailable",
     "desktopLogin.action.waitingForBrowser",
     "desktopLogin.consent.accountFallback",
-    "desktopLogin.consent.checkingPasskey",
+    "desktopLogin.consent.checkingDevice",
     "desktopLogin.consent.passkeyStatus",
-    "desktopLogin.consent.registerPasskey",
     "desktopLogin.consent.security",
     "desktopLogin.consent.status",
     "desktopLogin.consent.submitting",
     "desktopLogin.consent.title",
     "desktopLogin.consent.verifiedAccount",
-    "desktopLogin.consent.verifyPasskey",
     "desktopLogin.field.confirmPassword",
     "desktopLogin.field.email",
     "desktopLogin.field.fullName",
@@ -56622,11 +57094,23 @@
     "login.action.backToSignInDetails",
     "login.action.forgotPassword",
     "login.actionTemporarilyUnavailable",
+    "login.brand.homeLabel",
     "login.brand.initials",
     "login.checkpoint.body",
     "login.checkpoint.deviceTitle",
     "login.checkpoint.mfaTitle",
     "login.checkpoint.stayHere",
+    "login.country.changeAriaLabel",
+    "login.country.close",
+    "login.country.controlLabel",
+    "login.country.noResults",
+    "login.country.panelEyebrow",
+    "login.country.panelLabel",
+    "login.country.panelTitle",
+    "login.country.results",
+    "login.country.resultsLabel",
+    "login.country.searchLabel",
+    "login.country.searchPlaceholder",
     "login.desktopBrowser.button",
     "login.desktopBrowser.cancel",
     "login.desktopBrowser.completingDetail",
@@ -56644,6 +57128,16 @@
     "login.desktopOwnerAccess.startedDetail",
     "login.desktopOwnerAccess.startedTitle",
     "login.desktopOwnerAccess.unavailable",
+    "login.editorial.benefit.orders",
+    "login.editorial.benefit.personal",
+    "login.editorial.benefit.saved",
+    "login.editorial.benefitsLabel",
+    "login.editorial.copy",
+    "login.editorial.edition",
+    "login.editorial.eyebrow",
+    "login.editorial.label",
+    "login.editorial.title",
+    "login.editorial.trust",
     "login.error.alreadySignedIn",
     "login.error.emailRequired",
     "login.error.emailValid",
@@ -56665,7 +57159,6 @@
     "login.field.newPassword",
     "login.field.password",
     "login.field.phone",
-    "login.field.phoneCountry",
     "login.field.registeredEmail",
     "login.info.forgot.dual",
     "login.info.forgot.fallback",
@@ -56693,9 +57186,20 @@
     "login.info.signup.fallback",
     "login.info.signup.single",
     "login.info.signup.title",
+    "login.journey.access",
+    "login.journey.account",
+    "login.journey.details",
+    "login.journey.join",
+    "login.journey.label",
+    "login.journey.profile",
+    "login.journey.reset",
+    "login.journey.verify",
+    "login.memberAccess",
     "login.modeToggle.haveAccount",
     "login.modeToggle.noAccount",
     "login.modeToggle.rememberPassword",
+    "login.offlineAction",
+    "login.offlineBody",
     "login.otherOptions",
     "login.otp.backend.checkForCode.title",
     "login.otp.backend.codeResent.detail",

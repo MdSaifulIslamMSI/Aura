@@ -1,11 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import LoginView from './LoginView';
 
 const t = (_id, values = {}, defaultMessage = '') => Object.entries(values).reduce(
-  (message, [key, value]) => message.replaceAll(`{${key}}`, String(value)),
+  (message, [key, value]) => message
+    .replaceAll(`{{${key}}}`, String(value))
+    .replaceAll(`{${key}}`, String(value)),
   defaultMessage
 );
 
@@ -48,11 +50,11 @@ const buildProps = (overrides = {}) => ({
   otpTransport: 'backend_otp',
   otpValues: ['', '', '', '', '', ''],
   phoneCountryCode: 'IN',
-  phoneCountryOptions: [{ countryCode: 'IN', dialCode: '+91', flag: 'IN', label: 'India +91' }],
+  phoneCountryOptions: [{ countryCode: 'IN', dialCode: '+91', flag: 'IN', name: 'India', label: 'India +91' }],
   phoneLocalValue: '',
   recaptchaContainerRef: { current: null },
   secureSignals: [],
-  selectedPhoneCountry: { dialCode: '+91' },
+  selectedPhoneCountry: { countryCode: 'IN', dialCode: '+91', flag: 'IN', name: 'India' },
   sessionStatus: 'signed_out',
   setShowPassword: vi.fn(),
   showPassword: false,
@@ -82,6 +84,10 @@ const renderView = (props) => render(
   </IntlProvider>
 );
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('LoginView desktop browser-only mode', () => {
   it('does not render local email, phone, or password controls in Electron', () => {
     const props = buildProps();
@@ -108,6 +114,20 @@ describe('LoginView desktop browser-only mode', () => {
 });
 
 describe('LoginView ordinary-user sign-in', () => {
+  it('presents a branded editorial entry without replacing the real sign-in controls', () => {
+    const view = renderView(buildProps({ canUseDesktopBrowserSignIn: false }));
+
+    expect(view.container.querySelector('aside[aria-label="Aura member benefits"]')).toBeInTheDocument();
+    expect(screen.getByText('Everything you chose. Still here.')).toBeInTheDocument();
+    expect(screen.getByText('Your edit')).toBeInTheDocument();
+    expect(screen.getByText('Order archive')).toBeInTheDocument();
+    expect(screen.getByText('Private by design')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Secure access progress' })).toHaveTextContent('01Details02Verify03Access');
+    expect(screen.getByText('Details').closest('li')).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByLabelText('Email address')).toHaveAttribute('autocomplete', 'username');
+    expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'current-password');
+  });
+
   it('keeps the primary flow compact, labelled, and keyboard-focusable', () => {
     const props = buildProps({
       accelerationCards: [{ title: 'Resume faster' }],
@@ -121,7 +141,8 @@ describe('LoginView ordinary-user sign-in', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Welcome back' })).toBeInTheDocument();
     expect(screen.getByLabelText('Email address')).toBeInTheDocument();
     expect(screen.getByLabelText(/phone number \+91/i)).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'IN +91' })).toBeInTheDocument();
+    const countryPicker = screen.getByRole('button', { name: /change country code: india \+91/i });
+    expect(countryPicker).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
 
     const submit = screen.getByRole('button', { name: 'SEND EMAIL + PHONE OTP' });
@@ -133,9 +154,92 @@ describe('LoginView ordinary-user sign-in', () => {
     expect(screen.queryByText(/Rate limits and audit logs/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Aura support will never ask you to share a code/i)).toBeInTheDocument();
 
+    fireEvent.click(countryPicker);
+    expect(screen.getByRole('dialog', { name: 'Choose country code' })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Search countries or dial codes' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: /india\s*in \+91/i }));
+    expect(props.handlePhoneCountryChange).toHaveBeenCalledWith({ target: { value: 'IN' } });
+
     fireEvent.click(screen.getByText('Other secure sign-in options'));
     expect(screen.getByRole('button', { name: 'Continue with Duo' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Google' })).toBeInTheDocument();
+  });
+
+  it('makes country search easy to reach', () => {
+    const props = buildProps({
+      canUseDesktopBrowserSignIn: false,
+      phoneCountryOptions: [
+        { countryCode: 'IN', dialCode: '+91', flag: 'IN', name: 'India', label: 'India +91' },
+        { countryCode: 'US', dialCode: '+1', flag: 'US', name: 'United States', label: 'United States +1' },
+      ],
+    });
+    renderView(props);
+
+    fireEvent.click(screen.getByRole('button', { name: /change country code: india \+91/i }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search countries or dial codes' }), {
+      target: { value: 'united' },
+    });
+    expect(screen.queryByRole('option', { name: /india/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: /united states\s*us \+1/i }));
+    expect(props.handlePhoneCountryChange).toHaveBeenCalledWith({ target: { value: 'US' } });
+  });
+
+  it('exposes the password toggle state and preserves the loading button size', () => {
+    const props = buildProps({
+      canUseDesktopBrowserSignIn: false,
+      isLoading: true,
+    });
+    renderView(props);
+
+    const passwordToggle = screen.getByRole('button', { name: /show password/i });
+    expect(passwordToggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(passwordToggle);
+    expect(props.setShowPassword).toHaveBeenCalledWith(true);
+
+    const submit = screen.getByRole('button', { name: 'Processing' });
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveClass('login-primary-button');
+    expect(submit.closest('form')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('announces offline status and prevents network-backed sign-in actions', () => {
+    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    renderView(buildProps({
+      canUseDesktopBrowserSignIn: false,
+      isDuoLoginEnabled: true,
+    }));
+
+    expect(screen.getByRole('status')).toHaveTextContent(/your details stay here/i);
+    expect(screen.getByRole('button', { name: 'Reconnect to continue' })).toBeDisabled();
+
+    fireEvent.click(screen.getByText('Other secure sign-in options'));
+    expect(screen.getByRole('button', { name: 'Continue with Duo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Google' })).toBeDisabled();
+  });
+
+  it('labels error and success states for stable visual feedback', () => {
+    const errorView = renderView(buildProps({
+      canUseDesktopBrowserSignIn: false,
+      authError: {
+        title: 'Too many sign-in attempts',
+        detail: 'Please wait a few minutes before trying again.',
+      },
+    }));
+
+    expect(errorView.container.querySelector('[data-auth-state="error"]')).toBeInTheDocument();
+    expect(screen.getByText('Too many sign-in attempts')).toBeInTheDocument();
+    errorView.unmount();
+
+    const successView = renderView(buildProps({
+      canUseDesktopBrowserSignIn: false,
+      authSuccess: {
+        title: 'Welcome back',
+        detail: 'Your secure sign-in is complete.',
+      },
+    }));
+
+    expect(successView.container.querySelector('[data-auth-state="success"]')).toBeInTheDocument();
+    expect(screen.getByText('Your secure sign-in is complete.')).toBeInTheDocument();
   });
 
   it('holds the route on a focused device checkpoint instead of showing the form again', () => {

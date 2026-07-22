@@ -46,6 +46,7 @@ try {
     const indexHtml = fs.readFileSync(path.join(distDir, 'index.html'), 'utf8');
     const initialAssets = parseInitialAssets(indexHtml);
     const initialJsAssets = initialAssets.filter((assetPath) => assetPath.endsWith('.js'));
+    const initialCssAssets = initialAssets.filter((assetPath) => assetPath.endsWith('.css'));
 
     const resolveAssetGzipKb = (relativePath) => {
         const filePath = path.join(distDir, relativePath);
@@ -63,6 +64,17 @@ try {
         { file: '', gzipKb: 0 }
     );
     const totalCssGzipKb = Number(cssAssets.reduce((sum, asset) => sum + asset.gzipKb, 0).toFixed(2));
+    const initialCssGzipKb = Number(initialCssAssets.reduce(
+        (sum, assetPath) => sum + resolveAssetGzipKb(assetPath),
+        0
+    ).toFixed(2));
+    const initialCssAssetSet = new Set(initialCssAssets);
+    const lazyCssAssets = cssAssets.filter((asset) => !initialCssAssetSet.has(formatAssetName(asset.file)));
+    const lazyCssGzipKb = Number(lazyCssAssets.reduce((sum, asset) => sum + asset.gzipKb, 0).toFixed(2));
+    const largestLazyCssAsset = lazyCssAssets.reduce(
+        (largest, asset) => (asset.gzipKb > largest.gzipKb ? asset : largest),
+        { file: '', gzipKb: 0 }
+    );
     const initialPayloadGzipKb = Number(initialAssets.reduce((sum, assetPath) => sum + resolveAssetGzipKb(assetPath), 0).toFixed(2));
 
     const violations = [];
@@ -75,6 +87,12 @@ try {
     }
     if (totalCssGzipKb > budgets.bundle.maxTotalCssGzipKb) {
         violations.push(`total css gzip ${totalCssGzipKb}kb > ${budgets.bundle.maxTotalCssGzipKb}kb`);
+    }
+    if (initialCssGzipKb > budgets.bundle.maxInitialCssGzipKb) {
+        violations.push(`initial css gzip ${initialCssGzipKb}kb > ${budgets.bundle.maxInitialCssGzipKb}kb`);
+    }
+    if (largestLazyCssAsset.gzipKb > budgets.bundle.maxLargestLazyCssGzipKb) {
+        violations.push(`largest lazy css gzip ${largestLazyCssAsset.gzipKb}kb > ${budgets.bundle.maxLargestLazyCssGzipKb}kb`);
     }
     if (initialPayloadGzipKb > budgets.mobile.maxInitialPayloadGzipKb) {
         violations.push(`initial payload gzip ${initialPayloadGzipKb}kb > ${budgets.mobile.maxInitialPayloadGzipKb}kb`);
@@ -90,6 +108,12 @@ try {
             gzipKb: largestJsAsset.gzipKb,
         },
         totalCssGzipKb,
+        initialCssGzipKb,
+        lazyCssGzipKb,
+        largestLazyCssAsset: {
+            file: largestLazyCssAsset.file ? formatAssetName(largestLazyCssAsset.file) : '',
+            gzipKb: largestLazyCssAsset.gzipKb,
+        },
         initialPayloadGzipKb,
         note: `Manual mobile guardrails remain: maxInteractionBlockingMs=${budgets.mobile.maxInteractionBlockingMs}, minTapTargetPx=${budgets.mobile.minTapTargetPx}`,
     }, null, 2));
