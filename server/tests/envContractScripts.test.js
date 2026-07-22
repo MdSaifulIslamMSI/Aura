@@ -948,6 +948,43 @@ describe('repo environment contract scripts', () => {
         expect(sanitizerIndex).toBeLessThan(guardIndex);
     });
 
+    test('live staging EC2 resolver rewrites stale EC2 URLs for smoke jobs', () => {
+        const githubEnv = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'aura-github-env-')), 'env');
+        const result = runScript('scripts/staging/resolve-live-ec2-url.mjs', {
+            GITHUB_ENV: githubEnv,
+            STAGING_EC2_INSTANCE_JSON: JSON.stringify({
+                PublicDnsName: 'ec2-43-205-214-241.ap-south-1.compute.amazonaws.com',
+            }),
+            STAGING_BASE_URL: 'http://ec2-13-201-55-118.ap-south-1.compute.amazonaws.com',
+            STAGING_FRONTEND_URL: 'http://ec2-13-201-55-118.ap-south-1.compute.amazonaws.com',
+        });
+
+        expect(result.status).toBe(0);
+        const written = fs.readFileSync(githubEnv, 'utf8');
+        expect(written).toContain('STAGING_BASE_URL=http://ec2-43-205-214-241.ap-south-1.compute.amazonaws.com');
+        expect(written).toContain('STAGING_API_BASE_URL=http://ec2-43-205-214-241.ap-south-1.compute.amazonaws.com');
+        expect(written).toContain('STAGING_HEALTH_URL=http://ec2-43-205-214-241.ap-south-1.compute.amazonaws.com/health');
+        expect(written).toContain('STAGING_FRONTEND_URL=http://ec2-43-205-214-241.ap-south-1.compute.amazonaws.com');
+        expect(written).toContain('SMOKE_BASE_URL=http://ec2-43-205-214-241.ap-south-1.compute.amazonaws.com');
+    });
+
+    test('live staging EC2 resolver preserves non-EC2 staging frontend URLs', () => {
+        const githubEnv = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'aura-github-env-')), 'env');
+        const result = runScript('scripts/staging/resolve-live-ec2-url.mjs', {
+            GITHUB_ENV: githubEnv,
+            STAGING_EC2_INSTANCE_JSON: JSON.stringify({
+                PublicDnsName: 'ec2-43-205-214-241.ap-south-1.compute.amazonaws.com',
+            }),
+            STAGING_BASE_URL: 'http://ec2-13-201-55-118.ap-south-1.compute.amazonaws.com',
+            STAGING_FRONTEND_URL: 'https://aura-staging-preview.vercel.app',
+        });
+
+        expect(result.status).toBe(0);
+        const written = fs.readFileSync(githubEnv, 'utf8');
+        expect(written).toContain('STAGING_BASE_URL=http://ec2-43-205-214-241.ap-south-1.compute.amazonaws.com');
+        expect(written).toContain('STAGING_FRONTEND_URL=https://aura-staging-preview.vercel.app');
+    });
+
     test('staging IAM operator grants only the Cost Explorer read used by cost watch', () => {
         const iamScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-create-iam-auth.sh'), 'utf8');
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
@@ -957,6 +994,15 @@ describe('repo environment contract scripts', () => {
         expect(iamScript).not.toMatch(/ce:\*/);
         expect(iamScript).toMatch(/ce:GetCostForecast/);
         expect(workflow).toMatch(/ALLOW_NO_COST_WATCH:\s*\$\{\{\s*vars\.ALLOW_NO_COST_WATCH \|\| 'true'\s*\}\}/);
+    });
+
+    test('staging smoke workflows resolve live EC2 URLs before smoke checks', () => {
+        for (const workflowName of ['staging-ops-watch.yml', 'staging-frontend-smoke.yml', 'staging-smoke.yml']) {
+            const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', workflowName), 'utf8');
+            expect(workflow).toMatch(/Configure AWS credentials for live staging URL resolution/);
+            expect(workflow).toMatch(/Resolve live staging EC2 URLs/);
+            expect(workflow).toMatch(/scripts\/staging\/resolve-live-ec2-url\.mjs/);
+        }
     });
 
     test('Vercel staging autopilot stops before Preview deploy when env writes fail', () => {

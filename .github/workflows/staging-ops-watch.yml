@@ -44,6 +44,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Configure AWS credentials for live staging URL resolution
+        id: aws_credentials
+        if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' }}
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-staging-ops-watch
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Resolve live staging EC2 URLs
+        if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' && steps.aws_credentials.outcome == 'success' }}
+        run: node scripts/staging/resolve-live-ec2-url.mjs
+
       - name: Validate staging contract and prod fallback scan
         run: |
           npm run env:validate
@@ -56,11 +72,10 @@ jobs:
 
       - name: Run live staging DAST baseline
         env:
-          STAGING_URL: ${{ vars.STAGING_FRONTEND_URL || vars.STAGING_BASE_URL }}
           FREE_SECURITY_SCANNERS_REQUIRED: "true"
           FREE_SECURITY_ZAP_BASELINE_REQUIRED: "true"
           FREE_SECURITY_ZAP_BASELINE_WARN_ONLY: ${{ vars.STAGING_DAST_WARN_ONLY || 'true' }}
-        run: npm run security:free-scanners -- --only=zap-baseline
+        run: STAGING_URL="${STAGING_FRONTEND_URL:-${STAGING_BASE_URL}}" npm run security:free-scanners -- --only=zap-baseline
 
       - name: Upload live staging DAST reports
         if: always()
@@ -74,18 +89,6 @@ jobs:
             security-reports/zap-baseline.stderr.txt
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Configure AWS credentials for optional cost watch
-        id: aws_credentials
-        if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' }}
-        continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
-          role-session-name: aura-staging-ops-watch
-          mask-aws-account-id: true
-          unset-current-credentials: true
 
       - name: Report optional cost watch AWS credential failure
         if: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN != '' && steps.aws_credentials.outcome != 'success' }}
