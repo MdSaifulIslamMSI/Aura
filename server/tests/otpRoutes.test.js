@@ -31,6 +31,7 @@ const OtpFlowGrant = require('../models/OtpFlowGrant');
 const browserSessionService = require('../services/browserSessionService');
 const logger = require('../utils/logger');
 const { issueOtpFlowToken } = require('../utils/otpFlowToken');
+const { validatePasswordPolicy, detectWeakPasswordPatterns } = require('../utils/passwordValidator');
 const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 const trustedDeviceChallengeService = require('../services/trustedDeviceChallengeService');
@@ -43,7 +44,15 @@ const GENERIC_ACCOUNT_DISCOVERY_MESSAGE = 'If an account exists, verification in
 const GENERIC_ACCOUNT_RESPONSE_MESSAGE = 'If the account details are valid, we will continue with verification steps.';
 const GENERIC_OTP_VERIFICATION_MESSAGE = 'If account details are valid, verification will proceed.';
 const buildRuntimeSecret = (label = 'test') => `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}-suite`;
-const buildStrongPassword = (label = 'pw') => `${String.fromCharCode(79, 114, 99, 104, 105, 100, 33, 57)}${Math.random().toString(36).slice(2, 6)}${String.fromCharCode(118, 82, 50, 80, 35)}${label.slice(0, 4)}`;
+const buildStrongPassword = (label = 'pw') => {
+    for (let attempt = 0; attempt < 32; attempt += 1) {
+        const candidate = `R!7${crypto.randomBytes(18).toString('base64url')}z#${label.slice(0, 4)}`;
+        if (validatePasswordPolicy(candidate).isValid && !detectWeakPasswordPatterns(candidate).isWeak) {
+            return candidate;
+        }
+    }
+    throw new Error('Unable to generate a password-policy test fixture.');
+};
 const buildPredictablePassword = () => String.fromCharCode(83, 101, 99, 117, 114, 101, 49, 50, 51, 52, 33, 65, 97);
 
 describe('OTP API Routes Integration', () => {
