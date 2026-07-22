@@ -8933,6 +8933,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Temporarily Unavailable",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "login.brand.homeLabel": {
+        id: "login.brand.homeLabel",
+        defaultMessage: "Aura home",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "login.brand.initials": {
         id: "login.brand.initials",
         defaultMessage: "AR",
@@ -8956,6 +8961,61 @@ export const stableUiMessages = defineMessages({
     "login.checkpoint.stayHere": {
         id: "login.checkpoint.stayHere",
         defaultMessage: "Keep this page open. Do not submit your sign-in details again.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.changeAriaLabel": {
+        id: "login.country.changeAriaLabel",
+        defaultMessage: "Change country code: {country} {dialCode}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.close": {
+        id: "login.country.close",
+        defaultMessage: "Close country code picker",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.controlLabel": {
+        id: "login.country.controlLabel",
+        defaultMessage: "Country code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.noResults": {
+        id: "login.country.noResults",
+        defaultMessage: "No country codes match that search.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.panelEyebrow": {
+        id: "login.country.panelEyebrow",
+        defaultMessage: "Phone verification",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.panelLabel": {
+        id: "login.country.panelLabel",
+        defaultMessage: "Choose country code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.panelTitle": {
+        id: "login.country.panelTitle",
+        defaultMessage: "Choose country code",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.results": {
+        id: "login.country.results",
+        defaultMessage: "countries available",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.resultsLabel": {
+        id: "login.country.resultsLabel",
+        defaultMessage: "Country code results",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.searchLabel": {
+        id: "login.country.searchLabel",
+        defaultMessage: "Search countries or dial codes",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.country.searchPlaceholder": {
+        id: "login.country.searchPlaceholder",
+        defaultMessage: "Search country, code, or +91",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.desktopBrowser.button": {
@@ -9041,6 +9101,56 @@ export const stableUiMessages = defineMessages({
     "login.desktopOwnerAccess.unavailable": {
         id: "login.desktopOwnerAccess.unavailable",
         defaultMessage: "Desktop owner access is not configured for this app.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.benefit.orders": {
+        id: "login.editorial.benefit.orders",
+        defaultMessage: "Order archive",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.benefit.personal": {
+        id: "login.editorial.benefit.personal",
+        defaultMessage: "Private by design",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.benefit.saved": {
+        id: "login.editorial.benefit.saved",
+        defaultMessage: "Your edit",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.benefitsLabel": {
+        id: "login.editorial.benefitsLabel",
+        defaultMessage: "Member benefits",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.copy": {
+        id: "login.editorial.copy",
+        defaultMessage: "Saved pieces, orders, preferences, and the next thing worth finding—remembered privately.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.edition": {
+        id: "login.editorial.edition",
+        defaultMessage: "Private access / 01",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.eyebrow": {
+        id: "login.editorial.eyebrow",
+        defaultMessage: "Your Aura, held in one place",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.label": {
+        id: "login.editorial.label",
+        defaultMessage: "Aura member benefits",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.title": {
+        id: "login.editorial.title",
+        defaultMessage: "Everything you chose. Still here.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.editorial.trust": {
+        id: "login.editorial.trust",
+        defaultMessage: "Protected by multi-step verification",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.error.alreadySignedIn": {
@@ -9146,11 +9256,6 @@ export const stableUiMessages = defineMessages({
     "login.field.phone": {
         id: "login.field.phone",
         defaultMessage: "Phone number",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "login.field.phoneCountry": {
-        id: "login.field.phoneCountry",
-        defaultMessage: "Country calling code",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.field.registeredEmail": {
@@ -9288,6 +9393,51 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "CREATE ACCOUNT",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "login.journey.access": {
+        id: "login.journey.access",
+        defaultMessage: "Access",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.journey.account": {
+        id: "login.journey.account",
+        defaultMessage: "Account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.journey.details": {
+        id: "login.journey.details",
+        defaultMessage: "Details",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.journey.join": {
+        id: "login.journey.join",
+        defaultMessage: "Join",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.journey.label": {
+        id: "login.journey.label",
+        defaultMessage: "Secure access progress",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.journey.profile": {
+        id: "login.journey.profile",
+        defaultMessage: "Profile",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.journey.reset": {
+        id: "login.journey.reset",
+        defaultMessage: "Reset",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.journey.verify": {
+        id: "login.journey.verify",
+        defaultMessage: "Verify",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.memberAccess": {
+        id: "login.memberAccess",
+        defaultMessage: "Aura member access",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "login.modeToggle.haveAccount": {
         id: "login.modeToggle.haveAccount",
         defaultMessage: "Already have an account?",
@@ -9301,6 +9451,16 @@ export const stableUiMessages = defineMessages({
     "login.modeToggle.rememberPassword": {
         id: "login.modeToggle.rememberPassword",
         defaultMessage: "Remember your password?",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.offlineAction": {
+        id: "login.offlineAction",
+        defaultMessage: "Reconnect to continue",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "login.offlineBody": {
+        id: "login.offlineBody",
+        defaultMessage: "You are offline. Your details stay here; reconnect to continue securely.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "login.otherOptions": {
