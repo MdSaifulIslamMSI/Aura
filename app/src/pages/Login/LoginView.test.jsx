@@ -26,6 +26,7 @@ const buildProps = (overrides = {}) => ({
   goBack: vi.fn(),
   handleChange: vi.fn(),
   handleCancelDesktopBrowserSignIn: vi.fn(),
+  handleDesktopAdminSignIn: vi.fn(),
   handleDesktopBrowserSignIn: vi.fn(),
   handleDesktopOwnerAccessSignIn: vi.fn(),
   handleDuoSignIn: vi.fn(),
@@ -97,7 +98,7 @@ describe('LoginView desktop browser-only mode', () => {
     expect(screen.queryByLabelText(/phone number/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/^password/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /continue in browser/i }));
+    fireEvent.click(screen.getByRole('button', { name: /account/i }));
     expect(props.handleDesktopBrowserSignIn).toHaveBeenCalledOnce();
   });
 

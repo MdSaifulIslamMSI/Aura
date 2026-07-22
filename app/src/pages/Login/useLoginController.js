@@ -584,6 +584,7 @@ export const useLoginController = () => {
   const authAccelerationHydratedRef = useRef(false);
   const initialResolvedAuthRedirectCheckedRef = useRef(false);
   const authenticatedNavigationTimerRef = useRef(null);
+  const pendingAuthDestinationRef = useRef('');
   const desktopBrowserHandoffCompletedRef = useRef(null);
   const desktopBrowserHandoffKeyRef = useRef('');
   const desktopBrowserHandoffPreflightAttemptRef = useRef('');
@@ -982,7 +983,8 @@ export const useLoginController = () => {
     });
   };
 
-  const finishAuthAndNavigate = (successState) => {
+  const finishAuthAndNavigate = (successState, destination = from) => {
+    pendingAuthDestinationRef.current = resolveNavigationTarget(destination, from);
     setAuthSuccess(null);
     setPendingAuthSuccess(successState);
   };
@@ -1138,7 +1140,9 @@ export const useLoginController = () => {
       setPendingAuthSuccess(null);
       authenticatedNavigationTimerRef.current = setTimeout(() => {
         authenticatedNavigationTimerRef.current = null;
-        navigate(from, { replace: true });
+        const destination = pendingAuthDestinationRef.current || from;
+        pendingAuthDestinationRef.current = '';
+        navigate(destination, { replace: true });
       }, 1200);
       return;
     }
@@ -2334,7 +2338,12 @@ export const useLoginController = () => {
     }
   };
 
-  const handleDesktopBrowserSignIn = async () => {
+  const startDesktopBrowserSignIn = async ({
+    destination = from,
+    startedTitle = t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser'),
+    startedDetail = t('login.desktopBrowser.startedDetail', {}, 'In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.'),
+    providerLabel = 'desktop browser',
+  } = {}) => {
     if (!canUseDesktopBrowserSignIn) {
       setErr({ message: t('login.desktopBrowser.unavailable', {}, 'Desktop browser sign-in is available only in the Aura desktop app.') });
       return;
@@ -2348,22 +2357,23 @@ export const useLoginController = () => {
     setIsLoading(true);
     setAuthError(null);
     setAuthSuccess({
-      title: t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser'),
-      detail: t('login.desktopBrowser.startedDetail', {}, 'In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.'),
+      title: startedTitle,
+      detail: startedDetail,
     });
 
+    const returnTo = resolveNavigationTarget(destination, from);
     try {
       const result = await signInWithDesktopBrowser({
-        returnTo: from,
+        returnTo,
         signal: abortController.signal,
         onRequestStarted: ({ requestId = '' } = {}) => setDesktopBrowserRequestId(requestId),
       });
       if (!result?.redirecting) {
-        finishAuthAndNavigate(resolveAuthSuccess('signin_success', t));
+        finishAuthAndNavigate(resolveAuthSuccess('signin_success', t), returnTo);
       }
     } catch (error) {
       setAuthSuccess(null);
-      setErr(normalizeSocialAuthError(error, 'desktop browser', socialAuthStatus));
+      setErr(normalizeSocialAuthError(error, providerLabel, socialAuthStatus));
     } finally {
       if (desktopBrowserAbortControllerRef.current === abortController) {
         desktopBrowserAbortControllerRef.current = null;
@@ -2373,6 +2383,19 @@ export const useLoginController = () => {
       setIsLoading(false);
     }
   };
+
+  const handleDesktopBrowserSignIn = () => startDesktopBrowserSignIn();
+
+  const handleDesktopAdminSignIn = () => startDesktopBrowserSignIn({
+    destination: '/admin/dashboard',
+    startedTitle: t('auth.trustedDevice.eyebrow.admin', {}, 'Admin access'),
+    startedDetail: t(
+      'profile.settings.devices.adminBody',
+      {},
+      'Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.'
+    ),
+    providerLabel: 'desktop admin browser',
+  });
 
   const handleReopenDesktopBrowserSignIn = async () => {
     if (!desktopBrowserRequestId || typeof reopenDesktopBrowserSignIn !== 'function') {
@@ -2642,6 +2665,7 @@ export const useLoginController = () => {
     handleResendOtp,
     handleDuoSignIn,
     isDuoLoginEnabled,
+    handleDesktopAdminSignIn,
     handleDesktopBrowserSignIn,
     handleReopenDesktopBrowserSignIn,
     handleCancelDesktopBrowserSignIn,

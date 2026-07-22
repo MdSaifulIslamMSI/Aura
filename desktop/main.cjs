@@ -21,9 +21,9 @@ const {
 } = require('./securityPolicy.cjs');
 const {
     buildDesktopStartupUrl,
+    evaluateDesktopStartup,
     loadWindowUrlSafely,
     revealWindow,
-    runWithTimeout,
 } = require('./startupReliability.cjs');
 
 let mainWindow = null;
@@ -37,7 +37,6 @@ let updateReadyPromptShown = false;
 const isMac = process.platform === 'darwin';
 const APP_ID = 'com.aura.marketplace.desktop';
 const UPDATE_CHECK_DELAY_MS = 8000;
-const STARTUP_CACHE_CLEAR_TIMEOUT_MS = 5000;
 const STARTUP_WINDOW_REVEAL_TIMEOUT_MS = 8000;
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 const UPDATE_FOCUS_THROTTLE_MS = 30 * 60 * 1000;
@@ -244,19 +243,6 @@ const getInitialWindowBounds = () => {
     };
 };
 
-const clearDesktopRuntimeWebCaches = async (runtimeUrl = '') => {
-    try {
-        const origin = new URL(runtimeUrl).origin;
-        await session.defaultSession.clearStorageData({
-            origin,
-            storages: ['serviceworkers', 'cachestorage'],
-        });
-        await session.defaultSession.clearCache();
-    } catch (error) {
-        console.warn('[desktop] unable to clear local runtime web caches:', error?.message || error);
-    }
-};
-
 const installDesktopPermissionPolicy = () => {
     const defaultSession = session.defaultSession;
 
@@ -339,6 +325,7 @@ const buildUpdateErrorMessage = (error) => {
 };
 
 const createMainWindow = async () => {
+    const startupStartedAt = Date.now();
     const iconPath = resolveIconPath();
     const initialBounds = getInitialWindowBounds();
     mainWindow = new BrowserWindow({
@@ -425,19 +412,6 @@ const createMainWindow = async () => {
         runtime = await startRuntimeServer(runtimeOptions);
     }
     if (activeWindow.isDestroyed()) return null;
-    try {
-        await runWithTimeout(
-            () => clearDesktopRuntimeWebCaches(runtime.url),
-            STARTUP_CACHE_CLEAR_TIMEOUT_MS,
-            'Desktop cache cleanup timed out.'
-        );
-    } catch (error) {
-        console.warn('[desktop] continuing after cache cleanup timeout:', error?.message || error);
-    }
-
-    if (activeWindow.isDestroyed()) {
-        return null;
-    }
 
     const guardMainFrameNavigation = (event, url) => {
         if (isInternalUrl(url, runtime.url)) {
@@ -507,6 +481,18 @@ const createMainWindow = async () => {
         activeWindow,
         buildDesktopStartupUrl(runtime.url, app.getVersion())
     );
+    if (appLoaded) {
+        const startup = evaluateDesktopStartup({
+            startedAt: startupStartedAt,
+            finishedAt: Date.now(),
+        });
+        const message = `[desktop:sre] startup ready in ${startup.durationMs}ms (budget ${startup.budgetMs}ms).`;
+        if (startup.withinBudget) {
+            console.info(message);
+        } else {
+            console.warn(message);
+        }
+    }
     return appLoaded ? activeWindow : null;
 };
 

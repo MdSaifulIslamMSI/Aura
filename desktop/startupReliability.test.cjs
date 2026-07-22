@@ -2,11 +2,28 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+    DEFAULT_DESKTOP_STARTUP_BUDGET_MS,
     buildDesktopStartupUrl,
+    evaluateDesktopStartup,
     loadWindowUrlSafely,
     revealWindow,
     runWithTimeout,
 } = require('./startupReliability.cjs');
+
+test('desktop startup telemetry classifies the end-to-end startup budget', () => {
+    assert.deepEqual(
+        evaluateDesktopStartup({ startedAt: 100, finishedAt: 2500 }),
+        {
+            budgetMs: DEFAULT_DESKTOP_STARTUP_BUDGET_MS,
+            durationMs: 2400,
+            withinBudget: true,
+        }
+    );
+    assert.equal(
+        evaluateDesktopStartup({ startedAt: 100, finishedAt: 3201 }).withinBudget,
+        false
+    );
+});
 
 test('desktop startup enters the local sign-in route without changing the runtime origin', () => {
     assert.equal(

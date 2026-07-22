@@ -241,6 +241,20 @@ const DesktopBrowserCancelProbe = () => {
   );
 };
 
+const DesktopAdminSignInProbe = () => {
+  const {
+    canUseDesktopBrowserSignIn,
+    handleDesktopAdminSignIn,
+  } = useLoginController();
+
+  return (
+    <>
+      <button type="button" onClick={handleDesktopAdminSignIn}>Start admin sign-in</button>
+      <div data-testid="desktop-admin-supported">{String(canUseDesktopBrowserSignIn)}</div>
+    </>
+  );
+};
+
 const DesktopOwnerAccessFailureProbe = () => {
   const {
     authError,
@@ -961,6 +975,52 @@ describe('useLoginController', () => {
       signal: expect.any(AbortSignal),
     }));
     expect(signInWithDesktopOwnerAccess).toHaveBeenCalled();
+  });
+
+  it('routes the explicit desktop admin choice through browser auth without granting a client-side role', async () => {
+    getFirebaseSocialAuthStatusMock.mockReturnValue({
+      ready: true,
+      supported: true,
+      runtimeHost: 'localhost',
+      runtimeBlocked: false,
+      redirectPreferred: false,
+      runtimeIpHost: false,
+      disabledByConfig: false,
+      initErrorCode: '',
+      initErrorMessage: '',
+      runtimeElectronDesktop: true,
+    });
+
+    const signInWithDesktopBrowser = vi.fn().mockResolvedValue({ redirecting: true });
+    window.auraDesktop = {
+      isDesktop: true,
+      getAppInfo: vi.fn().mockResolvedValue({ ownerAccessSignInAvailable: false }),
+    };
+
+    render(
+      <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+        <AuthContext.Provider value={buildAuthValue({ signInWithDesktopBrowser })}>
+          <MemoryRouter initialEntries={['/login']}>
+            <Routes>
+              <Route path="/login" element={<DesktopAdminSignInProbe />} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </MarketProvider>
+    );
+
+    expect(screen.getByTestId('desktop-admin-supported')).toHaveTextContent('true');
+    fireEvent.click(screen.getByRole('button', { name: /start admin sign-in/i }));
+
+    await waitFor(() => {
+      expect(signInWithDesktopBrowser).toHaveBeenCalledWith(expect.objectContaining({
+        returnTo: '/admin/dashboard',
+        signal: expect.any(AbortSignal),
+      }));
+    });
+
+    expect(signInWithDesktopBrowser.mock.calls[0][0]).not.toHaveProperty('role');
+    expect(signInWithDesktopBrowser.mock.calls[0][0]).not.toHaveProperty('isAdmin');
   });
 
   it('exposes reopen and cancel actions while desktop browser sign-in is waiting', async () => {
