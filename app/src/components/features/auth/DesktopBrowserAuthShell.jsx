@@ -165,7 +165,7 @@ const DesktopBrowserAuthShell = ({
               {t('login.desktopBrowser.welcomeTitle', {}, 'Welcome back')}
             </h1>
             <p className="mt-3 max-w-sm text-base leading-6 text-slate-400">
-              {t('login.desktopBrowser.desktopDetail', {}, 'Choose an account path, then complete Aura sign-in securely in your browser.')}
+              {t('login.desktopBrowser.desktopDetail', {}, 'Use your browser to complete Aura sign-in securely.')}
             </p>
 
             <div className="mt-9 w-full space-y-4">
@@ -203,7 +203,7 @@ const DesktopBrowserAuthShell = ({
                     {t(
                       'profile.settings.devices.adminBody',
                       {},
-                      'Passkey or MFA verification is always required for privileged access.'
+                      'Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.'
                     )}
                   </span>
                 </span>
