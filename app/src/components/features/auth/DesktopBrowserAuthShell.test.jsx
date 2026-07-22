@@ -15,6 +15,7 @@ const buildProps = (overrides = {}) => ({
   desktopBrowserSignInPending: false,
   emergencyAuthDisabled: false,
   handleCancelDesktopBrowserSignIn: vi.fn(),
+  handleDesktopAdminSignIn: vi.fn(),
   handleDesktopBrowserSignIn: vi.fn(),
   handleDesktopOwnerAccessSignIn: vi.fn(),
   handleReopenDesktopBrowserSignIn: vi.fn(),
@@ -42,8 +43,11 @@ describe('DesktopBrowserAuthShell', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.getByText(/Aura support will never ask/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /continue in browser/i }));
+    fireEvent.click(screen.getByRole('button', { name: /account/i }));
+    fireEvent.click(screen.getByRole('button', { name: /admin portal/i }));
     expect(props.handleDesktopBrowserSignIn).toHaveBeenCalledOnce();
+    expect(props.handleDesktopAdminSignIn).toHaveBeenCalledOnce();
+    expect(screen.getByRole('link', { name: /open marketplace/i })).toHaveAttribute('href', '/marketplace');
   });
 
   it('shows explicit cancel and recovery actions while waiting for the browser', () => {
@@ -64,6 +68,6 @@ describe('DesktopBrowserAuthShell', () => {
     }));
 
     expect(screen.getByRole('status')).toHaveTextContent('Complete multi-factor verification');
-    expect(screen.queryByRole('button', { name: /continue in browser/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /account/i })).not.toBeInTheDocument();
   });
 });

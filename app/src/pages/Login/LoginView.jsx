@@ -101,6 +101,7 @@ const LoginView = ({
   handleResendOtp,
   handleDuoSignIn,
   isDuoLoginEnabled,
+  handleDesktopAdminSignIn,
   handleDesktopBrowserSignIn,
   handleReopenDesktopBrowserSignIn,
   handleCancelDesktopBrowserSignIn,
@@ -186,6 +187,7 @@ const LoginView = ({
         desktopBrowserSignInPending={desktopBrowserSignInPending}
         emergencyAuthDisabled={emergencyAuthDisabled}
         handleCancelDesktopBrowserSignIn={handleCancelDesktopBrowserSignIn}
+        handleDesktopAdminSignIn={handleDesktopAdminSignIn}
         handleDesktopBrowserSignIn={handleDesktopBrowserSignIn}
         handleDesktopOwnerAccessSignIn={handleDesktopOwnerAccessSignIn}
         handleFeedbackAction={handleFeedbackAction}

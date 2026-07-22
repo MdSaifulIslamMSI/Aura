@@ -37,6 +37,7 @@ const DesktopBrowserAuthShell = ({
   desktopBrowserSignInPending,
   emergencyAuthDisabled,
   handleCancelDesktopBrowserSignIn,
+  handleDesktopAdminSignIn,
   handleDesktopBrowserSignIn,
   handleDesktopOwnerAccessSignIn,
   handleFeedbackAction,
@@ -128,14 +129,14 @@ const DesktopBrowserAuthShell = ({
               id="desktop-auth-title"
               className="mt-9 text-[2rem] font-medium leading-tight tracking-normal outline-none"
             >
-              {t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser')}
+              {authSuccess?.title || t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser')}
             </h1>
             <p className="mt-4 max-w-sm text-base leading-6 text-slate-400">
-              {t(
-                'login.desktopBrowser.waitingDetail',
-                {},
-                'Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.'
-              )}
+              {authSuccess?.detail || t(
+                  'login.desktopBrowser.waitingDetail',
+                  {},
+                  'Finish sign-in in the browser window that just opened. Aura Desktop will continue automatically.'
+                )}
             </p>
 
             <div className="mt-10 w-full space-y-4">
@@ -173,14 +174,40 @@ const DesktopBrowserAuthShell = ({
                 type="button"
                 onClick={handleDesktopBrowserSignIn}
                 disabled={isLoading || emergencyAuthDisabled}
-                className={primaryButton}
+                className={cn(primaryButton, 'justify-start text-left')}
               >
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                 ) : (
-                  <AuraMark compact />
+                  <ShoppingBag className="h-5 w-5 shrink-0" aria-hidden="true" />
                 )}
-                {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
+                <span className="min-w-0 flex-1">
+                  <span className="block">{t('nav.account', {}, 'Account')}</span>
+                  <span className="mt-0.5 block text-xs font-medium leading-4 text-[#575757]">
+                    {t('nav.accountSummary', {}, 'Profile, orders, and saved shopping links.')}
+                  </span>
+                </span>
+                <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDesktopAdminSignIn}
+                disabled={isLoading || emergencyAuthDisabled}
+                className={cn(secondaryButton, 'justify-start text-left')}
+              >
+                <Shield className="h-5 w-5 shrink-0 text-amber-200" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block">{t('nav.adminPortal', {}, 'Admin portal')}</span>
+                  <span className="mt-0.5 block text-xs font-medium leading-4 text-slate-400">
+                    {t(
+                      'profile.settings.devices.adminBody',
+                      {},
+                      'Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.'
+                    )}
+                  </span>
+                </span>
+                <ExternalLink className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
               </button>
 
               {canUseDesktopOwnerAccessSignIn ? (
@@ -188,17 +215,20 @@ const DesktopBrowserAuthShell = ({
                   type="button"
                   onClick={handleDesktopOwnerAccessSignIn}
                   disabled={isLoading || emergencyAuthDisabled}
-                  className={secondaryButton}
+                  className={cn('mx-auto flex min-h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold text-slate-400 transition-colors hover:text-white', focusRing)}
                 >
-                  <Shield className="h-5 w-5" aria-hidden="true" />
+                  <Shield className="h-4 w-4" aria-hidden="true" />
                   {t('login.desktopOwnerAccess.button', {}, 'Owner Access')}
                 </button>
-              ) : (
-                <Link to="/marketplace" className={secondaryButton}>
-                  <ShoppingBag className="h-5 w-5" aria-hidden="true" />
-                  {t('desktopWelcome.openMarketplace', {}, 'Open marketplace')}
-                </Link>
-              )}
+              ) : null}
+
+              <Link
+                to="/marketplace"
+                className={cn('mx-auto flex min-h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold text-slate-400 transition-colors hover:text-white', focusRing)}
+              >
+                <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+                {t('desktopWelcome.openMarketplace', {}, 'Open marketplace')}
+              </Link>
             </div>
 
             <p className="mt-7 text-sm leading-5 text-slate-400">
