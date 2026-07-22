@@ -537,6 +537,7 @@ export const useLoginController = () => {
     signInWithDesktopBrowser,
     reopenDesktopBrowserSignIn,
     signInWithDesktopOwnerAccess,
+    logout,
     roles,
     session,
   } = useContext(AuthContext);
@@ -666,7 +667,7 @@ export const useLoginController = () => {
   );
   const desktopBrowserSessionHydrating = Boolean(
     desktopBrowserHandoff.active
-    && (loading || desktopBrowserCookieSessionLoading || desktopBrowserConsentStage === 'preflight')
+    && (loading || desktopBrowserCookieSessionLoading)
   );
   const desktopBrowserConsentActionLabel = t('common.action.continue', {}, 'Continue');
   const desktopBrowserConsentSubmittingLabel = desktopBrowserConsentStage === 'preflight'
@@ -2548,6 +2549,26 @@ export const useLoginController = () => {
     }
   };
 
+  const handleDesktopBrowserUseAnotherAccount = async () => {
+    if (!desktopBrowserHandoff.active || desktopBrowserConsentSubmitting || typeof logout !== 'function') {
+      return;
+    }
+
+    setAuthError(null);
+    setAuthSuccess(null);
+    setDesktopBrowserConsentGrantedKey('');
+    setDesktopBrowserHandoffPreflight(null);
+    setDesktopBrowserHandoffPreflightReadyKey('');
+    setDesktopBrowserHandoffPreflightFailed(false);
+    desktopBrowserHandoffPreflightAttemptRef.current = '';
+
+    try {
+      await logout();
+    } catch (error) {
+      setErr(error);
+    }
+  };
+
   const handleDesktopOwnerAccessSignIn = async () => {
     if (!canUseDesktopOwnerAccessSignIn) {
       setErr({ message: t('login.desktopOwnerAccess.unavailable', {}, 'Desktop owner access is not configured for this app.') });
@@ -2671,6 +2692,7 @@ export const useLoginController = () => {
     handleCancelDesktopBrowserSignIn,
     handleDesktopBrowserConsent,
     handleDesktopBrowserConsentCancel,
+    handleDesktopBrowserUseAnotherAccount,
     handleDesktopBrowserDeviceChallenge,
     handleDesktopBrowserMfaPasskey,
     handleDesktopBrowserMfaTotp,

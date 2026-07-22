@@ -211,6 +211,18 @@ const ConsentView = ({ controller, t }) => {
         </button>
       </div>
 
+      <button
+        type="button"
+        onClick={controller.handleDesktopBrowserUseAnotherAccount}
+        disabled={submitting || typeof controller.handleDesktopBrowserUseAnotherAccount !== 'function'}
+        className={cn(
+          'mt-5 rounded-lg px-3 py-2 text-sm font-semibold text-cyan-300 hover:text-white disabled:cursor-not-allowed disabled:opacity-50',
+          focusRing
+        )}
+      >
+        {t('auth.trustedDevice.exit.anotherAccount', {}, 'Use another account')}
+      </button>
+
       <p id="desktop-consent-description" className="mx-auto mt-14 max-w-[34rem] text-sm leading-5 text-slate-300">
         {t(
           'desktopLogin.consent.security',

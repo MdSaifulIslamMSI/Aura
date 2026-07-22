@@ -54,6 +54,7 @@ const DesktopBrowserHandoffProbe = () => {
     desktopBrowserSessionHydrating,
     handleDesktopBrowserConsent,
     handleDesktopBrowserConsentCancel,
+    handleDesktopBrowserUseAnotherAccount,
     handleDesktopBrowserDeviceChallenge,
     handleDesktopBrowserMfaPasskey,
     handleDesktopBrowserMfaTotp,
@@ -63,6 +64,7 @@ const DesktopBrowserHandoffProbe = () => {
     <>
       <button type="button" onClick={handleDesktopBrowserConsent}>Continue desktop handoff</button>
       <button type="button" onClick={handleDesktopBrowserConsentCancel}>Cancel desktop handoff</button>
+      <button type="button" onClick={handleDesktopBrowserUseAnotherAccount}>Use another account</button>
       <button
         type="button"
         onClick={() => {
@@ -1617,6 +1619,86 @@ describe('useLoginController', () => {
       expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
       expect(screen.getByTestId('desktop-consent-submitting')).toHaveTextContent('false');
     });
+  });
+
+  it('keeps the selected account visible while desktop preflight is pending', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174019';
+    const currentUser = {
+      email: 'selected-account@example.com',
+      getIdToken: vi.fn(),
+    };
+    const prepareDesktopHandoff = vi.spyOn(authApi, 'prepareDesktopHandoff')
+      .mockImplementation(() => new Promise(() => {}));
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            loading: false,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-preflight-pending&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-submitting')).toHaveTextContent('true');
+      });
+      expect(screen.getByTestId('desktop-consent-identity')).toHaveTextContent(currentUser.email);
+      expect(screen.getByTestId('desktop-session-hydrating')).toHaveTextContent('false');
+    } finally {
+      prepareDesktopHandoff.mockRestore();
+    }
+  });
+
+  it('clears the selected browser account before starting a different desktop login', async () => {
+    const requestId = '123e4567-e89b-12d3-a456-426614174020';
+    const logout = vi.fn().mockResolvedValue(undefined);
+    const currentUser = {
+      email: 'selected-account@example.com',
+      getIdToken: vi.fn(),
+    };
+    const prepareDesktopHandoff = vi.spyOn(authApi, 'prepareDesktopHandoff').mockResolvedValue({
+      status: 'handoff_ready',
+      handoffReady: true,
+    });
+
+    try {
+      render(
+        <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+          <AuthContext.Provider value={buildAuthValue({
+            currentUser,
+            isAuthenticated: true,
+            loading: false,
+            logout,
+          })}>
+            <MemoryRouter initialEntries={[`/desktop-login?desktopAuthRequest=${requestId}#desktopAuthSecret=secret-use-another-account&desktopAuthCallback=http%3A%2F%2Flocalhost%3A47831%2Fdesktop-auth%2Fcomplete&desktopAuthTransport=form_post`]}>
+              <Routes>
+                <Route path="/desktop-login" element={<DesktopBrowserHandoffProbe />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </MarketProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('desktop-consent-ready')).toHaveTextContent('true');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Use another account' }));
+
+      await waitFor(() => {
+        expect(logout).toHaveBeenCalledOnce();
+      });
+    } finally {
+      prepareDesktopHandoff.mockRestore();
+    }
   });
 
   it('finishes a Duo desktop handoff with a top-level form navigation to loopback', async () => {

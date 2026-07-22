@@ -76,6 +76,7 @@ const buildController = (overrides = {}) => ({
   handleChange: vi.fn(),
   handleDesktopBrowserConsent: vi.fn(),
   handleDesktopBrowserConsentCancel: vi.fn(),
+  handleDesktopBrowserUseAnotherAccount: vi.fn(),
   handleDesktopBrowserDeviceChallenge: vi.fn(),
   handleDesktopBrowserMfaPasskey: vi.fn(),
   handleDesktopBrowserMfaRecoveryCode: vi.fn(),
@@ -208,6 +209,9 @@ describe('DesktopLogin tactile hosted browser flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(controller.handleDesktopBrowserConsent).toHaveBeenCalledOnce();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Use another account' }));
+    expect(controller.handleDesktopBrowserUseAnotherAccount).toHaveBeenCalledOnce();
+
     controller = {
       ...controller,
       desktopBrowserConsentReady: false,
@@ -217,6 +221,7 @@ describe('DesktopLogin tactile hosted browser flow', () => {
 
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Opening Aura Desktop' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Use another account' })).toBeDisabled();
     expect(screen.getByRole('status')).toHaveTextContent('Securely returning sign-in to Aura Desktop.');
   });
 
