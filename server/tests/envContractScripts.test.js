@@ -899,6 +899,7 @@ describe('repo environment contract scripts', () => {
             '11-configure-https-domain.sh',
             '11b-bootstrap-cloudfront-edge.sh',
             '13-backup-staging.sh',
+            '13b-restore-backup-drill.sh',
             '14-install-observability.sh',
             '15-cost-watch.sh',
             '16-deploy-all.sh',
@@ -939,7 +940,31 @@ describe('repo environment contract scripts', () => {
         expect(backupScript).toContain('remote_backup_root="/opt/aura-staging/backup-work-$backup_id"');
         expect(backupScript).toContain('trap cleanup_backup_workspace EXIT');
         expect(backupScript).toContain('REMOTE_BACKUP_ROOT');
+        expect(backupScript).toContain('application-quiesced-logical');
+        expect(backupScript).toContain('db.adminCommand({ fsync: 1, lock: true })');
+        expect(backupScript).toContain('db.fsyncUnlock()');
+        expect(backupScript).toContain('mongodump --archive --gzip');
+        expect(backupScript).toContain('pg_dump --format=custom');
+        expect(backupScript).toContain('redis-cli --rdb');
+        expect(backupScript).toContain('BACKUP_SOURCE_SHA');
+        expect(backupScript).toContain('last_backup_s3_version_id');
+        expect(backupScript).not.toContain('mongo-volume.tar.gz');
+        expect(backupScript).not.toContain('postgres-volume.tar.gz');
         expect(backupScript).not.toMatch(/remote_archive="\/tmp\//);
+
+        const restoreScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '13b-restore-backup-drill.sh'), 'utf8');
+        expect(restoreScript).toMatch(/assert_staging_bucket_safe/);
+        expect(restoreScript).toContain('STAGING_RESTORE_SOURCE_VERSION_ID');
+        expect(restoreScript).toContain('STAGING_RESTORE_SOURCE_SHA');
+        expect(restoreScript).toContain('s3api get-object');
+        expect(restoreScript).toContain('--version-id "$SOURCE_VERSION_ID"');
+        expect(restoreScript).toContain('--network none');
+        expect(restoreScript).toContain('cmp --silent "$data_dir/mongo-stats.json"');
+        expect(restoreScript).toContain('cmp --silent "$data_dir/postgres-stats.tsv"');
+        expect(restoreScript).toContain('cleanup_restore_drill');
+        expect(restoreScript).toContain('RESTORE_DRILL_PASS');
+        expect(restoreScript).not.toContain('--publish');
+        expect(restoreScript).not.toMatch(/docker run[^\n]*\s-p(?:=|\s)/);
 
         const deployScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '16-deploy-all.sh'), 'utf8');
         expect(deployScript).toMatch(/07-deploy-compose\.sh/);
@@ -966,6 +991,8 @@ describe('repo environment contract scripts', () => {
 
         const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
         expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);
+        expect(composeScript).toContain('AURA_APP_BUILD_SHA=$release_sha');
+        expect(composeScript).toContain('state_set last_deployed_sha "$release_sha"');
         expect(composeScript).toMatch(/MONGO_REQUIRE_TLS=false/);
         expect(composeScript).toMatch(/^admin_require_passkey=false$/m);
         expect(composeScript).toMatch(/^ADMIN_REQUIRE_PASSKEY=\$admin_require_passkey$/m);

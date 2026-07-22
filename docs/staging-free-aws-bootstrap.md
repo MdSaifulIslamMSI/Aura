@@ -125,6 +125,7 @@ Use these commands after bootstrap:
 ```sh
 npm run staging:deploy
 npm run staging:backup
+npm run staging:restore-drill
 npm run staging:observability
 npm run staging:cost-watch
 ```
@@ -133,7 +134,10 @@ If SSH is blocked or timing out during backups, force the AWS SSM control-plane 
 
 ```sh
 STAGING_BACKUP_TRANSPORT=ssm npm run staging:backup
+STAGING_RESTORE_TRANSPORT=ssm npm run staging:restore-drill
 ```
+
+The restore drill uses the exact key, S3 version ID, and source SHA recorded by the latest successful backup. It restores only into disposable, network-isolated Docker volumes on staging and removes them on success or failure; it does not overwrite the live databases. The backup briefly stops the staging backend while it locks/dumps Mongo and snapshots Postgres, so this free single-instance path proves recoverability but not zero-downtime production availability.
 
 HTTPS is intentionally separate. It runs only when a real staging host points at the staging EC2 public IP:
 

@@ -9,7 +9,8 @@ This layer adds the remaining safe staging operations around the AWS Free Tier s
 | Capability | Command | Status |
 | --- | --- | --- |
 | Backend + frontend redeploy | `npm run staging:deploy` | Runs Compose deploy, Docker frontend deploy, and live staging smoke. |
-| Staging backup | `npm run staging:backup` | Writes Postgres/Mongo/Redis staging backup artifacts to the private staging S3 bucket under `backups/`. It uses Docker on EC2 and falls back to SSM Run Command when SSH port 22 is unavailable. |
+| Staging backup | `npm run staging:backup` | Briefly quiesces the backend, takes a Mongo fsync-locked logical dump, a Postgres consistent logical dump, and a Redis RDB, then writes the checksummed archive to a versioned private staging S3 key. It uses Docker on EC2 and falls back to SSM Run Command when SSH port 22 is unavailable. |
+| Isolated restore drill | `npm run staging:restore-drill` | Downloads the exact recorded S3 object version, verifies the manifest and checksums, restores Mongo/Postgres/Redis into disposable Docker volumes with `--network none`, compares Mongo/Postgres counts and indexes, and removes every drill container, volume, and workspace. |
 | Local observability | `npm run staging:observability` | Installs a systemd timer on the staging EC2 instance and writes JSONL health evidence to `/opt/aura-staging/logs/staging-health.jsonl`. |
 | Live staging DAST | `staging-ops-watch.yml` | Runs `npm run security:free-scanners -- --only=zap-baseline` against explicit `STAGING_URL` after staging smoke passes, fails if the target is missing, and uploads the ZAP artifacts. |
 | Cost watch | `npm run staging:cost-watch` | Reads Cost Explorer for tagged staging spend and compares it with `STAGING_MONTHLY_BUDGET_USD`. |
@@ -22,6 +23,9 @@ This layer adds the remaining safe staging operations around the AWS Free Tier s
 - `PROD_SSM_PREFIX` must be `/aura/prod`.
 - The backup script refuses buckets that are not tagged `Environment=staging` and `ManagedBy=codex-staging-bootstrap`.
 - The backup script does not stream backup archives through the laptop. It starts the Docker backup on EC2 and uploads from EC2 directly to S3. Set `STAGING_BACKUP_TRANSPORT=ssm` to bypass SSH entirely.
+- The backup refuses to run unless the live backend reports the exact source SHA requested by the operator. Failure cleanup releases the Mongo lock and restarts the backend before removing the bounded workspace.
+- The restore drill accepts only the strict staging backup key shape, exact S3 version ID, and full source SHA recorded by the preceding backup. It never publishes a restore-container port and never overwrites a live Docker volume.
+- Redis recovery is validated in an isolated container only; restored security-session state is never promoted into the live runtime.
 - HTTPS activation refuses to run unless DNS resolves to the staging EC2 public IP.
 - CloudFront bootstrap creates or reuses only the distribution tagged `Environment=staging` and `ManagedBy=codex-staging-bootstrap`; it never reuses the production distribution.
 - CloudFront mode requires an HTTPS-only origin, the AWS-managed default viewer certificate, no aliases, and exact matching origin secrets in CloudFront and `/aura/staging`.

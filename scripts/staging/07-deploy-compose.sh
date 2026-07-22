@@ -11,6 +11,9 @@ need_env AWS_REGION
 ensure_state
 validate_staging_admin_security_phase
 
+release_sha="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+[[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || die "Staging deploy requires a full lowercase source commit SHA"
+
 [ -f "$STATE_DIR/ssh_config" ] || die "Missing $STATE_DIR/ssh_config. Run 06-render-ssh-config.sh first."
 if [ -z "${STAGING_BACKEND_IMAGE:-}" ] && [ ! -f "$REPO_ROOT/server/Dockerfile" ]; then
   die "Missing Dockerfile or STAGING_BACKEND_IMAGE. Provide one."
@@ -162,6 +165,7 @@ env_file="$STATE_DIR/.env.staging"
 cat > "$env_file" <<ENV
 APP_ENV=staging
 NODE_ENV=production
+AURA_APP_BUILD_SHA=$release_sha
 FIREBASE_PROJECT_ID=aura-staging-smoke
 STAGING_ALLOW_FIREBASE_ADMIN_STUB=true
 PAYMENTS_ENABLED=false
@@ -418,4 +422,5 @@ if [ "$ENABLE_CERTBOT" = "true" ]; then
 fi
 REMOTE
 
-log "Compose deployment completed without printing secret values"
+state_set last_deployed_sha "$release_sha"
+log "Compose deployment completed for immutable source commit $release_sha without printing secret values"

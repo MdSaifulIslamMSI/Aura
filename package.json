@@ -216,6 +216,7 @@
     "staging:https": "node scripts/run-bash.mjs scripts/staging/11-configure-https-domain.sh",
     "staging:https:cloudfront": "node scripts/run-bash.mjs scripts/staging/11b-bootstrap-cloudfront-edge.sh",
     "staging:backup": "node scripts/run-bash.mjs scripts/staging/13-backup-staging.sh",
+    "staging:restore-drill": "node scripts/run-bash.mjs scripts/staging/13b-restore-backup-drill.sh",
     "staging:observability": "node scripts/run-bash.mjs scripts/staging/14-install-observability.sh",
     "staging:cost-watch": "node scripts/run-bash.mjs scripts/staging/15-cost-watch.sh",
     "staging:deploy": "node scripts/run-bash.mjs scripts/staging/16-deploy-all.sh",
