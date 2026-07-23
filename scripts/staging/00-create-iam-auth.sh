@@ -103,6 +103,8 @@ cat > "$operator_policy" <<JSON
         "ssm:GetParameters",
         "ssm:GetParametersByPath",
         "budgets:ViewBudget",
+        "cloudfront:GetDistribution",
+        "cloudfront:ListTagsForResource",
         "cloudfront:ListDistributions",
         "cloudtrail:DescribeTrails",
         "cloudwatch:DescribeAlarms",
@@ -279,6 +281,7 @@ cat > "$instance_policy" <<JSON
         "s3:AbortMultipartUpload",
         "s3:DeleteObject",
         "s3:GetObject",
+        "s3:GetObjectVersion",
         "s3:ListBucket",
         "s3:PutObject"
       ],

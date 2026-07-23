@@ -14,7 +14,7 @@ class NullEmailProvider extends BaseEmailProvider {
     async sendTransactionalEmail({ to, subject }) {
         const logger = require('../../utils/logger');
         logger.warn('email_provider.null_skip', {
-            to: String(to || '').slice(0, 40),
+            recipient: String(to || '').replace(/(.{2}).*(@.*)/, '$1***$2'),
             subject: String(subject || '').slice(0, 80),
             reason: 'No email provider configured. Set ORDER_EMAIL_PROVIDER and credentials.',
         });

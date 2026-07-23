@@ -114,7 +114,9 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
     };
 
     try {
-        return await execute();
+        return await execute({
+            forceFreshCsrf: options.forceFreshCsrf === true,
+        });
     } catch (error) {
         if (
             firebaseUser.getIdToken
@@ -167,12 +169,16 @@ const postAuthBootstrap = async (path, body, options = {}) => {
 };
 
 const getProtectedAuthJson = async (path, options = {}) => {
+    const useFirebaseBearer = options.useFirebaseBearer === true
+        && Boolean(options.firebaseUser?.getIdToken);
     const headers = await getAuthHeader(options.firebaseUser, {
-        useFirebaseBearer: options.useFirebaseBearer === true && Boolean(options.firebaseUser?.getIdToken),
+        useFirebaseBearer,
         forceRefresh: options.forceRefreshAuth === true,
     });
     const response = await apiFetch(path, { headers });
-    cacheCsrfTokenFromResponse(response, options.csrfOwner || 'cookie_session');
+    if (!useFirebaseBearer) {
+        cacheCsrfTokenFromResponse(response, options.csrfOwner || 'cookie_session');
+    }
     return response.data;
 };
 
@@ -404,6 +410,45 @@ export const authApi = {
     getMfaSecurityCenter: async (options = {}) => (
         getProtectedAuthJson('/auth/mfa', options)
     ),
+    getAdminSecurityStatus: async (options = {}) => (
+        getProtectedAuthJson('/admin/security/status', options)
+    ),
+    exchangeAdminRecoveryGrant: async (grant, options = {}) => (
+        postAuthBootstrap('/admin/security/recovery/exchange', { grant }, {
+            ...options,
+            preferCookieSession: false,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+            disableSessionExchangeOnUnauthorized: true,
+        })
+    ),
+    enrollAdminRecoveryPasskey: async (options = {}) => {
+        const requestOptions = {
+            ...options,
+            preferCookieSession: true,
+            disableSessionExchangeOnUnauthorized: true,
+            forceFreshCsrf: true,
+        };
+        const start = await postAuthBootstrap('/admin/security/passkeys/enrollment/options', {}, requestOptions);
+        const proofPayload = await signMfaPasskeyChallenge(start?.deviceChallenge, options);
+        return postAuthBootstrap('/admin/security/passkeys/enrollment/verify', buildTrustedDeviceProofBody(
+            start?.deviceChallenge,
+            proofPayload,
+        ), requestOptions);
+    },
+    verifyAdminPasskey: async (options = {}) => {
+        const requestOptions = {
+            ...options,
+            preferCookieSession: true,
+            disableSessionExchangeOnUnauthorized: true,
+            forceFreshCsrf: true,
+        };
+        const start = await postAuthBootstrap('/admin/security/passkeys/challenge/options', {}, requestOptions);
+        const proofPayload = await signMfaPasskeyChallenge(start?.deviceChallenge, options);
+        return postAuthBootstrap('/admin/security/passkeys/challenge/verify', buildTrustedDeviceProofBody(
+            start?.deviceChallenge,
+            proofPayload,
+        ), requestOptions);
+    },
     requestMfaStepUp: async ({ action = 'manual_step_up', route = '', returnTo = '' } = {}, options = {}) => (
         postAuthBootstrap('/auth/mfa/step-up', { action, route, returnTo }, {
             ...options,

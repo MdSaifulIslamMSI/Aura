@@ -11,6 +11,7 @@
     "aws:ssm:sync": "powershell -ExecutionPolicy Bypass -File ../infra/aws/sync-parameter-store-env.ps1 -SourceEnvFile .env.aws-secrets",
     "aws:ssm:sync:example": "powershell -ExecutionPolicy Bypass -File ../infra/aws/sync-parameter-store-env.ps1 -SourceEnvFile .env.aws-secrets.example -DryRun",
     "aws:ssm:audit": "node scripts/audit_parameter_store_secret_contract.js",
+    "admin:recovery:create": "node scripts/create_admin_recovery_grant.js",
     "smoke:bootstrap-accounts": "node scripts/assert_staging_smoke_safety.js --purpose=bootstrap && node scripts/bootstrap_staging_smoke_accounts.js",
     "smoke:staging": "node scripts/assert_staging_smoke_safety.js --purpose=smoke && node scripts/staging_smoke.js",
     "smoke:cross-domain-prod": "node scripts/verify_cross_domain_prod.js",
@@ -54,7 +55,8 @@
     "migrate:purge-legacy-cart": "node scripts/purge_legacy_user_cart.js",
     "wipe:firebase-auth": "node scripts/wipe_firebase_auth_users.js",
     "migrate:otp-session-identity": "node scripts/migrate_otp_session_identity_key.js",
-    "migrate:trusted-device-v2": "node scripts/trusted_device_v2_migration.js"
+    "migrate:trusted-device-v2": "node scripts/trusted_device_v2_migration.js",
+    "migrate:admin-security-v2": "node scripts/migrate_admin_security_v2.js"
   },
   "keywords": [],
   "author": "",

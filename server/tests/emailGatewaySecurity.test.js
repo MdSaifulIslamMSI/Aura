@@ -85,6 +85,31 @@ describe('Email Gateway Security', () => {
         expect(payload.meta.securityTags).toEqual(['otp', 'security', 'auth-login']);
     });
 
+    test('rejects a provider skip instead of reporting security email delivery', async () => {
+        process.env.ORDER_EMAILS_ENABLED = 'true';
+        process.env.EMAIL_SECURITY_ENABLED = 'true';
+        process.env.EMAIL_SECURITY_STRICT_MODE = 'true';
+
+        const providerSendMock = jest.fn().mockResolvedValue({
+            provider: 'null',
+            providerMessageId: '',
+            skipped: true,
+            response: {},
+        });
+        const gateway = loadGateway({ providerSendMock });
+
+        await expect(gateway.sendTransactionalEmail({
+            eventType: 'otp_security',
+            to: 'user@test.com',
+            subject: 'Aura OTP Security Code',
+            text: 'OTP body',
+            requestId: 'req_null_provider',
+        })).rejects.toMatchObject({
+            statusCode: 503,
+            code: 'EMAIL_PROVIDER_UNAVAILABLE',
+        });
+    });
+
     test('buildEmailAuditRecord returns normalized audit shape', () => {
         process.env.ORDER_EMAILS_ENABLED = 'true';
         const gateway = loadGateway();

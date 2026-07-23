@@ -69,7 +69,11 @@ const ADMIN_ENROLLMENT_FACTOR_AMR = new Set([
 
 const getStepUpExpiry = () => new Date(Date.now() + SESSION_STEP_UP_TTL_MS).toISOString();
 
-const getFreshUser = async (userId) => User.findById(userId, MFA_PROFILE_PROJECTION).lean();
+const getFreshUser = async (userId, mongoSession = null) => {
+    const query = User.findById(userId, MFA_PROFILE_PROJECTION);
+    if (mongoSession) query.session(mongoSession);
+    return query.lean();
+};
 
 const hasFreshIndependentAdminEnrollmentFactor = (req = {}) => {
     if (!isAdminSubject(req.user)) return true;
@@ -502,17 +506,17 @@ const passkeyRegisterOptions = asyncHandler(async (req, res) => {
     });
 });
 
-const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
+const syncPasskeyMfaState = async ({ userId, trustedDevice, mongoSession = null }) => {
     const credentialId = normalizeText(trustedDevice?.webauthnCredentialIdBase64Url);
-    if (!credentialId) return getFreshUser(userId);
+    if (!credentialId) return getFreshUser(userId, mongoSession);
     if (!hasObservedWebAuthnUserVerification(trustedDevice)) {
         const error = new AppError('Passkey MFA requires authenticator user verification.', 403);
         error.code = 'PASSKEY_USER_VERIFICATION_REQUIRED';
         throw error;
     }
-    const user = await User.findById(userId)
-        .select('+mfa.passkeys.credentialId')
-        .lean();
+    const userQuery = User.findById(userId).select('+mfa.passkeys.credentialId');
+    if (mongoSession) userQuery.session(mongoSession);
+    const user = await userQuery.lean();
     if (!user?._id) throw new AppError('User not found.', 404);
     const now = new Date();
     const passkeyRecord = {
@@ -557,6 +561,7 @@ const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
             returnDocument: 'after',
             projection: MFA_PROFILE_PROJECTION,
             lean: true,
+            session: mongoSession || undefined,
         }
     );
     if (!updatedUser) {
@@ -567,7 +572,7 @@ const syncPasskeyMfaState = async ({ userId, trustedDevice }) => {
     return updatedUser;
 };
 
-const verifyPasskeyChallenge = async ({ req, expectedScope = '' } = {}) => {
+const verifyPasskeyChallenge = async ({ req, expectedScope = '', mongoSession = null } = {}) => {
     const { deviceId, deviceLabel } = extractTrustedDeviceContext(req);
     if (!deviceId) throw new AppError('Trusted device identity is missing.', 400);
 
@@ -583,6 +588,7 @@ const verifyPasskeyChallenge = async ({ req, expectedScope = '' } = {}) => {
         deviceId,
         deviceLabel,
         expectedScope,
+        mongoSession,
     });
 
     if (!verification.success) {
@@ -1042,6 +1048,7 @@ module.exports = {
     revokeTrustedDevice,
     setupTotp,
     syncPasskeyMfaState,
+    verifyPasskeyChallenge,
     verifyTotpLogin,
     verifyTotpSetup,
 };

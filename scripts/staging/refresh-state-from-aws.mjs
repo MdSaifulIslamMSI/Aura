@@ -16,6 +16,12 @@ import { stateFile } from './state-env.mjs';
 const args = new Set(process.argv.slice(2));
 const checkOnly = args.has('--check');
 const expectedManagedBy = normalize(process.env.STAGING_EXPECTED_MANAGED_BY || 'codex-staging-bootstrap');
+const httpsMode = normalize(process.env.STAGING_HTTPS_MODE || 'direct').toLowerCase();
+
+if (!['direct', 'cloudfront'].includes(httpsMode)) {
+  console.error('FAIL: STAGING_HTTPS_MODE must be direct or cloudfront.');
+  process.exit(1);
+}
 
 loadLocalAwsEnv();
 
@@ -65,7 +71,99 @@ if (!instance.PublicDnsName || !instance.PublicIpAddress) {
 
 const oldState = readJsonIfExists(stateFile) || {};
 const oldHost = getUrlHost(oldState.staging_api_base_url || oldState.staging_base_url || oldState.public_dns || '');
-const newBaseUrl = `http://${instance.PublicDnsName}`;
+let newBaseUrl = `http://${instance.PublicDnsName}`;
+let stateSource = 'aws-ec2-tags';
+let cloudFrontState = {};
+
+if (httpsMode === 'cloudfront') {
+  const distributionId = normalize(process.env.STAGING_CLOUDFRONT_DISTRIBUTION_ID);
+  const expectedPublicHost = normalize(
+    process.env.STAGING_API_HOST || getUrlHost(process.env.STAGING_API_BASE_URL || process.env.STAGING_BASE_URL || '')
+  ).toLowerCase();
+  const expectedOriginHost = normalize(process.env.STAGING_ORIGIN_HOST).toLowerCase();
+  const instanceOriginHost = `${instance.PublicIpAddress.replaceAll('.', '-')}.sslip.io`;
+
+  if (!distributionId || !expectedPublicHost || !expectedOriginHost) {
+    console.error('FAIL: CloudFront staging state requires distribution ID, public host, and origin host.');
+    process.exit(1);
+  }
+  if (!expectedPublicHost.endsWith('.cloudfront.net')) {
+    console.error('FAIL: CloudFront staging public host must use the AWS default cloudfront.net hostname.');
+    process.exit(1);
+  }
+  if (expectedOriginHost !== instanceOriginHost) {
+    console.error('FAIL: CloudFront staging origin host does not match the active staging EC2 public IP.');
+    process.exit(1);
+  }
+
+  const distributionResult = runAwsJson(['cloudfront', 'get-distribution', '--id', distributionId]);
+  if (!distributionResult.ok) {
+    console.error(`FAIL: unable to read staging CloudFront distribution: ${distributionResult.stderr || distributionResult.stdout}`);
+    process.exit(1);
+  }
+
+  const distribution = distributionResult.data?.Distribution || {};
+  const distributionConfig = distribution.DistributionConfig || {};
+  const status = normalize(distribution.Status);
+  const distributionHost = normalize(distribution.DomainName).toLowerCase();
+  const origins = distributionConfig.Origins?.Items || [];
+  const originHost = normalize(origins[0]?.DomainName).toLowerCase();
+  if (status !== 'Deployed') {
+    console.error(`FAIL: staging CloudFront distribution is ${status || '<missing>'}, not Deployed.`);
+    process.exit(1);
+  }
+  if (distributionConfig.Enabled !== true) {
+    console.error('FAIL: staging CloudFront distribution is disabled.');
+    process.exit(1);
+  }
+  if (distributionHost !== expectedPublicHost) {
+    console.error('FAIL: staging CloudFront distribution hostname does not match STAGING_API_HOST.');
+    process.exit(1);
+  }
+  if (origins.length !== 1 || originHost !== expectedOriginHost) {
+    console.error('FAIL: staging CloudFront distribution origin does not match STAGING_ORIGIN_HOST.');
+    process.exit(1);
+  }
+
+  const configuredHosts = [
+    process.env.STAGING_BASE_URL,
+    process.env.STAGING_FRONTEND_URL,
+    process.env.STAGING_API_BASE_URL,
+    process.env.STAGING_HEALTH_URL,
+  ].filter(Boolean).map(getUrlHost);
+  if (configuredHosts.some((host) => host !== distributionHost)) {
+    console.error('FAIL: configured staging URLs do not all use the validated CloudFront hostname.');
+    process.exit(1);
+  }
+
+  const tagsResult = runAwsJson(['cloudfront', 'list-tags-for-resource', '--resource', distribution.ARN]);
+  if (!tagsResult.ok) {
+    console.error(`FAIL: unable to read staging CloudFront tags: ${tagsResult.stderr || tagsResult.stdout}`);
+    process.exit(1);
+  }
+  const distributionTags = Object.fromEntries(
+    (tagsResult.data?.Tags?.Items || []).map((tag) => [tag.Key, tag.Value])
+  );
+  if (distributionTags.Environment !== 'staging') {
+    console.error('FAIL: CloudFront distribution Environment tag is not staging.');
+    process.exit(1);
+  }
+  if (distributionTags.ManagedBy !== expectedManagedBy) {
+    console.error('FAIL: CloudFront distribution ManagedBy tag is not approved for staging.');
+    process.exit(1);
+  }
+  if (distributionTags.Project !== tags.Project) {
+    console.error('FAIL: CloudFront distribution Project tag does not match the staging instance.');
+    process.exit(1);
+  }
+
+  newBaseUrl = `https://${distributionHost}`;
+  stateSource = 'aws-cloudfront-and-ec2-tags';
+  cloudFrontState = {
+    cloudfront_distribution_id: distributionId,
+    staging_origin_host: originHost,
+  };
+}
 const newHost = getUrlHost(newBaseUrl);
 const oldFrontend = normalizeUrl(oldState.staging_frontend_url || '');
 const oldFrontendHost = getUrlHost(oldFrontend);
@@ -81,12 +179,13 @@ const nextState = {
   instance_type: instance.InstanceType,
   public_dns: instance.PublicDnsName,
   public_ip: instance.PublicIpAddress,
+  ...cloudFrontState,
   staging_api_base_url: newBaseUrl,
   staging_health_url: `${newBaseUrl}/health`,
   staging_base_url: newBaseUrl,
   ssm_prefix: '/aura/staging',
   last_refreshed_at: new Date().toISOString(),
-  state_source: 'aws-ec2-tags',
+  state_source: stateSource,
 };
 
 if (shouldMoveFrontend) {

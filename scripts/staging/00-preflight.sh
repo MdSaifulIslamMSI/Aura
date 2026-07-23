@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
+validate_staging_admin_security_phase
+
 preflight_mode="${STAGING_PREFLIGHT_MODE:-bootstrap}"
 case "$preflight_mode" in
   bootstrap|verify) ;;

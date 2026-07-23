@@ -1,4 +1,4 @@
-import { buildApiUrl } from './apiBase';
+import { buildApiUrl, requestWithTrace } from './apiBase';
 import { getActiveMarketHeaders } from './marketRuntime';
 import { getTrustedDeviceHeaders } from './deviceTrustClient';
 
@@ -15,6 +15,13 @@ let cachedTokenExpiry = 0;
 let cachedTokenOwner = '';
 const CSRF_TOKEN_CACHE_TTL_MS = 50 * 60 * 1000; // 50 minutes
 const CSRF_TOKEN_FORMAT = /^[a-f0-9]{64}$/;
+
+const getBrowserOriginHeaders = () => {
+    const origin = typeof window !== 'undefined'
+        ? String(window.location?.origin || '').trim()
+        : '';
+    return origin ? { 'X-Aura-CSRF-Origin': origin } : {};
+};
 
 const decodeBase64UrlJson = (value = '') => {
     if (!value) return null;
@@ -164,15 +171,18 @@ const requestCsrfToken = async (requestOptions = {}) => {
     try {
         console.debug('[CSRF] Fetching token from server...');
 
-        const response = await fetch(buildApiUrl('/auth/session'), {
+        const response = await requestWithTrace(buildApiUrl('/auth/session'), {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
                 ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+                ...getBrowserOriginHeaders(),
                 ...getTrustedDeviceHeaders(),
                 ...getActiveMarketHeaders(),
             },
             credentials: 'include',
+            retries: 0,
+            throwOnHttpError: false,
         });
 
         if (!response.ok) {

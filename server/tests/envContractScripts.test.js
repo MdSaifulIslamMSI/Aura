@@ -744,6 +744,21 @@ describe('repo environment contract scripts', () => {
         expect(result.output).toMatch(/must not equal PROD_BASE_URL/);
     });
 
+    test('staging backend proxies preserve large security headers', () => {
+        const template = fs.readFileSync(path.join(repoRoot, 'infra', 'staging', 'nginx-frontend.conf.template'), 'utf8');
+        const firstLocationIndex = template.indexOf('    location ');
+
+        expect(firstLocationIndex).toBeGreaterThan(-1);
+        for (const directive of [
+            'proxy_buffer_size 32k;',
+            'proxy_buffers 8 32k;',
+            'proxy_busy_buffers_size 64k;',
+        ]) {
+            expect(template.indexOf(directive)).toBeLessThan(firstLocationIndex);
+            expect(template.split(directive)).toHaveLength(2);
+        }
+    });
+
     test('backend staging route smoke only requires scanner readiness when explicitly configured', async () => {
         const server = http.createServer((request, response) => {
             const url = request.url || '';
@@ -882,7 +897,9 @@ describe('repo environment contract scripts', () => {
     test('staging operational scripts keep fail-closed staging guards', () => {
         const scriptNames = [
             '11-configure-https-domain.sh',
+            '11b-bootstrap-cloudfront-edge.sh',
             '13-backup-staging.sh',
+            '13b-restore-backup-drill.sh',
             '14-install-observability.sh',
             '15-cost-watch.sh',
             '16-deploy-all.sh',
@@ -896,6 +913,23 @@ describe('repo environment contract scripts', () => {
         const httpsScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '11-configure-https-domain.sh'), 'utf8');
         expect(httpsScript).toMatch(/ENABLE_STAGING_HTTPS/);
         expect(httpsScript).toMatch(/resolve_dns_ipv4/);
+        expect(httpsScript).toMatch(/STAGING_HTTPS_MODE/);
+        expect(httpsScript).toMatch(/cloudfront get-distribution/);
+
+        const cloudFrontBootstrap = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '11b-bootstrap-cloudfront-edge.sh'), 'utf8');
+        expect(cloudFrontBootstrap).toContain('Aura isolated staging HTTPS edge');
+        expect(cloudFrontBootstrap).toContain('AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET');
+        expect(cloudFrontBootstrap).toContain('X-Aura-Origin-Verify');
+        expect(cloudFrontBootstrap).toContain('CloudFrontDefaultCertificate');
+        expect(cloudFrontBootstrap).toContain('OriginProtocolPolicy');
+        expect(cloudFrontBootstrap).toContain('https-only');
+        expect(cloudFrontBootstrap).toContain('redirect-to-https');
+        expect(cloudFrontBootstrap).toContain('4135ea2d-6df8-44a3-9df3-4b5a84be39ad');
+        expect(cloudFrontBootstrap).toContain('b689b0a8-53d0-40ab-baf2-68738e2966ac');
+        expect(cloudFrontBootstrap).toContain('Key=Environment,Value=staging');
+        expect(cloudFrontBootstrap).toContain('Key=ManagedBy,Value=codex-staging-bootstrap');
+        expect(cloudFrontBootstrap).not.toContain('E34Z9POGIQYOCS');
+        expect(cloudFrontBootstrap).not.toContain('dbtrhsolhec1s.cloudfront.net');
 
         const backupScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '13-backup-staging.sh'), 'utf8');
         expect(backupScript).toMatch(/assert_staging_bucket_safe/);
@@ -903,6 +937,36 @@ describe('repo environment contract scripts', () => {
         expect(backupScript).toMatch(/STAGING_BACKUP_TRANSPORT/);
         expect(backupScript).toMatch(/ssm send-command/);
         expect(backupScript).toMatch(/ec2-direct-s3/);
+        expect(backupScript).toContain('remote_backup_root="/opt/aura-staging/backup-work-$backup_id"');
+        expect(backupScript).toContain('trap cleanup_backup_workspace EXIT');
+        expect(backupScript).toContain('REMOTE_BACKUP_ROOT');
+        expect(backupScript).toContain('application-quiesced-logical');
+        expect(backupScript).toContain('db.adminCommand({ fsync: 1, lock: true })');
+        expect(backupScript).toContain('db.fsyncUnlock()');
+        expect(backupScript).toContain('mongodump --archive --gzip');
+        expect(backupScript).toContain('pg_dump --format=custom');
+        expect(backupScript).toContain('redis-cli --rdb');
+        expect(backupScript).toContain('BACKUP_SOURCE_SHA');
+        expect(backupScript).toContain('last_backup_s3_version_id');
+        expect(backupScript).toContain('|| status=$?; rm -f ${remoteJob} /tmp/aura-staging-backup-runner.b64; exit $status');
+        expect(backupScript).not.toContain('mongo-volume.tar.gz');
+        expect(backupScript).not.toContain('postgres-volume.tar.gz');
+        expect(backupScript).not.toMatch(/remote_archive="\/tmp\//);
+
+        const restoreScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '13b-restore-backup-drill.sh'), 'utf8');
+        expect(restoreScript).toMatch(/assert_staging_bucket_safe/);
+        expect(restoreScript).toContain('STAGING_RESTORE_SOURCE_VERSION_ID');
+        expect(restoreScript).toContain('STAGING_RESTORE_SOURCE_SHA');
+        expect(restoreScript).toContain('s3api get-object');
+        expect(restoreScript).toContain('--version-id "$SOURCE_VERSION_ID"');
+        expect(restoreScript).toContain('--network none');
+        expect(restoreScript).toContain('cmp --silent "$data_dir/mongo-stats.json"');
+        expect(restoreScript).toContain('cmp --silent "$data_dir/postgres-stats.tsv"');
+        expect(restoreScript).toContain('cleanup_restore_drill');
+        expect(restoreScript).toContain('RESTORE_DRILL_PASS');
+        expect(restoreScript).toContain('|| status=$?; rm -f ${remoteJob} /tmp/aura-staging-restore-runner.b64; exit $status');
+        expect(restoreScript).not.toContain('--publish');
+        expect(restoreScript).not.toMatch(/docker run[^\n]*\s-p(?:=|\s)/);
 
         const deployScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '16-deploy-all.sh'), 'utf8');
         expect(deployScript).toMatch(/07-deploy-compose\.sh/);
@@ -929,15 +993,20 @@ describe('repo environment contract scripts', () => {
 
         const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
         expect(composeScript).toMatch(/nginx_staging_server_name "\$staging_api_url"/);
+        expect(composeScript).toContain('AURA_APP_BUILD_SHA=$release_sha');
+        expect(composeScript).toContain('state_set last_deployed_sha "$release_sha"');
         expect(composeScript).toMatch(/MONGO_REQUIRE_TLS=false/);
-        expect(composeScript).toMatch(/^ADMIN_REQUIRE_PASSKEY=false$/m);
+        expect(composeScript).toMatch(/^admin_require_passkey=false$/m);
+        expect(composeScript).toMatch(/^ADMIN_REQUIRE_PASSKEY=\$admin_require_passkey$/m);
         expect(composeScript).toMatch(/ssm_get_optional\(\)/);
         expect(composeScript).toMatch(/append_env_if_set DUO_ENABLED "\$duo_enabled"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_CLIENT_SECRET "\$duo_client_secret"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_DISCOVERY_URL "\$duo_discovery_url"/);
+        expect(composeScript).toMatch(/append_env_if_set AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET "\$cloudfront_origin_verify_secret"/);
 
         const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
-        expect(ssmScript).toMatch(/^put_string ADMIN_REQUIRE_PASSKEY false$/m);
+        expect(ssmScript).toMatch(/^\s+put_string ADMIN_REQUIRE_PASSKEY false$/m);
+        expect(ssmScript).toMatch(/if staging_admin_security_enabled; then/);
 
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
@@ -948,6 +1017,83 @@ describe('repo environment contract scripts', () => {
         expect(sanitizerIndex).toBeLessThan(guardIndex);
     });
 
+    test('staging admin security qualification is opt-in and fail-closed', () => {
+        const commonScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', 'lib', 'common.sh'), 'utf8');
+        const preflightScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-preflight.sh'), 'utf8');
+        const adminParamsScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03b-put-admin-security-ssm-params.sh'), 'utf8');
+        const composeScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'), 'utf8');
+        const frontendScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
+        const deployScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '16-deploy-all.sh'), 'utf8');
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-aws-deploy.yml'), 'utf8');
+
+        expect(commonScript).toContain('STAGING_ADMIN_SECURITY_PHASE:=legacy');
+        expect(commonScript).toMatch(/legacy\|baseline\|backend\|frontend/);
+        expect(commonScript).toContain('validate_staging_admin_security_phase');
+        expect(commonScript).toContain('ENABLE_STAGING_HTTPS=true is required');
+        expect(commonScript).toContain('STAGING_ADMIN_ALLOWLIST_EMAILS');
+        expect(commonScript).toContain('validate_staging_firebase_isolation');
+        expect(commonScript).toContain('STAGING_FIREBASE_PROJECT_ID');
+        expect(commonScript).toContain('STAGING_FIREBASE_SERVICE_ACCOUNT');
+        expect(commonScript).toContain('STAGING_FIREBASE_WEB_CONFIG');
+        expect(commonScript).toContain('PROD_FIREBASE_PROJECT_ID');
+        expect(commonScript).toContain('validate_staging_otp_email_delivery');
+        expect(commonScript).toContain('STAGING_EMAIL_PROVIDER must be gmail or resend in the frontend phase');
+        expect(preflightScript).toContain('validate_staging_admin_security_phase');
+
+        [
+            'ADMIN_SECURITY_HASH_SECRET',
+            'ADMIN_SECURITY_STATE_ENGINE_V2',
+            'ADMIN_PASSKEY_ENROLLMENT',
+            'ADMIN_PASSKEY_CHALLENGE',
+            'ADMIN_RECOVERY_GRANTS',
+            'ADMIN_ASSURANCE_ENFORCEMENT',
+            'ADMIN_ACTION_BOUND_ASSURANCE',
+            'ADMIN_RECOVERY_TWO_PERSON_REQUIRED',
+            'AUTH_SESSION_ALLOW_MEMORY_FALLBACK',
+            'AUTH_DEVICE_CHALLENGE_SECRET',
+            'AUTH_WEBAUTHN_RP_ID',
+            'AUTH_WEBAUTHN_ORIGIN',
+            'AUTH_WEBAUTHN_USER_VERIFICATION',
+            'MFA_ENABLED',
+            'MFA_PASSKEY_ENABLED',
+        ].forEach((name) => expect(adminParamsScript).toContain(name));
+        expect(adminParamsScript).toMatch(/^put_secure_once ADMIN_SECURITY_HASH_SECRET /m);
+        expect(adminParamsScript).not.toMatch(/^put_secure .*ADMIN_SECURITY_HASH_SECRET/m);
+        expect(adminParamsScript).toMatch(/^put_secure ADMIN_ALLOWLIST_EMAILS /m);
+        expect(adminParamsScript).toMatch(/^\s+put_secure FIREBASE_SERVICE_ACCOUNT /m);
+        expect(adminParamsScript).toContain('STAGING_ALLOW_FIREBASE_ADMIN_STUB');
+        expect(adminParamsScript).toContain('OTP_EMAIL_FAIL_CLOSED');
+        expect(adminParamsScript).toContain('ORDER_EMAIL_PROVIDER');
+        expect(adminParamsScript).toContain('GMAIL_APP_PASSWORD');
+        expect(adminParamsScript).toContain('RESEND_API_KEY');
+
+        expect(composeScript).toContain('ADMIN_SECURITY_ROLLOUT_PHASE');
+        expect(composeScript).toContain('ADMIN_SECURITY_HASH_SECRET');
+        expect(composeScript).toContain('AUTH_SESSION_ALLOW_MEMORY_FALLBACK');
+        expect(composeScript).toContain('DUO_FAIL_CLOSED');
+        expect(composeScript).toContain('FIREBASE_SERVICE_ACCOUNT');
+        expect(composeScript).toContain('STAGING_ALLOW_FIREBASE_ADMIN_STUB');
+        expect(composeScript).toContain('append_env_if_set OTP_EMAIL_FAIL_CLOSED');
+        expect(composeScript).toContain('append_env_if_set GMAIL_APP_PASSWORD');
+        expect(composeScript).toContain('append_env_if_set RESEND_API_KEY');
+        expect(frontendScript).toContain('VITE_ADMIN_SECURITY_STATE_ENGINE_V2');
+        expect(frontendScript).toContain('VITE_FIREBASE_CONFIG="$firebase_web_config"');
+        expect(deployScript).toContain('staging_admin_security_enabled');
+        expect(deployScript).toContain('03b-put-admin-security-ssm-params.sh');
+        expect(workflow).toContain('STAGING_ADMIN_SECURITY_PHASE');
+        expect(workflow).toContain('STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}');
+        expect(workflow).toContain('STAGING_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.STAGING_FIREBASE_SERVICE_ACCOUNT }}');
+        expect(workflow).toContain('STAGING_FIREBASE_WEB_CONFIG: ${{ secrets.STAGING_FIREBASE_WEB_CONFIG }}');
+        expect(workflow).toContain("STAGING_EMAIL_PROVIDER: ${{ vars.STAGING_EMAIL_PROVIDER || 'null' }}");
+        expect(workflow).toContain('STAGING_GMAIL_APP_PASSWORD: ${{ secrets.STAGING_GMAIL_APP_PASSWORD }}');
+        expect(workflow).toContain('STAGING_RESEND_API_KEY: ${{ secrets.STAGING_RESEND_API_KEY }}');
+        expect(workflow).toContain('PROD_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}');
+        expect(workflow).toContain('STAGING_ADMIN_DUO_PROVIDER: ${{ vars.STAGING_ADMIN_DUO_PROVIDER }}');
+        expect(workflow).toContain('STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED: ${{ vars.STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED }}');
+        expect(workflow).toContain('Validate staging qualification contract without mutation');
+        expect(workflow).toContain('STAGING_PREFLIGHT_DRY_RUN: "true"');
+    });
+
     test('staging IAM operator grants only the Cost Explorer read used by cost watch', () => {
         const iamScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '00-create-iam-auth.sh'), 'utf8');
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
@@ -956,6 +1102,7 @@ describe('repo environment contract scripts', () => {
         expect(iamScript).toMatch(/"ce:GetCostAndUsage"/);
         expect(iamScript).not.toMatch(/ce:\*/);
         expect(iamScript).toMatch(/ce:GetCostForecast/);
+        expect(iamScript).toMatch(/s3:GetObjectVersion/);
         expect(workflow).toMatch(/ALLOW_NO_COST_WATCH:\s*\$\{\{\s*vars\.ALLOW_NO_COST_WATCH \|\| 'true'\s*\}\}/);
     });
 
@@ -1585,6 +1732,29 @@ describe('repo environment contract scripts', () => {
         expect(rootDockerignore).toContain('server/Dockerfile*');
     });
 
+    test('isolated staging MongoDB is transaction-capable and required fail closed', () => {
+        const stagingCompose = fs.readFileSync(
+            path.join(repoRoot, 'infra', 'staging', 'docker-compose.yml'),
+            'utf8'
+        );
+        const stagingBootstrap = fs.readFileSync(
+            path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'),
+            'utf8'
+        );
+        const stagingDeploy = fs.readFileSync(
+            path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'),
+            'utf8'
+        );
+
+        expect(stagingCompose).toContain('command: ["mongod", "--bind_ip_all", "--replSet", "rs0"]');
+        expect(stagingCompose).toContain("rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]})");
+        expect(stagingCompose).toMatch(/mongo:\s*\n\s+condition: service_healthy/);
+        expect(stagingBootstrap).toContain('aura_staging?replicaSet=rs0');
+        expect(stagingBootstrap).toContain('put_string MONGO_REQUIRE_REPLICA_SET true');
+        expect(stagingDeploy).toContain('MONGO_REQUIRE_REPLICA_SET=true');
+        expect(stagingDeploy).toContain('MONGO_URI must not select a replica set other than rs0');
+    });
+
     test('performance smoke fails when no real target is reachable', () => {
         const result = runScript('scripts/performance/smoke.mjs', {
             PERF_BASE_URL: 'http://127.0.0.1:65534',
@@ -1664,6 +1834,12 @@ describe('repo environment contract scripts', () => {
         expect(stateRefresh).toContain('Name=tag:Environment,Values=staging');
         expect(stateRefresh).toContain('expectedManagedBy');
         expect(stateRefresh).toContain('more than one');
+        expect(stateRefresh).toContain('STAGING_CLOUDFRONT_DISTRIBUTION_ID');
+        expect(stateRefresh).toContain("'get-distribution'");
+        expect(stateRefresh).toContain("'list-tags-for-resource'");
+        expect(stateRefresh).toContain("status !== 'Deployed'");
+        expect(stateRefresh).toContain("distributionTags.Environment !== 'staging'");
+        expect(stateRefresh).toContain('originHost !== expectedOriginHost');
         expect(stateRefresh).toContain('writeJsonAtomic(stateFile, nextState)');
         expect(stateRefresh).not.toContain('Environment=production');
 
@@ -1708,6 +1884,9 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('name: aws:observability:guard');
         expect(workflow).toContain('name: release:rollback-ready');
         expect(workflow).toContain('ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA }}');
+        expect(workflow).toContain("STAGING_HTTPS_MODE: ${{ vars.STAGING_HTTPS_MODE || 'direct' }}");
+        expect(workflow).toContain('STAGING_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.STAGING_CLOUDFRONT_DISTRIBUTION_ID }}');
+        expect(workflow).toContain('STAGING_ORIGIN_HOST: ${{ vars.STAGING_ORIGIN_HOST }}');
         expect(workflow).not.toContain('github.event.pull_request.base.sha');
         expect(workflow).toContain('npm run staging:state:refresh');
         expect(workflow).toContain('npm run aws:observability:guard');

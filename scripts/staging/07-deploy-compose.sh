@@ -9,6 +9,10 @@ need_cmd git
 need_cmd tar
 need_env AWS_REGION
 ensure_state
+validate_staging_admin_security_phase
+
+release_sha="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+[[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || die "Staging deploy requires a full lowercase source commit SHA"
 
 [ -f "$STATE_DIR/ssh_config" ] || die "Missing $STATE_DIR/ssh_config. Run 06-render-ssh-config.sh first."
 if [ -z "${STAGING_BACKEND_IMAGE:-}" ] && [ ! -f "$REPO_ROOT/server/Dockerfile" ]; then
@@ -38,6 +42,13 @@ ssm_get_optional() {
   aws_cli ssm get-parameter --region "$AWS_REGION" --name "$STAGING_SSM_PREFIX/$name" --with-decryption --query 'Parameter.Value' --output text 2>/dev/null || true
 }
 
+require_contract_value() {
+  local name="$1"
+  local actual="$2"
+  local expected="$3"
+  [ "$actual" = "$expected" ] || die "$name does not match the requested staging admin security phase"
+}
+
 append_env_if_set() {
   local key="$1"
   local value="${2:-}"
@@ -50,15 +61,33 @@ staging_base_url="$(state_get staging_base_url)"
 staging_health_url="$(state_get staging_health_url)"
 bucket="$(state_get bucket)"
 [ -n "$bucket" ] || bucket="$STAGING_BUCKET_NAME"
+if staging_admin_security_enabled; then
+  staging_api_url="$STAGING_API_BASE_URL"
+  staging_base_url="$STAGING_BASE_URL"
+  staging_health_url="$STAGING_HEALTH_URL"
+fi
 
 database_url="$(ssm_get DATABASE_URL)"
 mongo_uri="$(ssm_get MONGO_URI)"
+if [[ "$mongo_uri" == *"replicaSet="* && "$mongo_uri" != *"replicaSet=rs0"* ]]; then
+  die "MONGO_URI must not select a replica set other than rs0 for isolated staging"
+fi
+if [[ "$mongo_uri" != *"replicaSet=rs0"* ]]; then
+  if [[ "$mongo_uri" == *"?"* ]]; then
+    mongo_uri="${mongo_uri}&replicaSet=rs0"
+  else
+    mongo_uri="${mongo_uri}?replicaSet=rs0"
+  fi
+fi
 jwt_secret="$(ssm_get JWT_SECRET)"
 postgres_password="$(ssm_get POSTGRES_PASSWORD)"
 otp_flow_secret="$(ssm_get OTP_FLOW_SECRET)"
 otp_challenge_secret="$(ssm_get OTP_CHALLENGE_SECRET)"
 upload_signing_secret="$(ssm_get UPLOAD_SIGNING_SECRET)"
 auth_vault_secret="$(ssm_get AUTH_VAULT_SECRET)"
+firebase_project_id="$(ssm_get FIREBASE_PROJECT_ID)"
+staging_allow_firebase_admin_stub="$(ssm_get STAGING_ALLOW_FIREBASE_ADMIN_STUB)"
+firebase_service_account="$(ssm_get_optional FIREBASE_SERVICE_ACCOUNT)"
 duo_enabled="$(ssm_get_optional DUO_ENABLED)"
 duo_client_id="$(ssm_get_optional DUO_CLIENT_ID)"
 duo_client_secret="$(ssm_get_optional DUO_CLIENT_SECRET)"
@@ -68,14 +97,150 @@ duo_discovery_url="$(ssm_get_optional DUO_DISCOVERY_URL)"
 duo_redirect_uri="$(ssm_get_optional DUO_REDIRECT_URI)"
 duo_oidc_state_secret="$(ssm_get_optional DUO_OIDC_STATE_SECRET)"
 duo_fail_closed="$(ssm_get_optional DUO_FAIL_CLOSED)"
+cloudfront_origin_verify_secret="$(ssm_get_optional AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET)"
+order_email_provider=null
+otp_email_fail_closed=true
+gmail_user=
+gmail_app_password=
+resend_api_key=
+order_email_from_address=
+if staging_admin_security_frontend_enabled; then
+  order_email_provider="$(ssm_get ORDER_EMAIL_PROVIDER)"
+  otp_email_fail_closed="$(ssm_get OTP_EMAIL_FAIL_CLOSED)"
+  require_contract_value ORDER_EMAIL_PROVIDER "$order_email_provider" "$STAGING_EMAIL_PROVIDER"
+  require_contract_value OTP_EMAIL_FAIL_CLOSED "$otp_email_fail_closed" true
+  case "$order_email_provider" in
+    gmail)
+      gmail_user="$(ssm_get GMAIL_USER)"
+      gmail_app_password="$(ssm_get GMAIL_APP_PASSWORD)"
+      order_email_from_address="$(ssm_get ORDER_EMAIL_FROM_ADDRESS)"
+      normalized_staging_gmail_password="$(printf '%s' "$STAGING_GMAIL_APP_PASSWORD" | tr -d '[:space:]')"
+      require_contract_value GMAIL_USER "$gmail_user" "$STAGING_GMAIL_USER"
+      require_contract_value GMAIL_APP_PASSWORD "$gmail_app_password" "$normalized_staging_gmail_password"
+      require_contract_value ORDER_EMAIL_FROM_ADDRESS "$order_email_from_address" "$STAGING_GMAIL_USER"
+      ;;
+    resend)
+      resend_api_key="$(ssm_get RESEND_API_KEY)"
+      order_email_from_address="$(ssm_get ORDER_EMAIL_FROM_ADDRESS)"
+      require_contract_value RESEND_API_KEY "$resend_api_key" "$STAGING_RESEND_API_KEY"
+      require_contract_value ORDER_EMAIL_FROM_ADDRESS "$order_email_from_address" "$STAGING_EMAIL_FROM_ADDRESS"
+      ;;
+    *)
+      die "Unsupported staging OTP email provider"
+      ;;
+  esac
+fi
 cors_origin="${STAGING_CORS_ORIGIN:-$staging_base_url}"
+
+if staging_admin_security_requires_isolated_firebase; then
+  require_contract_value FIREBASE_PROJECT_ID "$firebase_project_id" "$STAGING_FIREBASE_PROJECT_ID"
+  require_contract_value STAGING_ALLOW_FIREBASE_ADMIN_STUB "$staging_allow_firebase_admin_stub" false
+  [ -n "$firebase_service_account" ] || die "FIREBASE_SERVICE_ACCOUNT is required for backend and frontend staging qualification"
+  FIREBASE_SERVICE_ACCOUNT_VALUE="$firebase_service_account" node - "$firebase_project_id" <<'NODE'
+const projectId = process.argv[2];
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_VALUE);
+} catch {
+  console.error('[staging][error] FIREBASE_SERVICE_ACCOUNT in staging SSM must be valid JSON');
+  process.exit(1);
+}
+if (
+  serviceAccount?.type !== 'service_account'
+  || serviceAccount?.project_id !== projectId
+  || !String(serviceAccount?.private_key || '').includes('BEGIN PRIVATE KEY')
+) {
+  console.error('[staging][error] FIREBASE_SERVICE_ACCOUNT in staging SSM does not match the isolated staging project');
+  process.exit(1);
+}
+NODE
+else
+  require_contract_value FIREBASE_PROJECT_ID "$firebase_project_id" aura-staging-smoke
+  require_contract_value STAGING_ALLOW_FIREBASE_ADMIN_STUB "$staging_allow_firebase_admin_stub" true
+fi
+
+auth_device_challenge_mode=off
+admin_require_passkey=false
+if staging_admin_security_enabled; then
+  admin_security_rollout_phase="$(ssm_get ADMIN_SECURITY_ROLLOUT_PHASE)"
+  auth_device_challenge_mode="$(ssm_get AUTH_DEVICE_CHALLENGE_MODE)"
+  auth_device_challenge_allow_vault_fallback="$(ssm_get AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK)"
+  auth_device_challenge_secret="$(ssm_get AUTH_DEVICE_CHALLENGE_SECRET)"
+  auth_device_challenge_secret_version="$(ssm_get AUTH_DEVICE_CHALLENGE_SECRET_VERSION)"
+  admin_require_2fa="$(ssm_get ADMIN_REQUIRE_2FA)"
+  admin_require_passkey="$(ssm_get ADMIN_REQUIRE_PASSKEY)"
+  admin_require_allowlist="$(ssm_get ADMIN_REQUIRE_ALLOWLIST)"
+  admin_allowlist_emails="$(ssm_get ADMIN_ALLOWLIST_EMAILS)"
+  auth_session_allow_memory_fallback="$(ssm_get AUTH_SESSION_ALLOW_MEMORY_FALLBACK)"
+  mfa_enabled="$(ssm_get MFA_ENABLED)"
+  mfa_passkey_enabled="$(ssm_get MFA_PASSKEY_ENABLED)"
+  auth_webauthn_rp_id="$(ssm_get AUTH_WEBAUTHN_RP_ID)"
+  auth_webauthn_origin="$(ssm_get AUTH_WEBAUTHN_ORIGIN)"
+  auth_webauthn_user_verification="$(ssm_get AUTH_WEBAUTHN_USER_VERIFICATION)"
+  admin_security_state_engine_v2="$(ssm_get ADMIN_SECURITY_STATE_ENGINE_V2)"
+  admin_passkey_enrollment="$(ssm_get ADMIN_PASSKEY_ENROLLMENT)"
+  admin_passkey_challenge="$(ssm_get ADMIN_PASSKEY_CHALLENGE)"
+  admin_duo_provider="$(ssm_get ADMIN_DUO_PROVIDER)"
+  admin_recovery_grants="$(ssm_get ADMIN_RECOVERY_GRANTS)"
+  admin_assurance_enforcement="$(ssm_get ADMIN_ASSURANCE_ENFORCEMENT)"
+  admin_action_bound_assurance="$(ssm_get ADMIN_ACTION_BOUND_ASSURANCE)"
+  admin_legacy_factor_read="$(ssm_get ADMIN_LEGACY_FACTOR_READ)"
+  admin_recovery_two_person_required="$(ssm_get ADMIN_RECOVERY_TWO_PERSON_REQUIRED)"
+  admin_security_hash_secret="$(ssm_get ADMIN_SECURITY_HASH_SECRET)"
+
+  expected_backend_enabled=false
+  expected_duo_provider=false
+  if staging_admin_security_backend_enabled; then
+    expected_backend_enabled=true
+    expected_duo_provider="$STAGING_ADMIN_DUO_PROVIDER"
+  fi
+  require_contract_value ADMIN_SECURITY_ROLLOUT_PHASE "$admin_security_rollout_phase" "$STAGING_ADMIN_SECURITY_PHASE"
+  require_contract_value AUTH_DEVICE_CHALLENGE_MODE "$auth_device_challenge_mode" admin
+  require_contract_value AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK "$auth_device_challenge_allow_vault_fallback" false
+  require_contract_value ADMIN_REQUIRE_2FA "$admin_require_2fa" true
+  require_contract_value ADMIN_REQUIRE_PASSKEY "$admin_require_passkey" true
+  require_contract_value ADMIN_REQUIRE_ALLOWLIST "$admin_require_allowlist" true
+  require_contract_value ADMIN_ALLOWLIST_EMAILS "$admin_allowlist_emails" "$STAGING_ADMIN_ALLOWLIST_EMAILS"
+  require_contract_value AUTH_SESSION_ALLOW_MEMORY_FALLBACK "$auth_session_allow_memory_fallback" false
+  require_contract_value MFA_ENABLED "$mfa_enabled" true
+  require_contract_value MFA_PASSKEY_ENABLED "$mfa_passkey_enabled" true
+  require_contract_value AUTH_WEBAUTHN_RP_ID "$auth_webauthn_rp_id" "$STAGING_API_HOST"
+  require_contract_value AUTH_WEBAUTHN_ORIGIN "$auth_webauthn_origin" "$(staging_admin_security_origin)"
+  require_contract_value AUTH_WEBAUTHN_USER_VERIFICATION "$auth_webauthn_user_verification" required
+  require_contract_value ADMIN_SECURITY_STATE_ENGINE_V2 "$admin_security_state_engine_v2" "$expected_backend_enabled"
+  require_contract_value ADMIN_PASSKEY_ENROLLMENT "$admin_passkey_enrollment" "$expected_backend_enabled"
+  require_contract_value ADMIN_PASSKEY_CHALLENGE "$admin_passkey_challenge" "$expected_backend_enabled"
+  require_contract_value ADMIN_DUO_PROVIDER "$admin_duo_provider" "$expected_duo_provider"
+  require_contract_value ADMIN_RECOVERY_GRANTS "$admin_recovery_grants" "$expected_backend_enabled"
+  require_contract_value ADMIN_ASSURANCE_ENFORCEMENT "$admin_assurance_enforcement" "$expected_backend_enabled"
+  require_contract_value ADMIN_ACTION_BOUND_ASSURANCE "$admin_action_bound_assurance" "$expected_backend_enabled"
+  require_contract_value ADMIN_LEGACY_FACTOR_READ "$admin_legacy_factor_read" true
+  require_contract_value ADMIN_RECOVERY_TWO_PERSON_REQUIRED "$admin_recovery_two_person_required" "$STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED"
+  [ "${#admin_security_hash_secret}" -ge 32 ] || die "ADMIN_SECURITY_HASH_SECRET is not strong enough for staging qualification"
+  [ "${#auth_device_challenge_secret}" -ge 32 ] || die "AUTH_DEVICE_CHALLENGE_SECRET is not strong enough for staging qualification"
+  [ -n "$auth_device_challenge_secret_version" ] || die "AUTH_DEVICE_CHALLENGE_SECRET_VERSION is required for staging qualification"
+  if [ "$expected_duo_provider" = "true" ]; then
+    require_contract_value DUO_ENABLED "$duo_enabled" true
+    require_contract_value DUO_FAIL_CLOSED "$duo_fail_closed" true
+    [ -n "$duo_client_id" ] || die "DUO_CLIENT_ID is required when the staging admin Duo provider is enabled"
+    [ -n "$duo_client_secret" ] || die "DUO_CLIENT_SECRET is required when the staging admin Duo provider is enabled"
+    [ -n "$duo_redirect_uri" ] || die "DUO_REDIRECT_URI is required when the staging admin Duo provider is enabled"
+    if [ -n "$duo_oidc_issuer" ] || [ -n "$duo_discovery_url" ]; then
+      [ -n "$duo_oidc_issuer" ] || die "DUO_OIDC_ISSUER is required for staging Duo OIDC qualification"
+      [ -n "$duo_discovery_url" ] || die "DUO_DISCOVERY_URL is required for staging Duo OIDC qualification"
+    else
+      [ -n "$duo_api_host" ] || die "DUO_API_HOST is required for staging Duo Web SDK qualification"
+    fi
+  fi
+fi
 
 env_file="$STATE_DIR/.env.staging"
 cat > "$env_file" <<ENV
 APP_ENV=staging
 NODE_ENV=production
-FIREBASE_PROJECT_ID=aura-staging-smoke
-STAGING_ALLOW_FIREBASE_ADMIN_STUB=true
+AURA_APP_BUILD_SHA=$release_sha
+FIREBASE_PROJECT_ID=$firebase_project_id
+STAGING_ALLOW_FIREBASE_ADMIN_STUB=$staging_allow_firebase_admin_stub
 PAYMENTS_ENABLED=false
 PAYMENT_WEBHOOKS_ENABLED=false
 PAYMENT_CHALLENGE_ENABLED=false
@@ -83,8 +248,8 @@ OTP_SMS_ENABLED=false
 ORDER_EMAILS_ENABLED=false
 REDIS_ENABLED=true
 DISTRIBUTED_SECURITY_CONTROLS_ENABLED=false
-AUTH_DEVICE_CHALLENGE_MODE=off
-ADMIN_REQUIRE_PASSKEY=false
+AUTH_DEVICE_CHALLENGE_MODE=$auth_device_challenge_mode
+ADMIN_REQUIRE_PASSKEY=$admin_require_passkey
 PORT=$STAGING_BACKEND_PORT
 BACKEND_PORT=$STAGING_BACKEND_PORT
 STAGING_SSM_PREFIX=$STAGING_SSM_PREFIX
@@ -95,6 +260,7 @@ AWS_S3_BUCKET=$bucket
 DATABASE_URL=$database_url
 MONGO_URI=$mongo_uri
 MONGO_REQUIRE_TLS=false
+MONGO_REQUIRE_REPLICA_SET=true
 REDIS_URL=redis://redis:6379
 POSTGRES_PASSWORD=$postgres_password
 JWT_SECRET=$jwt_secret
@@ -117,6 +283,9 @@ UPLOAD_SCANNER_PORT=3310
 STAGING_BACKEND_PORT=$STAGING_BACKEND_PORT
 STAGING_BACKEND_IMAGE=$backend_image
 ENV
+if staging_admin_security_requires_isolated_firebase; then
+  append_env_if_set FIREBASE_SERVICE_ACCOUNT "$firebase_service_account"
+fi
 append_env_if_set DUO_ENABLED "$duo_enabled"
 append_env_if_set DUO_CLIENT_ID "$duo_client_id"
 append_env_if_set DUO_CLIENT_SECRET "$duo_client_secret"
@@ -126,6 +295,38 @@ append_env_if_set DUO_DISCOVERY_URL "$duo_discovery_url"
 append_env_if_set DUO_REDIRECT_URI "$duo_redirect_uri"
 append_env_if_set DUO_OIDC_STATE_SECRET "$duo_oidc_state_secret"
 append_env_if_set DUO_FAIL_CLOSED "$duo_fail_closed"
+append_env_if_set AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET "$cloudfront_origin_verify_secret"
+append_env_if_set ORDER_EMAIL_PROVIDER "$order_email_provider"
+append_env_if_set OTP_EMAIL_FAIL_CLOSED "$otp_email_fail_closed"
+append_env_if_set GMAIL_USER "$gmail_user"
+append_env_if_set GMAIL_APP_PASSWORD "$gmail_app_password"
+append_env_if_set RESEND_API_KEY "$resend_api_key"
+append_env_if_set ORDER_EMAIL_FROM_ADDRESS "$order_email_from_address"
+if staging_admin_security_enabled; then
+  append_env_if_set ADMIN_SECURITY_ROLLOUT_PHASE "$admin_security_rollout_phase"
+  append_env_if_set AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK "$auth_device_challenge_allow_vault_fallback"
+  append_env_if_set AUTH_DEVICE_CHALLENGE_SECRET "$auth_device_challenge_secret"
+  append_env_if_set AUTH_DEVICE_CHALLENGE_SECRET_VERSION "$auth_device_challenge_secret_version"
+  append_env_if_set ADMIN_REQUIRE_2FA "$admin_require_2fa"
+  append_env_if_set ADMIN_REQUIRE_ALLOWLIST "$admin_require_allowlist"
+  append_env_if_set ADMIN_ALLOWLIST_EMAILS "$admin_allowlist_emails"
+  append_env_if_set AUTH_SESSION_ALLOW_MEMORY_FALLBACK "$auth_session_allow_memory_fallback"
+  append_env_if_set MFA_ENABLED "$mfa_enabled"
+  append_env_if_set MFA_PASSKEY_ENABLED "$mfa_passkey_enabled"
+  append_env_if_set AUTH_WEBAUTHN_RP_ID "$auth_webauthn_rp_id"
+  append_env_if_set AUTH_WEBAUTHN_ORIGIN "$auth_webauthn_origin"
+  append_env_if_set AUTH_WEBAUTHN_USER_VERIFICATION "$auth_webauthn_user_verification"
+  append_env_if_set ADMIN_SECURITY_STATE_ENGINE_V2 "$admin_security_state_engine_v2"
+  append_env_if_set ADMIN_PASSKEY_ENROLLMENT "$admin_passkey_enrollment"
+  append_env_if_set ADMIN_PASSKEY_CHALLENGE "$admin_passkey_challenge"
+  append_env_if_set ADMIN_DUO_PROVIDER "$admin_duo_provider"
+  append_env_if_set ADMIN_RECOVERY_GRANTS "$admin_recovery_grants"
+  append_env_if_set ADMIN_ASSURANCE_ENFORCEMENT "$admin_assurance_enforcement"
+  append_env_if_set ADMIN_ACTION_BOUND_ASSURANCE "$admin_action_bound_assurance"
+  append_env_if_set ADMIN_LEGACY_FACTOR_READ "$admin_legacy_factor_read"
+  append_env_if_set ADMIN_RECOVERY_TWO_PERSON_REQUIRED "$admin_recovery_two_person_required"
+  append_env_if_set ADMIN_SECURITY_HASH_SECRET "$admin_security_hash_secret"
+fi
 chmod 600 "$env_file"
 
 release_tar="$STATE_DIR/release.tar.gz"
@@ -304,4 +505,5 @@ if [ "$ENABLE_CERTBOT" = "true" ]; then
 fi
 REMOTE
 
-log "Compose deployment completed without printing secret values"
+state_set last_deployed_sha "$release_sha"
+log "Compose deployment completed for immutable source commit $release_sha without printing secret values"

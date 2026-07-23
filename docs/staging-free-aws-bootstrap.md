@@ -57,6 +57,10 @@ STAGING_CORS_ORIGIN=https://staging.example.com
 STAGING_JWT_SECRET=generated-if-missing
 STAGING_DATABASE_PASSWORD=generated-if-missing
 STAGING_ADMIN_EMAIL=ops@example.com
+STAGING_ADMIN_SECURITY_PHASE=legacy
+STAGING_ADMIN_ALLOWLIST_EMAILS=owner@example.com
+STAGING_ADMIN_DUO_PROVIDER=false
+STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED=false
 ENABLE_CERTBOT=false
 ENABLE_STAGING_HTTPS=false
 ENABLE_EIP=false
@@ -121,6 +125,7 @@ Use these commands after bootstrap:
 ```sh
 npm run staging:deploy
 npm run staging:backup
+npm run staging:restore-drill
 npm run staging:observability
 npm run staging:cost-watch
 ```
@@ -129,7 +134,10 @@ If SSH is blocked or timing out during backups, force the AWS SSM control-plane 
 
 ```sh
 STAGING_BACKUP_TRANSPORT=ssm npm run staging:backup
+STAGING_RESTORE_TRANSPORT=ssm npm run staging:restore-drill
 ```
+
+The restore drill uses the exact key, S3 version ID, and source SHA recorded by the latest successful backup. It restores only into disposable, network-isolated Docker volumes on staging and removes them on success or failure; it does not overwrite the live databases. The backup briefly stops the staging backend while it locks/dumps Mongo and snapshots Postgres, so this free single-instance path proves recoverability but not zero-downtime production availability.
 
 HTTPS is intentionally separate. It runs only when a real staging host points at the staging EC2 public IP:
 
@@ -138,6 +146,8 @@ ENABLE_STAGING_HTTPS=true npm run staging:https
 ```
 
 The operations layer is documented in `docs/staging-operations-upgrades.md`.
+
+Admin security V2 qualification supports either the direct-EC2 certificate path or a separate staging-only CloudFront default hostname. The zero-domain-cost path is `STAGING_HTTPS_MODE=cloudfront npm run staging:https:cloudfront`; it never uses or modifies the production distribution. Qualification still requires an explicit `baseline`, `backend`, then `frontend` progression. See `docs/security/admin-security-staging-preflight-2026-07-22.md` before changing the phase from `legacy`.
 
 ## Teardown
 
@@ -157,7 +167,7 @@ CONFIRM_DESTROY_STAGING=true DELETE_STAGING_BUCKET=true DELETE_STAGING_SSM=true 
 
 - Use `t3.micro` or another Free Tier eligible instance type when available in the account.
 - Use a 20 GB gp3 root volume unless you have a reason to increase it.
-- Do not enable NAT Gateway, ALB, RDS, ElastiCache, CloudFront, Route53, Elastic IP, or Certbot/domain flows without understanding the cost and ownership model.
+- Do not enable NAT Gateway, ALB, RDS, ElastiCache, Route53, Elastic IP, custom-domain CloudFront, or Certbot/domain flows without understanding the cost and ownership model. The dedicated staging CloudFront default-domain path must stay inside the current free allowance and existing budget alarms.
 - The S3 bucket includes a lifecycle rule that expires objects under `uploads/` after 14 days.
 
 ## Safety Notes

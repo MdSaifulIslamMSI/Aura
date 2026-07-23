@@ -43,6 +43,24 @@ jobs:
       STAGING_FRONTEND_URL: ${{ vars.STAGING_FRONTEND_URL || vars.STAGING_BASE_URL }}
       STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
       STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
+      STAGING_API_HOST: ${{ vars.STAGING_API_HOST }}
+      STAGING_HTTPS_MODE: ${{ vars.STAGING_HTTPS_MODE || 'direct' }}
+      STAGING_ORIGIN_HOST: ${{ vars.STAGING_ORIGIN_HOST }}
+      STAGING_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.STAGING_CLOUDFRONT_DISTRIBUTION_ID }}
+      STAGING_ADMIN_SECURITY_PHASE: ${{ vars.STAGING_ADMIN_SECURITY_PHASE || 'legacy' }}
+      STAGING_ADMIN_DUO_PROVIDER: ${{ vars.STAGING_ADMIN_DUO_PROVIDER }}
+      STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED: ${{ vars.STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED }}
+      STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}
+      STAGING_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.STAGING_FIREBASE_SERVICE_ACCOUNT }}
+      STAGING_FIREBASE_WEB_CONFIG: ${{ secrets.STAGING_FIREBASE_WEB_CONFIG }}
+      STAGING_EMAIL_PROVIDER: ${{ vars.STAGING_EMAIL_PROVIDER || 'null' }}
+      STAGING_GMAIL_USER: ${{ secrets.STAGING_GMAIL_USER }}
+      STAGING_GMAIL_APP_PASSWORD: ${{ secrets.STAGING_GMAIL_APP_PASSWORD }}
+      STAGING_RESEND_API_KEY: ${{ secrets.STAGING_RESEND_API_KEY }}
+      STAGING_EMAIL_FROM_ADDRESS: ${{ secrets.STAGING_EMAIL_FROM_ADDRESS }}
+      PROD_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+      STAGING_ADMIN_EMAIL: ${{ secrets.STAGING_ADMIN_EMAIL }}
+      STAGING_ADMIN_ALLOWLIST_EMAILS: ${{ secrets.STAGING_ADMIN_ALLOWLIST_EMAILS }}
       STAGING_DEPLOY_ENABLED: ${{ vars.STAGING_DEPLOY_ENABLED || 'false' }}
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN }}
       PROD_BASE_URL: ${{ vars.PROD_BASE_URL }}
@@ -52,7 +70,7 @@ jobs:
       VERCEL_PROJECT_DIR: .
       ENABLE_EIP: "false"
       ENABLE_ROUTE53: "false"
-      ENABLE_STAGING_HTTPS: "false"
+      ENABLE_STAGING_HTTPS: ${{ vars.ENABLE_STAGING_HTTPS || 'false' }}
       SMOKE_TARGET_ENV: staging
       SMOKE_BASE_URL: ${{ vars.STAGING_BASE_URL }}
       SMOKE_REQUIRE_BACKEND_STAGING: "true"
@@ -90,6 +108,11 @@ jobs:
           test "${PROD_SSM_PREFIX}" = "/aura/prod" || { echo "PROD_SSM_PREFIX must be /aura/prod."; exit 1; }
           test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
           test -n "${STAGING_SSH_PRIVATE_KEY}" || { echo "Missing STAGING_SSH_PRIVATE_KEY."; exit 1; }
+
+      - name: Validate staging qualification contract without mutation
+        env:
+          STAGING_PREFLIGHT_DRY_RUN: "true"
+        run: npm run staging:preflight
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6

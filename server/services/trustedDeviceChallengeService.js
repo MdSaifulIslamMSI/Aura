@@ -815,6 +815,7 @@ const upsertTrustedDevice = async ({
     credentialScope = 'recognition',
     enrollmentContext = 'device_recognition',
     adminEligibility = 'none',
+    mongoSession = null,
 }) => {
     const normalizedDeviceId = normalizeDeviceId(deviceId);
     const normalizedLabel = normalizeDeviceLabel(deviceLabel) || 'Trusted browser';
@@ -822,10 +823,12 @@ const upsertTrustedDevice = async ({
     const normalizedMethod = normalizeChallengeMethod(method);
     const now = new Date();
 
-    const user = await User.findById(
+    const userQuery = User.findById(
         userId,
         'trustedDevices isAdmin adminRoles authUid email __v'
-    ).lean();
+    );
+    if (mongoSession) userQuery.session(mongoSession);
+    const user = await userQuery.lean();
     if (!user) {
         throw new Error('Trusted device user not found');
     }
@@ -1007,7 +1010,8 @@ const upsertTrustedDevice = async ({
         {
             $set: { trustedDevices: trimmedDevices },
             $inc: { __v: 1 },
-        }
+        },
+        { session: mongoSession || undefined }
     );
     const writeConfirmed = Number(persistence?.modifiedCount || persistence?.nModified || 0) > 0;
     if (!writeConfirmed) {
@@ -1020,6 +1024,7 @@ const upsertTrustedDevice = async ({
         user,
         device: nextRecord,
         provenance: replacingRegistration ? 'v2_enrollment' : 'v2_reverification',
+        mongoSession,
     });
 
     return {
@@ -1036,6 +1041,7 @@ const issueTrustedDeviceChallenge = async ({
     deviceLabel = '',
     req = {},
     allowEnrollment = true,
+    forceEnrollment = false,
     expectedDeviceSessionHash = '',
     challengeScope = '',
     credentialScope = 'recognition',
@@ -1050,7 +1056,9 @@ const issueTrustedDeviceChallenge = async ({
         throw new Error('Trusted device challenges require a stable device identifier');
     }
 
-    const existingDevice = getTrustedDeviceRegistration(user, normalizedDeviceId);
+    const existingDevice = forceEnrollment
+        ? null
+        : getTrustedDeviceRegistration(user, normalizedDeviceId);
     if (!allowEnrollment && !existingDevice) {
         throw new Error('Trusted device registration missing');
     }
@@ -1190,6 +1198,7 @@ const verifyTrustedDeviceChallenge = async ({
     credential = null,
     deviceSessionToken = '',
     expectedScope = '',
+    mongoSession = null,
 }) => {
     let payload;
     try {
@@ -1341,6 +1350,7 @@ const verifyTrustedDeviceChallenge = async ({
                         : (shouldApplyPasskeyEnrollmentMetadata
                             ? (payload.adminEligibility || 'none')
                             : (registeredDevice.adminEligibility || 'none')),
+                    mongoSession,
                 });
 
                 return {
@@ -1396,6 +1406,7 @@ const verifyTrustedDeviceChallenge = async ({
                 credentialScope: payload.credentialScope || 'recognition',
                 enrollmentContext: payload.enrollmentContext || 'device_recognition',
                 adminEligibility: payload.adminEligibility || 'none',
+                mongoSession,
             });
 
             return {
@@ -1455,6 +1466,7 @@ const verifyTrustedDeviceChallenge = async ({
             credentialScope: 'recognition',
             enrollmentContext: 'device_recognition',
             adminEligibility: 'none',
+            mongoSession,
         });
 
         return {
@@ -1506,6 +1518,7 @@ const verifyTrustedDeviceChallenge = async ({
         credentialScope: 'recognition',
         enrollmentContext: 'device_recognition',
         adminEligibility: 'none',
+        mongoSession,
     });
 
     return {

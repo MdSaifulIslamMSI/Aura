@@ -30,6 +30,11 @@ const getGlobalSessionRevokedAfter = typeof browserSessionService.getGlobalSessi
     ? browserSessionService.getGlobalSessionRevokedAfter
     : async () => 0;
 const { csrfTokenValidator } = require('./csrfMiddleware');
+const { resolveAdminSecurityConfig } = require('../config/adminSecurityConfig');
+const {
+    ADMIN_SECURITY_STATES,
+    resolveAdminSecurityState,
+} = require('../services/adminSecurityStateService');
 const { isRequestExecutionClosed } = require('./requestTimeouts');
 const {
     shouldRequireTrustedDevice,
@@ -188,6 +193,7 @@ const AUTH_PROJECTION = {
     authAssuranceAt: 1,
     authAssuranceAuthTime: 1,
     authTokensRevokedAfter: 1,
+    adminSecurityVersion: 1,
     loginOtpAssuranceExpiresAt: 1,
     isSeller: 1,
     accountState: 1,
@@ -521,9 +527,26 @@ const enforceOtpAssurance = (req) => {
     }
 };
 
+const isAdminSecurityContinuationPath = (req = {}) => {
+    const method = String(req.method || '').trim().toUpperCase();
+    const path = String(req.originalUrl || req.path || '')
+        .toLowerCase()
+        .split('?', 1)[0]
+        .replace(/\/+$/, '');
+    if (method === 'GET' && path === '/api/admin/security/status') return true;
+    return method === 'POST' && new Set([
+        '/api/admin/security/recovery/exchange',
+        '/api/admin/security/passkeys/enrollment/options',
+        '/api/admin/security/passkeys/enrollment/verify',
+        '/api/admin/security/passkeys/challenge/options',
+        '/api/admin/security/passkeys/challenge/verify',
+    ]).has(path);
+};
+
 const isTrustedDeviceBypassPath = (req = {}) => {
     const path = String(req.originalUrl || '').toLowerCase();
-    return path.startsWith('/api/auth/session')
+    return isAdminSecurityContinuationPath(req)
+        || path.startsWith('/api/auth/session')
         || path.startsWith('/api/auth/exchange')
         || path.startsWith('/api/auth/sync')
         || path.startsWith('/api/auth/verify-device')
@@ -532,7 +555,8 @@ const isTrustedDeviceBypassPath = (req = {}) => {
 
 const isLoginContinuationPath = (req = {}) => {
     const path = String(req.originalUrl || req.path || '').toLowerCase();
-    return path.startsWith('/api/auth/session')
+    return isAdminSecurityContinuationPath(req)
+        || path.startsWith('/api/auth/session')
         || path.startsWith('/api/auth/exchange')
         || path.startsWith('/api/auth/sync')
         || path.startsWith('/api/auth/verify-device')
@@ -843,6 +867,7 @@ const resolveRequestSensitivity = (req = {}) => {
 
     if (!path || path.startsWith('/health')) return 'bypass';
     if (path.startsWith('/api/auth/')) return 'bypass';
+    if (isAdminSecurityContinuationPath(req)) return 'bypass';
     if (path.startsWith('/api/admin/')) return 'privileged';
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return 'standard';
     if (path.startsWith('/api/payments/')) return 'sensitive';
@@ -1843,6 +1868,26 @@ const admin = asyncHandler(async (req, res, next) => {
         throw new AppError(`Admin session expired. Re-authenticate within ${ADMIN_REQUIRE_FRESH_LOGIN_MINUTES} minutes.`, 401);
     }
 
+    const adminSecurityConfig = resolveAdminSecurityConfig();
+    if (adminSecurityConfig.stateEngineV2 && adminSecurityConfig.assuranceEnforcement) {
+        const evaluation = resolveAdminSecurityState({ req, user: effectiveUser });
+        if (!evaluation.verified) {
+            const statusCode = evaluation.state === ADMIN_SECURITY_STATES.PRIMARY_REAUTH_REQUIRED
+                ? 401
+                : (evaluation.state === ADMIN_SECURITY_STATES.ADMIN_PROVIDER_UNAVAILABLE ? 503 : 403);
+            logger.warn('admin_access.blocked_security_state', {
+                requestId: req.requestId || '',
+                path: req.originalUrl,
+                state: evaluation.state,
+                reason: evaluation.reason,
+            });
+            recordAdminBlock(req, evaluation.reason, statusCode);
+            const error = new AppError('Complete the required admin security checkpoint.', statusCode);
+            error.code = evaluation.state;
+            throw error;
+        }
+    }
+
     if (ADMIN_REQUIRE_2FA && !hasSecondFactor) {
         logger.warn('admin_access.blocked_missing_second_factor', {
             requestId: req.requestId || '',
@@ -1891,6 +1936,7 @@ module.exports = {
     cacheUserAuthTokensRevokedAfter,
     invalidateUserCache,
     invalidateUserCacheByEmail,
+    isAdminSecurityContinuationPath,
     resolveAdminAccessPolicy,
     resolvePhishingResistantAdminPolicy,
 };

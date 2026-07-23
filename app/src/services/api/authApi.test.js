@@ -116,6 +116,227 @@ describe('authApi', () => {
     });
   });
 
+  it('exchanges an admin recovery grant with Firebase bearer authentication', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue(buildRuntimeValue('firebase-token')),
+    };
+    const grant = buildRuntimeValue('recovery-grant');
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({
+      Authorization: `Bearer ${buildRuntimeValue('firebase-token')}`,
+    });
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        success: true,
+        state: 'ADMIN_ENROLLMENT_REQUIRED',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.exchangeAdminRecoveryGrant(grant, { firebaseUser }))
+      .resolves
+      .toEqual({
+        success: true,
+        state: 'ADMIN_ENROLLMENT_REQUIRED',
+      });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
+      useFirebaseBearer: true,
+    });
+    expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/admin/security/recovery/exchange');
+    expect(requestOptions.method).toBe('POST');
+    expect(JSON.parse(requestOptions.body)).toEqual({ grant });
+    expect(requestOptions.headers.get('Authorization')).toMatch(/^Bearer /);
+    expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
+  });
+
+  it('does not cache a bearer-scoped admin status token as cookie-session CSRF', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue(buildRuntimeValue('firebase-token')),
+    };
+    const bearerCsrfToken = 'a'.repeat(64);
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({
+      Authorization: `Bearer ${buildRuntimeValue('firebase-token')}`,
+    });
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        enabled: true,
+        state: 'ADMIN_ENROLLMENT_REQUIRED',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': bearerCsrfToken,
+        },
+      })
+    );
+
+    await expect(authApi.getAdminSecurityStatus({
+      firebaseUser,
+      useFirebaseBearer: true,
+    })).resolves.toEqual({
+      enabled: true,
+      state: 'ADMIN_ENROLLMENT_REQUIRED',
+    });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
+      useFirebaseBearer: true,
+      forceRefresh: false,
+    });
+    expect(mocks.cacheTokenMock).not.toHaveBeenCalled();
+  });
+
+  it('continues caching admin status CSRF for cookie-session reads', async () => {
+    const cookieCsrfToken = 'b'.repeat(64);
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        enabled: true,
+        state: 'ADMIN_CHALLENGE_REQUIRED',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': cookieCsrfToken,
+        },
+      })
+    );
+
+    await expect(authApi.getAdminSecurityStatus()).resolves.toEqual({
+      enabled: true,
+      state: 'ADMIN_CHALLENGE_REQUIRED',
+    });
+
+    expect(mocks.cacheTokenMock).toHaveBeenCalledWith(cookieCsrfToken, 'cookie_session');
+  });
+
+  it('uses dedicated fresh CSRF tokens for both admin passkey enrollment writes', async () => {
+    const optionsToken = 'c'.repeat(64);
+    const verifyToken = 'd'.repeat(64);
+    const firebaseUser = {
+      getIdToken: vi.fn(),
+    };
+
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' })
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    mocks.ensureCsrfTokenMock
+      .mockResolvedValueOnce(optionsToken)
+      .mockResolvedValueOnce(verifyToken);
+    mocks.addCsrfTokenToHeadersMock
+      .mockReturnValueOnce({
+        'X-Session-Mode': 'cookie',
+        'X-CSRF-Token': optionsToken,
+      })
+      .mockReturnValueOnce({
+        'X-Session-Mode': 'cookie',
+        'X-CSRF-Token': verifyToken,
+      });
+    mocks.signTrustedDeviceChallengeMock.mockResolvedValueOnce({
+      method: 'webauthn',
+      proofBase64: '',
+      publicKeySpkiBase64: '',
+      credential: { id: 'admin-passkey-credential' },
+    });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          success: true,
+          deviceChallenge: { challengeId: 'enrollment-challenge' },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(authApi.enrollAdminRecoveryPasskey({ firebaseUser }))
+      .resolves
+      .toEqual({ success: true });
+
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenNthCalledWith(1, {
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: true,
+    });
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenNthCalledWith(2, {
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: true,
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls[0][0]).toContain('/admin/security/passkeys/enrollment/options');
+    expect(global.fetch.mock.calls[1][0]).toContain('/admin/security/passkeys/enrollment/verify');
+  });
+
+  it('uses dedicated fresh CSRF tokens for both admin passkey challenge writes', async () => {
+    const optionsToken = 'e'.repeat(64);
+    const verifyToken = 'f'.repeat(64);
+    const firebaseUser = {
+      getIdToken: vi.fn(),
+    };
+
+    mocks.getAuthHeaderMock
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' })
+      .mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    mocks.ensureCsrfTokenMock
+      .mockResolvedValueOnce(optionsToken)
+      .mockResolvedValueOnce(verifyToken);
+    mocks.addCsrfTokenToHeadersMock
+      .mockReturnValueOnce({
+        'X-Session-Mode': 'cookie',
+        'X-CSRF-Token': optionsToken,
+      })
+      .mockReturnValueOnce({
+        'X-Session-Mode': 'cookie',
+        'X-CSRF-Token': verifyToken,
+      });
+
+    global.fetch
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          success: true,
+          deviceChallenge: { challengeId: 'admin-challenge' },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+    await expect(authApi.verifyAdminPasskey({ firebaseUser }))
+      .resolves
+      .toEqual({ success: true });
+
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenNthCalledWith(1, {
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: true,
+    });
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenNthCalledWith(2, {
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: true,
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch.mock.calls[0][0]).toContain('/admin/security/passkeys/challenge/options');
+    expect(global.fetch.mock.calls[1][0]).toContain('/admin/security/passkeys/challenge/verify');
+  });
+
   it('sends auth sync with Firebase bearer only when a Firebase user is present', async () => {
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),

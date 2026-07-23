@@ -2783,6 +2783,198 @@
     "defaultMessage": "Unknown",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "admin.security.accountDisabled.badge": {
+    "defaultMessage": "Account unavailable",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.accountDisabled.body": {
+    "defaultMessage": "The server reports that the account is disabled or suspended. Contact a security administrator before trying again.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.accountDisabled.title": {
+    "defaultMessage": "This admin account cannot continue.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.challenge.badge": {
+    "defaultMessage": "Admin verification",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.challenge.body": {
+    "defaultMessage": "Use the passkey registered for this browser, or complete Duo when it is available. Verification creates only a short-lived server session assurance.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.challenge.title": {
+    "defaultMessage": "Verify an approved admin factor.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.configurationError.badge": {
+    "defaultMessage": "Configuration lock",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.configurationError.body": {
+    "defaultMessage": "The backend failed its admin security contract. Access remains locked until an operator repairs the configuration.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.configurationError.title": {
+    "defaultMessage": "Admin security configuration is incomplete.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.default.badge": {
+    "defaultMessage": "Admin security checkpoint",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.default.body": {
+    "defaultMessage": "The server is resolving the required verification path.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.default.title": {
+    "defaultMessage": "Checking admin security state.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.duo.verify": {
+    "defaultMessage": "Verify with Duo",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.emailVerification.badge": {
+    "defaultMessage": "Identity check",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.emailVerification.body": {
+    "defaultMessage": "Admin security setup starts only after the identity provider confirms this email address.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.emailVerification.title": {
+    "defaultMessage": "Verify the admin email first.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.enrollment.badge": {
+    "defaultMessage": "Enroll admin passkey",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.enrollment.body": {
+    "defaultMessage": "Your recovery grant is now bound to this browser session. Complete the passkey ceremony before the authority expires.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.enrollment.title": {
+    "defaultMessage": "Create the required admin passkey.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.error.generic": {
+    "defaultMessage": "The security checkpoint could not be completed.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.error.passkeyCancelled": {
+    "defaultMessage": "The passkey prompt was cancelled, timed out, or could not use this authenticator. No security state was changed.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.loading.badge": {
+    "defaultMessage": "Checking server policy",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.loading.body": {
+    "defaultMessage": "No admin content is loaded until the backend returns an authoritative security state.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.loading.title": {
+    "defaultMessage": "Resolving the admin checkpoint…",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.notAuthorized.badge": {
+    "defaultMessage": "Access denied",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.notAuthorized.body": {
+    "defaultMessage": "Admin role and allowlist decisions come from the server and cannot be changed on this page.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.notAuthorized.title": {
+    "defaultMessage": "This account is not authorized for admin access.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.passkey.enroll": {
+    "defaultMessage": "Set up admin passkey",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.passkey.verify": {
+    "defaultMessage": "Verify with passkey",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.passkey.waiting": {
+    "defaultMessage": "Waiting for passkey…",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.primaryReauth.action": {
+    "defaultMessage": "Sign in again",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.primaryReauth.badge": {
+    "defaultMessage": "Fresh sign-in required",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.primaryReauth.body": {
+    "defaultMessage": "Recovery and admin verification require a recent primary sign-in. Your destination will be preserved in memory for this sign-in flow.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.primaryReauth.title": {
+    "defaultMessage": "Sign in again before continuing.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.providerUnavailable.badge": {
+    "defaultMessage": "Provider unavailable",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.providerUnavailable.body": {
+    "defaultMessage": "The server cannot reach or safely configure an approved admin verification provider. Access remains locked.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.providerUnavailable.title": {
+    "defaultMessage": "Admin verification is temporarily unavailable.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.recovery.badge": {
+    "defaultMessage": "Supervised recovery",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.recovery.body": {
+    "defaultMessage": "Ask an authorized operator for a short-lived, one-time recovery grant. The grant can enroll a factor; it cannot open the admin console.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.recovery.title": {
+    "defaultMessage": "An approved admin factor must be enrolled.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.recoveryGrant.continue": {
+    "defaultMessage": "Continue to passkey setup",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.recoveryGrant.exchanging": {
+    "defaultMessage": "Exchanging…",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.recoveryGrant.help": {
+    "defaultMessage": "Paste the operator-issued grant. It stays only in this field until exchange and is never saved in browser storage.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.recoveryGrant.label": {
+    "defaultMessage": "One-time recovery grant",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.requestId": {
+    "defaultMessage": "Request ID:",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.retry": {
+    "defaultMessage": "Retry server check",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.returnToStorefront": {
+    "defaultMessage": "Return to storefront",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.security.signOut": {
+    "defaultMessage": "Sign out",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "admin.shared.actions": {
     "defaultMessage": "Actions",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
