@@ -1,4 +1,4 @@
-import { buildApiUrl } from './apiBase';
+import { buildApiUrl, requestWithTrace } from './apiBase';
 import { getActiveMarketHeaders } from './marketRuntime';
 import { getTrustedDeviceHeaders } from './deviceTrustClient';
 
@@ -164,7 +164,7 @@ const requestCsrfToken = async (requestOptions = {}) => {
     try {
         console.debug('[CSRF] Fetching token from server...');
 
-        const response = await fetch(buildApiUrl('/auth/session'), {
+        const response = await requestWithTrace(buildApiUrl('/auth/session'), {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -173,6 +173,8 @@ const requestCsrfToken = async (requestOptions = {}) => {
                 ...getActiveMarketHeaders(),
             },
             credentials: 'include',
+            retries: 0,
+            throwOnHttpError: false,
         });
 
         if (!response.ok) {
