@@ -10,10 +10,14 @@ services:
       PORT: ${STAGING_BACKEND_PORT:-3000}
       BACKEND_PORT: ${STAGING_BACKEND_PORT:-3000}
     depends_on:
-      - mongo
-      - postgres
-      - redis
-      - scanner
+      mongo:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      scanner:
+        condition: service_started
     expose:
       - "${STAGING_BACKEND_PORT:-3000}"
     ports:
@@ -42,7 +46,18 @@ services:
 
   mongo:
     image: mongo:7
-    command: ["mongod", "--bind_ip_all"]
+    command: ["mongod", "--bind_ip_all", "--replSet", "rs0"]
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status() } catch (error) { try { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) } catch (_) {} }; db.hello().isWritablePrimary ? quit(0) : quit(1)"
+      interval: 5s
+      timeout: 10s
+      start_period: 5s
+      retries: 24
     volumes:
       - mongo-data:/data/db
     networks:

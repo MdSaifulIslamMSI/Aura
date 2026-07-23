@@ -69,6 +69,16 @@ fi
 
 database_url="$(ssm_get DATABASE_URL)"
 mongo_uri="$(ssm_get MONGO_URI)"
+if [[ "$mongo_uri" == *"replicaSet="* && "$mongo_uri" != *"replicaSet=rs0"* ]]; then
+  die "MONGO_URI must not select a replica set other than rs0 for isolated staging"
+fi
+if [[ "$mongo_uri" != *"replicaSet=rs0"* ]]; then
+  if [[ "$mongo_uri" == *"?"* ]]; then
+    mongo_uri="${mongo_uri}&replicaSet=rs0"
+  else
+    mongo_uri="${mongo_uri}?replicaSet=rs0"
+  fi
+fi
 jwt_secret="$(ssm_get JWT_SECRET)"
 postgres_password="$(ssm_get POSTGRES_PASSWORD)"
 otp_flow_secret="$(ssm_get OTP_FLOW_SECRET)"
@@ -250,6 +260,7 @@ AWS_S3_BUCKET=$bucket
 DATABASE_URL=$database_url
 MONGO_URI=$mongo_uri
 MONGO_REQUIRE_TLS=false
+MONGO_REQUIRE_REPLICA_SET=true
 REDIS_URL=redis://redis:6379
 POSTGRES_PASSWORD=$postgres_password
 JWT_SECRET=$jwt_secret

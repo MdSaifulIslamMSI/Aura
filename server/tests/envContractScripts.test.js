@@ -1732,6 +1732,29 @@ describe('repo environment contract scripts', () => {
         expect(rootDockerignore).toContain('server/Dockerfile*');
     });
 
+    test('isolated staging MongoDB is transaction-capable and required fail closed', () => {
+        const stagingCompose = fs.readFileSync(
+            path.join(repoRoot, 'infra', 'staging', 'docker-compose.yml'),
+            'utf8'
+        );
+        const stagingBootstrap = fs.readFileSync(
+            path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'),
+            'utf8'
+        );
+        const stagingDeploy = fs.readFileSync(
+            path.join(repoRoot, 'scripts', 'staging', '07-deploy-compose.sh'),
+            'utf8'
+        );
+
+        expect(stagingCompose).toContain('command: ["mongod", "--bind_ip_all", "--replSet", "rs0"]');
+        expect(stagingCompose).toContain("rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]})");
+        expect(stagingCompose).toMatch(/mongo:\s*\n\s+condition: service_healthy/);
+        expect(stagingBootstrap).toContain('aura_staging?replicaSet=rs0');
+        expect(stagingBootstrap).toContain('put_string MONGO_REQUIRE_REPLICA_SET true');
+        expect(stagingDeploy).toContain('MONGO_REQUIRE_REPLICA_SET=true');
+        expect(stagingDeploy).toContain('MONGO_URI must not select a replica set other than rs0');
+    });
+
     test('performance smoke fails when no real target is reachable', () => {
         const result = runScript('scripts/performance/smoke.mjs', {
             PERF_BASE_URL: 'http://127.0.0.1:65534',
