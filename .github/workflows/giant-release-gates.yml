@@ -81,7 +81,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -114,7 +114,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -140,7 +140,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -173,7 +173,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -205,7 +205,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -230,7 +230,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role for optional S3 rollback proof
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -270,7 +270,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -305,7 +305,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
