@@ -116,6 +116,43 @@ describe('authApi', () => {
     });
   });
 
+  it('exchanges an admin recovery grant with Firebase bearer authentication', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue(buildRuntimeValue('firebase-token')),
+    };
+    const grant = buildRuntimeValue('recovery-grant');
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({
+      Authorization: `Bearer ${buildRuntimeValue('firebase-token')}`,
+    });
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        success: true,
+        state: 'ADMIN_ENROLLMENT_REQUIRED',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+
+    await expect(authApi.exchangeAdminRecoveryGrant(grant, { firebaseUser }))
+      .resolves
+      .toEqual({
+        success: true,
+        state: 'ADMIN_ENROLLMENT_REQUIRED',
+      });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
+      useFirebaseBearer: true,
+    });
+    expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
+    const [url, requestOptions] = global.fetch.mock.calls[0];
+    expect(url).toContain('/admin/security/recovery/exchange');
+    expect(requestOptions.method).toBe('POST');
+    expect(JSON.parse(requestOptions.body)).toEqual({ grant });
+    expect(requestOptions.headers.get('Authorization')).toMatch(/^Bearer /);
+    expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
+  });
+
   it('sends auth sync with Firebase bearer only when a Firebase user is present', async () => {
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),

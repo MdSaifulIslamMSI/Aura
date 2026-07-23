@@ -410,7 +410,8 @@ export const authApi = {
     exchangeAdminRecoveryGrant: async (grant, options = {}) => (
         postAuthBootstrap('/admin/security/recovery/exchange', { grant }, {
             ...options,
-            preferCookieSession: true,
+            preferCookieSession: false,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
             disableSessionExchangeOnUnauthorized: true,
         })
     ),
