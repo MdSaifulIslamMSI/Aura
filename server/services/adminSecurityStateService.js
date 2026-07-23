@@ -134,8 +134,8 @@ const resolveAdminSecurityState = ({
     );
     const authAgeSeconds = getAuthAgeSeconds(req, now);
 
-    let state = ADMIN_SECURITY_STATES.ADMIN_VERIFIED;
-    let reason = 'verified';
+    let state;
+    let reason;
 
     if (!user?._id) {
         state = ADMIN_SECURITY_STATES.NOT_AUTHENTICATED;
