@@ -56,6 +56,7 @@ const {
     generateCsrfToken,
     storeCsrfToken,
     verifyCsrfToken,
+    csrfTokenGenerator,
     csrfTokenValidator,
 } = require('../middleware/csrfMiddleware');
 
@@ -157,6 +158,56 @@ describe('csrf middleware', () => {
 
         expect(valid).toBe(false);
         expect(mockRedisData.size).toBe(1);
+    });
+
+    test('binds no-referrer token issuance to an allowlisted browser origin hint', async () => {
+        const req = {
+            method: 'GET',
+            path: '/auth/session',
+            protocol: 'https',
+            ip: '127.0.0.1',
+            user: { id: 'user-a' },
+            authSession: { sessionId: 'session-a' },
+            headers: {
+                host: 'api.example.com',
+                'x-aura-csrf-origin': 'http://localhost:5173',
+            },
+            get: jest.fn(() => 'test-agent'),
+        };
+        const res = { setHeader: jest.fn() };
+        const next = jest.fn();
+
+        await csrfTokenGenerator(req, res, next);
+
+        const stored = JSON.parse(Array.from(mockRedisData.values())[0]);
+        expect(stored.metadata).toMatchObject({
+            uid: 'user-a',
+            sessionId: 'session-a',
+            strictOrigin: 'http://localhost:5173',
+        });
+        expect(res.setHeader).toHaveBeenCalledWith('X-CSRF-Token', expect.any(String));
+        expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    test('does not trust a disallowed browser origin hint', async () => {
+        const req = {
+            method: 'GET',
+            path: '/auth/session',
+            protocol: 'https',
+            ip: '127.0.0.1',
+            user: { id: 'user-a' },
+            authSession: { sessionId: 'session-a' },
+            headers: {
+                host: 'api.example.com',
+                'x-aura-csrf-origin': 'https://evil.example.com',
+            },
+            get: jest.fn(() => 'test-agent'),
+        };
+
+        await csrfTokenGenerator(req, { setHeader: jest.fn() }, jest.fn());
+
+        const stored = JSON.parse(Array.from(mockRedisData.values())[0]);
+        expect(stored.metadata.strictOrigin).toBe('https://api.example.com');
     });
 
     test('ignores body-only token transport for authenticated JSON API requests', async () => {

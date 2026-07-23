@@ -42,6 +42,7 @@ describe('csrfTokenManager', () => {
         const requestHeaders = new Headers(fetchMock.mock.calls[0][1]?.headers);
         expect(requestHeaders.get('X-Aura-Device-Id')).toBe('device-123');
         expect(requestHeaders.get('X-Aura-Device-Label')).toBe('Trusted browser');
+        expect(requestHeaders.get('X-Aura-CSRF-Origin')).toBe(window.location.origin);
         expect(requestHeaders.get('X-Request-Id')).toMatch(/^req-/);
         expect(requestHeaders.get('DPoP')).toMatch(/^[^.]+\.[^.]+\.[^.]+$/);
     });

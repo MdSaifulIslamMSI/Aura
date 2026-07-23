@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
+const { isOriginAllowed } = require('../config/corsFlags');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
 /**
@@ -34,6 +35,21 @@ const normalizePrincipalId = (value) => {
     return '';
 };
 
+const getAllowedOriginHint = (req) => {
+    const raw = req.headers?.['x-aura-csrf-origin'];
+    if (typeof raw !== 'string' || !raw.trim()) return null;
+
+    try {
+        const parsed = new URL(raw.trim());
+        if (parsed.origin !== raw.trim() || !isOriginAllowed(parsed.origin)) {
+            return null;
+        }
+        return parsed.origin;
+    } catch (_) {
+        return null;
+    }
+};
+
 const getStrictOrigin = (req) => {
     const explicitOrigin = req.headers?.origin;
     if (explicitOrigin) return explicitOrigin;
@@ -46,6 +62,9 @@ const getStrictOrigin = (req) => {
             return null;
         }
     }
+
+    const allowedOriginHint = getAllowedOriginHint(req);
+    if (allowedOriginHint) return allowedOriginHint;
 
     const host = req.headers?.host;
     if (!host) return null;
