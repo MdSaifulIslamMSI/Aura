@@ -281,6 +281,7 @@ cat > "$instance_policy" <<JSON
         "s3:AbortMultipartUpload",
         "s3:DeleteObject",
         "s3:GetObject",
+        "s3:GetObjectVersion",
         "s3:ListBucket",
         "s3:PutObject"
       ],

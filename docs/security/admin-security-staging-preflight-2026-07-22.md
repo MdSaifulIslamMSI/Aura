@@ -1,16 +1,16 @@
 # Admin security recovery V2 staging preflight
 
-Inventory date: 2026-07-22 (Asia/Calcutta)
+Inventory date: 2026-07-23 (Asia/Calcutta)
 
-Implementation candidate: draft PR #358. Latest exact staging application artifact verified before this checklist update: `37547e08`.
+Implementation candidate: draft PR #358. Latest exact staging application artifact verified before this checklist update: `acc963589244590562f7d19a6c940ee122e88079`.
 
-Scope: read-only staging, GitHub, AWS, and repository inspection
+Scope: staging, GitHub, AWS, and repository inspection plus the approved staging-only backup and isolated restore drill
 
 ## Decision
 
 **STAGING NO-GO for admin security recovery V2 activation. PRODUCTION NO-GO.**
 
-The reviewed branch is now deployed to staging in the explicit `legacy` phase behind a staging-only CloudFront HTTPS endpoint, and generic health, isolation, origin protection, budget, CloudTrail, Redis connectivity, and repository contracts are healthy. A current encrypted/versioned staging archive also exists. V2 remains disabled: no migration, recovery-grant issuance, provider change, Redis outage drill, frontend activation, or production mutation was performed. The archive has not been restored into an isolated target, and the single-instance deployment produced transient `504` responses during replacement; neither backup recoverability nor massive-production availability is proven.
+The reviewed branch is deployed to staging in the explicit `legacy` phase behind a staging-only CloudFront HTTPS endpoint, and generic health, isolation, origin protection, budget, CloudTrail, Redis connectivity, repository contracts, and staging backup recoverability are healthy. A current application-quiesced logical backup was downloaded by exact S3 VersionId and restored into network-disabled disposable MongoDB, PostgreSQL, and Redis containers. Counts and indexes matched, the Redis snapshot validated, and the cleanup audit found no remaining restore directory, runner, container, or volume. V2 remains disabled: no migration, recovery-grant issuance, provider change, Redis outage drill, frontend activation, or production mutation was performed. The single-instance deployment produced transient `504` responses during replacement, so massive-production availability is still not proven.
 
 ## Current evidence
 
@@ -18,17 +18,17 @@ The reviewed branch is now deployed to staging in the explicit `legacy` phase be
 
 | Gate | Evidence observed | Verdict |
 |---|---|---|
-| Candidate identity and CI | Exact-head CI passed for the prior qualification commit. The latest operations fixes in this checklist require a fresh exact-head watch. PR #358 remains draft. | PENDING EXACT-HEAD CI |
+| Candidate identity and CI | Exact-head CI at `acc963589244590562f7d19a6c940ee122e88079` completed with 71 passed checks, 9 conditional skips, zero failures, and zero pending. The final exact-version IAM/source cleanup still requires a fresh exact-head watch after push. PR #358 remains draft. | PASS AT DEPLOYED SHA / PENDING NEXT HEAD |
 | Generic staging runtime | EC2 instance `i-0af0bd44f6463b11b` is running and managed by SSM. CloudFront `/health`, `/health/live`, `/`, and the bounded upload route returned the expected `200`/`404` results; database and Redis reported connected. | PASS |
-| Immutable V2 deployment | Staging release `37547e08` was deployed from the reviewed branch in the explicit `legacy` phase. `GET /api/admin/security/status` returned `404`, proving V2 remained inactive. | PASS FOR LEGACY BASELINE / V2 OFF |
+| Immutable V2 deployment | Staging release `acc963589244590562f7d19a6c940ee122e88079` was deployed from the reviewed branch in the explicit `legacy` phase. Runtime `AURA_APP_BUILD_SHA` matched the full SHA and `GET /api/admin/security/status` returned `404`, proving V2 remained inactive. | PASS FOR LEGACY BASELINE / V2 OFF |
 | Secure WebAuthn origin | Staging uses the AWS default hostname `dmgqqlzv2ewgl.cloudfront.net` with HTTPS. Its sole HTTPS origin is the active EC2 `sslip.io` hostname. This can support a staging-only RP/origin pair after V2 configuration is reviewed. | PASS FOR HTTPS EDGE |
 | Origin protection | The CloudFront admin-status request reached the legacy app and returned `404`; a direct-origin request returned `403 ORIGIN_PROTECTION_REQUIRED`. Direct health access remains intentionally available. | PASS |
 | V2 runtime configuration | Parameter names were inspected without printing secrets. All V2 flag names, `ADMIN_SECURITY_HASH_SECRET`, the WebAuthn RP/origin/UV names, and the mandatory session-fallback name are absent under `/aura/staging`. | BLOCKED |
-| Staging automation safety | Live staging was produced by legacy scripts that select challenge-off/passkey-off settings. The draft branch now has an opt-in, fail-closed qualification contract, but it is not deployed. | CODE FIXED / NOT DEPLOYED |
+| Staging automation safety | Live staging remains explicitly `legacy`, while the deployed draft branch contains the opt-in, fail-closed qualification contract. No non-legacy phase or V2 parameter was selected. | PASS FOR LEGACY DEFAULT / V2 NOT ACTIVATED |
 | Redis baseline | `REDIS_ENABLED=true`, a Redis URL name exists, and health reports connected. The API reports Redis as not required, and no approved outage drill proved fail-closed `503` behavior. | BLOCKED |
-| Current backup | An encrypted, versioned object exists at `backups/20260722-181315/aura-staging-backup.tar.gz`, size `271372074`, version `9JfCJphkt6UjOXrtxqjeVcC2OXOsNYhy`, full-object CRC64NVME `lw5Va9KQHII=`. No secret or backup contents were printed. | PASS FOR ARCHIVE EXISTENCE ONLY |
-| Restore proof | The new archive contains live Docker volume snapshots; no database-consistent logical snapshot or isolated restoration of this real archive has been proven. The earlier disposable fixture drill does not satisfy this gate. | BLOCKED |
-| Migration | Neither audit mode nor apply mode was run against staging because the candidate is not deployed and current backup/restore evidence is absent. | NOT PROVEN |
+| Current backup | The application-quiesced logical backup exists at `backups/20260722-185642/aura-staging-backup.tar.gz`, size `2527175`, version `FdEFkdSQ0UOZe1bagrpzL3dHWnJ4uNtQ`, ETag `c36f1c36af13978ffa0401728982b29e`, and full-object CRC64NVME `Mq5B5P7rxYg=`. It is encrypted with SSE-S3, tagged as staging, and records source SHA `acc963589244590562f7d19a6c940ee122e88079`. No secret or backup contents were printed. | PASS |
+| Restore proof | The exact object key and VersionId were restored into disposable `--network none` MongoDB, PostgreSQL, and Redis containers. The drill returned `RESTORE_DRILL_PASS` with Mongo/PostgreSQL count and index parity, a valid Redis RDB, and zero Redis keys. An independent SSM cleanup audit returned `RESTORE_CLEANUP_PASS`; live edge and origin health endpoints remained `200`. | PASS |
+| Migration | Neither audit mode nor apply mode was run against staging. The candidate is deployed only in `legacy`; backup/restore now passes, but the V2 configuration, migration review, and named change-window evidence remain absent. | NOT PROVEN |
 | Duo baseline | Duo configuration names exist; enabled and fail-closed booleans match the expected values. No V2 redirect, callback, cancellation, or provider-outage ceremony was performed. | NOT PROVEN |
 | Audit baseline | The multi-region CloudTrail is logging, log-file validation is enabled, and delivery is current. Application-level immutable V2 audit records and correlation were not exercised. | NOT PROVEN |
 | V2 monitoring | Repository observability assets validate, CloudWatch log retention and four infrastructure alarms exist, and generic synthetic/latency checks passed. No V2 recovery/provider alert evidence or dashboard exists. | NOT PROVEN |
@@ -37,21 +37,20 @@ The reviewed branch is now deployed to staging in the explicit `legacy` phase be
 | Rollback and availability | The exact staging SHA is observable, but no V2 rollback was executed. Deploying the single EC2 Compose runtime produced transient `504` responses, so zero-downtime or blue/green rollback is not demonstrated. | BLOCKED |
 | Signoffs | No recorded security, SRE/operations, or product-owner approval was found for this activation. | NOT PROVEN |
 
-Implementation update: the draft PR contains an opt-in `legacy` -> `baseline` -> `backend` -> `frontend` staging contract. The exact reviewed `37547e08` application artifact was deployed in `legacy` behind the dedicated HTTPS edge and passed live health/origin checks. V2 Parameter Store values and non-legacy phases remain untouched. The CI state-refresh path now validates the live CloudFront distribution, origin, tags, and configured URLs instead of replacing the HTTPS state with a raw EC2 HTTP URL. The backup workflow now uses root-disk workspace because the instance `/tmp` tmpfs was too small; it cleans the bounded workspace after upload.
+Implementation update: the draft PR contains an opt-in `legacy` -> `baseline` -> `backend` -> `frontend` staging contract. The exact reviewed `acc963589244590562f7d19a6c940ee122e88079` application artifact was deployed in `legacy` behind the dedicated HTTPS edge and passed live health/origin checks. V2 Parameter Store values and non-legacy phases remain untouched. The CI state-refresh path validates the live CloudFront distribution, origin, tags, and configured URLs instead of replacing the HTTPS state with a raw EC2 HTTP URL. The backup workflow quiesces the application, creates logical MongoDB and PostgreSQL backups plus a Redis RDB, records checksums and the exact source SHA, uploads an encrypted versioned object, and cleans its bounded root-disk workspace. The restore workflow requires the exact object VersionId and source SHA and proves the backup in disposable network-disabled containers.
 
 ## Hard blockers to clear first
 
 1. Complete review and exact-head CI for the new qualification mode, then retain evidence that legacy remains the default and every non-legacy phase fails closed without HTTPS and the complete V2 contract.
 2. Review and record the exact CloudFront staging RP ID/origin pair for V2 qualification; do not reuse it for production.
 3. Retain the immutable staging artifact identity and keep every new backend and frontend flag off until the activation window.
-4. Prove a transaction-consistent database/object backup and an isolated, non-destructive restore of the real staging archive. Archive existence alone is insufficient.
-5. Make Redis mandatory for the V2 security limiters and prove recovery endpoints fail closed during a controlled Redis outage.
-6. Exercise V2 audit events and alerts without logging grant plaintext, authority cookies, WebAuthn material, raw IPs, or raw user agents.
-7. Demonstrate two independently factored owners/admins, an independent backup admin method, a tested zero-downtime/blue-green rollback, and recorded security/SRE/product signoffs.
+4. Make Redis mandatory for the V2 security limiters and prove recovery endpoints fail closed during a controlled Redis outage.
+5. Exercise V2 audit events and alerts without logging grant plaintext, authority cookies, WebAuthn material, raw IPs, or raw user agents.
+6. Demonstrate two independently factored owners/admins, an independent backup admin method, a tested zero-downtime/blue-green rollback, and recorded security/SRE/product signoffs.
 
 ## Ordered activation checklist
 
-Items marked **MUTATING - APPROVAL REQUIRED** are future change-window actions. This document does not authorize them.
+Items marked **MUTATING - APPROVAL REQUIRED** require explicit authorization. The isolated staging restore below was completed under the user's repeated explicit authorization for deployment and production-change work; that authorization did not waive any technical gate or authorize a production mutation.
 
 ### 0. Repair the staging qualification contract
 
@@ -89,16 +88,16 @@ Items marked **MUTATING - APPROVAL REQUIRED** are future change-window actions. 
 - [x] Provision the staging-only CloudFront HTTPS endpoint and HTTPS origin; record the exact staging RP ID and origin before V2 activation.
 - [ ] Build the candidate once from the reviewed SHA; retain its image digest, frontend deployment ID, SBOM/scan result, and artifact checksum.
 - [x] Deploy the reviewed branch artifact in explicit `legacy` phase with all V2 backend flags and `VITE_ADMIN_SECURITY_STATE_ENGINE_V2` off.
-- [x] Confirm the release marker equals `37547e08`; the absent legacy endpoint returns `404` and cannot weaken the legacy admin boundary.
+- [x] Confirm the runtime release marker equals `acc963589244590562f7d19a6c940ee122e88079`; the absent legacy endpoint returns `404` and cannot weaken the legacy admin boundary.
 - [x] Re-run bounded generic staging health and origin-protection checks. Exact-head CI for this checklist update remains required.
 
 ### 2. Prove backup and rollback before migration
 
 - [x] Run `npm run staging:backup` for a fresh encrypted/versioned staging archive.
-- [x] Record the backup object version, checksum, timestamp, and object size without recording credentials or data contents. Database name/count consistency still requires the isolated restore evidence.
-- [ ] **MUTATING - APPROVAL REQUIRED:** restore that backup into a disposable isolated staging target. Never overwrite the live staging database for the drill.
-- [ ] Compare indexes, collection/document counts, required records, representative object checksums, and application startup health.
-- [ ] Destroy the disposable restore target only under the approved cleanup procedure; retain the evidence report.
+- [x] Record the backup object version, checksum, timestamp, object size, consistency mode, and source SHA without recording credentials or data contents.
+- [x] **MUTATING - APPROVAL REQUIRED:** restore that exact backup version into disposable network-disabled containers without overwriting the live staging databases.
+- [x] Validate archive paths and checksums, compare MongoDB and PostgreSQL collection/table counts and indexes, validate the Redis RDB, and confirm live staging health after the drill.
+- [x] Destroy the disposable restore target under the cleanup trap and independently prove no restore directory, runner, container, or volume remains.
 - [ ] Capture and test the previous backend image/release and frontend deployment rollback identifiers.
 
 ### 3. Audit and apply the additive migration

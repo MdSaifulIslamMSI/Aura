@@ -948,6 +948,7 @@ describe('repo environment contract scripts', () => {
         expect(backupScript).toContain('redis-cli --rdb');
         expect(backupScript).toContain('BACKUP_SOURCE_SHA');
         expect(backupScript).toContain('last_backup_s3_version_id');
+        expect(backupScript).toContain('|| status=$?; rm -f ${remoteJob} /tmp/aura-staging-backup-runner.b64; exit $status');
         expect(backupScript).not.toContain('mongo-volume.tar.gz');
         expect(backupScript).not.toContain('postgres-volume.tar.gz');
         expect(backupScript).not.toMatch(/remote_archive="\/tmp\//);
@@ -963,6 +964,7 @@ describe('repo environment contract scripts', () => {
         expect(restoreScript).toContain('cmp --silent "$data_dir/postgres-stats.tsv"');
         expect(restoreScript).toContain('cleanup_restore_drill');
         expect(restoreScript).toContain('RESTORE_DRILL_PASS');
+        expect(restoreScript).toContain('|| status=$?; rm -f ${remoteJob} /tmp/aura-staging-restore-runner.b64; exit $status');
         expect(restoreScript).not.toContain('--publish');
         expect(restoreScript).not.toMatch(/docker run[^\n]*\s-p(?:=|\s)/);
 
@@ -1074,6 +1076,7 @@ describe('repo environment contract scripts', () => {
         expect(iamScript).toMatch(/"ce:GetCostAndUsage"/);
         expect(iamScript).not.toMatch(/ce:\*/);
         expect(iamScript).toMatch(/ce:GetCostForecast/);
+        expect(iamScript).toMatch(/s3:GetObjectVersion/);
         expect(workflow).toMatch(/ALLOW_NO_COST_WATCH:\s*\$\{\{\s*vars\.ALLOW_NO_COST_WATCH \|\| 'true'\s*\}\}/);
     });
 

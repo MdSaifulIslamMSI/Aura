@@ -194,9 +194,7 @@ const commands = [
   `cat > /tmp/aura-staging-backup-runner.b64 <<'\''B64'\''\n${runnerB64}\nB64`,
   `base64 -d /tmp/aura-staging-backup-runner.b64 > ${remoteJob}`,
   `chmod 700 ${remoteJob}`,
-  `BACKUP_ID=${backupId} BACKUP_SOURCE_SHA=${sourceSha} STAGING_BACKEND_PORT=${backendPort} REMOTE_BACKUP_ROOT=${remoteBackupRoot} REMOTE_ARCHIVE=${remoteArchive} AWS_REGION=${region} STAGING_BUCKET_NAME=${bucket} S3_KEY=${s3Key} bash ${remoteJob}`,
-  `rm -f ${remoteJob} /tmp/aura-staging-backup-runner.b64`,
-  `rm -rf -- ${remoteBackupRoot}`,
+  `status=0; BACKUP_ID=${backupId} BACKUP_SOURCE_SHA=${sourceSha} STAGING_BACKEND_PORT=${backendPort} REMOTE_BACKUP_ROOT=${remoteBackupRoot} REMOTE_ARCHIVE=${remoteArchive} AWS_REGION=${region} STAGING_BUCKET_NAME=${bucket} S3_KEY=${s3Key} bash ${remoteJob} || status=$?; rm -f ${remoteJob} /tmp/aura-staging-backup-runner.b64; exit $status`,
 ];
 fs.writeFileSync(out, JSON.stringify({ commands }, null, 2));
 ' "$(node_path "$params_file")" "$runner_b64" "$remote_job" "$backup_id" "$backup_source_sha" "$STAGING_BACKEND_PORT" "$remote_archive" "$remote_backup_root" "$AWS_REGION" "$STAGING_BUCKET_NAME" "$s3_key"

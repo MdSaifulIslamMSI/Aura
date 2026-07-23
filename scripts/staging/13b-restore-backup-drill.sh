@@ -206,8 +206,7 @@ const commands = [
   `cat > /tmp/aura-staging-restore-runner.b64 <<'\''B64'\''\n${runnerB64}\nB64`,
   `base64 -d /tmp/aura-staging-restore-runner.b64 > ${remoteJob}`,
   `chmod 700 ${remoteJob}`,
-  `DRILL_ID=${drillId} REMOTE_RESTORE_ROOT=${remoteRoot} AWS_REGION=${region} STAGING_BUCKET_NAME=${bucket} SOURCE_KEY=${sourceKey} SOURCE_VERSION_ID=${sourceVersion} SOURCE_SHA=${sourceSha} bash ${remoteJob}`,
-  `rm -f ${remoteJob} /tmp/aura-staging-restore-runner.b64`,
+  `status=0; DRILL_ID=${drillId} REMOTE_RESTORE_ROOT=${remoteRoot} AWS_REGION=${region} STAGING_BUCKET_NAME=${bucket} SOURCE_KEY=${sourceKey} SOURCE_VERSION_ID=${sourceVersion} SOURCE_SHA=${sourceSha} bash ${remoteJob} || status=$?; rm -f ${remoteJob} /tmp/aura-staging-restore-runner.b64; exit $status`,
 ];
 fs.writeFileSync(out, JSON.stringify({ commands }, null, 2));
 ' "$(node_path "$params_file")" "$runner_b64" "$remote_job" "$drill_id" "$remote_restore_root" "$AWS_REGION" "$STAGING_BUCKET_NAME" "$source_key" "$source_version_id" "$source_sha"
