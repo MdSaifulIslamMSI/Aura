@@ -42,6 +42,13 @@ ssm_get_optional() {
   aws_cli ssm get-parameter --region "$AWS_REGION" --name "$STAGING_SSM_PREFIX/$name" --with-decryption --query 'Parameter.Value' --output text 2>/dev/null || true
 }
 
+require_contract_value() {
+  local name="$1"
+  local actual="$2"
+  local expected="$3"
+  [ "$actual" = "$expected" ] || die "$name does not match the requested staging admin security phase"
+}
+
 append_env_if_set() {
   local key="$1"
   local value="${2:-}"
@@ -68,6 +75,9 @@ otp_flow_secret="$(ssm_get OTP_FLOW_SECRET)"
 otp_challenge_secret="$(ssm_get OTP_CHALLENGE_SECRET)"
 upload_signing_secret="$(ssm_get UPLOAD_SIGNING_SECRET)"
 auth_vault_secret="$(ssm_get AUTH_VAULT_SECRET)"
+firebase_project_id="$(ssm_get FIREBASE_PROJECT_ID)"
+staging_allow_firebase_admin_stub="$(ssm_get STAGING_ALLOW_FIREBASE_ADMIN_STUB)"
+firebase_service_account="$(ssm_get_optional FIREBASE_SERVICE_ACCOUNT)"
 duo_enabled="$(ssm_get_optional DUO_ENABLED)"
 duo_client_id="$(ssm_get_optional DUO_CLIENT_ID)"
 duo_client_secret="$(ssm_get_optional DUO_CLIENT_SECRET)"
@@ -79,6 +89,33 @@ duo_oidc_state_secret="$(ssm_get_optional DUO_OIDC_STATE_SECRET)"
 duo_fail_closed="$(ssm_get_optional DUO_FAIL_CLOSED)"
 cloudfront_origin_verify_secret="$(ssm_get_optional AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET)"
 cors_origin="${STAGING_CORS_ORIGIN:-$staging_base_url}"
+
+if staging_admin_security_requires_isolated_firebase; then
+  require_contract_value FIREBASE_PROJECT_ID "$firebase_project_id" "$STAGING_FIREBASE_PROJECT_ID"
+  require_contract_value STAGING_ALLOW_FIREBASE_ADMIN_STUB "$staging_allow_firebase_admin_stub" false
+  [ -n "$firebase_service_account" ] || die "FIREBASE_SERVICE_ACCOUNT is required for backend and frontend staging qualification"
+  FIREBASE_SERVICE_ACCOUNT_VALUE="$firebase_service_account" node - "$firebase_project_id" <<'NODE'
+const projectId = process.argv[2];
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_VALUE);
+} catch {
+  console.error('[staging][error] FIREBASE_SERVICE_ACCOUNT in staging SSM must be valid JSON');
+  process.exit(1);
+}
+if (
+  serviceAccount?.type !== 'service_account'
+  || serviceAccount?.project_id !== projectId
+  || !String(serviceAccount?.private_key || '').includes('BEGIN PRIVATE KEY')
+) {
+  console.error('[staging][error] FIREBASE_SERVICE_ACCOUNT in staging SSM does not match the isolated staging project');
+  process.exit(1);
+}
+NODE
+else
+  require_contract_value FIREBASE_PROJECT_ID "$firebase_project_id" aura-staging-smoke
+  require_contract_value STAGING_ALLOW_FIREBASE_ADMIN_STUB "$staging_allow_firebase_admin_stub" true
+fi
 
 auth_device_challenge_mode=off
 admin_require_passkey=false
@@ -115,12 +152,6 @@ if staging_admin_security_enabled; then
     expected_backend_enabled=true
     expected_duo_provider="$STAGING_ADMIN_DUO_PROVIDER"
   fi
-  require_contract_value() {
-    local name="$1"
-    local actual="$2"
-    local expected="$3"
-    [ "$actual" = "$expected" ] || die "$name does not match the requested staging admin security phase"
-  }
   require_contract_value ADMIN_SECURITY_ROLLOUT_PHASE "$admin_security_rollout_phase" "$STAGING_ADMIN_SECURITY_PHASE"
   require_contract_value AUTH_DEVICE_CHALLENGE_MODE "$auth_device_challenge_mode" admin
   require_contract_value AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK "$auth_device_challenge_allow_vault_fallback" false
@@ -166,8 +197,8 @@ cat > "$env_file" <<ENV
 APP_ENV=staging
 NODE_ENV=production
 AURA_APP_BUILD_SHA=$release_sha
-FIREBASE_PROJECT_ID=aura-staging-smoke
-STAGING_ALLOW_FIREBASE_ADMIN_STUB=true
+FIREBASE_PROJECT_ID=$firebase_project_id
+STAGING_ALLOW_FIREBASE_ADMIN_STUB=$staging_allow_firebase_admin_stub
 PAYMENTS_ENABLED=false
 PAYMENT_WEBHOOKS_ENABLED=false
 PAYMENT_CHALLENGE_ENABLED=false
@@ -209,6 +240,9 @@ UPLOAD_SCANNER_PORT=3310
 STAGING_BACKEND_PORT=$STAGING_BACKEND_PORT
 STAGING_BACKEND_IMAGE=$backend_image
 ENV
+if staging_admin_security_requires_isolated_firebase; then
+  append_env_if_set FIREBASE_SERVICE_ACCOUNT "$firebase_service_account"
+fi
 append_env_if_set DUO_ENABLED "$duo_enabled"
 append_env_if_set DUO_CLIENT_ID "$duo_client_id"
 append_env_if_set DUO_CLIENT_SECRET "$duo_client_secret"

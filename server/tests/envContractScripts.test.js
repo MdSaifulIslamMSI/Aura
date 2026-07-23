@@ -1031,6 +1031,11 @@ describe('repo environment contract scripts', () => {
         expect(commonScript).toContain('validate_staging_admin_security_phase');
         expect(commonScript).toContain('ENABLE_STAGING_HTTPS=true is required');
         expect(commonScript).toContain('STAGING_ADMIN_ALLOWLIST_EMAILS');
+        expect(commonScript).toContain('validate_staging_firebase_isolation');
+        expect(commonScript).toContain('STAGING_FIREBASE_PROJECT_ID');
+        expect(commonScript).toContain('STAGING_FIREBASE_SERVICE_ACCOUNT');
+        expect(commonScript).toContain('STAGING_FIREBASE_WEB_CONFIG');
+        expect(commonScript).toContain('PROD_FIREBASE_PROJECT_ID');
         expect(preflightScript).toContain('validate_staging_admin_security_phase');
 
         [
@@ -1053,15 +1058,24 @@ describe('repo environment contract scripts', () => {
         expect(adminParamsScript).toMatch(/^put_secure_once ADMIN_SECURITY_HASH_SECRET /m);
         expect(adminParamsScript).not.toMatch(/^put_secure .*ADMIN_SECURITY_HASH_SECRET/m);
         expect(adminParamsScript).toMatch(/^put_secure ADMIN_ALLOWLIST_EMAILS /m);
+        expect(adminParamsScript).toMatch(/^\s+put_secure FIREBASE_SERVICE_ACCOUNT /m);
+        expect(adminParamsScript).toContain('STAGING_ALLOW_FIREBASE_ADMIN_STUB');
 
         expect(composeScript).toContain('ADMIN_SECURITY_ROLLOUT_PHASE');
         expect(composeScript).toContain('ADMIN_SECURITY_HASH_SECRET');
         expect(composeScript).toContain('AUTH_SESSION_ALLOW_MEMORY_FALLBACK');
         expect(composeScript).toContain('DUO_FAIL_CLOSED');
+        expect(composeScript).toContain('FIREBASE_SERVICE_ACCOUNT');
+        expect(composeScript).toContain('STAGING_ALLOW_FIREBASE_ADMIN_STUB');
         expect(frontendScript).toContain('VITE_ADMIN_SECURITY_STATE_ENGINE_V2');
+        expect(frontendScript).toContain('VITE_FIREBASE_CONFIG="$firebase_web_config"');
         expect(deployScript).toContain('staging_admin_security_enabled');
         expect(deployScript).toContain('03b-put-admin-security-ssm-params.sh');
         expect(workflow).toContain('STAGING_ADMIN_SECURITY_PHASE');
+        expect(workflow).toContain('STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}');
+        expect(workflow).toContain('STAGING_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.STAGING_FIREBASE_SERVICE_ACCOUNT }}');
+        expect(workflow).toContain('STAGING_FIREBASE_WEB_CONFIG: ${{ secrets.STAGING_FIREBASE_WEB_CONFIG }}');
+        expect(workflow).toContain('PROD_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}');
         expect(workflow).toContain('STAGING_ADMIN_DUO_PROVIDER: ${{ vars.STAGING_ADMIN_DUO_PROVIDER }}');
         expect(workflow).toContain('STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED: ${{ vars.STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED }}');
         expect(workflow).toContain('Validate staging qualification contract without mutation');

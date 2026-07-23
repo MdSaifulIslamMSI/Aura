@@ -33,6 +33,10 @@ frontend_admin_security_v2=false
 if staging_admin_security_frontend_enabled; then
   frontend_admin_security_v2=true
 fi
+firebase_web_config=""
+if staging_admin_security_requires_isolated_firebase; then
+  firebase_web_config="$(printf '%s' "$STAGING_FIREBASE_WEB_CONFIG" | node -e 'let input = ""; process.stdin.on("data", (chunk) => input += chunk); process.stdin.on("end", () => process.stdout.write(JSON.stringify(JSON.parse(input))));')"
+fi
 if staging_admin_security_enabled && [ "${STAGING_FRONTEND_SKIP_BUILD:-false}" = "true" ]; then
   die "STAGING_FRONTEND_SKIP_BUILD=true is not allowed during admin security qualification"
 fi
@@ -47,6 +51,7 @@ else
     VITE_DEPLOY_TARGET=docker-staging \
     VITE_RELEASE_CHANNEL=staging \
     VITE_ADMIN_SECURITY_STATE_ENGINE_V2="$frontend_admin_security_v2" \
+    VITE_FIREBASE_CONFIG="$firebase_web_config" \
     AURA_SKIP_FRONTEND_AUTH_ENV_VALIDATION=true \
     npm run build
   )

@@ -97,8 +97,72 @@ staging_admin_security_frontend_enabled() {
   [ "$STAGING_ADMIN_SECURITY_PHASE" = "frontend" ]
 }
 
+staging_admin_security_requires_isolated_firebase() {
+  staging_admin_security_backend_enabled
+}
+
 staging_admin_security_origin() {
   printf 'https://%s' "$STAGING_API_HOST"
+}
+
+validate_staging_firebase_isolation() {
+  staging_admin_security_requires_isolated_firebase || return 0
+
+  need_env STAGING_FIREBASE_PROJECT_ID
+  need_env STAGING_FIREBASE_SERVICE_ACCOUNT
+  need_env STAGING_FIREBASE_WEB_CONFIG
+  need_env PROD_FIREBASE_PROJECT_ID
+
+  node <<'NODE'
+const {
+  STAGING_FIREBASE_PROJECT_ID: stagingProjectId,
+  PROD_FIREBASE_PROJECT_ID: productionProjectId,
+  STAGING_FIREBASE_SERVICE_ACCOUNT: serviceAccountRaw,
+  STAGING_FIREBASE_WEB_CONFIG: webConfigRaw,
+} = process.env;
+
+const fail = (message) => {
+  console.error(`[staging][error] ${message}`);
+  process.exit(1);
+};
+if (!/^[a-z0-9][a-z0-9-]{4,29}$/.test(stagingProjectId)) {
+  fail('STAGING_FIREBASE_PROJECT_ID must be a valid Firebase project ID');
+}
+if (stagingProjectId === productionProjectId) {
+  fail('STAGING_FIREBASE_PROJECT_ID must not reuse the production Firebase project');
+}
+
+let serviceAccount;
+let webConfig;
+try {
+  serviceAccount = JSON.parse(serviceAccountRaw);
+} catch {
+  fail('STAGING_FIREBASE_SERVICE_ACCOUNT must be valid JSON');
+}
+try {
+  webConfig = JSON.parse(webConfigRaw);
+} catch {
+  fail('STAGING_FIREBASE_WEB_CONFIG must be valid JSON');
+}
+if (
+  !serviceAccount
+  || serviceAccount.type !== 'service_account'
+  || serviceAccount.project_id !== stagingProjectId
+  || !String(serviceAccount.client_email || '').includes('@')
+  || !String(serviceAccount.private_key || '').includes('BEGIN PRIVATE KEY')
+) {
+  fail('STAGING_FIREBASE_SERVICE_ACCOUNT must be a service account for the isolated staging Firebase project');
+}
+if (
+  !webConfig
+  || webConfig.projectId !== stagingProjectId
+  || !String(webConfig.apiKey || '').trim()
+  || !String(webConfig.authDomain || '').trim()
+  || !String(webConfig.appId || '').trim()
+) {
+  fail('STAGING_FIREBASE_WEB_CONFIG must be a web app configuration for the isolated staging Firebase project');
+}
+NODE
 }
 
 validate_staging_admin_security_phase() {
@@ -220,6 +284,8 @@ for (const productionUrl of [prodBaseUrl, prodApiUrl]) {
   }
 }
 NODE
+
+  validate_staging_firebase_isolation
 }
 
 aws_cli() {

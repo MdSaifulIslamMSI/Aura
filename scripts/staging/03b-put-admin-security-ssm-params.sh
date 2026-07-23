@@ -62,6 +62,16 @@ if staging_admin_security_backend_enabled; then
   duo_provider="$STAGING_ADMIN_DUO_PROVIDER"
 fi
 
+if staging_admin_security_requires_isolated_firebase; then
+  firebase_service_account="$(printf '%s' "$STAGING_FIREBASE_SERVICE_ACCOUNT" | node -e 'let input = ""; process.stdin.on("data", (chunk) => input += chunk); process.stdin.on("end", () => process.stdout.write(JSON.stringify(JSON.parse(input))));')"
+  put_string FIREBASE_PROJECT_ID "$STAGING_FIREBASE_PROJECT_ID"
+  put_string STAGING_ALLOW_FIREBASE_ADMIN_STUB false
+  put_secure FIREBASE_SERVICE_ACCOUNT "$firebase_service_account"
+else
+  put_string FIREBASE_PROJECT_ID aura-staging-smoke
+  put_string STAGING_ALLOW_FIREBASE_ADMIN_STUB true
+fi
+
 origin="$(staging_admin_security_origin)"
 put_string ADMIN_SECURITY_ROLLOUT_PHASE "$STAGING_ADMIN_SECURITY_PHASE"
 put_string AUTH_DEVICE_CHALLENGE_MODE admin
