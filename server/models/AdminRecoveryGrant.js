@@ -31,7 +31,7 @@ const adminRecoveryGrantSchema = new mongoose.Schema({
     ticketHash: { type: String, default: '', immutable: true },
     reasonCode: { type: String, required: true, maxlength: 120, immutable: true },
     boundSessionHash: { type: String, default: '', select: false },
-    authorityHash: { type: String, default: '', unique: true, sparse: true, index: true, select: false },
+    authorityHash: { type: String, unique: true, sparse: true, index: true, select: false },
     authorityExpiresAt: { type: Date, default: null },
     issuedAt: { type: Date, default: Date.now, required: true, immutable: true },
     exchangedAt: { type: Date, default: null },

@@ -62,7 +62,25 @@ const createAdminRecoveryGrant = async ({
     }
     const plaintextToken = createOpaqueSecret(32);
     const grantId = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + (Number(expiresInSeconds || config.recoveryGrantTtlSeconds) * 1000));
+    const issuedAt = new Date();
+    const expiresAt = new Date(issuedAt.getTime() + (Number(expiresInSeconds || config.recoveryGrantTtlSeconds) * 1000));
+    await model.updateMany(
+        {
+            subjectUser: user?._id,
+            state: 'active',
+        },
+        {
+            $set: {
+                state: 'revoked',
+                revokedAt: issuedAt,
+            },
+            $unset: {
+                authorityHash: '',
+                boundSessionHash: '',
+                authorityExpiresAt: '',
+            },
+        }
+    );
     const record = await model.create({
         grantId,
         tokenHash: hmacSecurityValue(plaintextToken),
@@ -74,6 +92,7 @@ const createAdminRecoveryGrant = async ({
         secondOperatorHash,
         ticketHash: hmacSecurityValue(ticket),
         reasonCode: normalize(reasonCode),
+        issuedAt,
         expiresAt,
     });
     return { grant: record, plaintextToken };

@@ -138,6 +138,47 @@ describe('admin recovery grants', () => {
         expect(exchanged).toBeNull();
     });
 
+    test('revokes a lost pending grant before issuing its replacement', async () => {
+        const user = await createUser('replacement');
+        const first = await createAdminRecoveryGrant({
+            user,
+            operator: 'operator-one',
+            ticket: 'SEC-125-A',
+            reasonCode: 'lost_admin_factor',
+            expiresInSeconds: 600,
+        });
+        const second = await createAdminRecoveryGrant({
+            user,
+            operator: 'operator-one',
+            ticket: 'SEC-125-B',
+            reasonCode: 'lost_admin_factor',
+            expiresInSeconds: 600,
+        });
+
+        const storedFirst = await AdminRecoveryGrant.findById(first.grant._id)
+            .select('+authorityHash +boundSessionHash')
+            .lean();
+        const storedSecond = await AdminRecoveryGrant.findById(second.grant._id)
+            .select('+authorityHash +boundSessionHash')
+            .lean();
+        expect(storedFirst.state).toBe('revoked');
+        expect(storedFirst.authorityHash).toBeUndefined();
+        expect(storedFirst.boundSessionHash).toBeUndefined();
+        expect(storedSecond.state).toBe('active');
+        expect(storedSecond.authorityHash).toBeUndefined();
+
+        await expect(exchangeAdminRecoveryGrant({
+            plaintextToken: first.plaintextToken,
+            user,
+            sessionId: 'replaced-session',
+        })).resolves.toBeNull();
+        await expect(exchangeAdminRecoveryGrant({
+            plaintextToken: second.plaintextToken,
+            user,
+            sessionId: 'replacement-session',
+        })).resolves.toBeTruthy();
+    });
+
     test('revocation removes session-bound recovery authority', async () => {
         const user = await createUser('revoked');
         const { grant, plaintextToken } = await createAdminRecoveryGrant({
