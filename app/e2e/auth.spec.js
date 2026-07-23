@@ -116,6 +116,7 @@ test.describe('Login Page UI', () => {
     });
 
     test('has no serious accessibility violations or horizontal overflow', async ({ page }) => {
+        await expect(page.locator('.login-experience')).toBeVisible({ timeout: 15_000 });
         const results = await new AxeBuilder({ page }).include('.login-experience').analyze();
         const blockingViolations = results.violations.filter(({ impact }) => BLOCKING_A11Y_IMPACTS.has(impact));
         const horizontalOverflow = await page.evaluate(() => Math.max(
