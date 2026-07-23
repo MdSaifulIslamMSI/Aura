@@ -114,7 +114,9 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
     };
 
     try {
-        return await execute();
+        return await execute({
+            forceFreshCsrf: options.forceFreshCsrf === true,
+        });
     } catch (error) {
         if (
             firebaseUser.getIdToken
@@ -424,6 +426,7 @@ export const authApi = {
             ...options,
             preferCookieSession: true,
             disableSessionExchangeOnUnauthorized: true,
+            forceFreshCsrf: true,
         };
         const start = await postAuthBootstrap('/admin/security/passkeys/enrollment/options', {}, requestOptions);
         const proofPayload = await signMfaPasskeyChallenge(start?.deviceChallenge, options);
@@ -437,6 +440,7 @@ export const authApi = {
             ...options,
             preferCookieSession: true,
             disableSessionExchangeOnUnauthorized: true,
+            forceFreshCsrf: true,
         };
         const start = await postAuthBootstrap('/admin/security/passkeys/challenge/options', {}, requestOptions);
         const proofPayload = await signMfaPasskeyChallenge(start?.deviceChallenge, options);
