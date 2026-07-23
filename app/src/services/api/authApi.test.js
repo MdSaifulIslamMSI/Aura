@@ -153,6 +153,66 @@ describe('authApi', () => {
     expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
   });
 
+  it('does not cache a bearer-scoped admin status token as cookie-session CSRF', async () => {
+    const firebaseUser = {
+      getIdToken: vi.fn().mockResolvedValue(buildRuntimeValue('firebase-token')),
+    };
+    const bearerCsrfToken = 'a'.repeat(64);
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({
+      Authorization: `Bearer ${buildRuntimeValue('firebase-token')}`,
+    });
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        enabled: true,
+        state: 'ADMIN_ENROLLMENT_REQUIRED',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': bearerCsrfToken,
+        },
+      })
+    );
+
+    await expect(authApi.getAdminSecurityStatus({
+      firebaseUser,
+      useFirebaseBearer: true,
+    })).resolves.toEqual({
+      enabled: true,
+      state: 'ADMIN_ENROLLMENT_REQUIRED',
+    });
+
+    expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
+      useFirebaseBearer: true,
+      forceRefresh: false,
+    });
+    expect(mocks.cacheTokenMock).not.toHaveBeenCalled();
+  });
+
+  it('continues caching admin status CSRF for cookie-session reads', async () => {
+    const cookieCsrfToken = 'b'.repeat(64);
+    mocks.getAuthHeaderMock.mockResolvedValueOnce({ 'X-Session-Mode': 'cookie' });
+    global.fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        enabled: true,
+        state: 'ADMIN_CHALLENGE_REQUIRED',
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': cookieCsrfToken,
+        },
+      })
+    );
+
+    await expect(authApi.getAdminSecurityStatus()).resolves.toEqual({
+      enabled: true,
+      state: 'ADMIN_CHALLENGE_REQUIRED',
+    });
+
+    expect(mocks.cacheTokenMock).toHaveBeenCalledWith(cookieCsrfToken, 'cookie_session');
+  });
+
   it('sends auth sync with Firebase bearer only when a Firebase user is present', async () => {
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue('fresh-token'),

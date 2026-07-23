@@ -167,12 +167,16 @@ const postAuthBootstrap = async (path, body, options = {}) => {
 };
 
 const getProtectedAuthJson = async (path, options = {}) => {
+    const useFirebaseBearer = options.useFirebaseBearer === true
+        && Boolean(options.firebaseUser?.getIdToken);
     const headers = await getAuthHeader(options.firebaseUser, {
-        useFirebaseBearer: options.useFirebaseBearer === true && Boolean(options.firebaseUser?.getIdToken),
+        useFirebaseBearer,
         forceRefresh: options.forceRefreshAuth === true,
     });
     const response = await apiFetch(path, { headers });
-    cacheCsrfTokenFromResponse(response, options.csrfOwner || 'cookie_session');
+    if (!useFirebaseBearer) {
+        cacheCsrfTokenFromResponse(response, options.csrfOwner || 'cookie_session');
+    }
     return response.data;
 };
 
