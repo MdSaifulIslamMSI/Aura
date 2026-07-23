@@ -72,6 +72,25 @@ else
   put_string STAGING_ALLOW_FIREBASE_ADMIN_STUB true
 fi
 
+put_string OTP_EMAIL_FAIL_CLOSED true
+if staging_admin_security_frontend_enabled; then
+  put_string ORDER_EMAIL_PROVIDER "$STAGING_EMAIL_PROVIDER"
+  case "$STAGING_EMAIL_PROVIDER" in
+    gmail)
+      gmail_app_password="$(printf '%s' "$STAGING_GMAIL_APP_PASSWORD" | tr -d '[:space:]')"
+      put_secure GMAIL_USER "$STAGING_GMAIL_USER"
+      put_secure GMAIL_APP_PASSWORD "$gmail_app_password"
+      put_secure ORDER_EMAIL_FROM_ADDRESS "$STAGING_GMAIL_USER"
+      ;;
+    resend)
+      put_secure RESEND_API_KEY "$STAGING_RESEND_API_KEY"
+      put_secure ORDER_EMAIL_FROM_ADDRESS "$STAGING_EMAIL_FROM_ADDRESS"
+      ;;
+  esac
+else
+  put_string ORDER_EMAIL_PROVIDER null
+fi
+
 origin="$(staging_admin_security_origin)"
 put_string ADMIN_SECURITY_ROLLOUT_PHASE "$STAGING_ADMIN_SECURITY_PHASE"
 put_string AUTH_DEVICE_CHALLENGE_MODE admin

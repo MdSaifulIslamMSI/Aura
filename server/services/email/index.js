@@ -193,6 +193,13 @@ const sendTransactionalEmail = async ({
             headers: finalHeaders,
             meta: sanitizedMeta,
         });
+        if (result?.skipped === true) {
+            const unavailable = new AppError('Email provider did not accept the message', 503);
+            unavailable.code = 'EMAIL_PROVIDER_UNAVAILABLE';
+            unavailable.emailCode = 'EMAIL_PROVIDER_UNAVAILABLE';
+            unavailable.emailRetryable = false;
+            throw unavailable;
+        }
 
         logger.info('email_gateway.sent', buildEmailAuditRecord({
             eventType: resolvedEventType,

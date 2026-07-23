@@ -1036,6 +1036,8 @@ describe('repo environment contract scripts', () => {
         expect(commonScript).toContain('STAGING_FIREBASE_SERVICE_ACCOUNT');
         expect(commonScript).toContain('STAGING_FIREBASE_WEB_CONFIG');
         expect(commonScript).toContain('PROD_FIREBASE_PROJECT_ID');
+        expect(commonScript).toContain('validate_staging_otp_email_delivery');
+        expect(commonScript).toContain('STAGING_EMAIL_PROVIDER must be gmail or resend in the frontend phase');
         expect(preflightScript).toContain('validate_staging_admin_security_phase');
 
         [
@@ -1060,6 +1062,10 @@ describe('repo environment contract scripts', () => {
         expect(adminParamsScript).toMatch(/^put_secure ADMIN_ALLOWLIST_EMAILS /m);
         expect(adminParamsScript).toMatch(/^\s+put_secure FIREBASE_SERVICE_ACCOUNT /m);
         expect(adminParamsScript).toContain('STAGING_ALLOW_FIREBASE_ADMIN_STUB');
+        expect(adminParamsScript).toContain('OTP_EMAIL_FAIL_CLOSED');
+        expect(adminParamsScript).toContain('ORDER_EMAIL_PROVIDER');
+        expect(adminParamsScript).toContain('GMAIL_APP_PASSWORD');
+        expect(adminParamsScript).toContain('RESEND_API_KEY');
 
         expect(composeScript).toContain('ADMIN_SECURITY_ROLLOUT_PHASE');
         expect(composeScript).toContain('ADMIN_SECURITY_HASH_SECRET');
@@ -1067,6 +1073,9 @@ describe('repo environment contract scripts', () => {
         expect(composeScript).toContain('DUO_FAIL_CLOSED');
         expect(composeScript).toContain('FIREBASE_SERVICE_ACCOUNT');
         expect(composeScript).toContain('STAGING_ALLOW_FIREBASE_ADMIN_STUB');
+        expect(composeScript).toContain('append_env_if_set OTP_EMAIL_FAIL_CLOSED');
+        expect(composeScript).toContain('append_env_if_set GMAIL_APP_PASSWORD');
+        expect(composeScript).toContain('append_env_if_set RESEND_API_KEY');
         expect(frontendScript).toContain('VITE_ADMIN_SECURITY_STATE_ENGINE_V2');
         expect(frontendScript).toContain('VITE_FIREBASE_CONFIG="$firebase_web_config"');
         expect(deployScript).toContain('staging_admin_security_enabled');
@@ -1075,6 +1084,9 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('STAGING_FIREBASE_PROJECT_ID: ${{ vars.STAGING_FIREBASE_PROJECT_ID }}');
         expect(workflow).toContain('STAGING_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.STAGING_FIREBASE_SERVICE_ACCOUNT }}');
         expect(workflow).toContain('STAGING_FIREBASE_WEB_CONFIG: ${{ secrets.STAGING_FIREBASE_WEB_CONFIG }}');
+        expect(workflow).toContain("STAGING_EMAIL_PROVIDER: ${{ vars.STAGING_EMAIL_PROVIDER || 'null' }}");
+        expect(workflow).toContain('STAGING_GMAIL_APP_PASSWORD: ${{ secrets.STAGING_GMAIL_APP_PASSWORD }}');
+        expect(workflow).toContain('STAGING_RESEND_API_KEY: ${{ secrets.STAGING_RESEND_API_KEY }}');
         expect(workflow).toContain('PROD_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}');
         expect(workflow).toContain('STAGING_ADMIN_DUO_PROVIDER: ${{ vars.STAGING_ADMIN_DUO_PROVIDER }}');
         expect(workflow).toContain('STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED: ${{ vars.STAGING_ADMIN_RECOVERY_TWO_PERSON_REQUIRED }}');

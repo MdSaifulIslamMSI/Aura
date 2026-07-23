@@ -24,6 +24,7 @@ STATE_FILE="$STATE_DIR/state.json"
 : "${STAGING_BACKUP_RETENTION_DAYS:=14}"
 : "${STAGING_DEPLOY_ENABLED:=false}"
 : "${STAGING_ADMIN_SECURITY_PHASE:=legacy}"
+: "${STAGING_EMAIL_PROVIDER:=null}"
 
 log() {
   printf '[staging] %s\n' "$*" >&2
@@ -165,6 +166,50 @@ if (
 NODE
 }
 
+validate_staging_otp_email_delivery() {
+  staging_admin_security_frontend_enabled || return 0
+
+  case "$STAGING_EMAIL_PROVIDER" in
+    gmail)
+      need_env STAGING_GMAIL_USER
+      need_env STAGING_GMAIL_APP_PASSWORD
+      ;;
+    resend)
+      need_env STAGING_RESEND_API_KEY
+      need_env STAGING_EMAIL_FROM_ADDRESS
+      ;;
+    *)
+      die "STAGING_EMAIL_PROVIDER must be gmail or resend in the frontend phase"
+      ;;
+  esac
+
+  node - \
+    "$STAGING_EMAIL_PROVIDER" \
+    "${STAGING_GMAIL_USER:-}" \
+    "${STAGING_GMAIL_APP_PASSWORD:-}" \
+    "${STAGING_RESEND_API_KEY:-}" \
+    "${STAGING_EMAIL_FROM_ADDRESS:-}" <<'NODE'
+const [provider, gmailUser, gmailPassword, resendApiKey, fromAddress] = process.argv.slice(2);
+const fail = (message) => {
+  console.error(`[staging][error] ${message}`);
+  process.exit(1);
+};
+const validEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+if (provider === 'gmail') {
+  if (!validEmail(gmailUser)) fail('STAGING_GMAIL_USER must be a valid email address');
+  if (String(gmailPassword || '').replace(/\s/g, '').length !== 16) {
+    fail('STAGING_GMAIL_APP_PASSWORD must be a 16-character Google app password');
+  }
+}
+if (provider === 'resend') {
+  if (String(resendApiKey || '').trim().length < 20) {
+    fail('STAGING_RESEND_API_KEY is not configured');
+  }
+  if (!validEmail(fromAddress)) fail('STAGING_EMAIL_FROM_ADDRESS must be a valid email address');
+}
+NODE
+}
+
 validate_staging_admin_security_phase() {
   case "$STAGING_ADMIN_SECURITY_PHASE" in
     legacy|baseline|backend|frontend) ;;
@@ -286,6 +331,7 @@ for (const productionUrl of [prodBaseUrl, prodApiUrl]) {
 NODE
 
   validate_staging_firebase_isolation
+  validate_staging_otp_email_delivery
 }
 
 aws_cli() {

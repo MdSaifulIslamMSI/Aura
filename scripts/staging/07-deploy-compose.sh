@@ -88,6 +88,38 @@ duo_redirect_uri="$(ssm_get_optional DUO_REDIRECT_URI)"
 duo_oidc_state_secret="$(ssm_get_optional DUO_OIDC_STATE_SECRET)"
 duo_fail_closed="$(ssm_get_optional DUO_FAIL_CLOSED)"
 cloudfront_origin_verify_secret="$(ssm_get_optional AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET)"
+order_email_provider=null
+otp_email_fail_closed=true
+gmail_user=
+gmail_app_password=
+resend_api_key=
+order_email_from_address=
+if staging_admin_security_frontend_enabled; then
+  order_email_provider="$(ssm_get ORDER_EMAIL_PROVIDER)"
+  otp_email_fail_closed="$(ssm_get OTP_EMAIL_FAIL_CLOSED)"
+  require_contract_value ORDER_EMAIL_PROVIDER "$order_email_provider" "$STAGING_EMAIL_PROVIDER"
+  require_contract_value OTP_EMAIL_FAIL_CLOSED "$otp_email_fail_closed" true
+  case "$order_email_provider" in
+    gmail)
+      gmail_user="$(ssm_get GMAIL_USER)"
+      gmail_app_password="$(ssm_get GMAIL_APP_PASSWORD)"
+      order_email_from_address="$(ssm_get ORDER_EMAIL_FROM_ADDRESS)"
+      normalized_staging_gmail_password="$(printf '%s' "$STAGING_GMAIL_APP_PASSWORD" | tr -d '[:space:]')"
+      require_contract_value GMAIL_USER "$gmail_user" "$STAGING_GMAIL_USER"
+      require_contract_value GMAIL_APP_PASSWORD "$gmail_app_password" "$normalized_staging_gmail_password"
+      require_contract_value ORDER_EMAIL_FROM_ADDRESS "$order_email_from_address" "$STAGING_GMAIL_USER"
+      ;;
+    resend)
+      resend_api_key="$(ssm_get RESEND_API_KEY)"
+      order_email_from_address="$(ssm_get ORDER_EMAIL_FROM_ADDRESS)"
+      require_contract_value RESEND_API_KEY "$resend_api_key" "$STAGING_RESEND_API_KEY"
+      require_contract_value ORDER_EMAIL_FROM_ADDRESS "$order_email_from_address" "$STAGING_EMAIL_FROM_ADDRESS"
+      ;;
+    *)
+      die "Unsupported staging OTP email provider"
+      ;;
+  esac
+fi
 cors_origin="${STAGING_CORS_ORIGIN:-$staging_base_url}"
 
 if staging_admin_security_requires_isolated_firebase; then
@@ -253,6 +285,12 @@ append_env_if_set DUO_REDIRECT_URI "$duo_redirect_uri"
 append_env_if_set DUO_OIDC_STATE_SECRET "$duo_oidc_state_secret"
 append_env_if_set DUO_FAIL_CLOSED "$duo_fail_closed"
 append_env_if_set AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET "$cloudfront_origin_verify_secret"
+append_env_if_set ORDER_EMAIL_PROVIDER "$order_email_provider"
+append_env_if_set OTP_EMAIL_FAIL_CLOSED "$otp_email_fail_closed"
+append_env_if_set GMAIL_USER "$gmail_user"
+append_env_if_set GMAIL_APP_PASSWORD "$gmail_app_password"
+append_env_if_set RESEND_API_KEY "$resend_api_key"
+append_env_if_set ORDER_EMAIL_FROM_ADDRESS "$order_email_from_address"
 if staging_admin_security_enabled; then
   append_env_if_set ADMIN_SECURITY_ROLLOUT_PHASE "$admin_security_rollout_phase"
   append_env_if_set AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK "$auth_device_challenge_allow_vault_fallback"
