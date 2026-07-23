@@ -89,13 +89,31 @@ describe('admin security state engine', () => {
                 sessionId: 'session-1',
                 authTimeSeconds: Math.floor(now / 1000),
                 deviceId: passkey.deviceId,
-                amr: ['mfa', 'webauthn', 'passkey'],
+                amr: ['mfa', 'webauthn', 'passkey', 'admin_assurance'],
                 webAuthnStepUpUntil: new Date(now + 60_000).toISOString(),
             },
         });
         const result = resolveAdminSecurityState({ req, user: factorUser, env, now });
         expect(result.state).toBe(ADMIN_SECURITY_STATES.ADMIN_VERIFIED);
         expect(result.adminSecurity.passkeyAssuranceActive).toBe(true);
+    });
+
+    test('does not upgrade device-level WebAuthn proof into admin assurance', () => {
+        const factorUser = { ...user, trustedDevices: [passkey] };
+        const req = request({
+            user: factorUser,
+            authSession: {
+                sessionId: 'session-1',
+                authTimeSeconds: Math.floor(now / 1000),
+                deviceId: passkey.deviceId,
+                amr: ['mfa', 'webauthn', 'passkey'],
+                webAuthnStepUpUntil: new Date(now + 60_000).toISOString(),
+            },
+        });
+        const result = resolveAdminSecurityState({ req, user: factorUser, env, now });
+        expect(result.state).toBe(ADMIN_SECURITY_STATES.ADMIN_CHALLENGE_REQUIRED);
+        expect(result.adminSecurity.passkeyAssuranceActive).toBe(false);
+        expect(result.actions.allowAdminAccess).toBe(false);
     });
 
     test('does not treat a general TOTP AMR as admin verification', () => {

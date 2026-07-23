@@ -74,6 +74,7 @@ const hasFreshPasskeyAssurance = ({ req = {}, passkeys = [], now = Date.now() } 
         && Number.isFinite(webAuthnStepUpUntil)
         && webAuthnStepUpUntil > now
         && amr.some((entry) => entry === 'webauthn' || entry === 'passkey')
+        && amr.includes('admin_assurance')
         && passkeys.some((device) => normalize(device.deviceId) === currentDeviceId)
     );
 };
