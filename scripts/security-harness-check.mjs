@@ -23,6 +23,7 @@ const secretScan = read('scripts/security-secret-scan.mjs');
 const dependencyAudit = read('scripts/security-dependency-audit.mjs');
 const dependencyAuditExceptions = readJson('security-audit-exceptions.json').exceptions || [];
 const appOsvScannerConfig = read('app/osv-scanner.toml');
+const trivyIgnoreConfig = read('.trivyignore.yaml');
 const supplyChainPinCheck = read('scripts/security/check-supply-chain-pins.mjs');
 const securityDockerTool = read('scripts/security/run-docker-tool.mjs');
 const gitleaksConfig = read('.gitleaks.toml');
@@ -157,9 +158,15 @@ addCheck(
 );
 
 addCheck(
-  'dependency audit requires documented, expiring exceptions',
-  includesAll(dependencyAudit, ['security-audit-exceptions.json', 'exception.reason', 'exception.expires']),
-  'reason + expires exception contract'
+  'dependency audit requires exact, documented, expiring exceptions',
+  includesAll(dependencyAudit, [
+    'security-audit-exceptions.json',
+    'exception.reason',
+    'exception.expires',
+    'exception.advisoryIds',
+    'resolveAdvisoryIds',
+  ]),
+  'advisory ID + reason + expires exception contract'
 );
 
 const temporaryRouterAdvisory = 'GHSA-qwww-vcr4-c8h2';
@@ -189,8 +196,20 @@ addCheck(
       `id = "${temporaryRouterAdvisory}"`,
       `ignoreUntil = ${temporaryRouterExpiry}`,
       'React Server Components',
+    ])
+    && includesAll(trivyIgnoreConfig, [
+      `id: ${temporaryRouterAdvisory}`,
+      'paths:',
+      '- app/package-lock.json',
+      'purls:',
+      '- pkg:npm/react-router@7.18.1',
+      `expired_at: ${temporaryRouterExpiry}`,
+      'React Server Components',
+    ])
+    && includesAll(securityDockerTool, [
+      "'--ignorefile', '/scan/.trivyignore.yaml'",
     ]),
-  'one GHSA only; npm, OSV, and dependency-review exceptions expire 2026-08-09'
+  'one GHSA only; npm, OSV, Trivy, and dependency-review exceptions expire 2026-08-09'
 );
 
 addCheck(
