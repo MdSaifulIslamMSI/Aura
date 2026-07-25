@@ -18,10 +18,14 @@ vi.mock('@/services/api/authApi', () => ({
 }));
 
 let AdminSecurityCheckpoint;
+let shouldUseAdminSecurityCheckpoint;
 
 beforeAll(async () => {
     vi.stubEnv('VITE_ADMIN_SECURITY_STATE_ENGINE_V2', 'true');
-    ({ AdminSecurityCheckpoint } = await import('./AdminSecurityCheckpoint'));
+    ({
+        AdminSecurityCheckpoint,
+        shouldUseAdminSecurityCheckpoint,
+    } = await import('./AdminSecurityCheckpoint'));
 });
 
 beforeEach(() => {
@@ -43,6 +47,29 @@ const renderCheckpoint = (auth = {}) => render(
 );
 
 describe('AdminSecurityCheckpoint', () => {
+    it('owns only an authenticated admin MFA checkpoint on an admin route', () => {
+        const subject = {
+            pathname: '/admin/dashboard',
+            status: 'mfa_challenge_required',
+            currentUser: { uid: 'admin-1' },
+            roles: { isAdmin: true },
+        };
+
+        expect(shouldUseAdminSecurityCheckpoint(subject)).toBe(true);
+        expect(shouldUseAdminSecurityCheckpoint({
+            ...subject,
+            status: 'device_challenge_required',
+        })).toBe(false);
+        expect(shouldUseAdminSecurityCheckpoint({
+            ...subject,
+            pathname: '/checkout',
+        })).toBe(false);
+        expect(shouldUseAdminSecurityCheckpoint({
+            ...subject,
+            roles: { isAdmin: false },
+        })).toBe(false);
+    });
+
     it('exchanges a recovery grant without browser persistence and advances to enrollment', async () => {
         getAdminSecurityStatus
             .mockResolvedValueOnce({

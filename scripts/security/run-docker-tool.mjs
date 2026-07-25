@@ -456,6 +456,7 @@ const prepareTrivyScanRoot = () => {
 const trivyCommon = [
   'fs', '/scan',
   '--scanners', 'vuln,secret,misconfig',
+  '--ignorefile', '/scan/.trivyignore.yaml',
 ];
 
 const runTrivyFs = () => {

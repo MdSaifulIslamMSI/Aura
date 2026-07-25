@@ -3,9 +3,22 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi, getDuoStepUpUrl } from '@/services/api/authApi';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
-const ADMIN_SECURITY_UI_ENABLED = String(
+export const ADMIN_SECURITY_UI_ENABLED = String(
     import.meta.env.VITE_ADMIN_SECURITY_STATE_ENGINE_V2 || 'false'
 ).trim().toLowerCase() === 'true';
+
+export const shouldUseAdminSecurityCheckpoint = ({
+    pathname = '',
+    status = '',
+    currentUser = null,
+    roles = null,
+} = {}) => Boolean(
+    ADMIN_SECURITY_UI_ENABLED
+    && String(pathname || '').startsWith('/admin')
+    && status === 'mfa_challenge_required'
+    && currentUser
+    && roles?.isAdmin
+);
 
 const buildStateCopy = (t) => ({
     ACCOUNT_DISABLED: {

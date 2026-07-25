@@ -30,6 +30,10 @@ import MobileNativeTabBar from './components/shared/MobileNativeTabBar';
 import SecurePathDock from './components/shared/SecurePathDock';
 import PremiumWelcomeCurtain from './components/welcome/PremiumWelcomeCurtain';
 import AuthCheckpointLayer from './components/features/auth/AuthCheckpointLayer';
+import {
+  ADMIN_SECURITY_UI_ENABLED,
+  shouldUseAdminSecurityCheckpoint,
+} from './components/auth/AdminSecurityCheckpoint';
 import { trustRoutes } from './config/trustContent';
 import { FRONTEND_LAUNCH_HUB_PATH } from './config/frontendTargets';
 import { assertRouteA11yContracts } from './utils/a11yContracts';
@@ -139,7 +143,13 @@ function AssistantDisabledNotice() {
 function AppContent() {
   const intl = useIntl();
   const location = useLocation();
-  const { currentUser, refreshSession, sessionIntelligence } = useAuth();
+  const {
+    currentUser,
+    refreshSession,
+    roles,
+    sessionIntelligence,
+    status,
+  } = useAuth();
   const { effectiveMotionMode } = useMotionMode();
   const [isNativeMobile, setIsNativeMobile] = useState(() => isCapacitorNativeRuntime());
   const [reportedAdminAccessLock, setReportedAdminAccessLock] = useState(null);
@@ -154,6 +164,12 @@ function AppContent() {
     [sessionIntelligence]
   );
   const adminAccessLock = isAdminPath ? (sessionAdminAccessLock || reportedAdminAccessLock) : null;
+  const useAdminSecurityCheckpoint = shouldUseAdminSecurityCheckpoint({
+    pathname: location.pathname,
+    status,
+    currentUser,
+    roles,
+  });
   const showSiteChrome = useMemo(
     () => shouldShowSiteChrome(chromePathname),
     [chromePathname]
@@ -364,7 +380,10 @@ function AppContent() {
         )}
       </main>
       <AppErrorBoundary>
-        <AuthCheckpointLayer disabled={Boolean(adminAccessLock)} />
+        <AuthCheckpointLayer
+          adminRecoveryPath={ADMIN_SECURITY_UI_ENABLED ? '/admin/dashboard' : ''}
+          disabled={Boolean(adminAccessLock) || useAdminSecurityCheckpoint}
+        />
       </AppErrorBoundary>
       {showSiteChrome ? (
         <>
