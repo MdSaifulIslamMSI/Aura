@@ -36,11 +36,11 @@ const buildAuthValue = (overrides = {}) => ({
   ...overrides,
 });
 
-const renderLayer = (authValue, route = '/') => render(
+const renderLayer = (authValue, route = '/', layerProps = {}) => render(
   <IntlProvider locale="en" messages={{}}>
     <AuthContext.Provider value={authValue}>
       <MemoryRouter initialEntries={[route]}>
-        <AuthCheckpointLayer />
+        <AuthCheckpointLayer {...layerProps} />
         <LocationProbe />
       </MemoryRouter>
     </AuthContext.Provider>
@@ -115,6 +115,24 @@ describe('AuthCheckpointLayer', () => {
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(screen.getByRole('dialog')).toHaveAttribute('data-checkpoint-audience', 'admin');
     expect(screen.getByRole('heading', { name: /admin verification required/i })).toBeInTheDocument();
+  });
+
+  it('routes a blocked admin with no factor to supervised recovery when V2 is available', async () => {
+    renderLayer(buildAuthValue({
+      status: 'mfa_challenge_required',
+      roles: { isAdmin: true },
+      mfaBlocked: true,
+      mfaChallenge: null,
+      mfaPolicy: {
+        audience: 'admin',
+        allowedMethods: [],
+        reason: 'admin_policy',
+      },
+    }), '/', { adminRecoveryPath: '/admin/dashboard' });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/admin/dashboard');
+    });
   });
 
   it('keeps reverse-tab focus inside the MFA checkpoint from its initially focused heading', () => {

@@ -64,7 +64,7 @@ export const resolveCheckpointPresentation = ({ challenge = null, policy = null 
   };
 };
 
-const AuthCheckpointLayer = ({ disabled = false }) => {
+const AuthCheckpointLayer = ({ adminRecoveryPath = '', disabled = false }) => {
   const intl = useIntl();
   const navigate = useNavigate();
   const auth = useAuth();
@@ -81,10 +81,33 @@ const AuthCheckpointLayer = ({ disabled = false }) => {
     () => resolveCheckpointPresentation({ challenge: activeChallenge, policy: activePolicy }),
     [activeChallenge, activePolicy]
   );
+  const recoveryPath = String(adminRecoveryPath || '').startsWith('/admin')
+    ? String(adminRecoveryPath)
+    : '';
 
   useEffect(() => {
     setSafeExitError('');
   }, [activeChallenge?.challengeId, activeChallenge?.token]);
+
+  useEffect(() => {
+    if (
+      !recoveryPath
+      || !isActive
+      || !isMfaCheckpoint
+      || !presentation.isAdmin
+      || !auth?.mfaBlocked
+    ) {
+      return;
+    }
+    navigate(recoveryPath, { replace: true });
+  }, [
+    auth?.mfaBlocked,
+    isActive,
+    isMfaCheckpoint,
+    navigate,
+    presentation.isAdmin,
+    recoveryPath,
+  ]);
 
   useEffect(() => {
     if (!isMfaCheckpoint || !isActive || typeof document === 'undefined') return undefined;

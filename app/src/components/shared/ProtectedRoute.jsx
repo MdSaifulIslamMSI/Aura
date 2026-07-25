@@ -13,7 +13,10 @@ import {
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 import { StableText } from '@/i18n/StableText';
-import { AdminSecurityCheckpoint } from '@/components/auth/AdminSecurityCheckpoint';
+import {
+    AdminSecurityCheckpoint,
+    shouldUseAdminSecurityCheckpoint,
+} from '@/components/auth/AdminSecurityCheckpoint';
 const AUTH_BOOTSTRAP_STATES = new Set(['bootstrap', 'loading']);
 const AUTH_CHECKPOINT_STATES = new Set(['device_challenge_required', 'mfa_challenge_required']);
 
@@ -175,12 +178,16 @@ const renderResolvedGate = ({
     pendingTitle,
     t,
     children,
+    allowMfaCheckpointPassThrough = false,
 }) => {
     if (AUTH_BOOTSTRAP_STATES.has(status)) {
         return <AuthPendingState message={pendingMessage} title={pendingTitle} />;
     }
 
     if (AUTH_CHECKPOINT_STATES.has(status)) {
+        if (status === 'mfa_challenge_required' && allowMfaCheckpointPassThrough) {
+            return children;
+        }
         return null;
     }
 
@@ -258,6 +265,12 @@ export const AdminRoute = ({ children }) => {
     const { status, roles, sessionError, sessionIntelligence, refreshSession, currentUser, logout } = auth;
     const adminAccessLock = currentUser ? getAdminAccessLockFromIntelligence(sessionIntelligence) : null;
     const isBootstrapping = AUTH_BOOTSTRAP_STATES.has(status);
+    const useAdminSecurityCheckpoint = shouldUseAdminSecurityCheckpoint({
+        pathname: location.pathname,
+        status,
+        currentUser,
+        roles,
+    });
 
     if (!isBootstrapping && !currentUser) {
         return <Navigate to="/login" state={{ from: location }} replace />;
@@ -288,6 +301,7 @@ export const AdminRoute = ({ children }) => {
         pendingTitle: intl.formatMessage(criticalMessages.authPendingTitle),
         t,
         children,
+        allowMfaCheckpointPassThrough: useAdminSecurityCheckpoint,
     });
 
     if (resolved !== children) {

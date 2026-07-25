@@ -6,6 +6,21 @@ import { MarketProvider } from '@/context/MarketContext';
 import { LocaleProvider } from '@/i18n/LocaleProvider';
 import { AdminRoute, ProtectedRoute } from './ProtectedRoute';
 
+vi.mock('@/components/auth/AdminSecurityCheckpoint', () => ({
+    AdminSecurityCheckpoint: () => <div>Authoritative admin security checkpoint</div>,
+    shouldUseAdminSecurityCheckpoint: ({
+        pathname = '',
+        status = '',
+        currentUser = null,
+        roles = null,
+    } = {}) => Boolean(
+        String(pathname).startsWith('/admin')
+        && status === 'mfa_challenge_required'
+        && currentUser
+        && roles?.isAdmin
+    ),
+}));
+
 const LocationProbe = () => {
     const location = useLocation();
     return (
@@ -148,6 +163,21 @@ describe('ProtectedRoute', () => {
         expect(screen.getByText('Storefront')).toBeInTheDocument();
         expect(screen.queryByText(/trusted device checkpoint/i)).not.toBeInTheDocument();
         expect(screen.queryByRole('heading', { name: /confirm it's you|admin verification required/i })).not.toBeInTheDocument();
+        expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
+    });
+
+    it('routes an authenticated admin MFA state into the authoritative recovery checkpoint', () => {
+        renderAdminRoute({
+            status: 'mfa_challenge_required',
+            sessionError: null,
+            sessionIntelligence: null,
+            roles: { isAdmin: true },
+            refreshSession: vi.fn().mockResolvedValue(null),
+            logout: vi.fn().mockResolvedValue(null),
+            currentUser: { uid: 'u_admin', email: 'admin@example.com' },
+        });
+
+        expect(screen.getByText('Authoritative admin security checkpoint')).toBeInTheDocument();
         expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
     });
 
