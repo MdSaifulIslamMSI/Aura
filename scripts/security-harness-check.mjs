@@ -17,9 +17,12 @@ const readJson = (relativePath) => JSON.parse(read(relativePath));
 const rootPackage = readJson('package.json');
 const ciWorkflow = read('.github/workflows/ci.yml');
 const productionWorkflow = read('.github/workflows/production-cicd.yml');
+const securityGatesWorkflow = read('.github/workflows/security-gates.yml');
 const securityRunner = read('scripts/security-runner.mjs');
 const secretScan = read('scripts/security-secret-scan.mjs');
 const dependencyAudit = read('scripts/security-dependency-audit.mjs');
+const dependencyAuditExceptions = readJson('security-audit-exceptions.json').exceptions || [];
+const appOsvScannerConfig = read('app/osv-scanner.toml');
 const supplyChainPinCheck = read('scripts/security/check-supply-chain-pins.mjs');
 const securityDockerTool = read('scripts/security/run-docker-tool.mjs');
 const gitleaksConfig = read('.gitleaks.toml');
@@ -157,6 +160,37 @@ addCheck(
   'dependency audit requires documented, expiring exceptions',
   includesAll(dependencyAudit, ['security-audit-exceptions.json', 'exception.reason', 'exception.expires']),
   'reason + expires exception contract'
+);
+
+const temporaryRouterAdvisory = 'GHSA-qwww-vcr4-c8h2';
+const temporaryRouterExceptions = dependencyAuditExceptions.filter(
+  (exception) => exception.advisoryIds?.includes(temporaryRouterAdvisory)
+);
+const temporaryRouterExpiry = '2026-08-09';
+const dependencyReviewAllowList = securityGatesWorkflow
+  .match(/^\s*allow-ghsas:\s*([^\r\n#]+)/m)?.[1]
+  ?.trim();
+
+addCheck(
+  'temporary React Router RSC exception stays exact and expiring',
+  temporaryRouterExceptions.length === 2
+    && temporaryRouterExceptions.every((exception) => (
+      exception.workspace === 'app'
+      && ['react-router', 'react-router-dom'].includes(exception.name)
+      && exception.severity === 'high'
+      && exception.advisoryIds.length === 1
+      && exception.expires === temporaryRouterExpiry
+      && Number.isFinite(new Date(exception.expires).getTime())
+      && new Date(exception.expires).getTime() >= Date.now()
+      && exception.reason?.includes(temporaryRouterAdvisory)
+    ))
+    && dependencyReviewAllowList === temporaryRouterAdvisory
+    && includesAll(appOsvScannerConfig, [
+      `id = "${temporaryRouterAdvisory}"`,
+      `ignoreUntil = ${temporaryRouterExpiry}`,
+      'React Server Components',
+    ]),
+  'one GHSA only; npm, OSV, and dependency-review exceptions expire 2026-08-09'
 );
 
 addCheck(

@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "GHSA-qwww-vcr4-c8h2"
+ignoreUntil = 2026-08-09
+reason = "Aura is a Vite client SPA and does not expose the affected React Server Components action-handling path. Remove when a compatible fixed react-router-dom release is available."

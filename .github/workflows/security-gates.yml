@@ -103,6 +103,8 @@ jobs:
         uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
+          # Exact, expiring exception is enforced by scripts/security-harness-check.mjs.
+          allow-ghsas: GHSA-qwww-vcr4-c8h2
 
   secret-scan:
     name: Secret Scan
