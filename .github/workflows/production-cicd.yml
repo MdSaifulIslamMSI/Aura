@@ -672,27 +672,7 @@ jobs:
           echo "No obvious committed secret patterns found."
 
       - name: NPM production dependency audit
-        run: |
-          set -euo pipefail
-
-          audit_npm_dir() {
-            local dir="$1"
-
-            if [ -f "${dir}/package-lock.json" ]; then
-              echo "Running npm audit in ${dir}"
-              (
-                cd "${dir}"
-                npm audit --audit-level=high --omit=dev
-              )
-            else
-              echo "No package-lock.json in ${dir}; skipping npm audit for this workspace."
-            fi
-          }
-
-          audit_npm_dir "."
-          audit_npm_dir "app"
-          audit_npm_dir "gateway"
-          audit_npm_dir "server"
+        run: npm run security:audit
 
       - name: Generate npm SBOMs
         run: |
