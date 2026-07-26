@@ -445,6 +445,44 @@ export const authApi = {
             useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
         })
     ),
+    createAvatarUploadIntent: async ({
+        fileName = '',
+        mimeType = '',
+        sizeBytes = 0,
+    } = {}, options = {}) => (
+        postAuthBootstrap('/account/avatar/upload-intents', {
+            fileName,
+            mimeType,
+            sizeBytes,
+        }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    uploadAvatarMedia: async ({
+        uploadToken = '',
+        fileName = '',
+        mimeType = '',
+        dataUrl = '',
+    } = {}, options = {}) => (
+        postAuthBootstrap('/account/avatar/uploads', {
+            uploadToken,
+            fileName,
+            mimeType,
+            dataUrl,
+        }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    finalizeAvatarMedia: async ({ finalizeToken = '' } = {}, options = {}) => (
+        postAuthBootstrap('/account/avatar/finalize', {
+            finalizeToken,
+        }, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
     getAdminSecurityStatus: async (options = {}) => (
         getProtectedAuthJson('/admin/security/status', options)
     ),

@@ -87,7 +87,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const intelligenceRoutes = require('./routes/intelligenceRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const userNotificationRoutes = require('./routes/userNotificationRoutes');
-const { serveReviewMediaAsset } = require('./controllers/uploadAssetController');
+const { serveAvatarMediaAsset, serveReviewMediaAsset } = require('./controllers/uploadAssetController');
 const { assertProductionPaymentConfig, assertWebhookConfig, flags: paymentFlags } = require('./config/paymentFlags');
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
@@ -491,6 +491,7 @@ app.use(abuseShield());
 app.use(activityEmailMiddleware);
 app.use(adminNotificationMiddleware);
 app.get(/^\/uploads\/reviews\/(.+)$/, uploadAssetLimiter, serveReviewMediaAsset);
+app.get(/^\/uploads\/avatars\/(.+)$/, uploadAssetLimiter, serveAvatarMediaAsset);
 app.use('/uploads', uploadAssetLimiter, express.static(path.join(__dirname, 'uploads')));
 
 // Rate Limiting â€” strict for production, disabled in test

@@ -6,6 +6,8 @@
 |---|---|
 | Account shell, profile orchestration, Security UI, active-session confirmations, auth API | **PASS**: 5 Vitest files, 58 tests |
 | Browser-session inventory/service/controller/validators | **PASS**: 4 Jest suites, 30 tests |
+| Secure avatar intent/upload/finalize, media normalization/storage/cleanup, policy and signatures | **PASS**: 7 Jest suites, 35 tests; 2 legacy profile suites, 12 tests |
+| Avatar Account Center workflow and API client | **PASS**: 3 Vitest files, 45 tests |
 | High-cardinality revoke-others | **PASS**: public list capped at 20; all 101 other sessions revoked; current and other-user sessions preserved |
 | Sensitive-route enforcement | **PASS**: standard scanner and strict coverage for 98 route entries |
 | Targeted frontend lint | **PASS with one pre-existing warning**: no errors; existing `currentUser.uid` dependency warning |
@@ -135,5 +137,10 @@ Current focused tests:
 
 - Wave F frontend security/settings/API: 60 passed.
 - Wave F backend security activity/session validators/controllers: 13 passed.
+- Wave G backend avatar pipeline, upload security, storage cleanup, signatures and traffic policy: 35 passed.
+- Wave G backend legacy profile/avatar security compatibility: 12 passed.
+- Wave G frontend profile, shell and API workflow: 45 passed.
+- Wave G sensitive-route scanners: 98 route entries passed.
+- Wave G localization: 21 catalogs, 4,838 ICU messages, zero critical structural issues; native review remains pending.
 
 Current broad local suites timed out and are not accepted as passes. Before merge, new focused shards must pass and the relevant CI suites must return terminal green statuses on the exact SHA.

@@ -12763,6 +12763,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "No email on file",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.accountCenter.photoUploadingAria": {
+        id: "profile.accountCenter.photoUploadingAria",
+        defaultMessage: "Profile photo upload in progress",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.accountCenter.profileLabel": {
         id: "profile.accountCenter.profileLabel",
         defaultMessage: "Profile",
@@ -13121,6 +13126,31 @@ export const stableUiMessages = defineMessages({
     "profile.message.allSessionsRevoked": {
         id: "profile.message.allSessionsRevoked",
         defaultMessage: "Every browser session was revoked. You are being signed out.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.avatarPreparing": {
+        id: "profile.message.avatarPreparing",
+        defaultMessage: "Preparing secure avatar upload...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.avatarSaving": {
+        id: "profile.message.avatarSaving",
+        defaultMessage: "Saving your new avatar...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.avatarScanning": {
+        id: "profile.message.avatarScanning",
+        defaultMessage: "Uploading, scanning, and normalizing your avatar...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.avatarSizeInvalid": {
+        id: "profile.message.avatarSizeInvalid",
+        defaultMessage: "Choose an image smaller than 2 MB.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.avatarTypeInvalid": {
+        id: "profile.message.avatarTypeInvalid",
+        defaultMessage: "Choose a JPEG, PNG, or WebP image.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.message.avatarUpdateFailed": {

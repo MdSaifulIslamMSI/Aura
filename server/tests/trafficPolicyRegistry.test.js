@@ -91,6 +91,13 @@ describe('traffic policy registry', () => {
             flowProtectionRequired: true,
             failMode: 'fail-closed',
         });
+        expect(getTrafficPolicyForRoute({ method: 'POST', path: '/api/account/avatar/uploads' })).toMatchObject({
+            id: 'account-avatar-media',
+            profile: PROFILES.UPLOAD_MEDIA,
+            routeClass: 'UPLOAD',
+            authRequired: true,
+            fileValidationRequired: true,
+        });
     });
 
     test('high-risk component policies keep merge-blocking guard posture', () => {

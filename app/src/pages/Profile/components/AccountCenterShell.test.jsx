@@ -54,4 +54,33 @@ describe('AccountCenterShell', () => {
         });
         expect(onTabChange).toHaveBeenLastCalledWith('orders');
     });
+
+    it('disables avatar replacement and exposes progress while an upload is active', () => {
+        render(
+            <AccountCenterShell
+                tabs={tabs}
+                activeTab="overview"
+                onTabChange={vi.fn()}
+                profile={{
+                    name: 'Profile User',
+                    email: 'profile@example.com',
+                    initials: 'PU',
+                }}
+                pageTitle="Overview"
+                pageDescription="Account overview"
+                memberSince="July 2026"
+                profileCompletion={75}
+                accountState="active"
+                accountStateLabel="active"
+                onAvatarClick={vi.fn()}
+                avatarUploading
+            >
+                <p>Account content</p>
+            </AccountCenterShell>,
+        );
+
+        const button = screen.getByRole('button', { name: 'Profile photo upload in progress' });
+        expect(button).toBeDisabled();
+        expect(button).toHaveAttribute('aria-busy', 'true');
+    });
 });

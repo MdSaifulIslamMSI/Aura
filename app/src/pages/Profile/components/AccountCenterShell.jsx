@@ -25,6 +25,7 @@ export default function AccountCenterShell({
     accountStateLabel,
     overviewMetrics = [],
     onAvatarClick,
+    avatarUploading = false,
     notice,
     banner,
     children,
@@ -64,7 +65,11 @@ export default function AccountCenterShell({
                         type="button"
                         className="relative grid h-13 w-13 place-items-center rounded-xl border border-white/20 bg-white/10 font-black text-[#fffaf0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
                         onClick={onAvatarClick}
-                        aria-label={t('profile.accountCenter.changePhotoAria', {}, 'Change profile photo')}
+                        disabled={avatarUploading}
+                        aria-busy={avatarUploading || undefined}
+                        aria-label={avatarUploading
+                            ? t('profile.accountCenter.photoUploadingAria', {}, 'Profile photo upload in progress')
+                            : t('profile.accountCenter.changePhotoAria', {}, 'Change profile photo')}
                     >
                         {profile.avatar ? (
                             <img src={profile.avatar} alt="" className="h-full w-full rounded-[inherit] object-cover" />

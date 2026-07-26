@@ -37,6 +37,15 @@ import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SettingsSection = lazy(() => import('./components/SettingsSection'));
 const PROFILE_FIELDS = ['name', 'phone', 'gender', 'dob', 'bio'];
+const AVATAR_ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Avatar file could not be read.'));
+    reader.readAsDataURL(file);
+});
 
 const normalizeProfileFormForComparison = (value = {}) => ({
     name: trimText(value.name),
@@ -204,6 +213,7 @@ export default function Profile() {
     const [activeSessionsLoaded, setActiveSessionsLoaded] = useState(false);
     const [activeSessionsError, setActiveSessionsError] = useState(null);
     const [activeSessionAction, setActiveSessionAction] = useState('');
+    const [avatarUploading, setAvatarUploading] = useState(false);
     const [securityActivity, setSecurityActivity] = useState([]);
     const [securityActivityPagination, setSecurityActivityPagination] = useState({
         hasMore: false,
@@ -781,20 +791,62 @@ export default function Profile() {
     const handleAvatarChange = async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        event.target.value = '';
 
-        const reader = new FileReader();
-        reader.onload = async () => {
-            try {
-                const updated = updateProfileInContext
-                    ? await updateProfileInContext({ avatar: reader.result })
-                    : await userApi.updateProfile({ avatar: reader.result });
-                setProfile((previous) => ({ ...previous, avatar: updated.avatar }));
-                showMsg('success', t('profile.message.avatarUpdated', {}, 'Avatar updated.'));
-            } catch (error) {
-                showMsg('error', error.message || t('profile.message.avatarUpdateFailed', {}, 'Failed to update avatar.'));
-            }
-        };
-        reader.readAsDataURL(file);
+        if (!AVATAR_ALLOWED_MIME_TYPES.has(String(file.type || '').toLowerCase())) {
+            showMsg('error', t(
+                'profile.message.avatarTypeInvalid',
+                {},
+                'Choose a JPEG, PNG, or WebP image.'
+            ));
+            return;
+        }
+        if (file.size < 1 || file.size > AVATAR_MAX_BYTES) {
+            showMsg('error', t(
+                'profile.message.avatarSizeInvalid',
+                {},
+                'Choose an image smaller than 2 MB.'
+            ));
+            return;
+        }
+
+        setAvatarUploading(true);
+        setMessage({
+            type: 'info',
+            text: t('profile.message.avatarPreparing', {}, 'Preparing secure avatar upload...'),
+        });
+        try {
+            const intent = await authApi.createAvatarUploadIntent({
+                fileName: file.name,
+                mimeType: file.type,
+                sizeBytes: file.size,
+            }, { firebaseUser: currentUser });
+            const dataUrl = await readFileAsDataUrl(file);
+            setMessage({
+                type: 'info',
+                text: t('profile.message.avatarScanning', {}, 'Uploading, scanning, and normalizing your avatar...'),
+            });
+            const uploaded = await authApi.uploadAvatarMedia({
+                uploadToken: intent.uploadToken,
+                fileName: file.name,
+                mimeType: file.type,
+                dataUrl,
+            }, { firebaseUser: currentUser });
+            setMessage({
+                type: 'info',
+                text: t('profile.message.avatarSaving', {}, 'Saving your new avatar...'),
+            });
+            const updated = await authApi.finalizeAvatarMedia({
+                finalizeToken: uploaded.finalizeToken,
+            }, { firebaseUser: currentUser });
+            userApi.clearAccountCache();
+            setProfile((previous) => ({ ...previous, avatar: updated.avatar }));
+            showMsg('success', t('profile.message.avatarUpdated', {}, 'Avatar updated.'));
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.avatarUpdateFailed', {}, 'Failed to update avatar.'));
+        } finally {
+            setAvatarUploading(false);
+        }
     };
 
     const resetAddressForm = () => {
@@ -1503,6 +1555,7 @@ export default function Profile() {
                 accountStateLabel={accountStateLabelMap[accountState] || String(accountState).replace(/_/g, ' ')}
                 overviewMetrics={heroMetrics}
                 onAvatarClick={() => fileInputRef.current?.click()}
+                avatarUploading={avatarUploading}
                 banner={<AccountStatusBanner accountState={profile?.accountState} moderation={profile?.moderation} />}
                 notice={message.text ? (
                     <div

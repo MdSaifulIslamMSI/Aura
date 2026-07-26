@@ -27,6 +27,16 @@ const {
     getAccountPreferencesSchema,
     updateAccountPreferencesSchema,
 } = require('../validators/accountPreferenceValidators');
+const {
+    createAvatarUploadIntent,
+    finalizeAvatarMedia,
+    uploadAvatarMedia,
+} = require('../controllers/accountAvatarController');
+const {
+    createAvatarUploadIntentSchema,
+    finalizeAvatarMediaSchema,
+    uploadAvatarMediaSchema,
+} = require('../validators/accountAvatarValidators');
 
 const router = express.Router();
 
@@ -46,6 +56,14 @@ const accountPreferenceLimiter = createDistributedRateLimit({
     message: 'Too many account preference requests. Please try again shortly.',
     keyGenerator: (req) => req.authUid || req.user?.id || req.ip,
 });
+const accountAvatarLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    name: 'account_avatar_media',
+    windowMs: 10 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 120 : 20,
+    message: 'Too many avatar upload requests. Please try again shortly.',
+    keyGenerator: (req) => req.authUid || req.user?.id || req.ip,
+});
 
 router.use(protect);
 
@@ -62,6 +80,27 @@ router.patch(
     csrfTokenValidatorUnlessBearerAuth,
     validate(updateAccountPreferencesSchema),
     updateAccountPreferences
+);
+router.post(
+    '/avatar/upload-intents',
+    accountAvatarLimiter,
+    csrfTokenValidatorUnlessBearerAuth,
+    validate(createAvatarUploadIntentSchema),
+    createAvatarUploadIntent
+);
+router.post(
+    '/avatar/uploads',
+    accountAvatarLimiter,
+    csrfTokenValidatorUnlessBearerAuth,
+    validate(uploadAvatarMediaSchema),
+    uploadAvatarMedia
+);
+router.post(
+    '/avatar/finalize',
+    accountAvatarLimiter,
+    csrfTokenValidatorUnlessBearerAuth,
+    validate(finalizeAvatarMediaSchema),
+    finalizeAvatarMedia
 );
 router.use('/sessions', accountSessionLimiter);
 router.get('/sessions', validate(getAccountSessionsSchema), getAccountSessions);

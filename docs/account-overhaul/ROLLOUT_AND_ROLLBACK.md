@@ -22,6 +22,8 @@ Flags default off in production. Privacy remains off until policy approval and d
 
 The server decides availability. The client must handle absent/disabled contracts and may not infer authorization from its local flag.
 
+Avatar storage uses the existing `UPLOAD_STORAGE_DRIVER`. Local development defaults to `server/uploads/avatars`; S3 requires `AWS_REGION` and `AWS_S3_AVATAR_BUCKET` (or the existing review-media bucket fallback), with optional `AWS_S3_AVATAR_PREFIX`. Runtime credentials come from the existing AWS identity chain and are never exposed to the client. Staging must prove bucket access, denial outside the configured prefix, private quarantine, immutable final reads, cleanup dry-run, and cleanup execution before the avatar flag can advance.
+
 ## Wave plan
 
 ### Wave 0: source and harness
@@ -72,7 +74,7 @@ Exit: session store failure behavior, cross-user aliases, final-factor rules, an
 - Enable versioned notification preferences.
 - Run backfill shadow/read phases.
 
-Exit: scan/checksum/orphan cleanup, concurrency, and rollback reads pass.
+Exit: MIME/extension/magic-byte/size/dimension/decode/scan checks, token replay and owner binding, optimistic concurrency, orphan cleanup, S3 prefix policy, and rollback reads pass.
 
 ### Wave 6: privacy
 

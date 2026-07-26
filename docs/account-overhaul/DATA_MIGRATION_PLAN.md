@@ -23,18 +23,16 @@ Add:
 
 ```text
 avatarMedia:
-  objectKey
-  version
-  contentType
-  byteSize
+  storageKey
+  storageDriver
+  mimeType
+  sizeBytes
   width
   height
-  checksum
-  scanStatus
   updatedAt
 ```
 
-Keep legacy `avatar` readable during migration. New writes use `avatarMedia` only after the feature flag is enabled. The public serializer prefers finalized media and falls back to a validated legacy avatar.
+Keep legacy `avatar` readable during migration. The secure upload/finalize path writes a durable media URL to `avatar` and stores the server-generated key and derived metadata in `avatarMedia`; no bucket name, client key, ACL, source metadata, or raw image bytes are stored there. Existing profile writes remain available during the compatibility window, while the Account Center UI uses only the object-media path.
 
 Resolve the current bio constraint mismatch before backfill. The safer default is the existing database maximum of 200 characters unless product explicitly approves a schema expansion. Do not silently truncate existing values.
 
@@ -135,7 +133,7 @@ Do not print personal values. Emit aggregate counts and opaque record IDs only t
 
 ### Phase 3: shadow writes
 
-- New avatar finalize writes the new media field and preserves legacy read fallback.
+- New avatar finalize writes the new media field and durable URL while preserving legacy read fallback.
 - Notification preference writes use the new record while the old UI remains read-only or dual-read.
 - Lifecycle job models remain unreachable until policy approval.
 - Compare new and legacy serializers in non-user-visible telemetry without logging personal values.
@@ -184,6 +182,7 @@ Legacy field removal is not part of the initial overhaul rollout.
 - Dry-run in a production-like snapshot with personal data protected.
 - Batch pause/resume and duplicate-run test.
 - Object checksum and scan verification for avatar migration.
+- Dry-run and execute tests for stale quarantine and unreferenced final-object cleanup.
 - Query plans before/after each index.
 - Backup restore and forward-fix rehearsal.
 - Metrics for processed, skipped, quarantined, failed, lag, latency, and storage growth.

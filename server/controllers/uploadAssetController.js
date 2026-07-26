@@ -4,6 +4,7 @@ const {
     buildReviewMediaStorageKey,
     getReviewMediaObject,
 } = require('../services/reviewMediaStorageService');
+const { getAvatarMediaObject } = require('../services/avatarMediaStorageService');
 
 const isMissingObjectError = (error) => {
     return Number(error?.code || 0) === 404
@@ -86,6 +87,32 @@ const serveReviewMediaAsset = asyncHandler(async (req, res, next) => {
     await pipeBodyToResponse(object.body, res);
 });
 
+const serveAvatarMediaAsset = asyncHandler(async (req, res, next) => {
+    const storageKey = String(req.params[0] || '').trim();
+    if (!/^[A-Za-z0-9_-]+\.webp$/.test(storageKey)) {
+        return next(new AppError('Avatar not found', 404));
+    }
+
+    let object;
+    try {
+        object = await getAvatarMediaObject({ storageKey });
+    } catch (error) {
+        if (isMissingObjectError(error)) {
+            return next(new AppError('Avatar not found', 404));
+        }
+        throw error;
+    }
+
+    res.setHeader('Content-Type', object.contentType || 'image/webp');
+    res.setHeader('Cache-Control', object.cacheControl || 'public, max-age=31536000, immutable');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (object.contentLength > 0) res.setHeader('Content-Length', String(object.contentLength));
+    if (object.etag) res.setHeader('ETag', object.etag);
+    if (object.lastModified) res.setHeader('Last-Modified', new Date(object.lastModified).toUTCString());
+    await pipeBodyToResponse(object.body, res);
+});
+
 module.exports = {
+    serveAvatarMediaAsset,
     serveReviewMediaAsset,
 };

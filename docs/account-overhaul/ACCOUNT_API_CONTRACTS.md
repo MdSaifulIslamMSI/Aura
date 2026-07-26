@@ -222,15 +222,28 @@ Example:
 
 ### `POST /api/account/avatar/upload-intents`
 
-Request allowlist: file name, content type, byte size, checksum.
+Request allowlist: `fileName`, `mimeType`, and `sizeBytes`.
 
-Server validates JPEG/PNG/WebP, 2 MB maximum unless policy is intentionally changed, user quota, extension/MIME consistency, and generates a short-lived signed object-store intent scoped to a server-generated key.
+The server allows JPEG, PNG, and WebP up to 2 MB and returns a ten-minute, one-time, owner-bound upload token plus the fixed account upload endpoint. The token never grants bucket, key, ACL, or credential authority.
+
+### `POST /api/account/avatar/uploads`
+
+Requires the one-time upload token and its exact file name and MIME type. The server:
+
+- rejects token replay, owner mismatch, path-bearing names, unsupported extensions, MIME/magic-byte mismatches, oversized files, malformed decodes, animation, images over 4,096 pixels on an axis or 16 megapixels, and unavailable or negative malware scans;
+- decodes and auto-orients the image;
+- crops it to a 512 by 512 square;
+- strips source metadata and encodes WebP;
+- writes only the normalized object into private quarantine; and
+- returns a separate ten-minute, one-time finalize token.
 
 ### `POST /api/account/avatar/finalize`
 
-Requires the server-issued intent ID and checksum. The server verifies object existence, scan status, dimensions, and ownership before updating the user avatar key. Previous object deletion is asynchronous and audited.
+Requires only the server-issued finalize token. The server verifies token ownership, purpose, object existence, and normalized byte length, promotes the quarantined object, and performs an optimistic-version user update. It stores the randomized object key and derived metadata plus the durable media URL. A database conflict removes the newly promoted object, and successful replacement schedules the previous object for bounded asynchronous deletion.
 
 Client-supplied bucket names, arbitrary keys, public ACLs, and URLs are rejected.
+
+`GET /uploads/avatars/:storageKey` serves only the strict randomized `.webp` key shape with immutable caching and `nosniff`. Quarantine paths are never served. `npm --prefix server run avatar:cleanup` is dry-run by default; `-- --execute` is required to remove stale quarantine and old unreferenced final objects.
 
 ## Privacy lifecycle
 

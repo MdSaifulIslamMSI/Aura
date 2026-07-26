@@ -19,7 +19,7 @@ Priority definitions:
 | G-009 | P1 | Data fetching | Mount and 45-second refresh fan out across inactive modules | Fetch by active module, dedupe, cancel stale requests, explicit freshness | Network trace and query-cache tests |
 | G-010 | P1 | Account navigation | Ten horizontal pills and scattered marketplace routes | Responsive account shell with desktop rail and mobile hierarchy | 320–2560 px screenshots and keyboard traversal |
 | G-011 | P1 | Profile contract | Client bio max and schema max disagree | One shared, server-authoritative constraint | Boundary tests at max and max+1 |
-| G-012 | P1 | Avatar storage | Base64 avatar grows the user document | Signed upload intent, object key allowlist, finalize/delete lifecycle | MIME/size/tamper/ownership/orphan cleanup tests |
+| G-012 | P1 | Avatar storage | Resolved on integration branch: Account Center writes normalized object media through replay-resistant owner-bound upload/finalize tokens | Preserve randomized key allowlist, quarantine, optimistic finalize, old-object deletion and legacy read fallback | MIME/extension/magic-byte/size/dimension/decode/scan, tamper, replay, ownership, conflict and orphan-cleanup tests |
 | G-013 | P1 | Addresses | No cap, weak form semantics, native confirmation | Accessible validated CRUD, maximum count, deliberate destructive dialog | Field, cap, default, cross-user and keyboard tests |
 | G-014 | P1 | Orders | Client ignores cursor continuation and lacks filters | Cursor pagination, search/status/date filters and stable empty/error states | Multi-page and stale-cursor tests |
 | G-015 | P1 | Orders | No invoice download capability found | Owner-scoped signed invoice/download contract where legally supported | Ownership, expiry, content-disposition tests |

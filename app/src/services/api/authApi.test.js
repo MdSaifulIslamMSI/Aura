@@ -780,6 +780,48 @@ describe('authApi', () => {
     expect(global.fetch.mock.calls[1][1].method).toBe('POST');
   });
 
+  it('uses explicit signed avatar intent, upload, and finalize endpoints', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        uploadToken: 'upload-token',
+      }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        finalizeToken: 'finalize-token',
+      }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        avatar: '/uploads/avatars/normalized.webp',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    const intent = await authApi.createAvatarUploadIntent({
+      fileName: 'portrait.png',
+      mimeType: 'image/png',
+      sizeBytes: 1024,
+    }, { firebaseUser });
+    const uploaded = await authApi.uploadAvatarMedia({
+      uploadToken: intent.uploadToken,
+      fileName: 'portrait.png',
+      mimeType: 'image/png',
+      dataUrl: 'data:image/png;base64,AAAA',
+    }, { firebaseUser });
+    await expect(authApi.finalizeAvatarMedia({
+      finalizeToken: uploaded.finalizeToken,
+    }, { firebaseUser })).resolves.toMatchObject({
+      avatar: '/uploads/avatars/normalized.webp',
+    });
+
+    expect(global.fetch.mock.calls.map(([url]) => url)).toEqual(expect.arrayContaining([
+      expect.stringContaining('/account/avatar/upload-intents'),
+      expect.stringContaining('/account/avatar/uploads'),
+      expect.stringContaining('/account/avatar/finalize'),
+    ]));
+    expect(global.fetch.mock.calls.every(([, options]) => options.method === 'POST')).toBe(true);
+  });
+
   it('rejects malformed account-session aliases before making a request', async () => {
     await expect(authApi.revokeAccountSession({ sessionId: 'raw-session-id' }))
       .rejects

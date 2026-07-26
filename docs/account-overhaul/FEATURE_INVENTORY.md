@@ -12,7 +12,7 @@ Status definitions:
 | Protected account entry | `/profile` uses `ProtectedRoute` | Auth middleware required | Implemented | Live unauthenticated route redirects to sign-in |
 | Account overview | Hero, metrics, quick actions | Dashboard aggregation endpoint | Partial | Expensive broad fan-out; some metrics are session/page scoped but presented as broad account intelligence |
 | Personal details | Name, phone, DOB, gender, bio, avatar | Explicit field allowlist; fresh phone proof | Partial | Bio limits disagree between client validation and Mongoose schema |
-| Avatar | Preview and update | MIME/size/magic-byte/malware checks | Partial | Stores base64 data URI in user document; no signed object-storage lifecycle |
+| Avatar | Three-phase upload with progress, validation and durable preview | One-time owner-bound intent/finalize tokens; MIME/extension/magic-byte/size/dimension/decode/scan checks; normalized WebP quarantine, promotion and cleanup | Implemented on integration branch | Account Center writes randomized object media; legacy avatar reads remain for migration compatibility; staging S3/IAM proof remains a release gate |
 | Addresses | Embedded CRUD | Owner-scoped user mutation | Partial | Placeholder-only form, no address cap, weak field-error semantics, browser-native delete confirmation |
 | Order history | Embedded profile summary and dedicated orders page | Cursor-ready owner-scoped API | Partial | Client requests one page with limit 100, ignores `nextCursor`, lacks search/status/date filters |
 | Order detail/actions | Timeline and command surfaces | Ownership and trust guards for sensitive commands | Partial | No invoice download route found; UX is split across account and orders destinations |
