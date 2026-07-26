@@ -15,6 +15,8 @@ vi.mock('@/services/api', async (importOriginal) => {
             getMyOrders: vi.fn(),
             getOrderTimeline: vi.fn(),
             getCommandCenter: vi.fn(),
+            getReceipt: vi.fn(),
+            buyAgain: vi.fn(),
             cancelOrder: vi.fn(),
             requestRefund: vi.fn(),
             requestReplacement: vi.fn(),
@@ -85,11 +87,13 @@ describe('OrderCard', () => {
         });
 
         render(
-            <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
-                <LocaleProvider>
-                    <OrderCard order={baseOrder} />
-                </LocaleProvider>
-            </MarketProvider>
+            <MemoryRouter>
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <LocaleProvider>
+                        <OrderCard order={baseOrder} />
+                    </LocaleProvider>
+                </MarketProvider>
+            </MemoryRouter>
         );
 
         fireEvent.click(screen.getByText(/Order ID:/i));
@@ -114,6 +118,31 @@ describe('OrderCard', () => {
         expect(screen.getByText(/Capture is pending in the backend queue/i)).toBeInTheDocument();
         expect(screen.getByText('Refund Requests')).toBeInTheDocument();
         expect(screen.getAllByText('0').length).toBeGreaterThan(0);
+        expect(screen.getByRole('button', { name: /Download Receipt/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Buy Again/i })).toBeInTheDocument();
+    });
+
+    it('reconstructs the cart from server-owned order rows', async () => {
+        orderApi.getOrderTimeline.mockResolvedValue({ timeline: [] });
+        orderApi.getCommandCenter.mockResolvedValue({ commandCenter: {} });
+        orderApi.buyAgain.mockResolvedValue({ success: true, cart: { items: [] } });
+
+        render(
+            <MemoryRouter>
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <LocaleProvider>
+                        <OrderCard order={baseOrder} />
+                    </LocaleProvider>
+                </MarketProvider>
+            </MemoryRouter>
+        );
+
+        fireEvent.click(screen.getByText(/Order ID:/i));
+        fireEvent.click(await screen.findByRole('button', { name: /Buy Again/i }));
+
+        await waitFor(() => {
+            expect(orderApi.buyAgain).toHaveBeenCalledWith(baseOrder._id);
+        });
     });
 });
 
@@ -123,7 +152,10 @@ describe('Orders page', () => {
     });
 
     it('refreshes the order list when the app regains focus', async () => {
-        orderApi.getMyOrders.mockResolvedValue([baseOrder]);
+        orderApi.getMyOrders.mockResolvedValue({
+            orders: [baseOrder],
+            pagination: { hasMore: false, nextCursor: null },
+        });
 
         render(
             <MemoryRouter>
@@ -139,7 +171,7 @@ describe('Orders page', () => {
 
         await waitFor(() => {
             expect(orderApi.getMyOrders).toHaveBeenCalledTimes(1);
-            expect(screen.getByText(/Order History/i)).toBeInTheDocument();
+            expect(screen.getByRole('heading', { name: 'Order History' })).toBeInTheDocument();
         });
 
         fireEvent(

@@ -126,6 +126,18 @@ const getOrderTimelineSchema = z.object({
     }),
 });
 
+const getMyOrdersSchema = z.object({
+    query: z.object({
+        limit: z.coerce.number().int().min(1).max(100).optional(),
+        cursor: z.string().trim().min(1).max(512).optional(),
+        status: z.enum(['placed', 'processing', 'shipped', 'delivered', 'cancelled']).optional(),
+        search: z.string().trim().max(100).optional(),
+        createdAfter: z.string().datetime({ offset: true }).optional(),
+        createdBefore: z.string().datetime({ offset: true }).optional(),
+        includeTotal: z.enum(['0', '1', 'true', 'false']).optional(),
+    }).strict().optional(),
+});
+
 const commandCenterParamsSchema = z.object({
     params: z.object({
         id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
@@ -171,6 +183,13 @@ const cancelOrderSchema = z.object({
     body: z.object({
         reason: z.string().trim().min(3).max(300).optional(),
     }).optional(),
+});
+
+const buyAgainSchema = z.object({
+    ...commandCenterParamsSchema.shape,
+    body: z.object({
+        expectedCartVersion: z.number().int().nonnegative().optional(),
+    }).strict().optional(),
 });
 
 const adminOrderStatusSchema = z.object({
@@ -240,6 +259,7 @@ const adminCommandWarrantyDecisionSchema = z.object({
 module.exports = {
     quoteOrderSchema,
     createOrderSchema,
+    getMyOrdersSchema,
     getOrderTimelineSchema,
     commandCenterParamsSchema,
     commandCenterRefundSchema,
@@ -247,6 +267,7 @@ module.exports = {
     commandCenterSupportSchema,
     commandCenterWarrantySchema,
     cancelOrderSchema,
+    buyAgainSchema,
     adminOrderStatusSchema,
     adminCancelOrderSchema,
     adminCommandRefundDecisionSchema,
