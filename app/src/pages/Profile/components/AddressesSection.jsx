@@ -1,3 +1,4 @@
+import { useId, useState } from 'react';
 import { MapPin, Plus, Save, Phone, Edit3, Trash2 } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
@@ -18,10 +19,13 @@ const formatAddressType = (value, fallback, t) => {
 export default function AddressesSection({
     profile, ADDRESS_TYPES, showAddressForm, setShowAddressForm, editingAddress,
     addressForm, setAddressForm, saving, handleSaveAddress, resetAddressForm,
-    startEditAddress, handleDeleteAddress,
+    startEditAddress, handleDeleteAddress, handleSetDefaultAddress, addressSubmitError,
+    addressesLoading, addressesError, onRetryAddresses,
 }) {
     const { t: legacyT } = useMarket();
     const t = useStableIcuMessages(legacyT);
+    const formId = useId();
+    const [deleteCandidate, setDeleteCandidate] = useState(null);
 
     const addressTypes = ADDRESS_TYPES.map((type) => ({
         ...type,
@@ -33,6 +37,7 @@ export default function AddressesSection({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-bold text-gray-900">{t('profile.addresses.title', {}, 'Saved Addresses')}</h3>
                 <button
+                    type="button"
                     onClick={() => {
                         resetAddressForm();
                         setShowAddressForm(true);
@@ -43,8 +48,34 @@ export default function AddressesSection({
                 </button>
             </div>
 
+            {addressesLoading ? (
+                <p role="status" className="rounded-xl border bg-white p-4 text-sm text-gray-600">
+                    {t('profile.addresses.loading', {}, 'Loading saved addresses...')}
+                </p>
+            ) : null}
+
+            {addressesError ? (
+                <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-sm font-semibold text-red-800">{addressesError}</p>
+                    <button
+                        type="button"
+                        onClick={onRetryAddresses}
+                        className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-bold text-red-800"
+                    >
+                        {t('profile.addresses.retry', {}, 'Retry')}
+                    </button>
+                </div>
+            ) : null}
+
             {showAddressForm ? (
-                <div className="rounded-2xl border bg-white p-6 shadow-sm">
+                <form
+                    className="rounded-2xl border bg-white p-6 shadow-sm"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        handleSaveAddress();
+                    }}
+                    aria-describedby={addressSubmitError ? `${formId}-error` : undefined}
+                >
                     <h4 className="mb-4 font-bold text-gray-900">
                         {editingAddress
                             ? t('profile.addresses.form.editTitle', {}, 'Edit Address')
@@ -56,8 +87,10 @@ export default function AddressesSection({
                             const Icon = type.icon;
                             return (
                                 <button
+                                    type="button"
                                     key={type.value}
                                     onClick={() => setAddressForm((previous) => ({ ...previous, type: type.value }))}
+                                    aria-pressed={addressForm.type === type.value}
                                     className={`flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all
               ${addressForm.type === type.value ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500'}`}
                                 >
@@ -68,44 +101,92 @@ export default function AddressesSection({
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-name`}>
+                            {t('profile.personal.fullName', {}, 'Full Name')}
                         <input
+                            id={`${formId}-name`}
+                            name="name"
                             value={addressForm.name}
                             onChange={(event) => setAddressForm((previous) => ({ ...previous, name: event.target.value }))}
-                            placeholder={t('profile.addresses.form.namePlaceholder', {}, 'Full Name *')}
+                            autoComplete="name"
+                            required
+                            minLength={2}
+                            maxLength={80}
                             className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
                         />
+                        </label>
+                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-phone`}>
+                            {t('profile.personal.phone', {}, 'Phone Number')}
                         <input
+                            id={`${formId}-phone`}
+                            name="phone"
+                            type="tel"
                             value={addressForm.phone}
                             onChange={(event) => setAddressForm((previous) => ({ ...previous, phone: event.target.value }))}
-                            placeholder={t('profile.addresses.form.phonePlaceholder', {}, 'Phone Number *')}
+                            autoComplete="tel"
+                            required
+                            pattern="^\+?[0-9 ()-]{10,20}$"
                             className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
                         />
+                        </label>
+                        <label className="space-y-1 text-sm font-semibold text-gray-700 sm:col-span-2" htmlFor={`${formId}-street`}>
+                            {t('profile.addresses.form.addressLabel', {}, 'Address')}
                         <textarea
+                            id={`${formId}-street`}
+                            name="street-address"
                             value={addressForm.address}
                             onChange={(event) => setAddressForm((previous) => ({ ...previous, address: event.target.value }))}
-                            placeholder={t('profile.addresses.form.addressPlaceholder', {}, 'Full Address *')}
+                            autoComplete="street-address"
+                            required
+                            minLength={5}
+                            maxLength={200}
                             rows={2}
-                            className="resize-none rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500 sm:col-span-2"
+                            className="w-full resize-none rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
                         />
+                        </label>
+                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-city`}>
+                            {t('profile.addresses.form.cityPlaceholder', {}, 'City')}
                         <input
+                            id={`${formId}-city`}
+                            name="address-level2"
                             value={addressForm.city}
                             onChange={(event) => setAddressForm((previous) => ({ ...previous, city: event.target.value }))}
-                            placeholder={t('profile.addresses.form.cityPlaceholder', {}, 'City *')}
+                            autoComplete="address-level2"
+                            required
+                            minLength={2}
+                            maxLength={50}
                             className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
                         />
+                        </label>
+                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-state`}>
+                            {t('profile.addresses.form.statePlaceholder', {}, 'State')}
                         <input
+                            id={`${formId}-state`}
+                            name="address-level1"
                             value={addressForm.state}
                             onChange={(event) => setAddressForm((previous) => ({ ...previous, state: event.target.value }))}
-                            placeholder={t('profile.addresses.form.statePlaceholder', {}, 'State *')}
+                            autoComplete="address-level1"
+                            required
+                            minLength={2}
+                            maxLength={50}
                             className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
                         />
+                        </label>
+                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-pincode`}>
+                            {t('profile.addresses.form.pincodePlaceholder', {}, 'PIN code')}
                         <input
+                            id={`${formId}-pincode`}
+                            name="postal-code"
                             value={addressForm.pincode}
                             onChange={(event) => setAddressForm((previous) => ({ ...previous, pincode: event.target.value }))}
-                            placeholder={t('profile.addresses.form.pincodePlaceholder', {}, 'Pincode *')}
+                            autoComplete="postal-code"
+                            inputMode="numeric"
+                            pattern="[1-9][0-9]{5}"
+                            required
                             maxLength={6}
                             className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
                         />
+                        </label>
                         <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-gray-200 bg-gray-50 p-3">
                             <input
                                 type="checkbox"
@@ -117,9 +198,15 @@ export default function AddressesSection({
                         </label>
                     </div>
 
+                    {addressSubmitError ? (
+                        <p id={`${formId}-error`} role="alert" className="mt-4 text-sm font-semibold text-red-700">
+                            {addressSubmitError}
+                        </p>
+                    ) : null}
+
                     <div className="mt-5 flex gap-3">
                         <button
-                            onClick={handleSaveAddress}
+                            type="submit"
                             disabled={saving || !addressForm.name || !addressForm.phone || !addressForm.address || !addressForm.city || !addressForm.state || !addressForm.pincode}
                             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
                         >
@@ -129,13 +216,14 @@ export default function AddressesSection({
                                 : t('profile.addresses.form.save', {}, 'Save')} {t('profile.addresses.form.addressLabel', {}, 'Address')}
                         </button>
                         <button
+                            type="button"
                             onClick={resetAddressForm}
                             className="rounded-lg border px-5 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50"
                         >
                             {t('profile.personal.cancel', {}, 'Cancel')}
                         </button>
                     </div>
-                </div>
+                </form>
             ) : null}
 
             {(!profile?.addresses || profile.addresses.length === 0) && !showAddressForm ? (
@@ -169,13 +257,24 @@ export default function AddressesSection({
                                 <p className="mt-1 flex items-center gap-1 text-sm text-gray-500"><Phone className="h-3 w-3" /> {address.phone}</p>
                                 <div className="mt-3 flex gap-2 border-t pt-3">
                                     <button
+                                        type="button"
                                         onClick={() => startEditAddress(address)}
                                         className="flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50"
                                     >
                                         <Edit3 className="h-3 w-3" /> {t('profile.personal.edit', {}, 'Edit')}
                                     </button>
+                                    {!address.isDefault ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSetDefaultAddress(address)}
+                                            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                                        >
+                                            {t('profile.addresses.makeDefault', {}, 'Make default')}
+                                        </button>
+                                    ) : null}
                                     <button
-                                        onClick={() => handleDeleteAddress(address._id)}
+                                        type="button"
+                                        onClick={() => setDeleteCandidate(address)}
                                         className="flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50"
                                     >
                                         <Trash2 className="h-3 w-3" /> {t('profile.addresses.delete', {}, 'Delete')}
@@ -186,6 +285,46 @@ export default function AddressesSection({
                     })}
                 </div>
             )}
+
+            {deleteCandidate ? (
+                <div
+                    role="alertdialog"
+                    aria-modal="true"
+                    aria-labelledby={`${formId}-delete-title`}
+                    aria-describedby={`${formId}-delete-body`}
+                    className="rounded-2xl border border-red-200 bg-red-50 p-5"
+                >
+                    <h4 id={`${formId}-delete-title`} className="font-bold text-gray-950">
+                        {t('profile.addresses.deleteConfirm.title', {}, 'Delete this saved address?')}
+                    </h4>
+                    <p id={`${formId}-delete-body`} className="mt-2 text-sm text-gray-700">
+                        {t(
+                            'profile.addresses.deleteConfirm.body',
+                            {},
+                            'Past orders keep their delivery copy. Future checkouts will no longer offer this address.'
+                        )}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                const deleted = await handleDeleteAddress(deleteCandidate._id);
+                                if (deleted) setDeleteCandidate(null);
+                            }}
+                            className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800"
+                        >
+                            {t('profile.addresses.deleteConfirm.confirm', {}, 'Delete address')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setDeleteCandidate(null)}
+                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800"
+                        >
+                            {t('profile.personal.cancel', {}, 'Cancel')}
+                        </button>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

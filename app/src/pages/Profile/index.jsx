@@ -217,6 +217,9 @@ export default function Profile() {
 
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [editingAddress, setEditingAddress] = useState(null);
+    const [addressSubmitError, setAddressSubmitError] = useState('');
+    const [addressesLoading, setAddressesLoading] = useState(false);
+    const [addressesError, setAddressesError] = useState('');
     const [addressForm, setAddressForm] = useState({
         type: 'home',
         name: '',
@@ -474,6 +477,30 @@ export default function Profile() {
         }
     }, [canUseProtectedProfileApis]);
 
+    const refreshAddresses = useCallback(async () => {
+        if (!canUseProtectedProfileApis) return null;
+        setAddressesLoading(true);
+        setAddressesError('');
+        try {
+            const result = await userApi.getAddresses();
+            setProfile((previous) => ({
+                ...(previous || {}),
+                addresses: Array.isArray(result?.addresses) ? result.addresses : [],
+            }));
+            return result;
+        } catch (error) {
+            const messageText = error.message || t(
+                'profile.addresses.loadError',
+                {},
+                'Saved addresses could not be loaded.'
+            );
+            setAddressesError(messageText);
+            return null;
+        } finally {
+            setAddressesLoading(false);
+        }
+    }, [canUseProtectedProfileApis, t]);
+
     const refreshProfileDeck = useCallback(async ({ silent = false } = {}) => {
         if (!canUseProtectedProfileApis) {
             setProfile(dbUser || null);
@@ -545,6 +572,11 @@ export default function Profile() {
         if (activeTab !== 'rewards') return;
         void refreshRewards();
     }, [activeTab, canUseProtectedProfileApis, refreshRewards]);
+
+    useEffect(() => {
+        if (activeTab !== 'addresses') return;
+        void refreshAddresses();
+    }, [activeTab, refreshAddresses]);
 
     useEffect(() => {
         if (activeTab !== 'settings') return;
@@ -718,11 +750,13 @@ export default function Profile() {
             isDefault: false,
         });
         setEditingAddress(null);
+        setAddressSubmitError('');
         setShowAddressForm(false);
     };
 
     const handleSaveAddress = async () => {
         setSaving(true);
+        setAddressSubmitError('');
         try {
             const payload = {
                 ...addressForm,
@@ -744,20 +778,46 @@ export default function Profile() {
                 ? t('profile.message.addressUpdated', {}, 'Address updated.')
                 : t('profile.message.addressSaved', {}, 'Address saved.'));
         } catch (error) {
-            showMsg('error', error.message || t('profile.message.addressSaveFailed', {}, 'Failed to save address.'));
+            const errorMessage = error.message || t('profile.message.addressSaveFailed', {}, 'Failed to save address.');
+            setAddressSubmitError(errorMessage);
+            showMsg('error', errorMessage);
         } finally {
             setSaving(false);
         }
     };
 
     const handleDeleteAddress = async (id) => {
-        if (!confirm(t('profile.confirm.deleteAddress', {}, 'Delete this address?'))) return;
         try {
             const result = await userApi.deleteAddress(id);
             setProfile((previous) => ({ ...previous, addresses: result.addresses }));
             showMsg('success', t('profile.message.addressDeleted', {}, 'Address deleted.'));
+            return true;
         } catch (error) {
             showMsg('error', error.message || t('profile.message.addressDeleteFailed', {}, 'Failed to delete address.'));
+            return false;
+        }
+    };
+
+    const handleSetDefaultAddress = async (address) => {
+        if (!address?._id || address.isDefault || saving) return;
+        setSaving(true);
+        try {
+            const result = await userApi.updateAddress(address._id, {
+                type: address.type || 'home',
+                name: trimText(address.name),
+                phone: normalizePhone(address.phone),
+                address: trimText(address.address),
+                city: trimText(address.city),
+                state: trimText(address.state),
+                pincode: trimText(address.pincode),
+                isDefault: true,
+            });
+            setProfile((previous) => ({ ...previous, addresses: result.addresses }));
+            showMsg('success', t('profile.message.addressDefaultUpdated', {}, 'Default shipping address updated.'));
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.addressSaveFailed', {}, 'Failed to save address.'));
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -1454,6 +1514,11 @@ export default function Profile() {
                                 setShowAddressForm(true);
                             }}
                             handleDeleteAddress={handleDeleteAddress}
+                            handleSetDefaultAddress={handleSetDefaultAddress}
+                            addressSubmitError={addressSubmitError}
+                            addressesLoading={addressesLoading}
+                            addressesError={addressesError}
+                            onRetryAddresses={refreshAddresses}
                         />
                     ) : null}
 

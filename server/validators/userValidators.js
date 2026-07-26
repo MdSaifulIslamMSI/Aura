@@ -52,11 +52,26 @@ const addressSchema = z.object({
         city: z.string().trim().min(2, 'City is required').max(50),
         state: z.string().trim().min(2, 'State is required').max(50),
         pincode: z.string().trim().regex(/^[1-9][0-9]{5}$/, 'Invalid Indian PIN code (6 digits)'),
-        name: z.string().trim().min(2).optional(),
-        phone: z.string().trim().regex(PHONE_REGEX, 'Invalid phone number').optional(),
+        name: z.string().trim().min(2).max(80),
+        phone: z.string().trim().regex(PHONE_REGEX, 'Invalid phone number'),
         type: z.enum(['home', 'work', 'other']).default('home'),
         isDefault: z.boolean().default(false),
-    }),
+    }).strict(),
+});
+
+const addressIdSchema = z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid address id');
+
+const addressUpdateSchema = addressSchema.extend({
+    params: z.object({
+        addressId: addressIdSchema,
+    }).strict(),
+});
+
+const addressDeleteSchema = z.object({
+    body: z.object({}).strict().optional(),
+    params: z.object({
+        addressId: addressIdSchema,
+    }).strict(),
 });
 
 const activateSellerSchema = z.object({
@@ -75,6 +90,8 @@ module.exports = {
     loginSchema,
     updateProfileSchema,
     addressSchema,
+    addressUpdateSchema,
+    addressDeleteSchema,
     activateSellerSchema,
     deactivateSellerSchema,
 };

@@ -11,6 +11,7 @@ const {
     updateUserProfile,
     getProfileDashboard,
     getRewards,
+    getAddresses,
     addAddress,
     updateAddress,
     deleteAddress,
@@ -24,6 +25,8 @@ const {
     loginSchema,
     updateProfileSchema,
     addressSchema,
+    addressUpdateSchema,
+    addressDeleteSchema,
     activateSellerSchema,
     deactivateSellerSchema,
 } = require('../validators/userValidators');
@@ -60,9 +63,10 @@ router.post('/seller/deactivate', protect, validate(deactivateSellerSchema), dea
 
 
 // Address CRUD
-router.post('/addresses', protect, validate(addressSchema), addAddress);
-router.put('/addresses/:addressId', protect, validate(addressSchema), updateAddress);
-router.delete('/addresses/:addressId', protect, deleteAddress);
+router.get('/addresses', protect, getAddresses);
+router.post('/addresses', protect, csrfTokenValidatorUnlessBearerAuth, validate(addressSchema), addAddress);
+router.put('/addresses/:addressId', protect, csrfTokenValidatorUnlessBearerAuth, validate(addressUpdateSchema), updateAddress);
+router.delete('/addresses/:addressId', protect, csrfTokenValidatorUnlessBearerAuth, validate(addressDeleteSchema), deleteAddress);
 
 router.get('/wishlist', protect, getWishlist); // Protected
 router.put('/wishlist', protect, syncWishlist); // Protected

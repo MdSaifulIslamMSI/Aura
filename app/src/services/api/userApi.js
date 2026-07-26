@@ -496,6 +496,11 @@ export const userApi = {
         }
         throw lastError || new Error('Failed to deactivate seller mode');
     },
+    getAddresses: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/users/addresses', { headers });
+        return data;
+    },
     addAddress: async (payload) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/users/addresses', {

@@ -12708,6 +12708,21 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Delete",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.addresses.deleteConfirm.body": {
+        id: "profile.addresses.deleteConfirm.body",
+        defaultMessage: "Past orders keep their delivery copy. Future checkouts will no longer offer this address.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.addresses.deleteConfirm.confirm": {
+        id: "profile.addresses.deleteConfirm.confirm",
+        defaultMessage: "Delete address",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.addresses.deleteConfirm.title": {
+        id: "profile.addresses.deleteConfirm.title",
+        defaultMessage: "Delete this saved address?",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.addresses.empty.body": {
         id: "profile.addresses.empty.body",
         defaultMessage: "Add your delivery address for faster checkout",
@@ -12723,14 +12738,9 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Address",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.addresses.form.addressPlaceholder": {
-        id: "profile.addresses.form.addressPlaceholder",
-        defaultMessage: "Full Address *",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "profile.addresses.form.cityPlaceholder": {
         id: "profile.addresses.form.cityPlaceholder",
-        defaultMessage: "City *",
+        defaultMessage: "City",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.addresses.form.default": {
@@ -12743,24 +12753,14 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Edit Address",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.addresses.form.namePlaceholder": {
-        id: "profile.addresses.form.namePlaceholder",
-        defaultMessage: "Full Name *",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "profile.addresses.form.newTitle": {
         id: "profile.addresses.form.newTitle",
         defaultMessage: "New Address",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.addresses.form.phonePlaceholder": {
-        id: "profile.addresses.form.phonePlaceholder",
-        defaultMessage: "Phone Number *",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "profile.addresses.form.pincodePlaceholder": {
         id: "profile.addresses.form.pincodePlaceholder",
-        defaultMessage: "Pincode *",
+        defaultMessage: "PIN code",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.addresses.form.save": {
@@ -12770,12 +12770,32 @@ export const stableUiMessages = defineMessages({
     },
     "profile.addresses.form.statePlaceholder": {
         id: "profile.addresses.form.statePlaceholder",
-        defaultMessage: "State *",
+        defaultMessage: "State",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.addresses.form.update": {
         id: "profile.addresses.form.update",
         defaultMessage: "Update",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.addresses.loadError": {
+        id: "profile.addresses.loadError",
+        defaultMessage: "Saved addresses could not be loaded.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.addresses.loading": {
+        id: "profile.addresses.loading",
+        defaultMessage: "Loading saved addresses...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.addresses.makeDefault": {
+        id: "profile.addresses.makeDefault",
+        defaultMessage: "Make default",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.addresses.retry": {
+        id: "profile.addresses.retry",
+        defaultMessage: "Retry",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.addresses.title": {
@@ -12796,11 +12816,6 @@ export const stableUiMessages = defineMessages({
     "profile.addresses.type.work": {
         id: "profile.addresses.type.work",
         defaultMessage: "Work",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.confirm.deleteAddress": {
-        id: "profile.confirm.deleteAddress",
-        defaultMessage: "Delete this address?",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.confirm.deletePaymentMethod": {
@@ -12946,6 +12961,11 @@ export const stableUiMessages = defineMessages({
     "profile.memberSince.recent": {
         id: "profile.memberSince.recent",
         defaultMessage: "Recently joined",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.addressDefaultUpdated": {
+        id: "profile.message.addressDefaultUpdated",
+        defaultMessage: "Default shipping address updated.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.message.addressDeleteFailed": {
