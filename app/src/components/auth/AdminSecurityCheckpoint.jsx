@@ -129,6 +129,10 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
         title: t('admin.security.default.title', {}, 'Checking admin security state.'),
         body: t('admin.security.default.body', {}, 'The server is resolving the required verification path.'),
     };
+    const canExchangeRecoveryGrant = Boolean(
+        status?.actions?.canExchangeRecoveryGrant
+        && ['ADMIN_CHALLENGE_REQUIRED', 'ADMIN_RECOVERY_REQUIRED'].includes(state)
+    );
     const returnTo = safeReturnPath(location);
 
     const run = async (name, operation, { signOutAfter = false } = {}) => {
@@ -177,7 +181,7 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
                         : copy.body}
                 </p>
 
-                {state === 'ADMIN_RECOVERY_REQUIRED' ? (
+                {canExchangeRecoveryGrant ? (
                     <form
                         className="mt-7 rounded-2xl border border-white/10 bg-white/[0.035] p-5"
                         onSubmit={(event) => {
