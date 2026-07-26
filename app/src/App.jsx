@@ -145,6 +145,8 @@ function AppContent() {
   const location = useLocation();
   const {
     currentUser,
+    mfaChallenge,
+    mfaPolicy,
     refreshSession,
     roles,
     sessionIntelligence,
@@ -169,6 +171,8 @@ function AppContent() {
     status,
     currentUser,
     roles,
+    mfaChallenge,
+    mfaPolicy,
   });
   const showSiteChrome = useMemo(
     () => shouldShowSiteChrome(chromePathname),
