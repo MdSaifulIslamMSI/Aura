@@ -37,6 +37,7 @@ const {
     finalizeAvatarMediaSchema,
     uploadAvatarMediaSchema,
 } = require('../validators/accountAvatarValidators');
+const { getAccountMarketplace } = require('../controllers/accountMarketplaceController');
 
 const router = express.Router();
 
@@ -64,10 +65,19 @@ const accountAvatarLimiter = createDistributedRateLimit({
     message: 'Too many avatar upload requests. Please try again shortly.',
     keyGenerator: (req) => req.authUid || req.user?.id || req.ip,
 });
+const accountMarketplaceLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    name: 'account_marketplace_hub',
+    windowMs: 5 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 60,
+    message: 'Too many marketplace account requests. Please try again shortly.',
+    keyGenerator: (req) => req.authUid || req.user?.id || req.ip,
+});
 
 router.use(protect);
 
 router.get('/summary', getAccountOverview);
+router.get('/marketplace', accountMarketplaceLimiter, getAccountMarketplace);
 router.get(
     '/preferences',
     accountPreferenceLimiter,

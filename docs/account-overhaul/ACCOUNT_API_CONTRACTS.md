@@ -245,6 +245,20 @@ Client-supplied bucket names, arbitrary keys, public ACLs, and URLs are rejected
 
 `GET /uploads/avatars/:storageKey` serves only the strict randomized `.webp` key shape with immutable caching and `nosniff`. Quarantine paths are never served. `npm --prefix server run avatar:cleanup` is dry-run by default; `-- --execute` is required to remove stale quarantine and old unreferenced final objects.
 
+## Saved items, reviews, and marketplace activity
+
+### `GET /api/account/marketplace`
+
+Returns an authenticated, owner-scoped Account Center hub over repository-supported domains:
+
+- live-hydrated saved-product previews and the current wishlist revision;
+- the owner’s review previews and moderation-visible status;
+- the owner’s listing previews;
+- the owner’s trade-in previews; and
+- the owner’s price-alert previews.
+
+Each domain includes a total count, at most six newest preview rows, and routes into the existing full management workflow. The response is `private, no-store`, uses strict projections, and omits seller/user authority fields, review risk snapshots, trade-in valuation authority, payout claims, moderation controls, and administrative notes. The existing `/api/users/wishlist`, `/api/products/:id/reviews`, `/api/listings/my`, `/api/trade-in/my`, and `/api/price-alerts/my` contracts remain authoritative for mutations and full histories.
+
 ## Privacy lifecycle
 
 Contracts remain **blocked** until retention jurisdiction, deletion grace period, reactivation policy, and export delivery are approved. Required shape:

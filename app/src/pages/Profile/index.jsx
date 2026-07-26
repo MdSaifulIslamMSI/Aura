@@ -27,7 +27,6 @@ import PersonalInfoSection from './components/PersonalInfoSection';
 import AddressesSection from './components/AddressesSection';
 import OrdersSection from './components/OrdersSection';
 import RewardsSection from './components/RewardsSection';
-import ListingsSection from './components/ListingsSection';
 import PaymentsSection from './components/PaymentsSection';
 import AccountStatusBanner from './components/AccountStatusBanner';
 import SupportSection from './components/SupportSection';
@@ -36,6 +35,7 @@ import AccountCenterShell from './components/AccountCenterShell';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SettingsSection = lazy(() => import('./components/SettingsSection'));
+const MarketplaceActivitySection = lazy(() => import('./components/MarketplaceActivitySection'));
 const PROFILE_FIELDS = ['name', 'phone', 'gender', 'dob', 'bio'];
 const AVATAR_ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
@@ -108,9 +108,9 @@ const buildTabs = (t) => [
         icon: Sparkles,
     },
     {
-        id: 'listings',
-        label: t('profile.tab.listings', {}, 'My listings'),
-        description: t('profile.tab.listings.description', {}, 'Manage the marketplace listings connected to your seller account.'),
+        id: 'marketplace',
+        label: t('profile.tab.marketplace', {}, 'Saved & marketplace'),
+        description: t('profile.tab.marketplace.description', {}, 'Manage saved products, reviews, listings, trade-ins, and price alerts.'),
         icon: Store,
     },
     {
@@ -694,8 +694,9 @@ export default function Profile() {
 
     useEffect(() => {
         const requestedTab = String(searchParams.get('tab') || '').trim();
-        if (requestedTab && tabs.some((tab) => tab.id === requestedTab)) {
-            setActiveTab(requestedTab);
+        const normalizedTab = requestedTab === 'listings' ? 'marketplace' : requestedTab;
+        if (normalizedTab && tabs.some((tab) => tab.id === normalizedTab)) {
+            setActiveTab(normalizedTab);
         }
     }, [searchParams, tabs]);
 
@@ -1675,7 +1676,15 @@ export default function Profile() {
                         />
                     ) : null}
 
-                    {activeTab === 'listings' ? <ListingsSection stats={stats} /> : null}
+                    {activeTab === 'marketplace' ? (
+                        <Suspense fallback={(
+                            <div className="premium-panel p-6 text-sm font-bold text-slate-300" role="status" aria-live="polite">
+                                {t('profile.marketplace.loading', {}, 'Loading your saved items and marketplace activity...')}
+                            </div>
+                        )}>
+                            <MarketplaceActivitySection firebaseUser={currentUser} />
+                        </Suspense>
+                    ) : null}
 
                     {activeTab === 'payments' ? (
                         <PaymentsSection

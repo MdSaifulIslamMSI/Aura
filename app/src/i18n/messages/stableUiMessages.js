@@ -13033,36 +13033,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Your account has received a warning (",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.listings.active": {
-        id: "profile.listings.active",
-        defaultMessage: "Active",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.listings.manageAll": {
-        id: "profile.listings.manageAll",
-        defaultMessage: "Manage All Listings",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.listings.new": {
-        id: "profile.listings.new",
-        defaultMessage: "New Listing",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.listings.sold": {
-        id: "profile.listings.sold",
-        defaultMessage: "Sold",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.listings.title": {
-        id: "profile.listings.title",
-        defaultMessage: "Marketplace Listings",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.listings.views": {
-        id: "profile.listings.views",
-        defaultMessage: "Views",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "profile.loading.body": {
         id: "profile.loading.body",
         defaultMessage: "Loading your profile and account summary. This may take a few seconds.",
@@ -13076,6 +13046,146 @@ export const stableUiMessages = defineMessages({
     "profile.loading.title": {
         id: "profile.loading.title",
         defaultMessage: "Preparing your account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.alertDetail": {
+        id: "profile.marketplace.alertDetail",
+        defaultMessage: "Target {price}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.description": {
+        id: "profile.marketplace.description",
+        defaultMessage: "Open the real saved-item, review, listing, trade-in, and price-alert workflows attached to this account.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.empty.action": {
+        id: "profile.marketplace.empty.action",
+        defaultMessage: "Browse products",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.empty.body": {
+        id: "profile.marketplace.empty.body",
+        defaultMessage: "Saved products, reviews, listings, trade-ins, and alerts will appear here.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.empty.title": {
+        id: "profile.marketplace.empty.title",
+        defaultMessage: "No marketplace activity yet",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.eyebrow": {
+        id: "profile.marketplace.eyebrow",
+        defaultMessage: "Buyer and seller tools",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.followUps": {
+        id: "profile.marketplace.followUps",
+        defaultMessage: "Trade-ins and alerts",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.listingDetail": {
+        id: "profile.marketplace.listingDetail",
+        defaultMessage: "{status} · {views} views",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.listings": {
+        id: "profile.marketplace.listings",
+        defaultMessage: "Listings",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.loading": {
+        id: "profile.marketplace.loading",
+        defaultMessage: "Loading your saved items and marketplace activity...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.newListing": {
+        id: "profile.marketplace.newListing",
+        defaultMessage: "Create listing",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.noFollowUps": {
+        id: "profile.marketplace.noFollowUps",
+        defaultMessage: "No trade-ins or price alerts yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.noListings": {
+        id: "profile.marketplace.noListings",
+        defaultMessage: "No listings created yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.noReviews": {
+        id: "profile.marketplace.noReviews",
+        defaultMessage: "No reviews submitted yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.noneSaved": {
+        id: "profile.marketplace.noneSaved",
+        defaultMessage: "No saved products.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.outOfStock": {
+        id: "profile.marketplace.outOfStock",
+        defaultMessage: "Out of stock",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.priceAlerts": {
+        id: "profile.marketplace.priceAlerts",
+        defaultMessage: "Price alerts",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.productFallback": {
+        id: "profile.marketplace.productFallback",
+        defaultMessage: "Reviewed product",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.recentSaved": {
+        id: "profile.marketplace.recentSaved",
+        defaultMessage: "Recently saved",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.retry": {
+        id: "profile.marketplace.retry",
+        defaultMessage: "Try again",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.reviewDetail": {
+        id: "profile.marketplace.reviewDetail",
+        defaultMessage: "{rating}/5 · {status}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.reviews": {
+        id: "profile.marketplace.reviews",
+        defaultMessage: "Reviews",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.saved": {
+        id: "profile.marketplace.saved",
+        defaultMessage: "Saved",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.title": {
+        id: "profile.marketplace.title",
+        defaultMessage: "Marketplace activity",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.tradeInDetail": {
+        id: "profile.marketplace.tradeInDetail",
+        defaultMessage: "Trade-in · {status}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.tradeIns": {
+        id: "profile.marketplace.tradeIns",
+        defaultMessage: "Trade-ins",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.yourListings": {
+        id: "profile.marketplace.yourListings",
+        defaultMessage: "Your listings",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.marketplace.yourReviews": {
+        id: "profile.marketplace.yourReviews",
+        defaultMessage: "Your reviews",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.memberFallback": {
@@ -16108,14 +16218,14 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Keep delivery and billing addresses accurate for checkout.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.tab.listings": {
-        id: "profile.tab.listings",
-        defaultMessage: "My listings",
+    "profile.tab.marketplace": {
+        id: "profile.tab.marketplace",
+        defaultMessage: "Saved & marketplace",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.tab.listings.description": {
-        id: "profile.tab.listings.description",
-        defaultMessage: "Manage the marketplace listings connected to your seller account.",
+    "profile.tab.marketplace.description": {
+        id: "profile.tab.marketplace.description",
+        defaultMessage: "Manage saved products, reviews, listings, trade-ins, and price alerts.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.tab.notifications": {

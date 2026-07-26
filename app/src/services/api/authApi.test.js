@@ -780,6 +780,27 @@ describe('authApi', () => {
     expect(global.fetch.mock.calls[1][1].method).toBe('POST');
   });
 
+  it('loads the owner-scoped account marketplace hub', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      contractVersion: 1,
+      savedItems: { count: 1, items: [{ productId: 9 }] },
+      reviews: { count: 0, items: [] },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await expect(authApi.getAccountMarketplace({ firebaseUser })).resolves.toMatchObject({
+      contractVersion: 1,
+      savedItems: { count: 1 },
+    });
+
+    expect(global.fetch.mock.calls[0][0]).toContain('/account/marketplace');
+    expect(global.fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
   it('uses explicit signed avatar intent, upload, and finalize endpoints', async () => {
     const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
     mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });

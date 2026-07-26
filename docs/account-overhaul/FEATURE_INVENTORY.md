@@ -17,7 +17,7 @@ Status definitions:
 | Order history | Embedded profile summary and dedicated orders page | Cursor-ready owner-scoped API | Partial | Client requests one page with limit 100, ignores `nextCursor`, lacks search/status/date filters |
 | Order detail/actions | Timeline and command surfaces | Ownership and trust guards for sensitive commands | Partial | No invoice download route found; UX is split across account and orders destinations |
 | Returns/refunds/replacements | Available through order commands | Server-side ownership/eligibility guards | Implemented | Must remain server-authoritative |
-| Wishlist | Separate page and snapshot fields | User-scoped wishlist contract | Partial | Public route wrapper and not integrated into account information architecture |
+| Wishlist | Dedicated page plus bounded live-hydrated Account Center preview | User-scoped revisioned wishlist contract | Implemented | Full mutations remain in the existing dedicated workflow; Account Center links to it without duplicating authority |
 | Rewards/loyalty | Rewards section | User rewards endpoint and embedded ledger | Partial | Ledger growth and independent pagination need review |
 | Saved payments | Payment methods section | Auth, active-account, OTP/step-up, ownership guards | Partial | Destructive remove flow needs deliberate confirmation and accessible error recovery |
 | Notifications inbox | Read/unread filtering and mark-read controls | User-scoped paginated endpoint | Partial | Client does not expose pagination/error states; rows are not consistently keyboard-semantic |
@@ -30,10 +30,10 @@ Status definitions:
 | Active sessions | Dedicated inventory, refresh, revoke-one, revoke-others, and deliberate revoke-all controls | Owner-scoped opaque aliases, bounded projection, targeted revocation, fresh-MFA bulk revocation | Implemented | Public response excludes raw session, identity, network, fingerprint, cookie, token, and Redis material |
 | Security activity | Bounded, retryable, cursor-paginated customer history | Owner filter, explicit event allowlist, safe three-field projection, signed owner-bound cursor, 180-day published-event retention | Implemented | Raw outbox records, identifiers, network data, provider payloads, and internal risk details are never returned |
 | Linked sign-in providers | Microsoft/Apple linking controls | Firebase/session identity support | Partial | Needs unlink/recovery policy and tested last-provider protection |
-| Seller listings | Summary and link | Owner-scoped listing APIs | Partial | No unified status/search/pagination account module |
-| Trade-ins | Separate route | Owner-scoped CRUD and estimates | Partial | Not integrated into Account Center |
-| Price alerts | Separate route | Dedicated API | Partial | Not integrated into Account Center |
-| Review management | No account review history found | Review/media routes exist elsewhere | Absent | Needs owner-scoped list/edit/delete policy and pagination |
+| Seller listings | Bounded Account Center preview plus full management route | Owner-scoped listing APIs and account-hub projection | Implemented for supported capability | Full listing mutations remain behind existing seller and owner guards |
+| Trade-ins | Bounded Account Center preview plus full workflow | Owner-scoped CRUD; server-computed valuation | Implemented for supported capability | Account hub never accepts or exposes client authority over valuation |
+| Price alerts | Bounded Account Center preview plus full workflow | Owner-scoped alert API | Implemented for supported capability | Full create/delete actions remain in the dedicated route |
+| Review management | Owner-scoped Account Center history preview linking to the real product review editor | Verified-purchase upsert, media validation and moderation-aware status | Implemented for supported capability | No fake inline moderation or delete UI was introduced; full pagination remains follow-up work |
 | Support tickets | Large embedded support section | User-scoped paginated ticket APIs | Partial | Section is oversized; client fetch limits/history continuation need explicit UX |
 | Privacy policy | Link to `/privacy` | Static policy/data inventory docs | Implemented | Policy display is not data-rights execution |
 | Data export | No UI | Required by docs, no customer route found | Absent | Needs fresh auth, scoped export, async job, expiry, audit evidence |

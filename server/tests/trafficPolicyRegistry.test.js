@@ -84,6 +84,12 @@ describe('traffic policy registry', () => {
             authRequired: true,
             cacheRule: 'no-store',
         });
+        expect(getTrafficPolicyForRoute({ method: 'GET', path: '/api/account/marketplace' })).toMatchObject({
+            profile: PROFILES.AUTH_SECURITY,
+            routeClass: 'AUTHENTICATED_READ',
+            authRequired: true,
+            cacheRule: 'no-store',
+        });
         expect(getTrafficPolicyForRoute({ method: 'POST', path: '/api/account/sessions/revoke-others' })).toMatchObject({
             profile: PROFILES.AUTH_SECURITY,
             routeClass: 'AUTH_LOGIN',

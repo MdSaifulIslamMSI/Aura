@@ -8,6 +8,7 @@
 | Browser-session inventory/service/controller/validators | **PASS**: 4 Jest suites, 30 tests |
 | Secure avatar intent/upload/finalize, media normalization/storage/cleanup, policy and signatures | **PASS**: 7 Jest suites, 35 tests; 2 legacy profile suites, 12 tests |
 | Avatar Account Center workflow and API client | **PASS**: 3 Vitest files, 45 tests |
+| Marketplace Account Center hub and API client | **PASS**: 5 backend suites, 13 tests; 4 frontend files, 47 tests |
 | High-cardinality revoke-others | **PASS**: public list capped at 20; all 101 other sessions revoked; current and other-user sessions preserved |
 | Sensitive-route enforcement | **PASS**: standard scanner and strict coverage for 98 route entries |
 | Targeted frontend lint | **PASS with one pre-existing warning**: no errors; existing `currentUser.uid` dependency warning |
@@ -142,5 +143,7 @@ Current focused tests:
 - Wave G frontend profile, shell and API workflow: 45 passed.
 - Wave G sensitive-route scanners: 98 route entries passed.
 - Wave G localization: 21 catalogs, 4,838 ICU messages, zero critical structural issues; native review remains pending.
+- Wave H owner-scoped marketplace hub, traffic policy, existing listing/review security, profile integration, wishlist context and API client: 13 backend and 47 frontend tests passed.
+- Wave H localization: 21 catalogs, 4,860 ICU messages and zero critical structural issues; native review remains pending.
 
 Current broad local suites timed out and are not accepted as passes. Before merge, new focused shards must pass and the relevant CI suites must return terminal green statuses on the exact SHA.

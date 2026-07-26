@@ -418,6 +418,9 @@ export const authApi = {
         if (cursor) params.set('cursor', cursor);
         return getProtectedAuthJson(`/account/security-activity?${params.toString()}`, options);
     },
+    getAccountMarketplace: async (options = {}) => (
+        getProtectedAuthJson('/account/marketplace', options)
+    ),
     revokeAccountSession: async ({ sessionId = '' } = {}, options = {}) => {
         const normalizedSessionId = String(sessionId || '').trim();
         if (!/^[A-Za-z0-9_-]{43}$/.test(normalizedSessionId)) {
