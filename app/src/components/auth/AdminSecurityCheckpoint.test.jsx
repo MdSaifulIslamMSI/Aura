@@ -103,7 +103,11 @@ describe('AdminSecurityCheckpoint', () => {
         getAdminSecurityStatus.mockResolvedValue({
             enabled: true,
             state: 'ADMIN_CHALLENGE_REQUIRED',
-            actions: { canChallengePasskey: true, canUseDuo: false },
+            actions: {
+                canChallengePasskey: true,
+                canUseDuo: false,
+                canExchangeRecoveryGrant: false,
+            },
             requestId: 'request-3',
         });
         const cancellation = new Error('cancelled');
@@ -114,6 +118,32 @@ describe('AdminSecurityCheckpoint', () => {
         fireEvent.click(await screen.findByRole('button', { name: /verify with passkey/i }));
 
         expect(await screen.findByRole('alert')).toHaveTextContent(/cancelled, timed out/i);
+        expect(screen.queryByText('Admin console content')).not.toBeInTheDocument();
+    });
+
+    it('offers supervised recovery when the registered admin passkey cannot verify this browser', async () => {
+        getAdminSecurityStatus.mockResolvedValue({
+            enabled: true,
+            state: 'ADMIN_CHALLENGE_REQUIRED',
+            actions: {
+                canChallengePasskey: true,
+                canUseDuo: false,
+                canExchangeRecoveryGrant: true,
+            },
+            requestId: 'request-4',
+        });
+        exchangeAdminRecoveryGrant.mockResolvedValue({ success: true });
+
+        renderCheckpoint();
+        const input = await screen.findByLabelText(/one-time recovery grant/i);
+        const token = 'operator-issued-grant-value-abcdefghijklmnopqrstuvwxyz';
+        fireEvent.change(input, { target: { value: token } });
+        fireEvent.click(screen.getByRole('button', { name: /continue to passkey setup/i }));
+
+        await waitFor(() => {
+            expect(exchangeAdminRecoveryGrant).toHaveBeenCalledWith(token, expect.any(Object));
+        });
+        expect(window.localStorage.length).toBe(0);
         expect(screen.queryByText('Admin console content')).not.toBeInTheDocument();
     });
 
