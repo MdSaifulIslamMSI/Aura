@@ -136,7 +136,7 @@ export default function NotificationPreferencesPanel() {
                             <div className="flex flex-wrap gap-2" aria-label={label}>
                                 {channels.map(([channel, channelLabel]) => {
                                     const enabled = mandatory || Boolean(topicPreferences[channel]);
-                                    const key = `${topic}.${channel}`;
+                                    const key = [topic, channel].join('.');
                                     return (
                                         <button
                                             key={channel}

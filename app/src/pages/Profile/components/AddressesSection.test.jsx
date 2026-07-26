@@ -79,10 +79,26 @@ describe('AddressesSection', () => {
         expect(screen.getByRole('alertdialog')).toHaveTextContent(
             'Past orders keep their delivery copy.'
         );
+        expect(screen.getByRole('button', { name: 'Keep address' })).toHaveFocus();
 
         fireEvent.click(screen.getByRole('button', { name: 'Delete address' }));
         await waitFor(() => {
             expect(handleDeleteAddress).toHaveBeenCalledWith(savedAddress._id);
+        });
+    });
+
+    it('closes the delete dialog with Escape and restores trigger focus', async () => {
+        render(<AddressesSection {...baseProps} />);
+
+        const trigger = screen.getByRole('button', { name: 'Delete' });
+        fireEvent.click(trigger);
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+        fireEvent.keyDown(document, { key: 'Escape' });
+
+        await waitFor(() => {
+            expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+            expect(trigger).toHaveFocus();
         });
     });
 });

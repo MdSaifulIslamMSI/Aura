@@ -14,7 +14,9 @@
 | High-cardinality revoke-others | **PASS**: public list capped at 20; all 101 other sessions revoked; current and other-user sessions preserved |
 | Sensitive-route enforcement | **PASS**: standard scanner and strict coverage for 98 route entries |
 | Targeted frontend lint | **PASS with one pre-existing warning**: no errors; existing `currentUser.uid` dependency warning |
-| Frontend build and bundle budget | **PASS**: initial JS 175.72 kB gzip, total CSS 65.73 kB, initial payload 243.42 kB |
+| Frontend accessibility/design hardening | **PASS at component/static level**: 5 focused Profile files / 11 tests; interface audit 0 high / 8 inspected heuristic medium / 2 intentional low |
+| Frontend build and bundle budget | **PASS**: initial JS 175.97 kB gzip, total CSS 65.88 kB, initial payload 243.82 kB; Profile 16.91 kB gzip; all Account feature chunks <= 11.82 kB gzip |
+| Account localization structure | **PASS**: extraction, pseudo-locale, compile, structural verify and QA across 21 catalogs / 4,883 messages / 0 critical issues; stable-text discovery guard PASS |
 | Authenticated browser/E2E, real Redis failure/concurrency, full suites | **NOT VERIFIED** |
 
 ## Test levels
@@ -151,5 +153,8 @@ Current focused tests:
 - Wave I localization/build: 21 catalogs, 4,883 ICU messages, zero critical structural issues, and a 2.46 kB gzip lazy privacy chunk; native review remains pending.
 - Wave J additive migration audit/apply authorization, schema default, named indexes, bounded pause/resume/repair, failure quarantine, CLI parsing and redacted query-plan evidence: 4 backend suites and 16 tests passed.
 - Wave J live database snapshot audit, index build, query explain, backup restore and apply rehearsal are not verified locally and remain staging gates.
+- Waves K-L-M shell/offline/avatar dimensions, address-dialog focus lifecycle, notification semantics/actions/preferences and Profile integration: 5 frontend suites / 11 tests passed; lint passed.
+- Waves K-L-M production build and bundle budget: 175.97 kB initial JS gzip, 65.88 kB total CSS, 60.44 kB initial CSS and 243.82 kB initial payload; Profile 16.91 kB gzip; largest Account feature chunk 11.82 kB gzip.
+- Waves K-L-M localization: 21 catalogs, 4,883 ICU messages, zero critical issues and stable-text discovery guard passed; authenticated locale visual/accessibility QA and native review remain pending.
 
 Current broad local suites timed out and are not accepted as passes. Before merge, new focused shards must pass and the relevant CI suites must return terminal green statuses on the exact SHA.

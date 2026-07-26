@@ -44,7 +44,7 @@ export default function PersonalInfoSection({
             <form className="premium-panel p-6" onSubmit={handleSaveProfile} noValidate>
                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h3 className="text-xl font-black text-white">{t('profile.personal.title', {}, 'Personal Information')}</h3>
+                        <h2 className="text-xl font-black text-white">{t('profile.personal.title', {}, 'Personal Information')}</h2>
                         <p className="mt-1 text-sm text-slate-400">{t('profile.personal.body', {}, 'Core identity details, bio, and member-facing profile signals.')}</p>
                     </div>
                     {editMode ? (

@@ -92,10 +92,10 @@ export default function SecurityActivityPanel({
         <section aria-labelledby="security-activity-heading" className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h4 id="security-activity-heading" className="flex items-center gap-2 text-sm font-black text-white">
+                    <h3 id="security-activity-heading" className="flex items-center gap-2 text-sm font-black text-white">
                         <Activity className="h-4 w-4 text-neo-cyan" aria-hidden="true" />
                         {t('profile.securityActivity.title', {}, 'Security activity')}
-                    </h4>
+                    </h3>
                     <p className="mt-2 text-xs leading-5 text-slate-400">
                         {t(
                             'profile.securityActivity.retention',

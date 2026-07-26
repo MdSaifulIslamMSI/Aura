@@ -114,10 +114,10 @@ export default function ActiveSessionsPanel({
                             </span>
                         ) : null}
                     </div>
-                    <h4 id="active-sessions-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                    <h3 id="active-sessions-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                         <ShieldCheck className="h-4 w-4 text-cyan-100" aria-hidden="true" />
                         {t('profile.sessions.heading', {}, 'Active sessions')}
-                    </h4>
+                    </h3>
                     <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
                         {t(
                             'profile.sessions.description',

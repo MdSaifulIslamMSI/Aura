@@ -165,10 +165,10 @@ export default function OverviewSection({
             <div className="premium-panel p-6">
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h3 className="flex items-center gap-2 font-bold text-white">
+                        <h2 className="flex items-center gap-2 font-bold text-white">
                             <Package className="h-5 w-5 text-neo-cyan" />
                             {t('profile.overview.orders.title', {}, 'Recent Orders')}
-                        </h3>
+                        </h2>
                         <p className="mt-1 text-sm text-slate-400">{t('profile.overview.orders.body', {}, 'Latest purchase activity visible at a glance.')}</p>
                     </div>
                     <Link to="/orders" className="text-sm font-semibold text-neo-cyan hover:underline">

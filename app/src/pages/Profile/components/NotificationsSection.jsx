@@ -103,15 +103,16 @@ export default function NotificationsSection() {
         <div className="animate-fade-in space-y-6">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div>
-                    <h2 className="text-3xl font-black uppercase tracking-tight text-white">{t('profile.notifications.title', {}, 'Notification Center')}</h2>
+                    <h2 className="text-3xl font-black text-white">{t('profile.notifications.title', {}, 'Notification Center')}</h2>
                     <p className="mt-1 text-slate-400">{t('profile.notifications.body', {}, 'Review your account alerts and operational history.')}</p>
                 </div>
                 {unreadCount > 0 ? (
                     <button
+                        type="button"
                         onClick={markAllAsRead}
-                        className="inline-flex items-center gap-2 rounded-xl border border-neo-cyan/20 bg-neo-cyan/10 px-4 py-2 font-bold text-neo-cyan transition-all active:scale-95 hover:bg-neo-cyan/20"
+                        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-neo-cyan/20 bg-neo-cyan/10 px-4 py-2 font-bold text-neo-cyan transition-colors hover:bg-neo-cyan/20"
                     >
-                        <Check className="h-4 w-4" />
+                        <Check aria-hidden="true" className="h-4 w-4" />
                         {t('profile.notifications.markAllRead', {}, 'Mark All as Read')}
                     </button>
                 ) : null}
@@ -121,10 +122,12 @@ export default function NotificationsSection() {
                 {filterOptions.map((option) => (
                     <button
                         key={option.value}
+                        type="button"
                         onClick={() => setFilter(option.value)}
+                        aria-pressed={filter === option.value}
                         className={cn(
-                            'rounded-xl px-4 py-2 text-sm font-bold capitalize transition-all',
-                            filter === option.value ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300',
+                            'min-h-11 rounded-xl px-4 py-2 text-sm font-bold capitalize transition-colors',
+                            filter === option.value ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300',
                         )}
                     >
                         {option.label}
@@ -139,41 +142,41 @@ export default function NotificationsSection() {
 
             <div className="grid grid-cols-1 gap-4">
                 {isLoading && notifications.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-center text-sm italic text-slate-500">
-                        <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-neo-cyan border-t-transparent" />
+                    <div role="status" className="flex flex-col items-center justify-center py-20 text-center text-sm italic text-slate-500">
+                        <div aria-hidden="true" className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-neo-cyan border-t-transparent" />
                         {t('profile.notifications.loading', {}, 'Syncing persistent logs...')}
                     </div>
                 ) : filteredNotifications.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-[2.5rem] border-4 border-dashed border-white/5 px-6 py-24 text-center">
+                    <div className="flex flex-col items-center justify-center rounded-xl border-4 border-dashed border-white/5 px-6 py-24 text-center">
                         <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-white/5">
-                            <Bell className="h-10 w-10 text-slate-600" />
+                            <Bell aria-hidden="true" className="h-10 w-10 text-slate-600" />
                         </div>
-                        <h3 className="text-2xl font-black uppercase text-white">{t('profile.notifications.empty.title', {}, 'History Clear')}</h3>
+                        <h3 className="text-2xl font-black text-white">{t('profile.notifications.empty.title', {}, 'History Clear')}</h3>
                         <p className="mt-2 max-w-sm text-slate-400">
                             {t('profile.notifications.empty.body', {}, "You're all caught up. Governance actions, support replies, commerce alerts, and recovery prompts will appear here.")}
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div role="list" className="space-y-3">
                         {filteredNotifications.map((notification) => (
-                            <div
+                            <article
                                 key={notification._id}
-                                onClick={() => handleNotificationClick(notification)}
+                                role="listitem"
                                 className={cn(
-                                    'group relative flex cursor-pointer flex-col gap-4 rounded-[2rem] border p-5 transition-all md:flex-row md:items-center',
+                                    'group relative flex flex-col gap-4 rounded-xl border p-5 transition-colors md:flex-row md:items-center',
                                     !notification.isRead
-                                        ? 'border-white/10 bg-white/[0.05] shadow-xl hover:border-white/20 hover:bg-white/[0.08]'
+                                        ? 'border-white/10 bg-white/[0.05] hover:border-white/20 hover:bg-white/[0.08]'
                                         : 'border-white/5 bg-transparent opacity-60 hover:bg-white/[0.02] hover:opacity-100',
                                 )}
                             >
                                 <div className={cn('flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2', getTypeStyles(notification.type))}>
-                                    <Bell className="h-6 w-6" />
+                                    <Bell aria-hidden="true" className="h-6 w-6" />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <div className="mb-1 flex items-center gap-2">
-                                        <h4 className={cn('truncate text-xl font-bold', !notification.isRead ? 'text-white' : 'text-slate-300')}>
+                                        <h3 className={cn('truncate text-xl font-bold', !notification.isRead ? 'text-white' : 'text-slate-300')}>
                                             {notification.title}
-                                        </h4>
+                                        </h3>
                                         <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-500">
                                             {formatTypeLabel(notification.type)}
                                         </span>
@@ -183,7 +186,9 @@ export default function NotificationsSection() {
                                     </div>
                                     <p className="line-clamp-2 text-sm text-slate-400 md:line-clamp-1">{notification.message}</p>
                                     <div className="mt-2 flex items-center gap-3 text-xs font-medium text-slate-500">
-                                        <span>{new Date(notification.createdAt).toLocaleString()}</span>
+                                        <time dateTime={new Date(notification.createdAt).toISOString()}>
+                                            {new Date(notification.createdAt).toLocaleString()}
+                                        </time>
                                         {!notification.isRead ? (
                                             <span className="flex items-center gap-1.5 text-neo-cyan">
                                                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neo-cyan" />
@@ -194,24 +199,28 @@ export default function NotificationsSection() {
                                 </div>
                                 <div className="flex items-center gap-3">
                                     {notification.actionUrl ? (
-                                        <div className="hidden items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-slate-300 transition-all group-hover:bg-white/10 group-hover:text-white md:flex">
-                                            {notification.actionLabel || t('profile.shared.open', {}, 'Open')} <ExternalLink className="h-3.5 w-3.5" />
-                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleNotificationClick(notification)}
+                                            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                                        >
+                                            {notification.actionLabel || t('profile.shared.open', {}, 'Open')}
+                                            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
+                                        </button>
                                     ) : null}
                                     {!notification.isRead ? (
                                         <button
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                markAsRead(notification._id);
-                                            }}
-                                            className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition-all hover:border-neo-cyan/30 hover:bg-neo-cyan/10 hover:text-neo-cyan"
+                                            type="button"
+                                            onClick={() => markAsRead(notification._id)}
+                                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition-colors hover:border-neo-cyan/30 hover:bg-neo-cyan/10 hover:text-neo-cyan"
+                                            aria-label={t('profile.notifications.markReadTitle', {}, 'Mark as read')}
                                             title={t('profile.notifications.markReadTitle', {}, 'Mark as read')}
                                         >
-                                            <Check className="h-5 w-5" />
+                                            <Check aria-hidden="true" className="h-5 w-5" />
                                         </button>
                                     ) : null}
                                 </div>
-                            </div>
+                            </article>
                         ))}
                     </div>
                 )}

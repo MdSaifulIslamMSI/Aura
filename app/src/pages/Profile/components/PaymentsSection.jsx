@@ -140,7 +140,7 @@ export default function PaymentsSection({
         <div className="max-w-3xl space-y-5">
             <div className="rounded-2xl border bg-white p-6 shadow-sm">
                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-lg font-bold text-gray-900">{t('profile.payments.title', {}, 'Saved Payment Methods')}</h3>
+                    <h2 className="text-lg font-bold text-gray-900">{t('profile.payments.title', {}, 'Saved Payment Methods')}</h2>
                     <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">{t('profile.payments.tokenizedOnly', {}, 'Tokenized methods only')}</span>
                 </div>
 
@@ -261,7 +261,7 @@ export default function PaymentsSection({
             <div className="rounded-2xl border bg-white p-6 shadow-sm">
                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h3 className="text-lg font-bold text-gray-900">{t('profile.payments.activity.title', {}, 'Recent Payment Activity')}</h3>
+                        <h2 className="text-lg font-bold text-gray-900">{t('profile.payments.activity.title', {}, 'Recent Payment Activity')}</h2>
                         <p className="mt-1 text-xs text-gray-500">{t('profile.payments.activity.body', {}, 'Recent order payment states, provider routing, and refund signals from your account.')}</p>
                     </div>
                     <ReceiptText className="h-5 w-5 text-indigo-500" />

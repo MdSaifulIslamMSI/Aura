@@ -15,10 +15,10 @@ export default function RewardsSection({
             <div className="rounded-2xl border bg-white p-6 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
                             <Sparkles className="h-5 w-5 text-amber-500" />
                             {t('profile.rewards.title', {}, 'Aura Points Command Center')}
-                        </h3>
+                        </h2>
                         <p className="mt-1 text-xs text-gray-500">{t('profile.rewards.body', {}, 'Earn points from secure login, orders, and marketplace actions.')}</p>
                     </div>
                     <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-amber-700">
@@ -60,7 +60,7 @@ export default function RewardsSection({
                             <Trophy className="h-4 w-4 text-white" />
                         </div>
                         <div>
-                            <h4 className="text-sm font-bold text-gray-900">{t('profile.rewards.insights.title', {}, 'Aura Smart Insights')}</h4>
+                            <h3 className="text-sm font-bold text-gray-900">{t('profile.rewards.insights.title', {}, 'Aura Smart Insights')}</h3>
                             <p className="text-[10px] text-gray-400">{t('profile.rewards.insights.kicker', {}, 'NP-Hard Optimized Personalized Offers')}</p>
                         </div>
                     </div>
@@ -86,7 +86,7 @@ export default function RewardsSection({
                         <div className="h-20 rounded-xl bg-gray-50" />
                     </div>
                 ) : intelligenceData?.insights ? (
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 p-5 text-white shadow-xl">
+                    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 p-5 text-white">
                         <div className="pointer-events-none absolute right-0 top-0 p-8 opacity-10">
                             <Sparkles className="h-24 w-24" />
                         </div>
@@ -134,7 +134,7 @@ export default function RewardsSection({
 
             <div className="rounded-2xl border bg-white p-6 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
-                    <h4 className="font-bold text-gray-900">{t('profile.rewards.activity.title', {}, 'Recent Rewards Activity')}</h4>
+                    <h3 className="font-bold text-gray-900">{t('profile.rewards.activity.title', {}, 'Recent Rewards Activity')}</h3>
                     {rewardsLoading ? <span className="text-xs text-gray-400">{t('profile.rewards.activity.syncing', {}, 'Syncing...')}</span> : null}
                 </div>
                 {rewardActivity.length === 0 ? (

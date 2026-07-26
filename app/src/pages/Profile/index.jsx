@@ -22,19 +22,20 @@ import { getUserVisibleEmail } from '@/utils/authIdentity';
 import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
 import { openStripeSetupModal } from '@/utils/stripe';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
+import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
 
 import OverviewSection from './components/OverviewSection';
-import PersonalInfoSection from './components/PersonalInfoSection';
-import AddressesSection from './components/AddressesSection';
-import OrdersSection from './components/OrdersSection';
-import RewardsSection from './components/RewardsSection';
-import PaymentsSection from './components/PaymentsSection';
 import AccountStatusBanner from './components/AccountStatusBanner';
-import SupportSection from './components/SupportSection';
-import NotificationsSection from './components/NotificationsSection';
 import AccountCenterShell from './components/AccountCenterShell';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+const PersonalInfoSection = lazy(() => import('./components/PersonalInfoSection'));
+const AddressesSection = lazy(() => import('./components/AddressesSection'));
+const OrdersSection = lazy(() => import('./components/OrdersSection'));
+const RewardsSection = lazy(() => import('./components/RewardsSection'));
+const PaymentsSection = lazy(() => import('./components/PaymentsSection'));
+const SupportSection = lazy(() => import('./components/SupportSection'));
+const NotificationsSection = lazy(() => import('./components/NotificationsSection'));
 const SettingsSection = lazy(() => import('./components/SettingsSection'));
 const MarketplaceActivitySection = lazy(() => import('./components/MarketplaceActivitySection'));
 const PrivacyControlsSection = lazy(() => import('./components/PrivacyControlsSection'));
@@ -164,6 +165,14 @@ const normalizePhone = (phone) => String(phone || '').replace(/[\s\-()]/g, '').t
 const trimText = (value) => String(value || '').trim();
 const isNotFoundError = (error) => Number(error?.status) === 404 || /not found/i.test(String(error?.message || ''));
 
+const AccountSectionFallback = ({ message }) => (
+    <div className="account-section-fallback premium-panel p-6" role="status" aria-live="polite">
+        <span className="account-section-fallback__line" aria-hidden="true" />
+        <span className="account-section-fallback__line account-section-fallback__line--short" aria-hidden="true" />
+        <span className="sr-only">{message}</span>
+    </div>
+);
+
 export default function Profile() {
     const {
         currentUser,
@@ -190,6 +199,9 @@ export default function Profile() {
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [activeTab, setActiveTab] = useState('overview');
+    const [isOnline, setIsOnline] = useState(() => (
+        typeof navigator === 'undefined' || navigator.onLine !== false
+    ));
     const [profile, setProfile] = useState(null);
     const [dashboard, setDashboard] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -260,6 +272,18 @@ export default function Profile() {
 
     const fileInputRef = useRef(null);
     const editModeRef = useRef(false);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const markOnline = () => setIsOnline(true);
+        const markOffline = () => setIsOnline(false);
+        window.addEventListener('online', markOnline);
+        window.addEventListener('offline', markOffline);
+        return () => {
+            window.removeEventListener('online', markOnline);
+            window.removeEventListener('offline', markOffline);
+        };
+    }, []);
     const tabs = useMemo(() => buildTabs(t), [t]);
     const activeTabDefinition = useMemo(
         () => tabs.find((tab) => tab.id === activeTab) || tabs[0],
@@ -1518,7 +1542,7 @@ export default function Profile() {
 
     if (loading) {
         return (
-            <div className="min-h-screen profile-theme profile-premium-shell">
+            <div className="account-center-experience min-h-screen profile-theme profile-premium-shell">
                 <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8" role="status" aria-live="polite">
                     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
                         <span className="text-xs font-black uppercase tracking-[0.18em] text-[#d2a96c]">
@@ -1538,7 +1562,7 @@ export default function Profile() {
     }
 
     return (
-        <div className="min-h-screen profile-theme profile-premium-shell">
+        <div className="account-center-experience min-h-screen profile-theme profile-premium-shell">
             <input
                 ref={fileInputRef}
                 type="file"
@@ -1565,6 +1589,7 @@ export default function Profile() {
                 overviewMetrics={heroMetrics}
                 onAvatarClick={() => fileInputRef.current?.click()}
                 avatarUploading={avatarUploading}
+                isOnline={isOnline}
                 banner={<AccountStatusBanner accountState={profile?.accountState} moderation={profile?.moderation} />}
                 notice={message.text ? (
                     <div
@@ -1580,6 +1605,11 @@ export default function Profile() {
                 ) : null}
             >
 
+                <SectionErrorBoundary
+                    key={activeTab}
+                    label={activeTabDefinition.label}
+                    retryLabel={t('profile.accountCenter.retrySection', {}, 'Retry section')}
+                >
                 <div className="py-8">
                     {activeTab === 'overview' ? (
                         <OverviewSection
@@ -1598,144 +1628,150 @@ export default function Profile() {
                     ) : null}
 
                     {activeTab === 'personal' ? (
-                        <PersonalInfoSection
-                            profile={profile}
-                            profileName={profileName}
-                            profileEmail={profileEmail}
-                            profilePhone={profilePhone}
-                            editMode={editMode}
-                            setEditMode={(nextMode) => {
-                                setEditMode(nextMode);
-                                if (!nextMode) {
-                                    setProfileFieldErrors({});
-                                    setProfileSubmitError('');
-                                    setProfileRequiresReauth(false);
-                                }
-                            }}
-                            editForm={editForm}
-                            handleProfileFieldChange={handleProfileFieldChange}
-                            saving={saving}
-                            handleSaveProfile={handleSaveProfile}
-                            createEditForm={createEditForm}
-                            profileDirty={profileDirty}
-                            profileFieldErrors={profileFieldErrors}
-                            profileSubmitError={profileSubmitError}
-                            profileRequiresReauth={profileRequiresReauth}
-                            onReauthenticate={handleSecureRecovery}
-                            memberSince={memberSince}
-                            hasOtpReadyIdentity={hasOtpReadyIdentity}
-                            paymentMethodsSecured={paymentMethodsSecured}
-                            trustHealthy={trustHealthy}
-                            profileCompletion={profileCompletion}
-                            isAdminAccount={isAdminAccount}
-                            accountState={accountState}
-                        />
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.accountCenter.sectionLoading', {}, 'Loading account section...')} />}>
+                            <PersonalInfoSection
+                                profile={profile}
+                                profileName={profileName}
+                                profileEmail={profileEmail}
+                                profilePhone={profilePhone}
+                                editMode={editMode}
+                                setEditMode={(nextMode) => {
+                                    setEditMode(nextMode);
+                                    if (!nextMode) {
+                                        setProfileFieldErrors({});
+                                        setProfileSubmitError('');
+                                        setProfileRequiresReauth(false);
+                                    }
+                                }}
+                                editForm={editForm}
+                                handleProfileFieldChange={handleProfileFieldChange}
+                                saving={saving}
+                                handleSaveProfile={handleSaveProfile}
+                                createEditForm={createEditForm}
+                                profileDirty={profileDirty}
+                                profileFieldErrors={profileFieldErrors}
+                                profileSubmitError={profileSubmitError}
+                                profileRequiresReauth={profileRequiresReauth}
+                                onReauthenticate={handleSecureRecovery}
+                                memberSince={memberSince}
+                                hasOtpReadyIdentity={hasOtpReadyIdentity}
+                                paymentMethodsSecured={paymentMethodsSecured}
+                                trustHealthy={trustHealthy}
+                                profileCompletion={profileCompletion}
+                                isAdminAccount={isAdminAccount}
+                                accountState={accountState}
+                            />
+                        </Suspense>
                     ) : null}
 
                     {activeTab === 'addresses' ? (
-                        <AddressesSection
-                            profile={profile}
-                            ADDRESS_TYPES={ADDRESS_TYPES}
-                            showAddressForm={showAddressForm}
-                            setShowAddressForm={setShowAddressForm}
-                            editingAddress={editingAddress}
-                            addressForm={addressForm}
-                            setAddressForm={setAddressForm}
-                            saving={saving}
-                            handleSaveAddress={handleSaveAddress}
-                            resetAddressForm={resetAddressForm}
-                            startEditAddress={(address) => {
-                                setAddressForm({
-                                    type: address.type || 'home',
-                                    name: address.name || '',
-                                    phone: address.phone || '',
-                                    address: address.address || '',
-                                    city: address.city || '',
-                                    state: address.state || '',
-                                    pincode: address.pincode || '',
-                                    isDefault: Boolean(address.isDefault),
-                                });
-                                setEditingAddress(address._id);
-                                setShowAddressForm(true);
-                            }}
-                            handleDeleteAddress={handleDeleteAddress}
-                            handleSetDefaultAddress={handleSetDefaultAddress}
-                            addressSubmitError={addressSubmitError}
-                            addressesLoading={addressesLoading}
-                            addressesError={addressesError}
-                            onRetryAddresses={refreshAddresses}
-                        />
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.accountCenter.sectionLoading', {}, 'Loading account section...')} />}>
+                            <AddressesSection
+                                profile={profile}
+                                ADDRESS_TYPES={ADDRESS_TYPES}
+                                showAddressForm={showAddressForm}
+                                setShowAddressForm={setShowAddressForm}
+                                editingAddress={editingAddress}
+                                addressForm={addressForm}
+                                setAddressForm={setAddressForm}
+                                saving={saving}
+                                handleSaveAddress={handleSaveAddress}
+                                resetAddressForm={resetAddressForm}
+                                startEditAddress={(address) => {
+                                    setAddressForm({
+                                        type: address.type || 'home',
+                                        name: address.name || '',
+                                        phone: address.phone || '',
+                                        address: address.address || '',
+                                        city: address.city || '',
+                                        state: address.state || '',
+                                        pincode: address.pincode || '',
+                                        isDefault: Boolean(address.isDefault),
+                                    });
+                                    setEditingAddress(address._id);
+                                    setShowAddressForm(true);
+                                }}
+                                handleDeleteAddress={handleDeleteAddress}
+                                handleSetDefaultAddress={handleSetDefaultAddress}
+                                addressSubmitError={addressSubmitError}
+                                addressesLoading={addressesLoading}
+                                addressesError={addressesError}
+                                onRetryAddresses={refreshAddresses}
+                            />
+                        </Suspense>
                     ) : null}
 
-                    {activeTab === 'orders' ? <OrdersSection recentOrders={recentOrders} stats={stats} /> : null}
+                    {activeTab === 'orders' ? (
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.accountCenter.sectionLoading', {}, 'Loading account section...')} />}>
+                            <OrdersSection recentOrders={recentOrders} stats={stats} />
+                        </Suspense>
+                    ) : null}
 
                     {activeTab === 'rewards' ? (
-                        <RewardsSection
-                            auraTier={auraTier}
-                            auraPoints={auraPoints}
-                            rewardSnapshot={rewardSnapshot}
-                            nextMilestone={nextMilestone}
-                            handleOptimizeRewards={handleOptimizeRewards}
-                            optimizing={optimizing}
-                            intelligenceLoading={intelligenceLoading}
-                            intelligenceData={intelligenceData}
-                            rewardActivity={rewardActivity}
-                            rewardsLoading={rewardsLoading}
-                        />
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.accountCenter.sectionLoading', {}, 'Loading account section...')} />}>
+                            <RewardsSection
+                                auraTier={auraTier}
+                                auraPoints={auraPoints}
+                                rewardSnapshot={rewardSnapshot}
+                                nextMilestone={nextMilestone}
+                                handleOptimizeRewards={handleOptimizeRewards}
+                                optimizing={optimizing}
+                                intelligenceLoading={intelligenceLoading}
+                                intelligenceData={intelligenceData}
+                                rewardActivity={rewardActivity}
+                                rewardsLoading={rewardsLoading}
+                            />
+                        </Suspense>
                     ) : null}
 
                     {activeTab === 'marketplace' ? (
-                        <Suspense fallback={(
-                            <div className="premium-panel p-6 text-sm font-bold text-slate-300" role="status" aria-live="polite">
-                                {t('profile.marketplace.loading', {}, 'Loading your saved items and marketplace activity...')}
-                            </div>
-                        )}>
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.marketplace.loading', {}, 'Loading your saved items and marketplace activity...')} />}>
                             <MarketplaceActivitySection firebaseUser={currentUser} />
                         </Suspense>
                     ) : null}
 
                     {activeTab === 'payments' ? (
-                        <PaymentsSection
-                            paymentMethodsLoading={paymentMethodsLoading}
-                            paymentMethods={paymentMethods}
-                            recentOrders={recentOrders}
-                            netbankingCatalog={netbankingCatalog}
-                            netbankingCatalogLoading={netbankingCatalogLoading}
-                            handleAddStripeCard={handleAddStripeCard}
-                            handleSaveNetbankingBank={handleSaveNetbankingBank}
-                            refreshNetbankingCatalog={refreshNetbankingCatalog}
-                            handleSetDefaultMethod={handleSetDefaultMethod}
-                            handleDeletePaymentMethod={handleDeletePaymentMethod}
-                        />
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.accountCenter.sectionLoading', {}, 'Loading account section...')} />}>
+                            <PaymentsSection
+                                paymentMethodsLoading={paymentMethodsLoading}
+                                paymentMethods={paymentMethods}
+                                recentOrders={recentOrders}
+                                netbankingCatalog={netbankingCatalog}
+                                netbankingCatalogLoading={netbankingCatalogLoading}
+                                handleAddStripeCard={handleAddStripeCard}
+                                handleSaveNetbankingBank={handleSaveNetbankingBank}
+                                refreshNetbankingCatalog={refreshNetbankingCatalog}
+                                handleSetDefaultMethod={handleSetDefaultMethod}
+                                handleDeletePaymentMethod={handleDeletePaymentMethod}
+                            />
+                        </Suspense>
                     ) : null}
 
-                    {activeTab === 'notifications' ? <NotificationsSection /> : null}
+                    {activeTab === 'notifications' ? (
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.accountCenter.sectionLoading', {}, 'Loading account section...')} />}>
+                            <NotificationsSection />
+                        </Suspense>
+                    ) : null}
 
                     {activeTab === 'support' ? (
-                        <SupportSection
-                            profile={profile}
-                            focusTicketId={supportLaunch.focusTicketId}
-                            startCompose={supportLaunch.startCompose}
-                            prefill={supportLaunch.prefill}
-                        />
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.accountCenter.sectionLoading', {}, 'Loading account section...')} />}>
+                            <SupportSection
+                                profile={profile}
+                                focusTicketId={supportLaunch.focusTicketId}
+                                startCompose={supportLaunch.startCompose}
+                                prefill={supportLaunch.prefill}
+                            />
+                        </Suspense>
                     ) : null}
 
                     {activeTab === 'privacy' ? (
-                        <Suspense fallback={(
-                            <div className="premium-panel p-6 text-sm font-bold text-slate-300" role="status" aria-live="polite">
-                                {t('profile.privacy.loading', {}, 'Loading privacy controls...')}
-                            </div>
-                        )}>
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.privacy.loading', {}, 'Loading privacy controls...')} />}>
                             <PrivacyControlsSection firebaseUser={currentUser} />
                         </Suspense>
                     ) : null}
 
                     {activeTab === 'settings' ? (
-                        <Suspense fallback={(
-                            <div className="premium-panel p-6 text-sm font-bold text-slate-300" role="status" aria-live="polite">
-                                {t('profile.settings.loading', {}, 'Loading security and settings...')}
-                            </div>
-                        )}>
+                        <Suspense fallback={<AccountSectionFallback message={t('profile.settings.loading', {}, 'Loading security and settings...')} />}>
                             <SettingsSection
                             handleSecureRecovery={handleSecureRecovery}
                             recoveryLaunching={recoveryLaunching}
@@ -1808,6 +1844,7 @@ export default function Profile() {
                         </Suspense>
                     ) : null}
                 </div>
+                </SectionErrorBoundary>
             </AccountCenterShell>
         </div>
     );

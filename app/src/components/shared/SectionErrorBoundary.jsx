@@ -50,7 +50,7 @@ class SectionErrorBoundary extends React.Component {
         role="alert"
         className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 flex items-start gap-4"
       >
-        <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
+        <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-black uppercase tracking-widest text-amber-200">
             {label} <StableText id={"common.validation.jsx.text.failed.to.load.920b5b20"} defaultMessage={"failed to load"} />
@@ -64,8 +64,10 @@ class SectionErrorBoundary extends React.Component {
           onClick={this.handleRetry}
           className="flex-shrink-0 flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/30 transition-colors"
         >
-          <RefreshCw className="w-3 h-3" />
-          Retry
+          <RefreshCw className="w-3 h-3" aria-hidden="true" />
+          {this.props.retryLabel || (
+            <StableText id="common.sectionError.retry" defaultMessage="Retry section" />
+          )}
         </button>
       </div>
     );

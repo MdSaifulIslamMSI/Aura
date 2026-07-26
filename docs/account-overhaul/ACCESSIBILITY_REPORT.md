@@ -2,7 +2,11 @@
 
 ## Scope and evidence
 
-This report is a code-level audit plus unauthenticated protected-route observation. An authenticated browser session was unavailable, so automated axe results, keyboard traversal, screen-reader announcements, zoom/reflow, and authenticated responsive screenshots remain required.
+This report is a code-level audit plus component-test evidence and unauthenticated
+protected-route observation. An authenticated browser session was unavailable,
+so automated axe results, end-to-end keyboard traversal, screen-reader
+announcements, zoom/reflow, contrast measurement and authenticated responsive
+screenshots remain required.
 
 ## Positive current patterns
 
@@ -16,6 +20,20 @@ This report is a code-level audit plus unauthenticated protected-route observati
 - Current device state is expressed in text, not only color.
 - MFA center loading and error states have dedicated copy.
 - Some security sections use `aria-labelledby`.
+- Every Account Center route now retains one route-level `h1`; section and
+  nested headings follow `h2`/`h3` order.
+- The account scope owns a visible 3 px `:focus-visible` indicator, 44 px
+  controls, reduced-motion behavior, forced-colors boundaries and narrow-width
+  reflow rules.
+- Lazy section loading preserves dimensions and announces status; a keyed
+  section error boundary keeps failures local and exposes a localized retry.
+- Offline state is textual and announced without hiding cached account content.
+- Avatar media includes explicit dimensions to avoid layout shift.
+- Notification cards are structured list articles with explicit Open and Mark
+  as read buttons instead of clickable containers with nested actions.
+- Address deletion uses an `alertdialog` with a name and description, safe
+  initial focus, Tab containment, Escape close, disabled pending controls and
+  focus return to the trigger.
 
 ## Current risks
 
@@ -27,30 +45,23 @@ This report is a code-level audit plus unauthenticated protected-route observati
 
 ### Forms
 
-- Address inputs rely heavily on placeholders and do not consistently expose persistent labels or field-level error associations.
-- Required/optional state and address validation are not consistently communicated.
-- Native `confirm()` provides poor control over focus, copy, pending state, and error recovery.
-- Bio limits disagree across layers, producing unpredictable accessible error behavior.
-
-### Interactive rows and icon actions
-
-- Notification rows use clickable containers rather than reliable link/button semantics.
-- Icon-only mark-read controls rely on `title` rather than a robust accessible name.
-- Nested click targets risk duplicate activation and ambiguous focus order.
-- Payment/address actions need explicit button types inside forms.
+- Address fields now retain persistent labels and the destructive action has a
+  deliberate dialog, but authenticated browser validation of server-error
+  association and autofill behavior remains required.
+- Some older settings/support controls still use compact uppercase metadata and
+  need screen-reader and text-spacing verification in their real route state.
 
 ### Focus and status
 
-- Account-wide focus-visible treatment is not consistently owned by the feature.
-- Mutation success/error often depends on a shared banner or toast instead of remaining adjacent to the affected control.
+- Mutation success/error in legacy subsections can still depend on a shared
+  banner or toast instead of remaining adjacent to the affected control.
 - Broad refetches can change content outside the active task and create announcement noise.
 
 ### Structure and readability
 
-- Large hero/dashboard composition can push the first task below the fold.
-- Repeated rounded panels weaken grouping hierarchy.
-- Legacy light components remapped through dark global CSS risk inconsistent contrast.
 - Dense settings/support sections create long, difficult reading order.
+- Runtime contrast, text-spacing overrides and locale-expanded control labels
+  remain unmeasured in the authenticated page.
 
 ### Responsive behavior
 
@@ -109,4 +120,11 @@ The live 390 px sign-in capture clips horizontally, but that release SHA differs
 6. 320–2560 px screenshots.
 7. Autofill/password-manager checks for identity and re-auth dialogs.
 
-Component tests verify the shell landmarks/current state and active-session confirmation behavior. No WCAG pass may be claimed until the authenticated automated and manual evidence above is collected.
+Component verification on 2026-07-26 passed five focused Profile suites / eleven
+tests covering shell landmarks and current state, focusable main content,
+explicit avatar dimensions, announced offline state, notification heading/list
+semantics and explicit actions, and address-dialog safe focus/Escape/trigger
+return. Frontend lint passed with no errors.
+
+No final WCAG pass may be claimed until the authenticated automated and manual
+evidence above is collected.

@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { MapPin, Plus, Save, Phone, Edit3, Trash2 } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
@@ -26,6 +26,44 @@ export default function AddressesSection({
     const t = useStableIcuMessages(legacyT);
     const formId = useId();
     const [deleteCandidate, setDeleteCandidate] = useState(null);
+    const deleteDialogRef = useRef(null);
+    const deleteCancelRef = useRef(null);
+    const deleteTriggerRef = useRef(null);
+
+    const closeDeleteDialog = useCallback(() => {
+        setDeleteCandidate(null);
+        window.setTimeout(() => deleteTriggerRef.current?.focus(), 0);
+    }, []);
+
+    useEffect(() => {
+        if (!deleteCandidate) return undefined;
+        deleteCancelRef.current?.focus();
+
+        const handleDialogKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeDeleteDialog();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+            const focusable = Array.from(deleteDialogRef.current?.querySelectorAll(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            ) || []);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener('keydown', handleDialogKeyDown);
+        return () => document.removeEventListener('keydown', handleDialogKeyDown);
+    }, [closeDeleteDialog, deleteCandidate]);
 
     const addressTypes = ADDRESS_TYPES.map((type) => ({
         ...type,
@@ -35,7 +73,7 @@ export default function AddressesSection({
     return (
         <div className="max-w-3xl space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-lg font-bold text-gray-900">{t('profile.addresses.title', {}, 'Saved Addresses')}</h3>
+                <h2 className="text-lg font-bold text-gray-900">{t('profile.addresses.title', {}, 'Saved Addresses')}</h2>
                 <button
                     type="button"
                     onClick={() => {
@@ -76,11 +114,11 @@ export default function AddressesSection({
                     }}
                     aria-describedby={addressSubmitError ? `${formId}-error` : undefined}
                 >
-                    <h4 className="mb-4 font-bold text-gray-900">
+                    <h3 className="mb-4 font-bold text-gray-900">
                         {editingAddress
                             ? t('profile.addresses.form.editTitle', {}, 'Edit Address')
                             : t('profile.addresses.form.newTitle', {}, 'New Address')}
-                    </h4>
+                    </h3>
 
                     <div className="mb-4 flex gap-3">
                         {addressTypes.map((type) => {
@@ -229,7 +267,7 @@ export default function AddressesSection({
             {(!profile?.addresses || profile.addresses.length === 0) && !showAddressForm ? (
                 <div className="rounded-2xl border bg-white p-12 text-center shadow-sm">
                     <MapPin className="mx-auto mb-3 h-16 w-16 text-gray-200" />
-                    <h3 className="mb-1 text-lg font-bold text-gray-900">{t('profile.addresses.empty.title', {}, 'No addresses saved')}</h3>
+                    <h2 className="mb-1 text-lg font-bold text-gray-900">{t('profile.addresses.empty.title', {}, 'No addresses saved')}</h2>
                     <p className="text-sm text-gray-400">{t('profile.addresses.empty.body', {}, 'Add your delivery address for faster checkout')}</p>
                 </div>
             ) : (
@@ -274,7 +312,10 @@ export default function AddressesSection({
                                     ) : null}
                                     <button
                                         type="button"
-                                        onClick={() => setDeleteCandidate(address)}
+                                        onClick={(event) => {
+                                            deleteTriggerRef.current = event.currentTarget;
+                                            setDeleteCandidate(address);
+                                        }}
                                         className="flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50"
                                     >
                                         <Trash2 className="h-3 w-3" /> {t('profile.addresses.delete', {}, 'Delete')}
@@ -288,40 +329,51 @@ export default function AddressesSection({
 
             {deleteCandidate ? (
                 <div
-                    role="alertdialog"
-                    aria-modal="true"
-                    aria-labelledby={`${formId}-delete-title`}
-                    aria-describedby={`${formId}-delete-body`}
-                    className="rounded-2xl border border-red-200 bg-red-50 p-5"
+                    className="account-dialog-backdrop"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) closeDeleteDialog();
+                    }}
                 >
-                    <h4 id={`${formId}-delete-title`} className="font-bold text-gray-950">
-                        {t('profile.addresses.deleteConfirm.title', {}, 'Delete this saved address?')}
-                    </h4>
-                    <p id={`${formId}-delete-body`} className="mt-2 text-sm text-gray-700">
-                        {t(
-                            'profile.addresses.deleteConfirm.body',
-                            {},
-                            'Past orders keep their delivery copy. Future checkouts will no longer offer this address.'
-                        )}
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-3">
-                        <button
-                            type="button"
-                            onClick={async () => {
-                                const deleted = await handleDeleteAddress(deleteCandidate._id);
-                                if (deleted) setDeleteCandidate(null);
-                            }}
-                            className="rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800"
-                        >
-                            {t('profile.addresses.deleteConfirm.confirm', {}, 'Delete address')}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setDeleteCandidate(null)}
-                            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800"
-                        >
-                            {t('profile.personal.cancel', {}, 'Cancel')}
-                        </button>
+                    <div
+                        ref={deleteDialogRef}
+                        role="alertdialog"
+                        aria-modal="true"
+                        aria-labelledby={`${formId}-delete-title`}
+                        aria-describedby={`${formId}-delete-body`}
+                        className="account-dialog rounded-xl border border-red-200 bg-red-50 p-5"
+                    >
+                        <h2 id={`${formId}-delete-title`} className="font-bold text-gray-950">
+                            {t('profile.addresses.deleteConfirm.title', {}, 'Delete this saved address?')}
+                        </h2>
+                        <p id={`${formId}-delete-body`} className="mt-2 text-sm text-gray-700">
+                            {t(
+                                'profile.addresses.deleteConfirm.body',
+                                {},
+                                'Past orders keep their delivery copy. Future checkouts will no longer offer this address.'
+                            )}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-3">
+                            <button
+                                ref={deleteCancelRef}
+                                type="button"
+                                onClick={closeDeleteDialog}
+                                disabled={saving}
+                                className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 disabled:opacity-50"
+                            >
+                                {t('profile.addresses.deleteConfirm.cancel', {}, 'Keep address')}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={saving}
+                                onClick={async () => {
+                                    const deleted = await handleDeleteAddress(deleteCandidate._id);
+                                    if (deleted) closeDeleteDialog();
+                                }}
+                                className="min-h-11 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50"
+                            >
+                                {t('profile.addresses.deleteConfirm.confirm', {}, 'Delete address')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : null}

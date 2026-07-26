@@ -969,7 +969,7 @@ export default function SupportSection({
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('profile.support.inbox.kicker', {}, 'Support inbox')}</p>
-                            <h3 className="mt-2 text-2xl font-black text-white">{t('profile.support.inbox.title', {}, 'Chat with Aura Support')}</h3>
+                            <h2 className="mt-2 text-2xl font-black text-white">{t('profile.support.inbox.title', {}, 'Chat with Aura Support')}</h2>
                             <p className="mt-1.5 text-sm text-slate-400">
                                 {t('profile.support.inbox.body', {}, 'Appeals, order issues, and live support handoffs stay in one conversation flow.')}
                             </p>
@@ -1027,7 +1027,7 @@ export default function SupportSection({
                             <div className="support-chat-avatar h-16 w-16 text-emerald-100">
                                 <LifeBuoy className="h-8 w-8" />
                             </div>
-                            <h4 className="mt-5 text-lg font-black text-white">{t('profile.support.inbox.emptyTitle', {}, 'No chats yet')}</h4>
+                            <h3 className="mt-5 text-lg font-black text-white">{t('profile.support.inbox.emptyTitle', {}, 'No chats yet')}</h3>
                             <p className="mt-2 max-w-xs text-sm text-slate-400">
                                 {t('profile.support.inbox.emptyBody', {}, 'Start a thread when you need help with moderation, orders, or account support.')}
                             </p>
@@ -1113,7 +1113,7 @@ export default function SupportSection({
                     <div className="support-chat-thread flex h-full flex-col">
                         <div className="border-b border-white/10 px-6 py-6">
                             <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('profile.support.empty.kicker', {}, 'Conversation-first support')}</p>
-                            <h3 className="mt-2 text-3xl font-black text-white">{t('profile.support.empty.title', {}, 'Pick a thread or start a new one')}</h3>
+                            <h2 className="mt-2 text-3xl font-black text-white">{t('profile.support.empty.title', {}, 'Pick a thread or start a new one')}</h2>
                             <p className="mt-3 max-w-2xl text-sm text-slate-400">
                                 {t('profile.support.empty.body', {}, 'Everything important lands here: text replies, resolution notes, and live support escalation.')}
                             </p>
@@ -1125,7 +1125,7 @@ export default function SupportSection({
                                     <div className="support-chat-avatar h-20 w-20 text-emerald-100">
                                         <MessageSquare className="h-10 w-10" />
                                     </div>
-                                    <h4 className="mt-5 text-2xl font-black text-white">{t('profile.support.empty.headline', {}, 'Support should feel like a real conversation')}</h4>
+                                    <h3 className="mt-5 text-2xl font-black text-white">{t('profile.support.empty.headline', {}, 'Support should feel like a real conversation')}</h3>
                                     <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
                                         {t('profile.support.empty.headlineBody', {}, 'Open a durable thread for governance appeals, orders, or account help. Aura Support keeps the full trail visible in one place.')}
                                     </p>
@@ -1165,7 +1165,7 @@ export default function SupportSection({
                             <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <p className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-200">{t('profile.support.compose.kicker', {}, 'New chat')}</p>
-                                    <h3 className="mt-2 text-3xl font-black text-white">{t('profile.support.compose.title', {}, 'Start a support conversation')}</h3>
+                                    <h2 className="mt-2 text-3xl font-black text-white">{t('profile.support.compose.title', {}, 'Start a support conversation')}</h2>
                                     <p className="mt-3 max-w-2xl text-sm text-slate-400">
                                         {t('profile.support.compose.body', {}, 'This thread stays visible to you and Aura Support until the issue is actually resolved.')}
                                     </p>
@@ -1201,7 +1201,7 @@ export default function SupportSection({
                                     </div>
                                 ) : null}
 
-                                <div className="rounded-[2rem] border border-white/10 bg-[#0f1720]/80 p-5 shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
+                                <div className="rounded-xl border border-white/10 bg-[#0f1720]/80 p-5">
                                     <div className="mb-4">
                                         <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('profile.support.compose.chooseLane', {}, 'Choose a lane')}</div>
                                         <div className="mt-2 text-sm text-slate-300">{t('profile.support.compose.chooseLaneBody', {}, 'Pick the chat type that best matches the issue.')}</div>
@@ -1227,7 +1227,7 @@ export default function SupportSection({
                                     </div>
                                 </div>
 
-                                <div className="rounded-[2rem] border border-white/10 bg-[#0f1720]/80 p-5 shadow-[0_24px_60px_rgba(2,8,23,0.18)]">
+                                <div className="rounded-xl border border-white/10 bg-[#0f1720]/80 p-5">
                                     <div className="grid gap-4 md:grid-cols-2">
                                         <label className="block">
                                             <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">{t('profile.support.compose.subject', {}, 'Subject')}</span>
@@ -1311,7 +1311,7 @@ export default function SupportSection({
 
                                     <div className="min-w-0 flex-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="truncate text-2xl font-black text-white">{translateSupportText(activeTicket.subject)}</h3>
+                                            <h2 className="truncate text-2xl font-black text-white">{translateSupportText(activeTicket.subject)}</h2>
                                             {getStatusBadge(activeTicket.status, t)}
                                             <span className={cn(
                                                 'rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em]',
