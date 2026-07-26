@@ -116,13 +116,19 @@ describe('authApi', () => {
     });
   });
 
-  it('exchanges an admin recovery grant with Firebase bearer authentication', async () => {
+  it('exchanges an admin recovery grant through the existing cookie session', async () => {
     const firebaseUser = {
       getIdToken: vi.fn().mockResolvedValue(buildRuntimeValue('firebase-token')),
     };
     const grant = buildRuntimeValue('recovery-grant');
+    const csrfToken = 'c'.repeat(64);
     mocks.getAuthHeaderMock.mockResolvedValueOnce({
-      Authorization: `Bearer ${buildRuntimeValue('firebase-token')}`,
+      'X-Session-Mode': 'cookie',
+    });
+    mocks.ensureCsrfTokenMock.mockResolvedValueOnce(csrfToken);
+    mocks.addCsrfTokenToHeadersMock.mockReturnValueOnce({
+      'X-Session-Mode': 'cookie',
+      'X-CSRF-Token': csrfToken,
     });
     global.fetch.mockResolvedValueOnce(
       new Response(JSON.stringify({
@@ -142,15 +148,21 @@ describe('authApi', () => {
       });
 
     expect(mocks.getAuthHeaderMock).toHaveBeenCalledWith(firebaseUser, {
-      useFirebaseBearer: true,
+      useFirebaseBearer: false,
+      forceRefresh: false,
     });
-    expect(mocks.ensureCsrfTokenMock).not.toHaveBeenCalled();
+    expect(mocks.ensureCsrfTokenMock).toHaveBeenCalledWith({
+      authToken: '',
+      owner: 'cookie_session',
+      forceFresh: true,
+    });
+    expect(firebaseUser.getIdToken).not.toHaveBeenCalled();
     const [url, requestOptions] = global.fetch.mock.calls[0];
     expect(url).toContain('/admin/security/recovery/exchange');
     expect(requestOptions.method).toBe('POST');
     expect(JSON.parse(requestOptions.body)).toEqual({ grant });
-    expect(requestOptions.headers.get('Authorization')).toMatch(/^Bearer /);
-    expect(requestOptions.headers.get('X-CSRF-Token')).toBeNull();
+    expect(requestOptions.headers.get('Authorization')).toBeNull();
+    expect(requestOptions.headers.get('X-CSRF-Token')).toBe(csrfToken);
   });
 
   it('does not cache a bearer-scoped admin status token as cookie-session CSRF', async () => {
