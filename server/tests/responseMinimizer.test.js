@@ -61,6 +61,22 @@ describe('Invisible Fabric response minimization', () => {
         expect(response.body.message).toContain('Fresh WebAuthn');
     });
 
+    test('admin recovery reauthentication errors remain actionable for legitimate admins', async () => {
+        const app = buildApp((req, _res, next) => {
+            req.user = { _id: 'admin-1', isAdmin: true };
+            const error = new AppError('Sign in again before using an admin recovery grant.', 401);
+            error.code = 'ADMIN_PRIMARY_REAUTH_REQUIRED';
+            next(error);
+        });
+
+        const response = await request(app).get('/api/admin/users').expect(401);
+
+        expect(response.body).toMatchObject({
+            code: 'ADMIN_PRIMARY_REAUTH_REQUIRED',
+            message: 'Sign in again before using an admin recovery grant.',
+        });
+    });
+
     test('production provider/database errors are sanitized and include request id', async () => {
         const app = buildApp((req, _res, next) => {
             next(new Error('MongoServerError at C:\\server\\models\\User.js PRIVATE_KEY leaked'));

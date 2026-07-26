@@ -7,7 +7,7 @@ const getRequestPath = (req = {}) => String(req.originalUrl || req.path || '').s
 
 const isAdminStepUpError = (err = {}) => (
     Boolean(err.requiresMfa || err.requiresStepUpMfa || err.mfaChallenge || err.mfaPolicy)
-    || /STEP_UP|MFA|DUO|WEBAUTHN|PASSKEY/i.test(String(err.code || err.message || ''))
+    || /STEP_UP|REAUTH|MFA|DUO|WEBAUTHN|PASSKEY/i.test(String(err.code || err.message || ''))
 );
 
 const shouldCloakAdminError = ({ err = {}, req = {}, statusCode = 500 } = {}) => {
