@@ -132,7 +132,7 @@ The additive active-session capability has the following current properties:
 - Revoke-others additionally requires fresh MFA/action policy.
 - Telemetry contains an allowlisted event name, outcome, reason, surface, and safe boolean/count.
 
-These properties are supported by focused unit/controller tests and static route-enforcement checks. They have not been exercised against production or a live staging Redis instance.
+These properties are supported by focused unit/controller tests and static route-enforcement checks. They have not been exercised against a deployed Redis service.
 
 ## Privacy decisions required before implementation
 
