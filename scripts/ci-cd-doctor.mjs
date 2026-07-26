@@ -276,9 +276,11 @@ addCheck(
     !deployFrontendNetlify.includes('api.vercel.com/v6/deployments') &&
     rollbackStorefrontVercelScript.includes('require_env VERCEL_ORG_ID') &&
     rollbackStorefrontVercelScript.includes('require_env VERCEL_PROJECT_ID') &&
-    rollbackStorefrontVercelScript.includes('--project "${VERCEL_PROJECT_ID}"') &&
+    rollbackStorefrontVercelScript.includes('fs.writeFileSync(') &&
+    rollbackStorefrontVercelScript.includes('JSON.stringify({ orgId: expectedOrgId, projectId: expectedProjectId })') &&
     rollbackStorefrontVercelScript.includes('VERCEL_LINK_FILE="${vercel_link_file}" node') &&
     rollbackStorefrontVercelScript.includes('npx vercel rollback status "${VERCEL_PROJECT_ID}"') &&
+    !rollbackStorefrontVercelScript.includes('npx vercel link') &&
     !rollbackStorefrontVercelScript.includes('--scope'),
   'Vercel restores the deployment currently bound to production and verifies immutable org/project ids'
 );
