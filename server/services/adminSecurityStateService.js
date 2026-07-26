@@ -158,14 +158,14 @@ const resolveAdminSecurityState = ({
     } else if (passkeyAssurance || duoCanSatisfyAdminEntry) {
         state = ADMIN_SECURITY_STATES.ADMIN_VERIFIED;
         reason = passkeyAssurance ? 'passkey_assurance_active' : 'duo_assurance_active';
+    } else if (recoveryAuthorityActive && config.passkeyEnrollment) {
+        state = ADMIN_SECURITY_STATES.ADMIN_ENROLLMENT_REQUIRED;
+        reason = 'recovery_authority_active';
     } else if (passkeys.length > 0) {
         state = providerAvailable
             ? ADMIN_SECURITY_STATES.ADMIN_CHALLENGE_REQUIRED
             : ADMIN_SECURITY_STATES.ADMIN_PROVIDER_UNAVAILABLE;
         reason = providerAvailable ? 'admin_challenge_required' : 'admin_provider_unavailable';
-    } else if (recoveryAuthorityActive && config.passkeyEnrollment) {
-        state = ADMIN_SECURITY_STATES.ADMIN_ENROLLMENT_REQUIRED;
-        reason = 'recovery_authority_active';
     } else if (config.recoveryGrants) {
         state = ADMIN_SECURITY_STATES.ADMIN_RECOVERY_REQUIRED;
         reason = 'recovery_grant_required';

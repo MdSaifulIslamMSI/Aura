@@ -75,6 +75,23 @@ describe('admin security state engine', () => {
         expect(result.actions.canEnrollPasskey).toBe(true);
     });
 
+    test('allows recovery enrollment to replace an existing unusable admin passkey', () => {
+        const factorUser = { ...user, trustedDevices: [passkey] };
+        const result = resolveAdminSecurityState({
+            req: request({ user: factorUser }),
+            user: factorUser,
+            env,
+            now,
+            recoveryAuthorityActive: true,
+        });
+
+        expect(result.state).toBe(ADMIN_SECURITY_STATES.ADMIN_ENROLLMENT_REQUIRED);
+        expect(result.adminSecurity.approvedPasskeyCount).toBe(1);
+        expect(result.actions.canChallengePasskey).toBe(true);
+        expect(result.actions.canEnrollPasskey).toBe(true);
+        expect(result.actions.allowAdminAccess).toBe(false);
+    });
+
     test('requires a challenge when an approved factor exists without fresh proof', () => {
         const factorUser = { ...user, trustedDevices: [passkey] };
         const result = resolveAdminSecurityState({ req: request({ user: factorUser }), user: factorUser, env, now });
