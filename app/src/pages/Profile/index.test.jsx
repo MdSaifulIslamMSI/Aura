@@ -24,7 +24,12 @@ vi.mock('@/context/MarketContext', () => ({
 }));
 
 vi.mock('@/i18n/useStableIcuMessages', () => ({
-    useStableIcuMessages: (translate) => translate,
+    useStableIcuMessages: (translate) => translate || ((_key, values = {}, fallback = '') => (
+        Object.entries(values).reduce(
+            (message, [token, value]) => message.replaceAll(`{${token}}`, String(value)),
+            fallback
+        )
+    )),
 }));
 
 vi.mock('@/config/firebase', () => ({
