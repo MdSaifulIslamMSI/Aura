@@ -160,14 +160,14 @@ Do not run deployment or rollback from this document. Existing GitHub workflows 
 
 ## Current readiness
 
-**Not ready for rollout.**
+**Foundation verified; complete program not ready for rollout.**
 
 Blockers:
 
-- the recorded live SHA differs from this branch's reviewed source SHA;
-- broad suites timed out;
-- local orchestration is broken;
-- authenticated account browser evidence is absent;
-- dependency audit findings are untriaged;
+- Waves A through N are not yet complete on the umbrella branch;
+- the strict native-language final gate has a pre-existing human-review backlog for 19 locale rows;
+- full umbrella-branch CI and required reviews are pending;
+- authenticated staging browser, accessibility, performance, migration, load, and rollback evidence is absent;
+- dependency audit findings still require current evidence and disposition;
 - privacy policy decisions are unresolved;
-- focused local implementation verification passed, but CI and authenticated staging verification remain pending.
+- production release identity, immutable rollback targets, dashboards, and alerts are not yet recorded.
