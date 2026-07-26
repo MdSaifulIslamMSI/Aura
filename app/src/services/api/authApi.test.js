@@ -742,6 +742,44 @@ describe('authApi', () => {
     expect(global.fetch.mock.calls[2][1].method).toBe('POST');
   });
 
+  it('loads customer-safe security activity and revokes every account session explicitly', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        version: 1,
+        activity: [{ type: 'sign_in', outcome: 'success' }],
+        pagination: { hasMore: true, nextCursor: 'next.cursor' },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        status: 'all_sessions_revoked',
+        revoked: 2,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    await expect(authApi.getAccountSecurityActivity(
+      { cursor: 'current.cursor', limit: 20 },
+      { firebaseUser },
+    )).resolves.toMatchObject({
+      activity: [{ type: 'sign_in' }],
+      pagination: { hasMore: true },
+    });
+    await authApi.revokeAllAccountSessions({ firebaseUser });
+
+    expect(global.fetch.mock.calls[0][0]).toContain(
+      '/account/security-activity?limit=20&cursor=current.cursor',
+    );
+    expect(global.fetch.mock.calls[0][1].method).toBe('GET');
+    expect(global.fetch.mock.calls[1][0]).toContain('/account/sessions/revoke-all');
+    expect(global.fetch.mock.calls[1][1].method).toBe('POST');
+  });
+
   it('rejects malformed account-session aliases before making a request', async () => {
     await expect(authApi.revokeAccountSession({ sessionId: 'raw-session-id' }))
       .rejects

@@ -6,12 +6,16 @@ const { createDistributedRateLimit } = require('../middleware/distributedRateLim
 const { requireFreshMfa } = require('../middleware/requireFreshMfa');
 const {
     getAccountSessions,
+    getAccountSecurityActivity,
     revokeAccountSession,
+    revokeAllAccountSessions,
     revokeOtherAccountSessions,
 } = require('../controllers/accountSecurityController');
 const {
     getAccountSessionsSchema,
+    getAccountSecurityActivitySchema,
     revokeAccountSessionSchema,
+    revokeAllAccountSessionsSchema,
     revokeOtherAccountSessionsSchema,
 } = require('../validators/accountSessionValidators');
 const { getAccountOverview } = require('../controllers/accountController');
@@ -61,6 +65,22 @@ router.patch(
 );
 router.use('/sessions', accountSessionLimiter);
 router.get('/sessions', validate(getAccountSessionsSchema), getAccountSessions);
+router.get(
+    '/security-activity',
+    accountSessionLimiter,
+    validate(getAccountSecurityActivitySchema),
+    getAccountSecurityActivity
+);
+router.post(
+    '/sessions/revoke-all',
+    csrfTokenValidatorUnlessBearerAuth,
+    requireFreshMfa({
+        action: 'auth.sessions.revoke_all',
+        category: 'account_security',
+    }),
+    validate(revokeAllAccountSessionsSchema),
+    revokeAllAccountSessions
+);
 router.post(
     '/sessions/revoke-others',
     csrfTokenValidatorUnlessBearerAuth,

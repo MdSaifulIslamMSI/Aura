@@ -7,7 +7,7 @@
 | Account shell, profile orchestration, Security UI, active-session confirmations, auth API | **PASS**: 5 Vitest files, 58 tests |
 | Browser-session inventory/service/controller/validators | **PASS**: 4 Jest suites, 30 tests |
 | High-cardinality revoke-others | **PASS**: public list capped at 20; all 101 other sessions revoked; current and other-user sessions preserved |
-| Sensitive-route enforcement | **PASS**: standard coverage and strict coverage for 97 route entries |
+| Sensitive-route enforcement | **PASS**: standard scanner and strict coverage for 98 route entries |
 | Targeted frontend lint | **PASS with one pre-existing warning**: no errors; existing `currentUser.uid` dependency warning |
 | Frontend build and bundle budget | **PASS**: initial JS 175.72 kB gzip, total CSS 65.73 kB, initial payload 243.42 kB |
 | Authenticated browser/E2E, real Redis failure/concurrency, full suites | **NOT VERIFIED** |
@@ -133,7 +133,7 @@ Test touch/pointer and keyboard variants. Capture screenshots for default, loadi
 
 Current focused tests:
 
-- Frontend profile/settings: 14 passed.
-- Backend user/profile/avatar/phone-index: 16 passed.
+- Wave F frontend security/settings/API: 60 passed.
+- Wave F backend security activity/session validators/controllers: 13 passed.
 
 Current broad local suites timed out and are not accepted as passes. Before merge, new focused shards must pass and the relevant CI suites must return terminal green statuses on the exact SHA.

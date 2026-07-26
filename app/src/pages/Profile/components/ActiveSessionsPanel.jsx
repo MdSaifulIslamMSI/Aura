@@ -21,10 +21,12 @@ export default function ActiveSessionsPanel({
     onRetry,
     onRevokeSession,
     onRevokeOtherSessions,
+    onRevokeAllSessions,
 }) {
     const t = useStableIcuMessages();
     const [confirmingSessionId, setConfirmingSessionId] = useState('');
     const [confirmingOthers, setConfirmingOthers] = useState(false);
+    const [confirmingAll, setConfirmingAll] = useState(false);
     const orderedSessions = useMemo(() => [...sessions].sort((left, right) => {
         if (Boolean(left?.current) !== Boolean(right?.current)) {
             return left?.current ? -1 : 1;
@@ -44,6 +46,7 @@ export default function ActiveSessionsPanel({
         if (confirmingSessionId !== session.id) {
             setConfirmingSessionId(session.id);
             setConfirmingOthers(false);
+            setConfirmingAll(false);
             return;
         }
         if (!onRevokeSession) return;
@@ -59,12 +62,29 @@ export default function ActiveSessionsPanel({
         if (!confirmingOthers) {
             setConfirmingOthers(true);
             setConfirmingSessionId('');
+            setConfirmingAll(false);
             return;
         }
         if (!onRevokeOtherSessions) return;
         try {
             await onRevokeOtherSessions();
             setConfirmingOthers(false);
+        } catch {
+            // Keep the confirmation visible so the user can retry or cancel.
+        }
+    };
+
+    const requestAllSessionRevocation = async () => {
+        if (!confirmingAll) {
+            setConfirmingAll(true);
+            setConfirmingOthers(false);
+            setConfirmingSessionId('');
+            return;
+        }
+        if (!onRevokeAllSessions) return;
+        try {
+            await onRevokeAllSessions();
+            setConfirmingAll(false);
         } catch {
             // Keep the confirmation visible so the user can retry or cancel.
         }
@@ -307,6 +327,47 @@ export default function ActiveSessionsPanel({
                                 type="button"
                                 onClick={() => setConfirmingOthers(false)}
                                 className="min-h-10 rounded-lg px-3 text-xs font-bold text-amber-100/80 hover:bg-white/5 hover:text-white"
+                            >
+                                {t('profile.sessions.cancel', {}, 'Cancel')}
+                            </button>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+
+            {orderedSessions.length > 0 ? (
+                <div className="mt-4 flex flex-col gap-3 rounded-xl border border-rose-300/25 bg-rose-400/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <p className="text-sm font-black text-rose-50">
+                            {t('profile.sessions.signOutAll', {}, 'Sign out everywhere')}
+                        </p>
+                        <p className="mt-1 text-xs text-rose-100/80">
+                            {t(
+                                'profile.sessions.signOutAllBody',
+                                {},
+                                'Revoke every active browser session, including this one. You will need to sign in again.'
+                            )}
+                        </p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:items-end">
+                        <button
+                            type="button"
+                            onClick={requestAllSessionRevocation}
+                            disabled={Boolean(action) || !onRevokeAllSessions}
+                            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-black disabled:cursor-not-allowed disabled:opacity-50 ${confirmingAll ? 'border-rose-200/50 bg-rose-500/30 text-white' : 'border-rose-200/25 bg-rose-300/10 text-rose-50 hover:bg-rose-300/15'}`}
+                        >
+                            <LogOut className="h-4 w-4" aria-hidden="true" />
+                            {action === 'revoke-all'
+                                ? t('profile.sessions.signingOut', {}, 'Signing out...')
+                                : confirmingAll
+                                    ? t('profile.sessions.confirmSignOutAll', {}, 'Confirm sign out everywhere')
+                                    : t('profile.sessions.signOutAll', {}, 'Sign out everywhere')}
+                        </button>
+                        {confirmingAll ? (
+                            <button
+                                type="button"
+                                onClick={() => setConfirmingAll(false)}
+                                className="min-h-10 rounded-lg px-3 text-xs font-bold text-rose-100/80 hover:bg-white/5 hover:text-white"
                             >
                                 {t('profile.sessions.cancel', {}, 'Cancel')}
                             </button>

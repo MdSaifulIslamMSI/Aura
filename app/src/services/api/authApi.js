@@ -413,6 +413,11 @@ export const authApi = {
     getAccountSessions: async (options = {}) => (
         getProtectedAuthJson('/account/sessions', options)
     ),
+    getAccountSecurityActivity: async ({ cursor = '', limit = 20 } = {}, options = {}) => {
+        const params = new URLSearchParams({ limit: String(limit) });
+        if (cursor) params.set('cursor', cursor);
+        return getProtectedAuthJson(`/account/security-activity?${params.toString()}`, options);
+    },
     revokeAccountSession: async ({ sessionId = '' } = {}, options = {}) => {
         const normalizedSessionId = String(sessionId || '').trim();
         if (!/^[A-Za-z0-9_-]{43}$/.test(normalizedSessionId)) {
@@ -430,6 +435,12 @@ export const authApi = {
     },
     revokeOtherAccountSessions: async (options = {}) => (
         postAuthBootstrap('/account/sessions/revoke-others', {}, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    revokeAllAccountSessions: async (options = {}) => (
+        postAuthBootstrap('/account/sessions/revoke-all', {}, {
             ...options,
             useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
         })

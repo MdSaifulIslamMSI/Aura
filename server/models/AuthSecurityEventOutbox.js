@@ -17,5 +17,14 @@ const authSecurityEventOutboxSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 authSecurityEventOutboxSchema.index({ status: 1, nextAttemptAt: 1, createdAt: 1 });
+authSecurityEventOutboxSchema.index({ 'payload.userId': 1, 'payload.event': 1, createdAt: -1 });
+authSecurityEventOutboxSchema.index(
+    { createdAt: 1 },
+    {
+        expireAfterSeconds: 180 * 24 * 60 * 60,
+        partialFilterExpression: { status: 'published' },
+        name: 'published_auth_security_retention',
+    }
+);
 
 module.exports = mongoose.model('AuthSecurityEventOutbox', authSecurityEventOutboxSchema);

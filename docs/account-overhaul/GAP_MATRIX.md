@@ -10,7 +10,7 @@ Priority definitions:
 |---|---|---|---|---|---|
 | G-001 | P0 | Source/release integrity | Local SHA differs from observed live SHA | Reconcile target branch and bind all evidence to one release SHA | Clean target diff, CI SHA, release markers |
 | G-002 | P0 | Privacy | No export, deactivation, deletion, or cancellation workflow | Fresh-auth, audited, retention-aware lifecycle | Abuse tests, job audit trail, grace-period tests |
-| G-003 | P0 | Session security | UI conflates trusted devices with active sessions | Separate credential/device and active-session inventories | List/current/revoke-one/revoke-others tests; cross-user denial |
+| G-003 | P0 | Session security | Resolved on integration branch: trusted credentials and active sessions are separate, with revoke-one/others/all controls | Preserve the separation and fresh-MFA bulk revocation | List/current/revoke-one/revoke-others/revoke-all tests; cross-user denial |
 | G-004 | P0 | Rollout | No account-specific feature flag, SLO, or rollback plan | Progressive, observable release with server/client compatibility | Flag tests, dashboards, rollback rehearsal |
 | G-005 | P0 | Verification | Authenticated account UI cannot be reproduced in the controlled browser | Deterministic test account or fixture | Desktop/tablet/mobile screenshots and network/console logs |
 | G-006 | P0 | Dependency risk | Audit reports high-severity dependency findings | Review paths, upgrade only scoped packages, verify regressions | Triage record and clean/accepted audit gate |
@@ -25,7 +25,7 @@ Priority definitions:
 | G-015 | P1 | Orders | No invoice download capability found | Owner-scoped signed invoice/download contract where legally supported | Ownership, expiry, content-disposition tests |
 | G-016 | P1 | Notifications | Client hides server pagination and errors | Paginated inbox with accessible row actions and retry | Keyboard, unread count, multi-page, failure tests |
 | G-017 | P1 | Preferences | Settings notification toggles are not shown to persist | Durable per-channel/topic preferences with server allowlist | Read/update/concurrency and cross-device tests |
-| G-018 | P1 | Security activity | Internal events exist but no safe customer projection | Redacted account activity feed with retention and pagination | PII-redaction and ownership tests |
+| G-018 | P1 | Security activity | Resolved on integration branch: customer-safe allowlisted projection with signed owner-bound cursor | Preserve redaction, retention, and subject binding | PII-redaction, cursor-tamper, and ownership tests |
 | G-019 | P1 | Password/provider UX | Recovery substitutes for password change; provider lifecycle incomplete | Authenticated change/recovery distinction and last-factor guard | Step-up, revoke sessions, last-provider tests |
 | G-020 | P1 | Marketplace account | Listings/trade-ins/alerts/reviews are scattered or missing | Unified account destinations backed by existing owner-scoped domains | Routing, pagination and owner-denial tests |
 | G-021 | P1 | Support | Support section is a 93 kB mixed responsibility surface | Ticket list/detail/create modules with bounded history | Pagination and attachment/ownership tests |

@@ -204,6 +204,15 @@ export default function Profile() {
     const [activeSessionsLoaded, setActiveSessionsLoaded] = useState(false);
     const [activeSessionsError, setActiveSessionsError] = useState(null);
     const [activeSessionAction, setActiveSessionAction] = useState('');
+    const [securityActivity, setSecurityActivity] = useState([]);
+    const [securityActivityPagination, setSecurityActivityPagination] = useState({
+        hasMore: false,
+        nextCursor: null,
+    });
+    const [securityActivityRetentionDays, setSecurityActivityRetentionDays] = useState(180);
+    const [securityActivityLoading, setSecurityActivityLoading] = useState(false);
+    const [securityActivityLoaded, setSecurityActivityLoaded] = useState(false);
+    const [securityActivityError, setSecurityActivityError] = useState(null);
     const [intelligenceData, setIntelligenceData] = useState(null);
     const [intelligenceLoading, setIntelligenceLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
@@ -424,6 +433,54 @@ export default function Profile() {
         }
     }, [canUseProtectedProfileApis, currentUser]);
 
+    const refreshSecurityActivity = useCallback(async ({
+        silent = false,
+        append = false,
+        cursor = null,
+    } = {}) => {
+        if (!canUseProtectedProfileApis) {
+            setSecurityActivity([]);
+            setSecurityActivityPagination({ hasMore: false, nextCursor: null });
+            setSecurityActivityError(null);
+            setSecurityActivityLoaded(false);
+            setSecurityActivityLoading(false);
+            return [];
+        }
+
+        if (!silent) {
+            setSecurityActivityLoading(true);
+            setSecurityActivityError(null);
+        }
+
+        try {
+            const result = await authApi.getAccountSecurityActivity(
+                { cursor: cursor || '', limit: 20 },
+                { firebaseUser: currentUser }
+            );
+            const nextActivity = Array.isArray(result?.activity) ? result.activity : [];
+            setSecurityActivity((current) => append ? [...current, ...nextActivity] : nextActivity);
+            setSecurityActivityPagination({
+                hasMore: Boolean(result?.pagination?.hasMore),
+                nextCursor: result?.pagination?.nextCursor || null,
+            });
+            setSecurityActivityRetentionDays(Number(result?.retentionDays || 180));
+            setSecurityActivityError(null);
+            setSecurityActivityLoaded(true);
+            return nextActivity;
+        } catch (error) {
+            if (!isTrustedDeviceChallengeError(error)) {
+                console.error('Security activity fetch failed:', error);
+            }
+            setSecurityActivityError(error);
+            setSecurityActivityLoaded(true);
+            return null;
+        } finally {
+            if (!silent) {
+                setSecurityActivityLoading(false);
+            }
+        }
+    }, [canUseProtectedProfileApis, currentUser]);
+
     const refreshIntelligence = useCallback(async ({ silent = false } = {}) => {
         if (!canUseProtectedProfileApis) {
             setIntelligenceData(null);
@@ -588,8 +645,9 @@ export default function Profile() {
         void Promise.all([
             refreshMfaCenter(),
             refreshActiveSessions(),
+            refreshSecurityActivity(),
         ]);
-    }, [activeTab, canUseProtectedProfileApis, refreshActiveSessions, refreshMfaCenter]);
+    }, [activeTab, canUseProtectedProfileApis, refreshActiveSessions, refreshMfaCenter, refreshSecurityActivity]);
 
     useEffect(() => {
         if (activeTab !== 'rewards') return;
@@ -613,6 +671,7 @@ export default function Profile() {
                 ? Promise.all([
                     refreshMfaCenter({ silent: true }),
                     refreshActiveSessions({ silent: true }),
+                    refreshSecurityActivity({ silent: true }),
                 ])
                 : Promise.resolve(null),
             activeTab === 'rewards' ? refreshIntelligence({ silent: true }) : Promise.resolve(null),
@@ -1070,6 +1129,30 @@ export default function Profile() {
             return result;
         } catch (error) {
             showMsg('error', error.message || t('profile.message.otherSessionsRevokeFailed', {}, 'Could not sign out the other browser sessions.'));
+            throw error;
+        } finally {
+            setActiveSessionAction('');
+        }
+    };
+
+    const handleRevokeAllActiveSessions = async () => {
+        setActiveSessionAction('revoke-all');
+        try {
+            const result = await authApi.revokeAllAccountSessions({ firebaseUser: currentUser });
+            showMsg('success', t(
+                'profile.message.allSessionsRevoked',
+                {},
+                'Every browser session was revoked. You are being signed out.'
+            ));
+            await logout?.();
+            navigate('/login', { replace: true });
+            return result;
+        } catch (error) {
+            showMsg('error', error.message || t(
+                'profile.message.allSessionsRevokeFailed',
+                {},
+                'Could not sign out every browser session.'
+            ));
             throw error;
         } finally {
             setActiveSessionAction('');
@@ -1624,6 +1707,18 @@ export default function Profile() {
                             handleRetryActiveSessions={() => refreshActiveSessions()}
                             handleRevokeActiveSession={handleRevokeActiveSession}
                             handleRevokeOtherActiveSessions={handleRevokeOtherActiveSessions}
+                            handleRevokeAllActiveSessions={handleRevokeAllActiveSessions}
+                            securityActivity={securityActivity}
+                            securityActivityLoading={securityActivityLoading}
+                            securityActivityLoaded={securityActivityLoaded}
+                            securityActivityError={securityActivityError}
+                            securityActivityHasMore={securityActivityPagination.hasMore}
+                            securityActivityRetentionDays={securityActivityRetentionDays}
+                            handleRetrySecurityActivity={() => refreshSecurityActivity()}
+                            handleLoadMoreSecurityActivity={() => refreshSecurityActivity({
+                                append: true,
+                                cursor: securityActivityPagination.nextCursor,
+                            })}
                             linkedProviderIds={linkedProviderIds}
                             socialAuthStatus={socialAuthStatus}
                             providerLinking={providerLinking}

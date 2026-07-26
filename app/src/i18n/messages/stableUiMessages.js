@@ -13113,6 +13113,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Address updated.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.message.allSessionsRevokeFailed": {
+        id: "profile.message.allSessionsRevokeFailed",
+        defaultMessage: "Could not sign out every browser session.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.allSessionsRevoked": {
+        id: "profile.message.allSessionsRevoked",
+        defaultMessage: "Every browser session was revoked. You are being signed out.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.message.avatarUpdateFailed": {
         id: "profile.message.avatarUpdateFailed",
         defaultMessage: "Failed to update avatar.",
@@ -14328,6 +14338,201 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Aura Points Command Center",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.securityActivity.device.body": {
+        id: "profile.securityActivity.device.body",
+        defaultMessage: "One trusted credential or remembered browser was revoked.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.device.title": {
+        id: "profile.securityActivity.device.title",
+        defaultMessage: "Remembered browser revoked",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.devices.body": {
+        id: "profile.securityActivity.devices.body",
+        defaultMessage: "Other trusted credentials and remembered browsers were revoked.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.devices.title": {
+        id: "profile.securityActivity.devices.title",
+        defaultMessage: "Other remembered browsers revoked",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.empty": {
+        id: "profile.securityActivity.empty",
+        defaultMessage: "No customer-visible security events are available yet.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.error": {
+        id: "profile.securityActivity.error",
+        defaultMessage: "Security activity could not be loaded.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.generic.body": {
+        id: "profile.securityActivity.generic.body",
+        defaultMessage: "A security-related account action completed.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.generic.title": {
+        id: "profile.securityActivity.generic.title",
+        defaultMessage: "Security setting changed",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.global.body": {
+        id: "profile.securityActivity.global.body",
+        defaultMessage: "Every active browser session was revoked.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.global.title": {
+        id: "profile.securityActivity.global.title",
+        defaultMessage: "Signed out everywhere",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.loadMore": {
+        id: "profile.securityActivity.loadMore",
+        defaultMessage: "Load more activity",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.loading": {
+        id: "profile.securityActivity.loading",
+        defaultMessage: "Loading security activity",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.loadingMore": {
+        id: "profile.securityActivity.loadingMore",
+        defaultMessage: "Loading more...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.passkeyAdded.body": {
+        id: "profile.securityActivity.passkeyAdded.body",
+        defaultMessage: "A passkey was registered for account MFA.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.passkeyAdded.title": {
+        id: "profile.securityActivity.passkeyAdded.title",
+        defaultMessage: "Passkey added",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.passkeyRemoved.body": {
+        id: "profile.securityActivity.passkeyRemoved.body",
+        defaultMessage: "A registered passkey was removed.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.passkeyRemoved.title": {
+        id: "profile.securityActivity.passkeyRemoved.title",
+        defaultMessage: "Passkey removed",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.password.body": {
+        id: "profile.securityActivity.password.body",
+        defaultMessage: "Your password recovery flow completed.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.password.title": {
+        id: "profile.securityActivity.password.title",
+        defaultMessage: "Password changed",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.recovery.body": {
+        id: "profile.securityActivity.recovery.body",
+        defaultMessage: "A new set of backup recovery codes was created.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.recovery.title": {
+        id: "profile.securityActivity.recovery.title",
+        defaultMessage: "Recovery codes refreshed",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.recoveryUsed.body": {
+        id: "profile.securityActivity.recoveryUsed.body",
+        defaultMessage: "A backup recovery code completed an authentication step.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.recoveryUsed.title": {
+        id: "profile.securityActivity.recoveryUsed.title",
+        defaultMessage: "Recovery code used",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.refresh": {
+        id: "profile.securityActivity.refresh",
+        defaultMessage: "Refresh activity",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.retention": {
+        id: "profile.securityActivity.retention",
+        defaultMessage: "Customer-safe security events are available for up to {days} days. Operational identifiers and raw logs are never shown.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.risk.body": {
+        id: "profile.securityActivity.risk.body",
+        defaultMessage: "Aura evaluated a sign-in security signal.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.risk.title": {
+        id: "profile.securityActivity.risk.title",
+        defaultMessage: "Sign-in reviewed",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.session.body": {
+        id: "profile.securityActivity.session.body",
+        defaultMessage: "One browser session was revoked.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.session.title": {
+        id: "profile.securityActivity.session.title",
+        defaultMessage: "Session signed out",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.sessions.body": {
+        id: "profile.securityActivity.sessions.body",
+        defaultMessage: "All other browser sessions were revoked.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.sessions.title": {
+        id: "profile.securityActivity.sessions.title",
+        defaultMessage: "Other sessions signed out",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.signIn.body": {
+        id: "profile.securityActivity.signIn.body",
+        defaultMessage: "A browser session signed in to your account.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.signIn.title": {
+        id: "profile.securityActivity.signIn.title",
+        defaultMessage: "New sign-in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.title": {
+        id: "profile.securityActivity.title",
+        defaultMessage: "Security activity",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.totpAdded.body": {
+        id: "profile.securityActivity.totpAdded.body",
+        defaultMessage: "Authenticator-app MFA was enabled.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.totpAdded.title": {
+        id: "profile.securityActivity.totpAdded.title",
+        defaultMessage: "Authenticator enabled",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.totpRemoved.body": {
+        id: "profile.securityActivity.totpRemoved.body",
+        defaultMessage: "Authenticator-app MFA was disabled.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.totpRemoved.title": {
+        id: "profile.securityActivity.totpRemoved.title",
+        defaultMessage: "Authenticator disabled",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.unknownDate": {
+        id: "profile.securityActivity.unknownDate",
+        defaultMessage: "Unknown time",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.sessions.activeCount": {
         id: "profile.sessions.activeCount",
         defaultMessage: "{count} active",
@@ -14356,6 +14561,11 @@ export const stableUiMessages = defineMessages({
     "profile.sessions.confirmSignOut": {
         id: "profile.sessions.confirmSignOut",
         defaultMessage: "Confirm sign out",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.confirmSignOutAll": {
+        id: "profile.sessions.confirmSignOutAll",
+        defaultMessage: "Confirm sign out everywhere",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.sessions.confirmSignOutCount": {
@@ -14436,6 +14646,16 @@ export const stableUiMessages = defineMessages({
     "profile.sessions.signOut": {
         id: "profile.sessions.signOut",
         defaultMessage: "Sign out",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.signOutAll": {
+        id: "profile.sessions.signOutAll",
+        defaultMessage: "Sign out everywhere",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.signOutAllBody": {
+        id: "profile.sessions.signOutAllBody",
+        defaultMessage: "Revoke every active browser session, including this one. You will need to sign in again.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.sessions.signOutCurrentAria": {

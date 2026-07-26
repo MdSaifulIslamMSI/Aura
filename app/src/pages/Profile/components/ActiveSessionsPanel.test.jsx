@@ -66,6 +66,23 @@ describe('ActiveSessionsPanel', () => {
         await waitFor(() => expect(onRevokeOtherSessions).toHaveBeenCalledTimes(1));
     });
 
+    it('requires confirmation before revoking every session including the current browser', async () => {
+        const onRevokeAllSessions = vi.fn().mockResolvedValue({ revoked: 2 });
+        render(
+            <ActiveSessionsPanel
+                sessions={sessions}
+                loaded
+                onRevokeAllSessions={onRevokeAllSessions}
+            />
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'Sign out everywhere' }));
+        expect(onRevokeAllSessions).not.toHaveBeenCalled();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Confirm sign out everywhere' }));
+        await waitFor(() => expect(onRevokeAllSessions).toHaveBeenCalledTimes(1));
+    });
+
     it('preserves the last inventory when a refresh fails', () => {
         render(
             <ActiveSessionsPanel

@@ -1,8 +1,11 @@
 const sessionService = require('../services/browserSessionService');
 const telemetryService = require('../services/authSecurityTelemetryService');
+const activityService = require('../services/accountSecurityActivityService');
 const {
     getAccountSessions,
+    getAccountSecurityActivity,
     revokeAccountSession,
+    revokeAllAccountSessions,
     revokeOtherAccountSessions,
 } = require('../controllers/accountSecurityController');
 
@@ -11,15 +14,21 @@ jest.mock('../services/browserSessionService', () => ({
     listBrowserSessionsForUser: jest.fn(),
     revokeBrowserSessionForUserByPublicId: jest.fn(),
     revokeOtherBrowserSessionsForUser: jest.fn(),
+    revokeBrowserSessionsForUser: jest.fn(),
 }));
 
 jest.mock('../services/authSecurityTelemetryService', () => ({
     recordAuthSecurityEvent: jest.fn(),
 }));
 
+jest.mock('../services/accountSecurityActivityService', () => ({
+    listAccountSecurityActivity: jest.fn(),
+}));
+
 const buildResponse = () => ({
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
 });
 
 const flushController = async (controller, req, res, next) => {
@@ -133,5 +142,60 @@ describe('account security controller', () => {
             statusCode: 409,
             code: 'AUTH_CURRENT_SESSION_REQUIRED',
         }));
+    });
+
+    test('revokes all sessions for the authenticated user and clears this browser cookie', async () => {
+        const req = {
+            user: { _id: '507f1f77bcf86cd799439114' },
+            authSession: { sessionId: 'private-current-session' },
+        };
+        const res = buildResponse();
+        const next = jest.fn();
+        sessionService.revokeBrowserSessionsForUser.mockResolvedValue({ revoked: 3 });
+
+        await flushController(revokeAllAccountSessions, req, res, next);
+
+        expect(sessionService.revokeBrowserSessionsForUser).toHaveBeenCalledWith(req.user._id);
+        expect(sessionService.clearBrowserSessionCookie).toHaveBeenCalledWith(res, req);
+        expect(telemetryService.recordAuthSecurityEvent).toHaveBeenCalledWith(
+            expect.objectContaining({
+                event: 'auth.sessions.all_revoked_by_user',
+                meta: { revokedCount: 3 },
+            })
+        );
+        expect(res.json).toHaveBeenCalledWith({
+            success: true,
+            status: 'all_sessions_revoked',
+            revoked: 3,
+        });
+        expect(next).not.toHaveBeenCalled();
+    });
+
+    test('returns only the customer-safe security activity projection', async () => {
+        const req = {
+            user: { _id: '507f1f77bcf86cd799439115' },
+            query: { limit: 20 },
+        };
+        const res = buildResponse();
+        const next = jest.fn();
+        activityService.listAccountSecurityActivity.mockResolvedValue({
+            version: 1,
+            retentionDays: 180,
+            activity: [{ type: 'sign_in', outcome: 'success', occurredAt: '2026-07-26T10:00:00.000Z' }],
+            pagination: { limit: 20, hasMore: false, nextCursor: null },
+        });
+
+        await flushController(getAccountSecurityActivity, req, res, next);
+
+        expect(activityService.listAccountSecurityActivity).toHaveBeenCalledWith({
+            userId: req.user._id,
+            limit: 20,
+            cursor: undefined,
+        });
+        expect(res.set).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            activity: [expect.not.objectContaining({ userId: expect.anything() })],
+        }));
+        expect(next).not.toHaveBeenCalled();
     });
 });

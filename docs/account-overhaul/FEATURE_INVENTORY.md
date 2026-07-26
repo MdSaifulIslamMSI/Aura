@@ -27,8 +27,8 @@ Status definitions:
 | TOTP MFA | Setup and verification | MFA endpoints and step-up | Implemented | Preserve deployment flags and recent-auth gates |
 | Recovery codes | Generate/download/verify | Hashed, single-use server codes | Implemented | One-time display semantics already present |
 | Trusted devices | Rename/revoke/revoke-others | Customer/admin policy and device-scoped session revocation | Implemented | Must not be relabeled as complete active sessions |
-| Active sessions | Dedicated inventory, refresh, revoke-one, and revoke-others controls | Owner-scoped opaque aliases, bounded projection, targeted revocation, fresh-MFA revoke-others | Implemented | Public response excludes raw session, identity, network, fingerprint, cookie, token, and Redis material; revoke-all remains part of the complete Security Center wave |
-| Security activity | No customer history screen | Security event/outbox models exist | Absent | Raw internal events must not be exposed; needs redacted subject-linked projection |
+| Active sessions | Dedicated inventory, refresh, revoke-one, revoke-others, and deliberate revoke-all controls | Owner-scoped opaque aliases, bounded projection, targeted revocation, fresh-MFA bulk revocation | Implemented | Public response excludes raw session, identity, network, fingerprint, cookie, token, and Redis material |
+| Security activity | Bounded, retryable, cursor-paginated customer history | Owner filter, explicit event allowlist, safe three-field projection, signed owner-bound cursor, 180-day published-event retention | Implemented | Raw outbox records, identifiers, network data, provider payloads, and internal risk details are never returned |
 | Linked sign-in providers | Microsoft/Apple linking controls | Firebase/session identity support | Partial | Needs unlink/recovery policy and tested last-provider protection |
 | Seller listings | Summary and link | Owner-scoped listing APIs | Partial | No unified status/search/pagination account module |
 | Trade-ins | Separate route | Owner-scoped CRUD and estimates | Partial | Not integrated into Account Center |

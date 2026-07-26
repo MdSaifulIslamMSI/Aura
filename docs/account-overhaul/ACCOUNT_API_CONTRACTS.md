@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-The active-session contracts below are implemented in the current branch. Summary, security-activity, notification-preference, and privacy-lifecycle contracts remain target contracts and are not represented as shipped. Destructive privacy contracts stay blocked until jurisdiction, retention, deletion-grace, and export-delivery policy is approved.
+The account summary, notification-preference, active-session, and customer-safe security-activity contracts below are implemented in the current branch. Destructive privacy contracts stay blocked until jurisdiction, retention, deletion-grace, and export-delivery policy is approved.
 
 ## Contract principles
 
@@ -169,7 +169,6 @@ Never return raw session IDs, cookies, access/refresh tokens, IPs, user-agent st
 
 ### `POST /api/account/sessions/revoke-all`
 
-- **Target contract; not implemented in this wave.**
 - Requires fresh auth/step-up and explicit confirmation.
 - Revokes all subject sessions and clears the current cookie.
 
@@ -178,8 +177,9 @@ Never return raw session IDs, cookies, access/refresh tokens, IPs, user-agent st
 ### `GET /api/account/security-activity?cursor=...&limit=20`
 
 - Owner-only, cursor-paginated, maximum limit 50.
+- Cursors are HMAC-signed, owner-bound, and stable across equal timestamps; malformed, altered, or cross-user cursors fail closed.
 - Maps allowlisted internal event types to customer language.
-- Coarsens location and strips identifiers.
+- Returns only allowlisted event type, normalized outcome, and occurrence time.
 - Excludes admin-only rationale, fraud features, raw risk scores, IPs, tokens, provider responses, and other users.
 
 Allowed initial events:

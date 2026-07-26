@@ -5,6 +5,7 @@ import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import ActiveSessionsPanel from './ActiveSessionsPanel';
 import NotificationPreferencesPanel from './NotificationPreferencesPanel';
+import SecurityActivityPanel from './SecurityActivityPanel';
 
 const isTrustedDeviceActive = (device) => (
     device?.active !== false && !['revoked', 'expired'].includes(device?.status)
@@ -61,6 +62,15 @@ export default function SettingsSection({
     handleRetryActiveSessions,
     handleRevokeActiveSession,
     handleRevokeOtherActiveSessions,
+    handleRevokeAllActiveSessions,
+    securityActivity = [],
+    securityActivityLoading = false,
+    securityActivityLoaded = false,
+    securityActivityError = null,
+    securityActivityHasMore = false,
+    securityActivityRetentionDays = 180,
+    handleRetrySecurityActivity,
+    handleLoadMoreSecurityActivity,
     linkedProviderIds = [],
     socialAuthStatus = {},
     providerLinking = '',
@@ -341,6 +351,18 @@ export default function SettingsSection({
                         onRetry={handleRetryActiveSessions}
                         onRevokeSession={handleRevokeActiveSession}
                         onRevokeOtherSessions={handleRevokeOtherActiveSessions}
+                        onRevokeAllSessions={handleRevokeAllActiveSessions}
+                    />
+
+                    <SecurityActivityPanel
+                        activity={securityActivity}
+                        retentionDays={securityActivityRetentionDays}
+                        loading={securityActivityLoading}
+                        loaded={securityActivityLoaded}
+                        error={securityActivityError}
+                        hasMore={securityActivityHasMore}
+                        onRetry={handleRetrySecurityActivity}
+                        onLoadMore={handleLoadMoreSecurityActivity}
                     />
 
                     {showMfaCenterContent ? (

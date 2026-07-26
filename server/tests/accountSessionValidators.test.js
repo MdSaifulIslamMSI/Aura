@@ -1,6 +1,8 @@
 const {
     getAccountSessionsSchema,
+    getAccountSecurityActivitySchema,
     revokeAccountSessionSchema,
+    revokeAllAccountSessionsSchema,
     revokeOtherAccountSessionsSchema,
 } = require('../validators/accountSessionValidators');
 
@@ -35,6 +37,18 @@ describe('account session validators', () => {
     test('rejects client-supplied authority on revoke-others', () => {
         expect(revokeOtherAccountSessionsSchema.safeParse({
             body: { preserveSessionId: 'client-chosen-session' },
+        }).success).toBe(false);
+    });
+
+    test('bounds security activity pagination and rejects authority on revoke-all', () => {
+        expect(getAccountSecurityActivitySchema.parse({
+            query: { limit: '50', cursor: 'opaque.cursor' },
+        }).query.limit).toBe(50);
+        expect(getAccountSecurityActivitySchema.safeParse({
+            query: { limit: '51' },
+        }).success).toBe(false);
+        expect(revokeAllAccountSessionsSchema.safeParse({
+            body: { userId: 'another-user' },
         }).success).toBe(false);
     });
 });
