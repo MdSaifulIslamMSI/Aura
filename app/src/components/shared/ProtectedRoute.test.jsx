@@ -13,11 +13,17 @@ vi.mock('@/components/auth/AdminSecurityCheckpoint', () => ({
         status = '',
         currentUser = null,
         roles = null,
+        mfaChallenge = null,
+        mfaPolicy = null,
     } = {}) => Boolean(
         String(pathname).startsWith('/admin')
         && status === 'mfa_challenge_required'
         && currentUser
-        && roles?.isAdmin
+        && (
+            roles?.isAdmin
+            || mfaChallenge?.audience === 'admin'
+            || mfaPolicy?.audience === 'admin'
+        )
     ),
 }));
 
@@ -178,6 +184,31 @@ describe('ProtectedRoute', () => {
         });
 
         expect(screen.getByText('Authoritative admin security checkpoint')).toBeInTheDocument();
+        expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
+    });
+
+    it('routes an explicit admin MFA challenge before client role state resolves', () => {
+        renderAdminRoute({
+            status: 'mfa_challenge_required',
+            sessionError: null,
+            sessionIntelligence: null,
+            roles: { isAdmin: false },
+            mfaChallenge: {
+                challengeId: 'admin-login-challenge',
+                audience: 'admin',
+                requiredAssurance: 'admin_passkey',
+            },
+            mfaPolicy: {
+                audience: 'admin',
+                allowedMethods: ['passkey'],
+            },
+            refreshSession: vi.fn().mockResolvedValue(null),
+            logout: vi.fn().mockResolvedValue(null),
+            currentUser: { uid: 'u_admin', email: 'admin@example.com' },
+        });
+
+        expect(screen.getByText('Authoritative admin security checkpoint')).toBeInTheDocument();
+        expect(screen.queryByText('Storefront')).not.toBeInTheDocument();
         expect(screen.queryByText('Admin Dashboard')).not.toBeInTheDocument();
     });
 

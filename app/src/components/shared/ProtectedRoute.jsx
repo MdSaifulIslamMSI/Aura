@@ -262,7 +262,17 @@ export const ProtectedRoute = ({ children }) => {
 
 export const AdminRoute = ({ children }) => {
     const { auth, intl, location, navigate, t } = useAuthGate();
-    const { status, roles, sessionError, sessionIntelligence, refreshSession, currentUser, logout } = auth;
+    const {
+        status,
+        roles,
+        sessionError,
+        sessionIntelligence,
+        refreshSession,
+        currentUser,
+        logout,
+        mfaChallenge,
+        mfaPolicy,
+    } = auth;
     const adminAccessLock = currentUser ? getAdminAccessLockFromIntelligence(sessionIntelligence) : null;
     const isBootstrapping = AUTH_BOOTSTRAP_STATES.has(status);
     const useAdminSecurityCheckpoint = shouldUseAdminSecurityCheckpoint({
@@ -270,13 +280,15 @@ export const AdminRoute = ({ children }) => {
         status,
         currentUser,
         roles,
+        mfaChallenge,
+        mfaPolicy,
     });
 
     if (!isBootstrapping && !currentUser) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (!isBootstrapping && !roles?.isAdmin) {
+    if (!isBootstrapping && !roles?.isAdmin && !useAdminSecurityCheckpoint) {
         return <Navigate to="/" state={{ from: location }} replace />;
     }
 

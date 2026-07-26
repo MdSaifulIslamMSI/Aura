@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi, getDuoStepUpUrl } from '@/services/api/authApi';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { resolveCheckpointPresentation } from '@/components/features/auth/AuthCheckpointLayer';
 
 export const ADMIN_SECURITY_UI_ENABLED = String(
     import.meta.env.VITE_ADMIN_SECURITY_STATE_ENGINE_V2 || 'false'
@@ -12,12 +13,20 @@ export const shouldUseAdminSecurityCheckpoint = ({
     status = '',
     currentUser = null,
     roles = null,
+    mfaChallenge = null,
+    mfaPolicy = null,
 } = {}) => Boolean(
     ADMIN_SECURITY_UI_ENABLED
     && String(pathname || '').startsWith('/admin')
     && status === 'mfa_challenge_required'
     && currentUser
-    && roles?.isAdmin
+    && (
+        roles?.isAdmin
+        || resolveCheckpointPresentation({
+            challenge: mfaChallenge,
+            policy: mfaPolicy,
+        }).isAdmin
+    )
 );
 
 const buildStateCopy = (t) => ({

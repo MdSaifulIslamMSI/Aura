@@ -70,6 +70,30 @@ describe('AdminSecurityCheckpoint', () => {
         })).toBe(false);
     });
 
+    it('uses explicit server admin challenge metadata while role state is still resolving', () => {
+        const subject = {
+            pathname: '/admin/dashboard',
+            status: 'mfa_challenge_required',
+            currentUser: { uid: 'admin-1' },
+            roles: { isAdmin: false },
+            mfaChallenge: {
+                challengeId: 'admin-login-challenge',
+                audience: 'admin',
+                requiredAssurance: 'admin_passkey',
+            },
+        };
+
+        expect(shouldUseAdminSecurityCheckpoint(subject)).toBe(true);
+        expect(shouldUseAdminSecurityCheckpoint({
+            ...subject,
+            mfaChallenge: {
+                challengeId: 'checkout-challenge',
+                audience: 'public',
+                surface: 'checkout',
+            },
+        })).toBe(false);
+    });
+
     it('exchanges a recovery grant without browser persistence and advances to enrollment', async () => {
         getAdminSecurityStatus
             .mockResolvedValueOnce({
