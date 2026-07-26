@@ -12613,6 +12613,66 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "{count} with photo/video proof",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.accountCenter.atAGlance": {
+        id: "profile.accountCenter.atAGlance",
+        defaultMessage: "At a glance",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.changePhotoAria": {
+        id: "profile.accountCenter.changePhotoAria",
+        defaultMessage: "Change profile photo",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.completion": {
+        id: "profile.accountCenter.completion",
+        defaultMessage: "{percent}% complete",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.memberEyebrow": {
+        id: "profile.accountCenter.memberEyebrow",
+        defaultMessage: "Aura member",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.memberSince": {
+        id: "profile.accountCenter.memberSince",
+        defaultMessage: "Member since {date}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.noEmail": {
+        id: "profile.accountCenter.noEmail",
+        defaultMessage: "No email on file",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.profileLabel": {
+        id: "profile.accountCenter.profileLabel",
+        defaultMessage: "Profile",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.sectionLabel": {
+        id: "profile.accountCenter.sectionLabel",
+        defaultMessage: "Account section",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.sectionsAria": {
+        id: "profile.accountCenter.sectionsAria",
+        defaultMessage: "Account sections",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.skipToContent": {
+        id: "profile.accountCenter.skipToContent",
+        defaultMessage: "Skip to account content",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.statusLabel": {
+        id: "profile.accountCenter.statusLabel",
+        defaultMessage: "Account status",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.title": {
+        id: "profile.accountCenter.title",
+        defaultMessage: "Account center",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.accountState.active": {
         id: "profile.accountState.active",
         defaultMessage: "active",
@@ -12738,11 +12798,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Work",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.avatar.alt": {
-        id: "profile.avatar.alt",
-        defaultMessage: "{profileName} avatar",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "profile.confirm.deleteAddress": {
         id: "profile.confirm.deleteAddress",
         defaultMessage: "Delete this address?",
@@ -12753,119 +12808,29 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Are you sure you want to delete this payment method?",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.hero.admin": {
-        id: "profile.hero.admin",
-        defaultMessage: "Admin account",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.auraTier": {
-        id: "profile.hero.auraTier",
-        defaultMessage: "Aura tier: {tier}",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.bioFallback": {
-        id: "profile.hero.bioFallback",
-        defaultMessage: "Your Aura profile now acts as a member command deck for identity, trust posture, rewards, support, and marketplace activity.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.completion": {
-        id: "profile.hero.completion",
-        defaultMessage: "Completion {count}%",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.eyebrow": {
-        id: "profile.hero.eyebrow",
-        defaultMessage: "Profile Command Deck",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.identityNeedsAttention": {
-        id: "profile.hero.identityNeedsAttention",
-        defaultMessage: "Identity needs attention",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.identityVerified": {
-        id: "profile.hero.identityVerified",
-        defaultMessage: "Verified identity",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.memberSince": {
-        id: "profile.hero.memberSince",
-        defaultMessage: "Member since {date}",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.noEmail": {
-        id: "profile.hero.noEmail",
-        defaultMessage: "No email on file",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.noPhone": {
-        id: "profile.hero.noPhone",
-        defaultMessage: "No verified phone yet",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.paymentMethod.plural": {
-        id: "profile.hero.paymentMethod.plural",
-        defaultMessage: "methods",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.paymentMethod.single": {
-        id: "profile.hero.paymentMethod.single",
-        defaultMessage: "method",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.paymentMethods": {
-        id: "profile.hero.paymentMethods",
-        defaultMessage: "{count} saved payment {value2}",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.refineProfile": {
-        id: "profile.hero.refineProfile",
-        defaultMessage: "Refine profile",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.supportAppeals": {
-        id: "profile.hero.supportAppeals",
-        defaultMessage: "Support & appeals",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.trustDegraded": {
-        id: "profile.hero.trustDegraded",
-        defaultMessage: "Trust monitoring degraded",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.trustHealthy": {
-        id: "profile.hero.trustHealthy",
-        defaultMessage: "Trust healthy",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.hero.viewOrders": {
-        id: "profile.hero.viewOrders",
-        defaultMessage: "View orders",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "profile.heroMetric.listings.detail": {
         id: "profile.heroMetric.listings.detail",
-        defaultMessage: "Marketplace presence",
+        defaultMessage: "Currently in the marketplace",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.heroMetric.listings.label": {
         id: "profile.heroMetric.listings.label",
-        defaultMessage: "Listings active",
+        defaultMessage: "Active listings",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.heroMetric.orders.detail": {
         id: "profile.heroMetric.orders.detail",
-        defaultMessage: "Customer activity",
+        defaultMessage: "Placed from this account",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.heroMetric.orders.label": {
         id: "profile.heroMetric.orders.label",
-        defaultMessage: "Orders tracked",
+        defaultMessage: "Orders",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.heroMetric.points.detail": {
         id: "profile.heroMetric.points.detail",
-        defaultMessage: "{tier} reward posture",
+        defaultMessage: "{tier} tier",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.heroMetric.points.label": {
@@ -12875,12 +12840,12 @@ export const stableUiMessages = defineMessages({
     },
     "profile.heroMetric.wishlist.detail": {
         id: "profile.heroMetric.wishlist.detail",
-        defaultMessage: "Saved demand signals",
+        defaultMessage: "In your wishlist",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.heroMetric.wishlist.label": {
         id: "profile.heroMetric.wishlist.label",
-        defaultMessage: "Wishlist intent",
+        defaultMessage: "Saved items",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.jsx.text.account.deleted.740c2b4b": {
@@ -12960,17 +12925,17 @@ export const stableUiMessages = defineMessages({
     },
     "profile.loading.body": {
         id: "profile.loading.body",
-        defaultMessage: "Syncing your account, rewards, addresses, and trust posture.",
+        defaultMessage: "Loading your profile and account summary. This may take a few seconds.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.loading.kicker": {
         id: "profile.loading.kicker",
-        defaultMessage: "Aura Identity Suite",
+        defaultMessage: "Aura account center",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.loading.title": {
         id: "profile.loading.title",
-        defaultMessage: "Preparing your profile cockpit",
+        defaultMessage: "Preparing your account",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.memberFallback": {
@@ -13043,6 +13008,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Card saved successfully.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.message.currentSessionRevoked": {
+        id: "profile.message.currentSessionRevoked",
+        defaultMessage: "This browser session was revoked. You are being signed out.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.message.currentTrustedDeviceRevoked": {
         id: "profile.message.currentTrustedDeviceRevoked",
         defaultMessage: "This device was revoked. You are being signed out.",
@@ -13071,6 +13041,16 @@ export const stableUiMessages = defineMessages({
     "profile.message.optimizationStarted": {
         id: "profile.message.optimizationStarted",
         defaultMessage: "Aura Intelligence optimization started. Fresh insights will appear shortly.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.otherSessionsRevokeFailed": {
+        id: "profile.message.otherSessionsRevokeFailed",
+        defaultMessage: "Could not sign out the other browser sessions.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.otherSessionsRevoked": {
+        id: "profile.message.otherSessionsRevoked",
+        defaultMessage: "{count} other browser {value2} signed out.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.message.otherTrustedDevicesRevoked": {
@@ -13181,6 +13161,16 @@ export const stableUiMessages = defineMessages({
     "profile.message.secureRecoveryRequirements": {
         id: "profile.message.secureRecoveryRequirements",
         defaultMessage: "Secure recovery requires the verified account email and registered phone number.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.sessionRevokeFailed": {
+        id: "profile.message.sessionRevokeFailed",
+        defaultMessage: "Could not sign out this browser session.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.message.sessionRevoked": {
+        id: "profile.message.sessionRevoked",
+        defaultMessage: "Browser session signed out.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.message.totpCodeRequired": {
@@ -14153,6 +14143,166 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Aura Points Command Center",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.sessions.activeCount": {
+        id: "profile.sessions.activeCount",
+        defaultMessage: "{count} active",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.cancel": {
+        id: "profile.sessions.cancel",
+        defaultMessage: "Cancel",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.clientOnOs": {
+        id: "profile.sessions.clientOnOs",
+        defaultMessage: "{client} on {os}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.confirmCurrentAria": {
+        id: "profile.sessions.confirmCurrentAria",
+        defaultMessage: "Confirm sign out {client}, current session",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.confirmSessionAria": {
+        id: "profile.sessions.confirmSessionAria",
+        defaultMessage: "Confirm sign out {client}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.confirmSignOut": {
+        id: "profile.sessions.confirmSignOut",
+        defaultMessage: "Confirm sign out",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.confirmSignOutCount": {
+        id: "profile.sessions.confirmSignOutCount",
+        defaultMessage: "Confirm sign out {count}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.current": {
+        id: "profile.sessions.current",
+        defaultMessage: "Current",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.currentConfirmation": {
+        id: "profile.sessions.currentConfirmation",
+        defaultMessage: "This will sign you out on this browser.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.currentProtected": {
+        id: "profile.sessions.currentProtected",
+        defaultMessage: "This session is protected",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.description": {
+        id: "profile.sessions.description",
+        defaultMessage: "These are signed-in browser sessions. They are separate from passkeys and remembered browsers, which identify or verify a device but do not prove that a session is still active.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.emptyBody": {
+        id: "profile.sessions.emptyBody",
+        defaultMessage: "Refresh the page or sign in again if this browser should appear.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.emptyTitle": {
+        id: "profile.sessions.emptyTitle",
+        defaultMessage: "No active browser sessions found",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.heading": {
+        id: "profile.sessions.heading",
+        defaultMessage: "Active sessions",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.inventory": {
+        id: "profile.sessions.inventory",
+        defaultMessage: "Session inventory",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.lastActive": {
+        id: "profile.sessions.lastActive",
+        defaultMessage: "Last active {date}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.loadError": {
+        id: "profile.sessions.loadError",
+        defaultMessage: "Your active sessions could not be loaded. No sessions were changed.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.loadingAria": {
+        id: "profile.sessions.loadingAria",
+        defaultMessage: "Loading active sessions",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.otherConfirmation": {
+        id: "profile.sessions.otherConfirmation",
+        defaultMessage: "This browser session will need to sign in again.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.refresh": {
+        id: "profile.sessions.refresh",
+        defaultMessage: "Refresh",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.refreshing": {
+        id: "profile.sessions.refreshing",
+        defaultMessage: "Refreshing...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.signOut": {
+        id: "profile.sessions.signOut",
+        defaultMessage: "Sign out",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.signOutCurrentAria": {
+        id: "profile.sessions.signOutCurrentAria",
+        defaultMessage: "Sign out {client}, current session",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.signOutOthers": {
+        id: "profile.sessions.signOutOthers",
+        defaultMessage: "Sign out other sessions",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.signOutOthersBody": {
+        id: "profile.sessions.signOutOthersBody",
+        defaultMessage: "{count, plural, one {Keep this browser signed in and revoke # other session.} other {Keep this browser signed in and revoke # other sessions.}}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.signOutSessionAria": {
+        id: "profile.sessions.signOutSessionAria",
+        defaultMessage: "Sign out {client}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.signingOut": {
+        id: "profile.sessions.signingOut",
+        defaultMessage: "Signing out...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.started": {
+        id: "profile.sessions.started",
+        defaultMessage: "Started {date}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.unknownBrowser": {
+        id: "profile.sessions.unknownBrowser",
+        defaultMessage: "Unknown browser",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.sessions.unknownDate": {
+        id: "profile.sessions.unknownDate",
+        defaultMessage: "Unknown",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.credentials.emptyTitle": {
+        id: "profile.settings.credentials.emptyTitle",
+        defaultMessage: "No trusted credentials or remembered browsers",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.credentials.title": {
+        id: "profile.settings.credentials.title",
+        defaultMessage: "Trusted credentials and remembered browsers",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.settings.devices.activeCount": {
         id: "profile.settings.devices.activeCount",
         defaultMessage: "{count} active",
@@ -14216,11 +14366,6 @@ export const stableUiMessages = defineMessages({
     "profile.settings.devices.emptySignedInBody": {
         id: "profile.settings.devices.emptySignedInBody",
         defaultMessage: "A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "profile.settings.devices.emptySignedInTitle": {
-        id: "profile.settings.devices.emptySignedInTitle",
-        defaultMessage: "No signed-in devices or remembered browsers",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.devices.lastVerified": {
@@ -14293,11 +14438,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Revoking...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.devices.signedInTitle": {
-        id: "profile.settings.devices.signedInTitle",
-        defaultMessage: "Signed-in devices and remembered browsers",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "profile.settings.devices.syncEligible": {
         id: "profile.settings.devices.syncEligible",
         defaultMessage: "Sync eligible",
@@ -14311,6 +14451,11 @@ export const stableUiMessages = defineMessages({
     "profile.settings.devices.unknown": {
         id: "profile.settings.devices.unknown",
         defaultMessage: "Unknown",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.loading": {
+        id: "profile.settings.loading",
+        defaultMessage: "Loading security and settings...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.notifications.marketplace.desc": {
@@ -14390,7 +14535,7 @@ export const stableUiMessages = defineMessages({
     },
     "profile.settings.security.centerLoadingBody": {
         id: "profile.settings.security.centerLoadingBody",
-        defaultMessage: "Checking your passkeys, MFA methods, signed-in devices, and remembered browsers.",
+        defaultMessage: "Checking your passkeys, MFA methods, trusted credentials, and remembered browsers.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.security.centerLoadingTitle": {
@@ -15433,9 +15578,19 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Addresses",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.tab.addresses.description": {
+        id: "profile.tab.addresses.description",
+        defaultMessage: "Keep delivery and billing addresses accurate for checkout.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.tab.listings": {
         id: "profile.tab.listings",
-        defaultMessage: "My Listings",
+        defaultMessage: "My listings",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.tab.listings.description": {
+        id: "profile.tab.listings.description",
+        defaultMessage: "Manage the marketplace listings connected to your seller account.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.tab.notifications": {
@@ -15443,9 +15598,19 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Notifications",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.tab.notifications.description": {
+        id: "profile.tab.notifications.description",
+        defaultMessage: "Read account, order, marketplace, and support updates.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.tab.orders": {
         id: "profile.tab.orders",
         defaultMessage: "Orders",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.tab.orders.description": {
+        id: "profile.tab.orders.description",
+        defaultMessage: "Review recent purchases and continue order-related tasks.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.tab.overview": {
@@ -15453,29 +15618,59 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Overview",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.tab.overview.description": {
+        id: "profile.tab.overview.description",
+        defaultMessage: "See the account details and recent activity that need your attention.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.tab.payments": {
         id: "profile.tab.payments",
         defaultMessage: "Payments",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.tab.payments.description": {
+        id: "profile.tab.payments.description",
+        defaultMessage: "Review saved payment methods and account payment preferences.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.tab.personal": {
         id: "profile.tab.personal",
-        defaultMessage: "Personal Info",
+        defaultMessage: "Personal information",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.tab.personal.description": {
+        id: "profile.tab.personal.description",
+        defaultMessage: "Manage your profile details and verified contact information.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.tab.rewards": {
         id: "profile.tab.rewards",
-        defaultMessage: "Aura Points",
+        defaultMessage: "Aura points",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.tab.rewards.description": {
+        id: "profile.tab.rewards.description",
+        defaultMessage: "Review your balance, tier, and recent rewards activity.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.tab.settings": {
         id: "profile.tab.settings",
-        defaultMessage: "Settings",
+        defaultMessage: "Security & settings",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.tab.settings.description": {
+        id: "profile.tab.settings.description",
+        defaultMessage: "Manage sign-in protection, trusted credentials, recovery, and account preferences.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.tab.support": {
         id: "profile.tab.support",
-        defaultMessage: "Appeals & Support",
+        defaultMessage: "Support",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.tab.support.description": {
+        id: "profile.tab.support.description",
+        defaultMessage: "Open and follow account appeals or support requests.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "search.allCategories": {
