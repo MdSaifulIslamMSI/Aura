@@ -35,6 +35,7 @@ Priority definitions:
 | G-025 | P2 | Performance | Profile route and total lazy payload are large | Module-level code splitting and render isolation | Bundle diff, interaction trace, request budget |
 | G-026 | P2 | Offline UX | No deliberate stale/offline states | Read-only cached state with clear retry and mutation blocking | Offline browser test |
 | G-027 | P2 | Localization | Large account copy is spread across components | Stable message catalog with locale fallbacks | Key discovery and representative locale tests |
+| G-028 | P1 | Database migration | Resolved on integration branch: Account Center schema versioning, owner-history indexes and resumable evidence tooling are additive and fail-closed | Preserve count-only audit, explicit apply authorization, bounded checkpoints, safe failure quarantine and redacted explain evidence | Four focused suites / 16 tests; staging snapshot audit, index build, backup/restore, repair-pass and query-plan rehearsal |
 
 ## Implementation order implied by risk
 

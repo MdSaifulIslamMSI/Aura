@@ -19,6 +19,10 @@ const priceAlertSchema = mongoose.Schema({
 });
 
 priceAlertSchema.index({ user: 1, isActive: 1 });
+priceAlertSchema.index(
+    { user: 1, createdAt: -1, _id: -1 },
+    { name: 'price_alert_owner_history' }
+);
 priceAlertSchema.index({ productId: 1, isActive: 1, targetPrice: 1 });
 
 module.exports = mongoose.model('PriceAlert', priceAlertSchema);

@@ -44,6 +44,7 @@ Status definitions:
 | Accessibility | Some labels, sections, live status patterns | N/A | Partial | Missing complete tabs semantics, focus treatment, field errors, keyboard rows |
 | Account observability | Generic auth/security telemetry exists | Metrics and security outbox | Partial | No account-module latency/failure/adoption dashboard or rollout SLOs |
 | Account feature flags | Deployment flags exist for auth/MFA | No unified account-overhaul flag contract found | Absent | Needed for progressive rollout and rollback |
+| Account schema migration | Version 2 readers tolerate absent version metadata | Additive audit/apply CLI, persistent checkpoints, named indexes and safe query-plan evidence | Implemented on integration branch | No live database apply occurred; staging snapshot, index-build, backup/restore and explain evidence remain release gates |
 
 ## Preserve-worthy security behavior
 

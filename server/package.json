@@ -57,7 +57,9 @@
     "migrate:otp-session-identity": "node scripts/migrate_otp_session_identity_key.js",
     "migrate:trusted-device-v2": "node scripts/trusted_device_v2_migration.js",
     "migrate:admin-security-v2": "node scripts/migrate_admin_security_v2.js",
-    "avatar:cleanup": "node scripts/cleanup_avatar_media.js"
+    "avatar:cleanup": "node scripts/cleanup_avatar_media.js",
+    "migrate:account-center-v2": "node scripts/migrate_account_center_v2.js",
+    "verify:account-center-queries": "node scripts/verify_account_center_queries.js"
   },
   "keywords": [],
   "author": "",

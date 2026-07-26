@@ -10,6 +10,7 @@
 | Avatar Account Center workflow and API client | **PASS**: 3 Vitest files, 45 tests |
 | Marketplace Account Center hub and API client | **PASS**: 5 backend suites, 13 tests; 4 frontend files, 47 tests |
 | Policy-gated privacy lifecycle framework | **PASS**: 6 backend suites, 18 tests; 3 frontend files, 47 tests; activation remains blocked |
+| Account Center V2 additive migration and index contract | **PASS**: 4 Jest suites, 16 tests; no live database mutation performed |
 | High-cardinality revoke-others | **PASS**: public list capped at 20; all 101 other sessions revoked; current and other-user sessions preserved |
 | Sensitive-route enforcement | **PASS**: standard scanner and strict coverage for 98 route entries |
 | Targeted frontend lint | **PASS with one pre-existing warning**: no errors; existing `currentUser.uid` dependency warning |
@@ -148,5 +149,7 @@ Current focused tests:
 - Wave H localization: 21 catalogs, 4,860 ICU messages and zero critical structural issues; native review remains pending.
 - Wave I policy activation, idempotency, owner scope, grace, cancellation, safe projection, worker lease/recovery, UI disabled/enabled states and API client: 18 backend and 47 frontend tests passed.
 - Wave I localization/build: 21 catalogs, 4,883 ICU messages, zero critical structural issues, and a 2.46 kB gzip lazy privacy chunk; native review remains pending.
+- Wave J additive migration audit/apply authorization, schema default, named indexes, bounded pause/resume/repair, failure quarantine, CLI parsing and redacted query-plan evidence: 4 backend suites and 16 tests passed.
+- Wave J live database snapshot audit, index build, query explain, backup restore and apply rehearsal are not verified locally and remain staging gates.
 
 Current broad local suites timed out and are not accepted as passes. Before merge, new focused shards must pass and the relevant CI suites must return terminal green statuses on the exact SHA.

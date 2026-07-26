@@ -98,6 +98,32 @@ Introduce a server-side maximum for new writes only after inventorying current a
 
 ## Migration phases
 
+## Account Center V2 schema-version migration
+
+Wave J adds the executable, additive migration contract:
+
+- `npm --prefix server run migrate:account-center-v2 -- --mode=audit --run-id=<safe-id>` records a count-only audit without modifying users or building indexes.
+- Apply mode additionally requires `--execute`, `ACCOUNT_CENTER_MIGRATION_APPLY_ENABLED=true`, an operator, change ticket, backup evidence, and an immutable 40-character rollback SHA.
+- Apply runs write `accountCenterSchemaVersion: 2` only when the field is absent or below version 2.
+- Work is bounded by batch size, maximum batches, delay, and a stable `_id` checkpoint.
+- Paused or failed runs resume with an idempotent repair pass so concurrent inserts or earlier partial failures cannot remain behind the checkpoint.
+- Run evidence records counts, status, checkpoint, safe failure code, approvals, and observed index names. It never records customer values or database error text.
+- `npm --prefix server run verify:account-center-queries` verifies required index inventory.
+- `npm --prefix server run verify:account-center-queries -- --explain --owner-id=<staging-fixture-id>` adds redacted execution statistics for the four owner-history queries and never prints the owner ID.
+
+Required additive owner-history indexes are named:
+
+```text
+listing_owner_history
+product_review_owner_history
+trade_in_owner_history
+price_alert_owner_history
+```
+
+Privacy job idempotency, owner-history, and worker-queue indexes are also included in the migration evidence.
+
+The local implementation and dry-run help contract are verified. No staging snapshot audit, index build, query-plan explain, backup restore, or apply run has been performed yet.
+
 ### Phase 1: inventory
 
 Dry-run counts:
@@ -175,6 +201,8 @@ Legacy field removal is not part of the initial overhaul rollout.
 - Query plans before/after each index.
 - Backup restore and forward-fix rehearsal.
 - Metrics for processed, skipped, quarantined, failed, lag, latency, and storage growth.
+
+Wave J focused verification currently covers audit non-mutation, apply authorization gates, bounded pause/resume, repair-pass behavior, safe failure recording, CLI parsing, schema defaults, index declarations, and redacted query-plan evidence: 4 Jest suites and 16 tests pass. Database-backed mixed-document rehearsal and live explain evidence remain staging gates.
 
 ## Blocked policy decisions
 

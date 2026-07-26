@@ -43,6 +43,10 @@ const tradeInSchema = mongoose.Schema({
 });
 
 tradeInSchema.index({ user: 1, status: 1 });
+tradeInSchema.index(
+    { user: 1, createdAt: -1, _id: -1 },
+    { name: 'trade_in_owner_history' }
+);
 tradeInSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model('TradeIn', tradeInSchema);

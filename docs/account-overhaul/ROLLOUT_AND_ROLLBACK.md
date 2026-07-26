@@ -84,6 +84,17 @@ Blocked until jurisdiction, retention, grace, reactivation, legal holds, and del
 
 Exit: policy sign-off, fresh-auth and abuse suites, migration/worker rehearsal, audit evidence, customer/support runbooks.
 
+### Wave 7: database schema version and query indexes
+
+1. Run the Account Center V2 migration in audit mode against the protected staging snapshot.
+2. Record backup and immutable rollback evidence before enabling apply.
+3. Build named additive indexes and observe duration, replication lag, disk headroom and application latency.
+4. Run bounded apply batches, stop at a checkpoint, then prove repair-pass resume.
+5. Capture redacted query-plan evidence for owner listings, reviews, trade-ins and price alerts.
+6. Re-run the audit and require `pendingAfter: 0`.
+
+The apply command must remain disabled unless every CLI and environment authorization gate is present. A paused or failed run is not a pass. Production database execution is prohibited until the same exact-SHA sequence succeeds in staging and the rollback rehearsal is recorded.
+
 ## Cohort progression
 
 Suggested progression per wave:
@@ -168,7 +179,7 @@ Do not run deployment or rollback from this document. Existing GitHub workflows 
 
 Blockers:
 
-- Waves A through N are not yet complete on the umbrella branch;
+- Waves K through N are not yet complete on the umbrella branch;
 - the strict native-language final gate has a pre-existing human-review backlog for 19 locale rows;
 - full umbrella-branch CI and required reviews are pending;
 - authenticated staging browser, accessibility, performance, migration, load, and rollback evidence is absent;

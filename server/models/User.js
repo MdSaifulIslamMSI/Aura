@@ -148,6 +148,7 @@ const mfaSchema = mongoose.Schema({
 }, { _id: false });
 
 const userSchema = mongoose.Schema({
+    accountCenterSchemaVersion: { type: Number, default: 2, min: 1, max: 2 },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     authUid: { type: String, trim: true },
