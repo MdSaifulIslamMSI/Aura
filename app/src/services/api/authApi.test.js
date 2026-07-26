@@ -801,6 +801,47 @@ describe('authApi', () => {
     expect(global.fetch.mock.calls[0][1].method).toBe('GET');
   });
 
+  it('uses fresh authenticated idempotent privacy lifecycle endpoints', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        enabled: true,
+        policyVersion: 'policy-2026-07',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        request: { id: '507f1f77bcf86cd799439299', type: 'export', status: 'queued' },
+      }), { status: 202, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        request: { id: '507f1f77bcf86cd799439298', type: 'deletion', status: 'awaiting_grace' },
+      }), { status: 202, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        request: { id: '507f1f77bcf86cd799439298', type: 'deletion', status: 'cancelled' },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await authApi.getAccountPrivacyCapabilities({ firebaseUser });
+    await authApi.requestAccountExport({
+      idempotencyKey: 'export-request-0001',
+    }, { firebaseUser });
+    await authApi.requestAccountDeletion({
+      confirmation: 'DELETE MY ACCOUNT',
+      idempotencyKey: 'deletion-request-0001',
+    }, { firebaseUser });
+    await authApi.cancelAccountDeletion({
+      requestId: '507f1f77bcf86cd799439298',
+    }, { firebaseUser });
+
+    expect(global.fetch.mock.calls[0][0]).toContain('/account/privacy/capabilities');
+    expect(global.fetch.mock.calls[1][0]).toContain('/account/privacy/exports');
+    expect(global.fetch.mock.calls[1][1].headers.get('Idempotency-Key')).toBe('export-request-0001');
+    expect(global.fetch.mock.calls[2][0]).toContain('/account/privacy/deletion-requests');
+    expect(global.fetch.mock.calls[2][1].headers.get('Idempotency-Key')).toBe('deletion-request-0001');
+    expect(global.fetch.mock.calls[3][1].method).toBe('DELETE');
+  });
+
   it('uses explicit signed avatar intent, upload, and finalize endpoints', async () => {
     const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
     mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });

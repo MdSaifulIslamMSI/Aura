@@ -104,6 +104,14 @@ describe('traffic policy registry', () => {
             authRequired: true,
             fileValidationRequired: true,
         });
+        expect(getTrafficPolicyForRoute({ method: 'POST', path: '/api/account/privacy/deletion-requests' })).toMatchObject({
+            id: 'account-privacy-lifecycle',
+            profile: PROFILES.AUTH_SECURITY,
+            routeClass: 'AUTH_LOGIN',
+            authRequired: true,
+            flowProtectionRequired: true,
+            idempotencyRequired: true,
+        });
     });
 
     test('high-risk component policies keep merge-blocking guard posture', () => {

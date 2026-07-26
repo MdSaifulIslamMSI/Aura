@@ -261,15 +261,18 @@ Each domain includes a total count, at most six newest preview rows, and routes 
 
 ## Privacy lifecycle
 
-Contracts remain **blocked** until retention jurisdiction, deletion grace period, reactivation policy, and export delivery are approved. Required shape:
+The technical contracts are implemented behind a fail-closed policy activation gate. `GET /api/account/privacy/capabilities` is always safe to call and reports whether authoritative policy and encrypted-delivery contracts are complete. Every mutation remains disabled unless `ACCOUNT_CENTER_V2_PRIVACY`, explicit policy approval, a versioned jurisdiction/retention/grace/reactivation/delivery policy, a private artifact bucket, and a KMS key contract are all present.
 
 - `POST /api/account/privacy/exports`
-- `GET /api/account/privacy/exports/:jobId`
+- `GET /api/account/privacy/requests/:requestId`
 - `POST /api/account/privacy/deactivation`
+- `DELETE /api/account/privacy/deactivation/:requestId`
 - `POST /api/account/privacy/deletion-requests`
 - `DELETE /api/account/privacy/deletion-requests/:requestId`
 
-All require fresh authentication. Deletion never directly hard-deletes records in the request transaction.
+Mutations require CSRF unless authenticated by bearer proof, fresh MFA, strict confirmation for destructive actions, rate limiting, and an `Idempotency-Key` for creation. Jobs are owner-scoped and expose only safe state, policy version, timestamps, and failure code. The queue uses bounded attempts and a stale-lease recovery path. Deletion begins in `awaiting_grace`; it never directly hard-deletes records in the request transaction. Cancellation is state checked.
+
+The queue handlers for export assembly/encryption/delivery, active-order and dispute evaluation, legal-hold evaluation, external-provider/media cleanup, and durable completion evidence cannot be installed or activated until the missing policy is approved. The default production capability response therefore remains disabled.
 
 ## Pagination
 

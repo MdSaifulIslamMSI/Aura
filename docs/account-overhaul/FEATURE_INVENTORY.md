@@ -36,9 +36,9 @@ Status definitions:
 | Review management | Owner-scoped Account Center history preview linking to the real product review editor | Verified-purchase upsert, media validation and moderation-aware status | Implemented for supported capability | No fake inline moderation or delete UI was introduced; full pagination remains follow-up work |
 | Support tickets | Large embedded support section | User-scoped paginated ticket APIs | Partial | Section is oversized; client fetch limits/history continuation need explicit UX |
 | Privacy policy | Link to `/privacy` | Static policy/data inventory docs | Implemented | Policy display is not data-rights execution |
-| Data export | No UI | Required by docs, no customer route found | Absent | Needs fresh auth, scoped export, async job, expiry, audit evidence |
-| Deactivation | No UI | Account state exists | Absent | Needs reversible server transition and active-session handling |
-| Account deletion | No UI | Retention guidance exists | Absent | Needs grace period, re-auth, legal holds, cancellation, pseudonymization and audit |
+| Data export | Account Center control reflects real capability status | Fresh-MFA, idempotent owner job, worker lease and safe state contract | Policy-gated framework | Activation blocked until delivery, retention, jurisdiction, bucket/KMS and export-handler policy is approved |
+| Deactivation | Exact-confirmation control and cancellation state | Fresh-MFA, owner job, cancellable state machine and audit event | Policy-gated framework | Active-order/dispute and reactivation handlers remain blocked on authoritative policy |
+| Account deletion | Exact-confirmation grace-period control and cancellation state | Fresh-MFA, owner-bound async job, grace boundary, worker recovery and audit event | Policy-gated framework | Legal hold, retention, anonymization, provider/media cleanup and evidence handlers remain blocked on authoritative policy |
 | Offline account UX | No deliberate offline account state found | N/A | Absent | Needs per-module stale/offline semantics |
 | Responsive account shell | Horizontal pills and global style overrides | N/A | Partial | Authenticated visual audit blocked; code indicates overflow and density risks |
 | Accessibility | Some labels, sections, live status patterns | N/A | Partial | Missing complete tabs semantics, focus treatment, field errors, keyboard rows |

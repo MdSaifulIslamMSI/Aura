@@ -59,40 +59,29 @@ Indexes:
 
 ### Privacy jobs
 
-Add dedicated records:
+The additive `AccountPrivacyJob` record now provides the disabled-by-default lifecycle queue:
 
 ```text
-AccountExportJob
+AccountPrivacyJob
   user
+  type (export, deactivation, deletion)
   status
-  scopeVersion
-  requestedAt
-  completedAt
-  expiresAt
-  delivery
-  artifactKey
-  failureCode
-
-AccountDeletionRequest
-  user
-  status
+  idempotencyHash (not selected)
+  policyVersion
+  manifestVersion
   requestedAt
   graceEndsAt
-  cancelledAt
-  legalHolds
   completedAt
-  policyVersion
-
-AccountLifecycleAudit
-  user
-  event
-  actorType
-  policyVersion
-  timestamp
-  metadata (allowlisted)
+  exportExpiresAt
+  artifactKeyEncrypted (not selected)
+  attempts
+  lockedAt
+  workerId (not selected)
+  cancelledAt
+  failureCode
 ```
 
-Indexes must cover user/status/time operations and TTL only for disposable delivery artifacts or completed outbox work. TTL must never drive legal erasure of durable evidence.
+Indexes cover unique owner/type/idempotency, owner/type history, and worker status/time claims. No TTL applies to the durable job or legal evidence. Disposable encrypted artifacts need a separate retention cleanup after policy approval; TTL must never drive legal erasure of durable evidence.
 
 ### Security activity
 
@@ -135,7 +124,7 @@ Do not print personal values. Emit aggregate counts and opaque record IDs only t
 
 - New avatar finalize writes the new media field and durable URL while preserving legacy read fallback.
 - Notification preference writes use the new record while the old UI remains read-only or dual-read.
-- Lifecycle job models remain unreachable until policy approval.
+- Lifecycle mutation routes and workers remain fail-closed until policy approval and every encrypted-delivery runtime contract is present.
 - Compare new and legacy serializers in non-user-visible telemetry without logging personal values.
 
 ### Phase 4: bounded backfill

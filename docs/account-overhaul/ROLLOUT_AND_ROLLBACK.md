@@ -22,6 +22,8 @@ Flags default off in production. Privacy remains off until policy approval and d
 
 The server decides availability. The client must handle absent/disabled contracts and may not infer authorization from its local flag.
 
+`ACCOUNT_CENTER_V2_PRIVACY` alone cannot activate lifecycle mutations. The server also requires `ACCOUNT_PRIVACY_POLICY_APPROVED`, a policy version, jurisdictions, export retention, deletion grace, reactivation policy, export delivery mechanism, `AWS_S3_PRIVACY_BUCKET`, and `ACCOUNT_PRIVACY_EXPORT_KMS_KEY_ID`. Missing or invalid configuration produces a safe disabled capability response and a fail-closed mutation gate; it never falls back to synchronous deletion.
+
 Avatar storage uses the existing `UPLOAD_STORAGE_DRIVER`. Local development defaults to `server/uploads/avatars`; S3 requires `AWS_REGION` and `AWS_S3_AVATAR_BUCKET` (or the existing review-media bucket fallback), with optional `AWS_S3_AVATAR_PREFIX`. Runtime credentials come from the existing AWS identity chain and are never exposed to the client. Staging must prove bucket access, denial outside the configured prefix, private quarantine, immutable final reads, cleanup dry-run, and cleanup execution before the avatar flag can advance.
 
 ## Wave plan

@@ -9,7 +9,7 @@ Priority definitions:
 | ID | Priority | Area | Current gap | Required outcome | Acceptance evidence |
 |---|---|---|---|---|---|
 | G-001 | P0 | Source/release integrity | Local SHA differs from observed live SHA | Reconcile target branch and bind all evidence to one release SHA | Clean target diff, CI SHA, release markers |
-| G-002 | P0 | Privacy | No export, deactivation, deletion, or cancellation workflow | Fresh-auth, audited, retention-aware lifecycle | Abuse tests, job audit trail, grace-period tests |
+| G-002 | P0 | Privacy | Technical framework resolved on integration branch; activation remains intentionally blocked because authoritative jurisdiction, retention, legal-hold, reactivation and delivery policy is unavailable | Preserve fresh-MFA, idempotent owner jobs, grace/cancellation, safe worker recovery and fail-closed activation; install handlers only after policy approval | Disabled/enabled flag tests, owner/idempotency/grace/cancel/worker tests, then policy review and staging lifecycle rehearsal |
 | G-003 | P0 | Session security | Resolved on integration branch: trusted credentials and active sessions are separate, with revoke-one/others/all controls | Preserve the separation and fresh-MFA bulk revocation | List/current/revoke-one/revoke-others/revoke-all tests; cross-user denial |
 | G-004 | P0 | Rollout | No account-specific feature flag, SLO, or rollback plan | Progressive, observable release with server/client compatibility | Flag tests, dashboards, rollback rehearsal |
 | G-005 | P0 | Verification | Authenticated account UI cannot be reproduced in the controlled browser | Deterministic test account or fixture | Desktop/tablet/mobile screenshots and network/console logs |

@@ -5,6 +5,7 @@ import {
     BarChart3,
     Bell,
     CreditCard,
+    LockKeyhole,
     MapPin,
     Package,
     Settings,
@@ -36,6 +37,7 @@ import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SettingsSection = lazy(() => import('./components/SettingsSection'));
 const MarketplaceActivitySection = lazy(() => import('./components/MarketplaceActivitySection'));
+const PrivacyControlsSection = lazy(() => import('./components/PrivacyControlsSection'));
 const PROFILE_FIELDS = ['name', 'phone', 'gender', 'dob', 'bio'];
 const AVATAR_ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
@@ -130,6 +132,12 @@ const buildTabs = (t) => [
         label: t('profile.tab.support', {}, 'Support'),
         description: t('profile.tab.support.description', {}, 'Open and follow account appeals or support requests.'),
         icon: Shield,
+    },
+    {
+        id: 'privacy',
+        label: t('profile.tab.privacy', {}, 'Privacy controls'),
+        description: t('profile.tab.privacy.description', {}, 'Review data export and controlled account lifecycle options.'),
+        icon: LockKeyhole,
     },
     {
         id: 'settings',
@@ -1710,6 +1718,16 @@ export default function Profile() {
                             startCompose={supportLaunch.startCompose}
                             prefill={supportLaunch.prefill}
                         />
+                    ) : null}
+
+                    {activeTab === 'privacy' ? (
+                        <Suspense fallback={(
+                            <div className="premium-panel p-6 text-sm font-bold text-slate-300" role="status" aria-live="polite">
+                                {t('profile.privacy.loading', {}, 'Loading privacy controls...')}
+                            </div>
+                        )}>
+                            <PrivacyControlsSection firebaseUser={currentUser} />
+                        </Suspense>
                     ) : null}
 
                     {activeTab === 'settings' ? (

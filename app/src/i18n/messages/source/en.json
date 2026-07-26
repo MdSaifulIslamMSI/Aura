@@ -14797,6 +14797,90 @@
     "defaultMessage": "Verified",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.privacy.blockedBody": {
+    "defaultMessage": "Export, deactivation, and deletion are unavailable until retention, legal-hold, jurisdiction, reactivation, and delivery policy is formally approved.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.cancelAction": {
+    "defaultMessage": "Cancel request",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.currentRequest": {
+    "defaultMessage": "Current request: {type} · {status}",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.deactivation.action": {
+    "defaultMessage": "Begin deactivation",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.deactivation.body": {
+    "defaultMessage": "Start a reversible policy-checked restriction after active-order and dispute checks.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.deactivation.confirm": {
+    "defaultMessage": "Type DEACTIVATE to continue",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.deactivation.title": {
+    "defaultMessage": "Deactivate account",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.deletion.action": {
+    "defaultMessage": "Begin deletion request",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.deletion.body": {
+    "defaultMessage": "Begin a grace-period job with legal-hold checks, cancellation, cleanup, recovery, and completion evidence.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.deletion.confirm": {
+    "defaultMessage": "Type DELETE MY ACCOUNT to continue",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.deletion.title": {
+    "defaultMessage": "Delete account",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.enabledBody": {
+    "defaultMessage": "These actions require fresh authentication and run as auditable background jobs.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.export.action": {
+    "defaultMessage": "Request export",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.export.body": {
+    "defaultMessage": "Create a minimized encrypted export with an expiring authenticated delivery step.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.export.title": {
+    "defaultMessage": "Export account data",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.eyebrow": {
+    "defaultMessage": "Data and account lifecycle",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.loading": {
+    "defaultMessage": "Loading privacy controls...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.policyBlocked": {
+    "defaultMessage": "Production activation is policy-blocked. No destructive request can be submitted.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.retry": {
+    "defaultMessage": "Try again",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.title": {
+    "defaultMessage": "Privacy controls",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.privacy.working": {
+    "defaultMessage": "Submitting...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.rewardTier.rookie": {
     "defaultMessage": "Rookie",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -16351,6 +16435,14 @@
   },
   "profile.tab.personal.description": {
     "defaultMessage": "Manage your profile details and verified contact information.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.tab.privacy": {
+    "defaultMessage": "Privacy controls",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.tab.privacy.description": {
+    "defaultMessage": "Review data export and controlled account lifecycle options.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.tab.rewards": {

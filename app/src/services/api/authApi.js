@@ -104,7 +104,13 @@ const postWithFreshCsrf = async (path, body, options = {}) => {
             throw wrappedError;
         }
 
-        const headersWithCsrf = addCsrfTokenToHeaders(headers, requestMethod, csrfToken);
+        const requestHeaders = {
+            ...headers,
+            ...(options.idempotencyKey
+                ? { 'Idempotency-Key': String(options.idempotencyKey).trim() }
+                : {}),
+        };
+        const headersWithCsrf = addCsrfTokenToHeaders(requestHeaders, requestMethod, csrfToken);
         const { data } = await apiFetch(path, {
             method: requestMethod,
             headers: headersWithCsrf,
@@ -155,7 +161,12 @@ const postWithFirebaseBearer = async (path, body, options = {}) => {
     const headers = await getAuthHeader(options.firebaseUser, bearerOptions);
     const { data } = await apiFetch(path, {
         method: String(options.method || 'POST').trim().toUpperCase() || 'POST',
-        headers,
+        headers: {
+            ...headers,
+            ...(options.idempotencyKey
+                ? { 'Idempotency-Key': String(options.idempotencyKey).trim() }
+                : {}),
+        },
         body: JSON.stringify(body),
     });
     return data;
@@ -420,6 +431,58 @@ export const authApi = {
     },
     getAccountMarketplace: async (options = {}) => (
         getProtectedAuthJson('/account/marketplace', options)
+    ),
+    getAccountPrivacyCapabilities: async (options = {}) => (
+        getProtectedAuthJson('/account/privacy/capabilities', options)
+    ),
+    getAccountPrivacyRequest: async ({ requestId = '' } = {}, options = {}) => (
+        getProtectedAuthJson(
+            `/account/privacy/requests/${encodeURIComponent(String(requestId || '').trim())}`,
+            options
+        )
+    ),
+    requestAccountExport: async ({ idempotencyKey = '' } = {}, options = {}) => (
+        postAuthBootstrap('/account/privacy/exports', { scope: 'account' }, {
+            ...options,
+            idempotencyKey,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    requestAccountDeactivation: async ({ confirmation = '', idempotencyKey = '' } = {}, options = {}) => (
+        postAuthBootstrap('/account/privacy/deactivation', { confirmation }, {
+            ...options,
+            idempotencyKey,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    requestAccountDeletion: async ({ confirmation = '', idempotencyKey = '' } = {}, options = {}) => (
+        postAuthBootstrap('/account/privacy/deletion-requests', { confirmation }, {
+            ...options,
+            idempotencyKey,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
+    cancelAccountDeactivation: async ({ requestId = '' } = {}, options = {}) => (
+        postAuthBootstrap(
+            `/account/privacy/deactivation/${encodeURIComponent(String(requestId || '').trim())}`,
+            {},
+            {
+                ...options,
+                method: 'DELETE',
+                useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+            }
+        )
+    ),
+    cancelAccountDeletion: async ({ requestId = '' } = {}, options = {}) => (
+        postAuthBootstrap(
+            `/account/privacy/deletion-requests/${encodeURIComponent(String(requestId || '').trim())}`,
+            {},
+            {
+                ...options,
+                method: 'DELETE',
+                useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+            }
+        )
     ),
     revokeAccountSession: async ({ sessionId = '' } = {}, options = {}) => {
         const normalizedSessionId = String(sessionId || '').trim();

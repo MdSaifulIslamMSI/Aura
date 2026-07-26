@@ -14333,6 +14333,111 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Verified",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.privacy.blockedBody": {
+        id: "profile.privacy.blockedBody",
+        defaultMessage: "Export, deactivation, and deletion are unavailable until retention, legal-hold, jurisdiction, reactivation, and delivery policy is formally approved.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.cancelAction": {
+        id: "profile.privacy.cancelAction",
+        defaultMessage: "Cancel request",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.currentRequest": {
+        id: "profile.privacy.currentRequest",
+        defaultMessage: "Current request: {type} · {status}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.deactivation.action": {
+        id: "profile.privacy.deactivation.action",
+        defaultMessage: "Begin deactivation",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.deactivation.body": {
+        id: "profile.privacy.deactivation.body",
+        defaultMessage: "Start a reversible policy-checked restriction after active-order and dispute checks.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.deactivation.confirm": {
+        id: "profile.privacy.deactivation.confirm",
+        defaultMessage: "Type DEACTIVATE to continue",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.deactivation.title": {
+        id: "profile.privacy.deactivation.title",
+        defaultMessage: "Deactivate account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.deletion.action": {
+        id: "profile.privacy.deletion.action",
+        defaultMessage: "Begin deletion request",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.deletion.body": {
+        id: "profile.privacy.deletion.body",
+        defaultMessage: "Begin a grace-period job with legal-hold checks, cancellation, cleanup, recovery, and completion evidence.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.deletion.confirm": {
+        id: "profile.privacy.deletion.confirm",
+        defaultMessage: "Type DELETE MY ACCOUNT to continue",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.deletion.title": {
+        id: "profile.privacy.deletion.title",
+        defaultMessage: "Delete account",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.enabledBody": {
+        id: "profile.privacy.enabledBody",
+        defaultMessage: "These actions require fresh authentication and run as auditable background jobs.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.export.action": {
+        id: "profile.privacy.export.action",
+        defaultMessage: "Request export",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.export.body": {
+        id: "profile.privacy.export.body",
+        defaultMessage: "Create a minimized encrypted export with an expiring authenticated delivery step.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.export.title": {
+        id: "profile.privacy.export.title",
+        defaultMessage: "Export account data",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.eyebrow": {
+        id: "profile.privacy.eyebrow",
+        defaultMessage: "Data and account lifecycle",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.loading": {
+        id: "profile.privacy.loading",
+        defaultMessage: "Loading privacy controls...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.policyBlocked": {
+        id: "profile.privacy.policyBlocked",
+        defaultMessage: "Production activation is policy-blocked. No destructive request can be submitted.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.retry": {
+        id: "profile.privacy.retry",
+        defaultMessage: "Try again",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.title": {
+        id: "profile.privacy.title",
+        defaultMessage: "Privacy controls",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.privacy.working": {
+        id: "profile.privacy.working",
+        defaultMessage: "Submitting...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.rewardTier.rookie": {
         id: "profile.rewardTier.rookie",
         defaultMessage: "Rookie",
@@ -16276,6 +16381,16 @@ export const stableUiMessages = defineMessages({
     "profile.tab.personal.description": {
         id: "profile.tab.personal.description",
         defaultMessage: "Manage your profile details and verified contact information.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.tab.privacy": {
+        id: "profile.tab.privacy",
+        defaultMessage: "Privacy controls",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.tab.privacy.description": {
+        id: "profile.tab.privacy.description",
+        defaultMessage: "Review data export and controlled account lifecycle options.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.tab.rewards": {
