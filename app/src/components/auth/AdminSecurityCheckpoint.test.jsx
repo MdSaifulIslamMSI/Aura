@@ -112,6 +112,7 @@ describe('AdminSecurityCheckpoint', () => {
 
         renderCheckpoint();
         const input = await screen.findByLabelText(/one-time recovery grant/i);
+        expect(getAdminSecurityStatus).toHaveBeenNthCalledWith(1);
         const token = 'operator-issued-grant-value-abcdefghijklmnopqrstuvwxyz';
         fireEvent.change(input, { target: { value: token } });
         fireEvent.click(screen.getByRole('button', { name: /continue to passkey setup/i }));

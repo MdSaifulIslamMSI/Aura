@@ -107,17 +107,14 @@ export const AdminSecurityCheckpoint = ({ auth, children }) => {
         setLoading(true);
         setError('');
         try {
-            const next = await authApi.getAdminSecurityStatus({
-                firebaseUser: auth?.currentUser,
-                useFirebaseBearer: true,
-            });
+            const next = await authApi.getAdminSecurityStatus();
             if (mountedRef.current) setStatus(next);
         } catch (requestError) {
             if (mountedRef.current) setError(normalizeError(requestError, t));
         } finally {
             if (mountedRef.current) setLoading(false);
         }
-    }, [auth?.currentUser, t]);
+    }, [t]);
 
     useEffect(() => {
         mountedRef.current = true;
