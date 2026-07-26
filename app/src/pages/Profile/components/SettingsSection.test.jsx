@@ -12,6 +12,10 @@ vi.mock('@/context/MarketContext', () => ({
     }),
 }));
 
+vi.mock('./NotificationPreferencesPanel', () => ({
+    default: () => <div>Notification preferences</div>,
+}));
+
 const baseProps = {
     handleSecureRecovery: vi.fn(),
     recoveryLaunching: false,

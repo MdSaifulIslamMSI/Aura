@@ -261,6 +261,20 @@ export const userApi = {
 
         return requestPromise;
     },
+    getAccountPreferences: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/account/preferences', { headers });
+        return data?.preferences || null;
+    },
+    updateAccountPreferences: async (payload) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/account/preferences', {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data?.preferences || null;
+    },
     updateProfile: async (payload) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/users/profile', {

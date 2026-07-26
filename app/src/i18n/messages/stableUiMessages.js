@@ -14523,34 +14523,124 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Loading security and settings...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.notifications.marketplace.desc": {
-        id: "profile.settings.notifications.marketplace.desc",
-        defaultMessage: "Listing health, offers, and selling-side alerts.",
+    "profile.settings.notifications.channel.email": {
+        id: "profile.settings.notifications.channel.email",
+        defaultMessage: "email",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.notifications.marketplace.label": {
-        id: "profile.settings.notifications.marketplace.label",
+    "profile.settings.notifications.channel.push": {
+        id: "profile.settings.notifications.channel.push",
+        defaultMessage: "push",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.channel.sms": {
+        id: "profile.settings.notifications.channel.sms",
+        defaultMessage: "sms",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.consentNote": {
+        id: "profile.settings.notifications.consentNote",
+        defaultMessage: "Transactional messages support your purchases. Marketing choices are optional and consent changes are timestamped.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.deliveryUpdates.desc": {
+        id: "profile.settings.notifications.deliveryUpdates.desc",
+        defaultMessage: "Shipment progress and delivery actions.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.deliveryUpdates.label": {
+        id: "profile.settings.notifications.deliveryUpdates.label",
+        defaultMessage: "Delivery updates",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.loadError": {
+        id: "profile.settings.notifications.loadError",
+        defaultMessage: "Notification preferences could not be loaded.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.loading": {
+        id: "profile.settings.notifications.loading",
+        defaultMessage: "Loading notification preferences...",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.marketing.desc": {
+        id: "profile.settings.notifications.marketing.desc",
+        defaultMessage: "Optional product discovery and promotional messages.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.marketing.label": {
+        id: "profile.settings.notifications.marketing.label",
+        defaultMessage: "Marketing",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.marketplaceUpdates.desc": {
+        id: "profile.settings.notifications.marketplaceUpdates.desc",
+        defaultMessage: "Listings, offers, disputes, and selling activity.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.marketplaceUpdates.label": {
+        id: "profile.settings.notifications.marketplaceUpdates.label",
         defaultMessage: "Marketplace",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.notifications.orders.desc": {
-        id: "profile.settings.notifications.orders.desc",
-        defaultMessage: "Status changes, refund progress, and delivery actions.",
+    "profile.settings.notifications.orderUpdates.desc": {
+        id: "profile.settings.notifications.orderUpdates.desc",
+        defaultMessage: "Order confirmation and status changes.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.notifications.orders.label": {
-        id: "profile.settings.notifications.orders.label",
-        defaultMessage: "Order Updates",
+    "profile.settings.notifications.orderUpdates.label": {
+        id: "profile.settings.notifications.orderUpdates.label",
+        defaultMessage: "Order updates",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.notifications.support.desc": {
-        id: "profile.settings.notifications.support.desc",
-        defaultMessage: "Appeals, admin actions, and durable support responses.",
+    "profile.settings.notifications.productAlerts.desc": {
+        id: "profile.settings.notifications.productAlerts.desc",
+        defaultMessage: "Saved-product price and availability changes.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "profile.settings.notifications.support.label": {
-        id: "profile.settings.notifications.support.label",
-        defaultMessage: "Support & Governance",
+    "profile.settings.notifications.productAlerts.label": {
+        id: "profile.settings.notifications.productAlerts.label",
+        defaultMessage: "Product alerts",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.required": {
+        id: "profile.settings.notifications.required",
+        defaultMessage: "Required",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.retry": {
+        id: "profile.settings.notifications.retry",
+        defaultMessage: "Retry",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.returnRefundUpdates.desc": {
+        id: "profile.settings.notifications.returnRefundUpdates.desc",
+        defaultMessage: "Return, exchange, replacement, and refund progress.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.returnRefundUpdates.label": {
+        id: "profile.settings.notifications.returnRefundUpdates.label",
+        defaultMessage: "Returns and refunds",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.saveError": {
+        id: "profile.settings.notifications.saveError",
+        defaultMessage: "Notification preference could not be saved.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.saved": {
+        id: "profile.settings.notifications.saved",
+        defaultMessage: "Notification preference saved.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.security.desc": {
+        id: "profile.settings.notifications.security.desc",
+        defaultMessage: "Required sign-in, factor, recovery, and account-safety notices.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.settings.notifications.security.label": {
+        id: "profile.settings.notifications.security.label",
+        defaultMessage: "Security",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.settings.notifications.title": {

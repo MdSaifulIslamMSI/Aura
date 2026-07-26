@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Bell, CheckCircle2, Cloud, Clock3, Copy, Download, KeyRound, Laptop, Link2, Lock, LogOut, Pencil, QrCode, RefreshCw, Save, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
-import { TogglePref } from './ProfileShared';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import ActiveSessionsPanel from './ActiveSessionsPanel';
+import NotificationPreferencesPanel from './NotificationPreferencesPanel';
 
 const isTrustedDeviceActive = (device) => (
     device?.active !== false && !['revoked', 'expired'].includes(device?.status)
@@ -69,9 +69,6 @@ export default function SettingsSection({
 }) {
     const { t: legacyT } = useMarket();
     const t = useStableIcuMessages(legacyT);
-    const [orderUpdates, setOrderUpdates] = useState(true);
-    const [marketplaceUpdates, setMarketplaceUpdates] = useState(true);
-    const [supportUpdates, setSupportUpdates] = useState(true);
     const [editingDeviceId, setEditingDeviceId] = useState('');
     const [deviceLabelDraft, setDeviceLabelDraft] = useState('');
     const [confirmingRevokeDeviceId, setConfirmingRevokeDeviceId] = useState('');
@@ -882,26 +879,7 @@ export default function SettingsSection({
                     <Bell className="h-5 w-5 text-neo-cyan" />
                     {t('profile.settings.notifications.title', {}, 'Notification posture')}
                 </h3>
-                <div className="space-y-3">
-                    <TogglePref
-                        label={t('profile.settings.notifications.orders.label', {}, 'Order Updates')}
-                        desc={t('profile.settings.notifications.orders.desc', {}, 'Status changes, refund progress, and delivery actions.')}
-                        on={orderUpdates}
-                        setOn={setOrderUpdates}
-                    />
-                    <TogglePref
-                        label={t('profile.settings.notifications.marketplace.label', {}, 'Marketplace')}
-                        desc={t('profile.settings.notifications.marketplace.desc', {}, 'Listing health, offers, and selling-side alerts.')}
-                        on={marketplaceUpdates}
-                        setOn={setMarketplaceUpdates}
-                    />
-                    <TogglePref
-                        label={t('profile.settings.notifications.support.label', {}, 'Support & Governance')}
-                        desc={t('profile.settings.notifications.support.desc', {}, 'Appeals, admin actions, and durable support responses.')}
-                        on={supportUpdates}
-                        setOn={setSupportUpdates}
-                    />
-                </div>
+                <NotificationPreferencesPanel />
             </div>
 
             <div className="premium-panel p-6">
