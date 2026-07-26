@@ -331,7 +331,7 @@ const POLICY_DEFINITIONS = [
         id: 'mfa-passkey-duo-step-up',
         componentName: 'MFA/passkey/Duo step-up',
         profile: PROFILES.AUTH_SECURITY,
-        routeClass: ROUTE_CLASSES.AUTHENTICATED_READ,
+        routeClass: ROUTE_CLASSES.AUTH_LOGIN,
         pathPrefixes: ['/api/auth/mfa', '/api/auth/duo', '/api/auth/enterprise'],
         exactPaths: ['/api/auth/bootstrap-device-challenge'],
         userIntent: 'Create or verify MFA, passkey, Duo, enterprise, or trusted-device challenges.',

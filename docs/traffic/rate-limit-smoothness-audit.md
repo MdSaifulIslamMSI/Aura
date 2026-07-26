@@ -1,10 +1,10 @@
 # Rate Limit Smoothness Audit
 
-Generated: 2026-07-26T13:03:58.481Z
+Generated: 2026-07-26T13:05:22.401Z
 
 Status: pass
 
-Summary: 15 pass, 5 warning, 0 fail, 0 skipped.
+Summary: 16 pass, 5 warning, 0 fail, 0 skipped.
 
 ## Checks
 
@@ -17,6 +17,7 @@ Summary: 15 pass, 5 warning, 0 fail, 0 skipped.
 | smooth.auth-flow.password-reset | pass | repo | info | password-reset declares flow/challenge protection. |
 | smooth.auth-flow.otp-send-verify | pass | repo | info | otp-send-verify declares flow/challenge protection. |
 | smooth.auth-flow.trusted-device-webauthn | pass | repo | info | trusted-device-webauthn declares flow/challenge protection. |
+| smooth.auth-flow.mfa-passkey-duo-step-up | pass | repo | info | mfa-passkey-duo-step-up declares flow/challenge protection. |
 | smooth.auth-flow.auth-login-session | pass | repo | info | auth-login-session declares flow/challenge protection. |
 | smooth.auth-flow.account-security-mutations | pass | repo | info | account-security-mutations declares flow/challenge protection. |
 | smooth.concurrency.ai-chat-model-gateway | pass | repo | info | Provider quota and chatQuotaService control expensive model pressure. |
@@ -46,7 +47,7 @@ Summary: 15 pass, 5 warning, 0 fail, 0 skipped.
 | Password reset | password-reset | Auth and account security | OTP_RESET | 12/300s | 8/300s | 65536 | 15000ms | fail-closed |
 | OTP send | otp-send-verify | Auth and account security | OTP | 12/300s | 8/300s | 65536 | 7000ms | fail-closed |
 | MFA/passkey/Duo step-up | trusted-device-webauthn | Auth and account security | AUTH_WEBAUTHN | 60/300s | 30/300s | 98304 | 10000ms | fail-closed |
-| MFA/passkey/Duo step-up | mfa-passkey-duo-step-up | Auth and account security | AUTHENTICATED_READ | 240/60s | 300/60s | 98304 | 8000ms | fail-open-safe |
+| MFA/passkey/Duo step-up | mfa-passkey-duo-step-up | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |
 | Auth/login/session | auth-login-session | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |
 | Auth/login/session | account-security-reads | Auth and account security | AUTHENTICATED_READ | 240/60s | 300/60s | 98304 | 8000ms | fail-open-safe |
 | Auth/login/session | account-security-mutations | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |

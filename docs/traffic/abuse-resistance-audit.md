@@ -1,10 +1,10 @@
 # Abuse Resistance Audit
 
-Generated: 2026-07-26T13:03:59.789Z
+Generated: 2026-07-26T13:05:23.931Z
 
 Status: pass
 
-Summary: 59 pass, 0 warning, 0 fail, 0 skipped.
+Summary: 60 pass, 0 warning, 0 fail, 0 skipped.
 
 ## Checks
 
@@ -33,7 +33,8 @@ Summary: 59 pass, 0 warning, 0 fail, 0 skipped.
 | abuse.mutation-authority.trusted-device-webauthn | pass | repo | info | trusted-device-webauthn declares auth, signature, flow, admin, or quota control. |
 | abuse.auth-strict.trusted-device-webauthn | pass | repo | info | trusted-device-webauthn: failMode=fail-closed, perIp=60. |
 | abuse.common-budget.trusted-device-webauthn | pass | repo | info | trusted-device-webauthn: cost=high, timeout=10000, tag=trusted-device-webauthn. |
-| abuse.common-budget.mfa-passkey-duo-step-up | pass | repo | info | mfa-passkey-duo-step-up: cost=medium, timeout=8000, tag=mfa-passkey-duo-step-up. |
+| abuse.auth-strict.mfa-passkey-duo-step-up | pass | repo | info | mfa-passkey-duo-step-up: failMode=fail-closed, perIp=40. |
+| abuse.common-budget.mfa-passkey-duo-step-up | pass | repo | info | mfa-passkey-duo-step-up: cost=critical, timeout=7000, tag=mfa-passkey-duo-step-up. |
 | abuse.auth-strict.auth-login-session | pass | repo | info | auth-login-session: failMode=fail-closed, perIp=40. |
 | abuse.common-budget.auth-login-session | pass | repo | info | auth-login-session: cost=critical, timeout=7000, tag=auth-login-session. |
 | abuse.common-budget.account-security-reads | pass | repo | info | account-security-reads: cost=medium, timeout=8000, tag=account-security-reads. |
@@ -85,7 +86,7 @@ Summary: 59 pass, 0 warning, 0 fail, 0 skipped.
 | Password reset | password-reset | Auth and account security | OTP_RESET | 12/300s | 8/300s | 65536 | 15000ms | fail-closed |
 | OTP send | otp-send-verify | Auth and account security | OTP | 12/300s | 8/300s | 65536 | 7000ms | fail-closed |
 | MFA/passkey/Duo step-up | trusted-device-webauthn | Auth and account security | AUTH_WEBAUTHN | 60/300s | 30/300s | 98304 | 10000ms | fail-closed |
-| MFA/passkey/Duo step-up | mfa-passkey-duo-step-up | Auth and account security | AUTHENTICATED_READ | 240/60s | 300/60s | 98304 | 8000ms | fail-open-safe |
+| MFA/passkey/Duo step-up | mfa-passkey-duo-step-up | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |
 | Auth/login/session | auth-login-session | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |
 | Auth/login/session | account-security-reads | Auth and account security | AUTHENTICATED_READ | 240/60s | 300/60s | 98304 | 8000ms | fail-open-safe |
 | Auth/login/session | account-security-mutations | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |
