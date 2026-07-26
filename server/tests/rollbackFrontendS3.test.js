@@ -27,7 +27,17 @@ aws() {
       # behavior in the mock makes the test fail against the old implementation.
       return 0
       ;;
-    's3 sync'|'cloudfront create-invalidation')
+    's3 sync')
+      if [[ "$4" == s3://* ]]; then
+        return 0
+      fi
+      if [[ "\${AWS_MOCK_SNAPSHOT_STATE}" == 'valid' ]]; then
+        mkdir -p "$4"
+        printf '<!doctype html><title>Aura</title>\\n' > "$4/index.html"
+      fi
+      return 0
+      ;;
+    'cloudfront create-invalidation')
       return 0
       ;;
     *)
@@ -98,9 +108,15 @@ describe('AWS frontend snapshot rollback', () => {
             's3api head-object --region ap-south-1 --bucket test-storefront-bucket ' +
             '--key _aura-rollback/requested-release/.aura-rollback-manifest.json'
         );
-        expect(result.trace).toContain(
+        expect(result.trace).toMatch(
+            /s3 sync s3:\/\/test-storefront-bucket\/_aura-rollback\/requested-release .+ --region ap-south-1 --exclude \.aura-rollback-manifest\.json/
+        );
+        expect(result.trace).toMatch(
+            /s3 sync .+ s3:\/\/test-storefront-bucket --region ap-south-1 --delete --exclude _aura-rollback\/\*/
+        );
+        expect(result.trace).not.toContain(
             's3 sync s3://test-storefront-bucket/_aura-rollback/requested-release ' +
-            's3://test-storefront-bucket --region ap-south-1 --delete'
+            's3://test-storefront-bucket'
         );
     });
 });

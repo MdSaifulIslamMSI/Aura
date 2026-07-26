@@ -1287,12 +1287,31 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toContain('VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}');
         expect(script).toContain('require_env VERCEL_ORG_ID');
         expect(script).toContain('require_env VERCEL_PROJECT_ID');
-        expect(script).toContain('--project "${VERCEL_PROJECT_ID}"');
+        expect(script).toContain('fs.writeFileSync(');
+        expect(script).toContain('JSON.stringify({ orgId: expectedOrgId, projectId: expectedProjectId })');
         expect(script).toContain('VERCEL_LINK_FILE="${vercel_link_file}" node');
         expect(script).toContain('linked.orgId !== expectedOrgId || linked.projectId !== expectedProjectId');
         expect(script).toContain('npx vercel rollback status "${VERCEL_PROJECT_ID}"');
+        expect(script).not.toContain('npx vercel link');
         expect(script).not.toContain('VERCEL_STOREFRONT_PROJECT_NAME');
         expect(script).not.toContain('--scope');
+    });
+
+    test('production storefront builds receive the admin security state-engine flag', () => {
+        const multiHost = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
+        const aws = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-frontend-aws.yml'), 'utf8');
+        const contract = "VITE_ADMIN_SECURITY_STATE_ENGINE_V2: ${{ vars.VITE_ADMIN_SECURITY_STATE_ENGINE_V2 || 'false' }}";
+
+        expect(multiHost).toContain(contract);
+        expect(aws).toContain(contract);
+    });
+
+    test('production smoke retries transient host failures before rollback', () => {
+        const production = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-cicd.yml'), 'utf8');
+
+        expect(production).toContain('local smoke_attempts=3');
+        expect(production).toContain('for attempt in $(seq 1 "${smoke_attempts}")');
+        expect(production).toContain('${name} did not become healthy after ${smoke_attempts} attempts.');
     });
 
     test('AWS rollback workflows keep current tooling separate from rollback targets', () => {
@@ -1323,6 +1342,9 @@ describe('repo environment contract scripts', () => {
 
         const rollbackScript = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'rollback-frontend-s3.sh'), 'utf8');
         expect(rollbackScript).toContain('Refusing to execute target code in the credentialed restore job.');
+        expect(rollbackScript).toContain('restore_directory="$(mktemp -d)"');
+        expect(rollbackScript).toContain('Rollback snapshot does not contain index.html; refusing to mutate the live frontend.');
+        expect(rollbackScript).not.toContain('"s3://${AWS_FRONTEND_BUCKET}/${backup_prefix}" "s3://${AWS_FRONTEND_BUCKET}"');
         expect(rollbackScript).not.toContain('npm --prefix app ci');
         expect(rollbackScript).not.toContain('ROLLBACK_SOURCE_DIR');
     });

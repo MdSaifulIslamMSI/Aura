@@ -34,20 +34,20 @@ require_env VERCEL_PROJECT_ID
 
 rollback_ref="${ROLLBACK_REF:-}"
 project_directory="${VERCEL_STOREFRONT_PROJECT_DIRECTORY:-.}"
-
-npx vercel link \
-  --cwd "${project_directory}" \
-  --yes \
-  --project "${VERCEL_PROJECT_ID}" \
-  --token "${VERCEL_TOKEN}"
-
-vercel_link_file="${project_directory%/}/.vercel/project.json"
+vercel_config_directory="${project_directory%/}/.vercel"
+vercel_link_file="${vercel_config_directory}/project.json"
+mkdir -p "${vercel_config_directory}"
 VERCEL_LINK_FILE="${vercel_link_file}" node <<'NODE'
 const fs = require('fs');
 
 const linkFile = process.env.VERCEL_LINK_FILE;
 const expectedOrgId = process.env.VERCEL_ORG_ID;
 const expectedProjectId = process.env.VERCEL_PROJECT_ID;
+fs.writeFileSync(
+  linkFile,
+  `${JSON.stringify({ orgId: expectedOrgId, projectId: expectedProjectId })}\n`,
+  { mode: 0o600 }
+);
 const linked = JSON.parse(fs.readFileSync(linkFile, 'utf8'));
 
 if (linked.orgId !== expectedOrgId || linked.projectId !== expectedProjectId) {

@@ -1360,8 +1360,20 @@ jobs:
             fi
 
             echo "Checking ${name}: ${url}"
-            curl --fail --show-error --silent --location --max-time 30 "${url}" > /dev/null
-            echo "${name} is healthy."
+            local smoke_attempts=3
+            for attempt in $(seq 1 "${smoke_attempts}"); do
+              if curl --fail --show-error --silent --location --max-time 30 "${url}" > /dev/null; then
+                echo "${name} is healthy."
+                return 0
+              fi
+              echo "${name} smoke attempt ${attempt}/${smoke_attempts} failed." >&2
+              if [ "${attempt}" -lt "${smoke_attempts}" ]; then
+                sleep 5
+              fi
+            done
+
+            echo "${name} did not become healthy after ${smoke_attempts} attempts." >&2
+            return 1
           }
 
           smoke_if_deployed "backend" "${BACKEND_DEPLOY_RESULT}" "${AURA_BACKEND_ORIGIN}${BACKEND_HEALTH_PATH}"

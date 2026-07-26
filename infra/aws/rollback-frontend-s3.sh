@@ -30,6 +30,15 @@ require_command aws
 aws_region="${AWS_REGION:-${AWS_DEFAULT_REGION:-ap-south-1}}"
 rollback_ref="${ROLLBACK_REF:-}"
 backup_root="_aura-rollback"
+restore_directory=""
+
+cleanup_restore_directory() {
+  if [[ -n "${restore_directory}" && -d "${restore_directory}" ]]; then
+    rm -rf -- "${restore_directory}"
+  fi
+}
+
+trap cleanup_restore_directory EXIT
 
 require_env AWS_FRONTEND_BUCKET
 require_env AWS_FRONTEND_DISTRIBUTION_ID
@@ -62,11 +71,20 @@ fi
 if [[ -n "${backup_prefix}" ]]; then
   echo "Restoring AWS frontend from s3://${AWS_FRONTEND_BUCKET}/${backup_prefix}/."
 
-  aws s3 sync "s3://${AWS_FRONTEND_BUCKET}/${backup_prefix}" "s3://${AWS_FRONTEND_BUCKET}" \
+  restore_directory="$(mktemp -d)"
+  aws s3 sync "s3://${AWS_FRONTEND_BUCKET}/${backup_prefix}" "${restore_directory}" \
+    --region "${aws_region}" \
+    --exclude ".aura-rollback-manifest.json"
+
+  if [[ ! -f "${restore_directory}/index.html" ]]; then
+    echo "Rollback snapshot does not contain index.html; refusing to mutate the live frontend." >&2
+    exit 1
+  fi
+
+  aws s3 sync "${restore_directory}" "s3://${AWS_FRONTEND_BUCKET}" \
     --region "${aws_region}" \
     --delete \
-    --exclude "${backup_root}/*" \
-    --exclude ".aura-rollback-manifest.json"
+    --exclude "${backup_root}/*"
 else
   echo "No completed AWS frontend rollback snapshot matched '${rollback_ref:-latest}'. Refusing to execute target code in the credentialed restore job." >&2
   exit 1
