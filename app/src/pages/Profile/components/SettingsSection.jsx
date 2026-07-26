@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
 import { TogglePref } from './ProfileShared';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import ActiveSessionsPanel from './ActiveSessionsPanel';
 
 const isTrustedDeviceActive = (device) => (
     device?.active !== false && !['revoked', 'expired'].includes(device?.status)
@@ -52,6 +53,14 @@ export default function SettingsSection({
     handleRenameTrustedDevice,
     handleRevokeTrustedDevice,
     handleRevokeOtherTrustedDevices,
+    activeSessions = [],
+    activeSessionsLoading = false,
+    activeSessionsLoaded = false,
+    activeSessionsError = null,
+    activeSessionAction = '',
+    handleRetryActiveSessions,
+    handleRevokeActiveSession,
+    handleRevokeOtherActiveSessions,
     linkedProviderIds = [],
     socialAuthStatus = {},
     providerLinking = '',
@@ -275,7 +284,7 @@ export default function SettingsSection({
                                         {t('profile.settings.security.centerLoadingTitle', {}, 'Loading security settings')}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-300">
-                                        {t('profile.settings.security.centerLoadingBody', {}, 'Checking your passkeys, MFA methods, signed-in devices, and remembered browsers.')}
+                                        {t('profile.settings.security.centerLoadingBody', {}, 'Checking your passkeys, MFA methods, trusted credentials, and remembered browsers.')}
                                     </p>
                                 </div>
                             </div>
@@ -325,6 +334,17 @@ export default function SettingsSection({
                             {t('profile.settings.security.centerRefreshing', {}, 'Refreshing security settings...')}
                         </p>
                     ) : null}
+
+                    <ActiveSessionsPanel
+                        sessions={activeSessions}
+                        loading={activeSessionsLoading}
+                        loaded={activeSessionsLoaded}
+                        error={activeSessionsError}
+                        action={activeSessionAction}
+                        onRetry={handleRetryActiveSessions}
+                        onRevokeSession={handleRevokeActiveSession}
+                        onRevokeOtherSessions={handleRevokeOtherActiveSessions}
+                    />
 
                     {showMfaCenterContent ? (
                     <>
@@ -470,7 +490,7 @@ export default function SettingsSection({
                                 </div>
                                 <h4 id="signed-in-devices-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                                     <ShieldCheck className="h-4 w-4 text-violet-200" />
-                                    {t('profile.settings.devices.signedInTitle', {}, 'Signed-in devices and remembered browsers')}
+                                    {t('profile.settings.credentials.title', {}, 'Trusted credentials and remembered browsers')}
                                 </h4>
                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
                                     {deviceAudience === 'admin'
@@ -518,7 +538,7 @@ export default function SettingsSection({
                             <div className="mt-4 rounded-xl border border-dashed border-white/15 bg-black/15 px-4 py-6 text-center">
                                 <Laptop className="mx-auto h-6 w-6 text-slate-400" />
                                 <p className="mt-2 text-sm font-bold text-white">
-                                    {t('profile.settings.devices.emptySignedInTitle', {}, 'No signed-in devices or remembered browsers')}
+                                    {t('profile.settings.credentials.emptyTitle', {}, 'No trusted credentials or remembered browsers')}
                                 </p>
                                 <p className="mt-1 text-xs text-slate-400">
                                     {t('profile.settings.devices.emptySignedInBody', {}, 'A device appears here after it completes browser recognition. Browser recognition helps identify a device, but it is not MFA.')}
