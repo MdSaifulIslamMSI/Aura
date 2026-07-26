@@ -14,9 +14,7 @@ import {
     User,
 } from 'lucide-react';
 import { AuthContext } from '@/context/AuthContext';
-import { CartContext } from '@/context/CartContext';
 import { useMarket } from '@/context/MarketContext';
-import { WishlistContext } from '@/context/WishlistContext';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
 import { authApi, paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
@@ -38,6 +36,36 @@ import AccountCenterShell from './components/AccountCenterShell';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 const SettingsSection = lazy(() => import('./components/SettingsSection'));
+const PROFILE_FIELDS = ['name', 'phone', 'gender', 'dob', 'bio'];
+
+const normalizeProfileFormForComparison = (value = {}) => ({
+    name: trimText(value.name),
+    phone: normalizePhone(value.phone),
+    gender: trimText(value.gender),
+    dob: trimText(value.dob),
+    bio: trimText(value.bio),
+});
+
+const validateProfileForm = (value = {}, t) => {
+    const errors = {};
+    const normalized = normalizeProfileFormForComparison(value);
+    if (normalized.name.length < 2 || normalized.name.length > 50) {
+        errors.name = t('profile.personal.error.name', {}, 'Enter a name between 2 and 50 characters.');
+    }
+    if (normalized.phone && !PHONE_REGEX.test(normalized.phone)) {
+        errors.phone = t('profile.personal.error.phone', {}, 'Enter a valid phone number with 10 to 15 digits.');
+    }
+    if (normalized.bio.length > 200) {
+        errors.bio = t('profile.personal.error.bio', {}, 'Keep your bio to 200 characters or fewer.');
+    }
+    if (normalized.dob) {
+        const date = new Date(normalized.dob);
+        if (Number.isNaN(date.getTime()) || date.getTime() > Date.now()) {
+            errors.dob = t('profile.personal.error.dob', {}, 'Enter a valid date of birth that is not in the future.');
+        }
+    }
+    return errors;
+};
 
 const buildTabs = (t) => [
     {
@@ -138,9 +166,7 @@ export default function Profile() {
         regenerateMfaRecoveryCodes,
         isAuthenticated,
     } = useContext(AuthContext);
-    const { cartItems } = useContext(CartContext);
-    const { wishlistItems } = useContext(WishlistContext);
-    const { t: legacyT } = useMarket();
+    const { t: legacyT, formatDateTime, formatNumber } = useMarket();
     const t = useStableIcuMessages(legacyT);
     const navigate = useNavigate();
     const location = useLocation();
@@ -185,6 +211,9 @@ export default function Profile() {
 
     const [editMode, setEditMode] = useState(false);
     const [editForm, setEditForm] = useState({});
+    const [profileFieldErrors, setProfileFieldErrors] = useState({});
+    const [profileSubmitError, setProfileSubmitError] = useState('');
+    const [profileRequiresReauth, setProfileRequiresReauth] = useState(false);
 
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [editingAddress, setEditingAddress] = useState(null);
@@ -215,11 +244,11 @@ export default function Profile() {
     ), [currentUser?.providerData]);
 
     const createEditForm = useCallback((source = {}) => ({
-        name: source.name || '',
-        phone: source.phone || '',
-        gender: source.gender || '',
-        dob: source.dob ? new Date(source.dob).toISOString().split('T')[0] : '',
-        bio: source.bio || '',
+        name: source?.name || '',
+        phone: source?.phone || '',
+        gender: source?.gender || '',
+        dob: source?.dob ? new Date(source.dob).toISOString().split('T')[0] : '',
+        bio: source?.bio || '',
     }), []);
 
     useEffect(() => {
@@ -460,7 +489,7 @@ export default function Profile() {
         try {
             const [profileData, dashData] = await Promise.all([
                 userApi.getProfile({ firebaseUser: currentUser }),
-                userApi.getDashboard(),
+                userApi.getAccountOverview({ firebaseUser: currentUser }),
             ]);
 
             setProfile(profileData);
@@ -503,7 +532,7 @@ export default function Profile() {
     }, [dbUser]);
 
     useEffect(() => {
-        if (!['overview', 'payments', 'settings'].includes(activeTab)) return;
+        if (!['payments', 'settings'].includes(activeTab)) return;
         void refreshPaymentMethods();
     }, [activeTab, canUseProtectedProfileApis, refreshPaymentMethods]);
 
@@ -513,12 +542,12 @@ export default function Profile() {
     }, [activeTab, canUseProtectedProfileApis, netbankingCatalog, refreshNetbankingCatalog]);
 
     useEffect(() => {
-        if (!['overview', 'rewards'].includes(activeTab)) return;
+        if (activeTab !== 'rewards') return;
         void refreshRewards();
     }, [activeTab, canUseProtectedProfileApis, refreshRewards]);
 
     useEffect(() => {
-        if (!['overview', 'settings'].includes(activeTab)) return;
+        if (activeTab !== 'settings') return;
         void refreshTrustStatus();
     }, [activeTab, canUseProtectedProfileApis, refreshTrustStatus]);
 
@@ -538,14 +567,14 @@ export default function Profile() {
     useActiveWindowRefresh(
         () => Promise.all([
             refreshProfileDeck({ silent: true }),
-            ['overview', 'payments', 'settings'].includes(activeTab)
+            ['payments', 'settings'].includes(activeTab)
                 ? refreshPaymentMethods({ silent: true })
                 : Promise.resolve(null),
             activeTab === 'payments' ? refreshNetbankingCatalog({ silent: true }) : Promise.resolve(null),
-            ['overview', 'rewards'].includes(activeTab)
+            activeTab === 'rewards'
                 ? refreshRewards({ silent: true })
                 : Promise.resolve(null),
-            ['overview', 'settings'].includes(activeTab)
+            activeTab === 'settings'
                 ? refreshTrustStatus({ silent: true })
                 : Promise.resolve(null),
             activeTab === 'settings'
@@ -584,14 +613,49 @@ export default function Profile() {
         setSearchParams(nextParams, { replace: true });
     }, [searchParams, setSearchParams]);
 
-    const handleSaveProfile = async () => {
+    const handleProfileFieldChange = useCallback((field, value) => {
+        if (!PROFILE_FIELDS.includes(field)) return;
+        setEditForm((previous) => ({ ...previous, [field]: value }));
+        setProfileFieldErrors((previous) => {
+            if (!previous[field]) return previous;
+            const next = { ...previous };
+            delete next[field];
+            return next;
+        });
+        setProfileSubmitError('');
+        setProfileRequiresReauth(false);
+    }, []);
+
+    const handleSaveProfile = async (event) => {
+        event?.preventDefault?.();
+        if (saving) return;
+
+        const fieldErrors = validateProfileForm(editForm, t);
+        if (Object.keys(fieldErrors).length > 0) {
+            setProfileFieldErrors(fieldErrors);
+            setProfileSubmitError(t('profile.personal.error.reviewFields', {}, 'Review the highlighted fields before saving.'));
+            setProfileRequiresReauth(false);
+            return;
+        }
+
+        const currentForm = normalizeProfileFormForComparison(editForm);
+        const baselineForm = normalizeProfileFormForComparison(createEditForm(profile));
+        if (JSON.stringify(currentForm) === JSON.stringify(baselineForm)) {
+            setProfileSubmitError(t('profile.personal.error.noChanges', {}, 'Make a change before saving.'));
+            return;
+        }
+
         setSaving(true);
+        setProfileFieldErrors({});
+        setProfileSubmitError('');
+        setProfileRequiresReauth(false);
         try {
             const payload = {
                 ...editForm,
                 phone: normalizePhone(editForm.phone),
                 bio: trimText(editForm.bio),
                 name: trimText(editForm.name),
+                ...(Number.isInteger(profile?.version) ? { version: profile.version } : {}),
             };
 
             const updated = updateProfileInContext
@@ -601,9 +665,23 @@ export default function Profile() {
             setProfile((previous) => ({ ...previous, ...updated }));
             setEditForm(createEditForm({ ...profile, ...updated }));
             setEditMode(false);
+            setProfileFieldErrors({});
+            setProfileSubmitError('');
             showMsg('success', t('profile.message.profileUpdated', {}, 'Profile updated successfully.'));
         } catch (error) {
-            showMsg('error', error.message || t('profile.message.profileUpdateFailed', {}, 'Failed to update profile.'));
+            const serverErrors = Array.isArray(error?.data?.errors) ? error.data.errors : [];
+            const nextFieldErrors = {};
+            serverErrors.forEach((entry) => {
+                const field = String(entry?.field || '').split('.').pop();
+                if (PROFILE_FIELDS.includes(field)) {
+                    nextFieldErrors[field] = entry.message;
+                }
+            });
+            setProfileFieldErrors(nextFieldErrors);
+            setProfileSubmitError(error.message || t('profile.message.profileUpdateFailed', {}, 'Failed to update profile.'));
+            setProfileRequiresReauth(
+                Boolean(editForm.phone !== baselineForm.phone && [401, 403].includes(Number(error?.status || 0)))
+            );
         } finally {
             setSaving(false);
         }
@@ -917,14 +995,18 @@ export default function Profile() {
             const result = await authApi.revokeOtherAccountSessions({ firebaseUser: currentUser });
             await refreshActiveSessions({ silent: true });
             const revoked = Number(result?.revoked || 0);
-            showMsg(
-                'success',
-                t(
+            const revokedMessage = revoked === 1
+                ? t(
+                    'profile.message.otherSessionRevoked',
+                    { count: revoked },
+                    `${revoked} other browser session was signed out.`
+                )
+                : t(
                     'profile.message.otherSessionsRevoked',
                     { count: revoked },
-                    `${revoked} other browser ${revoked === 1 ? 'session was' : 'sessions were'} signed out.`
-                )
-            );
+                    `${revoked} other browser sessions were signed out.`
+                );
+            showMsg('success', revokedMessage);
             return result;
         } catch (error) {
             showMsg('error', error.message || t('profile.message.otherSessionsRevokeFailed', {}, 'Could not sign out the other browser sessions.'));
@@ -1104,8 +1186,37 @@ export default function Profile() {
         },
     };
 
-    const stats = dashboard?.stats || {};
-    const recentOrders = dashboard?.recentOrders || [];
+    const accountOverview = dashboard || {};
+    const stats = {
+        activeOrders: Number(accountOverview?.orders?.activeCount || 0),
+        pendingPostPurchase: Number(accountOverview?.postPurchase?.pendingCount || 0),
+        savedItems: Number(accountOverview?.savedItems?.count || 0),
+        openSupport: Number(accountOverview?.support?.openCount || 0),
+        securityActions: Array.isArray(accountOverview?.security?.recommendationCodes)
+            ? accountOverview.security.recommendationCodes.length
+            : 0,
+        listings: {
+            active: Number(accountOverview?.marketplace?.activeCount || 0),
+            sold: Number(accountOverview?.marketplace?.soldCount || 0),
+            totalViews: Number(accountOverview?.marketplace?.recent?.views || 0),
+        },
+    };
+    const recentOrders = (Array.isArray(accountOverview?.orders?.recent)
+        ? accountOverview.orders.recent
+        : []
+    ).map((order) => ({
+        _id: order.id,
+        orderStatus: order.status,
+        isPaid: order.paid,
+        isDelivered: order.delivered,
+        totalPrice: Number(order.total?.amount || 0),
+        presentmentCurrency: order.total?.currency || 'INR',
+        createdAt: order.createdAt,
+        orderItems: order.item ? [{
+            title: order.item.title,
+            image: order.item.image,
+        }] : [],
+    }));
     const rewardSnapshot = rewards || stats.rewards || profile?.loyalty || {};
     const rewardActivity = Array.isArray(rewards?.recentActivity)
         ? rewards.recentActivity
@@ -1125,13 +1236,15 @@ export default function Profile() {
         .toUpperCase()
         .slice(0, 2);
     const memberSince = profile?.createdAt
-        ? new Date(profile.createdAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+        ? formatDateTime(profile.createdAt, undefined, { month: 'long', year: 'numeric' })
         : t('profile.memberSince.recent', {}, 'Recently joined');
     const normalizedProfilePhone = normalizePhone(profilePhone);
     const hasValidProfilePhone = PHONE_REGEX.test(normalizedProfilePhone);
     const hasOtpReadyIdentity = Boolean((profile?.isVerified || currentUser?.emailVerified) && hasValidProfilePhone);
     const paymentMethodsSecured = paymentMethods.length > 0 && paymentMethods.some((method) => method.isDefault);
-    const trustHealthy = trustStatus.derivedStatus === 'healthy';
+    const trustHealthy = activeTab === 'settings'
+        ? trustStatus.derivedStatus === 'healthy'
+        : !accountOverview?.security?.attentionRequired;
     const isAdminAccount = Boolean(profile?.isAdmin || dbUser?.isAdmin);
     const accountState = profile?.accountState || 'active';
     const recoveryReadiness = sessionIntelligence?.readiness || {};
@@ -1164,26 +1277,30 @@ export default function Profile() {
         ];
         return Math.round((checklist.filter(Boolean).length / checklist.length) * 100);
     }, [currentUser?.emailVerified, hasValidProfilePhone, profile, profileEmail, profileName]);
+    const profileDirty = useMemo(() => (
+        JSON.stringify(normalizeProfileFormForComparison(editForm))
+        !== JSON.stringify(normalizeProfileFormForComparison(createEditForm(profile)))
+    ), [createEditForm, editForm, profile]);
 
     const heroMetrics = [
         {
             label: t('profile.heroMetric.orders.label', {}, 'Orders'),
-            value: Number(stats.totalOrders || 0).toLocaleString('en-IN'),
-            detail: t('profile.heroMetric.orders.detail', {}, 'Placed from this account'),
+            value: formatNumber(stats.activeOrders),
+            detail: t('profile.heroMetric.orders.detail', {}, 'Currently active'),
         },
         {
             label: t('profile.heroMetric.wishlist.label', {}, 'Saved items'),
-            value: Number(wishlistItems?.length || 0).toLocaleString('en-IN'),
+            value: formatNumber(stats.savedItems),
             detail: t('profile.heroMetric.wishlist.detail', {}, 'In your wishlist'),
         },
         {
             label: t('profile.heroMetric.listings.label', {}, 'Active listings'),
-            value: Number(stats.listings?.active || 0).toLocaleString('en-IN'),
+            value: formatNumber(stats.listings?.active || 0),
             detail: t('profile.heroMetric.listings.detail', {}, 'Currently in the marketplace'),
         },
         {
             label: t('profile.heroMetric.points.label', {}, 'Aura points'),
-            value: auraPoints.toLocaleString('en-IN'),
+            value: formatNumber(auraPoints),
             detail: t('profile.heroMetric.points.detail', { tier: auraTier }, `${auraTier} tier`),
         },
     ];
@@ -1262,19 +1379,16 @@ export default function Profile() {
                     {activeTab === 'overview' ? (
                         <OverviewSection
                             stats={stats}
-                            cartItems={cartItems}
-                            wishlistItems={wishlistItems}
                             recentOrders={recentOrders}
                             auraPoints={auraPoints}
-                            auraTier={auraTier}
                             isAdminAccount={isAdminAccount}
                             profile={profile}
                             memberSince={memberSince}
                             hasOtpReadyIdentity={hasOtpReadyIdentity}
-                            paymentMethodsSecured={paymentMethodsSecured}
-                            paymentMethodCount={paymentMethods.length}
                             trustHealthy={trustHealthy}
                             profileCompletion={profileCompletion}
+                            overviewMeta={accountOverview?.meta}
+                            onRefresh={() => refreshProfileDeck()}
                         />
                     ) : null}
 
@@ -1285,12 +1399,24 @@ export default function Profile() {
                             profileEmail={profileEmail}
                             profilePhone={profilePhone}
                             editMode={editMode}
-                            setEditMode={setEditMode}
+                            setEditMode={(nextMode) => {
+                                setEditMode(nextMode);
+                                if (!nextMode) {
+                                    setProfileFieldErrors({});
+                                    setProfileSubmitError('');
+                                    setProfileRequiresReauth(false);
+                                }
+                            }}
                             editForm={editForm}
-                            setEditForm={setEditForm}
+                            handleProfileFieldChange={handleProfileFieldChange}
                             saving={saving}
                             handleSaveProfile={handleSaveProfile}
                             createEditForm={createEditForm}
+                            profileDirty={profileDirty}
+                            profileFieldErrors={profileFieldErrors}
+                            profileSubmitError={profileSubmitError}
+                            profileRequiresReauth={profileRequiresReauth}
+                            onReauthenticate={handleSecureRecovery}
                             memberSince={memberSince}
                             hasOtpReadyIdentity={hasOtpReadyIdentity}
                             paymentMethodsSecured={paymentMethodsSecured}

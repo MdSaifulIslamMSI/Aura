@@ -14,6 +14,7 @@ const {
     revokeAccountSessionSchema,
     revokeOtherAccountSessionsSchema,
 } = require('../validators/accountSessionValidators');
+const { getAccountOverview } = require('../controllers/accountController');
 
 const router = express.Router();
 
@@ -26,8 +27,10 @@ const accountSessionLimiter = createDistributedRateLimit({
     keyGenerator: (req) => req.authUid || req.user?.id || req.ip,
 });
 
-router.use(protect, accountSessionLimiter);
+router.use(protect);
 
+router.get('/summary', getAccountOverview);
+router.use('/sessions', accountSessionLimiter);
 router.get('/sessions', validate(getAccountSessionsSchema), getAccountSessions);
 router.post(
     '/sessions/revoke-others',

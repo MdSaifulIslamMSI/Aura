@@ -409,6 +409,7 @@ export const AuthProvider = ({ children }) => {
 
   const applySignedOutState = () => {
     clearCsrfTokenCache();
+    userApi.clearAccountCache?.();
     clearTrustedDeviceSessionToken();
     resetSyncTracking();
     clearControlledAuthFlow();
@@ -550,6 +551,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     clearCsrfTokenCache();
+    userApi.clearAccountCache?.();
     clearTrustedDeviceSessionToken();
     resetSyncTracking();
     clearControlledAuthFlow();
@@ -590,6 +592,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     clearCsrfTokenCache();
+    userApi.clearAccountCache?.();
     clearTrustedDeviceSessionToken();
     resetSyncTracking();
     clearControlledAuthFlow();
@@ -645,6 +648,7 @@ export const AuthProvider = ({ children }) => {
     const identity = getIdentityKey(activeUser, safeEmail);
     if (syncStateRef.current.identity && syncStateRef.current.identity !== identity) {
       clearCsrfTokenCache();
+      userApi.clearAccountCache?.();
       clearTrustedDeviceSessionToken();
     }
 

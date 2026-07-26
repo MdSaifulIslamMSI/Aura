@@ -18,6 +18,7 @@ const {
     deactivateSellerAccount,
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
+const { csrfTokenValidatorUnlessBearerAuth } = require('../middleware/csrfMiddleware');
 const validate = require('../middleware/validate');
 const {
     loginSchema,
@@ -47,7 +48,7 @@ router.post('/login', protect, loginLimiter, validate(loginSchema), loginUser); 
 router
     .route('/profile')
     .get(protect, getUserProfile) // Protected
-    .put(protect, validate(updateProfileSchema), updateUserProfile); // Protected
+    .put(protect, csrfTokenValidatorUnlessBearerAuth, validate(updateProfileSchema), updateUserProfile); // Protected
 
 router.get('/dashboard', protect, getProfileDashboard); // Protected
 router.get('/rewards', protect, getRewards); // Protected

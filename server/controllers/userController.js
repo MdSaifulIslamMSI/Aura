@@ -21,8 +21,9 @@ const {
 } = require('../utils/avatarValidation');
 const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
 const { normalizePhoneE164 } = require('../services/sms');
+const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt updatedAt __v';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
@@ -623,7 +624,10 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/users/profile
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res, next) => {
-    const updates = req.body || {};
+    const requestBody = req.body && typeof req.body === 'object' ? req.body : {};
+    const expectedVersion = requestBody.version;
+    const updates = { ...requestBody };
+    delete updates.version;
     const allowedFields = ['name', 'avatar', 'gender', 'dob', 'bio', 'phone'];
     const blockedFields = Object.keys(updates).filter((key) => !allowedFields.includes(key));
 
@@ -633,6 +637,38 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
 
     if (Object.keys(updates).length === 0) {
         return next(new AppError('No fields to update', 400));
+    }
+
+    if (updates.name !== undefined) {
+        if (typeof updates.name !== 'string') {
+            return next(new AppError('Name must be a string', 400));
+        }
+        updates.name = updates.name.trim();
+        if (updates.name.length < 2 || updates.name.length > 50) {
+            return next(new AppError('Name must be between 2 and 50 characters', 400));
+        }
+    }
+
+    if (updates.bio !== undefined) {
+        if (typeof updates.bio !== 'string') {
+            return next(new AppError('Bio must be a string', 400));
+        }
+        updates.bio = updates.bio.trim();
+        if (updates.bio.length > 200) {
+            return next(new AppError('Bio must be 200 characters or fewer', 400));
+        }
+    }
+
+    if (updates.dob !== undefined) {
+        if (updates.dob === '' || updates.dob === null) {
+            updates.dob = null;
+        } else {
+            const normalizedDate = new Date(updates.dob);
+            if (Number.isNaN(normalizedDate.getTime()) || normalizedDate.getTime() > Date.now()) {
+                return next(new AppError('Date of birth must be a valid date that is not in the future', 400));
+            }
+            updates.dob = normalizedDate;
+        }
     }
 
     if (updates.phone !== undefined) {
@@ -687,9 +723,16 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
 
     let user;
     try {
+        const profileFilter = { email: req.user.email };
+        if (expectedVersion !== undefined) {
+            profileFilter.__v = expectedVersion;
+        }
         user = await User.findOneAndUpdate(
-            { email: req.user.email },
-            { $set: updates },
+            profileFilter,
+            {
+                $set: updates,
+                $inc: { __v: 1 },
+            },
             { returnDocument: 'after', projection: PROFILE_PROJECTION, lean: true }
         );
     } catch (error) {
@@ -700,12 +743,28 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
     }
 
     if (!user) {
+        if (expectedVersion !== undefined && await User.exists({ email: req.user.email })) {
+            const conflict = new AppError('Profile changed in another session. Refresh and try again.', 409);
+            conflict.code = 'ACCOUNT_PROFILE_VERSION_CONFLICT';
+            return next(conflict);
+        }
         return next(new AppError('User not found', 404));
     }
 
     await persistAuthSnapshot(user);
     invalidateUserCache(req.authUid);
     invalidateUserCacheByEmail(user.email);
+    recordAuthSecurityEvent({
+        event: 'account.profile.updated',
+        outcome: 'success',
+        reason: 'user_requested',
+        surface: 'account_profile',
+        req,
+        meta: {
+            fields: Object.keys(updates).sort(),
+            optimisticConcurrency: expectedVersion !== undefined,
+        },
+    });
 
     res.json({
         ...toProfilePayload(user),

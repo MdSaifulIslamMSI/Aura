@@ -4,6 +4,7 @@ const { updateUserProfile } = require('../controllers/userController');
 jest.mock('../models/User');
 jest.mock('../services/authProfileVault');
 jest.mock('../middleware/authMiddleware');
+jest.mock('../services/authSecurityTelemetryService');
 
 describe('User Controller - Avatar Validation', () => {
   let req, res, next;
@@ -66,7 +67,10 @@ describe('User Controller - Avatar Validation', () => {
 
       expect(User.findOneAndUpdate).toHaveBeenCalledWith(
         { email: 'test@example.com' },
-        { $set: { avatar: '' } },
+        {
+          $set: { avatar: '' },
+          $inc: { __v: 1 }
+        },
         { returnDocument: 'after', projection: expect.any(String), lean: true }
       );
       expect(res.json).toHaveBeenCalled();
@@ -137,7 +141,10 @@ describe('User Controller - Avatar Validation', () => {
 
       expect(User.findOneAndUpdate).toHaveBeenCalledWith(
         { email: 'test@example.com' },
-        { $set: { avatar: `data:image/jpeg;base64,${jpegBase64}` } },
+        {
+          $set: { avatar: `data:image/jpeg;base64,${jpegBase64}` },
+          $inc: { __v: 1 }
+        },
         { returnDocument: 'after', projection: expect.any(String), lean: true }
       );
       expect(res.json).toHaveBeenCalled();

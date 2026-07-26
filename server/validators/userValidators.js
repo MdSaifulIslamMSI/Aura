@@ -1,6 +1,15 @@
 const { z } = require('zod');
 const PHONE_REGEX = /^\+?\d{10,15}$/;
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const DESKTOP_HANDOFF_REQUEST_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const isValidProfileDate = (value) => {
+    if (value === '' || value === null) return true;
+    if (typeof value !== 'string') return false;
+    if (!DATE_ONLY_REGEX.test(value) && Number.isNaN(Date.parse(value))) return false;
+    const parsed = new Date(value);
+    return !Number.isNaN(parsed.getTime()) && parsed.getTime() <= Date.now();
+};
 
 const loginSchema = z.object({
     body: z.object({
@@ -27,8 +36,11 @@ const updateProfileSchema = z.object({
         phone: z.string().trim().regex(PHONE_REGEX, 'Invalid phone number').optional(),
         avatar: z.string().url().optional().or(z.literal('')),
         gender: z.enum(['male', 'female', 'other', 'prefer-not-to-say', '']).optional(),
-        dob: z.union([z.string().datetime(), z.literal(''), z.null()]).optional(),
-        bio: z.string().trim().max(500).optional().or(z.literal('')),
+        dob: z.union([z.string().trim(), z.null()])
+            .refine(isValidProfileDate, 'Date of birth must be a valid date that is not in the future')
+            .optional(),
+        bio: z.string().trim().max(200).optional().or(z.literal('')),
+        version: z.number().int().nonnegative().optional(),
     }).strict().refine(data => Object.keys(data).length > 0, {
         message: 'At least one field must be provided to update',
     }),

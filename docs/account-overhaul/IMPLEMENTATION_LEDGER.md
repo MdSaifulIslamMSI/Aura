@@ -42,8 +42,8 @@ The active-session response is an exact allowlist containing only opaque alias, 
 
 | Wave | Product domain | Status | Commit | Verification |
 |---|---|---|---|---|
-| Foundation | Shell, scoped loading, active sessions, security separation | In progress | Pending | Baseline evidence above; documentation reconciliation and projection lock underway |
-| A | Account overview and profile | Pending | Pending | Pending |
+| Foundation | Shell, scoped loading, active sessions, security separation | Complete | `5c9f92b9` | Baseline evidence above; documentation reconciled and the seven-field safe session projection is regression-locked |
+| A | Account overview and profile | Complete | `account: add profile and account overview domain` | Backend: 9 focused suites / 33 tests; frontend: 5 focused files / 51 tests; lint PASS; strict route inventory PASS (97); i18n policy 55 tests PASS; 21 catalogs / 4,742 ICU messages / 0 mechanical blockers; native review remains separately blocked |
 | B | Address management | Pending | Pending | Pending |
 | C | Preferences and notifications | Pending | Pending | Pending |
 | D | Orders and post-purchase | Pending | Pending | Pending |

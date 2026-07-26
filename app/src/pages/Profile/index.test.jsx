@@ -7,7 +7,7 @@ import { WishlistContext } from '@/context/WishlistContext';
 import Profile from './index';
 
 const apiMocks = vi.hoisted(() => ({
-    getDashboard: vi.fn(),
+    getAccountOverview: vi.fn(),
     getHealthStatus: vi.fn(),
     getLatestRewards: vi.fn(),
     getMethods: vi.fn(),
@@ -20,6 +20,8 @@ const apiMocks = vi.hoisted(() => ({
 vi.mock('@/context/MarketContext', () => ({
     useMarket: () => ({
         t: (_key, _values, fallback) => fallback,
+        formatDateTime: (value) => new Date(value).toISOString(),
+        formatNumber: (value) => String(value),
     }),
 }));
 
@@ -45,7 +47,7 @@ vi.mock('@/services/api', () => ({
     paymentApi: { getMethods: apiMocks.getMethods },
     trustApi: { getHealthStatus: apiMocks.getHealthStatus },
     userApi: {
-        getDashboard: apiMocks.getDashboard,
+        getAccountOverview: apiMocks.getAccountOverview,
         getProfile: apiMocks.getProfile,
         getRewards: apiMocks.getRewards,
     },
@@ -126,7 +128,16 @@ describe('Profile security center state', () => {
             isVerified: true,
             addresses: [],
         });
-        apiMocks.getDashboard.mockResolvedValue({ stats: {}, recentOrders: [] });
+        apiMocks.getAccountOverview.mockResolvedValue({
+            contractVersion: 1,
+            orders: { activeCount: 0, recent: [] },
+            postPurchase: { pendingCount: 0 },
+            savedItems: { count: 0, preview: [] },
+            security: { recommendationCodes: [] },
+            support: { openCount: 0, actionRequired: null },
+            marketplace: { activeCount: 0, soldCount: 0, recent: null },
+            meta: { partial: false, unavailable: [] },
+        });
         apiMocks.getMethods.mockResolvedValue([]);
         apiMocks.getRewards.mockResolvedValue(null);
         apiMocks.getHealthStatus.mockResolvedValue({

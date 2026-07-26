@@ -12,10 +12,15 @@ export default function PersonalInfoSection({
     editMode,
     setEditMode,
     editForm,
-    setEditForm,
+    handleProfileFieldChange,
     saving,
     handleSaveProfile,
     createEditForm,
+    profileDirty,
+    profileFieldErrors,
+    profileSubmitError,
+    profileRequiresReauth,
+    onReauthenticate,
     memberSince,
     hasOtpReadyIdentity,
     paymentMethodsSecured,
@@ -24,7 +29,7 @@ export default function PersonalInfoSection({
     isAdminAccount,
     accountState,
 }) {
-    const { t: legacyT } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
     const t = useStableIcuMessages(legacyT);
 
     const accountCopy = {
@@ -36,7 +41,7 @@ export default function PersonalInfoSection({
 
     return (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_20rem]">
-            <div className="premium-panel p-6">
+            <form className="premium-panel p-6" onSubmit={handleSaveProfile} noValidate>
                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 className="text-xl font-black text-white">{t('profile.personal.title', {}, 'Personal Information')}</h3>
@@ -55,9 +60,8 @@ export default function PersonalInfoSection({
                                 {t('profile.personal.cancel', {}, 'Cancel')}
                             </button>
                             <button
-                                type="button"
-                                onClick={handleSaveProfile}
-                                disabled={saving}
+                                type="submit"
+                                disabled={saving || !profileDirty}
                                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-5 py-2 text-sm font-black text-[#051018] disabled:opacity-60"
                             >
                                 {saving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#051018] border-t-transparent" /> : <Save className="h-4 w-4" />}
@@ -75,16 +79,40 @@ export default function PersonalInfoSection({
                     )}
                 </div>
 
+                {profileSubmitError ? (
+                    <div className="mb-5 rounded-2xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100" role="alert">
+                        <p>{profileSubmitError}</p>
+                        {profileRequiresReauth ? (
+                            <button
+                                type="button"
+                                onClick={onReauthenticate}
+                                className="mt-3 rounded-xl border border-rose-300/25 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-white"
+                            >
+                                {t('profile.personal.reauthenticate', {}, 'Verify identity and continue')}
+                            </button>
+                        ) : null}
+                    </div>
+                ) : null}
+
                 <div className="space-y-5">
                     <InfoRow
                         icon={User}
                         label={t('profile.personal.fullName', {}, 'Full Name')}
                         value={editMode ? (
-                            <input
-                                value={editForm.name}
-                                onChange={(event) => setEditForm((previous) => ({ ...previous, name: event.target.value }))}
-                                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-colors focus:border-cyan-300/30"
-                            />
+                            <div>
+                                <input
+                                    id="account-profile-name"
+                                    value={editForm.name}
+                                    onChange={(event) => handleProfileFieldChange('name', event.target.value)}
+                                    autoComplete="name"
+                                    maxLength={50}
+                                    aria-label={t('profile.personal.fullName', {}, 'Full Name')}
+                                    aria-invalid={Boolean(profileFieldErrors.name)}
+                                    aria-describedby={profileFieldErrors.name ? 'account-profile-name-error' : undefined}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-colors focus:border-cyan-300/30"
+                                />
+                                {profileFieldErrors.name ? <p id="account-profile-name-error" className="mt-2 text-xs text-rose-200">{profileFieldErrors.name}</p> : null}
+                            </div>
                         ) : (
                             profileName || t('profile.shared.notSet', {}, 'Not set')
                         )}
@@ -101,11 +129,21 @@ export default function PersonalInfoSection({
                         icon={Phone}
                         label={t('profile.personal.phone', {}, 'Phone Number')}
                         value={editMode ? (
-                            <input
-                                value={editForm.phone}
-                                onChange={(event) => setEditForm((previous) => ({ ...previous, phone: event.target.value }))}
-                                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-colors focus:border-cyan-300/30"
-                            />
+                            <div>
+                                <input
+                                    id="account-profile-phone"
+                                    type="tel"
+                                    value={editForm.phone}
+                                    onChange={(event) => handleProfileFieldChange('phone', event.target.value)}
+                                    autoComplete="tel"
+                                    inputMode="tel"
+                                    aria-label={t('profile.personal.phone', {}, 'Phone Number')}
+                                    aria-invalid={Boolean(profileFieldErrors.phone)}
+                                    aria-describedby={profileFieldErrors.phone ? 'account-profile-phone-error' : undefined}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-colors focus:border-cyan-300/30"
+                                />
+                                {profileFieldErrors.phone ? <p id="account-profile-phone-error" className="mt-2 text-xs text-rose-200">{profileFieldErrors.phone}</p> : null}
+                            </div>
                         ) : (
                             profilePhone || t('profile.shared.notSet', {}, 'Not set')
                         )}
@@ -119,8 +157,10 @@ export default function PersonalInfoSection({
                         label={t('profile.personal.gender', {}, 'Gender')}
                         value={editMode ? (
                             <PremiumSelect
+                                id="account-profile-gender"
                                 value={editForm.gender}
-                                onChange={(event) => setEditForm((previous) => ({ ...previous, gender: event.target.value }))}
+                                onChange={(event) => handleProfileFieldChange('gender', event.target.value)}
+                                aria-label={t('profile.personal.gender', {}, 'Gender')}
                                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-colors focus:border-cyan-300/30"
                             >
                                 <option value="">{t('profile.personal.gender.preferNot', {}, 'Prefer not to say')}</option>
@@ -139,14 +179,23 @@ export default function PersonalInfoSection({
                         icon={Calendar}
                         label={t('profile.personal.dob', {}, 'Date of Birth')}
                         value={editMode ? (
-                            <input
-                                type="date"
-                                value={editForm.dob}
-                                onChange={(event) => setEditForm((previous) => ({ ...previous, dob: event.target.value }))}
-                                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-colors focus:border-cyan-300/30"
-                            />
+                            <div>
+                                <input
+                                    id="account-profile-dob"
+                                    type="date"
+                                    value={editForm.dob}
+                                    max={new Date().toISOString().slice(0, 10)}
+                                    onChange={(event) => handleProfileFieldChange('dob', event.target.value)}
+                                    autoComplete="bday"
+                                    aria-label={t('profile.personal.dob', {}, 'Date of Birth')}
+                                    aria-invalid={Boolean(profileFieldErrors.dob)}
+                                    aria-describedby={profileFieldErrors.dob ? 'account-profile-dob-error' : undefined}
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition-colors focus:border-cyan-300/30"
+                                />
+                                {profileFieldErrors.dob ? <p id="account-profile-dob-error" className="mt-2 text-xs text-rose-200">{profileFieldErrors.dob}</p> : null}
+                            </div>
                         ) : (
-                            profile?.dob ? new Date(profile.dob).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : t('profile.shared.notSet', {}, 'Not set')
+                            profile?.dob ? formatDateTime(profile.dob, undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : t('profile.shared.notSet', {}, 'Not set')
                         )}
                     />
 
@@ -154,20 +203,33 @@ export default function PersonalInfoSection({
                         icon={Edit3}
                         label={t('profile.personal.bio', {}, 'Bio')}
                         value={editMode ? (
-                            <textarea
-                                value={editForm.bio}
-                                onChange={(event) => setEditForm((previous) => ({ ...previous, bio: event.target.value }))}
-                                maxLength={200}
-                                rows={4}
-                                placeholder={t('profile.personal.bioPlaceholder', {}, 'Tell Aura what matters about you...')}
-                                className="w-full resize-none rounded-[1.6rem] border border-white/10 bg-white/5 px-4 py-4 text-white outline-none transition-colors focus:border-cyan-300/30"
-                            />
+                            <div>
+                                <textarea
+                                    id="account-profile-bio"
+                                    value={editForm.bio}
+                                    onChange={(event) => handleProfileFieldChange('bio', event.target.value)}
+                                    maxLength={200}
+                                    rows={4}
+                                    aria-label={t('profile.personal.bio', {}, 'Bio')}
+                                    aria-invalid={Boolean(profileFieldErrors.bio)}
+                                    aria-describedby="account-profile-bio-help"
+                                    placeholder={t('profile.personal.bioPlaceholder', {}, 'Tell Aura what matters about you...')}
+                                    className="w-full resize-none rounded-[1.6rem] border border-white/10 bg-white/5 px-4 py-4 text-white outline-none transition-colors focus:border-cyan-300/30"
+                                />
+                                <p id="account-profile-bio-help" className={`mt-2 text-xs ${profileFieldErrors.bio ? 'text-rose-200' : 'text-slate-400'}`}>
+                                    {profileFieldErrors.bio || t(
+                                        'profile.personal.bioCount',
+                                        { count: editForm.bio?.length || 0 },
+                                        `${editForm.bio?.length || 0} of 200 characters`,
+                                    )}
+                                </p>
+                            </div>
                         ) : (
                             profile?.bio || t('profile.personal.noBio', {}, 'No bio added yet')
                         )}
                     />
                 </div>
-            </div>
+            </form>
 
             <div className="space-y-4">
                 <div className="premium-panel p-5">

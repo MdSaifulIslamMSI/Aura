@@ -5,11 +5,9 @@ import {
     Package,
     Shield,
     ShieldCheck,
-    ShoppingCart,
     Sparkles,
     Store,
     Tag,
-    Trophy,
     UserRound,
     Wallet,
     Eye,
@@ -21,21 +19,23 @@ import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export default function OverviewSection({
     stats,
-    cartItems,
-    wishlistItems,
     recentOrders,
     auraPoints,
-    auraTier,
     isAdminAccount,
     profile,
     memberSince,
     hasOtpReadyIdentity,
-    paymentMethodsSecured,
-    paymentMethodCount,
     trustHealthy,
     profileCompletion,
+    overviewMeta,
+    onRefresh,
 }) {
-    const { t: legacyT, formatPrice } = useMarket();
+    const {
+        t: legacyT,
+        formatDateTime,
+        formatNumber,
+        formatPrice,
+    } = useMarket();
     const t = useStableIcuMessages(legacyT);
 
     const accountStateCopy = {
@@ -62,6 +62,24 @@ export default function OverviewSection({
 
     return (
         <div className="space-y-8">
+            {overviewMeta?.partial ? (
+                <div className="flex flex-col gap-3 rounded-2xl border border-amber-300/20 bg-amber-500/10 px-4 py-4 text-sm text-amber-50 sm:flex-row sm:items-center sm:justify-between" role="status">
+                    <div>
+                        <p className="font-bold">{t('profile.overview.partial.title', {}, 'Some account details are temporarily unavailable')}</p>
+                        <p className="mt-1 text-amber-100/75">
+                            {t('profile.overview.partial.body', {}, 'Available sections remain current. Retry to restore the missing account summaries.')}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onRefresh}
+                        className="shrink-0 rounded-xl border border-amber-200/20 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-white"
+                    >
+                        {t('profile.overview.partial.retry', {}, 'Retry overview')}
+                    </button>
+                </div>
+            ) : null}
+
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                 <div className="premium-panel premium-card-hover p-5">
                     <div className="flex items-center justify-between gap-3">
@@ -118,28 +136,24 @@ export default function OverviewSection({
                             'profile.overview.readiness.detail',
                             {
                                 memberSince,
-                                paymentCount: paymentMethodCount,
-                                paymentLabel: paymentMethodCount === 1
-                                    ? t('profile.overview.paymentMethod.single', {}, 'method')
-                                    : t('profile.overview.paymentMethod.plural', {}, 'methods'),
                                 addressCount,
                                 addressLabel: addressCount === 1
                                     ? t('profile.overview.address.single', {}, 'address')
                                     : t('profile.overview.address.plural', {}, 'addresses'),
                             },
-                            `Member since ${memberSince}. ${paymentMethodCount} saved payment ${paymentMethodCount === 1 ? 'method' : 'methods'} and ${addressCount} stored ${addressCount === 1 ? 'address' : 'addresses'}.`,
+                            `Member since ${memberSince}. ${addressCount} stored ${addressCount === 1 ? 'address' : 'addresses'}.`,
                         )}
                     </p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                <StatCard icon={Package} label={t('profile.overview.stats.orders', {}, 'Total Orders')} value={stats.totalOrders || 0} color="blue" />
-                <StatCard icon={Wallet} label={t('profile.overview.stats.spent', {}, 'Total Spent')} value={formatPrice(stats.totalSpent || 0, 'INR', undefined, { presentmentCurrency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 })} color="green" />
-                <StatCard icon={Heart} label={t('profile.overview.stats.wishlist', {}, 'Wishlist Items')} value={wishlistItems?.length || 0} color="pink" />
-                <StatCard icon={ShoppingCart} label={t('profile.overview.stats.cart', {}, 'Cart Items')} value={cartItems?.length || 0} color="purple" />
-                <StatCard icon={Sparkles} label={t('profile.overview.stats.points', {}, 'Aura Points')} value={auraPoints.toLocaleString('en-IN')} color="amber" />
-                <StatCard icon={Trophy} label={t('profile.overview.stats.tier', {}, 'Tier')} value={auraTier} color="cyan" />
+                <StatCard icon={Package} label={t('profile.overview.stats.activeOrders', {}, 'Active orders')} value={formatNumber(stats.activeOrders || 0)} color="blue" />
+                <StatCard icon={Wallet} label={t('profile.overview.stats.pendingPostPurchase', {}, 'Returns and refunds')} value={formatNumber(stats.pendingPostPurchase || 0)} color="green" />
+                <StatCard icon={Heart} label={t('profile.overview.stats.savedItems', {}, 'Saved items')} value={formatNumber(stats.savedItems || 0)} color="pink" />
+                <StatCard icon={BadgeCheck} label={t('profile.overview.stats.openSupport', {}, 'Open support cases')} value={formatNumber(stats.openSupport || 0)} color="purple" />
+                <StatCard icon={Shield} label={t('profile.overview.stats.securityActions', {}, 'Security actions')} value={formatNumber(stats.securityActions || 0)} color="amber" />
+                <StatCard icon={Sparkles} label={t('profile.overview.stats.points', {}, 'Aura points')} value={formatNumber(auraPoints)} color="cyan" />
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -183,11 +197,11 @@ export default function OverviewSection({
                                         {order.orderItems?.map((item) => item.title).join(', ') || t('profile.overview.orders.fallback', {}, 'Order')}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-500">
-                                        {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        {formatDateTime(order.createdAt, undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-black text-white">{formatPrice(order.totalPrice || 0, 'INR', undefined, { presentmentCurrency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                                    <p className="font-black text-white">{formatPrice(order.totalPrice || 0, order.presentmentCurrency || 'INR', undefined, { presentmentCurrency: order.presentmentCurrency || 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                                     <span className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${order.isDelivered ? 'bg-emerald-500/12 text-emerald-100' : order.isPaid ? 'bg-cyan-500/12 text-cyan-100' : 'bg-amber-500/12 text-amber-100'}`}>
                                         {order.isDelivered
                                             ? t('profile.overview.orders.status.delivered', {}, 'Delivered')
@@ -205,7 +219,7 @@ export default function OverviewSection({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <QuickLink to="/marketplace" icon={Store} label={t('profile.overview.links.marketplace.label', {}, 'Marketplace')} desc={t('profile.overview.links.marketplace.desc', {}, 'Browse listings')} />
                 <QuickLink to="/sell" icon={Plus} label={t('profile.overview.links.sell.label', {}, 'Sell Item')} desc={t('profile.overview.links.sell.desc', {}, 'Post a listing')} />
-                <QuickLink to="/wishlist" icon={Heart} label={t('profile.overview.links.wishlist.label', {}, 'Wishlist')} desc={t('profile.overview.links.wishlist.desc', { count: wishlistItems?.length || 0 }, `${wishlistItems?.length || 0} items saved`)} />
+                <QuickLink to="/wishlist" icon={Heart} label={t('profile.overview.links.wishlist.label', {}, 'Wishlist')} desc={t('profile.overview.links.wishlist.desc', { count: stats.savedItems || 0 }, `${stats.savedItems || 0} items saved`)} />
                 <QuickLink
                     to={isAdminAccount ? '/admin/dashboard' : '/payments'}
                     icon={isAdminAccount ? Shield : BadgeCheck}
@@ -214,9 +228,7 @@ export default function OverviewSection({
                         : t('profile.overview.links.payment.label', {}, 'Payment Safety')}
                     desc={isAdminAccount
                         ? t('profile.overview.links.admin.desc', {}, 'Secure admin operations')
-                        : paymentMethodsSecured
-                            ? t('profile.overview.links.payment.secured', {}, 'Tokenized and secured')
-                            : t('profile.overview.links.payment.review', {}, 'Review your payment posture')}
+                        : t('profile.overview.links.payment.review', {}, 'Review your payment posture')}
                 />
             </div>
         </div>
