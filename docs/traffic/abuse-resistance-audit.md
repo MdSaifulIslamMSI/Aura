@@ -1,10 +1,10 @@
 # Abuse Resistance Audit
 
-Generated: 2026-07-05T08:44:32.727Z
+Generated: 2026-07-26T13:05:23.931Z
 
 Status: pass
 
-Summary: 56 pass, 0 warning, 0 fail, 0 skipped.
+Summary: 60 pass, 0 warning, 0 fail, 0 skipped.
 
 ## Checks
 
@@ -37,6 +37,10 @@ Summary: 56 pass, 0 warning, 0 fail, 0 skipped.
 | abuse.common-budget.mfa-passkey-duo-step-up | pass | repo | info | mfa-passkey-duo-step-up: cost=critical, timeout=7000, tag=mfa-passkey-duo-step-up. |
 | abuse.auth-strict.auth-login-session | pass | repo | info | auth-login-session: failMode=fail-closed, perIp=40. |
 | abuse.common-budget.auth-login-session | pass | repo | info | auth-login-session: cost=critical, timeout=7000, tag=auth-login-session. |
+| abuse.common-budget.account-security-reads | pass | repo | info | account-security-reads: cost=medium, timeout=8000, tag=account-security-reads. |
+| abuse.mutation-authority.account-security-mutations | pass | repo | info | account-security-mutations declares auth, signature, flow, admin, or quota control. |
+| abuse.auth-strict.account-security-mutations | pass | repo | info | account-security-mutations: failMode=fail-closed, perIp=40. |
+| abuse.common-budget.account-security-mutations | pass | repo | info | account-security-mutations: cost=critical, timeout=7000, tag=account-security-mutations. |
 | abuse.ai-quota.ai-chat-model-gateway | pass | repo | info | ai-chat-model-gateway: quota=true, concurrency=true. |
 | abuse.common-budget.ai-chat-model-gateway | pass | repo | info | ai-chat-model-gateway: cost=critical, timeout=25000, tag=ai-chat-model-gateway. |
 | abuse.payment-idempotency.payment-checkout | pass | repo | info | Payment intent, provider idempotency, and state-machine guards own duplicate prevention. |
@@ -84,6 +88,8 @@ Summary: 56 pass, 0 warning, 0 fail, 0 skipped.
 | MFA/passkey/Duo step-up | trusted-device-webauthn | Auth and account security | AUTH_WEBAUTHN | 60/300s | 30/300s | 98304 | 10000ms | fail-closed |
 | MFA/passkey/Duo step-up | mfa-passkey-duo-step-up | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |
 | Auth/login/session | auth-login-session | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |
+| Auth/login/session | account-security-reads | Auth and account security | AUTHENTICATED_READ | 240/60s | 300/60s | 98304 | 8000ms | fail-open-safe |
+| Auth/login/session | account-security-mutations | Auth and account security | AUTH_LOGIN | 40/300s | 20/300s | 65536 | 7000ms | fail-closed |
 | AI assistant/chat/model gateway | ai-chat-model-gateway | AI/chat/model gateway | AI_EXPENSIVE | 30/60s | 50/60s | 9437184 | 25000ms | fail-closed |
 | Payment/checkout/order | payment-checkout | Payment and checkout | PAYMENT | 60/300s | 80/300s | 131072 | 12000ms | fail-closed |
 | Cart | cart-order-mutations | Payment and checkout | AUTHENTICATED_WRITE | 120/300s | 120/300s | 262144 | 10000ms | fail-closed |

@@ -215,7 +215,7 @@ describe('SettingsSection recovery codes', () => {
         });
 
         expect(screen.getByRole('heading', { name: 'Passkeys and MFA' })).toBeInTheDocument();
-        expect(screen.getByRole('heading', { name: 'Signed-in devices and remembered browsers' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Trusted credentials and remembered browsers' })).toBeInTheDocument();
         expect(screen.getByText(/remembered browser can reduce recognition prompts, but it is not MFA/i)).toBeInTheDocument();
         expect(screen.getByText('Remembered browser - not MFA')).toBeInTheDocument();
         expect(screen.getByText('Synced passkey')).toBeInTheDocument();
@@ -308,7 +308,7 @@ describe('SettingsSection recovery codes', () => {
 
         expect(screen.getByText('Loading security settings')).toBeInTheDocument();
         expect(screen.queryByText('No MFA method enrolled yet')).not.toBeInTheDocument();
-        expect(screen.queryByText('No signed-in devices or remembered browsers')).not.toBeInTheDocument();
+        expect(screen.queryByText('No trusted credentials or remembered browsers')).not.toBeInTheDocument();
     });
 
     it('preserves the backend error, offers retry, and does not misreport empty security data', () => {
@@ -329,7 +329,7 @@ describe('SettingsSection recovery codes', () => {
         expect(alert).toHaveTextContent('Security center is temporarily unavailable.');
         expect(alert).toHaveTextContent('profile-security-request-1');
         expect(screen.queryByText('No MFA method enrolled yet')).not.toBeInTheDocument();
-        expect(screen.queryByText('No signed-in devices or remembered browsers')).not.toBeInTheDocument();
+        expect(screen.queryByText('No trusted credentials or remembered browsers')).not.toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
         expect(handleRetryMfaCenter).toHaveBeenCalledTimes(1);
@@ -369,7 +369,7 @@ describe('SettingsSection recovery codes', () => {
 
         expect(screen.getByText('No MFA method enrolled yet')).toBeInTheDocument();
         expect(screen.getByText(/Register a passkey or set up an authenticator app/i)).toBeInTheDocument();
-        expect(screen.getByText('No signed-in devices or remembered browsers')).toBeInTheDocument();
+        expect(screen.getByText('No trusted credentials or remembered browsers')).toBeInTheDocument();
         expect(screen.getByText(/Browser recognition helps identify a device, but it is not MFA/i)).toBeInTheDocument();
     });
 });

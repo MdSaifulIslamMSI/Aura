@@ -78,6 +78,19 @@ describe('traffic policy registry', () => {
             routeClass: 'OTP_RESET',
             flowProtectionRequired: true,
         });
+        expect(getTrafficPolicyForRoute({ method: 'GET', path: '/api/account/sessions' })).toMatchObject({
+            profile: PROFILES.AUTH_SECURITY,
+            routeClass: 'AUTHENTICATED_READ',
+            authRequired: true,
+            cacheRule: 'no-store',
+        });
+        expect(getTrafficPolicyForRoute({ method: 'POST', path: '/api/account/sessions/revoke-others' })).toMatchObject({
+            profile: PROFILES.AUTH_SECURITY,
+            routeClass: 'AUTH_LOGIN',
+            authRequired: true,
+            flowProtectionRequired: true,
+            failMode: 'fail-closed',
+        });
     });
 
     test('high-risk component policies keep merge-blocking guard posture', () => {

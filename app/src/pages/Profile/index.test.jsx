@@ -11,6 +11,7 @@ const apiMocks = vi.hoisted(() => ({
     getHealthStatus: vi.fn(),
     getLatestRewards: vi.fn(),
     getMethods: vi.fn(),
+    getAccountSessions: vi.fn(),
     getMfaSecurityCenter: vi.fn(),
     getProfile: vi.fn(),
     getRewards: vi.fn(),
@@ -23,7 +24,12 @@ vi.mock('@/context/MarketContext', () => ({
 }));
 
 vi.mock('@/i18n/useStableIcuMessages', () => ({
-    useStableIcuMessages: (translate) => translate,
+    useStableIcuMessages: (translate) => translate || ((_key, values = {}, fallback = '') => (
+        Object.entries(values).reduce(
+            (message, [token, value]) => message.replaceAll(`{${token}}`, String(value)),
+            fallback
+        )
+    )),
 }));
 
 vi.mock('@/config/firebase', () => ({
@@ -31,7 +37,10 @@ vi.mock('@/config/firebase', () => ({
 }));
 
 vi.mock('@/services/api', () => ({
-    authApi: { getMfaSecurityCenter: apiMocks.getMfaSecurityCenter },
+    authApi: {
+        getAccountSessions: apiMocks.getAccountSessions,
+        getMfaSecurityCenter: apiMocks.getMfaSecurityCenter,
+    },
     intelligenceApi: { getLatestRewards: apiMocks.getLatestRewards },
     paymentApi: { getMethods: apiMocks.getMethods },
     trustApi: { getHealthStatus: apiMocks.getHealthStatus },
@@ -125,6 +134,7 @@ describe('Profile security center state', () => {
             backend: { status: 'healthy', db: 'connected' },
         });
         apiMocks.getLatestRewards.mockResolvedValue(null);
+        apiMocks.getAccountSessions.mockResolvedValue({ success: true, data: [] });
         apiMocks.getMfaSecurityCenter
             .mockRejectedValueOnce(backendError)
             .mockResolvedValueOnce({ mfa: { enabled: false, methods: {}, trustedDevices: [] } });

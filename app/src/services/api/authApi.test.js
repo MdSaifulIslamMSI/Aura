@@ -700,6 +700,55 @@ describe('authApi', () => {
     expect(global.fetch.mock.calls[1][1].method).toBe('POST');
   });
 
+  it('lists and revokes account sessions through explicit endpoints', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    const sessionId = 'a'.repeat(43);
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        data: [{ id: sessionId, current: true, client: 'Chrome', os: 'Windows' }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        status: 'session_revoked',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        status: 'other_sessions_revoked',
+        revoked: 1,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    await expect(authApi.getAccountSessions({ firebaseUser })).resolves.toMatchObject({
+      data: [{ id: sessionId, current: true }],
+    });
+    await authApi.revokeAccountSession({ sessionId }, { firebaseUser });
+    await authApi.revokeOtherAccountSessions({ firebaseUser });
+
+    expect(global.fetch.mock.calls[0][0]).toContain('/account/sessions');
+    expect(global.fetch.mock.calls[0][1].method).toBe('GET');
+    expect(global.fetch.mock.calls[1][0]).toContain(`/account/sessions/${sessionId}`);
+    expect(global.fetch.mock.calls[1][1].method).toBe('DELETE');
+    expect(global.fetch.mock.calls[2][0]).toContain('/account/sessions/revoke-others');
+    expect(global.fetch.mock.calls[2][1].method).toBe('POST');
+  });
+
+  it('rejects malformed account-session aliases before making a request', async () => {
+    await expect(authApi.revokeAccountSession({ sessionId: 'raw-session-id' }))
+      .rejects
+      .toThrow('A valid account session identifier is required.');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('builds a Duo login redirect URL with a safe return path', async () => {
     expect(authApi.getDuoLoginUrl('/profile?tab=security')).toContain('/api/auth/duo/start?returnTo=%2Fprofile%3Ftab%3Dsecurity');
     expect(authApi.getDuoLoginUrl('/desktop-login?desktopAuthRequest=req-1&desktopAuthSecret=secret-1#bridge')).toContain('/api/auth/duo/start?returnTo=%2Fdesktop-login%3FdesktopAuthRequest%3Dreq-1%26desktopAuthSecret%3Dsecret-1%23bridge');

@@ -19,6 +19,8 @@ const SESSION_IDLE_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_IDLE_TTL_MS
 const SESSION_ABSOLUTE_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_ABSOLUTE_TTL_MS || (7 * 24 * 60 * 60 * 1000)), SESSION_IDLE_TTL_MS);
 const SESSION_TOUCH_INTERVAL_MS = Math.max(Number(process.env.AUTH_SESSION_TOUCH_INTERVAL_MS || (5 * 60 * 1000)), 30 * 1000);
 const SESSION_STEP_UP_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_STEP_UP_TTL_MS || (10 * 60 * 1000)), 60 * 1000);
+const MAX_PUBLIC_SESSION_RESULTS = 20;
+const MAX_TRACKED_SESSION_IDS = 100;
 const GLOBAL_SESSION_REVOCATION_CACHE_MS = Math.max(
     Number(process.env.AUTH_GLOBAL_SESSION_REVOCATION_CACHE_MS || 1000),
     100
@@ -57,6 +59,35 @@ const shouldSetSecureSessionCookie = () => parseBooleanEnv(
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeUserId = (value) => String(value || '').trim();
 const getUserSessionsKey = (userId) => `{${redisFlags.redisPrefix}:auth}:user_sessions:${normalizeUserId(userId)}`;
+const getPublicSessionId = (sessionId = '') => crypto
+    .createHash('sha256')
+    .update(String(sessionId || '').trim())
+    .digest('base64url');
+
+const resolveClientMetadata = (req = {}, previousSession = null) => {
+    const userAgent = normalizeText(req.headers?.['user-agent'] || '');
+    if (!userAgent) {
+        return {
+            clientFamily: normalizeText(previousSession?.clientFamily) || 'Unknown browser',
+            osFamily: normalizeText(previousSession?.osFamily) || 'Unknown device',
+        };
+    }
+
+    let clientFamily = 'Other browser';
+    if (/edg\//i.test(userAgent)) clientFamily = 'Microsoft Edge';
+    else if (/firefox\//i.test(userAgent)) clientFamily = 'Firefox';
+    else if (/chrome\//i.test(userAgent) && !/(opr|opera)\//i.test(userAgent)) clientFamily = 'Chrome';
+    else if (/safari\//i.test(userAgent) && /version\//i.test(userAgent)) clientFamily = 'Safari';
+
+    let osFamily = 'Other device';
+    if (/iphone|ipad|ipod/i.test(userAgent)) osFamily = 'iOS';
+    else if (/android/i.test(userAgent)) osFamily = 'Android';
+    else if (/windows nt/i.test(userAgent)) osFamily = 'Windows';
+    else if (/mac os x|macintosh/i.test(userAgent)) osFamily = 'macOS';
+    else if (/linux/i.test(userAgent)) osFamily = 'Linux';
+
+    return { clientFamily, osFamily };
+};
 
 const normalizeHost = (value = '') => String(value || '')
     .trim()
@@ -699,6 +730,7 @@ const buildBrowserSessionRecord = ({
         webAuthnStepUpUntil,
         additionalAmr,
     });
+    const clientMetadata = resolveClientMetadata(req, previousSession);
     const absoluteExpiresAt = new Date(createdAt.getTime() + SESSION_ABSOLUTE_TTL_MS).toISOString();
 
     return {
@@ -716,6 +748,8 @@ const buildBrowserSessionRecord = ({
         amr: assurance.amr,
         deviceId: deviceId || previousSession?.deviceId || '',
         deviceMethod: assurance.deviceMethod,
+        clientFamily: clientMetadata.clientFamily,
+        osFamily: clientMetadata.osFamily,
         riskState: resolveRiskState({ user, previousSession, riskState }),
         stepUpUntil: assurance.stepUpUntil,
         webAuthnStepUpUntil: assurance.webAuthnStepUpUntil,
@@ -788,6 +822,142 @@ async function revokeBrowserSession(sessionId = '') {
         logger.warn('browser_session.revoke_failed', logPayload);
     }
 }
+
+const getAllTrackedSessionIdsForUser = async (userId = '') => {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return [];
+
+    const storageMode = getStorageMode();
+    if (storageMode === 'memory') {
+        return Array.from(inMemorySessionStore.entries())
+            .filter(([, entry]) => normalizeUserId(entry?.record?.userId) === normalizedUserId)
+            .map(([sessionId]) => sessionId);
+    }
+    if (storageMode === 'unavailable') {
+        throw createSessionStoreUnavailableError();
+    }
+
+    try {
+        return await getRedisClient().sMembers(getUserSessionsKey(normalizedUserId));
+    } catch (error) {
+        if (!isMemorySessionFallbackAllowed()) {
+            throw createSessionStoreUnavailableError(error);
+        }
+        logger.warn('browser_session.user_inventory_read_failed', {
+            error: error?.message || 'unknown',
+        });
+        return Array.from(inMemorySessionStore.entries())
+            .filter(([, entry]) => normalizeUserId(entry?.record?.userId) === normalizedUserId)
+            .map(([sessionId]) => sessionId);
+    }
+};
+
+const getTrackedSessionIdsForUser = async (userId = '') => {
+    const sessionIds = await getAllTrackedSessionIdsForUser(userId);
+    if (sessionIds.length > MAX_TRACKED_SESSION_IDS) {
+        logger.warn('browser_session.user_inventory_capped', {
+            tracked: sessionIds.length,
+            cap: MAX_TRACKED_SESSION_IDS,
+        });
+    }
+    return sessionIds.slice(0, MAX_TRACKED_SESSION_IDS);
+};
+
+const loadOwnedBrowserSessions = async (userId = '') => {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return [];
+
+    const sessionIds = await getTrackedSessionIdsForUser(normalizedUserId);
+    const ownedSessions = [];
+
+    for (const sessionId of sessionIds) {
+        const record = await loadSessionRecord(sessionId);
+        if (!record) continue;
+        if (normalizeUserId(record.userId) !== normalizedUserId) {
+            const redisClient = getRedisClient();
+            if (redisClient) {
+                await redisClient.sRem(getUserSessionsKey(normalizedUserId), sessionId);
+            }
+            continue;
+        }
+        ownedSessions.push(record);
+    }
+
+    return ownedSessions;
+};
+
+const toPublicBrowserSession = (record = {}, currentSessionId = '') => ({
+    id: getPublicSessionId(record.sessionId),
+    current: Boolean(currentSessionId && record.sessionId === currentSessionId),
+    client: normalizeText(record.clientFamily) || 'Unknown browser',
+    os: normalizeText(record.osFamily) || 'Unknown device',
+    createdAt: toIsoOrNull(record.createdAt),
+    lastActiveAt: toIsoOrNull(record.lastSeenAt),
+    expiresAt: toIsoOrNull(record.absoluteExpiresAt),
+});
+
+const listBrowserSessionsForUser = async (
+    userId = '',
+    { currentSessionId = '', limit = MAX_PUBLIC_SESSION_RESULTS } = {}
+) => {
+    const boundedLimit = Math.min(
+        Math.max(Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : MAX_PUBLIC_SESSION_RESULTS, 1),
+        MAX_PUBLIC_SESSION_RESULTS
+    );
+    const sessions = await loadOwnedBrowserSessions(userId);
+
+    return sessions
+        .sort((left, right) => {
+            const leftCurrent = left.sessionId === currentSessionId ? 1 : 0;
+            const rightCurrent = right.sessionId === currentSessionId ? 1 : 0;
+            if (leftCurrent !== rightCurrent) return rightCurrent - leftCurrent;
+            return new Date(right.lastSeenAt || 0).getTime() - new Date(left.lastSeenAt || 0).getTime();
+        })
+        .slice(0, boundedLimit)
+        .map((record) => toPublicBrowserSession(record, currentSessionId));
+};
+
+const revokeBrowserSessionForUserByPublicId = async (
+    userId = '',
+    publicSessionId = '',
+    { currentSessionId = '' } = {}
+) => {
+    const normalizedPublicId = normalizeText(publicSessionId);
+    if (!/^[A-Za-z0-9_-]{43}$/.test(normalizedPublicId)) return null;
+
+    const sessions = await loadOwnedBrowserSessions(userId);
+    const target = sessions.find((record) => (
+        getPublicSessionId(record.sessionId) === normalizedPublicId
+    ));
+    if (!target) return null;
+
+    await revokeBrowserSession(target.sessionId);
+    return {
+        revoked: true,
+        current: Boolean(currentSessionId && target.sessionId === currentSessionId),
+    };
+};
+
+const revokeOtherBrowserSessionsForUser = async (userId = '', currentSessionId = '') => {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedCurrentSessionId = normalizeText(currentSessionId);
+    if (!normalizedUserId || !normalizedCurrentSessionId) {
+        const error = new Error('Current browser session is required');
+        error.code = 'AUTH_CURRENT_SESSION_REQUIRED';
+        throw error;
+    }
+
+    const sessionIds = await getAllTrackedSessionIdsForUser(normalizedUserId);
+    let revoked = 0;
+    for (const sessionId of sessionIds) {
+        if (sessionId === normalizedCurrentSessionId) continue;
+        const record = await loadSessionRecord(sessionId);
+        if (!record || normalizeUserId(record.userId) !== normalizedUserId) continue;
+        await revokeBrowserSession(sessionId);
+        revoked += 1;
+    }
+    return { revoked };
+};
 
 async function revokeBrowserSessionsForUser(userId = '') {
     const normalizedUserId = normalizeUserId(userId);
@@ -1340,12 +1510,15 @@ module.exports = {
     getBrowserSessionFromRequest,
     getGlobalSessionRevokedAfter,
     getCookieOptions,
+    listBrowserSessionsForUser,
     parseCookies,
     refreshBrowserSession,
     resolveSessionIdFromCookieHeader,
     resolveSessionIdFromRequest,
     revokeAllBrowserSessions,
     revokeBrowserSession,
+    revokeBrowserSessionForUserByPublicId,
+    revokeOtherBrowserSessionsForUser,
     revokeBrowserSessionsForDevices,
     revokeBrowserSessionsForUser,
     rotateBrowserSession,

@@ -410,6 +410,30 @@ export const authApi = {
     getMfaSecurityCenter: async (options = {}) => (
         getProtectedAuthJson('/auth/mfa', options)
     ),
+    getAccountSessions: async (options = {}) => (
+        getProtectedAuthJson('/account/sessions', options)
+    ),
+    revokeAccountSession: async ({ sessionId = '' } = {}, options = {}) => {
+        const normalizedSessionId = String(sessionId || '').trim();
+        if (!/^[A-Za-z0-9_-]{43}$/.test(normalizedSessionId)) {
+            throw new Error('A valid account session identifier is required.');
+        }
+        return postAuthBootstrap(
+            `/account/sessions/${encodeURIComponent(normalizedSessionId)}`,
+            {},
+            {
+                ...options,
+                method: 'DELETE',
+                useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+            }
+        );
+    },
+    revokeOtherAccountSessions: async (options = {}) => (
+        postAuthBootstrap('/account/sessions/revoke-others', {}, {
+            ...options,
+            useFirebaseBearer: Boolean(options.firebaseUser?.getIdToken),
+        })
+    ),
     getAdminSecurityStatus: async (options = {}) => (
         getProtectedAuthJson('/admin/security/status', options)
     ),

@@ -1,21 +1,15 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    Activity,
     AlertTriangle,
-    ArrowRight,
     BarChart3,
     Bell,
-    Camera,
-    Calendar,
     CreditCard,
-    Edit3,
     MapPin,
     Package,
     Settings,
     Shield,
     Sparkles,
-    Star,
     Store,
     User,
 } from 'lucide-react';
@@ -25,7 +19,6 @@ import { useMarket } from '@/context/MarketContext';
 import { WishlistContext } from '@/context/WishlistContext';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
 import { authApi, paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
-import { cn } from '@/lib/utils';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
 import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
 import { openStripeSetupModal } from '@/utils/stripe';
@@ -38,23 +31,75 @@ import OrdersSection from './components/OrdersSection';
 import RewardsSection from './components/RewardsSection';
 import ListingsSection from './components/ListingsSection';
 import PaymentsSection from './components/PaymentsSection';
-import SettingsSection from './components/SettingsSection';
 import AccountStatusBanner from './components/AccountStatusBanner';
 import SupportSection from './components/SupportSection';
 import NotificationsSection from './components/NotificationsSection';
+import AccountCenterShell from './components/AccountCenterShell';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
+const SettingsSection = lazy(() => import('./components/SettingsSection'));
+
 const buildTabs = (t) => [
-    { id: 'overview', label: t('profile.tab.overview', {}, 'Overview'), icon: BarChart3 },
-    { id: 'personal', label: t('profile.tab.personal', {}, 'Personal Info'), icon: User },
-    { id: 'addresses', label: t('profile.tab.addresses', {}, 'Addresses'), icon: MapPin },
-    { id: 'orders', label: t('profile.tab.orders', {}, 'Orders'), icon: Package },
-    { id: 'rewards', label: t('profile.tab.rewards', {}, 'Aura Points'), icon: Sparkles },
-    { id: 'listings', label: t('profile.tab.listings', {}, 'My Listings'), icon: Store },
-    { id: 'payments', label: t('profile.tab.payments', {}, 'Payments'), icon: CreditCard },
-    { id: 'notifications', label: t('profile.tab.notifications', {}, 'Notifications'), icon: Bell },
-    { id: 'support', label: t('profile.tab.support', {}, 'Appeals & Support'), icon: Shield },
-    { id: 'settings', label: t('profile.tab.settings', {}, 'Settings'), icon: Settings },
+    {
+        id: 'overview',
+        label: t('profile.tab.overview', {}, 'Overview'),
+        description: t('profile.tab.overview.description', {}, 'See the account details and recent activity that need your attention.'),
+        icon: BarChart3,
+    },
+    {
+        id: 'personal',
+        label: t('profile.tab.personal', {}, 'Personal information'),
+        description: t('profile.tab.personal.description', {}, 'Manage your profile details and verified contact information.'),
+        icon: User,
+    },
+    {
+        id: 'addresses',
+        label: t('profile.tab.addresses', {}, 'Addresses'),
+        description: t('profile.tab.addresses.description', {}, 'Keep delivery and billing addresses accurate for checkout.'),
+        icon: MapPin,
+    },
+    {
+        id: 'orders',
+        label: t('profile.tab.orders', {}, 'Orders'),
+        description: t('profile.tab.orders.description', {}, 'Review recent purchases and continue order-related tasks.'),
+        icon: Package,
+    },
+    {
+        id: 'rewards',
+        label: t('profile.tab.rewards', {}, 'Aura points'),
+        description: t('profile.tab.rewards.description', {}, 'Review your balance, tier, and recent rewards activity.'),
+        icon: Sparkles,
+    },
+    {
+        id: 'listings',
+        label: t('profile.tab.listings', {}, 'My listings'),
+        description: t('profile.tab.listings.description', {}, 'Manage the marketplace listings connected to your seller account.'),
+        icon: Store,
+    },
+    {
+        id: 'payments',
+        label: t('profile.tab.payments', {}, 'Payments'),
+        description: t('profile.tab.payments.description', {}, 'Review saved payment methods and account payment preferences.'),
+        icon: CreditCard,
+    },
+    {
+        id: 'notifications',
+        label: t('profile.tab.notifications', {}, 'Notifications'),
+        description: t('profile.tab.notifications.description', {}, 'Read account, order, marketplace, and support updates.'),
+        icon: Bell,
+    },
+    {
+        id: 'support',
+        label: t('profile.tab.support', {}, 'Support'),
+        description: t('profile.tab.support.description', {}, 'Open and follow account appeals or support requests.'),
+        icon: Shield,
+    },
+    {
+        id: 'settings',
+        label: t('profile.tab.settings', {}, 'Security & settings'),
+        description: t('profile.tab.settings.description', {}, 'Manage sign-in protection, trusted credentials, recovery, and account preferences.'),
+        icon: Settings,
+    },
 ];
 
 const ADDRESS_TYPES = [
@@ -128,6 +173,11 @@ export default function Profile() {
     const [totpVerifyLoading, setTotpVerifyLoading] = useState(false);
     const [mfaPasskeyWorking, setMfaPasskeyWorking] = useState(false);
     const [trustedDeviceAction, setTrustedDeviceAction] = useState('');
+    const [activeSessions, setActiveSessions] = useState([]);
+    const [activeSessionsLoading, setActiveSessionsLoading] = useState(false);
+    const [activeSessionsLoaded, setActiveSessionsLoaded] = useState(false);
+    const [activeSessionsError, setActiveSessionsError] = useState(null);
+    const [activeSessionAction, setActiveSessionAction] = useState('');
     const [intelligenceData, setIntelligenceData] = useState(null);
     const [intelligenceLoading, setIntelligenceLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
@@ -152,6 +202,10 @@ export default function Profile() {
     const fileInputRef = useRef(null);
     const editModeRef = useRef(false);
     const tabs = useMemo(() => buildTabs(t), [t]);
+    const activeTabDefinition = useMemo(
+        () => tabs.find((tab) => tab.id === activeTab) || tabs[0],
+        [activeTab, tabs],
+    );
     const canUseProtectedProfileApis = Boolean(currentUser?.uid && isAuthenticated);
     const socialAuthStatus = useMemo(() => getFirebaseSocialAuthStatus(), [currentUser?.uid]);
     const linkedProviderIds = useMemo(() => (
@@ -303,6 +357,41 @@ export default function Profile() {
         }
     }, [canUseProtectedProfileApis, currentUser]);
 
+    const refreshActiveSessions = useCallback(async ({ silent = false } = {}) => {
+        if (!canUseProtectedProfileApis) {
+            setActiveSessions([]);
+            setActiveSessionsError(null);
+            setActiveSessionsLoaded(false);
+            setActiveSessionsLoading(false);
+            return [];
+        }
+
+        if (!silent) {
+            setActiveSessionsLoading(true);
+            setActiveSessionsError(null);
+        }
+
+        try {
+            const result = await authApi.getAccountSessions({ firebaseUser: currentUser });
+            const nextSessions = Array.isArray(result?.data) ? result.data : [];
+            setActiveSessions(nextSessions);
+            setActiveSessionsError(null);
+            setActiveSessionsLoaded(true);
+            return nextSessions;
+        } catch (error) {
+            if (!isTrustedDeviceChallengeError(error)) {
+                console.error('Active sessions fetch failed:', error);
+            }
+            setActiveSessionsError(error);
+            setActiveSessionsLoaded(true);
+            return null;
+        } finally {
+            if (!silent) {
+                setActiveSessionsLoading(false);
+            }
+        }
+    }, [canUseProtectedProfileApis, currentUser]);
+
     const refreshIntelligence = useCallback(async ({ silent = false } = {}) => {
         if (!canUseProtectedProfileApis) {
             setIntelligenceData(null);
@@ -414,8 +503,9 @@ export default function Profile() {
     }, [dbUser]);
 
     useEffect(() => {
+        if (!['overview', 'payments', 'settings'].includes(activeTab)) return;
         void refreshPaymentMethods();
-    }, [canUseProtectedProfileApis, refreshPaymentMethods]);
+    }, [activeTab, canUseProtectedProfileApis, refreshPaymentMethods]);
 
     useEffect(() => {
         if (activeTab !== 'payments' || !canUseProtectedProfileApis || netbankingCatalog) return;
@@ -423,31 +513,48 @@ export default function Profile() {
     }, [activeTab, canUseProtectedProfileApis, netbankingCatalog, refreshNetbankingCatalog]);
 
     useEffect(() => {
+        if (!['overview', 'rewards'].includes(activeTab)) return;
         void refreshRewards();
-    }, [canUseProtectedProfileApis, refreshRewards]);
+    }, [activeTab, canUseProtectedProfileApis, refreshRewards]);
 
     useEffect(() => {
+        if (!['overview', 'settings'].includes(activeTab)) return;
         void refreshTrustStatus();
-    }, [canUseProtectedProfileApis, refreshTrustStatus]);
+    }, [activeTab, canUseProtectedProfileApis, refreshTrustStatus]);
 
     useEffect(() => {
         if (activeTab !== 'settings') return;
-        void refreshMfaCenter();
-    }, [activeTab, canUseProtectedProfileApis, refreshMfaCenter]);
+        void Promise.all([
+            refreshMfaCenter(),
+            refreshActiveSessions(),
+        ]);
+    }, [activeTab, canUseProtectedProfileApis, refreshActiveSessions, refreshMfaCenter]);
 
     useEffect(() => {
+        if (activeTab !== 'rewards') return;
         void refreshIntelligence();
-    }, [canUseProtectedProfileApis, refreshIntelligence]);
+    }, [activeTab, canUseProtectedProfileApis, refreshIntelligence]);
 
     useActiveWindowRefresh(
         () => Promise.all([
             refreshProfileDeck({ silent: true }),
-            refreshPaymentMethods({ silent: true }),
+            ['overview', 'payments', 'settings'].includes(activeTab)
+                ? refreshPaymentMethods({ silent: true })
+                : Promise.resolve(null),
             activeTab === 'payments' ? refreshNetbankingCatalog({ silent: true }) : Promise.resolve(null),
-            refreshRewards({ silent: true }),
-            refreshTrustStatus({ silent: true }),
-            activeTab === 'settings' ? refreshMfaCenter({ silent: true }) : Promise.resolve(null),
-            refreshIntelligence({ silent: true }),
+            ['overview', 'rewards'].includes(activeTab)
+                ? refreshRewards({ silent: true })
+                : Promise.resolve(null),
+            ['overview', 'settings'].includes(activeTab)
+                ? refreshTrustStatus({ silent: true })
+                : Promise.resolve(null),
+            activeTab === 'settings'
+                ? Promise.all([
+                    refreshMfaCenter({ silent: true }),
+                    refreshActiveSessions({ silent: true }),
+                ])
+                : Promise.resolve(null),
+            activeTab === 'rewards' ? refreshIntelligence({ silent: true }) : Promise.resolve(null),
         ]),
         {
             enabled: canUseProtectedProfileApis,
@@ -777,6 +884,56 @@ export default function Profile() {
         });
     };
 
+    const handleRevokeActiveSession = async (session) => {
+        const sessionId = String(session?.id || '').trim();
+        setActiveSessionAction(`revoke:${sessionId}`);
+        try {
+            const result = await authApi.revokeAccountSession(
+                { sessionId },
+                { firebaseUser: currentUser }
+            );
+
+            if (session?.current) {
+                showMsg('success', t('profile.message.currentSessionRevoked', {}, 'This browser session was revoked. You are being signed out.'));
+                await logout?.();
+                navigate('/login', { replace: true });
+                return result;
+            }
+
+            await refreshActiveSessions({ silent: true });
+            showMsg('success', t('profile.message.sessionRevoked', {}, 'Browser session signed out.'));
+            return result;
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.sessionRevokeFailed', {}, 'Could not sign out this browser session.'));
+            throw error;
+        } finally {
+            setActiveSessionAction('');
+        }
+    };
+
+    const handleRevokeOtherActiveSessions = async () => {
+        setActiveSessionAction('revoke-others');
+        try {
+            const result = await authApi.revokeOtherAccountSessions({ firebaseUser: currentUser });
+            await refreshActiveSessions({ silent: true });
+            const revoked = Number(result?.revoked || 0);
+            showMsg(
+                'success',
+                t(
+                    'profile.message.otherSessionsRevoked',
+                    { count: revoked },
+                    `${revoked} other browser ${revoked === 1 ? 'session was' : 'sessions were'} signed out.`
+                )
+            );
+            return result;
+        } catch (error) {
+            showMsg('error', error.message || t('profile.message.otherSessionsRevokeFailed', {}, 'Could not sign out the other browser sessions.'));
+            throw error;
+        } finally {
+            setActiveSessionAction('');
+        }
+    };
+
     const handleCopyRecoveryCodes = async () => {
         if (!visibleRecoveryCodes.length) return;
 
@@ -1010,24 +1167,24 @@ export default function Profile() {
 
     const heroMetrics = [
         {
-            label: t('profile.heroMetric.orders.label', {}, 'Orders tracked'),
+            label: t('profile.heroMetric.orders.label', {}, 'Orders'),
             value: Number(stats.totalOrders || 0).toLocaleString('en-IN'),
-            detail: t('profile.heroMetric.orders.detail', {}, 'Customer activity'),
+            detail: t('profile.heroMetric.orders.detail', {}, 'Placed from this account'),
         },
         {
-            label: t('profile.heroMetric.wishlist.label', {}, 'Wishlist intent'),
+            label: t('profile.heroMetric.wishlist.label', {}, 'Saved items'),
             value: Number(wishlistItems?.length || 0).toLocaleString('en-IN'),
-            detail: t('profile.heroMetric.wishlist.detail', {}, 'Saved demand signals'),
+            detail: t('profile.heroMetric.wishlist.detail', {}, 'In your wishlist'),
         },
         {
-            label: t('profile.heroMetric.listings.label', {}, 'Listings active'),
+            label: t('profile.heroMetric.listings.label', {}, 'Active listings'),
             value: Number(stats.listings?.active || 0).toLocaleString('en-IN'),
-            detail: t('profile.heroMetric.listings.detail', {}, 'Marketplace presence'),
+            detail: t('profile.heroMetric.listings.detail', {}, 'Currently in the marketplace'),
         },
         {
             label: t('profile.heroMetric.points.label', {}, 'Aura points'),
             value: auraPoints.toLocaleString('en-IN'),
-            detail: t('profile.heroMetric.points.detail', { tier: auraTier }, `${auraTier} reward posture`),
+            detail: t('profile.heroMetric.points.detail', { tier: auraTier }, `${auraTier} tier`),
         },
     ];
 
@@ -1038,23 +1195,22 @@ export default function Profile() {
         deleted: t('profile.accountState.deleted', {}, 'deleted'),
     };
 
-    const accountStateTone = {
-        active: 'border-emerald-400/25 bg-emerald-500/12 text-emerald-200',
-        warned: 'border-amber-400/25 bg-amber-500/12 text-amber-100',
-        suspended: 'border-rose-400/25 bg-rose-500/12 text-rose-100',
-        deleted: 'border-zinc-400/25 bg-zinc-500/12 text-zinc-200',
-    };
-
     if (loading) {
         return (
-            <div className="min-h-screen profile-theme profile-premium-shell flex items-center justify-center px-4">
-                <div className="premium-panel premium-grid-backdrop relative z-10 w-full max-w-lg p-8 text-center">
-                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-                        <div className="h-8 w-8 rounded-full border-4 border-neo-cyan border-t-transparent animate-spin" />
+            <div className="min-h-screen profile-theme profile-premium-shell">
+                <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8" role="status" aria-live="polite">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+                        <span className="text-xs font-black uppercase tracking-[0.18em] text-[#d2a96c]">
+                            {t('profile.loading.kicker', {}, 'Aura account center')}
+                        </span>
+                        <h1 className="mt-2 text-2xl font-black text-white">{t('profile.loading.title', {}, 'Preparing your account')}</h1>
+                        <p className="mt-2 text-sm text-slate-400">{t('profile.loading.body', {}, 'Loading your profile and account summary. This may take a few seconds.')}</p>
+                        <div className="mt-6 grid gap-3" aria-hidden="true">
+                            <span className="h-14 animate-pulse rounded-xl border border-white/10 bg-white/5 motion-reduce:animate-none" />
+                            <span className="h-14 animate-pulse rounded-xl border border-white/10 bg-white/5 motion-reduce:animate-none" />
+                            <span className="h-14 animate-pulse rounded-xl border border-white/10 bg-white/5 motion-reduce:animate-none" />
+                        </div>
                     </div>
-                    <p className="premium-kicker">{t('profile.loading.kicker', {}, 'Aura Identity Suite')}</p>
-                    <h2 className="mt-3 text-2xl font-black text-white">{t('profile.loading.title', {}, 'Preparing your profile cockpit')}</h2>
-                    <p className="mt-3 text-sm text-slate-400">{t('profile.loading.body', {}, 'Syncing your account, rewards, addresses, and trust posture.')}</p>
                 </div>
             </div>
         );
@@ -1062,175 +1218,45 @@ export default function Profile() {
 
     return (
         <div className="min-h-screen profile-theme profile-premium-shell">
-            {message.text ? (
-                <div
-                    className={cn(
-                        'fixed left-4 right-4 top-4 z-50 flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-bold shadow-xl animate-slide-in sm:left-auto sm:right-6 sm:top-6',
-                        message.type === 'success'
-                            ? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-50'
-                            : 'border-rose-400/30 bg-rose-500/15 text-rose-50',
-                    )}
-                >
-                    {message.type === 'success' ? <Sparkles className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                    {message.text}
-                </div>
-            ) : null}
-
-            <div className="profile-premium-content max-w-7xl mx-auto px-4 pt-6 sm:pt-8">
-                <AccountStatusBanner accountState={profile?.accountState} moderation={profile?.moderation} />
-
-                <section className="profile-premium-hero">
-                    <div className="mb-6 flex flex-wrap items-center gap-3">
-                        <span className="premium-eyebrow">{t('profile.hero.eyebrow', {}, 'Profile Command Deck')}</span>
-                        <span className="premium-chip-muted">{t('profile.hero.completion', { count: profileCompletion }, `Completion ${profileCompletion}%`)}</span>
-                        <span className="premium-chip-muted">{t('profile.hero.auraTier', { tier: auraTier }, `Aura tier: ${auraTier}`)}</span>
-                        <span className={cn('premium-chip text-xs font-black uppercase tracking-[0.18em]', accountStateTone[accountState] || accountStateTone.active)}>
-                            {accountStateLabelMap[accountState] || String(accountState).replace(/_/g, ' ')}
-                        </span>
+            <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleAvatarChange}
+            />
+            <AccountCenterShell
+                tabs={tabs}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                profile={{
+                    name: profileName,
+                    email: profileEmail,
+                    avatar: profile?.avatar,
+                    initials,
+                }}
+                pageTitle={activeTabDefinition.label}
+                pageDescription={activeTabDefinition.description}
+                memberSince={memberSince}
+                profileCompletion={profileCompletion}
+                accountState={accountState}
+                accountStateLabel={accountStateLabelMap[accountState] || String(accountState).replace(/_/g, ' ')}
+                overviewMetrics={heroMetrics}
+                onAvatarClick={() => fileInputRef.current?.click()}
+                banner={<AccountStatusBanner accountState={profile?.accountState} moderation={profile?.moderation} />}
+                notice={message.text ? (
+                    <div
+                        className="account-center-notice"
+                        data-tone={message.type === 'success' ? 'success' : 'error'}
+                        role={message.type === 'success' ? 'status' : 'alert'}
+                    >
+                        {message.type === 'success'
+                            ? <Sparkles className="h-4 w-4" aria-hidden="true" />
+                            : <AlertTriangle className="h-4 w-4" aria-hidden="true" />}
+                        <span>{message.text}</span>
                     </div>
-
-                    <div className="flex flex-col gap-8 xl:flex-row xl:items-start">
-                        <div className="relative shrink-0">
-                            <div
-                                className="relative group cursor-pointer"
-                                onClick={() => fileInputRef.current?.click()}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                        event.preventDefault();
-                                        fileInputRef.current?.click();
-                                    }
-                                }}
-                            >
-                                <div className="w-32 h-32 rounded-[1.9rem] border border-white/15 bg-white/10 overflow-hidden shadow-[0_24px_60px_rgba(2,8,23,0.32)] backdrop-blur-xl">
-                                    {profile?.avatar ? (
-                                        <img
-                                            src={profile.avatar}
-                                            alt={t('profile.avatar.alt', { profileName }, '{{profileName}} avatar')}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-4xl font-black text-white">
-                                            {initials}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="absolute -bottom-2 -right-2 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-[#081018] text-neo-cyan shadow-lg transition-transform duration-300 group-hover:scale-105">
-                                    <Camera className="h-5 w-5" />
-                                </div>
-                            </div>
-                            <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-3">
-                                <span
-                                    className={cn(
-                                        'premium-chip text-xs font-black uppercase tracking-[0.18em]',
-                                        hasOtpReadyIdentity
-                                            ? 'border-emerald-400/25 bg-emerald-500/12 text-emerald-200'
-                                            : 'border-amber-400/25 bg-amber-500/12 text-amber-100',
-                                    )}
-                                >
-                                    <Shield className="w-3 h-3" />
-                                    {hasOtpReadyIdentity
-                                        ? t('profile.hero.identityVerified', {}, 'Verified identity')
-                                        : t('profile.hero.identityNeedsAttention', {}, 'Identity needs attention')}
-                                </span>
-                                {isAdminAccount ? (
-                                    <span className="premium-chip text-xs font-black uppercase tracking-[0.18em] border-amber-400/25 bg-amber-500/12 text-amber-100">
-                                        <Star className="w-3 h-3" /> {t('profile.hero.admin', {}, 'Admin account')}
-                                    </span>
-                                ) : null}
-                                <span className="premium-chip-muted text-xs">
-                                    <Calendar className="w-3 h-3" /> {t('profile.hero.memberSince', { date: memberSince }, `Member since ${memberSince}`)}
-                                </span>
-                                <span className="premium-chip-muted text-xs">
-                                    <Activity className="w-3 h-3" /> {trustHealthy
-                                        ? t('profile.hero.trustHealthy', {}, 'Trust healthy')
-                                        : t('profile.hero.trustDegraded', {}, 'Trust monitoring degraded')}
-                                </span>
-                            </div>
-
-                            <h1 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-5xl xl:text-6xl">
-                                {profileName}
-                            </h1>
-                            <p className="mt-3 max-w-3xl text-base text-slate-300 sm:text-lg">
-                                {profile?.bio
-                                    || t('profile.hero.bioFallback', {}, 'Your Aura profile now acts as a member command deck for identity, trust posture, rewards, support, and marketplace activity.')}
-                            </p>
-
-                            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-slate-400">
-                                <span>{profileEmail || t('profile.hero.noEmail', {}, 'No email on file')}</span>
-                                <span className="hidden sm:inline text-slate-600">•</span>
-                                <span>{profilePhone || t('profile.hero.noPhone', {}, 'No verified phone yet')}</span>
-                                <span className="hidden sm:inline text-slate-600">•</span>
-                                <span>
-                                    {t(
-                                        'profile.hero.paymentMethods',
-                                        {
-                                            count: paymentMethods.length,
-                                            label: paymentMethods.length === 1
-                                                ? t('profile.hero.paymentMethod.single', {}, 'method')
-                                                : t('profile.hero.paymentMethod.plural', {}, 'methods'),
-                                        },
-                                        `${paymentMethods.length} saved payment ${paymentMethods.length === 1 ? 'method' : 'methods'}`,
-                                    )}
-                                </span>
-                            </div>
-
-                            <div className="mt-6 flex flex-wrap gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => handleTabChange('personal')}
-                                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-5 py-3 text-sm font-black text-[#051018] shadow-[0_18px_40px_rgba(34,211,238,0.22)] transition-transform hover:scale-[1.01]"
-                                >
-                                    <Edit3 className="h-4 w-4" />
-                                    {t('profile.hero.refineProfile', {}, 'Refine profile')}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleTabChange('orders')}
-                                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
-                                >
-                                    {t('profile.hero.viewOrders', {}, 'View orders')} <ArrowRight className="h-4 w-4" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleTabChange('support')}
-                                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
-                                >
-                                    {t('profile.hero.supportAppeals', {}, 'Support & appeals')}
-                                </button>
-                            </div>
-
-                            <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                {heroMetrics.map((metric) => (
-                                    <div key={metric.label} className="rounded-[1.6rem] border border-white/10 bg-white/[0.04] px-4 py-4 backdrop-blur-xl">
-                                        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{metric.label}</p>
-                                        <p className="mt-2 text-2xl font-black tracking-tight text-white">{metric.value}</p>
-                                        <p className="mt-1 text-xs text-slate-500">{metric.detail}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <div className="profile-premium-tab-shell mt-8 overflow-x-auto pb-2 scrollbar-hide">
-                    <div className="profile-premium-tab-list">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => handleTabChange(tab.id)}
-                                className={cn('profile-premium-tab-pill', activeTab === tab.id && 'profile-premium-tab-pill-active')}
-                            >
-                                <tab.icon className="w-4 h-4" /> {tab.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                ) : null}
+            >
 
                 <div className="py-8">
                     {activeTab === 'overview' ? (
@@ -1351,7 +1377,12 @@ export default function Profile() {
                     ) : null}
 
                     {activeTab === 'settings' ? (
-                        <SettingsSection
+                        <Suspense fallback={(
+                            <div className="premium-panel p-6 text-sm font-bold text-slate-300" role="status" aria-live="polite">
+                                {t('profile.settings.loading', {}, 'Loading security and settings...')}
+                            </div>
+                        )}>
+                            <SettingsSection
                             handleSecureRecovery={handleSecureRecovery}
                             recoveryLaunching={recoveryLaunching}
                             canStartSecureRecovery={Boolean(profileEmail && hasOtpReadyIdentity)}
@@ -1394,15 +1425,24 @@ export default function Profile() {
                             handleRenameTrustedDevice={handleRenameTrustedDevice}
                             handleRevokeTrustedDevice={handleRevokeTrustedDevice}
                             handleRevokeOtherTrustedDevices={handleRevokeOtherTrustedDevices}
+                            activeSessions={activeSessions}
+                            activeSessionsLoading={activeSessionsLoading}
+                            activeSessionsLoaded={activeSessionsLoaded}
+                            activeSessionsError={activeSessionsError}
+                            activeSessionAction={activeSessionAction}
+                            handleRetryActiveSessions={() => refreshActiveSessions()}
+                            handleRevokeActiveSession={handleRevokeActiveSession}
+                            handleRevokeOtherActiveSessions={handleRevokeOtherActiveSessions}
                             linkedProviderIds={linkedProviderIds}
                             socialAuthStatus={socialAuthStatus}
                             providerLinking={providerLinking}
                             handleLinkMicrosoftProvider={handleLinkMicrosoftProvider}
                             handleLinkAppleProvider={handleLinkAppleProvider}
-                        />
+                            />
+                        </Suspense>
                     ) : null}
                 </div>
-            </div>
+            </AccountCenterShell>
         </div>
     );
 }
