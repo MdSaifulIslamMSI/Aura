@@ -387,9 +387,22 @@ jobs:
               docker inspect --format \
                 'backend status={{.State.Status}} running={{.State.Running}} restarting={{.State.Restarting}} oom_killed={{.State.OOMKilled}} exit_code={{.State.ExitCode}} restart_count={{.RestartCount}} error={{json .State.Error}}' \
                 "$backend_id"
+              docker top "$backend_id" -eo pid,ppid,stat,comm,args 2>/dev/null || true
               docker stats --no-stream --format \
                 'backend memory={{.MemUsage}} memory_percent={{.MemPerc}} cpu={{.CPUPerc}} pids={{.PIDs}}' \
                 "$backend_id" 2>/dev/null || true
+              sleep 3
+              docker inspect --format \
+                'backend delayed_status={{.State.Status}} running={{.State.Running}} restarting={{.State.Restarting}} oom_killed={{.State.OOMKilled}} exit_code={{.State.ExitCode}} restart_count={{.RestartCount}} error={{json .State.Error}}' \
+                "$backend_id" 2>/dev/null || true
+              docker compose logs --no-color --since 5m backend 2>&1 \
+                | grep -Ei 'runtime.*child exited|fatal|heap|allocation|out of memory|uncaught|unhandled|exception|error|SIG[A-Z]+|killed' \
+                | tail -n 100 \
+                | sed -E \
+                    -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/[REDACTED_EMAIL]/g' \
+                    -e 's/((Bearer|token|secret|password|authorization)[":= ]+)[^ ,"&]+/\1[REDACTED]/gI' \
+                    -e 's/([?&](X-Amz-[^=]+|token|signature|credential)=)[^& ]+/\1[REDACTED]/gI' \
+                || true
             else
               echo "backend status=missing"
             fi
