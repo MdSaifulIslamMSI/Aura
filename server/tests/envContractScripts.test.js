@@ -722,6 +722,7 @@ describe('repo environment contract scripts', () => {
 
     test('frontend staging target script fails closed when frontend URL is missing', () => {
         const result = runScript('scripts/smoke/assert-frontend-staging-target.mjs', {
+            STAGING_FRONTEND_URL: '',
             STAGING_API_BASE_URL: 'https://api.staging.example.test',
             STAGING_HEALTH_URL: 'https://api.staging.example.test/health',
             PROD_BASE_URL: 'https://prod.example.test',
