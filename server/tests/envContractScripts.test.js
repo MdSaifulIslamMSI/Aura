@@ -1854,6 +1854,8 @@ describe('repo environment contract scripts', () => {
 
         expect(loadScript).toContain('[account-center-load] endpoint=${name} status=${response.status}');
         expect(loadScript).toContain('[`${name} returned 200`]');
+        expect(loadScript).toContain("duration: '90s'");
+        expect(loadScript).toContain('PERF_ACCOUNT_P95_MS || 1200');
         expect(loadScript).not.toMatch(/response\.(?:body|json)\(/);
     });
 

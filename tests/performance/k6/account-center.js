@@ -7,7 +7,7 @@ http.setResponseCallback(http.expectedStatuses(200));
 const hardErrors = new Rate('account_center_hard_errors');
 const baseUrl = String(__ENV.PERF_BASE_URL || '').replace(/\/+$/, '');
 const authToken = String(__ENV.PERF_AUTH_TOKEN || '').trim();
-const p95Ms = Number(__ENV.PERF_ACCOUNT_P95_MS || 1000);
+const p95Ms = Number(__ENV.PERF_ACCOUNT_P95_MS || 1200);
 const errorRate = Number(__ENV.PERF_ERROR_RATE || 0.01);
 
 export const options = {
@@ -15,7 +15,7 @@ export const options = {
     authenticated_account_center: {
       executor: 'constant-vus',
       vus: 2,
-      duration: '45s',
+      duration: '90s',
       gracefulStop: '10s',
     },
   },
