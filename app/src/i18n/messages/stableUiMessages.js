@@ -7258,6 +7258,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Saving...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "common.sectionError.retry": {
+        id: "common.sectionError.retry",
+        defaultMessage: "Retry section",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "common.validation.jsx.text.a.ui.module.failed.to.load.correctly.547ea3f7": {
         id: "common.validation.jsx.text.a.ui.module.failed.to.load.correctly.547ea3f7",
         defaultMessage: "A UI module failed to load correctly. Refresh or retry to continue.",
@@ -12763,6 +12768,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "No email on file",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.accountCenter.offlineBody": {
+        id: "profile.accountCenter.offlineBody",
+        defaultMessage: "Saved account details remain visible, but changes wait until you reconnect.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.offlineTitle": {
+        id: "profile.accountCenter.offlineTitle",
+        defaultMessage: "You are offline.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.accountCenter.photoUploadingAria": {
         id: "profile.accountCenter.photoUploadingAria",
         defaultMessage: "Profile photo upload in progress",
@@ -12773,9 +12788,19 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Profile",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.accountCenter.retrySection": {
+        id: "profile.accountCenter.retrySection",
+        defaultMessage: "Retry section",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.accountCenter.sectionLabel": {
         id: "profile.accountCenter.sectionLabel",
         defaultMessage: "Account section",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountCenter.sectionLoading": {
+        id: "profile.accountCenter.sectionLoading",
+        defaultMessage: "Loading account section...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.accountCenter.sectionsAria": {
@@ -12818,6 +12843,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "warned",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.accountStatus.suspended.indefinite": {
+        id: "profile.accountStatus.suspended.indefinite",
+        defaultMessage: "Your account is suspended until further review.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.accountStatus.suspended.title": {
+        id: "profile.accountStatus.suspended.title",
+        defaultMessage: "Account suspended",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.addresses.add": {
         id: "profile.addresses.add",
         defaultMessage: "Add Address",
@@ -12836,6 +12871,11 @@ export const stableUiMessages = defineMessages({
     "profile.addresses.deleteConfirm.body": {
         id: "profile.addresses.deleteConfirm.body",
         defaultMessage: "Past orders keep their delivery copy. Future checkouts will no longer offer this address.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.addresses.deleteConfirm.cancel": {
+        id: "profile.addresses.deleteConfirm.cancel",
+        defaultMessage: "Keep address",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.addresses.deleteConfirm.confirm": {
@@ -13005,7 +13045,7 @@ export const stableUiMessages = defineMessages({
     },
     "profile.jsx.text.some.features.like.purchasing.or.selling.may.7986d041": {
         id: "profile.jsx.text.some.features.like.purchasing.or.selling.may.7986d041",
-        defaultMessage: ". Some features like purchasing or selling may be restricted.",
+        defaultMessage: "Some features like purchasing or selling may be restricted.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "profile.jsx.text.this.account.is.scheduled.for.permanent.deletion.6d5841ab": {

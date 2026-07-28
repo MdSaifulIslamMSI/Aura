@@ -17,7 +17,7 @@
 | Frontend accessibility/design hardening | **PASS at component/static level**: 5 focused Profile files / 11 tests; interface audit 0 high / 8 inspected heuristic medium / 2 intentional low |
 | Frontend build and bundle budget | **PASS**: initial JS 175.97 kB gzip, total CSS 65.88 kB, initial payload 243.82 kB; Profile 16.91 kB gzip; all Account feature chunks <= 11.82 kB gzip |
 | Account observability and analytics | **PASS at code/static level**: 7 backend suites / 23 tests; 5 frontend files / 13 tests; 10-panel dashboard and 8-alert contract parse and validate; live scrape/alert evidence pending |
-| Account localization structure | **PASS**: extraction, pseudo-locale, compile, structural verify and QA across 21 catalogs / 4,883 messages / 0 critical issues; stable-text discovery guard PASS |
+| Account localization structure | **PASS**: extraction, pseudo-locale, compile, structural verify and QA across 21 catalogs / 4,891 messages / 0 critical issues; stable-text discovery guard PASS |
 | Authenticated browser/E2E, real Redis failure/concurrency, full suites | **NOT VERIFIED** |
 
 ## Test levels
@@ -159,6 +159,7 @@ Current focused tests:
 - Waves K-L-M localization: 21 catalogs, 4,883 ICU messages, zero critical issues and stable-text discovery guard passed; authenticated locale visual/accessibility QA and native review remain pending.
 - Wave N typed client events, Web Vitals, strict server schemas, privacy-safe persistence/logging, bounded Prometheus metrics, migration progress, dashboard and alert contracts: 7 backend suites / 23 tests and 5 frontend files / 13 tests passed.
 - Wave N operational static gates: both route scanners passed at 98 routes, observability assets validated, dashboard JSON and alert YAML parsed, 2,665-file secret scan passed, frontend lint passed, localization remained 21 catalogs / 4,883 messages / 0 critical issues, and the production bundle budget passed.
+- PR gate repair refreshed the stable, reviewed, pseudo, compiled and legacy runtime catalogs to 4,891 ICU messages across 21 catalogs with zero critical mechanical issues and 100% structural coverage; all 19 non-source locales remain explicitly queued for native review.
 - Wave N live Prometheus scrape, Grafana query rendering, Alertmanager delivery/resolution, log aggregation, cardinality, retention and real SLO calibration are not verified locally and remain staging gates.
 
 Current broad local suites timed out and are not accepted as passes. Before merge, new focused shards must pass and the relevant CI suites must return terminal green statuses on the exact SHA.

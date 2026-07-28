@@ -8783,6 +8783,10 @@
     "defaultMessage": "Saving...",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "common.sectionError.retry": {
+    "defaultMessage": "Retry section",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "common.static.aura.hybrid.marketplace": {
     "defaultMessage": "Aura — Hybrid Marketplace",
     "description": "Static UI/template coverage descriptor from stable text scanner."
@@ -13518,6 +13522,14 @@
     "defaultMessage": "No email on file",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.accountCenter.offlineBody": {
+    "defaultMessage": "Saved account details remain visible, but changes wait until you reconnect.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.accountCenter.offlineTitle": {
+    "defaultMessage": "You are offline.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.accountCenter.photoUploadingAria": {
     "defaultMessage": "Profile photo upload in progress",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -13526,8 +13538,16 @@
     "defaultMessage": "Profile",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.accountCenter.retrySection": {
+    "defaultMessage": "Retry section",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.accountCenter.sectionLabel": {
     "defaultMessage": "Account section",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.accountCenter.sectionLoading": {
+    "defaultMessage": "Loading account section...",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.accountCenter.sectionsAria": {
@@ -13562,6 +13582,14 @@
     "defaultMessage": "warned",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "profile.accountStatus.suspended.indefinite": {
+    "defaultMessage": "Your account is suspended until further review.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.accountStatus.suspended.title": {
+    "defaultMessage": "Account suspended",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "profile.addresses.add": {
     "defaultMessage": "Add Address",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -13576,6 +13604,10 @@
   },
   "profile.addresses.deleteConfirm.body": {
     "defaultMessage": "Past orders keep their delivery copy. Future checkouts will no longer offer this address.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "profile.addresses.deleteConfirm.cancel": {
+    "defaultMessage": "Keep address",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.addresses.deleteConfirm.confirm": {
@@ -13719,7 +13751,7 @@
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.jsx.text.some.features.like.purchasing.or.selling.may.7986d041": {
-    "defaultMessage": ". Some features like purchasing or selling may be restricted.",
+    "defaultMessage": "Some features like purchasing or selling may be restricted.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "profile.jsx.text.this.account.is.scheduled.for.permanent.deletion.6d5841ab": {
