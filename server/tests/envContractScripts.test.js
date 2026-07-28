@@ -964,6 +964,12 @@ describe('repo environment contract scripts', () => {
         expect(restoreScript).toContain('--network none');
         expect(restoreScript).toContain('cmp --silent "$data_dir/mongo-stats.json"');
         expect(restoreScript).toContain('cmp --silent "$data_dir/postgres-stats.tsv"');
+        expect(restoreScript).toMatch(
+            /cmp --silent "\$data_dir\/mongo-stats\.json"[\s\S]*?release_restore_service "\$mongo_container" "\$mongo_volume"[\s\S]*?postgres_password=/
+        );
+        expect(restoreScript).toMatch(
+            /cmp --silent "\$data_dir\/postgres-stats\.tsv"[\s\S]*?release_restore_service "\$postgres_container" "\$postgres_volume"[\s\S]*?redis-check-rdb/
+        );
         expect(restoreScript).toContain('cleanup_restore_drill');
         expect(restoreScript).toContain('RESTORE_DRILL_PASS');
         expect(restoreScript).toContain('|| status=$?; rm -f ${remoteJob} /tmp/aura-staging-restore-runner.b64; exit $status');

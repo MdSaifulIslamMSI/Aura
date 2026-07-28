@@ -63,6 +63,13 @@ wait_for_container_command() {
   return 1
 }
 
+release_restore_service() {
+  local container="$1"
+  local volume="$2"
+  sudo docker rm -f "$container" >/dev/null
+  sudo docker volume rm -f "$volume" >/dev/null
+}
+
 sudo rm -rf -- "$restore_root"
 sudo mkdir -p "$data_dir"
 sudo chown -R "$(id -u):$(id -g)" "$restore_root"
@@ -112,6 +119,7 @@ print(JSON.stringify(out));
 ' > "$restore_root/mongo-stats-restored.json"
 cmp --silent "$data_dir/mongo-stats.json" "$restore_root/mongo-stats-restored.json" \
   || { echo "Mongo restore counts or indexes do not match the backup manifest" >&2; exit 1; }
+release_restore_service "$mongo_container" "$mongo_volume"
 
 postgres_password="$(openssl rand -hex 24)"
 sudo docker volume create "$postgres_volume" >/dev/null
@@ -134,6 +142,7 @@ sudo docker exec -e PGPASSWORD="$postgres_password" "$postgres_container" sh -ec
 ' > "$restore_root/postgres-stats-restored.tsv"
 cmp --silent "$data_dir/postgres-stats.tsv" "$restore_root/postgres-stats-restored.tsv" \
   || { echo "Postgres restore counts or indexes do not match the backup manifest" >&2; exit 1; }
+release_restore_service "$postgres_container" "$postgres_volume"
 
 sudo docker run --rm --network none -v "$data_dir:/backup:ro" redis:7-alpine \
   redis-check-rdb /backup/redis.rdb >/dev/null
