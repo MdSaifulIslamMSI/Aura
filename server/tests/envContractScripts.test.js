@@ -1135,6 +1135,7 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
         expect(workflow).toMatch(/cache-dependency-path:[\s\S]*?package-lock\.json[\s\S]*?app\/package-lock\.json/);
         expect(workflow).toMatch(/npm ci[\s\S]*?npm --prefix app ci/);
+        expect(workflow).toContain('npm --prefix app exec -- playwright test --config=app/playwright.staging.config.js');
         expect(workflow).toMatch(/id:\s*lease-runner-ssh/);
         expect(workflow).toContain('https://checkip.amazonaws.com');
         expect(workflow).toMatch(/RUNNER_CIDR="\$\{RUNNER_IP\}\/32"/);
