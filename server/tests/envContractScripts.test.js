@@ -964,6 +964,11 @@ describe('repo environment contract scripts', () => {
         expect(restoreScript).toContain('--network none');
         expect(restoreScript).toContain('cmp --silent "$data_dir/mongo-stats.json"');
         expect(restoreScript).toContain('cmp --silent "$data_dir/postgres-stats.tsv"');
+        expect(restoreScript).toContain('wait_for_postgres_restore_ready "$postgres_container"');
+        expect(restoreScript).toContain('PostgreSQL init process complete; ready for start up.');
+        expect(restoreScript).toMatch(
+            /wait_for_postgres_restore_ready "\$postgres_container"[\s\S]*?pg_restore --exit-on-error/
+        );
         expect(restoreScript).toMatch(
             /cmp --silent "\$data_dir\/mongo-stats\.json"[\s\S]*?release_restore_service "\$mongo_container" "\$mongo_volume"[\s\S]*?postgres_password=/
         );

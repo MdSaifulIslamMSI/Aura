@@ -63,6 +63,26 @@ wait_for_container_command() {
   return 1
 }
 
+wait_for_postgres_restore_ready() {
+  local container="$1"
+  for _ in $(seq 1 60); do
+    if [[ "$(sudo docker inspect --format '{{.State.Running}}' "$container" 2>/dev/null || true)" != "true" ]]; then
+      echo "Isolated Postgres restore container stopped during initialization" >&2
+      sudo docker logs --tail 80 "$container" >&2 || true
+      return 1
+    fi
+    if sudo docker logs "$container" 2>&1 \
+      | grep -Fq 'PostgreSQL init process complete; ready for start up.' \
+      && sudo docker exec "$container" pg_isready --username postgres --dbname aura_restore >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "Timed out waiting for the final isolated Postgres restore server" >&2
+  sudo docker logs --tail 80 "$container" >&2 || true
+  return 1
+}
+
 release_restore_service() {
   local container="$1"
   local volume="$2"
@@ -131,7 +151,7 @@ sudo docker run -d \
   -v "$postgres_volume:/var/lib/postgresql/data" \
   -v "$data_dir:/backup:ro" \
   postgres:16-alpine >/dev/null
-wait_for_container_command "$postgres_container" pg_isready --username postgres --dbname aura_restore
+wait_for_postgres_restore_ready "$postgres_container"
 sudo docker exec -e PGPASSWORD="$postgres_password" "$postgres_container" \
   pg_restore --exit-on-error --no-owner --no-acl --username=postgres --dbname=aura_restore /backup/postgres.dump
 sudo docker exec -e PGPASSWORD="$postgres_password" "$postgres_container" sh -ec '
