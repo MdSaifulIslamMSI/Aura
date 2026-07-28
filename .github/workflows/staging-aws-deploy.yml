@@ -425,40 +425,44 @@ jobs:
             -e PROD_BASE_URL \
             -e PROD_API_BASE_URL \
             backend node scripts/account_center_staging_smoke.js </dev/null
-          docker compose exec -T backend node <<'NODE'
-          const required = [
-            {
-              name: 'product events',
-              pattern: /^aura_account_product_events_total\{[^}]*event="account\.section_viewed"[^}]*\} [1-9][0-9]*(?:\.[0-9]+)?$/m,
-            },
-            {
-              name: 'account operations',
-              pattern: /^aura_account_operations_total\{[^}]*\} [1-9][0-9]*(?:\.[0-9]+)?$/m,
-            },
-            {
-              name: 'account operation duration',
-              pattern: /^aura_account_operation_duration_seconds_count\{[^}]*\} [1-9][0-9]*(?:\.[0-9]+)?$/m,
-            },
-            {
-              name: 'completed apply migration',
-              pattern: /^aura_account_migration_runs_total\{mode="apply",status="completed"\} [1-9][0-9]*(?:\.[0-9]+)?$/m,
-            },
-          ];
-          const run = async () => {
-            const response = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/metrics`, {
-              headers: { 'x-metrics-key': process.env.METRICS_SECRET },
-            });
-            if (!response.ok) throw new Error(`metrics returned ${response.status}`);
-            const body = await response.text();
-            const missing = required.filter(({ pattern }) => !pattern.test(body)).map(({ name }) => name);
-            if (missing.length) throw new Error(`missing non-zero Account Center metrics: ${missing.join(', ')}`);
-            console.log('ACCOUNT_CENTER_METRICS_PASS');
-          };
-          run().catch((error) => {
-            console.error(error.message);
-            process.exitCode = 1;
-          });
-          NODE
+          metrics_secret="$(sed -n 's/^METRICS_SECRET=//p' .env.staging | tail -n 1)"
+          backend_port="$(sed -n 's/^PORT=//p' .env.staging | tail -n 1)"
+          [[ "$metrics_secret" =~ ^[A-Za-z0-9._-]{32,256}$ ]] || {
+            echo "Staging metrics credential is missing or invalid."
+            exit 1
+          }
+          [[ "${backend_port:-3000}" =~ ^[0-9]{2,5}$ ]] || {
+            echo "Staging backend port is invalid."
+            exit 1
+          }
+          metrics_output="$(mktemp)"
+          trap 'rm -f "$metrics_output"' EXIT
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 30 \
+            -H "x-metrics-key: ${metrics_secret}" \
+            "http://127.0.0.1:${backend_port:-3000}/metrics" > "$metrics_output"
+          missing_metrics=()
+          require_metric() {
+            local name="$1"
+            local pattern="$2"
+            grep -Eq "$pattern" "$metrics_output" || missing_metrics+=("$name")
+          }
+          require_metric \
+            "product events" \
+            '^aura_account_product_events_total\{[^}]*event="account\.section_viewed"[^}]*\} [1-9][0-9]*(\.[0-9]+)?$'
+          require_metric \
+            "account operations" \
+            '^aura_account_operations_total\{[^}]*\} [1-9][0-9]*(\.[0-9]+)?$'
+          require_metric \
+            "account operation duration" \
+            '^aura_account_operation_duration_seconds_count\{[^}]*\} [1-9][0-9]*(\.[0-9]+)?$'
+          require_metric \
+            "completed apply migration" \
+            '^aura_account_migration_runs_total\{mode="apply",status="completed"\} [1-9][0-9]*(\.[0-9]+)?$'
+          if (( ${#missing_metrics[@]} > 0 )); then
+            printf 'missing non-zero Account Center metrics: %s\n' "$(IFS=', '; echo "${missing_metrics[*]}")"
+            exit 1
+          fi
+          echo "ACCOUNT_CENTER_METRICS_PASS"
           ROOT
           REMOTE
 

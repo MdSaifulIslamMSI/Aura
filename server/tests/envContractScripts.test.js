@@ -1801,9 +1801,13 @@ describe('repo environment contract scripts', () => {
             'missing non-zero Account Center metrics',
             'event="account\\.section_viewed"',
             'mode="apply",status="completed"',
+            'metrics_secret="$(sed -n \'s/^METRICS_SECRET=//p\' .env.staging | tail -n 1)"',
+            'backend_port="$(sed -n \'s/^PORT=//p\' .env.staging | tail -n 1)"',
+            'curl --fail --silent --show-error --connect-timeout 5 --max-time 30',
         ]) {
             expect(stagingWorkflow).toContain(command);
         }
+        expect(stagingWorkflow).not.toContain("docker compose exec -T backend node <<'NODE'");
     });
 
     test('performance smoke fails when no real target is reachable', () => {
