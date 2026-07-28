@@ -1147,9 +1147,12 @@ describe('repo environment contract scripts', () => {
         expect(browserConfig).toContain("globalSetup: './e2e/account-center.staging.setup.js'");
         expect(browserSetup.match(/api\.post\('\/api\/auth\/sync'/g)).toHaveLength(1);
         expect(browserSetup).toContain('ACCOUNT_CENTER_STAGING_AUTH_STATE');
-        expect(browserSetup).toMatch(/firebaseSession:\s*\{[\s\S]*?\bapiKey,/);
-        expect(browserSpec).toContain('key: firebaseSession.apiKey');
-        expect(browserSpec).toContain('accountEmail: firebaseSession.email');
+        expect(browserSetup).toContain("import { chromium, request } from '@playwright/test'");
+        expect(browserSetup).toContain('context.storageState({ indexedDB: true })');
+        expect(browserSetup).toContain('database.close()');
+        expect(browserSpec).toContain('await use(getAuthState().storageState)');
+        expect(browserSpec).not.toContain('test.beforeEach');
+        expect(browserSpec).not.toContain('installFirebaseSession');
         expect(browserSpec).not.toContain("request.post('/api/auth/sync'");
         expect(browserSpec).toContain("page.locator('#account-center-page-title')");
         expect(workflow).toMatch(/id:\s*lease-runner-ssh/);

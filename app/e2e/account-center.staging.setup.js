@@ -1,4 +1,4 @@
-import { request } from '@playwright/test';
+import { chromium, request } from '@playwright/test';
 
 const requiredEnv = (name) => {
     const value = String(process.env[name] || '').trim();
@@ -13,6 +13,89 @@ const describeSyncFailure = async (response) => {
     const code = String(payload?.code || 'UNKNOWN').trim();
     const retryAfter = Number(payload?.retryAfter || 0);
     return `Account sync failed with HTTP ${response.status()} (${code})${retryAfter > 0 ? `; retry after ${retryAfter}s` : ''}.`;
+};
+
+const buildFirebaseAuthUser = ({ apiKey, email, firebaseSession }) => {
+    const now = Date.now();
+    return {
+        uid: firebaseSession.localId,
+        email: firebaseSession.email || email,
+        emailVerified: true,
+        isAnonymous: false,
+        providerData: [{
+            providerId: 'password',
+            uid: firebaseSession.email || email,
+            displayName: null,
+            email: firebaseSession.email || email,
+            phoneNumber: null,
+            photoURL: null,
+        }],
+        stsTokenManager: {
+            refreshToken: firebaseSession.refreshToken,
+            accessToken: firebaseSession.idToken,
+            expirationTime: now + (Number(firebaseSession.expiresIn || 3600) * 1000),
+        },
+        createdAt: String(now),
+        lastLoginAt: String(now),
+        apiKey,
+        appName: '[DEFAULT]',
+    };
+};
+
+const buildBrowserStorageState = async ({
+    apiKey,
+    baseURL,
+    cookies,
+    email,
+    firebaseSession,
+}) => {
+    const browser = await chromium.launch();
+    const context = await browser.newContext();
+
+    try {
+        await context.addCookies(cookies);
+        const page = await context.newPage();
+        await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded' });
+        await page.evaluate(({ key, authUser }) => new Promise((resolve, reject) => {
+            const openRequest = indexedDB.open('firebaseLocalStorageDb', 1);
+            openRequest.onupgradeneeded = () => {
+                const database = openRequest.result;
+                if (!database.objectStoreNames.contains('firebaseLocalStorage')) {
+                    database.createObjectStore('firebaseLocalStorage', { keyPath: 'fbase_key' });
+                }
+            };
+            openRequest.onerror = () => reject(openRequest.error);
+            openRequest.onsuccess = () => {
+                const database = openRequest.result;
+                const transaction = database.transaction('firebaseLocalStorage', 'readwrite');
+                const finish = (callback, value) => {
+                    database.close();
+                    callback(value);
+                };
+                transaction.onerror = () => finish(reject, transaction.error);
+                transaction.onabort = () => finish(reject, transaction.error);
+                transaction.oncomplete = () => finish(resolve);
+                transaction.objectStore('firebaseLocalStorage').put({
+                    fbase_key: `firebase:authUser:${key}:[DEFAULT]`,
+                    value: authUser,
+                });
+            };
+        }), {
+            key: apiKey,
+            authUser: buildFirebaseAuthUser({ apiKey, email, firebaseSession }),
+        });
+
+        const storageState = await context.storageState({ indexedDB: true });
+        const stagingOrigin = new URL(baseURL).origin;
+        const originState = storageState.origins.find((entry) => entry.origin === stagingOrigin);
+        if (!originState?.indexedDB?.some((database) => database.name === 'firebaseLocalStorageDb')) {
+            throw new Error('Firebase staging authentication was not captured in browser storage state.');
+        }
+        return storageState;
+    } finally {
+        await context.close();
+        await browser.close();
+    }
 };
 
 export default async function accountCenterStagingSetup() {
@@ -51,17 +134,16 @@ export default async function accountCenterStagingSetup() {
             throw new Error(await describeSyncFailure(syncResponse));
         }
 
-        const storageState = await api.storageState();
+        const apiStorageState = await api.storageState();
+        const storageState = await buildBrowserStorageState({
+            apiKey,
+            baseURL,
+            cookies: apiStorageState.cookies,
+            email,
+            firebaseSession,
+        });
         process.env.ACCOUNT_CENTER_STAGING_AUTH_STATE = Buffer.from(JSON.stringify({
-            cookies: storageState.cookies,
-            firebaseSession: {
-                apiKey,
-                email: firebaseSession.email || email,
-                expiresIn: firebaseSession.expiresIn,
-                idToken: firebaseSession.idToken,
-                localId: firebaseSession.localId,
-                refreshToken: firebaseSession.refreshToken,
-            },
+            storageState,
         })).toString('base64url');
     } finally {
         await api.dispose();

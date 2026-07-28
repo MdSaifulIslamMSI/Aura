@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 const getAuthState = () => {
@@ -8,65 +8,24 @@ const getAuthState = () => {
     }
     const state = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
     if (
-        !state?.firebaseSession?.apiKey
-        || !state.firebaseSession.idToken
-        || !state.firebaseSession.email
-        || !Array.isArray(state?.cookies)
+        !Array.isArray(state?.storageState?.cookies)
+        || !Array.isArray(state?.storageState?.origins)
+        || !state.storageState.origins.some(
+            (origin) => origin.indexedDB?.some(
+                (database) => database.name === 'firebaseLocalStorageDb'
+            )
+        )
     ) {
         throw new Error('Account Center staging auth state is incomplete.');
     }
     return state;
 };
 
-const installFirebaseSession = async (page, firebaseSession) => {
-    await page.goto('/login');
-    await page.evaluate(({ key, accountEmail, session }) => new Promise((resolve, reject) => {
-        const openRequest = indexedDB.open('firebaseLocalStorageDb', 1);
-        openRequest.onupgradeneeded = () => {
-            const database = openRequest.result;
-            if (!database.objectStoreNames.contains('firebaseLocalStorage')) {
-                database.createObjectStore('firebaseLocalStorage', { keyPath: 'fbase_key' });
-            }
-        };
-        openRequest.onerror = () => reject(openRequest.error);
-        openRequest.onsuccess = () => {
-            const database = openRequest.result;
-            const transaction = database.transaction('firebaseLocalStorage', 'readwrite');
-            transaction.onerror = () => reject(transaction.error);
-            transaction.oncomplete = () => resolve();
-            transaction.objectStore('firebaseLocalStorage').put({
-                fbase_key: `firebase:authUser:${key}:[DEFAULT]`,
-                value: {
-                    uid: session.localId,
-                    email: session.email || accountEmail,
-                    emailVerified: true,
-                    isAnonymous: false,
-                    providerData: [{
-                        providerId: 'password',
-                        uid: session.email || accountEmail,
-                        displayName: null,
-                        email: session.email || accountEmail,
-                        phoneNumber: null,
-                        photoURL: null,
-                    }],
-                    stsTokenManager: {
-                        refreshToken: session.refreshToken,
-                        accessToken: session.idToken,
-                        expirationTime: Date.now() + (Number(session.expiresIn || 3600) * 1000),
-                    },
-                    createdAt: String(Date.now()),
-                    lastLoginAt: String(Date.now()),
-                    apiKey: key,
-                    appName: '[DEFAULT]',
-                },
-            });
-        };
-    }), {
-        key: firebaseSession.apiKey,
-        accountEmail: firebaseSession.email,
-        session: firebaseSession,
-    });
-};
+const test = base.extend({
+    storageState: async ({}, use) => {
+        await use(getAuthState().storageState);
+    },
+});
 
 const assertNoSeriousAxeViolations = async (page) => {
     const result = await new AxeBuilder({ page })
@@ -78,12 +37,6 @@ const assertNoSeriousAxeViolations = async (page) => {
     );
     expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
 };
-
-test.beforeEach(async ({ page }) => {
-    const authState = getAuthState();
-    await page.context().addCookies(authState.cookies);
-    await installFirebaseSession(page, authState.firebaseSession);
-});
 
 test('renders responsive authenticated Account Center with WCAG-critical automation', async ({ page }, testInfo) => {
     await page.goto('/profile');
