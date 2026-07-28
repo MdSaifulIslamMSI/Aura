@@ -169,7 +169,7 @@ const MONGO_ID = /^[0-9a-fA-F]{24}$/;
 const UUID = /^[0-9a-fA-F-]{36}$/;
 
 const normalizeRoute = (path = '') =>
-    path
+    (typeof path === 'string' ? path : '')
         .split('/')
         .map((segment) => {
             if (MONGO_ID.test(segment)) return ':id';
@@ -186,7 +186,10 @@ const metricsMiddleware = (req, res, next) => {
 
     res.on('finish', () => {
         const durationSeconds = Number(process.hrtime.bigint() - start) / 1e9;
-        const route = normalizeRoute(req.route?.path || req.path);
+        const routePath = typeof req.route?.path === 'string'
+            ? req.route.path
+            : req.path;
+        const route = normalizeRoute(routePath);
         const labels = {
             method: req.method,
             route,
