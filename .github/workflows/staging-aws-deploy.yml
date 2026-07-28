@@ -378,7 +378,7 @@ jobs:
           docker compose exec -T backend \
             node scripts/migrate_account_center_v2.js \
               --mode=audit \
-              "--run-id=${ACCOUNT_MIGRATION_RUN_ID}-audit"
+              "--run-id=${ACCOUNT_MIGRATION_RUN_ID}-audit" </dev/null
           docker compose exec -T \
             -e ACCOUNT_CENTER_MIGRATION_APPLY_ENABLED=true \
             backend node scripts/migrate_account_center_v2.js \
@@ -391,7 +391,7 @@ jobs:
               "--rollback-sha=${ACCOUNT_MIGRATION_ROLLBACK_SHA}" \
               --batch-size=200 \
               --max-batches=1000 \
-              --delay-ms=50
+              --delay-ms=50 </dev/null
           docker compose exec -T \
             -e SMOKE_USER_EMAIL \
             -e SMOKE_USER_PASSWORD \
@@ -401,13 +401,13 @@ jobs:
             -e SMOKE_OTHER_USER_PASSWORD \
             -e SMOKE_OTHER_USER_NAME \
             -e SMOKE_OTHER_USER_PHONE \
-            backend node scripts/bootstrap_staging_smoke_accounts.js
+            backend node scripts/bootstrap_staging_smoke_accounts.js </dev/null
           docker compose exec -T \
             -e SMOKE_USER_EMAIL \
             backend node scripts/verify_account_center_queries.js \
               --strict \
               --explain \
-              --owner-from-env=SMOKE_USER_EMAIL
+              --owner-from-env=SMOKE_USER_EMAIL </dev/null
           docker compose exec -T \
             -e SMOKE_USER_EMAIL \
             -e SMOKE_USER_PASSWORD \
@@ -424,7 +424,7 @@ jobs:
             -e STAGING_SSM_PREFIX \
             -e PROD_BASE_URL \
             -e PROD_API_BASE_URL \
-            backend node scripts/account_center_staging_smoke.js
+            backend node scripts/account_center_staging_smoke.js </dev/null
           docker compose exec -T backend node <<'NODE'
           const required = [
             'aura_account_product_events_total',

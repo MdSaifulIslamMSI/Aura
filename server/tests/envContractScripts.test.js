@@ -1781,6 +1781,20 @@ describe('repo environment contract scripts', () => {
         expect(stagingDeploy).toContain('docker builder prune --all --force');
         expect(stagingDeploy).toContain('rm -f /tmp/aura-staging-backend-image.tar.gz');
         expect(stagingDeploy).not.toMatch(/docker (?:system|volume) prune/);
+
+        const stagingWorkflow = fs.readFileSync(
+            path.join(repoRoot, '.github', 'workflows', 'staging-aws-deploy.yml'),
+            'utf8'
+        );
+        for (const command of [
+            '"--run-id=${ACCOUNT_MIGRATION_RUN_ID}-audit" </dev/null',
+            '--delay-ms=50 </dev/null',
+            'backend node scripts/bootstrap_staging_smoke_accounts.js </dev/null',
+            '--owner-from-env=SMOKE_USER_EMAIL </dev/null',
+            'backend node scripts/account_center_staging_smoke.js </dev/null',
+        ]) {
+            expect(stagingWorkflow).toContain(command);
+        }
     });
 
     test('performance smoke fails when no real target is reachable', () => {
