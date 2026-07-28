@@ -376,6 +376,31 @@ jobs:
           source /tmp/account-center-qualification.env
           set +a
           cd /opt/aura-staging/src/infra/staging
+          account_center_failure_diagnostics() {
+            local exit_code="$?"
+            set +e
+            echo "ACCOUNT_CENTER_STAGING_DIAGNOSTICS_BEGIN"
+            docker compose ps backend
+            local backend_id
+            backend_id="$(docker compose ps -a -q backend 2>/dev/null || true)"
+            if [[ -n "$backend_id" ]]; then
+              docker inspect --format \
+                'backend status={{.State.Status}} running={{.State.Running}} restarting={{.State.Restarting}} oom_killed={{.State.OOMKilled}} exit_code={{.State.ExitCode}} restart_count={{.RestartCount}} error={{json .State.Error}}' \
+                "$backend_id"
+              docker stats --no-stream --format \
+                'backend memory={{.MemUsage}} memory_percent={{.MemPerc}} cpu={{.CPUPerc}} pids={{.PIDs}}' \
+                "$backend_id" 2>/dev/null || true
+            else
+              echo "backend status=missing"
+            fi
+            free -h || true
+            dmesg --ctime 2>/dev/null \
+              | grep -Ei 'out of memory|oom-kill|killed process' \
+              | tail -n 20 || true
+            echo "ACCOUNT_CENTER_STAGING_DIAGNOSTICS_END"
+            exit "$exit_code"
+          }
+          trap account_center_failure_diagnostics ERR
           docker compose exec -T backend \
             node scripts/migrate_account_center_v2.js \
               --mode=audit \
@@ -444,6 +469,9 @@ jobs:
             exit 1
           }
           backend_restarts_before="$(docker inspect --format '{{.RestartCount}}' "$backend_container_id")"
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+            "http://127.0.0.1:${backend_port:-3000}/health/live" >/dev/null
+          echo "ACCOUNT_CENTER_PRE_METRICS_LIVENESS_PASS"
           curl --fail --silent --show-error --connect-timeout 5 --max-time 30 \
             -H "x-metrics-key: ${metrics_secret}" \
             "http://127.0.0.1:${backend_port:-3000}/metrics" > "$metrics_output"
