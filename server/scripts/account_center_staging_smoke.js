@@ -165,6 +165,7 @@ const run = async () => {
 
     const { payload: telemetry } = await requestJson('/api/observability/client-diagnostics', {
         method: 'POST',
+        token: primaryToken,
         expectedStatuses: [202],
         body: {
             events: [{

@@ -1,3 +1,6 @@
+const fs = require('fs');
+const path = require('path');
+
 jest.mock('sharp', () => jest.fn());
 
 const {
@@ -39,5 +42,16 @@ describe('Account Center staging smoke guards', () => {
             id: 'raw-session-id',
             ip: '127.0.0.1',
         }])).toThrow();
+    });
+
+    test('uses authenticated telemetry through the internal-route cloak', () => {
+        const source = fs.readFileSync(
+            path.join(__dirname, '..', 'scripts', 'account_center_staging_smoke.js'),
+            'utf8'
+        );
+
+        expect(source).toMatch(
+            /requestJson\('\/api\/observability\/client-diagnostics',[\s\S]*?token: primaryToken/
+        );
     });
 });
