@@ -1142,6 +1142,9 @@ describe('repo environment contract scripts', () => {
         expect(browserConfig).toContain("globalSetup: './e2e/account-center.staging.setup.js'");
         expect(browserSetup.match(/api\.post\('\/api\/auth\/sync'/g)).toHaveLength(1);
         expect(browserSetup).toContain('ACCOUNT_CENTER_STAGING_AUTH_STATE');
+        expect(browserSetup).toMatch(/firebaseSession:\s*\{[\s\S]*?\bapiKey,/);
+        expect(browserSpec).toContain('key: firebaseSession.apiKey');
+        expect(browserSpec).toContain('accountEmail: firebaseSession.email');
         expect(browserSpec).not.toContain("request.post('/api/auth/sync'");
         expect(browserSpec).toContain("page.locator('#account-center-page-title')");
         expect(workflow).toMatch(/id:\s*lease-runner-ssh/);

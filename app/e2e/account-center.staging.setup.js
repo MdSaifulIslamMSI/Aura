@@ -55,6 +55,7 @@ export default async function accountCenterStagingSetup() {
         process.env.ACCOUNT_CENTER_STAGING_AUTH_STATE = Buffer.from(JSON.stringify({
             cookies: storageState.cookies,
             firebaseSession: {
+                apiKey,
                 email: firebaseSession.email || email,
                 expiresIn: firebaseSession.expiresIn,
                 idToken: firebaseSession.idToken,

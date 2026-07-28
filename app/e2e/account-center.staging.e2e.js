@@ -7,7 +7,12 @@ const getAuthState = () => {
         throw new Error('Account Center staging auth state was not prepared by global setup.');
     }
     const state = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-    if (!state?.firebaseSession?.idToken || !Array.isArray(state?.cookies)) {
+    if (
+        !state?.firebaseSession?.apiKey
+        || !state.firebaseSession.idToken
+        || !state.firebaseSession.email
+        || !Array.isArray(state?.cookies)
+    ) {
         throw new Error('Account Center staging auth state is incomplete.');
     }
     return state;
@@ -57,8 +62,8 @@ const installFirebaseSession = async (page, firebaseSession) => {
             });
         };
     }), {
-        key: apiKey,
-        accountEmail: email,
+        key: firebaseSession.apiKey,
+        accountEmail: firebaseSession.email,
         session: firebaseSession,
     });
 };
