@@ -4,10 +4,12 @@ const {
     ACCOUNT_OPERATION_METRIC_NAME,
     ACCOUNT_MIGRATION_PENDING_METRIC_NAME,
     CLIENT_DIAGNOSTIC_METRIC_NAME,
+    PRODUCT_EVENT_METRIC_NAME,
     normalizeAccountProductEvent,
     observeAccountOperation,
     recordAccountMigrationState,
     recordClientDiagnostic,
+    refreshAccountMigrationMetrics,
     validateAccountProductEvent,
 } = require('../services/accountProductTelemetryService');
 
@@ -117,5 +119,39 @@ describe('accountProductTelemetryService', () => {
                 value: 42,
             }),
         ]));
+    });
+
+    test('registers Account Center metrics before the first event', async () => {
+        const metrics = await registry.metrics();
+
+        expect(metrics).toContain(`# HELP ${PRODUCT_EVENT_METRIC_NAME}`);
+        expect(metrics).toContain(`# HELP ${ACCOUNT_OPERATION_METRIC_NAME}`);
+        expect(metrics).toContain('# HELP aura_account_operation_duration_seconds');
+        expect(metrics).toContain('# HELP aura_account_migration_runs_total');
+    });
+
+    test('hydrates migration metrics from durable run evidence', async () => {
+        const refreshed = await refreshAccountMigrationMetrics({
+            connected: true,
+            loadSnapshot: jest.fn().mockResolvedValue([{
+                counts: [{
+                    _id: { mode: 'apply', status: 'completed' },
+                    value: 3,
+                }],
+                latest: [{
+                    _id: 'apply',
+                    pending: 0,
+                    modified: 19,
+                }],
+            }]),
+        });
+        const metrics = await registry.metrics();
+
+        expect(refreshed).toBe(true);
+        expect(metrics).toContain(
+            'aura_account_migration_runs_total{mode="apply",status="completed"} 3'
+        );
+        expect(metrics).toContain('aura_account_migration_pending_documents{mode="apply"} 0');
+        expect(metrics).toContain('aura_account_migration_modified_documents{mode="apply"} 19');
     });
 });

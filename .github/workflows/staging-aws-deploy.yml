@@ -427,10 +427,22 @@ jobs:
             backend node scripts/account_center_staging_smoke.js </dev/null
           docker compose exec -T backend node <<'NODE'
           const required = [
-            'aura_account_product_events_total',
-            'aura_account_operations_total',
-            'aura_account_operation_duration_seconds',
-            'aura_account_migration_runs_total',
+            {
+              name: 'product events',
+              pattern: /^aura_account_product_events_total\{[^}]*event="account\.section_viewed"[^}]*\} [1-9][0-9]*(?:\.[0-9]+)?$/m,
+            },
+            {
+              name: 'account operations',
+              pattern: /^aura_account_operations_total\{[^}]*\} [1-9][0-9]*(?:\.[0-9]+)?$/m,
+            },
+            {
+              name: 'account operation duration',
+              pattern: /^aura_account_operation_duration_seconds_count\{[^}]*\} [1-9][0-9]*(?:\.[0-9]+)?$/m,
+            },
+            {
+              name: 'completed apply migration',
+              pattern: /^aura_account_migration_runs_total\{mode="apply",status="completed"\} [1-9][0-9]*(?:\.[0-9]+)?$/m,
+            },
           ];
           const run = async () => {
             const response = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/metrics`, {
@@ -438,8 +450,8 @@ jobs:
             });
             if (!response.ok) throw new Error(`metrics returned ${response.status}`);
             const body = await response.text();
-            const missing = required.filter((name) => !body.includes(name));
-            if (missing.length) throw new Error(`missing Account Center metrics: ${missing.join(', ')}`);
+            const missing = required.filter(({ pattern }) => !pattern.test(body)).map(({ name }) => name);
+            if (missing.length) throw new Error(`missing non-zero Account Center metrics: ${missing.join(', ')}`);
             console.log('ACCOUNT_CENTER_METRICS_PASS');
           };
           run().catch((error) => {

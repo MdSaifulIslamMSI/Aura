@@ -1,6 +1,8 @@
 const client = require('prom-client');
+const mongoose = require('mongoose');
 const { z } = require('zod');
 const { registry } = require('../middleware/metrics');
+const AccountCenterMigrationRun = require('../models/AccountCenterMigrationRun');
 const logger = require('../utils/logger');
 
 const ACCOUNT_PRODUCT_EVENT_TYPES = Object.freeze([
@@ -144,6 +146,108 @@ const getOrCreateHistogram = (name, help, labelNames, buckets) => (
     })
 );
 
+const getOrCreateGauge = (name, help, labelNames) => (
+    registry.getSingleMetric(name)
+    || new client.Gauge({
+        name,
+        help,
+        labelNames,
+        registers: [registry],
+    })
+);
+
+const getAccountProductEventCounter = () => getOrCreateCounter(
+    PRODUCT_EVENT_METRIC_NAME,
+    'Privacy-safe Account Center product events by typed name and bounded dimension.',
+    ['event', 'dimension']
+);
+
+const getAccountOperationCounter = () => getOrCreateCounter(
+    ACCOUNT_OPERATION_METRIC_NAME,
+    'Account Center operation results by bounded operation and outcome.',
+    ['operation', 'outcome']
+);
+
+const getAccountOperationDuration = () => getOrCreateHistogram(
+    ACCOUNT_OPERATION_DURATION_METRIC_NAME,
+    'Account Center operation duration in seconds.',
+    ['operation', 'outcome'],
+    [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+);
+
+const getAccountMigrationRunCounter = () => getOrCreateCounter(
+    ACCOUNT_MIGRATION_RUN_METRIC_NAME,
+    'Account Center migration outcomes by bounded mode and status.',
+    ['mode', 'status']
+);
+
+const getAccountMigrationPendingGauge = () => getOrCreateGauge(
+    ACCOUNT_MIGRATION_PENDING_METRIC_NAME,
+    'Last observed Account Center migration pending-document count.',
+    ['mode']
+);
+
+const getAccountMigrationModifiedGauge = () => getOrCreateGauge(
+    ACCOUNT_MIGRATION_MODIFIED_METRIC_NAME,
+    'Last observed Account Center migration modified-document count.',
+    ['mode']
+);
+
+const refreshAccountMigrationMetrics = async ({
+    connected = mongoose.connection.readyState === 1,
+    loadSnapshot = () => AccountCenterMigrationRun.aggregate([
+        {
+            $facet: {
+                counts: [
+                    {
+                        $group: {
+                            _id: { mode: '$mode', status: '$status' },
+                            value: { $sum: 1 },
+                        },
+                    },
+                ],
+                latest: [
+                    { $sort: { updatedAt: -1 } },
+                    {
+                        $group: {
+                            _id: '$mode',
+                            pending: { $first: '$pendingAfter' },
+                            modified: { $first: '$modified' },
+                        },
+                    },
+                ],
+            },
+        },
+    ]),
+} = {}) => {
+    if (!connected) return false;
+
+    try {
+        const [snapshot = {}] = await loadSnapshot();
+        const runCounter = getAccountMigrationRunCounter();
+        const pendingGauge = getAccountMigrationPendingGauge();
+        const modifiedGauge = getAccountMigrationModifiedGauge();
+        runCounter.reset();
+        pendingGauge.reset();
+        modifiedGauge.reset();
+        for (const entry of snapshot.counts || []) {
+            runCounter.inc({
+                mode: migrationModes.has(entry?._id?.mode) ? entry._id.mode : 'audit',
+                status: migrationStates.has(entry?._id?.status) ? entry._id.status : 'failed',
+            }, Math.max(0, Number(entry?.value) || 0));
+        }
+        for (const entry of snapshot.latest || []) {
+            const mode = migrationModes.has(entry?._id) ? entry._id : 'audit';
+            pendingGauge.set({ mode }, Math.max(0, Number(entry?.pending) || 0));
+            modifiedGauge.set({ mode }, Math.max(0, Number(entry?.modified) || 0));
+        }
+        return true;
+    } catch (error) {
+        logger.debug('account.migration_metric_refresh_failed', { error: error?.message || 'unknown' });
+        return false;
+    }
+};
+
 const validateAccountProductEvent = (event = {}) => {
     const type = String(event.type || '').trim();
     if (!type.startsWith(ACCOUNT_EVENT_PREFIX)) {
@@ -256,11 +360,7 @@ const recordWebVital = (context = {}) => {
 const recordAccountProductEvent = (diagnostic = {}) => {
     if (!ACCOUNT_PRODUCT_EVENT_TYPE_SET.has(String(diagnostic.type || ''))) return;
     try {
-        getOrCreateCounter(
-            PRODUCT_EVENT_METRIC_NAME,
-            'Privacy-safe Account Center product events by typed name and bounded dimension.',
-            ['event', 'dimension']
-        ).inc({
+        getAccountProductEventCounter().inc({
             event: diagnostic.type,
             dimension: getProductEventDimension(diagnostic),
         });
@@ -285,17 +385,11 @@ const observeAccountOperation = (operation) => {
                     : 'failed';
             const durationSeconds = Number(process.hrtime.bigint() - startedAt) / 1e9;
             try {
-                getOrCreateCounter(
-                    ACCOUNT_OPERATION_METRIC_NAME,
-                    'Account Center operation results by bounded operation and outcome.',
-                    ['operation', 'outcome']
-                ).inc({ operation: normalizedOperation, outcome });
-                getOrCreateHistogram(
-                    ACCOUNT_OPERATION_DURATION_METRIC_NAME,
-                    'Account Center operation duration in seconds.',
-                    ['operation', 'outcome'],
-                    [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
-                ).observe({ operation: normalizedOperation, outcome }, durationSeconds);
+                getAccountOperationCounter().inc({ operation: normalizedOperation, outcome });
+                getAccountOperationDuration().observe(
+                    { operation: normalizedOperation, outcome },
+                    durationSeconds
+                );
             } catch (error) {
                 logger.debug('account.operation_metric_failed', { error: error?.message || 'unknown' });
             }
@@ -343,31 +437,22 @@ const recordAccountMigrationState = ({
     const normalizedMode = migrationModes.has(String(mode || '')) ? String(mode) : 'audit';
     const normalizedStatus = migrationStates.has(String(status || '')) ? String(status) : 'failed';
     try {
-        getOrCreateCounter(
-            ACCOUNT_MIGRATION_RUN_METRIC_NAME,
-            'Account Center migration outcomes by bounded mode and status.',
-            ['mode', 'status']
-        ).inc({ mode: normalizedMode, status: normalizedStatus });
-        const pendingGauge = registry.getSingleMetric(ACCOUNT_MIGRATION_PENDING_METRIC_NAME)
-            || new client.Gauge({
-                name: ACCOUNT_MIGRATION_PENDING_METRIC_NAME,
-                help: 'Last observed Account Center migration pending-document count.',
-                labelNames: ['mode'],
-                registers: [registry],
-            });
-        const modifiedGauge = registry.getSingleMetric(ACCOUNT_MIGRATION_MODIFIED_METRIC_NAME)
-            || new client.Gauge({
-                name: ACCOUNT_MIGRATION_MODIFIED_METRIC_NAME,
-                help: 'Last observed Account Center migration modified-document count.',
-                labelNames: ['mode'],
-                registers: [registry],
-            });
+        getAccountMigrationRunCounter().inc({ mode: normalizedMode, status: normalizedStatus });
+        const pendingGauge = getAccountMigrationPendingGauge();
+        const modifiedGauge = getAccountMigrationModifiedGauge();
         pendingGauge.set({ mode: normalizedMode }, Math.max(0, Number(pending) || 0));
         modifiedGauge.set({ mode: normalizedMode }, Math.max(0, Number(modified) || 0));
     } catch (error) {
         logger.debug('account.migration_metric_failed', { error: error?.message || 'unknown' });
     }
 };
+
+getAccountProductEventCounter();
+getAccountOperationCounter();
+getAccountOperationDuration();
+getAccountMigrationRunCounter();
+getAccountMigrationPendingGauge();
+getAccountMigrationModifiedGauge();
 
 module.exports = {
     ACCOUNT_MIGRATION_MODIFIED_METRIC_NAME,
@@ -385,6 +470,7 @@ module.exports = {
     recordAccountPrivacyJobState,
     recordAccountProductEvent,
     recordClientDiagnostic,
+    refreshAccountMigrationMetrics,
     validateAccountProductEvent,
     __private: {
         getProductEventDimension,

@@ -12,11 +12,13 @@
 
 const express = require('express');
 const { registry, metricsAuth } = require('../middleware/metrics');
+const { refreshAccountMigrationMetrics } = require('../services/accountProductTelemetryService');
 
 const router = express.Router();
 
 router.get('/', metricsAuth, async (req, res, next) => {
     try {
+        await refreshAccountMigrationMetrics();
         const metrics = await registry.metrics();
         res.setHeader('Content-Type', registry.contentType);
         return res.status(200).send(metrics);

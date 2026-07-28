@@ -163,6 +163,20 @@ const run = async () => {
     assert(updatedPreferences?.preferences?.localization?.locale === 'en-IN', 'Localization was not persisted');
     printStep('preferences.localization');
 
+    const { payload: telemetry } = await requestJson('/api/observability/client-diagnostics', {
+        method: 'POST',
+        expectedStatuses: [202],
+        body: {
+            events: [{
+                type: 'account.section_viewed',
+                timestamp: new Date().toISOString(),
+                context: { section: 'overview' },
+            }],
+        },
+    });
+    assert(telemetry.accepted === 1, 'Typed Account Center telemetry event was not accepted');
+    printStep('observability.typed-product-event');
+
     let addressId = '';
     const addressBody = {
         type: 'other',

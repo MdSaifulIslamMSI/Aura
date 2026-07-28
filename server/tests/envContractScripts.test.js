@@ -1792,6 +1792,9 @@ describe('repo environment contract scripts', () => {
             'backend node scripts/bootstrap_staging_smoke_accounts.js </dev/null',
             '--owner-from-env=SMOKE_USER_EMAIL </dev/null',
             'backend node scripts/account_center_staging_smoke.js </dev/null',
+            'missing non-zero Account Center metrics',
+            'event="account\\.section_viewed"',
+            'mode="apply",status="completed"',
         ]) {
             expect(stagingWorkflow).toContain(command);
         }
