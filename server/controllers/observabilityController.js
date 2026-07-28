@@ -4,7 +4,9 @@ const {
     listClientDiagnostics,
     persistClientDiagnostics,
 } = require('../services/clientDiagnosticIngestionService');
+const { validateAccountProductEvent } = require('../services/accountProductTelemetryService');
 
+const ACCOUNT_PRODUCT_EVENT_ENVELOPE_FIELDS = new Set(['type', 'timestamp', 'context']);
 const diagnosticEventSchema = z.object({
     id: z.string().optional(),
     type: z.string().min(1),
@@ -21,7 +23,27 @@ const diagnosticEventSchema = z.object({
     durationMs: z.number().optional(),
     error: z.any().optional(),
     context: z.any().optional(),
-}).passthrough();
+}).passthrough().superRefine((event, context) => {
+    const validation = validateAccountProductEvent(event);
+    if (validation.applicable) {
+        Object.keys(event)
+            .filter((field) => !ACCOUNT_PRODUCT_EVENT_ENVELOPE_FIELDS.has(field))
+            .forEach((field) => {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: [field],
+                    message: 'Field is not allowed for Account product events.',
+                });
+            });
+    }
+    if (validation.applicable && !validation.success) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['context'],
+            message: validation.issues.join('; '),
+        });
+    }
+});
 
 const listDiagnosticsQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).optional(),

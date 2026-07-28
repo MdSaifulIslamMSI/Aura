@@ -82,6 +82,7 @@ const adminSecurityRoutes = require('./routes/adminSecurityRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
+const { buildPrivacySafeRequestLogContext } = require('./utils/requestObservability');
 const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const intelligenceRoutes = require('./routes/intelligenceRoutes');
@@ -419,14 +420,9 @@ app.use((req, res, next) => {
     res.on('finish', () => {
         const duration = Date.now() - start;
         logger.info('HTTP Request', {
-            method: req.method,
-            url: req.originalUrl,
+            ...buildPrivacySafeRequestLogContext(req),
             status: res.statusCode,
             durationMs: duration,
-            requestId: req.requestId || req.headers['x-request-id'] || 'unknown',
-            clientSessionId: String(req.headers['x-client-session-id'] || ''),
-            clientRoute: String(req.headers['x-client-route'] || ''),
-            ip: req.ip,
         });
     });
     next();

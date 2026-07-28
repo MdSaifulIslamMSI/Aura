@@ -6,9 +6,11 @@ const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const paths = {
   dashboard: 'infra/observability/grafana/dashboards/login-security-observability.json',
+  accountDashboard: 'infra/observability/grafana/dashboards/account-center-observability.json',
   dashboardProvisioning: 'infra/observability/grafana/provisioning/dashboards/aura-login-security.yml',
   datasourceProvisioning: 'infra/observability/grafana/provisioning/datasources/prometheus.yml',
   alerts: 'infra/observability/prometheus/alerts/login-security.yml',
+  accountAlerts: 'infra/observability/prometheus/alerts/account-center.yml',
   prometheusLocal: 'infra/observability/prometheus/prometheus.local.yml',
   prometheusEc2: 'infra/observability/prometheus/prometheus.ec2.yml',
   composeLocal: 'infra/observability/docker-compose.local.yml',
@@ -65,6 +67,27 @@ requireText('dashboard', dashboardText, [
   /Upload Malware And Scan Failures/,
 ]);
 
+const accountDashboardText = read(paths.accountDashboard);
+const accountDashboard = JSON.parse(accountDashboardText);
+if (accountDashboard.uid !== 'aura-account-center') {
+  throw new Error('Account Center dashboard uid must be aura-account-center');
+}
+if (!Array.isArray(accountDashboard.panels) || accountDashboard.panels.length < 10) {
+  throw new Error('Account Center dashboard must contain at least 10 panels');
+}
+requireText('Account Center dashboard', accountDashboardText, [
+  /aura_account_operations_total/,
+  /aura_account_operation_duration_seconds/,
+  /aura_account_privacy_job_transitions_total/,
+  /aura_account_product_events_total/,
+  /aura_client_diagnostics_total/,
+  /aura_account_web_vital_lcp_seconds/,
+  /aura_account_web_vital_inp_seconds/,
+  /aura_account_web_vital_cls_ratio/,
+  /aura_account_migration_pending_documents/,
+  /http_request_duration_seconds/,
+]);
+
 const alertText = read(paths.alerts);
 requireText('Prometheus login security alerts', alertText, [
   /groups:/,
@@ -85,6 +108,17 @@ requireText('Prometheus login security alerts', alertText, [
   /AuraUploadMalwareBlocked/,
   /AuraUploadScanUnavailable/,
   /AuraUploadMimeMismatchBurst/,
+]);
+
+requireText('Prometheus Account Center alerts', read(paths.accountAlerts), [
+  /AuraAccountOperationFailureBurst/,
+  /AuraAccountSessionRevocationFailure/,
+  /AuraAccountPrivacyJobFailure/,
+  /AuraAccountClientErrorBurst/,
+  /AuraAccountLcpP75BudgetExceeded/,
+  /AuraAccountInpP75BudgetExceeded/,
+  /AuraAccountClsP75BudgetExceeded/,
+  /AuraAccountMigrationFailure/,
 ]);
 
 requireText('local Prometheus config', read(paths.prometheusLocal), [

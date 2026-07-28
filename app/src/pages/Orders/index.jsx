@@ -9,6 +9,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { ACCOUNT_TELEMETRY_EVENTS, trackAccountEvent } from '@/services/accountTelemetry';
 
 const getOrderStatusLabel = (orderMeta, t, intl) => {
     if (orderMeta.orderStatus === 'cancelled') {
@@ -299,9 +300,15 @@ const Orders = () => {
                     className="mb-8 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-glass"
                     onSubmit={(event) => {
                         event.preventDefault();
-                        setAppliedFilters({
+                        const nextFilters = {
                             ...draftFilters,
                             search: draftFilters.search.trim(),
+                        };
+                        setAppliedFilters(nextFilters);
+                        trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.ORDER_SEARCHED, {
+                            hasQuery: Boolean(nextFilters.search),
+                            status: nextFilters.status,
+                            hasDateRange: Boolean(nextFilters.createdAfter || nextFilters.createdBefore),
                         });
                     }}
                 >
@@ -723,6 +730,9 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                     amount: commandInput.refundAmount ? Number(commandInput.refundAmount) : undefined,
                 });
                 setCommandInput((prev) => ({ ...prev, refundReason: '', refundAmount: '' }));
+                trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.RETURN_STARTED, {
+                    resolution: 'refund',
+                });
             } else if (type === 'replace') {
                 const firstItem = order.orderItems?.[0];
                 await orderApi.requestReplacement(order._id, {
@@ -731,6 +741,9 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                     itemTitle: firstItem?.title,
                 });
                 setCommandInput((prev) => ({ ...prev, replaceReason: '' }));
+                trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.RETURN_STARTED, {
+                    resolution: 'replacement',
+                });
             } else if (type === 'support') {
                 await orderApi.sendSupportMessage(order._id, {
                     message: commandInput.supportMessage || t('orders.command.support.defaultMessage', {}, 'Need help with this order.'),
@@ -782,6 +795,9 @@ export const OrderCard = ({ order, autoExpand = false }) => {
         setOrderActionStatus('');
         try {
             await orderApi.buyAgain(order._id);
+            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.BUY_AGAIN_SELECTED, {
+                itemCount: order.orderItems?.length,
+            });
             setOrderActionStatus(t('orders.actions.buyAgainReady', {}, 'Available items were added to your cart.'));
             navigate('/cart');
         } catch (error) {

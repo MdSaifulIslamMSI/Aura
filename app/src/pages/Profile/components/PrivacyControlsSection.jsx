@@ -3,6 +3,7 @@ import { Archive, Ban, RefreshCw, Trash2 } from 'lucide-react';
 import { authApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { ACCOUNT_TELEMETRY_EVENTS, trackAccountEvent } from '@/services/accountTelemetry';
 
 const createIdempotencyKey = (type) => `${type}-${
     typeof crypto !== 'undefined' && crypto.randomUUID
@@ -75,6 +76,14 @@ export default function PrivacyControlsSection({ firebaseUser }) {
                 {},
                 'Your privacy request was queued for controlled processing.'
             ));
+            const eventName = {
+                export: ACCOUNT_TELEMETRY_EVENTS.EXPORT_REQUESTED,
+                deactivation: ACCOUNT_TELEMETRY_EVENTS.DEACTIVATION_INITIATED,
+                deletion: ACCOUNT_TELEMETRY_EVENTS.DELETION_INITIATED,
+            }[type];
+            if (eventName) {
+                trackAccountEvent(eventName);
+            }
         } catch (requestError) {
             setError(requestError?.message || translateRef.current(
                 'profile.privacy.requestError',

@@ -4,6 +4,7 @@ import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { userApi } from '@/services/api';
 import { cn } from '@/lib/utils';
+import { ACCOUNT_TELEMETRY_EVENTS, trackAccountEvent } from '@/services/accountTelemetry';
 
 export default function NotificationPreferencesPanel() {
     const { t: legacyT } = useMarket();
@@ -55,6 +56,11 @@ export default function NotificationPreferencesPanel() {
                 {},
                 'Notification preference saved.'
             ));
+            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.PREFERENCE_CHANGED, {
+                topic,
+                channel,
+                enabled,
+            });
         } catch (saveError) {
             setError(saveError.message || t(
                 'profile.settings.notifications.saveError',

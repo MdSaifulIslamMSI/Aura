@@ -67,6 +67,26 @@ are 10.76 kB Support, 3.33 kB Addresses, 3.16 kB Payments, 2.99 kB Personal
 Info, 2.50 kB Privacy, 2.42 kB Rewards, 2.42 kB Marketplace, 2.37 kB
 Notifications and 1.32 kB Orders.
 
+## Wave N measurement overhead
+
+The Account Center now initializes native `PerformanceObserver` collectors only
+while the authenticated Profile route is mounted. LCP, INP and CLS are reported
+at most once per route lifetime on visibility change, page hide or unmount.
+Product events reuse the existing deferred diagnostic buffer and do not create
+a synchronous network request on the user-action path.
+
+The post-Wave N production budget remains effectively unchanged at 175.95 kB
+initial JS gzip, 65.88 kB total CSS, 60.44 kB initial CSS and 243.80 kB initial
+payload.
+The Profile chunk is 17.08 kB gzip, a 0.17 kB increase from Wave M and still
+12.20 kB below the audited baseline. The largest Account feature is Settings at
+11.87 kB gzip, below the 45 kB feature cap. All JS gzip is 4,237.59 kB; the
+pre-existing locale/admin cost remains outside the initial route.
+
+These figures prove static bundle cost only. Real p75 LCP/INP/CLS, sample
+delivery rate and instrumentation overhead still require authenticated staging
+traffic and constrained-device traces.
+
 The production build and repository bundle budget pass. The pre-existing
 ineffective English market-pack dynamic import and oversized admin-dashboard
 warnings remain outside this scoped Account Center change.

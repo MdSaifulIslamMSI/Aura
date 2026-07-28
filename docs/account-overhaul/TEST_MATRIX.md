@@ -16,6 +16,7 @@
 | Targeted frontend lint | **PASS with one pre-existing warning**: no errors; existing `currentUser.uid` dependency warning |
 | Frontend accessibility/design hardening | **PASS at component/static level**: 5 focused Profile files / 11 tests; interface audit 0 high / 8 inspected heuristic medium / 2 intentional low |
 | Frontend build and bundle budget | **PASS**: initial JS 175.97 kB gzip, total CSS 65.88 kB, initial payload 243.82 kB; Profile 16.91 kB gzip; all Account feature chunks <= 11.82 kB gzip |
+| Account observability and analytics | **PASS at code/static level**: 7 backend suites / 23 tests; 5 frontend files / 13 tests; 10-panel dashboard and 8-alert contract parse and validate; live scrape/alert evidence pending |
 | Account localization structure | **PASS**: extraction, pseudo-locale, compile, structural verify and QA across 21 catalogs / 4,883 messages / 0 critical issues; stable-text discovery guard PASS |
 | Authenticated browser/E2E, real Redis failure/concurrency, full suites | **NOT VERIFIED** |
 
@@ -156,5 +157,8 @@ Current focused tests:
 - Waves K-L-M shell/offline/avatar dimensions, address-dialog focus lifecycle, notification semantics/actions/preferences and Profile integration: 5 frontend suites / 11 tests passed; lint passed.
 - Waves K-L-M production build and bundle budget: 175.97 kB initial JS gzip, 65.88 kB total CSS, 60.44 kB initial CSS and 243.82 kB initial payload; Profile 16.91 kB gzip; largest Account feature chunk 11.82 kB gzip.
 - Waves K-L-M localization: 21 catalogs, 4,883 ICU messages, zero critical issues and stable-text discovery guard passed; authenticated locale visual/accessibility QA and native review remain pending.
+- Wave N typed client events, Web Vitals, strict server schemas, privacy-safe persistence/logging, bounded Prometheus metrics, migration progress, dashboard and alert contracts: 7 backend suites / 23 tests and 5 frontend files / 13 tests passed.
+- Wave N operational static gates: both route scanners passed at 98 routes, observability assets validated, dashboard JSON and alert YAML parsed, 2,665-file secret scan passed, frontend lint passed, localization remained 21 catalogs / 4,883 messages / 0 critical issues, and the production bundle budget passed.
+- Wave N live Prometheus scrape, Grafana query rendering, Alertmanager delivery/resolution, log aggregation, cardinality, retention and real SLO calibration are not verified locally and remain staging gates.
 
 Current broad local suites timed out and are not accepted as passes. Before merge, new focused shards must pass and the relevant CI suites must return terminal green statuses on the exact SHA.

@@ -7,6 +7,7 @@ const {
     getPublicPrivacyCapabilities,
 } = require('../services/accountPrivacyService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { recordAccountPrivacyJobState } = require('../services/accountProductTelemetryService');
 
 const getOwnerId = (req) => String(req.user?._id || '').trim();
 const getIdempotencyKey = (req) => String(req.get('Idempotency-Key') || '').trim();
@@ -34,6 +35,10 @@ const createRequestController = (type) => asyncHandler(async (req, res, next) =>
             requestType: type,
             status: result.job.status,
         },
+    });
+    recordAccountPrivacyJobState({
+        type,
+        status: result.job.status,
     });
     res.set('Cache-Control', 'private, no-store');
     return res.status(result.replayed ? 200 : 202).json({
@@ -72,6 +77,10 @@ const cancelRequestController = (type) => asyncHandler(async (req, res, next) =>
             requestType: type,
             status: job.status,
         },
+    });
+    recordAccountPrivacyJobState({
+        type,
+        status: job.status,
     });
     res.set('Cache-Control', 'private, no-store');
     return res.status(200).json({ success: true, request: job });

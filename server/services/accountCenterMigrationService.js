@@ -5,6 +5,7 @@ const TradeIn = require('../models/TradeIn');
 const PriceAlert = require('../models/PriceAlert');
 const AccountPrivacyJob = require('../models/AccountPrivacyJob');
 const AccountCenterMigrationRun = require('../models/AccountCenterMigrationRun');
+const { recordAccountMigrationState } = require('./accountProductTelemetryService');
 
 const MIGRATION_ID = 'account-center-v2-schema-2026-07';
 const TARGET_SCHEMA_VERSION = 2;
@@ -159,7 +160,14 @@ const runAccountCenterMigration = async (options = {}, dependencies = {}) => {
         const audit = existing
             ? await store.updateRun(runId, auditPayload)
             : await store.createRun(auditPayload);
-        return buildEvidence(audit);
+        const evidence = buildEvidence(audit);
+        recordAccountMigrationState({
+            mode,
+            status: evidence.status,
+            pending: evidence.pendingAfter,
+            modified: evidence.modified,
+        });
+        return evidence;
     }
 
     let run = existing || await store.createRun({
@@ -231,7 +239,14 @@ const runAccountCenterMigration = async (options = {}, dependencies = {}) => {
             completedAt: status === 'completed' ? new Date() : null,
             lastErrorCode: '',
         });
-        return buildEvidence(run);
+        const evidence = buildEvidence(run);
+        recordAccountMigrationState({
+            mode,
+            status: evidence.status,
+            pending: evidence.pendingAfter,
+            modified: evidence.modified,
+        });
+        return evidence;
     } catch (error) {
         const lastErrorCode = String(error?.code || 'ACCOUNT_CENTER_MIGRATION_BATCH_FAILED')
             .replace(/[^A-Z0-9_]/gi, '_')
@@ -242,6 +257,12 @@ const runAccountCenterMigration = async (options = {}, dependencies = {}) => {
             pendingAfter: await store.countPending().catch(() => Number(run.pendingAfter || pendingBefore)),
             completedAt: null,
         }).catch(() => null);
+        recordAccountMigrationState({
+            mode,
+            status: 'failed',
+            pending: Number(run.pendingAfter || pendingBefore),
+            modified: Number(run.modified || 0),
+        });
         throw error;
     }
 };

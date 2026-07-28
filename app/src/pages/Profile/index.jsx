@@ -23,6 +23,11 @@ import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
 import { openStripeSetupModal } from '@/utils/stripe';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
+import {
+    ACCOUNT_TELEMETRY_EVENTS,
+    initAccountWebVitals,
+    trackAccountEvent,
+} from '@/services/accountTelemetry';
 
 import OverviewSection from './components/OverviewSection';
 import AccountStatusBanner from './components/AccountStatusBanner';
@@ -284,6 +289,12 @@ export default function Profile() {
             window.removeEventListener('offline', markOffline);
         };
     }, []);
+    useEffect(() => initAccountWebVitals(), []);
+    useEffect(() => {
+        trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.SECTION_VIEWED, {
+            section: activeTab,
+        });
+    }, [activeTab]);
     const tabs = useMemo(() => buildTabs(t), [t]);
     const activeTabDefinition = useMemo(
         () => tabs.find((tab) => tab.id === activeTab) || tabs[0],
@@ -802,6 +813,9 @@ export default function Profile() {
             setProfileFieldErrors({});
             setProfileSubmitError('');
             showMsg('success', t('profile.message.profileUpdated', {}, 'Profile updated successfully.'));
+            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.PROFILE_UPDATED, {
+                changedFields: PROFILE_FIELDS.filter((field) => currentForm[field] !== baselineForm[field]),
+            });
         } catch (error) {
             const serverErrors = Array.isArray(error?.data?.errors) ? error.data.errors : [];
             const nextFieldErrors = {};
@@ -901,6 +915,7 @@ export default function Profile() {
     const handleSaveAddress = async () => {
         setSaving(true);
         setAddressSubmitError('');
+        const addingAddress = !editingAddress;
         try {
             const payload = {
                 ...addressForm,
@@ -921,6 +936,11 @@ export default function Profile() {
             showMsg('success', editingAddress
                 ? t('profile.message.addressUpdated', {}, 'Address updated.')
                 : t('profile.message.addressSaved', {}, 'Address saved.'));
+            if (addingAddress) {
+                trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.ADDRESS_ADDED, {
+                    addressType: payload.type,
+                });
+            }
         } catch (error) {
             const errorMessage = error.message || t('profile.message.addressSaveFailed', {}, 'Failed to save address.');
             setAddressSubmitError(errorMessage);
@@ -1102,6 +1122,7 @@ export default function Profile() {
                 refreshProfileDeck({ silent: true }),
             ]);
             showMsg('success', t('profile.message.passkeyRegistered', {}, 'Passkey MFA registered.'));
+            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.PASSKEY_ADDED);
         } catch (error) {
             showMsg('error', error.message || t('profile.message.passkeyRegisterFailed', {}, 'Could not register this passkey.'));
         } finally {
@@ -1174,6 +1195,9 @@ export default function Profile() {
                 { sessionId },
                 { firebaseUser: currentUser }
             );
+            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.SESSION_REVOKED, {
+                scope: session?.current ? 'current' : 'one',
+            });
 
             if (session?.current) {
                 showMsg('success', t('profile.message.currentSessionRevoked', {}, 'This browser session was revoked. You are being signed out.'));
@@ -1197,6 +1221,9 @@ export default function Profile() {
         setActiveSessionAction('revoke-others');
         try {
             const result = await authApi.revokeOtherAccountSessions({ firebaseUser: currentUser });
+            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.SESSION_REVOKED, {
+                scope: 'others',
+            });
             await refreshActiveSessions({ silent: true });
             const revoked = Number(result?.revoked || 0);
             const revokedMessage = revoked === 1
@@ -1224,6 +1251,9 @@ export default function Profile() {
         setActiveSessionAction('revoke-all');
         try {
             const result = await authApi.revokeAllAccountSessions({ firebaseUser: currentUser });
+            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.SESSION_REVOKED, {
+                scope: 'all',
+            });
             showMsg('success', t(
                 'profile.message.allSessionsRevoked',
                 {},

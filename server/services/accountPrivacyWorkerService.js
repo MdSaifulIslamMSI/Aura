@@ -1,5 +1,6 @@
 const AccountPrivacyJob = require('../models/AccountPrivacyJob');
 const { requireEnabledPolicy, serializePrivacyJob } = require('./accountPrivacyService');
+const { recordAccountPrivacyJobState } = require('./accountProductTelemetryService');
 
 const CLAIMABLE_TYPES = Object.freeze(['export', 'deactivation', 'deletion']);
 const SAFE_HANDLER_STATUSES = new Set(['ready', 'completed', 'blocked']);
@@ -79,6 +80,10 @@ const processNextPrivacyJob = async ({
 } = {}) => {
     const job = await claimNextPrivacyJob({ workerId, now });
     if (!job) return null;
+    recordAccountPrivacyJobState({
+        type: job.type,
+        status: 'processing',
+    });
     const handler = handlers[job.type];
     let outcome;
     try {
@@ -88,12 +93,19 @@ const processNextPrivacyJob = async ({
     } catch {
         outcome = { status: 'failed', failureCode: 'handler_failed' };
     }
-    return completeClaimedPrivacyJob({
+    const completed = await completeClaimedPrivacyJob({
         job,
         workerId,
         outcome,
         now: new Date(),
     });
+    if (completed) {
+        recordAccountPrivacyJobState({
+            type: completed.type,
+            status: completed.status,
+        });
+    }
+    return completed;
 };
 
 module.exports = {

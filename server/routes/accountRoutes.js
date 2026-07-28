@@ -54,6 +54,7 @@ const {
     requestExportSchema,
 } = require('../validators/accountPrivacyValidators');
 const { requireAccountPrivacyLifecycle } = require('../middleware/accountPrivacyPolicy');
+const { observeAccountOperation } = require('../services/accountProductTelemetryService');
 
 const router = express.Router();
 
@@ -105,6 +106,7 @@ router.get('/marketplace', accountMarketplaceLimiter, getAccountMarketplace);
 router.get('/privacy/capabilities', accountPrivacyLimiter, getPrivacyCapabilities);
 router.post(
     '/privacy/exports',
+    observeAccountOperation('privacy_export'),
     accountPrivacyLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     requireAccountPrivacyLifecycle,
@@ -124,6 +126,7 @@ router.get(
 );
 router.post(
     '/privacy/deactivation',
+    observeAccountOperation('privacy_deactivation'),
     accountPrivacyLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     requireAccountPrivacyLifecycle,
@@ -136,6 +139,7 @@ router.post(
 );
 router.delete(
     '/privacy/deactivation/:requestId',
+    observeAccountOperation('privacy_deactivation_cancel'),
     accountPrivacyLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     requireAccountPrivacyLifecycle,
@@ -148,6 +152,7 @@ router.delete(
 );
 router.post(
     '/privacy/deletion-requests',
+    observeAccountOperation('privacy_deletion'),
     accountPrivacyLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     requireAccountPrivacyLifecycle,
@@ -160,6 +165,7 @@ router.post(
 );
 router.delete(
     '/privacy/deletion-requests/:requestId',
+    observeAccountOperation('privacy_deletion_cancel'),
     accountPrivacyLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     requireAccountPrivacyLifecycle,
@@ -178,6 +184,7 @@ router.get(
 );
 router.patch(
     '/preferences',
+    observeAccountOperation('preference_update'),
     accountPreferenceLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     validate(updateAccountPreferencesSchema),
@@ -185,6 +192,7 @@ router.patch(
 );
 router.post(
     '/avatar/upload-intents',
+    observeAccountOperation('avatar_intent'),
     accountAvatarLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     validate(createAvatarUploadIntentSchema),
@@ -192,6 +200,7 @@ router.post(
 );
 router.post(
     '/avatar/uploads',
+    observeAccountOperation('avatar_upload'),
     accountAvatarLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     validate(uploadAvatarMediaSchema),
@@ -199,6 +208,7 @@ router.post(
 );
 router.post(
     '/avatar/finalize',
+    observeAccountOperation('avatar_finalize'),
     accountAvatarLimiter,
     csrfTokenValidatorUnlessBearerAuth,
     validate(finalizeAvatarMediaSchema),
@@ -214,6 +224,7 @@ router.get(
 );
 router.post(
     '/sessions/revoke-all',
+    observeAccountOperation('session_revoke_all'),
     csrfTokenValidatorUnlessBearerAuth,
     requireFreshMfa({
         action: 'auth.sessions.revoke_all',
@@ -224,6 +235,7 @@ router.post(
 );
 router.post(
     '/sessions/revoke-others',
+    observeAccountOperation('session_revoke_others'),
     csrfTokenValidatorUnlessBearerAuth,
     requireFreshMfa({
         action: 'auth.sessions.revoke_others',
@@ -234,6 +246,7 @@ router.post(
 );
 router.delete(
     '/sessions/:sessionAlias',
+    observeAccountOperation('session_revoke_one'),
     csrfTokenValidatorUnlessBearerAuth,
     validate(revokeAccountSessionSchema),
     revokeAccountSession
