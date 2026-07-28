@@ -1124,6 +1124,9 @@ describe('repo environment contract scripts', () => {
 
     test('staging AWS deploy workflow is manual and explicitly gated', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-aws-deploy.yml'), 'utf8');
+        const browserConfig = fs.readFileSync(path.join(repoRoot, 'app', 'playwright.staging.config.js'), 'utf8');
+        const browserSetup = fs.readFileSync(path.join(repoRoot, 'app', 'e2e', 'account-center.staging.setup.js'), 'utf8');
+        const browserSpec = fs.readFileSync(path.join(repoRoot, 'app', 'e2e', 'account-center.staging.e2e.js'), 'utf8');
 
         expect(workflow).toMatch(/workflow_dispatch/);
         expect(workflow).toMatch(/environment: staging/);
@@ -1136,6 +1139,11 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/cache-dependency-path:[\s\S]*?package-lock\.json[\s\S]*?app\/package-lock\.json/);
         expect(workflow).toMatch(/npm ci[\s\S]*?npm --prefix app ci/);
         expect(workflow).toContain('npm --prefix app exec -- playwright test --config=app/playwright.staging.config.js');
+        expect(browserConfig).toContain("globalSetup: './e2e/account-center.staging.setup.js'");
+        expect(browserSetup.match(/api\.post\('\/api\/auth\/sync'/g)).toHaveLength(1);
+        expect(browserSetup).toContain('ACCOUNT_CENTER_STAGING_AUTH_STATE');
+        expect(browserSpec).not.toContain("request.post('/api/auth/sync'");
+        expect(browserSpec).toContain("page.locator('#account-center-page-title')");
         expect(workflow).toMatch(/id:\s*lease-runner-ssh/);
         expect(workflow).toContain('https://checkip.amazonaws.com');
         expect(workflow).toMatch(/RUNNER_CIDR="\$\{RUNNER_IP\}\/32"/);

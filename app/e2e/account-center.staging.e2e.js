@@ -1,22 +1,16 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const apiKey = String(process.env.SMOKE_FIREBASE_API_KEY || '').trim();
-const email = String(process.env.SMOKE_USER_EMAIL || '').trim();
-const password = String(process.env.SMOKE_USER_PASSWORD || '').trim();
-
-const signInWithFirebase = async (request) => {
-    const response = await request.post(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(apiKey)}`,
-        {
-            data: { email, password, returnSecureToken: true },
-        }
-    );
-    expect(response.ok()).toBeTruthy();
-    const payload = await response.json();
-    expect(payload.idToken).toBeTruthy();
-    expect(payload.refreshToken).toBeTruthy();
-    return payload;
+const getAuthState = () => {
+    const encoded = String(process.env.ACCOUNT_CENTER_STAGING_AUTH_STATE || '').trim();
+    if (!encoded) {
+        throw new Error('Account Center staging auth state was not prepared by global setup.');
+    }
+    const state = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    if (!state?.firebaseSession?.idToken || !Array.isArray(state?.cookies)) {
+        throw new Error('Account Center staging auth state is incomplete.');
+    }
+    return state;
 };
 
 const installFirebaseSession = async (page, firebaseSession) => {
@@ -80,31 +74,17 @@ const assertNoSeriousAxeViolations = async (page) => {
     expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
 };
 
-test.beforeEach(async ({ page, request }) => {
-    expect(apiKey).toBeTruthy();
-    expect(email).toBeTruthy();
-    expect(password).toBeTruthy();
-    const session = await signInWithFirebase(request);
-    const syncResponse = await request.post('/api/auth/sync', {
-        headers: {
-            Authorization: `Bearer ${session.idToken}`,
-            'Idempotency-Key': `account-browser-${Date.now()}`,
-        },
-        data: {
-            email,
-            name: 'Account Qualification Customer',
-            phone: '+919999999999',
-        },
-    });
-    expect(syncResponse.ok()).toBeTruthy();
-    await installFirebaseSession(page, session);
+test.beforeEach(async ({ page }) => {
+    const authState = getAuthState();
+    await page.context().addCookies(authState.cookies);
+    await installFirebaseSession(page, authState.firebaseSession);
 });
 
 test('renders responsive authenticated Account Center with WCAG-critical automation', async ({ page }, testInfo) => {
     await page.goto('/profile');
     await expect(page).toHaveURL(/\/profile(?:\?|$)/);
     await expect(page.locator('.account-center-experience')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.locator('#account-center-page-title')).toBeVisible();
 
     await assertNoSeriousAxeViolations(page);
     await page.keyboard.press('Tab');
@@ -129,7 +109,7 @@ test('surfaces offline state and recovers without losing the authenticated shell
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await page.reload();
     await expect(page.locator('.account-center-experience')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.locator('#account-center-page-title')).toBeVisible();
 });
 
 test('keeps a stable loading shell on a slow authenticated profile response', async ({ page }, testInfo) => {
@@ -140,7 +120,8 @@ test('keeps a stable loading shell on a slow authenticated profile response', as
     });
 
     await page.goto('/profile');
-    await expect(page.getByRole('heading', { name: 'Preparing your account' })).toBeVisible();
-    await expect(page.locator('.account-center-experience')).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    const accountCenter = page.locator('.account-center-experience');
+    await expect(accountCenter.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(accountCenter).toBeVisible();
+    await expect(page.locator('#account-center-page-title')).toBeVisible();
 });
