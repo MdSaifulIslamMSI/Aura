@@ -13,7 +13,7 @@ if (
 
 export default defineConfig({
     testDir: './e2e',
-    testMatch: 'account-center.staging.spec.js',
+    testMatch: 'account-center.staging.e2e.js',
     timeout: 90_000,
     expect: { timeout: 20_000 },
     retries: 1,
