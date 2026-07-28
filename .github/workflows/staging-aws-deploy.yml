@@ -11,6 +11,14 @@ on:
         description: Type true to allow staging deployment
         required: true
         default: "false"
+      qualification_enabled:
+        description: Type true to run the destructive-safe Account Center staging qualification
+        required: true
+        default: "false"
+      rollback_sha:
+        description: Full known-good SHA used only as immutable rollback evidence
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -24,7 +32,7 @@ jobs:
   deploy-staging:
     runs-on: ubuntu-latest
     environment: staging
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       AWS_REGION: ${{ vars.AWS_REGION }}
@@ -77,6 +85,12 @@ jobs:
       SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
       SMOKE_REQUIRE_SCANNER_READY: "true"
       STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+      STAGING_ACCOUNT_SMOKE_EMAIL: ${{ secrets.STAGING_ACCOUNT_SMOKE_EMAIL }}
+      STAGING_ACCOUNT_SMOKE_PASSWORD: ${{ secrets.STAGING_ACCOUNT_SMOKE_PASSWORD }}
+      STAGING_ACCOUNT_SMOKE_PHONE: ${{ secrets.STAGING_ACCOUNT_SMOKE_PHONE }}
+      STAGING_ACCOUNT_OTHER_SMOKE_EMAIL: ${{ secrets.STAGING_ACCOUNT_OTHER_SMOKE_EMAIL }}
+      STAGING_ACCOUNT_OTHER_SMOKE_PASSWORD: ${{ secrets.STAGING_ACCOUNT_OTHER_SMOKE_PASSWORD }}
+      STAGING_ACCOUNT_OTHER_SMOKE_PHONE: ${{ secrets.STAGING_ACCOUNT_OTHER_SMOKE_PHONE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -122,6 +136,9 @@ jobs:
           role-session-name: aura-staging-github-deploy
           mask-aws-account-id: true
           unset-current-credentials: true
+
+      - name: Ensure non-rotating Account Center staging secrets
+        run: node scripts/run-bash.mjs scripts/staging/03c-ensure-account-center-ssm-params.sh
 
       - name: Resolve isolated staging EC2
         run: |
@@ -237,6 +254,242 @@ jobs:
         env:
           STAGING_ALLOWED_SSH_CIDR: ${{ steps.lease-runner-ssh.outputs.runner_cidr }}
         run: STAGING_KEY_PATH="$PWD/.staging/staging-key.pem" npm run staging:deploy
+
+      - name: Validate Account Center qualification inputs
+        if: ${{ inputs.qualification_enabled == 'true' }}
+        env:
+          QUALIFICATION_ROLLBACK_SHA: ${{ inputs.rollback_sha }}
+        run: |
+          set -euo pipefail
+          [[ "${QUALIFICATION_ROLLBACK_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "qualification rollback_sha must be a full lowercase commit SHA."
+            exit 1
+          }
+          git fetch --no-tags --depth=1 origin "${QUALIFICATION_ROLLBACK_SHA}"
+          git cat-file -e "${QUALIFICATION_ROLLBACK_SHA}^{commit}"
+          test "${QUALIFICATION_ROLLBACK_SHA}" != "$(git rev-parse HEAD)" || {
+            echo "qualification rollback_sha must identify a previous known-good commit."
+            exit 1
+          }
+
+      - name: Prepare redacted Account Center qualification credentials
+        if: ${{ inputs.qualification_enabled == 'true' }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const fail = (message) => {
+            console.error(message);
+            process.exit(1);
+          };
+          let firebaseConfig;
+          try {
+            firebaseConfig = JSON.parse(process.env.STAGING_FIREBASE_WEB_CONFIG || '');
+          } catch {
+            fail('STAGING_FIREBASE_WEB_CONFIG must be valid JSON.');
+          }
+          const values = {
+            SMOKE_USER_EMAIL: process.env.STAGING_ACCOUNT_SMOKE_EMAIL,
+            SMOKE_USER_PASSWORD: process.env.STAGING_ACCOUNT_SMOKE_PASSWORD,
+            SMOKE_USER_NAME: 'AccountQualificationCustomer',
+            SMOKE_USER_PHONE: process.env.STAGING_ACCOUNT_SMOKE_PHONE,
+            SMOKE_OTHER_USER_EMAIL: process.env.STAGING_ACCOUNT_OTHER_SMOKE_EMAIL,
+            SMOKE_OTHER_USER_PASSWORD: process.env.STAGING_ACCOUNT_OTHER_SMOKE_PASSWORD,
+            SMOKE_OTHER_USER_NAME: 'AccountQualificationSecondary',
+            SMOKE_OTHER_USER_PHONE: process.env.STAGING_ACCOUNT_OTHER_SMOKE_PHONE,
+            SMOKE_FIREBASE_API_KEY: String(firebaseConfig?.apiKey || '').trim(),
+            SMOKE_BASE_URL: process.env.STAGING_BASE_URL,
+            PERF_BASE_URL: process.env.STAGING_BASE_URL,
+            SMOKE_TARGET_ENV: 'staging',
+            SMOKE_STAGING_ISOLATED: 'true',
+            STAGING_SSM_PREFIX: '/aura/staging',
+            PROD_BASE_URL: process.env.PROD_BASE_URL || '',
+            PROD_API_BASE_URL: process.env.PROD_API_BASE_URL || '',
+          };
+          const emailPattern = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+          const passwordPattern = /^[A-Za-z0-9_-]{20,128}$/;
+          const phonePattern = /^\+[1-9][0-9]{9,14}$/;
+          if (!emailPattern.test(values.SMOKE_USER_EMAIL || '') || !emailPattern.test(values.SMOKE_OTHER_USER_EMAIL || '')) {
+            fail('Dedicated staging smoke emails are missing or unsafe.');
+          }
+          if (!passwordPattern.test(values.SMOKE_USER_PASSWORD || '') || !passwordPattern.test(values.SMOKE_OTHER_USER_PASSWORD || '')) {
+            fail('Dedicated staging smoke passwords are missing or unsafe.');
+          }
+          if (!phonePattern.test(values.SMOKE_USER_PHONE || '') || !phonePattern.test(values.SMOKE_OTHER_USER_PHONE || '')) {
+            fail('Dedicated staging smoke phone numbers are missing or unsafe.');
+          }
+          if (!/^[A-Za-z0-9_-]{20,160}$/.test(values.SMOKE_FIREBASE_API_KEY)) {
+            fail('The isolated staging Firebase Web API key is missing or unsafe.');
+          }
+          for (const [name, value] of Object.entries(values)) {
+            if (/[\r\n]/.test(String(value || ''))) fail(`${name} contains a newline.`);
+          }
+          fs.writeFileSync(
+            '.staging/account-center-qualification.env',
+            `${Object.entries(values).map(([name, value]) => `${name}=${value || ''}`).join('\n')}\n`,
+            { mode: 0o600 }
+          );
+          NODE
+
+      - name: Create versioned backup and prove isolated restore
+        if: ${{ inputs.qualification_enabled == 'true' }}
+        env:
+          STAGING_BACKUP_SOURCE_SHA: ${{ github.sha }}
+          STAGING_BACKUP_TRANSPORT: ssh
+          STAGING_RESTORE_TRANSPORT: ssh
+        run: |
+          set -euo pipefail
+          STAGING_BACKUP_SOURCE_SHA="$(git rev-parse HEAD)" npm run staging:backup
+          npm run staging:restore-drill
+          npm run staging:observability
+
+      - name: Apply and verify Account Center staging migration
+        if: ${{ inputs.qualification_enabled == 'true' }}
+        env:
+          QUALIFICATION_ROLLBACK_SHA: ${{ inputs.rollback_sha }}
+        run: |
+          set -euo pipefail
+          BACKUP_EVIDENCE="$(node --input-type=module -e "import fs from 'node:fs'; const state=JSON.parse(fs.readFileSync('.staging/state.json','utf8')); process.stdout.write(String(state.last_backup_s3_key || ''));")"
+          [[ "${BACKUP_EVIDENCE}" =~ ^backups/[0-9]{8}-[0-9]{6}/aura-staging-backup\.tar\.gz$ ]] || {
+            echo "Versioned staging backup evidence is missing."
+            exit 1
+          }
+          {
+            printf 'ACCOUNT_MIGRATION_BACKUP_EVIDENCE=%s\n' "${BACKUP_EVIDENCE}"
+            printf 'ACCOUNT_MIGRATION_ROLLBACK_SHA=%s\n' "${QUALIFICATION_ROLLBACK_SHA}"
+            printf 'ACCOUNT_MIGRATION_RUN_ID=account-center-%s\n' "${GITHUB_RUN_ID}"
+          } >> .staging/account-center-qualification.env
+          scp -F .staging/ssh_config \
+            .staging/account-center-qualification.env \
+            aura-staging:/tmp/account-center-qualification.env >/dev/null
+          ssh -F .staging/ssh_config aura-staging "bash -s" <<'REMOTE'
+          set -euo pipefail
+          cleanup() {
+            sudo rm -f /tmp/account-center-qualification.env
+          }
+          trap cleanup EXIT
+          sudo chmod 600 /tmp/account-center-qualification.env
+          sudo bash <<'ROOT'
+          set -euo pipefail
+          set -a
+          source /tmp/account-center-qualification.env
+          set +a
+          cd /opt/aura-staging/src/infra/staging
+          docker compose exec -T backend \
+            node scripts/migrate_account_center_v2.js \
+              --mode=audit \
+              "--run-id=${ACCOUNT_MIGRATION_RUN_ID}-audit"
+          docker compose exec -T \
+            -e ACCOUNT_CENTER_MIGRATION_APPLY_ENABLED=true \
+            backend node scripts/migrate_account_center_v2.js \
+              --mode=apply \
+              --execute \
+              "--run-id=${ACCOUNT_MIGRATION_RUN_ID}-apply" \
+              --approved-by=general-dyre-standing-approval \
+              --ticket=account-center-overhaul \
+              "--backup-evidence=${ACCOUNT_MIGRATION_BACKUP_EVIDENCE}" \
+              "--rollback-sha=${ACCOUNT_MIGRATION_ROLLBACK_SHA}" \
+              --batch-size=200 \
+              --max-batches=1000 \
+              --delay-ms=50
+          docker compose exec -T \
+            -e SMOKE_USER_EMAIL \
+            -e SMOKE_USER_PASSWORD \
+            -e SMOKE_USER_NAME \
+            -e SMOKE_USER_PHONE \
+            -e SMOKE_OTHER_USER_EMAIL \
+            -e SMOKE_OTHER_USER_PASSWORD \
+            -e SMOKE_OTHER_USER_NAME \
+            -e SMOKE_OTHER_USER_PHONE \
+            backend node scripts/bootstrap_staging_smoke_accounts.js
+          docker compose exec -T \
+            -e SMOKE_USER_EMAIL \
+            backend node scripts/verify_account_center_queries.js \
+              --strict \
+              --explain \
+              --owner-from-env=SMOKE_USER_EMAIL
+          docker compose exec -T \
+            -e SMOKE_USER_EMAIL \
+            -e SMOKE_USER_PASSWORD \
+            -e SMOKE_USER_NAME \
+            -e SMOKE_USER_PHONE \
+            -e SMOKE_OTHER_USER_EMAIL \
+            -e SMOKE_OTHER_USER_PASSWORD \
+            -e SMOKE_OTHER_USER_NAME \
+            -e SMOKE_OTHER_USER_PHONE \
+            -e SMOKE_FIREBASE_API_KEY \
+            -e SMOKE_BASE_URL \
+            -e SMOKE_TARGET_ENV \
+            -e SMOKE_STAGING_ISOLATED \
+            -e STAGING_SSM_PREFIX \
+            -e PROD_BASE_URL \
+            -e PROD_API_BASE_URL \
+            backend node scripts/account_center_staging_smoke.js
+          docker compose exec -T backend node <<'NODE'
+          const required = [
+            'aura_account_product_events_total',
+            'aura_account_operations_total',
+            'aura_account_operation_duration_seconds',
+            'aura_account_migration_runs_total',
+          ];
+          const run = async () => {
+            const response = await fetch(`http://127.0.0.1:${process.env.PORT || 3000}/metrics`, {
+              headers: { 'x-metrics-key': process.env.METRICS_SECRET },
+            });
+            if (!response.ok) throw new Error(`metrics returned ${response.status}`);
+            const body = await response.text();
+            const missing = required.filter((name) => !body.includes(name));
+            if (missing.length) throw new Error(`missing Account Center metrics: ${missing.join(', ')}`);
+            console.log('ACCOUNT_CENTER_METRICS_PASS');
+          };
+          run().catch((error) => {
+            console.error(error.message);
+            process.exitCode = 1;
+          });
+          NODE
+          ROOT
+          REMOTE
+
+      - name: Setup k6 for authenticated Account Center load
+        if: ${{ inputs.qualification_enabled == 'true' }}
+        uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065 # v1
+
+      - name: Run authenticated Account Center load gate
+        if: ${{ inputs.qualification_enabled == 'true' }}
+        run: |
+          set -euo pipefail
+          set -a
+          source .staging/account-center-qualification.env
+          set +a
+          node scripts/performance/run-account-center-k6.mjs
+
+      - name: Run responsive authenticated Account Center browser gate
+        if: ${{ inputs.qualification_enabled == 'true' }}
+        run: |
+          set -euo pipefail
+          set -a
+          source .staging/account-center-qualification.env
+          set +a
+          npm --prefix app exec -- playwright install --with-deps chromium
+          npm --prefix app exec -- playwright test --config=playwright.staging.config.js
+        env:
+          ACCOUNT_CENTER_STAGING_E2E: "true"
+
+      - name: Upload Account Center qualification evidence
+        if: ${{ always() && inputs.qualification_enabled == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: account-center-staging-${{ github.run_id }}
+          path: |
+            .run-logs/k6-account-center.json
+            app/playwright-report-account-staging
+            app/test-results/account-center-staging
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove Account Center qualification credentials
+        if: ${{ always() && inputs.qualification_enabled == 'true' }}
+        run: rm -f .staging/account-center-qualification.env
 
       - name: Revoke runner SSH access
         if: ${{ always() && steps.lease-runner-ssh.outputs.security_group_rule_id != '' }}

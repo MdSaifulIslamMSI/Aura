@@ -7,7 +7,15 @@ const Listing = require('../models/Listing');
 const ProductReview = require('../models/ProductReview');
 const TradeIn = require('../models/TradeIn');
 const PriceAlert = require('../models/PriceAlert');
+const User = require('../models/User');
 const { EXPECTED_INDEXES } = require('../services/accountCenterMigrationService');
+
+const EXPECTED_QUERY_INDEXES = Object.freeze({
+    listings: 'listing_owner_history',
+    reviews: 'product_review_owner_history',
+    tradeIns: 'trade_in_owner_history',
+    priceAlerts: 'price_alert_owner_history',
+});
 
 const findIndexName = (plan = {}) => {
     if (plan.indexName) return String(plan.indexName);
@@ -32,15 +40,48 @@ const toEvidence = (name, explain = {}) => {
     };
 };
 
+const assertStrictEvidence = (evidence = {}, { explainEnabled = false } = {}) => {
+    const missing = Array.isArray(evidence?.indexes?.missing) ? evidence.indexes.missing : [];
+    if (missing.length > 0) {
+        throw new Error(`Account Center query indexes are missing: ${missing.join(', ')}`);
+    }
+    if (!explainEnabled) return evidence;
+
+    const planByName = new Map(
+        (Array.isArray(evidence.queryPlans) ? evidence.queryPlans : [])
+            .map((entry) => [String(entry?.name || ''), String(entry?.indexName || '')])
+    );
+    const invalidPlans = Object.entries(EXPECTED_QUERY_INDEXES)
+        .filter(([name, expectedIndex]) => planByName.get(name) !== expectedIndex)
+        .map(([name, expectedIndex]) => `${name}:${expectedIndex}`);
+    if (invalidPlans.length > 0) {
+        throw new Error(`Account Center query plans did not use the required indexes: ${invalidPlans.join(', ')}`);
+    }
+    return evidence;
+};
+
 const run = async ({ argv = process.argv.slice(2) } = {}) => {
     loadLocalEnvFiles();
     const ownerArg = argv.find((entry) => String(entry).startsWith('--owner-id='));
-    const ownerId = String(ownerArg || '').slice('--owner-id='.length).trim();
+    const ownerEnvArg = argv.find((entry) => String(entry).startsWith('--owner-from-env='));
+    let ownerId = String(ownerArg || '').slice('--owner-id='.length).trim();
+    const ownerEnvName = String(ownerEnvArg || '').slice('--owner-from-env='.length).trim();
     const explainEnabled = argv.includes('--explain');
-    if (explainEnabled && !isValidObjectId(ownerId)) {
-        throw new Error('--explain requires a valid --owner-id; the identifier is never printed');
+    const strictEnabled = argv.includes('--strict');
+    if (ownerEnvName && !/^[A-Z][A-Z0-9_]{1,63}$/.test(ownerEnvName)) {
+        throw new Error('--owner-from-env requires a safe environment variable name');
     }
     await connectDB();
+    if (explainEnabled && !ownerId && ownerEnvName) {
+        const ownerEmail = String(process.env[ownerEnvName] || '').trim().toLowerCase();
+        const owner = ownerEmail
+            ? await User.findOne({ email: ownerEmail }).select('_id').lean()
+            : null;
+        ownerId = String(owner?._id || '').trim();
+    }
+    if (explainEnabled && !isValidObjectId(ownerId)) {
+        throw new Error('--explain requires a resolvable owner; the identifier is never printed');
+    }
     const models = [Listing, ProductReview, TradeIn, PriceAlert];
     const indexGroups = await Promise.all(models.map(
         (model) => model.collection.indexes().catch(() => [])
@@ -67,6 +108,9 @@ const run = async ({ argv = process.argv.slice(2) } = {}) => {
             async ([name, query]) => toEvidence(name, await query.explain('executionStats'))
         ));
     }
+    if (strictEnabled) {
+        assertStrictEvidence(evidence, { explainEnabled });
+    }
     return evidence;
 };
 
@@ -85,6 +129,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+    EXPECTED_QUERY_INDEXES,
+    assertStrictEvidence,
     findIndexName,
     run,
     toEvidence,

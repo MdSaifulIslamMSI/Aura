@@ -1,0 +1,279 @@
+/* eslint-disable no-console */
+const crypto = require('crypto');
+const sharp = require('sharp');
+const { signInWithEmailPassword } = require('./lib/firebaseEmailAuth');
+
+const normalizeUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
+const baseUrl = normalizeUrl(process.env.SMOKE_BASE_URL);
+const allowedSessionFields = new Set([
+    'id',
+    'current',
+    'client',
+    'os',
+    'createdAt',
+    'lastActiveAt',
+    'expiresAt',
+]);
+
+const assert = (condition, message) => {
+    if (!condition) throw new Error(message);
+};
+
+const assertStagingTarget = (env = process.env) => {
+    const target = normalizeUrl(env.SMOKE_BASE_URL);
+    assert(env.SMOKE_TARGET_ENV === 'staging', 'SMOKE_TARGET_ENV must be staging');
+    assert(env.SMOKE_STAGING_ISOLATED === 'true', 'SMOKE_STAGING_ISOLATED must be true');
+    assert(env.STAGING_SSM_PREFIX === '/aura/staging', 'STAGING_SSM_PREFIX must be /aura/staging');
+    assert(/^https:\/\//i.test(target), 'SMOKE_BASE_URL must use HTTPS');
+    for (const productionUrl of [env.PROD_BASE_URL, env.PROD_API_BASE_URL].map(normalizeUrl).filter(Boolean)) {
+        assert(target !== productionUrl, 'Account qualification refuses a production target');
+    }
+    return target;
+};
+
+const assertSafeSessionProjection = (sessions = []) => {
+    for (const session of Array.isArray(sessions) ? sessions : []) {
+        const unexpected = Object.keys(session || {}).filter((field) => !allowedSessionFields.has(field));
+        assert(unexpected.length === 0, `Session response exposed unexpected fields: ${unexpected.join(', ')}`);
+        assert(/^[A-Za-z0-9_-]{43}$/.test(String(session.id || '')), 'Session alias must be opaque');
+    }
+};
+
+const printStep = (name, detail = '') => {
+    console.log(`[ok] ${name}${detail ? ` - ${detail}` : ''}`);
+};
+
+const requestJson = async (pathname, {
+    method = 'GET',
+    token = '',
+    body,
+    expectedStatuses = [200],
+    headers = {},
+} = {}) => {
+    const response = await fetch(new URL(pathname, `${baseUrl}/`), {
+        method,
+        headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+            ...headers,
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!expectedStatuses.includes(response.status)) {
+        throw new Error(`${method} ${pathname} returned unexpected status ${response.status}`);
+    }
+    return { payload, response };
+};
+
+const signIn = async ({ email, password }) => {
+    const result = await signInWithEmailPassword({
+        apiKey: process.env.SMOKE_FIREBASE_API_KEY,
+        email,
+        password,
+    });
+    assert(result.idToken, 'Firebase sign-in did not return an ID token');
+    return result.idToken;
+};
+
+const syncAccount = async ({ token, email, name, phone }) => {
+    const { payload } = await requestJson('/api/auth/sync', {
+        method: 'POST',
+        token,
+        expectedStatuses: [200],
+        headers: { 'Idempotency-Key': `account-qualification-${crypto.randomUUID()}` },
+        body: { email, name, phone },
+    });
+    assert(payload.status === 'authenticated', 'Account sync did not authenticate');
+};
+
+const buildAvatarDataUrl = async () => {
+    const buffer = await sharp({
+        create: {
+            width: 8,
+            height: 8,
+            channels: 4,
+            background: { r: 35, g: 78, b: 62, alpha: 1 },
+        },
+    }).png().toBuffer();
+    return {
+        dataUrl: `data:image/png;base64,${buffer.toString('base64')}`,
+        sizeBytes: buffer.length,
+    };
+};
+
+const run = async () => {
+    assertStagingTarget();
+    const primary = {
+        email: String(process.env.SMOKE_USER_EMAIL || '').trim(),
+        password: String(process.env.SMOKE_USER_PASSWORD || '').trim(),
+        name: String(process.env.SMOKE_USER_NAME || 'Account Qualification Customer').trim(),
+        phone: String(process.env.SMOKE_USER_PHONE || '+919999999999').trim(),
+    };
+    const secondary = {
+        email: String(process.env.SMOKE_OTHER_USER_EMAIL || '').trim(),
+        password: String(process.env.SMOKE_OTHER_USER_PASSWORD || '').trim(),
+        name: String(process.env.SMOKE_OTHER_USER_NAME || 'Account Qualification Secondary').trim(),
+        phone: String(process.env.SMOKE_OTHER_USER_PHONE || '+919999999997').trim(),
+    };
+    assert(process.env.SMOKE_FIREBASE_API_KEY, 'SMOKE_FIREBASE_API_KEY is required');
+    assert(primary.email && primary.password, 'Primary smoke account credentials are required');
+    assert(secondary.email && secondary.password, 'Secondary smoke account credentials are required');
+
+    const [primaryToken, secondaryToken] = await Promise.all([
+        signIn(primary),
+        signIn(secondary),
+    ]);
+    await Promise.all([
+        syncAccount({ token: primaryToken, ...primary }),
+        syncAccount({ token: secondaryToken, ...secondary }),
+    ]);
+    printStep('auth.owner-boundary', 'two isolated customers');
+
+    const { payload: profile } = await requestJson('/api/users/profile', { token: primaryToken });
+    assert(Number.isInteger(Number(profile.version)), 'Profile version is missing');
+    const { payload: updatedProfile } = await requestJson('/api/users/profile', {
+        method: 'PUT',
+        token: primaryToken,
+        body: {
+            bio: 'Staging Account Center qualification account',
+            version: Number(profile.version),
+        },
+    });
+    assert(Number(updatedProfile.version) > Number(profile.version), 'Profile version did not advance');
+    printStep('profile.optimistic-write');
+
+    const { payload: preferences } = await requestJson('/api/account/preferences', { token: primaryToken });
+    assert(Number.isInteger(Number(preferences?.preferences?.version)), 'Preference version is missing');
+    const { payload: updatedPreferences } = await requestJson('/api/account/preferences', {
+        method: 'PATCH',
+        token: primaryToken,
+        body: {
+            version: Number(preferences.preferences.version),
+            localization: {
+                language: 'en',
+                locale: 'en-IN',
+                currency: 'INR',
+            },
+            accessibility: {
+                reducedMotion: true,
+            },
+        },
+    });
+    assert(updatedPreferences?.preferences?.localization?.locale === 'en-IN', 'Localization was not persisted');
+    printStep('preferences.localization');
+
+    let addressId = '';
+    const addressBody = {
+        type: 'other',
+        name: 'Account Qualification',
+        phone: primary.phone,
+        address: `Qualification Road ${String(Date.now()).slice(-6)}`,
+        city: 'Bengaluru',
+        state: 'Karnataka',
+        pincode: '560001',
+        isDefault: false,
+    };
+    try {
+        const { payload: createdAddress } = await requestJson('/api/users/addresses', {
+            method: 'POST',
+            token: primaryToken,
+            expectedStatuses: [201],
+            body: addressBody,
+        });
+        const match = (createdAddress.addresses || []).find((entry) => entry.address === addressBody.address);
+        addressId = String(match?._id || '').trim();
+        assert(/^[a-f0-9]{24}$/i.test(addressId), 'Created address did not return an owner-scoped identifier');
+
+        await requestJson(`/api/users/addresses/${addressId}`, {
+            method: 'PUT',
+            token: secondaryToken,
+            expectedStatuses: [404],
+            body: addressBody,
+        });
+        await requestJson(`/api/users/addresses/${addressId}`, {
+            method: 'DELETE',
+            token: secondaryToken,
+            expectedStatuses: [404],
+        });
+        printStep('addresses.cross-user-denial');
+    } finally {
+        if (addressId) {
+            await requestJson(`/api/users/addresses/${addressId}`, {
+                method: 'DELETE',
+                token: primaryToken,
+                expectedStatuses: [200, 404],
+            });
+        }
+    }
+
+    const readChecks = await Promise.all([
+        requestJson('/api/account/summary', { token: primaryToken }),
+        requestJson('/api/users/dashboard', { token: primaryToken }),
+        requestJson('/api/users/rewards', { token: primaryToken }),
+        requestJson('/api/orders/myorders?limit=5', { token: primaryToken }),
+        requestJson('/api/account/marketplace', { token: primaryToken }),
+        requestJson('/api/account/security-activity?limit=10', { token: primaryToken }),
+        requestJson('/api/account/sessions?limit=10', { token: primaryToken }),
+        requestJson('/api/account/privacy/capabilities', { token: primaryToken }),
+    ]);
+    const securityActivity = readChecks[5].payload;
+    for (const event of securityActivity.activity || []) {
+        const unexpected = Object.keys(event || {}).filter(
+            (field) => !['type', 'outcome', 'occurredAt'].includes(field)
+        );
+        assert(unexpected.length === 0, `Security activity exposed unexpected fields: ${unexpected.join(', ')}`);
+    }
+    assertSafeSessionProjection(readChecks[6].payload.data || []);
+    assert(readChecks[7].payload.enabled === false, 'Privacy lifecycle must remain fail-closed in staging');
+    printStep('account.read-domains', '8 bounded surfaces');
+
+    const avatar = await buildAvatarDataUrl();
+    const { payload: intent } = await requestJson('/api/account/avatar/upload-intents', {
+        method: 'POST',
+        token: primaryToken,
+        expectedStatuses: [201],
+        body: {
+            fileName: 'account-qualification.png',
+            mimeType: 'image/png',
+            sizeBytes: avatar.sizeBytes,
+        },
+    });
+    const { payload: uploaded } = await requestJson('/api/account/avatar/uploads', {
+        method: 'POST',
+        token: primaryToken,
+        expectedStatuses: [201],
+        body: {
+            uploadToken: intent.uploadToken,
+            fileName: 'account-qualification.png',
+            mimeType: 'image/png',
+            dataUrl: avatar.dataUrl,
+        },
+    });
+    const { payload: finalized } = await requestJson('/api/account/avatar/finalize', {
+        method: 'POST',
+        token: primaryToken,
+        body: { finalizeToken: uploaded.finalizeToken },
+    });
+    assert(/^\/uploads\/avatars\/[A-Za-z0-9_-]+\.webp$/.test(String(finalized.avatar || '')), 'Avatar URL is unsafe');
+    const avatarResponse = await fetch(new URL(finalized.avatar, `${baseUrl}/`));
+    assert(avatarResponse.status === 200, 'Finalized avatar is not readable');
+    assert(/^image\/webp\b/i.test(String(avatarResponse.headers.get('content-type') || '')), 'Finalized avatar is not WebP');
+    printStep('avatar.scan-normalize-s3');
+
+    console.log('ACCOUNT_CENTER_STAGING_SMOKE_PASS');
+};
+
+if (require.main === module) {
+    run().catch((error) => {
+        console.error(`Account Center staging smoke failed: ${String(error?.message || 'unknown').slice(0, 500)}`);
+        process.exitCode = 1;
+    });
+}
+
+module.exports = {
+    allowedSessionFields,
+    assertSafeSessionProjection,
+    assertStagingTarget,
+    run,
+};

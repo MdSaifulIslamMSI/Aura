@@ -12,6 +12,11 @@ need_env STAGING_BUCKET_NAME
 
 db_password="${STAGING_DATABASE_PASSWORD:-$(openssl rand -hex 24)}"
 jwt_secret="${STAGING_JWT_SECRET:-$(openssl rand -hex 32)}"
+session_secret="${STAGING_SESSION_SECRET:-$(openssl rand -hex 32)}"
+session_hash_secret="${STAGING_SESSION_HASH_SECRET:-$(openssl rand -hex 32)}"
+account_cursor_signing_secret="${STAGING_ACCOUNT_CURSOR_SIGNING_SECRET:-$(openssl rand -hex 32)}"
+observability_hash_secret="${STAGING_OBSERVABILITY_HASH_SECRET:-$(openssl rand -hex 32)}"
+metrics_secret="${STAGING_METRICS_SECRET:-$(openssl rand -hex 32)}"
 otp_flow_secret="${STAGING_OTP_FLOW_SECRET:-$(openssl rand -hex 32)}"
 otp_challenge_secret="${STAGING_OTP_CHALLENGE_SECRET:-$(openssl rand -hex 32)}"
 upload_signing_secret="${STAGING_UPLOAD_SIGNING_SECRET:-$(openssl rand -hex 32)}"
@@ -68,6 +73,11 @@ put_string UPLOAD_MALWARE_SCAN_ENABLED true
 put_string UPLOAD_MALWARE_SCAN_FAIL_CLOSED true
 put_string CORS_ORIGIN "$cors_origin"
 put_secure JWT_SECRET "$jwt_secret"
+put_secure SESSION_SECRET "$session_secret"
+put_secure SESSION_HASH_SECRET "$session_hash_secret"
+put_secure ACCOUNT_CURSOR_SIGNING_SECRET "$account_cursor_signing_secret"
+put_secure OBSERVABILITY_HASH_SECRET "$observability_hash_secret"
+put_secure METRICS_SECRET "$metrics_secret"
 put_secure POSTGRES_PASSWORD "$db_password"
 put_secure OTP_FLOW_SECRET "$otp_flow_secret"
 put_secure OTP_CHALLENGE_SECRET "$otp_challenge_secret"

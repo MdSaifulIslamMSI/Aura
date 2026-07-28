@@ -80,6 +80,11 @@ if [[ "$mongo_uri" != *"replicaSet=rs0"* ]]; then
   fi
 fi
 jwt_secret="$(ssm_get JWT_SECRET)"
+session_secret="$(ssm_get SESSION_SECRET)"
+session_hash_secret="$(ssm_get SESSION_HASH_SECRET)"
+account_cursor_signing_secret="$(ssm_get ACCOUNT_CURSOR_SIGNING_SECRET)"
+observability_hash_secret="$(ssm_get OBSERVABILITY_HASH_SECRET)"
+metrics_secret="$(ssm_get METRICS_SECRET)"
 postgres_password="$(ssm_get POSTGRES_PASSWORD)"
 otp_flow_secret="$(ssm_get OTP_FLOW_SECRET)"
 otp_challenge_secret="$(ssm_get OTP_CHALLENGE_SECRET)"
@@ -257,6 +262,11 @@ AWS_PARAMETER_STORE_PATH_PREFIX=$STAGING_SSM_PREFIX
 AWS_REGION=$AWS_REGION
 S3_BUCKET=$bucket
 AWS_S3_BUCKET=$bucket
+UPLOAD_STORAGE_DRIVER=s3
+AWS_S3_AVATAR_BUCKET=$bucket
+AWS_S3_AVATAR_PREFIX=avatar-media
+AWS_S3_REVIEW_BUCKET=$bucket
+AWS_S3_REVIEW_PREFIX=review-media
 DATABASE_URL=$database_url
 MONGO_URI=$mongo_uri
 MONGO_REQUIRE_TLS=false
@@ -264,6 +274,11 @@ MONGO_REQUIRE_REPLICA_SET=true
 REDIS_URL=redis://redis:6379
 POSTGRES_PASSWORD=$postgres_password
 JWT_SECRET=$jwt_secret
+SESSION_SECRET=$session_secret
+SESSION_HASH_SECRET=$session_hash_secret
+ACCOUNT_CURSOR_SIGNING_SECRET=$account_cursor_signing_secret
+OBSERVABILITY_HASH_SECRET=$observability_hash_secret
+METRICS_SECRET=$metrics_secret
 OTP_FLOW_SECRET=$otp_flow_secret
 OTP_CHALLENGE_SECRET=$otp_challenge_secret
 UPLOAD_SIGNING_SECRET=$upload_signing_secret
