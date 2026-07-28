@@ -486,7 +486,13 @@ sudo chown -R aura:aura /opt/aura-staging
 cd /opt/aura-staging/src/infra/staging
 backend_image_loaded=false
 if [ -f /tmp/aura-staging-backend-image.tar.gz ]; then
+  # Preserve every image referenced by a running container while reclaiming
+  # stale deploy layers on the deliberately small staging host.
+  sudo docker container prune --force >/dev/null
+  sudo docker image prune --all --force >/dev/null
+  sudo docker builder prune --all --force >/dev/null
   gzip -dc /tmp/aura-staging-backend-image.tar.gz | sudo docker load
+  sudo rm -f /tmp/aura-staging-backend-image.tar.gz
   backend_image_loaded=true
 fi
 if [ "$backend_image_loaded" = "true" ]; then

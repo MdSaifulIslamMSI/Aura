@@ -1777,6 +1777,10 @@ describe('repo environment contract scripts', () => {
         expect(stagingBootstrap).toContain('put_string MONGO_REQUIRE_REPLICA_SET true');
         expect(stagingDeploy).toContain('MONGO_REQUIRE_REPLICA_SET=true');
         expect(stagingDeploy).toContain('MONGO_URI must not select a replica set other than rs0');
+        expect(stagingDeploy).toContain('docker image prune --all --force');
+        expect(stagingDeploy).toContain('docker builder prune --all --force');
+        expect(stagingDeploy).toContain('rm -f /tmp/aura-staging-backend-image.tar.gz');
+        expect(stagingDeploy).not.toMatch(/docker (?:system|volume) prune/);
     });
 
     test('performance smoke fails when no real target is reachable', () => {
