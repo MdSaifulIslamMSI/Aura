@@ -5,6 +5,13 @@ const { signInWithEmailPassword } = require('./lib/firebaseEmailAuth');
 
 const normalizeUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
 const baseUrl = normalizeUrl(process.env.SMOKE_BASE_URL);
+const RATE_LIMIT_DEPENDENCY_MESSAGE = 'Rate limiter dependency unavailable. Please try again shortly.';
+const RATE_LIMIT_RECOVERY_DELAY_MS = 11_000;
+const SAFE_FAILURE_CODES = new Set([
+    'ATTACK_MODE_ROUTE_DISABLED',
+    'AUTH_BUDGET_EXCEEDED',
+    'TRAFFIC_LOAD_SHEDDING',
+]);
 const allowedSessionFields = new Set([
     'id',
     'current',
@@ -43,27 +50,79 @@ const printStep = (name, detail = '') => {
     console.log(`[ok] ${name}${detail ? ` - ${detail}` : ''}`);
 };
 
+const classifyFailurePayload = (payload = {}) => {
+    const rawCode = String(payload?.code || '').trim().toUpperCase();
+    const code = SAFE_FAILURE_CODES.has(rawCode) ? rawCode : (rawCode ? 'OTHER' : 'NONE');
+    const message = String(payload?.message || '').trim();
+    const retryAfterValue = Number(payload?.retryAfter || 0);
+    const retryAfter = Number.isInteger(retryAfterValue) && retryAfterValue > 0 && retryAfterValue <= 86_400
+        ? retryAfterValue
+        : 0;
+    let reason = 'unknown';
+
+    if (message === RATE_LIMIT_DEPENDENCY_MESSAGE) {
+        reason = 'rate_limit_dependency_unavailable';
+    } else if (code === 'ATTACK_MODE_ROUTE_DISABLED') {
+        reason = 'attack_mode_route_disabled';
+    } else if (code === 'TRAFFIC_LOAD_SHEDDING') {
+        reason = 'traffic_load_shedding';
+    }
+
+    return { code, reason, retryAfter };
+};
+
+const shouldRetryRateLimitDependency = ({
+    attempt,
+    payload,
+    retryRateLimitDependency,
+    status,
+}) => (
+    retryRateLimitDependency === true
+    && attempt === 0
+    && status === 503
+    && classifyFailurePayload(payload).reason === 'rate_limit_dependency_unavailable'
+);
+
 const requestJson = async (pathname, {
     method = 'GET',
     token = '',
     body,
     expectedStatuses = [200],
     headers = {},
+    retryRateLimitDependency = false,
 } = {}) => {
-    const response = await fetch(new URL(pathname, `${baseUrl}/`), {
-        method,
-        headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-            ...headers,
-        },
-        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!expectedStatuses.includes(response.status)) {
-        throw new Error(`${method} ${pathname} returned unexpected status ${response.status}`);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        const response = await fetch(new URL(pathname, `${baseUrl}/`), {
+            method,
+            headers: {
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+                ...headers,
+            },
+            ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (expectedStatuses.includes(response.status)) {
+            return { payload, response };
+        }
+        if (shouldRetryRateLimitDependency({
+            attempt,
+            payload,
+            retryRateLimitDependency,
+            status: response.status,
+        })) {
+            console.warn(`[retry] ${method} ${pathname} after rate_limit_dependency_unavailable`);
+            await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_RECOVERY_DELAY_MS));
+            continue;
+        }
+        const failure = classifyFailurePayload(payload);
+        throw new Error(
+            `${method} ${pathname} returned unexpected status ${response.status}`
+            + ` code=${failure.code} reason=${failure.reason} retryAfter=${failure.retryAfter}`
+        );
     }
-    return { payload, response };
+
+    throw new Error(`${method} ${pathname} exhausted the bounded dependency recovery attempt`);
 };
 
 const signIn = async ({ email, password }) => {
@@ -143,7 +202,10 @@ const run = async () => {
     assert(Number(updatedProfile.version) > Number(profile.version), 'Profile version did not advance');
     printStep('profile.optimistic-write');
 
-    const { payload: preferences } = await requestJson('/api/account/preferences', { token: primaryToken });
+    const { payload: preferences } = await requestJson('/api/account/preferences', {
+        token: primaryToken,
+        retryRateLimitDependency: true,
+    });
     assert(Number.isInteger(Number(preferences?.preferences?.version)), 'Preference version is missing');
     const { payload: updatedPreferences } = await requestJson('/api/account/preferences', {
         method: 'PATCH',
@@ -290,5 +352,7 @@ module.exports = {
     allowedSessionFields,
     assertSafeSessionProjection,
     assertStagingTarget,
+    classifyFailurePayload,
     run,
+    shouldRetryRateLimitDependency,
 };

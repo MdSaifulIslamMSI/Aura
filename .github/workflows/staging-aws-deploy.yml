@@ -380,7 +380,7 @@ jobs:
             local exit_code="$?"
             set +e
             echo "ACCOUNT_CENTER_STAGING_DIAGNOSTICS_BEGIN"
-            docker compose ps backend
+            docker compose ps backend redis
             local backend_id
             backend_id="$(docker compose ps -a -q backend 2>/dev/null || true)"
             if [[ -n "$backend_id" ]]; then
@@ -406,6 +406,24 @@ jobs:
             else
               echo "backend status=missing"
             fi
+            local redis_id
+            redis_id="$(docker compose ps -a -q redis 2>/dev/null || true)"
+            if [[ -n "$redis_id" ]]; then
+              docker inspect --format \
+                'redis status={{.State.Status}} running={{.State.Running}} restarting={{.State.Restarting}} oom_killed={{.State.OOMKilled}} exit_code={{.State.ExitCode}} restart_count={{.RestartCount}} error={{json .State.Error}}' \
+                "$redis_id"
+              docker compose exec -T redis redis-cli ping 2>/dev/null || true
+            else
+              echo "redis status=missing"
+            fi
+            docker compose logs --no-color --since 5m backend 2>&1 \
+              | grep -Ei 'redis|rate_limit|traffic\.load_shedding_denied|traffic\.attack_mode_denied' \
+              | tail -n 100 \
+              | sed -E \
+                  -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/[REDACTED_EMAIL]/g' \
+                  -e 's/((Bearer|token|secret|password|authorization)[":= ]+)[^ ,"&]+/\1[REDACTED]/gI' \
+                  -e 's/([?&](X-Amz-[^=]+|token|signature|credential)=)[^& ]+/\1[REDACTED]/gI' \
+              || true
             free -h || true
             dmesg --ctime 2>/dev/null \
               | grep -Ei 'out of memory|oom-kill|killed process' \

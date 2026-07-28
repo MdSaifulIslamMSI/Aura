@@ -1818,6 +1818,9 @@ describe('repo environment contract scripts', () => {
             'curl --fail --silent --show-error --connect-timeout 5 --max-time 30',
             "STAGING_SWAP_GB: ${{ vars.STAGING_SWAP_GB || '2' }}",
             'Staging backend restarted during Account Center metrics verification.',
+            'docker compose ps backend redis',
+            'docker compose exec -T redis redis-cli ping',
+            "grep -Ei 'redis|rate_limit|traffic\\.load_shedding_denied|traffic\\.attack_mode_denied'",
         ]) {
             expect(stagingWorkflow).toContain(command);
         }

@@ -6,6 +6,8 @@ jest.mock('sharp', () => jest.fn());
 const {
     assertSafeSessionProjection,
     assertStagingTarget,
+    classifyFailurePayload,
+    shouldRetryRateLimitDependency,
 } = require('../scripts/account_center_staging_smoke');
 
 describe('Account Center staging smoke guards', () => {
@@ -53,5 +55,38 @@ describe('Account Center staging smoke guards', () => {
         expect(source).toMatch(
             /requestJson\('\/api\/observability\/client-diagnostics',[\s\S]*?token: primaryToken/
         );
+    });
+
+    test('retries only a first security-limiter dependency failure', () => {
+        const dependencyFailure = {
+            message: 'Rate limiter dependency unavailable. Please try again shortly.',
+        };
+
+        expect(classifyFailurePayload(dependencyFailure)).toEqual({
+            code: 'NONE',
+            reason: 'rate_limit_dependency_unavailable',
+            retryAfter: 0,
+        });
+        expect(shouldRetryRateLimitDependency({
+            attempt: 0,
+            payload: dependencyFailure,
+            retryRateLimitDependency: true,
+            status: 503,
+        })).toBe(true);
+        expect(shouldRetryRateLimitDependency({
+            attempt: 1,
+            payload: dependencyFailure,
+            retryRateLimitDependency: true,
+            status: 503,
+        })).toBe(false);
+        expect(shouldRetryRateLimitDependency({
+            attempt: 0,
+            payload: {
+                code: 'ATTACK_MODE_ROUTE_DISABLED',
+                message: 'This feature is temporarily unavailable while traffic protection is active.',
+            },
+            retryRateLimitDependency: true,
+            status: 503,
+        })).toBe(false);
     });
 });
