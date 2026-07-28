@@ -1811,6 +1811,17 @@ describe('repo environment contract scripts', () => {
         expect(result.output).toMatch(/No performance target was reachable/);
     });
 
+    test('Account Center load failures report only bounded endpoint and status dimensions', () => {
+        const loadScript = fs.readFileSync(
+            path.join(repoRoot, 'tests', 'performance', 'k6', 'account-center.js'),
+            'utf8'
+        );
+
+        expect(loadScript).toContain('[account-center-load] endpoint=${name} status=${response.status}');
+        expect(loadScript).toContain('[`${name} returned 200`]');
+        expect(loadScript).not.toMatch(/response\.(?:body|json)\(/);
+    });
+
     test('performance smoke workflow isolates pull requests from configured remote targets', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'performance-smoke.yml'), 'utf8');
 

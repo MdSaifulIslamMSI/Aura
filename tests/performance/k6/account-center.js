@@ -42,8 +42,11 @@ export default function () {
   });
   const ok = response.status === 200;
   hardErrors.add(!ok);
+  if (!ok) {
+    console.warn(`[account-center-load] endpoint=${name} status=${response.status}`);
+  }
   check(response, {
-    'authenticated account endpoint returned 200': () => ok,
+    [`${name} returned 200`]: () => ok,
   });
   sleep(0.75);
 }
