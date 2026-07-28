@@ -480,6 +480,7 @@ describe('repo environment contract scripts', () => {
     test('staging smoke contract script fails when staging URL is missing', () => {
         const result = runScript('scripts/smoke/assert-staging-contract.mjs', {
             SMOKE_TARGET_ENV: 'staging',
+            STAGING_BASE_URL: '',
             STAGING_SSM_PREFIX: '/aura/staging',
             SMOKE_REQUIRE_BACKEND_STAGING: 'true',
             SMOKE_FORBID_PRODUCTION_ORIGINS: 'true',
@@ -1788,17 +1789,20 @@ describe('repo environment contract scripts', () => {
         expect(result.output).toMatch(/No performance target was reachable/);
     });
 
-    test('performance smoke workflow starts local targets when no target vars are configured', () => {
+    test('performance smoke workflow isolates pull requests from configured remote targets', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'performance-smoke.yml'), 'utf8');
 
         expect(workflow).toMatch(/Build local frontend performance target/);
         expect(workflow).toMatch(/Start local performance targets/);
+        expect(workflow).toContain("github.event_name == 'pull_request' ||");
+        expect(workflow).toContain("github.event_name == 'pull_request' && 'http://127.0.0.1:3000'");
+        expect(workflow).toContain("github.event_name == 'pull_request' && 'http://127.0.0.1:5000'");
         expect(workflow).toContain("docker compose up -d --build mongo redis aura-api");
         expect(workflow).toContain("npm --prefix app run preview -- --host 0.0.0.0 --port 3000");
         expect(workflow).toContain("http://127.0.0.1:5000/health");
         expect(workflow).toContain("http://127.0.0.1:3000/");
         expect(workflow).toMatch(/Lighthouse if configured URL available/);
-        expect(workflow).toMatch(/if: \$\{\{ \(vars\.PERF_BASE_URL \|\| ''\) != '' \}\}/);
+        expect(workflow).toContain("github.event_name != 'pull_request' && (vars.PERF_BASE_URL || '') != ''");
         expect(workflow).toMatch(/Stop local performance targets/);
         expect(workflow).toContain("docker compose down -v --remove-orphans");
     });

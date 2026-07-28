@@ -55,11 +55,11 @@ jobs:
         uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065 # v1
 
       - name: Build local frontend performance target
-        if: ${{ (vars.PERF_BASE_URL || '') == '' || (vars.PERF_API_BASE_URL || '') == '' }}
+        if: ${{ github.event_name == 'pull_request' || (vars.PERF_BASE_URL || '') == '' || (vars.PERF_API_BASE_URL || '') == '' }}
         run: npm --prefix app run build
 
       - name: Start local performance targets
-        if: ${{ (vars.PERF_BASE_URL || '') == '' || (vars.PERF_API_BASE_URL || '') == '' }}
+        if: ${{ github.event_name == 'pull_request' || (vars.PERF_BASE_URL || '') == '' || (vars.PERF_API_BASE_URL || '') == '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -85,19 +85,19 @@ jobs:
       - name: Performance smoke
         run: npm run perf:smoke
         env:
-          PERF_BASE_URL: ${{ vars.PERF_BASE_URL || 'http://127.0.0.1:3000' }}
-          PERF_API_BASE_URL: ${{ vars.PERF_API_BASE_URL || 'http://127.0.0.1:5000' }}
+          PERF_BASE_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:3000' || vars.PERF_BASE_URL || 'http://127.0.0.1:3000' }}
+          PERF_API_BASE_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:5000' || vars.PERF_API_BASE_URL || 'http://127.0.0.1:5000' }}
 
       - name: k6 load
         run: npm run perf:load
         env:
-          PERF_BASE_URL: ${{ vars.PERF_BASE_URL || 'http://127.0.0.1:3000' }}
-          PERF_API_BASE_URL: ${{ vars.PERF_API_BASE_URL || 'http://127.0.0.1:5000' }}
+          PERF_BASE_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:3000' || vars.PERF_BASE_URL || 'http://127.0.0.1:3000' }}
+          PERF_API_BASE_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:5000' || vars.PERF_API_BASE_URL || 'http://127.0.0.1:5000' }}
           PERF_P95_MS: ${{ vars.PERF_P95_MS || '500' }}
           PERF_ERROR_RATE: ${{ vars.PERF_ERROR_RATE || '0.01' }}
 
       - name: Lighthouse if configured URL available
-        if: ${{ (vars.PERF_BASE_URL || '') != '' }}
+        if: ${{ github.event_name != 'pull_request' && (vars.PERF_BASE_URL || '') != '' }}
         run: npm run perf:lighthouse
         env:
           PERF_BASE_URL: ${{ vars.PERF_BASE_URL || 'http://127.0.0.1:3000' }}
