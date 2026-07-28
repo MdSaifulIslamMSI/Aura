@@ -13,6 +13,7 @@ validate_staging_admin_security_phase
 
 release_sha="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || die "Staging deploy requires a full lowercase source commit SHA"
+[[ "$STAGING_SWAP_GB" =~ ^[1-9][0-9]*$ ]] || die "STAGING_SWAP_GB must be a positive integer"
 
 [ -f "$STATE_DIR/ssh_config" ] || die "Missing $STATE_DIR/ssh_config. Run 06-render-ssh-config.sh first."
 if [ -z "${STAGING_BACKEND_IMAGE:-}" ] && [ ! -f "$REPO_ROOT/server/Dockerfile" ]; then
@@ -402,7 +403,7 @@ if [ -f "$backend_image_tar" ]; then
   scp -F "$STATE_DIR/ssh_config" "$backend_image_tar" aura-staging:/tmp/aura-staging-backend-image.tar.gz >/dev/null
 fi
 
-remote_env="STAGING_BACKEND_IMAGE='$backend_image' STAGING_BACKEND_PORT='$STAGING_BACKEND_PORT' ENABLE_CERTBOT='$ENABLE_CERTBOT' STAGING_API_HOST='${STAGING_API_HOST:-}' STAGING_ADMIN_EMAIL='${STAGING_ADMIN_EMAIL:-}'"
+remote_env="STAGING_BACKEND_IMAGE='$backend_image' STAGING_BACKEND_PORT='$STAGING_BACKEND_PORT' STAGING_SWAP_GB='$STAGING_SWAP_GB' ENABLE_CERTBOT='$ENABLE_CERTBOT' STAGING_API_HOST='${STAGING_API_HOST:-}' STAGING_ADMIN_EMAIL='${STAGING_ADMIN_EMAIL:-}'"
 
 ssh -F "$STATE_DIR/ssh_config" aura-staging "$remote_env bash -s" <<'REMOTE'
 set -euo pipefail
@@ -469,7 +470,43 @@ install_runtime() {
   buildx_is_new_enough || install_buildx
 }
 
+configure_swap() {
+  local expected_bytes minimum_bytes actual_bytes file_bytes
+  expected_bytes="$((STAGING_SWAP_GB * 1024 * 1024 * 1024))"
+  minimum_bytes="$((expected_bytes - 1024 * 1024))"
+  actual_bytes="$(sudo swapon --show=SIZE --bytes --noheadings | awk '{ total += $1 } END { print total + 0 }')"
+  if (( actual_bytes >= minimum_bytes )); then
+    echo "STAGING_SWAP_READY bytes=$actual_bytes"
+    return 0
+  fi
+  if sudo swapon --show=NAME --noheadings | grep -qx '/swapfile'; then
+    echo "Active staging swap is smaller than the required ${STAGING_SWAP_GB} GiB." >&2
+    return 1
+  fi
+  file_bytes=0
+  if [ -f /swapfile ]; then
+    file_bytes="$(sudo stat -c '%s' /swapfile)"
+  fi
+  if (( file_bytes < expected_bytes )); then
+    sudo rm -f /swapfile
+    sudo fallocate -l "${STAGING_SWAP_GB}G" /swapfile \
+      || sudo dd if=/dev/zero of=/swapfile bs=1M count="$((STAGING_SWAP_GB * 1024))" status=none
+  fi
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile >/dev/null
+  sudo swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab \
+    || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+  actual_bytes="$(sudo swapon --show=SIZE --bytes --noheadings | awk '{ total += $1 } END { print total + 0 }')"
+  (( actual_bytes >= minimum_bytes )) || {
+    echo "Staging swap did not reach the required ${STAGING_SWAP_GB} GiB." >&2
+    return 1
+  }
+  echo "STAGING_SWAP_READY bytes=$actual_bytes"
+}
+
 install_runtime
+configure_swap
 if ! id aura >/dev/null 2>&1; then
   sudo useradd --system --create-home --shell /bin/bash aura
 fi

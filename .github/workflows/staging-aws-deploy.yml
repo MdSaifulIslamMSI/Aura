@@ -44,6 +44,7 @@ jobs:
       STAGING_KEY_NAME: ${{ vars.STAGING_KEY_NAME }}
       STAGING_INSTANCE_TYPE: ${{ vars.STAGING_INSTANCE_TYPE || 't3.micro' }}
       STAGING_ROOT_VOLUME_GB: ${{ vars.STAGING_ROOT_VOLUME_GB || '20' }}
+      STAGING_SWAP_GB: ${{ vars.STAGING_SWAP_GB || '2' }}
       STAGING_BUDGET_EMAIL: ${{ vars.STAGING_BUDGET_EMAIL }}
       STAGING_MONTHLY_BUDGET_USD: ${{ vars.STAGING_MONTHLY_BUDGET_USD || '30' }}
       STAGING_BACKEND_PORT: ${{ vars.STAGING_BACKEND_PORT || '3000' }}
@@ -437,6 +438,12 @@ jobs:
           }
           metrics_output="$(mktemp)"
           trap 'rm -f "$metrics_output"' EXIT
+          backend_container_id="$(docker compose ps -q backend)"
+          [[ -n "$backend_container_id" ]] || {
+            echo "Staging backend container is missing before metrics scrape."
+            exit 1
+          }
+          backend_restarts_before="$(docker inspect --format '{{.RestartCount}}' "$backend_container_id")"
           curl --fail --silent --show-error --connect-timeout 5 --max-time 30 \
             -H "x-metrics-key: ${metrics_secret}" \
             "http://127.0.0.1:${backend_port:-3000}/metrics" > "$metrics_output"
@@ -462,6 +469,19 @@ jobs:
             printf 'missing non-zero Account Center metrics: %s\n' "$(IFS=', '; echo "${missing_metrics[*]}")"
             exit 1
           fi
+          sleep 10
+          backend_container_id_after="$(docker compose ps -q backend)"
+          [[ -n "$backend_container_id_after" ]] || {
+            echo "Staging backend container is missing after metrics scrape."
+            exit 1
+          }
+          backend_restarts_after="$(docker inspect --format '{{.RestartCount}}' "$backend_container_id_after")"
+          if [[ "$backend_container_id_after" != "$backend_container_id" || "$backend_restarts_after" != "$backend_restarts_before" ]]; then
+            echo "Staging backend restarted during Account Center metrics verification."
+            exit 1
+          fi
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+            "http://127.0.0.1:${backend_port:-3000}/health/live" >/dev/null
           echo "ACCOUNT_CENTER_METRICS_PASS"
           ROOT
           REMOTE

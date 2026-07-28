@@ -1786,6 +1786,9 @@ describe('repo environment contract scripts', () => {
         expect(stagingDeploy).toContain('docker image prune --all --force');
         expect(stagingDeploy).toContain('docker builder prune --all --force');
         expect(stagingDeploy).toContain('rm -f /tmp/aura-staging-backend-image.tar.gz');
+        expect(stagingDeploy).toContain('configure_swap');
+        expect(stagingDeploy).toContain('STAGING_SWAP_READY bytes=');
+        expect(stagingDeploy).toContain('STAGING_SWAP_GB must be a positive integer');
         expect(stagingDeploy).not.toMatch(/docker (?:system|volume) prune/);
 
         const stagingWorkflow = fs.readFileSync(
@@ -1804,6 +1807,8 @@ describe('repo environment contract scripts', () => {
             'metrics_secret="$(sed -n \'s/^METRICS_SECRET=//p\' .env.staging | tail -n 1)"',
             'backend_port="$(sed -n \'s/^PORT=//p\' .env.staging | tail -n 1)"',
             'curl --fail --silent --show-error --connect-timeout 5 --max-time 30',
+            "STAGING_SWAP_GB: ${{ vars.STAGING_SWAP_GB || '2' }}",
+            'Staging backend restarted during Account Center metrics verification.',
         ]) {
             expect(stagingWorkflow).toContain(command);
         }
