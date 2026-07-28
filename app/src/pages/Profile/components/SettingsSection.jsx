@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Bell, CheckCircle2, Cloud, Clock3, Copy, Download, KeyRound, Laptop, Link2, Lock, LogOut, Pencil, QrCode, RefreshCw, Save, ShieldCheck, Smartphone, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useMarket } from '@/context/MarketContext';
-import { TogglePref } from './ProfileShared';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import ActiveSessionsPanel from './ActiveSessionsPanel';
+import NotificationPreferencesPanel from './NotificationPreferencesPanel';
+import SecurityActivityPanel from './SecurityActivityPanel';
 
 const isTrustedDeviceActive = (device) => (
     device?.active !== false && !['revoked', 'expired'].includes(device?.status)
@@ -61,6 +62,15 @@ export default function SettingsSection({
     handleRetryActiveSessions,
     handleRevokeActiveSession,
     handleRevokeOtherActiveSessions,
+    handleRevokeAllActiveSessions,
+    securityActivity = [],
+    securityActivityLoading = false,
+    securityActivityLoaded = false,
+    securityActivityError = null,
+    securityActivityHasMore = false,
+    securityActivityRetentionDays = 180,
+    handleRetrySecurityActivity,
+    handleLoadMoreSecurityActivity,
     linkedProviderIds = [],
     socialAuthStatus = {},
     providerLinking = '',
@@ -69,9 +79,6 @@ export default function SettingsSection({
 }) {
     const { t: legacyT } = useMarket();
     const t = useStableIcuMessages(legacyT);
-    const [orderUpdates, setOrderUpdates] = useState(true);
-    const [marketplaceUpdates, setMarketplaceUpdates] = useState(true);
-    const [supportUpdates, setSupportUpdates] = useState(true);
     const [editingDeviceId, setEditingDeviceId] = useState('');
     const [deviceLabelDraft, setDeviceLabelDraft] = useState('');
     const [confirmingRevokeDeviceId, setConfirmingRevokeDeviceId] = useState('');
@@ -209,10 +216,10 @@ export default function SettingsSection({
     return (
         <div className="max-w-3xl space-y-6">
             <div className="premium-panel p-6">
-                <h3 className="mb-4 flex items-center gap-2 text-lg font-black text-white">
+                <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-white">
                     <Lock className="h-5 w-5 text-neo-cyan" />
                     {t('profile.settings.security.title', {}, 'Security')}
-                </h3>
+                </h2>
                 <div className="space-y-4">
                     <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -344,6 +351,18 @@ export default function SettingsSection({
                         onRetry={handleRetryActiveSessions}
                         onRevokeSession={handleRevokeActiveSession}
                         onRevokeOtherSessions={handleRevokeOtherActiveSessions}
+                        onRevokeAllSessions={handleRevokeAllActiveSessions}
+                    />
+
+                    <SecurityActivityPanel
+                        activity={securityActivity}
+                        retentionDays={securityActivityRetentionDays}
+                        loading={securityActivityLoading}
+                        loaded={securityActivityLoaded}
+                        error={securityActivityError}
+                        hasMore={securityActivityHasMore}
+                        onRetry={handleRetrySecurityActivity}
+                        onLoadMore={handleLoadMoreSecurityActivity}
                     />
 
                     {showMfaCenterContent ? (
@@ -368,10 +387,10 @@ export default function SettingsSection({
                                             )}
                                     </span>
                                 </div>
-                                <h4 id="passkeys-mfa-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                <h3 id="passkeys-mfa-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                                     <ShieldCheck className="h-4 w-4 text-neo-cyan" />
                                     {t('profile.settings.security.passkeysAndMfaTitle', {}, 'Passkeys and MFA')}
-                                </h4>
+                                </h3>
                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
                                     {mfaPolicy?.reason
                                         ? t('profile.settings.security.mfaPolicyReason', { reason: mfaPolicy.reason }, `Current policy: ${mfaPolicy.reason}`)
@@ -488,10 +507,10 @@ export default function SettingsSection({
                                         </span>
                                     )}
                                 </div>
-                                <h4 id="signed-in-devices-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                <h3 id="signed-in-devices-heading" className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                                     <ShieldCheck className="h-4 w-4 text-violet-200" />
                                     {t('profile.settings.credentials.title', {}, 'Trusted credentials and remembered browsers')}
-                                </h4>
+                                </h3>
                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
                                     {deviceAudience === 'admin'
                                         ? t('profile.settings.devices.adminBody', {}, 'Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.')
@@ -712,10 +731,10 @@ export default function SettingsSection({
                                         )}
                                     </span>
                                 </div>
-                                <h4 className="mt-3 flex items-center gap-2 text-sm font-black text-white">
+                                <h3 className="mt-3 flex items-center gap-2 text-sm font-black text-white">
                                     <ShieldCheck className="h-4 w-4 text-neo-cyan" />
                                     {t('profile.settings.security.recoveryCodesTitle', {}, 'MFA backup recovery codes')}
-                                </h4>
+                                </h3>
                                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-300">
                                     {mfaFactorReady
                                         ? t('profile.settings.security.recoveryCodesBody', {}, 'Generate one-time backup codes so this MFA account has a recovery path that still stays server-gated and single-use.')
@@ -821,10 +840,10 @@ export default function SettingsSection({
             </div>
 
             <div className="premium-panel p-6">
-                <h3 className="mb-4 flex items-center gap-2 text-lg font-black text-white">
+                <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-white">
                     <Activity className="h-5 w-5 text-neo-cyan" />
                     {t('profile.settings.trust.title', {}, 'Trust & Security Command Center')}
-                </h3>
+                </h2>
 
                 <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className={`rounded-[1.6rem] border p-4 ${trustHealthy ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
@@ -878,37 +897,18 @@ export default function SettingsSection({
             </div>
 
             <div className="premium-panel p-6">
-                <h3 className="mb-4 flex items-center gap-2 text-lg font-black text-white">
+                <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-white">
                     <Bell className="h-5 w-5 text-neo-cyan" />
                     {t('profile.settings.notifications.title', {}, 'Notification posture')}
-                </h3>
-                <div className="space-y-3">
-                    <TogglePref
-                        label={t('profile.settings.notifications.orders.label', {}, 'Order Updates')}
-                        desc={t('profile.settings.notifications.orders.desc', {}, 'Status changes, refund progress, and delivery actions.')}
-                        on={orderUpdates}
-                        setOn={setOrderUpdates}
-                    />
-                    <TogglePref
-                        label={t('profile.settings.notifications.marketplace.label', {}, 'Marketplace')}
-                        desc={t('profile.settings.notifications.marketplace.desc', {}, 'Listing health, offers, and selling-side alerts.')}
-                        on={marketplaceUpdates}
-                        setOn={setMarketplaceUpdates}
-                    />
-                    <TogglePref
-                        label={t('profile.settings.notifications.support.label', {}, 'Support & Governance')}
-                        desc={t('profile.settings.notifications.support.desc', {}, 'Appeals, admin actions, and durable support responses.')}
-                        on={supportUpdates}
-                        setOn={setSupportUpdates}
-                    />
-                </div>
+                </h2>
+                <NotificationPreferencesPanel />
             </div>
 
             <div className="premium-panel p-6">
-                <h3 className="mb-4 flex items-center gap-2 text-lg font-black text-white">
+                <h2 className="mb-4 flex items-center gap-2 text-lg font-black text-white">
                     <AlertTriangle className="h-5 w-5 text-rose-300" />
                     {t('profile.settings.safety.title', {}, 'Safety controls')}
-                </h3>
+                </h2>
                 <div className="grid gap-3 md:grid-cols-2">
                     <Link to="/security" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-bold text-white hover:bg-white/10">
                         {t('profile.settings.safety.securityPolicy', {}, 'Open Security Policy')}

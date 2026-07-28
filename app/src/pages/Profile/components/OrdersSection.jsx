@@ -7,13 +7,13 @@ export default function OrdersSection({ recentOrders, stats }) {
         <div className="max-w-3xl">
             <div className="bg-white rounded-2xl border shadow-sm p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
-                    <h3 className="text-lg font-bold text-gray-900">Order History</h3>
+                    <h2 className="text-lg font-bold text-gray-900">Order History</h2>
                     <span className="text-sm text-gray-400">{stats.totalOrders || 0} <StableText id={"order.jsx.text.total.orders.eed7543a"} defaultMessage={"total orders"} /></span>
                 </div>
                 {recentOrders.length === 0 ? (
                     <div className="text-center py-12">
                         <Package className="w-16 h-16 text-gray-200 mx-auto mb-3" />
-                        <h3 className="text-lg font-bold text-gray-900 mb-1">No orders yet</h3>
+                        <h2 className="text-lg font-bold text-gray-900 mb-1">No orders yet</h2>
                         <p className="text-gray-400 text-sm mb-4"><StableText id={"order.jsx.text.start.shopping.to.see.your.orders.here.b15e523d"} defaultMessage={"Start shopping to see your orders here"} /></p>
                         <Link to="/products" className="inline-flex px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg text-sm hover:bg-indigo-700">
                             <StableText id={"order.jsx.text.shop.now.7bbc4028"} defaultMessage={"Shop Now"} />

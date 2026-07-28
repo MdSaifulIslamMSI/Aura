@@ -21,12 +21,14 @@ const {
 } = require('../utils/avatarValidation');
 const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
 const { normalizePhoneE164 } = require('../services/sms');
+const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt';
+const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt updatedAt __v';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
 const PHONE_FACTOR_PROOF_FRESH_SECONDS = 10 * 60;
+const MAX_SAVED_ADDRESSES = 20;
 
 const normalizePhone = (value) => (
     typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
@@ -45,6 +47,15 @@ const canonicalizePhone = (value) => {
 const normalizeText = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
+
+const normalizeAddressText = (value) => normalizeText(value).replace(/\s+/g, ' ');
+
+const buildAddressFingerprint = (address = {}) => [
+    normalizeAddressText(address.address).toLowerCase(),
+    normalizeAddressText(address.city).toLowerCase(),
+    normalizeAddressText(address.state).toLowerCase(),
+    normalizeAddressText(address.pincode),
+].join('|');
 
 const normalizeEmail = (value) => (
     typeof value === 'string' ? value.trim().toLowerCase() : ''
@@ -623,7 +634,10 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/users/profile
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res, next) => {
-    const updates = req.body || {};
+    const requestBody = req.body && typeof req.body === 'object' ? req.body : {};
+    const expectedVersion = requestBody.version;
+    const updates = { ...requestBody };
+    delete updates.version;
     const allowedFields = ['name', 'avatar', 'gender', 'dob', 'bio', 'phone'];
     const blockedFields = Object.keys(updates).filter((key) => !allowedFields.includes(key));
 
@@ -633,6 +647,38 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
 
     if (Object.keys(updates).length === 0) {
         return next(new AppError('No fields to update', 400));
+    }
+
+    if (updates.name !== undefined) {
+        if (typeof updates.name !== 'string') {
+            return next(new AppError('Name must be a string', 400));
+        }
+        updates.name = updates.name.trim();
+        if (updates.name.length < 2 || updates.name.length > 50) {
+            return next(new AppError('Name must be between 2 and 50 characters', 400));
+        }
+    }
+
+    if (updates.bio !== undefined) {
+        if (typeof updates.bio !== 'string') {
+            return next(new AppError('Bio must be a string', 400));
+        }
+        updates.bio = updates.bio.trim();
+        if (updates.bio.length > 200) {
+            return next(new AppError('Bio must be 200 characters or fewer', 400));
+        }
+    }
+
+    if (updates.dob !== undefined) {
+        if (updates.dob === '' || updates.dob === null) {
+            updates.dob = null;
+        } else {
+            const normalizedDate = new Date(updates.dob);
+            if (Number.isNaN(normalizedDate.getTime()) || normalizedDate.getTime() > Date.now()) {
+                return next(new AppError('Date of birth must be a valid date that is not in the future', 400));
+            }
+            updates.dob = normalizedDate;
+        }
     }
 
     if (updates.phone !== undefined) {
@@ -687,9 +733,16 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
 
     let user;
     try {
+        const profileFilter = { email: req.user.email };
+        if (expectedVersion !== undefined) {
+            profileFilter.__v = expectedVersion;
+        }
         user = await User.findOneAndUpdate(
-            { email: req.user.email },
-            { $set: updates },
+            profileFilter,
+            {
+                $set: updates,
+                $inc: { __v: 1 },
+            },
             { returnDocument: 'after', projection: PROFILE_PROJECTION, lean: true }
         );
     } catch (error) {
@@ -700,12 +753,28 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
     }
 
     if (!user) {
+        if (expectedVersion !== undefined && await User.exists({ email: req.user.email })) {
+            const conflict = new AppError('Profile changed in another session. Refresh and try again.', 409);
+            conflict.code = 'ACCOUNT_PROFILE_VERSION_CONFLICT';
+            return next(conflict);
+        }
         return next(new AppError('User not found', 404));
     }
 
     await persistAuthSnapshot(user);
     invalidateUserCache(req.authUid);
     invalidateUserCacheByEmail(user.email);
+    recordAuthSecurityEvent({
+        event: 'account.profile.updated',
+        outcome: 'success',
+        reason: 'user_requested',
+        surface: 'account_profile',
+        req,
+        meta: {
+            fields: Object.keys(updates).sort(),
+            optimisticConcurrency: expectedVersion !== undefined,
+        },
+    });
 
     res.json({
         ...toProfilePayload(user),
@@ -793,6 +862,26 @@ const getRewards = asyncHandler(async (req, res, next) => {
     res.json({ success: true, rewards });
 });
 
+// @desc    List saved addresses
+// @route   GET /api/users/addresses
+// @access  Private
+const getAddresses = asyncHandler(async (req, res, next) => {
+    const user = await ensureUserLean({
+        email: req.user.email,
+        authUser: req.user,
+        projection: 'addresses __v',
+    });
+    if (!user) return next(new AppError('Unable to recover user profile', 500));
+
+    res.set('Cache-Control', 'private, no-store');
+    res.json({
+        success: true,
+        addresses: user.addresses || [],
+        version: Number(user.__v || 0),
+        maxAddresses: MAX_SAVED_ADDRESSES,
+    });
+});
+
 // @desc    Add address
 // @route   POST /api/users/addresses
 // @access  Private
@@ -805,25 +894,56 @@ const addAddress = asyncHandler(async (req, res, next) => {
     });
     if (!user) return next(new AppError('Unable to recover user profile', 500));
 
+    if (user.addresses.length >= MAX_SAVED_ADDRESSES) {
+        const limitError = new AppError(`You can save up to ${MAX_SAVED_ADDRESSES} addresses`, 409);
+        limitError.code = 'ACCOUNT_ADDRESS_LIMIT_REACHED';
+        return next(limitError);
+    }
+
+    const normalizedAddress = {
+        type,
+        name: normalizeAddressText(name),
+        phone: normalizePhone(phone).replace(/\D/g, ''),
+        address: normalizeAddressText(address),
+        city: normalizeAddressText(city),
+        state: normalizeAddressText(state),
+        pincode: normalizeAddressText(pincode),
+    };
+    const duplicate = user.addresses.some((candidate) => (
+        buildAddressFingerprint(candidate) === buildAddressFingerprint(normalizedAddress)
+    ));
+    if (duplicate) {
+        const duplicateError = new AppError('This address is already saved', 409);
+        duplicateError.code = 'ACCOUNT_ADDRESS_DUPLICATE';
+        return next(duplicateError);
+    }
+
     if (isDefault) {
         user.addresses.forEach((a) => { a.isDefault = false; });
     }
 
     const makeDefault = user.addresses.length === 0 ? true : Boolean(isDefault);
 
-    user.addresses.push({
-        type,
-        name,
-        phone: phone ? phone.replace(/\D/g, '') : phone,
-        address,
-        city,
-        state,
-        pincode,
-        isDefault: makeDefault
-    });
+    user.addresses.push({ ...normalizedAddress, isDefault: makeDefault });
 
     await user.save();
-    res.status(201).json({ success: true, addresses: user.addresses });
+    await persistAuthSnapshot(user);
+    invalidateUserCache(req.authUid);
+    invalidateUserCacheByEmail(user.email);
+    recordAuthSecurityEvent({
+        event: 'account.address.added',
+        outcome: 'success',
+        reason: 'user_requested',
+        surface: 'data',
+        req,
+        meta: { defaultShipping: makeDefault },
+    });
+    res.status(201).json({
+        success: true,
+        addresses: user.addresses,
+        version: Number(user.__v || 0),
+        maxAddresses: MAX_SAVED_ADDRESSES,
+    });
 });
 
 
@@ -847,11 +967,25 @@ const updateAddress = asyncHandler(async (req, res, next) => {
         return next(new AppError('No address fields to update', 400));
     }
 
-    if (incoming.phone) {
-        incoming.phone = incoming.phone.replace(/\D/g, '');
+    const { isDefault, ...fields } = incoming;
+    const fieldsToUpdate = {
+        ...fields,
+        name: normalizeAddressText(fields.name),
+        phone: normalizePhone(fields.phone).replace(/\D/g, ''),
+        address: normalizeAddressText(fields.address),
+        city: normalizeAddressText(fields.city),
+        state: normalizeAddressText(fields.state),
+        pincode: normalizeAddressText(fields.pincode),
+    };
+    const duplicate = user.addresses.some((candidate) => (
+        String(candidate._id) !== String(addr._id)
+        && buildAddressFingerprint(candidate) === buildAddressFingerprint(fieldsToUpdate)
+    ));
+    if (duplicate) {
+        const duplicateError = new AppError('This address is already saved', 409);
+        duplicateError.code = 'ACCOUNT_ADDRESS_DUPLICATE';
+        return next(duplicateError);
     }
-
-    const { isDefault, ...fieldsToUpdate } = incoming;
 
     if (isDefault === true) {
         user.addresses.forEach((a) => { a.isDefault = false; });
@@ -867,7 +1001,23 @@ const updateAddress = asyncHandler(async (req, res, next) => {
 
     Object.assign(addr, fieldsToUpdate);
     await user.save();
-    res.json({ success: true, addresses: user.addresses });
+    await persistAuthSnapshot(user);
+    invalidateUserCache(req.authUid);
+    invalidateUserCacheByEmail(user.email);
+    recordAuthSecurityEvent({
+        event: 'account.address.updated',
+        outcome: 'success',
+        reason: 'user_requested',
+        surface: 'data',
+        req,
+        meta: { defaultShipping: Boolean(addr.isDefault) },
+    });
+    res.json({
+        success: true,
+        addresses: user.addresses,
+        version: Number(user.__v || 0),
+        maxAddresses: MAX_SAVED_ADDRESSES,
+    });
 });
 
 // @desc    Delete address
@@ -891,7 +1041,26 @@ const deleteAddress = asyncHandler(async (req, res, next) => {
     }
 
     await user.save();
-    res.json({ success: true, addresses: user.addresses });
+    await persistAuthSnapshot(user);
+    invalidateUserCache(req.authUid);
+    invalidateUserCacheByEmail(user.email);
+    recordAuthSecurityEvent({
+        event: 'account.address.deleted',
+        outcome: 'success',
+        reason: 'user_requested',
+        surface: 'data',
+        req,
+        meta: {
+            reassignedDefaultShipping: Boolean(wasDefault && user.addresses.length > 0),
+        },
+    });
+    res.json({
+        success: true,
+        addresses: user.addresses,
+        version: Number(user.__v || 0),
+        maxAddresses: MAX_SAVED_ADDRESSES,
+        historicalOrderAddressesUnaffected: true,
+    });
 });
 
 // @desc    Get wishlist snapshot
@@ -1258,6 +1427,7 @@ module.exports = {
     updateUserProfile,
     getProfileDashboard,
     getRewards,
+    getAddresses,
     addAddress,
     updateAddress,
     deleteAddress,

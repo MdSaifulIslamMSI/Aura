@@ -25,6 +25,7 @@ const PERSISTED_CLIENT_DIAGNOSTIC_TYPES = new Set([
     'api.response_error',
     'client.runtime_error',
 ]);
+const ACCOUNT_TELEMETRY_TYPE_PATTERN = /^account\.(?:section_viewed|profile_updated|address_added|preference_changed|order_searched|return_started|buy_again_selected|passkey_added|session_revoked|export_requested|deactivation_initiated|deletion_initiated|web_vital)$/;
 
 const getWindowRef = () => (typeof window !== 'undefined' ? window : null);
 
@@ -103,23 +104,34 @@ const sanitizeDiagnosticPayload = (value, depth = 0) => {
     return value;
 };
 
-const sanitizeDiagnosticForTransport = (event = {}) => ({
-    id: String(event.id || ''),
-    type: String(event.type || ''),
-    severity: String(event.severity || 'info'),
-    timestamp: String(event.timestamp || new Date().toISOString()),
-    route: String(event.route || ''),
-    sessionId: String(event.sessionId || ''),
-    url: String(event.url || ''),
-    method: String(event.method || ''),
-    requestId: String(event.requestId || ''),
-    serverRequestId: String(event.serverRequestId || ''),
-    status: Number.isFinite(Number(event.status)) ? Number(event.status) : undefined,
-    durationMs: Number.isFinite(Number(event.durationMs)) ? Number(event.durationMs) : undefined,
-    detail: String(event.detail || ''),
-    error: sanitizeDiagnosticPayload(event.error),
-    context: sanitizeDiagnosticPayload(event.context),
-});
+const sanitizeDiagnosticForTransport = (event = {}) => {
+    const type = String(event.type || '');
+    if (ACCOUNT_TELEMETRY_TYPE_PATTERN.test(type)) {
+        return {
+            type,
+            timestamp: String(event.timestamp || new Date().toISOString()),
+            context: sanitizeDiagnosticPayload(event.context),
+        };
+    }
+
+    return {
+        id: String(event.id || ''),
+        type,
+        severity: String(event.severity || 'info'),
+        timestamp: String(event.timestamp || new Date().toISOString()),
+        route: String(event.route || ''),
+        sessionId: String(event.sessionId || ''),
+        url: String(event.url || ''),
+        method: String(event.method || ''),
+        requestId: String(event.requestId || ''),
+        serverRequestId: String(event.serverRequestId || ''),
+        status: Number.isFinite(Number(event.status)) ? Number(event.status) : undefined,
+        durationMs: Number.isFinite(Number(event.durationMs)) ? Number(event.durationMs) : undefined,
+        detail: String(event.detail || ''),
+        error: sanitizeDiagnosticPayload(event.error),
+        context: sanitizeDiagnosticPayload(event.context),
+    };
+};
 
 const clearDiagnosticsFlushTimer = () => {
     const windowRef = getWindowRef();
@@ -143,7 +155,11 @@ const scheduleDiagnosticsFlush = (delayMs = 2500) => {
 };
 
 const shouldPersistClientDiagnostic = (event = {}) => {
-    if (!PERSISTED_CLIENT_DIAGNOSTIC_TYPES.has(String(event.type || ''))) {
+    const eventType = String(event.type || '');
+    if (
+        !PERSISTED_CLIENT_DIAGNOSTIC_TYPES.has(eventType)
+        && !ACCOUNT_TELEMETRY_TYPE_PATTERN.test(eventType)
+    ) {
         return false;
     }
 

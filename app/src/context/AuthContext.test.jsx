@@ -29,6 +29,7 @@ const loadAuthContext = async () => {
     signInWithNativeSocialProviderMock: vi.fn(),
     signOutNativeSocialAuthMock: vi.fn().mockResolvedValue(undefined),
     shouldPreferFirebaseRedirectAuthMock: vi.fn().mockReturnValue(false),
+    clearAccountCacheMock: vi.fn(),
     clearCsrfTokenCacheMock: vi.fn(),
     adoptTrustedDeviceSessionMock: vi.fn(),
     cacheTrustedDeviceSessionTokenMock: vi.fn(),
@@ -115,6 +116,7 @@ const loadAuthContext = async () => {
       updateProfile: vi.fn(),
       activateSeller: vi.fn(),
       deactivateSeller: vi.fn(),
+      clearAccountCache: mocks.clearAccountCacheMock,
     },
   }));
 
@@ -329,6 +331,7 @@ describe('AuthProvider', () => {
 
     expect(screen.getByTestId('auth-user')).toHaveTextContent('none');
     expect(mocks.clearCsrfTokenCacheMock).toHaveBeenCalled();
+    expect(mocks.clearAccountCacheMock).toHaveBeenCalled();
     expect(mocks.clearTrustedDeviceSessionTokenMock).toHaveBeenCalled();
     expect(mocks.authApiMock.logoutSession).toHaveBeenCalled();
     expect(mocks.authApiMock.exchangeSession).not.toHaveBeenCalled();

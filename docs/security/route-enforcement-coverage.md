@@ -80,6 +80,7 @@ npm run security:routes:coverage:strict
 | POST /api/orders | ORDER_STATUS_CHANGE | `protect`, active account, OTP assurance, `sensitiveActions.orderStatusChange` |
 | GET /api/orders/:id/timeline | ZERO_TRUST_READ | `protect`, `authorizeOrderOwner`, hidden existence response |
 | GET /api/orders/:id/command-center | ZERO_TRUST_READ | `protect`, `authorizeOrderOwner`, hidden existence response |
+| POST /api/orders/:id/buy-again | CART_MUTATION | `protect`, active account, CSRF, rate limits, `authorizeOrderOwner`, server-owned item reconstruction, idempotency key |
 | POST /api/orders/:id/command-center/refund | PAYMENT_REFUND | `protect`, active account, `authorizeOrderOwner`, `sensitiveActions.paymentRefund` |
 | POST /api/orders/:id/command-center/replace | ORDER_STATUS_CHANGE | `protect`, active account, `authorizeOrderOwner`, `sensitiveActions.orderStatusChange` |
 | POST /api/orders/:id/command-center/support | ORDER_STATUS_CHANGE | `protect`, active account, `authorizeOrderOwner`, `sensitiveActions.orderStatusChange` |

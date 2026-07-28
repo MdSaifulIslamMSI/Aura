@@ -84,12 +84,33 @@ describe('traffic policy registry', () => {
             authRequired: true,
             cacheRule: 'no-store',
         });
+        expect(getTrafficPolicyForRoute({ method: 'GET', path: '/api/account/marketplace' })).toMatchObject({
+            profile: PROFILES.AUTH_SECURITY,
+            routeClass: 'AUTHENTICATED_READ',
+            authRequired: true,
+            cacheRule: 'no-store',
+        });
         expect(getTrafficPolicyForRoute({ method: 'POST', path: '/api/account/sessions/revoke-others' })).toMatchObject({
             profile: PROFILES.AUTH_SECURITY,
             routeClass: 'AUTH_LOGIN',
             authRequired: true,
             flowProtectionRequired: true,
             failMode: 'fail-closed',
+        });
+        expect(getTrafficPolicyForRoute({ method: 'POST', path: '/api/account/avatar/uploads' })).toMatchObject({
+            id: 'account-avatar-media',
+            profile: PROFILES.UPLOAD_MEDIA,
+            routeClass: 'UPLOAD',
+            authRequired: true,
+            fileValidationRequired: true,
+        });
+        expect(getTrafficPolicyForRoute({ method: 'POST', path: '/api/account/privacy/deletion-requests' })).toMatchObject({
+            id: 'account-privacy-lifecycle',
+            profile: PROFILES.AUTH_SECURITY,
+            routeClass: 'AUTH_LOGIN',
+            authRequired: true,
+            flowProtectionRequired: true,
+            idempotencyRequired: true,
         });
     });
 

@@ -1,6 +1,18 @@
 const mongoose = require('mongoose');
 const ClientDiagnostic = require('../models/ClientDiagnostic');
 const logger = require('../utils/logger');
+const {
+    hashLogIdentifier,
+    minimizeRequestPath,
+    minimizeTelemetryUrl,
+    normalizeUserAgentFamily,
+} = require('../utils/requestObservability');
+const {
+    normalizeAccountProductEvent,
+    recordAccountProductEvent,
+    recordClientDiagnostic,
+    validateAccountProductEvent,
+} = require('./accountProductTelemetryService');
 
 const MAX_DIAGNOSTICS_PER_REQUEST = 20;
 const MAX_RECENT_DIAGNOSTICS = 200;
@@ -64,20 +76,20 @@ const normalizeDiagnostic = (event = {}, context = {}) => ({
         const parsed = new Date(event.timestamp || new Date().toISOString());
         return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
     })(),
-    route: sanitizeDiagnosticString(event.route || context.clientRoute || '', 200),
-    sessionId: truncateString(event.sessionId || context.clientSessionId || '', 120),
+    route: minimizeRequestPath(event.route || context.clientRoute || ''),
+    sessionId: hashLogIdentifier(event.sessionId || context.clientSessionId, 'cs'),
     requestId: sanitizeDiagnosticString(event.requestId || '', 120),
     serverRequestId: sanitizeDiagnosticString(event.serverRequestId || '', 120),
     method: truncateString(event.method || '', 16),
-    url: sanitizeDiagnosticString(event.url || '', 500),
+    url: minimizeTelemetryUrl(event.url || ''),
     detail: sanitizeDiagnosticString(event.detail || '', 240),
     status: Number.isFinite(Number(event.status)) ? Number(event.status) : undefined,
     durationMs: Number.isFinite(Number(event.durationMs)) ? Number(event.durationMs) : undefined,
     error: sanitizeValue(event.error),
     context: sanitizeValue(event.context),
     ingestionRequestId: sanitizeDiagnosticString(context.ingestionRequestId || '', 120),
-    clientIp: truncateString(context.clientIp || '', 120),
-    userAgent: truncateString(context.userAgent || '', 240),
+    clientIp: hashLogIdentifier(context.clientIp, 'ip'),
+    userAgent: normalizeUserAgentFamily(context.userAgent),
     ingestedAt: new Date(),
 });
 
@@ -99,7 +111,13 @@ const persistClientDiagnostics = async ({
 
     const acceptedDiagnostics = events
         .slice(0, MAX_DIAGNOSTICS_PER_REQUEST)
-        .map((event) => normalizeDiagnostic(event, context));
+        .map((event) => {
+            const accountEvent = validateAccountProductEvent(event);
+            return accountEvent.applicable
+                ? normalizeAccountProductEvent(event)
+                : normalizeDiagnostic(event, context);
+        })
+        .filter(Boolean);
 
     acceptedDiagnostics.forEach((diagnostic) => {
         recentDiagnostics.push(diagnostic);
@@ -107,7 +125,18 @@ const persistClientDiagnostics = async ({
             recentDiagnostics.shift();
         }
 
-        logger.warn('client.diagnostic', diagnostic);
+        if (String(diagnostic.type || '').startsWith('account.')) {
+            recordAccountProductEvent(diagnostic);
+            logger.info('account.product_event', {
+                type: diagnostic.type,
+                route: diagnostic.route,
+                context: diagnostic.context,
+                timestamp: diagnostic.timestamp,
+            });
+        } else {
+            recordClientDiagnostic(diagnostic);
+            logger.warn('client.diagnostic', diagnostic);
+        }
     });
 
     let persistedCount = 0;
@@ -150,13 +179,15 @@ const listClientDiagnostics = async ({
     route = '',
 } = {}) => {
     const normalizedLimit = Math.max(1, Math.min(Number(limit) || DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT));
+    const normalizedSessionId = sessionId ? hashLogIdentifier(sessionId, 'cs') : '';
+    const normalizedRoute = route ? minimizeRequestPath(route) : '';
 
     const applyMemoryFilters = (items = []) => items.filter((diagnostic) => {
         if (type && diagnostic.type !== type) return false;
         if (severity && diagnostic.severity !== severity) return false;
-        if (sessionId && diagnostic.sessionId !== sessionId) return false;
+        if (normalizedSessionId && diagnostic.sessionId !== normalizedSessionId) return false;
         if (requestId && diagnostic.requestId !== requestId && diagnostic.serverRequestId !== requestId) return false;
-        if (route && !String(diagnostic.route || '').includes(route)) return false;
+        if (normalizedRoute && !String(diagnostic.route || '').includes(normalizedRoute)) return false;
         return true;
     });
 
@@ -170,7 +201,7 @@ const listClientDiagnostics = async ({
     const query = {};
     if (type) query.type = type;
     if (severity) query.severity = severity;
-    if (sessionId) query.sessionId = sessionId;
+    if (normalizedSessionId) query.sessionId = normalizedSessionId;
     if (requestId) {
         query.$or = [
             { requestId },
@@ -178,8 +209,8 @@ const listClientDiagnostics = async ({
             { ingestionRequestId: requestId },
         ];
     }
-    if (route) {
-        query.route = { $regex: route, $options: 'i' };
+    if (normalizedRoute) {
+        query.route = { $regex: normalizedRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     }
 
     try {
@@ -196,7 +227,7 @@ const listClientDiagnostics = async ({
         logger.warn('client.diagnostic.query_failed', {
             error: error.message,
             requestId,
-            sessionId,
+            sessionRef: normalizedSessionId,
             type,
         });
 

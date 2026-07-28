@@ -25,6 +25,8 @@ export default function AccountCenterShell({
     accountStateLabel,
     overviewMetrics = [],
     onAvatarClick,
+    avatarUploading = false,
+    isOnline = true,
     notice,
     banner,
     children,
@@ -42,14 +44,14 @@ export default function AccountCenterShell({
     }, [activeTab]);
 
     return (
-        <div className="mx-auto grid w-full max-w-[92rem] grid-cols-1 gap-6 px-3 pb-16 pt-4 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:px-4 lg:pt-6">
+        <div className="account-center-layout mx-auto grid w-full max-w-[92rem] grid-cols-1 gap-6 px-3 pb-16 pt-4 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:px-4 lg:pt-6">
             <a
                 href="#account-center-content"
                 className="sr-only fixed left-4 top-4 z-[100] rounded-lg bg-slate-950 px-4 py-3 font-black text-white focus:not-sr-only focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
             >
                 {t('profile.accountCenter.skipToContent', {}, 'Skip to account content')}
             </a>
-            <aside className="sticky top-24 hidden min-h-[40rem] max-h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#081511] shadow-2xl lg:flex">
+            <aside className="account-center-rail sticky top-24 hidden min-h-[40rem] max-h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-xl border lg:flex">
                 <div className="grid gap-1 px-5 pb-4 pt-6">
                     <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#d2a96c]">
                         {t('profile.accountCenter.memberEyebrow', {}, 'Aura member')}
@@ -64,10 +66,20 @@ export default function AccountCenterShell({
                         type="button"
                         className="relative grid h-13 w-13 place-items-center rounded-xl border border-white/20 bg-white/10 font-black text-[#fffaf0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
                         onClick={onAvatarClick}
-                        aria-label={t('profile.accountCenter.changePhotoAria', {}, 'Change profile photo')}
+                        disabled={avatarUploading}
+                        aria-busy={avatarUploading || undefined}
+                        aria-label={avatarUploading
+                            ? t('profile.accountCenter.photoUploadingAria', {}, 'Profile photo upload in progress')
+                            : t('profile.accountCenter.changePhotoAria', {}, 'Change profile photo')}
                     >
                         {profile.avatar ? (
-                            <img src={profile.avatar} alt="" className="h-full w-full rounded-[inherit] object-cover" />
+                            <img
+                                src={profile.avatar}
+                                alt=""
+                                width="52"
+                                height="52"
+                                className="h-full w-full rounded-[inherit] object-cover"
+                            />
                         ) : (
                             <span aria-hidden="true">{profile.initials}</span>
                         )}
@@ -115,10 +127,18 @@ export default function AccountCenterShell({
             </aside>
 
             <div className="min-w-0">
-                <div className="mb-4 grid grid-cols-1 gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] md:items-end lg:hidden">
+                <div className="account-center-mobile-nav mb-4 grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] md:items-end lg:hidden">
                     <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#d2a96c]/40 bg-white/5 font-black text-white" aria-hidden="true">
-                            {profile.initials}
+                        <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#d2a96c]/40 bg-white/5 font-black text-white" aria-hidden="true">
+                            {profile.avatar ? (
+                                <img
+                                    src={profile.avatar}
+                                    alt=""
+                                    width="44"
+                                    height="44"
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : profile.initials}
                         </span>
                         <div className="flex min-w-0 flex-col">
                             <strong className="truncate text-sm text-white">{profile.name}</strong>
@@ -145,9 +165,7 @@ export default function AccountCenterShell({
                     </label>
                 </div>
 
-                {banner}
-
-                <header className="mb-4 flex flex-col gap-5 rounded-2xl border border-white/10 bg-white/[0.04] p-5 md:flex-row md:items-start md:justify-between md:p-6">
+                <header className="account-center-header mb-4 flex flex-col gap-5 rounded-xl border p-5 md:flex-row md:items-start md:justify-between md:p-6">
                     <div>
                         <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#d2a96c]">
                             {t('profile.accountCenter.title', {}, 'Account center')}
@@ -156,7 +174,7 @@ export default function AccountCenterShell({
                             id="account-center-page-title"
                             ref={pageTitleRef}
                             tabIndex={-1}
-                            className="mt-1 text-3xl font-black tracking-tight text-white outline-none sm:text-4xl"
+                            className="account-center-page-title mt-1 text-3xl font-black tracking-tight outline-none sm:text-4xl"
                         >
                             {pageTitle}
                         </h1>
@@ -187,10 +205,26 @@ export default function AccountCenterShell({
                     </dl>
                 </header>
 
+                {banner}
+
+                {!isOnline ? (
+                    <div className="account-center-network-status" role="status" aria-live="polite">
+                        <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span>
+                            <strong>{t('profile.accountCenter.offlineTitle', {}, 'You are offline.')}</strong>{' '}
+                            {t(
+                                'profile.accountCenter.offlineBody',
+                                {},
+                                'Saved account details remain visible, but changes wait until you reconnect.'
+                            )}
+                        </span>
+                    </div>
+                ) : null}
+
                 {notice}
 
                 {activeTab === 'overview' && overviewMetrics.length > 0 ? (
-                    <section className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04]" aria-labelledby="account-health-title">
+                    <section className="account-center-summary mb-4 rounded-xl border" aria-labelledby="account-health-title">
                         <h2 id="account-health-title" className="px-5 pt-4 text-xs font-black uppercase tracking-widest text-slate-400">
                             {t('profile.accountCenter.atAGlance', {}, 'At a glance')}
                         </h2>
@@ -206,7 +240,12 @@ export default function AccountCenterShell({
                     </section>
                 ) : null}
 
-                <main id="account-center-content" className="min-w-0" aria-labelledby="account-center-page-title">
+                <main
+                    id="account-center-content"
+                    className="min-w-0 outline-none"
+                    aria-labelledby="account-center-page-title"
+                    tabIndex={-1}
+                >
                     {children}
                 </main>
             </div>

@@ -82,12 +82,13 @@ const adminSecurityRoutes = require('./routes/adminSecurityRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
+const { buildPrivacySafeRequestLogContext } = require('./utils/requestObservability');
 const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const intelligenceRoutes = require('./routes/intelligenceRoutes');
 const supportRoutes = require('./routes/supportRoutes');
 const userNotificationRoutes = require('./routes/userNotificationRoutes');
-const { serveReviewMediaAsset } = require('./controllers/uploadAssetController');
+const { serveAvatarMediaAsset, serveReviewMediaAsset } = require('./controllers/uploadAssetController');
 const { assertProductionPaymentConfig, assertWebhookConfig, flags: paymentFlags } = require('./config/paymentFlags');
 const { assertProductionEmailConfig, flags: emailFlags } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
@@ -419,14 +420,9 @@ app.use((req, res, next) => {
     res.on('finish', () => {
         const duration = Date.now() - start;
         logger.info('HTTP Request', {
-            method: req.method,
-            url: req.originalUrl,
+            ...buildPrivacySafeRequestLogContext(req),
             status: res.statusCode,
             durationMs: duration,
-            requestId: req.requestId || req.headers['x-request-id'] || 'unknown',
-            clientSessionId: String(req.headers['x-client-session-id'] || ''),
-            clientRoute: String(req.headers['x-client-route'] || ''),
-            ip: req.ip,
         });
     });
     next();
@@ -491,6 +487,7 @@ app.use(abuseShield());
 app.use(activityEmailMiddleware);
 app.use(adminNotificationMiddleware);
 app.get(/^\/uploads\/reviews\/(.+)$/, uploadAssetLimiter, serveReviewMediaAsset);
+app.get(/^\/uploads\/avatars\/(.+)$/, uploadAssetLimiter, serveAvatarMediaAsset);
 app.use('/uploads', uploadAssetLimiter, express.static(path.join(__dirname, 'uploads')));
 
 // Rate Limiting â€” strict for production, disabled in test

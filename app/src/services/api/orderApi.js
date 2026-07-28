@@ -1,7 +1,7 @@
 import { apiFetch } from '../apiBase';
 import { getAuthHeader, createIdempotencyKey } from './apiUtils';
 
-const ORDER_LIST_PAGE_SIZE = 100;
+const ORDER_LIST_PAGE_SIZE = 20;
 
 const buildQueryString = (params = {}) => {
     const search = new URLSearchParams();
@@ -58,6 +58,23 @@ export const orderApi = {
     getCommandCenter: async (orderId) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/orders/${orderId}/command-center`, { headers });
+        return data;
+    },
+    getReceipt: async (orderId) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/orders/${orderId}/receipt`, { headers });
+        return data;
+    },
+    buyAgain: async (orderId, payload = {}) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch(`/orders/${orderId}/buy-again`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Idempotency-Key': createIdempotencyKey(`buy-again-${orderId}`),
+            },
+            body: JSON.stringify(payload),
+        });
         return data;
     },
     requestRefund: async (orderId, payload = {}) => {

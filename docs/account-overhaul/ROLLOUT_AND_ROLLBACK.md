@@ -22,6 +22,10 @@ Flags default off in production. Privacy remains off until policy approval and d
 
 The server decides availability. The client must handle absent/disabled contracts and may not infer authorization from its local flag.
 
+`ACCOUNT_CENTER_V2_PRIVACY` alone cannot activate lifecycle mutations. The server also requires `ACCOUNT_PRIVACY_POLICY_APPROVED`, a policy version, jurisdictions, export retention, deletion grace, reactivation policy, export delivery mechanism, `AWS_S3_PRIVACY_BUCKET`, and `ACCOUNT_PRIVACY_EXPORT_KMS_KEY_ID`. Missing or invalid configuration produces a safe disabled capability response and a fail-closed mutation gate; it never falls back to synchronous deletion.
+
+Avatar storage uses the existing `UPLOAD_STORAGE_DRIVER`. Local development defaults to `server/uploads/avatars`; S3 requires `AWS_REGION` and `AWS_S3_AVATAR_BUCKET` (or the existing review-media bucket fallback), with optional `AWS_S3_AVATAR_PREFIX`. Runtime credentials come from the existing AWS identity chain and are never exposed to the client. Staging must prove bucket access, denial outside the configured prefix, private quarantine, immutable final reads, cleanup dry-run, and cleanup execution before the avatar flag can advance.
+
 ## Wave plan
 
 ### Wave 0: source and harness
@@ -72,13 +76,24 @@ Exit: session store failure behavior, cross-user aliases, final-factor rules, an
 - Enable versioned notification preferences.
 - Run backfill shadow/read phases.
 
-Exit: scan/checksum/orphan cleanup, concurrency, and rollback reads pass.
+Exit: MIME/extension/magic-byte/size/dimension/decode/scan checks, token replay and owner binding, optimistic concurrency, orphan cleanup, S3 prefix policy, and rollback reads pass.
 
 ### Wave 6: privacy
 
 Blocked until jurisdiction, retention, grace, reactivation, legal holds, and delivery are approved.
 
 Exit: policy sign-off, fresh-auth and abuse suites, migration/worker rehearsal, audit evidence, customer/support runbooks.
+
+### Wave 7: database schema version and query indexes
+
+1. Run the Account Center V2 migration in audit mode against the protected staging snapshot.
+2. Record backup and immutable rollback evidence before enabling apply.
+3. Build named additive indexes and observe duration, replication lag, disk headroom and application latency.
+4. Run bounded apply batches, stop at a checkpoint, then prove repair-pass resume.
+5. Capture redacted query-plan evidence for owner listings, reviews, trade-ins and price alerts.
+6. Re-run the audit and require `pendingAfter: 0`.
+
+The apply command must remain disabled unless every CLI and environment authorization gate is present. A paused or failed run is not a pass. Production database execution is prohibited until the same exact-SHA sequence succeeds in staging and the rollback rehearsal is recorded.
 
 ## Cohort progression
 
@@ -160,14 +175,14 @@ Do not run deployment or rollback from this document. Existing GitHub workflows 
 
 ## Current readiness
 
-**Not ready for rollout.**
+**Foundation verified; complete program not ready for rollout.**
 
 Blockers:
 
-- the recorded live SHA differs from this branch's reviewed source SHA;
-- broad suites timed out;
-- local orchestration is broken;
-- authenticated account browser evidence is absent;
-- dependency audit findings are untriaged;
+- Waves K through N are not yet complete on the umbrella branch;
+- the strict native-language final gate has a pre-existing human-review backlog for 19 locale rows;
+- full umbrella-branch CI and required reviews are pending;
+- authenticated staging browser, accessibility, performance, migration, load, and rollback evidence is absent;
+- dependency audit findings still require current evidence and disposition;
 - privacy policy decisions are unresolved;
-- focused local implementation verification passed, but CI and authenticated staging verification remain pending.
+- production release identity, immutable rollback targets, dashboards, and alerts are not yet recorded.

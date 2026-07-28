@@ -1,9 +1,13 @@
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const { buildMinimizedErrorResponse } = require('../security/invisibleFabric/responseMinimizer');
+const {
+    buildPrivacySafeRequestLogContext,
+    minimizeRequestPath,
+} = require('../utils/requestObservability');
 
 const notFound = (req, res, next) => {
-    const error = new AppError(`Not Found - ${req.originalUrl}`, 404);
+    const error = new AppError(`Not Found - ${minimizeRequestPath(req.originalUrl)}`, 404);
     next(error);
 };
 
@@ -39,12 +43,8 @@ const errorHandler = (err, req, res, next) => {
     logger.error(err.message || 'Unhandled Exception', {
         error: err,
         type: err.constructor.name,
-        method: req.method,
-        url: req.originalUrl,
+        ...buildPrivacySafeRequestLogContext(req),
         statusCode,
-        requestId: req.requestId || '',
-        clientSessionId: String(req.headers['x-client-session-id'] || ''),
-        clientRoute: String(req.headers['x-client-route'] || ''),
     });
 
     const minimizedResponse = buildMinimizedErrorResponse({ err, req, statusCode });

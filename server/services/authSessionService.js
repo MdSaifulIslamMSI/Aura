@@ -342,6 +342,8 @@ const toProfilePayload = (user = null, options = {}) => {
         },
         loyalty: getRewardSnapshotFromUser(user),
         createdAt: user.createdAt || null,
+        updatedAt: user.updatedAt || null,
+        version: Number(user.__v || 0),
     };
 
     if (user.mfa) {

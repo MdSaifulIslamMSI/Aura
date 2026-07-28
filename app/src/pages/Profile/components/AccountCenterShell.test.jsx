@@ -42,7 +42,7 @@ describe('AccountCenterShell', () => {
         expect(screen.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
         expect(screen.getByRole('heading', { name: 'Overview', level: 1 })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Skip to account content' })).toHaveAttribute('href', '#account-center-content');
-        expect(screen.getByRole('main', { name: 'Overview' })).toBeInTheDocument();
+        expect(screen.getByRole('main', { name: 'Overview' })).toHaveAttribute('tabindex', '-1');
         expect(screen.getByText('75% complete')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Change profile photo' })).toBeInTheDocument();
 
@@ -53,5 +53,64 @@ describe('AccountCenterShell', () => {
             target: { value: 'orders' },
         });
         expect(onTabChange).toHaveBeenLastCalledWith('orders');
+    });
+
+    it('disables avatar replacement and exposes progress while an upload is active', () => {
+        render(
+            <AccountCenterShell
+                tabs={tabs}
+                activeTab="overview"
+                onTabChange={vi.fn()}
+                profile={{
+                    name: 'Profile User',
+                    email: 'profile@example.com',
+                    initials: 'PU',
+                }}
+                pageTitle="Overview"
+                pageDescription="Account overview"
+                memberSince="July 2026"
+                profileCompletion={75}
+                accountState="active"
+                accountStateLabel="active"
+                onAvatarClick={vi.fn()}
+                avatarUploading
+            >
+                <p>Account content</p>
+            </AccountCenterShell>,
+        );
+
+        const button = screen.getByRole('button', { name: 'Profile photo upload in progress' });
+        expect(button).toBeDisabled();
+        expect(button).toHaveAttribute('aria-busy', 'true');
+    });
+
+    it('announces offline read-only state without hiding account content', () => {
+        render(
+            <AccountCenterShell
+                tabs={tabs}
+                activeTab="overview"
+                onTabChange={vi.fn()}
+                profile={{
+                    name: 'Profile User',
+                    email: 'profile@example.com',
+                    initials: 'PU',
+                    avatar: '/uploads/avatars/profile.webp',
+                }}
+                pageTitle="Overview"
+                pageDescription="Account overview"
+                memberSince="July 2026"
+                profileCompletion={75}
+                accountState="active"
+                accountStateLabel="active"
+                onAvatarClick={vi.fn()}
+                isOnline={false}
+            >
+                <p>Account content remains available</p>
+            </AccountCenterShell>,
+        );
+
+        expect(screen.getByRole('status')).toHaveTextContent('You are offline.');
+        expect(screen.getByText('Account content remains available')).toBeInTheDocument();
+        expect(document.querySelector('img[src="/uploads/avatars/profile.webp"]')).toHaveAttribute('width', '52');
     });
 });

@@ -148,11 +148,21 @@ const mfaSchema = mongoose.Schema({
 }, { _id: false });
 
 const userSchema = mongoose.Schema({
+    accountCenterSchemaVersion: { type: Number, default: 2, min: 1, max: 2 },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     authUid: { type: String, trim: true },
     phone: { type: String, required: false, set: normalizeOptionalPhone },
-    avatar: { type: String, default: '' },           // URL or data URI
+    avatar: { type: String, default: '' },           // Durable URL, with legacy data-URI read fallback during migration
+    avatarMedia: {
+        storageKey: { type: String, default: '' },
+        storageDriver: { type: String, enum: ['local', 's3', ''], default: '' },
+        mimeType: { type: String, default: '' },
+        sizeBytes: { type: Number, default: 0, min: 0 },
+        width: { type: Number, default: 0, min: 0 },
+        height: { type: Number, default: 0, min: 0 },
+        updatedAt: { type: Date, default: null },
+    },
     gender: { type: String, enum: ['male', 'female', 'other', 'prefer-not-to-say', ''], default: '' },
     dob: { type: Date, default: null },
     bio: { type: String, default: '', maxlength: 200 },

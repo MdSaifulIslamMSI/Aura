@@ -103,6 +103,7 @@ const coverage = [
     ['POST', '/api/orders', 'ORDER_STATUS_CHANGE', ['sensitiveActions.orderStatusChange']],
     ['GET', '/api/orders/:id/timeline', 'ZERO_TRUST_READ', ['authorizeOrderOwner']],
     ['GET', '/api/orders/:id/command-center', 'ZERO_TRUST_READ', ['authorizeOrderOwner']],
+    ['POST', '/api/orders/:id/buy-again', 'CART_MUTATION', ['authorizeOrderOwner', 'csrfTokenValidatorUnlessBearerAuth']],
     ['POST', '/api/orders/:id/command-center/refund', 'PAYMENT_REFUND', ['authorizeOrderOwner', 'sensitiveActions.paymentRefund']],
     ['POST', '/api/orders/:id/command-center/replace', 'ORDER_STATUS_CHANGE', ['authorizeOrderOwner', 'sensitiveActions.orderStatusChange']],
     ['POST', '/api/orders/:id/command-center/support', 'ORDER_STATUS_CHANGE', ['authorizeOrderOwner', 'sensitiveActions.orderStatusChange']],

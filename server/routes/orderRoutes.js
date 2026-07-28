@@ -16,11 +16,14 @@ const {
     cancelOrder,
     cancelOrderAdmin,
     updateOrderStatusAdmin,
+    getMyOrderReceipt,
+    buyOrderAgain,
     getMyOrders,
     getOrders
 } = require('../controllers/orderController');
 const { rateLimit } = require('express-rate-limit');
 const { protect, admin, requireOtpAssurance, requireActiveAccount } = require('../middleware/authMiddleware');
+const { csrfTokenValidatorUnlessBearerAuth } = require('../middleware/csrfMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const validate = require('../middleware/validate');
 const {
@@ -32,6 +35,7 @@ const { loadOrderResource } = require('../trust/adapters/orderAdapter');
 const {
     quoteOrderSchema,
     createOrderSchema,
+    getMyOrdersSchema,
     getOrderTimelineSchema,
     commandCenterParamsSchema,
     commandCenterRefundSchema,
@@ -39,6 +43,7 @@ const {
     commandCenterSupportSchema,
     commandCenterWarrantySchema,
     cancelOrderSchema,
+    buyAgainSchema,
     adminOrderStatusSchema,
     adminCancelOrderSchema,
     adminCommandRefundDecisionSchema,
@@ -115,7 +120,19 @@ const orderAdminMutationLimiter = createDistributedRateLimit({
 router.post('/quote', protect, requireActiveAccount, requireOtpAssurance, validate(quoteOrderSchema), quoteOrder);
 
 router.route('/').post(protect, requireActiveAccount, requireOtpAssurance, orderMutationRateLimit, orderMutationLimiter, validate(createOrderSchema), sensitiveActions.orderStatusChange, addOrderItems).get(protect, admin, getOrders);
-router.route('/myorders').get(protect, getMyOrders);
+router.route('/myorders').get(protect, validate(getMyOrdersSchema), getMyOrders);
+router.route('/:id/receipt').get(protect, validate(commandCenterParamsSchema), requireTrustDecision('order.read', loadOrderResource), authorizeOrderOwner('order.receipt.read'), getMyOrderReceipt);
+router.route('/:id/buy-again').post(
+    protect,
+    requireActiveAccount,
+    orderMutationRateLimit,
+    orderMutationLimiter,
+    csrfTokenValidatorUnlessBearerAuth,
+    validate(buyAgainSchema),
+    requireTrustDecision('order.read', loadOrderResource),
+    authorizeOrderOwner('order.buy_again'),
+    buyOrderAgain
+);
 router.route('/:id/timeline').get(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(getOrderTimelineSchema), requireTrustDecision('order.read', loadOrderResource), authorizeOrderOwner('order.timeline.read'), getMyOrderTimeline);
 router.route('/:id/command-center')
     .get(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(commandCenterParamsSchema), requireTrustDecision('order.read', loadOrderResource), authorizeOrderOwner('order.command_center.read'), getMyOrderCommandCenter);

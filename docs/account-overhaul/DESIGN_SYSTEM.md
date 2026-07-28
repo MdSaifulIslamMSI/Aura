@@ -122,6 +122,31 @@ Status uses text plus icon, never color alone. Live-region priority is proportio
 - Toast-only mutation feedback.
 - Disabled controls without an explanation when the user can resolve the condition.
 
+## Wave K implementation
+
+The integration branch now owns the Account Center presentation through the
+`account-center-experience` scope. It intentionally removes the legacy profile
+grid/radial backdrop and broad dark remapping selectors without changing
+checkout styling.
+
+- Light mode uses warm ivory canvas, deep ink text, visible warm-gray borders,
+  restrained bronze selection and nearly flat surfaces.
+- Dark mode uses a calm deep-green canvas and keeps structural borders visible.
+- The desktop rail, mobile section picker, route header, state notice and
+  section fallback share the same account-specific tokens and 12 px corner
+  scale.
+- Account controls target at least 44 by 44 px, a 3 px offset focus indicator,
+  reduced-motion behavior, forced-colors boundaries and single-column reflow.
+- Avatar images have explicit dimensions, and lazy section fallbacks preserve
+  content height to reduce layout shift.
+
+The static interface audit reports 0 high, 8 medium and 2 low heuristic
+findings. The medium findings were inspected and are `Card` symbol/fixture or
+intentional row/card-layout matches rather than eight confirmed nesting
+defects. The two low findings are deliberate tight tracking on a route display
+heading and numeric summary display. Authenticated visual comparison remains
+required before release.
+
 ## Responsive acceptance widths
 
 Visual and keyboard evidence is required at 320, 375, 390, 768, 1024, 1280, 1440, 1920, and 2560 px, plus 200% browser zoom and 400% text reflow where applicable.

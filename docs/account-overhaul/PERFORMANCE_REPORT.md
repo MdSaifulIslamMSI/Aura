@@ -40,9 +40,56 @@ The Account Center shell uses the existing utility layer rather than adding a ne
 2. The shared profile/dashboard compatibility read remains broader than the target summary contract.
 3. A 45-second active-window refresh still repeats the shared profile/dashboard read plus the active section's relevant reads.
 4. Settings and support remain mixed-responsibility components, although both are isolated lazy chunks.
-5. Orders request up to 100 records and do not use continuation.
-6. Large global style layers increase CSS parse/match cost and complicate safe removal.
-7. The route lacks authenticated network and interaction traces, so runtime latency remains unmeasured.
+5. Large global style layers increase CSS parse/match cost and complicate safe removal.
+6. The route lacks authenticated network and interaction traces, so runtime latency remains unmeasured.
+
+## Wave M implementation result
+
+All secondary Account Center sections are now lazy-loaded from the route-state
+boundary. Overview and the shell remain in the initial Profile chunk; Personal
+Info, Addresses, Orders, Rewards, Payments, Support, Notifications, Settings,
+Marketplace and Privacy load only when selected. A stable-dimension suspense
+fallback and keyed section error boundary keep loading/failure isolated.
+
+| Metric | Foundation result | Wave M result | Delta |
+|---|---:|---:|---:|
+| Initial JS gzip | 175.72 kB | 175.97 kB | +0.25 kB |
+| All JS gzip | 4,072.79 kB | 4,235.62 kB | +162.83 kB, primarily expanded locale catalogs |
+| Initial CSS gzip | 60.29 kB | 60.44 kB | +0.15 kB |
+| Total CSS gzip | 65.73 kB | 65.88 kB | +0.15 kB; within 66 kB cap |
+| Initial payload gzip | 243.42 kB | 243.82 kB | +0.40 kB |
+| Profile route chunk | 23.07 kB gzip | 16.91 kB gzip | -6.16 kB |
+| Largest Account feature chunk | 9.26 kB gzip | 11.82 kB gzip (Settings) | Below 45 kB feature cap |
+
+Wave I observed the Profile chunk at 27.04 kB gzip before the complete section
+split, making the current route chunk 10.13 kB smaller. Other Account chunks
+are 10.76 kB Support, 3.33 kB Addresses, 3.16 kB Payments, 2.99 kB Personal
+Info, 2.50 kB Privacy, 2.42 kB Rewards, 2.42 kB Marketplace, 2.37 kB
+Notifications and 1.32 kB Orders.
+
+## Wave N measurement overhead
+
+The Account Center now initializes native `PerformanceObserver` collectors only
+while the authenticated Profile route is mounted. LCP, INP and CLS are reported
+at most once per route lifetime on visibility change, page hide or unmount.
+Product events reuse the existing deferred diagnostic buffer and do not create
+a synchronous network request on the user-action path.
+
+The post-Wave N production budget remains effectively unchanged at 175.95 kB
+initial JS gzip, 65.88 kB total CSS, 60.44 kB initial CSS and 243.80 kB initial
+payload.
+The Profile chunk is 17.08 kB gzip, a 0.17 kB increase from Wave M and still
+12.20 kB below the audited baseline. The largest Account feature is Settings at
+11.87 kB gzip, below the 45 kB feature cap. All JS gzip is 4,237.59 kB; the
+pre-existing locale/admin cost remains outside the initial route.
+
+These figures prove static bundle cost only. Real p75 LCP/INP/CLS, sample
+delivery rate and instrumentation overhead still require authenticated staging
+traffic and constrained-device traces.
+
+The production build and repository bundle budget pass. The pre-existing
+ineffective English market-pack dynamic import and oversized admin-dashboard
+warnings remain outside this scoped Account Center change.
 
 ## Target budgets
 

@@ -11,6 +11,7 @@ const {
     updateUserProfile,
     getProfileDashboard,
     getRewards,
+    getAddresses,
     addAddress,
     updateAddress,
     deleteAddress,
@@ -18,11 +19,14 @@ const {
     deactivateSellerAccount,
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
+const { csrfTokenValidatorUnlessBearerAuth } = require('../middleware/csrfMiddleware');
 const validate = require('../middleware/validate');
 const {
     loginSchema,
     updateProfileSchema,
     addressSchema,
+    addressUpdateSchema,
+    addressDeleteSchema,
     activateSellerSchema,
     deactivateSellerSchema,
 } = require('../validators/userValidators');
@@ -47,7 +51,7 @@ router.post('/login', protect, loginLimiter, validate(loginSchema), loginUser); 
 router
     .route('/profile')
     .get(protect, getUserProfile) // Protected
-    .put(protect, validate(updateProfileSchema), updateUserProfile); // Protected
+    .put(protect, csrfTokenValidatorUnlessBearerAuth, validate(updateProfileSchema), updateUserProfile); // Protected
 
 router.get('/dashboard', protect, getProfileDashboard); // Protected
 router.get('/rewards', protect, getRewards); // Protected
@@ -59,9 +63,10 @@ router.post('/seller/deactivate', protect, validate(deactivateSellerSchema), dea
 
 
 // Address CRUD
-router.post('/addresses', protect, validate(addressSchema), addAddress);
-router.put('/addresses/:addressId', protect, validate(addressSchema), updateAddress);
-router.delete('/addresses/:addressId', protect, deleteAddress);
+router.get('/addresses', protect, getAddresses);
+router.post('/addresses', protect, csrfTokenValidatorUnlessBearerAuth, validate(addressSchema), addAddress);
+router.put('/addresses/:addressId', protect, csrfTokenValidatorUnlessBearerAuth, validate(addressUpdateSchema), updateAddress);
+router.delete('/addresses/:addressId', protect, csrfTokenValidatorUnlessBearerAuth, validate(addressDeleteSchema), deleteAddress);
 
 router.get('/wishlist', protect, getWishlist); // Protected
 router.put('/wishlist', protect, syncWishlist); // Protected

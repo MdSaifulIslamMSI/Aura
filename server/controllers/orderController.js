@@ -32,6 +32,8 @@ const AppError = require('../utils/AppError');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { assessFraudDecision } = require('../services/fraudDecisioningService');
+const { applyCartCommands, buildLegacyCartResponse } = require('../services/cartService');
+const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
 const ORDER_LIST_DEFAULT_LIMIT = 20;
 const ORDER_LIST_MAX_LIMIT = 100;
@@ -128,6 +130,36 @@ const buildAdminOrderFilter = (query = {}) => {
 
     const createdAfter = parseOrderListDate(query.createdAfter || query.from || query.dateFrom, 'createdAfter');
     const createdBefore = parseOrderListDate(query.createdBefore || query.to || query.dateTo, 'createdBefore');
+    if (createdAfter || createdBefore) {
+        filter.createdAt = {};
+        if (createdAfter) filter.createdAt.$gte = createdAfter;
+        if (createdBefore) filter.createdAt.$lte = createdBefore;
+    }
+
+    const search = String(query.search || '').trim();
+    if (search) {
+        if (mongoose.Types.ObjectId.isValid(search)) {
+            filter._id = new mongoose.Types.ObjectId(search);
+        } else {
+            filter.paymentIntentId = search;
+        }
+    }
+
+    return filter;
+};
+
+const buildCustomerOrderFilter = (userId, query = {}) => {
+    const filter = { user: userId };
+    const status = String(query.status || '').trim().toLowerCase();
+    if (status) {
+        if (!ORDER_STATUS_FILTERS.has(status)) {
+            throw new AppError('Invalid order status filter', 400);
+        }
+        filter.orderStatus = status;
+    }
+
+    const createdAfter = parseOrderListDate(query.createdAfter, 'createdAfter');
+    const createdBefore = parseOrderListDate(query.createdBefore, 'createdBefore');
     if (createdAfter || createdBefore) {
         filter.createdAt = {};
         if (createdAfter) filter.createdAt.$gte = createdAfter;
@@ -1414,13 +1446,117 @@ const updateOrderStatusAdmin = asyncHandler(async (req, res, next) => {
     });
 });
 
+// @desc    Download an owner-scoped order receipt
+// @route   GET /api/orders/:id/receipt
+// @access  Private
+const getMyOrderReceipt = asyncHandler(async (req, res, next) => {
+    const order = await Order.findOne({
+        _id: req.params.id,
+        user: req.user._id,
+    }).select(
+        'orderItems shippingAddress paymentMethod orderStatus paymentState '
+        + 'totalPrice totalPriceMinor presentmentTotalPrice presentmentCurrency '
+        + 'isPaid paidAt createdAt'
+    ).lean();
+    if (!order) return next(new AppError('Order not found', 404));
+
+    const receipt = {
+        version: 1,
+        orderId: String(order._id),
+        issuedAt: new Date().toISOString(),
+        orderedAt: order.createdAt,
+        status: order.orderStatus,
+        payment: {
+            method: order.paymentMethod,
+            state: order.paymentState || (order.isPaid ? 'paid' : 'pending'),
+            paidAt: order.paidAt || null,
+        },
+        amount: {
+            total: Number(order.presentmentTotalPrice ?? order.totalPrice ?? 0),
+            totalMinor: Number(order.totalPriceMinor || 0),
+            currency: order.presentmentCurrency || 'INR',
+        },
+        items: (order.orderItems || []).map((item) => ({
+            title: item.title,
+            quantity: Number(item.quantity || 0),
+            unitPrice: Number(item.price || 0),
+            unitPriceMinor: Number(item.priceMinor || 0),
+        })),
+        shippingAddress: order.shippingAddress,
+    };
+
+    res.set('Cache-Control', 'private, no-store');
+    res.attachment(`aura-receipt-${String(order._id)}.json`);
+    res.json(receipt);
+});
+
+// @desc    Reconstruct cart from an owned order
+// @route   POST /api/orders/:id/buy-again
+// @access  Private
+const buyOrderAgain = asyncHandler(async (req, res, next) => {
+    const idempotencyKey = getRequiredIdempotencyKey(req);
+    const order = await Order.findOne({
+        _id: req.params.id,
+        user: req.user._id,
+    })
+        .select('orderItems.product orderItems.quantity')
+        .populate('orderItems.product', 'id')
+        .lean();
+    if (!order) return next(new AppError('Order not found', 404));
+
+    const commands = (order.orderItems || [])
+        .map((item) => ({
+            type: 'add_item',
+            productId: Number(item?.product?.id || 0),
+            quantity: Math.max(1, Number(item?.quantity || 1)),
+        }))
+        .filter((command) => Number.isInteger(command.productId) && command.productId > 0);
+    if (commands.length === 0) {
+        return next(new AppError('No order items are currently available to buy again', 409));
+    }
+
+    const result = await applyCartCommands({
+        userId: req.user._id,
+        user: req.user,
+        expectedVersion: req.body?.expectedCartVersion,
+        clientMutationId: `buy-again:${String(order._id)}:${idempotencyKey}`,
+        commands,
+        market: req.market || null,
+    });
+    if (result.conflict) {
+        return res.status(409).json({
+            success: false,
+            code: 'CART_VERSION_CONFLICT',
+            cart: buildLegacyCartResponse(result.cart, req.market || null),
+        });
+    }
+
+    recordAuthSecurityEvent({
+        event: 'account.order.buy_again',
+        outcome: 'success',
+        reason: result.duplicate ? 'already_used' : 'user_requested',
+        surface: 'data',
+        req,
+        meta: {
+            itemCount: commands.length,
+            duplicate: Boolean(result.duplicate),
+        },
+    });
+
+    res.json({
+        success: true,
+        duplicate: Boolean(result.duplicate),
+        cart: buildLegacyCartResponse(result.cart, req.market || null),
+    });
+});
+
 // @desc    Get logged in user orders
 // @route   GET /api/orders/myorders
 // @access  Private
 const getMyOrders = asyncHandler(async (req, res) => {
     const response = await runOrderListQuery({
         req,
-        baseFilter: { user: req.user._id },
+        baseFilter: buildCustomerOrderFilter(req.user._id, req.query),
     });
     res.json(response);
 });
@@ -1453,6 +1589,8 @@ module.exports = {
     cancelOrder,
     cancelOrderAdmin,
     updateOrderStatusAdmin,
+    getMyOrderReceipt,
+    buyOrderAgain,
     getMyOrders,
     getOrders,
 };

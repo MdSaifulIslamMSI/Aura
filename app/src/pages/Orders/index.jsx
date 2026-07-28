@@ -4,11 +4,12 @@ import { orderApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
-import { Package, Clock, CheckCircle, ChevronDown, ChevronUp, Zap, Server, ShieldCheck, AlertTriangle, Loader2, MessageSquare, RefreshCw, ShieldAlert, Wallet, XCircle } from 'lucide-react';
+import { Package, Clock, CheckCircle, ChevronDown, ChevronUp, Zap, Server, ShieldCheck, AlertTriangle, Loader2, MessageSquare, RefreshCw, ShieldAlert, Wallet, XCircle, Download, RotateCcw, Search } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { ACCOUNT_TELEMETRY_EVENTS, trackAccountEvent } from '@/services/accountTelemetry';
 
 const getOrderStatusLabel = (orderMeta, t, intl) => {
     if (orderMeta.orderStatus === 'cancelled') {
@@ -77,9 +78,21 @@ const getPaymentStepIcon = (state) => {
     return Clock;
 };
 
+const EMPTY_ORDER_FILTERS = Object.freeze({
+    search: '',
+    status: '',
+    createdAfter: '',
+    createdBefore: '',
+});
+
 const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [loadError, setLoadError] = useState('');
+    const [pagination, setPagination] = useState({ hasMore: false, nextCursor: null });
+    const [draftFilters, setDraftFilters] = useState({ ...EMPTY_ORDER_FILTERS });
+    const [appliedFilters, setAppliedFilters] = useState({ ...EMPTY_ORDER_FILTERS });
     const { currentUser } = useContext(AuthContext);
     const { t: legacyT, formatPrice } = useMarket();
     const t = useStableIcuMessages(legacyT);
@@ -89,41 +102,71 @@ const Orders = () => {
     const focusOrderId = String(searchParams.get('focus') || '').trim();
     const shouldExpandFocus = searchParams.get('expand') === '1' || searchParams.get('support') === '1';
 
-    const refreshOrders = useCallback(async ({ silent = false } = {}) => {
+    const filtersActive = useMemo(
+        () => Object.values(appliedFilters).some((value) => Boolean(String(value || '').trim())),
+        [appliedFilters]
+    );
+
+    const refreshOrders = useCallback(async ({ silent = false, append = false, cursor = null } = {}) => {
         if (!currentUser?.uid) {
             setOrders([]);
             setLoading(false);
             return [];
         }
 
-        if (!silent) {
+        if (append) {
+            setLoadingMore(true);
+        } else if (!silent) {
             setLoading(true);
         }
+        setLoadError('');
 
         try {
-            const data = await orderApi.getMyOrders();
+            const data = await orderApi.getMyOrders({
+                cursor: cursor || undefined,
+                status: appliedFilters.status || undefined,
+                search: appliedFilters.search || undefined,
+                createdAfter: appliedFilters.createdAfter
+                    ? `${appliedFilters.createdAfter}T00:00:00.000Z`
+                    : undefined,
+                createdBefore: appliedFilters.createdBefore
+                    ? `${appliedFilters.createdBefore}T23:59:59.999Z`
+                    : undefined,
+            });
             const nextOrders = Array.isArray(data)
                 ? [...data]
                 : Array.isArray(data?.orders)
                     ? [...data.orders]
                     : [];
             const sortedOrders = nextOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            setOrders(sortedOrders);
+            setOrders((current) => {
+                if (!append) return sortedOrders;
+                const merged = new Map(current.map((order) => [String(order._id), order]));
+                sortedOrders.forEach((order) => merged.set(String(order._id), order));
+                return [...merged.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            });
+            setPagination({
+                hasMore: Boolean(data?.pagination?.hasMore),
+                nextCursor: data?.pagination?.nextCursor || null,
+            });
             return sortedOrders;
         } catch (error) {
             if (!silent || import.meta.env.DEV) {
                 console.error('Failed to fetch orders:', error);
             }
-            if (!silent) {
+            setLoadError(error.message || t('orders.error.load', {}, 'Unable to load orders'));
+            if (!silent && !append) {
                 setOrders([]);
             }
             return [];
         } finally {
-            if (!silent) {
+            if (append) {
+                setLoadingMore(false);
+            } else if (!silent) {
                 setLoading(false);
             }
         }
-    }, [currentUser?.uid]);
+    }, [appliedFilters, currentUser?.uid, t]);
 
     const orderSummary = useMemo(() => {
         const activeOrders = orders.filter((order) => {
@@ -141,30 +184,30 @@ const Orders = () => {
 
         return [
             {
-                label: t('orders.summary.active.label', {}, 'Active Orders'),
+                label: t('orders.summary.active.label', {}, 'Active Orders Loaded'),
                 value: activeOrders,
-                detail: t('orders.summary.active.detail', {}, 'Orders still moving through delivery or post-purchase handling.'),
+                detail: t('orders.summary.active.detail', {}, 'Active orders in the currently loaded results.'),
                 tone: 'text-neo-cyan',
                 icon: Clock,
             },
             {
-                label: t('orders.summary.delivered.label', {}, 'Delivered'),
+                label: t('orders.summary.delivered.label', {}, 'Delivered Loaded'),
                 value: deliveredOrders,
-                detail: t('orders.summary.delivered.detail', {}, 'Orders that have completed the delivery side of the lifecycle.'),
+                detail: t('orders.summary.delivered.detail', {}, 'Delivered orders in the currently loaded results.'),
                 tone: 'text-neo-emerald',
                 icon: CheckCircle,
             },
             {
-                label: t('orders.summary.payments.label', {}, 'Protected Payments'),
+                label: t('orders.summary.payments.label', {}, 'Paid Orders Loaded'),
                 value: protectedPayments,
-                detail: t('orders.summary.payments.detail', {}, 'Orders already marked paid by the backend payment state.'),
+                detail: t('orders.summary.payments.detail', {}, 'Loaded orders marked paid by the backend payment state.'),
                 tone: 'text-amber-300',
                 icon: ShieldCheck,
             },
             {
-                label: t('orders.summary.spend.label', {}, 'Total Spend'),
+                label: t('orders.summary.spend.label', {}, 'Loaded Spend'),
                 value: formatPrice(totalSpend),
-                detail: t('orders.summary.spend.detail', {}, 'Lifetime order value visible from this command center session.'),
+                detail: t('orders.summary.spend.detail', {}, 'Order value from the currently loaded results, not a lifetime total.'),
                 tone: 'text-white',
                 icon: Wallet,
             },
@@ -217,7 +260,7 @@ const Orders = () => {
         );
     }
 
-    if (orders.length === 0) {
+    if (orders.length === 0 && !filtersActive && !loadError) {
         return (
             <div className="orders-theme-shell min-h-[80vh] flex items-center justify-center relative overflow-hidden">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(80vw,600px)] h-[min(80vw,600px)] bg-neo-fuchsia/5 rounded-full blur-[150px] pointer-events-none -z-10" />
@@ -252,6 +295,97 @@ const Orders = () => {
                         <p className="mt-2 text-sm text-slate-400">{t('orders.subtitle', {}, 'Track delivery, payment, refund, replacement, and support actions from one persistent surface.')}</p>
                     </div>
                 </div>
+
+                <form
+                    className="mb-8 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-glass"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        const nextFilters = {
+                            ...draftFilters,
+                            search: draftFilters.search.trim(),
+                        };
+                        setAppliedFilters(nextFilters);
+                        trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.ORDER_SEARCHED, {
+                            hasQuery: Boolean(nextFilters.search),
+                            status: nextFilters.status,
+                            hasDateRange: Boolean(nextFilters.createdAfter || nextFilters.createdBefore),
+                        });
+                    }}
+                >
+                    <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.24em] text-neo-cyan">
+                        <Search className="h-4 w-4" />
+                        {t('orders.filters.title', {}, 'Filter Order History')}
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <label className="text-sm font-bold text-slate-300">
+                            <span className="mb-2 block">{t('orders.filters.search', {}, 'Order or payment ID')}</span>
+                            <input
+                                type="search"
+                                value={draftFilters.search}
+                                onChange={(event) => setDraftFilters((current) => ({ ...current, search: event.target.value }))}
+                                className="w-full rounded-xl border border-white/10 bg-zinc-950/70 px-3 py-2.5 text-white"
+                                maxLength={100}
+                            />
+                        </label>
+                        <label className="text-sm font-bold text-slate-300">
+                            <span className="mb-2 block">{t('orders.filters.status', {}, 'Status')}</span>
+                            <select
+                                value={draftFilters.status}
+                                onChange={(event) => setDraftFilters((current) => ({ ...current, status: event.target.value }))}
+                                className="w-full rounded-xl border border-white/10 bg-zinc-950/70 px-3 py-2.5 text-white"
+                            >
+                                <option value="">{t('orders.filters.statusAll', {}, 'All statuses')}</option>
+                                <option value="placed">{t('orders.filters.statusPlaced', {}, 'Placed')}</option>
+                                <option value="processing">{t('orders.filters.statusProcessing', {}, 'Processing')}</option>
+                                <option value="shipped">{t('orders.filters.statusShipped', {}, 'Shipped')}</option>
+                                <option value="delivered">{t('orders.filters.statusDelivered', {}, 'Delivered')}</option>
+                                <option value="cancelled">{t('orders.filters.statusCancelled', {}, 'Cancelled')}</option>
+                            </select>
+                        </label>
+                        <label className="text-sm font-bold text-slate-300">
+                            <span className="mb-2 block">{t('orders.filters.from', {}, 'From date')}</span>
+                            <input
+                                type="date"
+                                value={draftFilters.createdAfter}
+                                onChange={(event) => setDraftFilters((current) => ({ ...current, createdAfter: event.target.value }))}
+                                className="w-full rounded-xl border border-white/10 bg-zinc-950/70 px-3 py-2.5 text-white"
+                            />
+                        </label>
+                        <label className="text-sm font-bold text-slate-300">
+                            <span className="mb-2 block">{t('orders.filters.to', {}, 'To date')}</span>
+                            <input
+                                type="date"
+                                value={draftFilters.createdBefore}
+                                onChange={(event) => setDraftFilters((current) => ({ ...current, createdBefore: event.target.value }))}
+                                className="w-full rounded-xl border border-white/10 bg-zinc-950/70 px-3 py-2.5 text-white"
+                            />
+                        </label>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                        <button type="submit" className="btn-primary px-5 py-2.5">
+                            {t('orders.filters.apply', {}, 'Apply Filters')}
+                        </button>
+                        <button
+                            type="button"
+                            className="rounded-xl border border-white/15 px-5 py-2.5 text-sm font-bold text-slate-200"
+                            onClick={() => {
+                                setDraftFilters({ ...EMPTY_ORDER_FILTERS });
+                                setAppliedFilters({ ...EMPTY_ORDER_FILTERS });
+                            }}
+                        >
+                            {t('orders.filters.clear', {}, 'Clear Filters')}
+                        </button>
+                    </div>
+                </form>
+
+                {loadError && (
+                    <div role="alert" className="mb-8 rounded-2xl border border-neo-rose/35 bg-neo-rose/10 p-4 text-neo-rose">
+                        <p>{loadError}</p>
+                        <button type="button" className="mt-3 font-black underline" onClick={() => refreshOrders()}>
+                            {t('orders.error.retry', {}, 'Retry')}
+                        </button>
+                    </div>
+                )}
 
                 <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     {orderSummary.map((item) => (
@@ -291,6 +425,12 @@ const Orders = () => {
                 </section>
 
                 <div className="space-y-6">
+                    {orders.length === 0 && filtersActive && (
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-8 text-center text-slate-300">
+                            <Package className="mx-auto mb-3 h-8 w-8 text-slate-500" />
+                            {t('orders.filters.empty', {}, 'No orders match these filters.')}
+                        </div>
+                    )}
                     {orders.map((order) => (
                         <OrderCard
                             key={order._id}
@@ -298,6 +438,18 @@ const Orders = () => {
                             autoExpand={shouldExpandFocus && String(order._id) === focusOrderId}
                         />
                     ))}
+                    {pagination.hasMore && pagination.nextCursor && (
+                        <button
+                            type="button"
+                            className="w-full rounded-2xl border border-neo-cyan/30 bg-neo-cyan/10 px-5 py-4 font-black text-neo-cyan"
+                            disabled={loadingMore}
+                            onClick={() => refreshOrders({ append: true, cursor: pagination.nextCursor })}
+                        >
+                            {loadingMore
+                                ? t('orders.pagination.loading', {}, 'Loading more orders...')
+                                : t('orders.pagination.more', {}, 'Load More Orders')}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -309,6 +461,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
     const { t: legacyT, formatDateTime, formatPrice } = useMarket();
     const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
+    const navigate = useNavigate();
     const [orderMeta, setOrderMeta] = useState({
         orderStatus: order.orderStatus || (order.isDelivered ? 'delivered' : 'placed'),
         isDelivered: Boolean(order.isDelivered),
@@ -321,6 +474,9 @@ export const OrderCard = ({ order, autoExpand = false }) => {
     const [commandLoading, setCommandLoading] = useState(false);
     const [commandError, setCommandError] = useState('');
     const [commandSubmitting, setCommandSubmitting] = useState('');
+    const [orderAction, setOrderAction] = useState('');
+    const [orderActionStatus, setOrderActionStatus] = useState('');
+    const [orderActionError, setOrderActionError] = useState('');
     const [commandInput, setCommandInput] = useState({
         cancelReason: '',
         refundReason: '',
@@ -574,6 +730,9 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                     amount: commandInput.refundAmount ? Number(commandInput.refundAmount) : undefined,
                 });
                 setCommandInput((prev) => ({ ...prev, refundReason: '', refundAmount: '' }));
+                trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.RETURN_STARTED, {
+                    resolution: 'refund',
+                });
             } else if (type === 'replace') {
                 const firstItem = order.orderItems?.[0];
                 await orderApi.requestReplacement(order._id, {
@@ -582,6 +741,9 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                     itemTitle: firstItem?.title,
                 });
                 setCommandInput((prev) => ({ ...prev, replaceReason: '' }));
+                trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.RETURN_STARTED, {
+                    resolution: 'replacement',
+                });
             } else if (type === 'support') {
                 await orderApi.sendSupportMessage(order._id, {
                     message: commandInput.supportMessage || t('orders.command.support.defaultMessage', {}, 'Need help with this order.'),
@@ -601,6 +763,47 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             setCommandError(error.message || t('orders.command.error.action', {}, 'Command center action failed'));
         } finally {
             setCommandSubmitting('');
+        }
+    };
+
+    const downloadReceipt = async () => {
+        setOrderAction('receipt');
+        setOrderActionError('');
+        setOrderActionStatus('');
+        try {
+            const receipt = await orderApi.getReceipt(order._id);
+            const blob = new Blob([JSON.stringify(receipt, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `aura-receipt-${order._id}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+            setOrderActionStatus(t('orders.actions.receiptReady', {}, 'Receipt downloaded.'));
+        } catch (error) {
+            setOrderActionError(error.message || t('orders.actions.receiptError', {}, 'Unable to download receipt.'));
+        } finally {
+            setOrderAction('');
+        }
+    };
+
+    const buyAgain = async () => {
+        setOrderAction('buyAgain');
+        setOrderActionError('');
+        setOrderActionStatus('');
+        try {
+            await orderApi.buyAgain(order._id);
+            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.BUY_AGAIN_SELECTED, {
+                itemCount: order.orderItems?.length,
+            });
+            setOrderActionStatus(t('orders.actions.buyAgainReady', {}, 'Available items were added to your cart.'));
+            navigate('/cart');
+        } catch (error) {
+            setOrderActionError(error.message || t('orders.actions.buyAgainError', {}, 'Unable to add this order to your cart.'));
+        } finally {
+            setOrderAction('');
         }
     };
 
@@ -697,6 +900,43 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                                 </span>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5">
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                type="button"
+                                className="flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-black text-white"
+                                disabled={Boolean(orderAction)}
+                                onClick={downloadReceipt}
+                            >
+                                {orderAction === 'receipt'
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : <Download className="h-4 w-4" />}
+                                {t('orders.actions.receipt', {}, 'Download Receipt')}
+                            </button>
+                            <button
+                                type="button"
+                                className="flex items-center gap-2 rounded-xl border border-neo-cyan/30 bg-neo-cyan/10 px-4 py-2.5 text-sm font-black text-neo-cyan"
+                                disabled={Boolean(orderAction)}
+                                onClick={buyAgain}
+                            >
+                                {orderAction === 'buyAgain'
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : <RotateCcw className="h-4 w-4" />}
+                                {t('orders.actions.buyAgain', {}, 'Buy Again')}
+                            </button>
+                        </div>
+                        {orderActionStatus && (
+                            <p role="status" aria-live="polite" className="mt-3 text-sm text-neo-emerald">
+                                {orderActionStatus}
+                            </p>
+                        )}
+                        {orderActionError && (
+                            <p role="alert" className="mt-3 text-sm text-neo-rose">
+                                {orderActionError}
+                            </p>
+                        )}
                     </div>
 
                     <div className="mt-8 bg-white/5 p-6 rounded-2xl border border-white/10">

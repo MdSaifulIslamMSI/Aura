@@ -5,8 +5,10 @@ const {
     listBrowserSessionsForUser,
     revokeBrowserSessionForUserByPublicId,
     revokeOtherBrowserSessionsForUser,
+    revokeBrowserSessionsForUser,
 } = require('../services/browserSessionService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { listAccountSecurityActivity } = require('../services/accountSecurityActivityService');
 
 const getAuthenticatedUserId = (req = {}) => String(req.user?._id || '').trim();
 const getCurrentSessionId = (req = {}) => String(req.authSession?.sessionId || '').trim();
@@ -83,8 +85,40 @@ const revokeOtherAccountSessions = asyncHandler(async (req, res, next) => {
     });
 });
 
+const revokeAllAccountSessions = asyncHandler(async (req, res) => {
+    const result = await revokeBrowserSessionsForUser(getAuthenticatedUserId(req));
+    clearBrowserSessionCookie(res, req);
+
+    recordAuthSecurityEvent({
+        event: 'auth.sessions.all_revoked_by_user',
+        outcome: 'success',
+        reason: 'user_requested',
+        surface: 'account_security',
+        req,
+        meta: { revokedCount: result.revoked },
+    });
+
+    return res.status(200).json({
+        success: true,
+        status: 'all_sessions_revoked',
+        revoked: result.revoked,
+    });
+});
+
+const getAccountSecurityActivity = asyncHandler(async (req, res) => {
+    const result = await listAccountSecurityActivity({
+        userId: getAuthenticatedUserId(req),
+        limit: req.query?.limit,
+        cursor: req.query?.cursor,
+    });
+    res.set('Cache-Control', 'private, no-store');
+    return res.status(200).json(result);
+});
+
 module.exports = {
     getAccountSessions,
+    getAccountSecurityActivity,
     revokeAccountSession,
+    revokeAllAccountSessions,
     revokeOtherAccountSessions,
 };

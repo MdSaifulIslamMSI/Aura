@@ -30,8 +30,21 @@ const revokeOtherAccountSessionsSchema = z.object({
     query: emptyQuerySchema,
 }).strict();
 
+const revokeAllAccountSessionsSchema = revokeOtherAccountSessionsSchema;
+
+const getAccountSecurityActivitySchema = z.object({
+    body: emptyBodySchema,
+    params: z.object({}).strict().optional(),
+    query: z.object({
+        limit: z.coerce.number().int().min(1).max(50).optional(),
+        cursor: z.string().trim().min(1).max(180).optional(),
+    }).strict().optional(),
+}).strict();
+
 module.exports = {
     getAccountSessionsSchema,
+    getAccountSecurityActivitySchema,
     revokeAccountSessionSchema,
+    revokeAllAccountSessionsSchema,
     revokeOtherAccountSessionsSchema,
 };

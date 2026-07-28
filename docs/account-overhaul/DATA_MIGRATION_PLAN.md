@@ -23,18 +23,16 @@ Add:
 
 ```text
 avatarMedia:
-  objectKey
-  version
-  contentType
-  byteSize
+  storageKey
+  storageDriver
+  mimeType
+  sizeBytes
   width
   height
-  checksum
-  scanStatus
   updatedAt
 ```
 
-Keep legacy `avatar` readable during migration. New writes use `avatarMedia` only after the feature flag is enabled. The public serializer prefers finalized media and falls back to a validated legacy avatar.
+Keep legacy `avatar` readable during migration. The secure upload/finalize path writes a durable media URL to `avatar` and stores the server-generated key and derived metadata in `avatarMedia`; no bucket name, client key, ACL, source metadata, or raw image bytes are stored there. Existing profile writes remain available during the compatibility window, while the Account Center UI uses only the object-media path.
 
 Resolve the current bio constraint mismatch before backfill. The safer default is the existing database maximum of 200 characters unless product explicitly approves a schema expansion. Do not silently truncate existing values.
 
@@ -61,40 +59,29 @@ Indexes:
 
 ### Privacy jobs
 
-Add dedicated records:
+The additive `AccountPrivacyJob` record now provides the disabled-by-default lifecycle queue:
 
 ```text
-AccountExportJob
+AccountPrivacyJob
   user
+  type (export, deactivation, deletion)
   status
-  scopeVersion
-  requestedAt
-  completedAt
-  expiresAt
-  delivery
-  artifactKey
-  failureCode
-
-AccountDeletionRequest
-  user
-  status
+  idempotencyHash (not selected)
+  policyVersion
+  manifestVersion
   requestedAt
   graceEndsAt
-  cancelledAt
-  legalHolds
   completedAt
-  policyVersion
-
-AccountLifecycleAudit
-  user
-  event
-  actorType
-  policyVersion
-  timestamp
-  metadata (allowlisted)
+  exportExpiresAt
+  artifactKeyEncrypted (not selected)
+  attempts
+  lockedAt
+  workerId (not selected)
+  cancelledAt
+  failureCode
 ```
 
-Indexes must cover user/status/time operations and TTL only for disposable delivery artifacts or completed outbox work. TTL must never drive legal erasure of durable evidence.
+Indexes cover unique owner/type/idempotency, owner/type history, and worker status/time claims. No TTL applies to the durable job or legal evidence. Disposable encrypted artifacts need a separate retention cleanup after policy approval; TTL must never drive legal erasure of durable evidence.
 
 ### Security activity
 
@@ -110,6 +97,32 @@ Introduce a server-side maximum for new writes only after inventorying current a
 - Quarantine invalid historical records for support review rather than guessing missing fields.
 
 ## Migration phases
+
+## Account Center V2 schema-version migration
+
+Wave J adds the executable, additive migration contract:
+
+- `npm --prefix server run migrate:account-center-v2 -- --mode=audit --run-id=<safe-id>` records a count-only audit without modifying users or building indexes.
+- Apply mode additionally requires `--execute`, `ACCOUNT_CENTER_MIGRATION_APPLY_ENABLED=true`, an operator, change ticket, backup evidence, and an immutable 40-character rollback SHA.
+- Apply runs write `accountCenterSchemaVersion: 2` only when the field is absent or below version 2.
+- Work is bounded by batch size, maximum batches, delay, and a stable `_id` checkpoint.
+- Paused or failed runs resume with an idempotent repair pass so concurrent inserts or earlier partial failures cannot remain behind the checkpoint.
+- Run evidence records counts, status, checkpoint, safe failure code, approvals, and observed index names. It never records customer values or database error text.
+- `npm --prefix server run verify:account-center-queries` verifies required index inventory.
+- `npm --prefix server run verify:account-center-queries -- --explain --owner-id=<staging-fixture-id>` adds redacted execution statistics for the four owner-history queries and never prints the owner ID.
+
+Required additive owner-history indexes are named:
+
+```text
+listing_owner_history
+product_review_owner_history
+trade_in_owner_history
+price_alert_owner_history
+```
+
+Privacy job idempotency, owner-history, and worker-queue indexes are also included in the migration evidence.
+
+The local implementation and dry-run help contract are verified. No staging snapshot audit, index build, query-plan explain, backup restore, or apply run has been performed yet.
 
 ### Phase 1: inventory
 
@@ -135,9 +148,9 @@ Do not print personal values. Emit aggregate counts and opaque record IDs only t
 
 ### Phase 3: shadow writes
 
-- New avatar finalize writes the new media field and preserves legacy read fallback.
+- New avatar finalize writes the new media field and durable URL while preserving legacy read fallback.
 - Notification preference writes use the new record while the old UI remains read-only or dual-read.
-- Lifecycle job models remain unreachable until policy approval.
+- Lifecycle mutation routes and workers remain fail-closed until policy approval and every encrypted-delivery runtime contract is present.
 - Compare new and legacy serializers in non-user-visible telemetry without logging personal values.
 
 ### Phase 4: bounded backfill
@@ -184,9 +197,12 @@ Legacy field removal is not part of the initial overhaul rollout.
 - Dry-run in a production-like snapshot with personal data protected.
 - Batch pause/resume and duplicate-run test.
 - Object checksum and scan verification for avatar migration.
+- Dry-run and execute tests for stale quarantine and unreferenced final-object cleanup.
 - Query plans before/after each index.
 - Backup restore and forward-fix rehearsal.
 - Metrics for processed, skipped, quarantined, failed, lag, latency, and storage growth.
+
+Wave J focused verification currently covers audit non-mutation, apply authorization gates, bounded pause/resume, repair-pass behavior, safe failure recording, CLI parsing, schema defaults, index declarations, and redacted query-plan evidence: 4 Jest suites and 16 tests pass. Database-backed mixed-document rehearsal and live explain evidence remain staging gates.
 
 ## Blocked policy decisions
 

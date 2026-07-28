@@ -94,4 +94,31 @@ describe('clientObservability ingestion', () => {
         await expect(flushBufferedClientDiagnostics()).resolves.toBe(false);
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    it('transports Account events with only the typed privacy-safe envelope', async () => {
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(JSON.stringify({ status: 'accepted', accepted: 1 }), {
+                status: 202,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        );
+
+        initClientObservability();
+        pushClientDiagnostic('account.profile_updated', {
+            context: { changedFields: ['name'] },
+            sessionId: 'must-not-be-transported',
+            url: '/profile?email=private@example.com',
+        }, 'info');
+
+        await flushBufferedClientDiagnostics({ force: true });
+
+        const payload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body || '{}'));
+        expect(payload.events[0]).toEqual({
+            type: 'account.profile_updated',
+            timestamp: expect.any(String),
+            context: { changedFields: ['name'] },
+        });
+        expect(JSON.stringify(payload.events[0])).not.toContain('must-not-be-transported');
+        expect(JSON.stringify(payload.events[0])).not.toContain('private@example.com');
+    });
 });

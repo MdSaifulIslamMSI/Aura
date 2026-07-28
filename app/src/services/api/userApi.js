@@ -8,6 +8,14 @@ const profileCache = {
     value: null,
     cachedAt: 0,
     promise: null,
+    promiseKey: '',
+};
+const accountOverviewCache = {
+    key: '',
+    value: null,
+    cachedAt: 0,
+    promise: null,
+    promiseKey: '',
 };
 
 const getProfileCacheKey = (firebaseUser = null) => {
@@ -21,6 +29,12 @@ const invalidateProfileCache = () => {
     profileCache.value = null;
     profileCache.cachedAt = 0;
     profileCache.promise = null;
+    profileCache.promiseKey = '';
+    accountOverviewCache.key = '';
+    accountOverviewCache.value = null;
+    accountOverviewCache.cachedAt = 0;
+    accountOverviewCache.promise = null;
+    accountOverviewCache.promiseKey = '';
 };
 
 const normalizeCartPayload = (payload = {}) => {
@@ -166,20 +180,100 @@ export const userApi = {
             return profileCache.value;
         }
 
-        if (profileCache.promise) return profileCache.promise;
+        if (profileCache.promise && profileCache.promiseKey === cacheKey) {
+            return profileCache.promise;
+        }
 
-        profileCache.promise = (async () => {
+        let requestPromise;
+        const request = async () => {
             const headers = await getAuthHeader(firebaseUser);
             const { data } = await apiFetch('/users/profile', { headers });
-            profileCache.value = data;
-            profileCache.cachedAt = Date.now();
-            profileCache.key = cacheKey;
+            if (profileCache.promise === requestPromise && profileCache.promiseKey === cacheKey) {
+                profileCache.value = data;
+                profileCache.cachedAt = Date.now();
+                profileCache.key = cacheKey;
+            }
             return data;
-        })().finally(() => {
-            profileCache.promise = null;
+        };
+        requestPromise = request();
+        profileCache.promise = requestPromise;
+        profileCache.promiseKey = cacheKey;
+        requestPromise.then(() => {
+            if (profileCache.promise === requestPromise) {
+                profileCache.promise = null;
+                profileCache.promiseKey = '';
+            }
+        }, () => {
+            if (profileCache.promise === requestPromise) {
+                profileCache.promise = null;
+                profileCache.promiseKey = '';
+            }
         });
 
-        return profileCache.promise;
+        return requestPromise;
+    },
+    getAccountOverview: async (options = {}) => {
+        const { firebaseUser, force, cacheMs = PROFILE_CACHE_TTL_MS } = coerceProfileOptions(options);
+        const cacheKey = getProfileCacheKey(firebaseUser);
+        const cacheAge = Date.now() - accountOverviewCache.cachedAt;
+
+        if (
+            !force
+            && accountOverviewCache.key === cacheKey
+            && accountOverviewCache.value
+            && cacheAge < cacheMs
+        ) {
+            return accountOverviewCache.value;
+        }
+
+        if (accountOverviewCache.promise && accountOverviewCache.promiseKey === cacheKey) {
+            return accountOverviewCache.promise;
+        }
+
+        let requestPromise;
+        const request = async () => {
+            const headers = await getAuthHeader(firebaseUser);
+            const { data } = await apiFetch('/account/summary', { headers });
+            if (
+                accountOverviewCache.promise === requestPromise
+                && accountOverviewCache.promiseKey === cacheKey
+            ) {
+                accountOverviewCache.value = data;
+                accountOverviewCache.cachedAt = Date.now();
+                accountOverviewCache.key = cacheKey;
+            }
+            return data;
+        };
+        requestPromise = request();
+        accountOverviewCache.promise = requestPromise;
+        accountOverviewCache.promiseKey = cacheKey;
+        requestPromise.then(() => {
+            if (accountOverviewCache.promise === requestPromise) {
+                accountOverviewCache.promise = null;
+                accountOverviewCache.promiseKey = '';
+            }
+        }, () => {
+            if (accountOverviewCache.promise === requestPromise) {
+                accountOverviewCache.promise = null;
+                accountOverviewCache.promiseKey = '';
+            }
+        });
+
+        return requestPromise;
+    },
+    getAccountPreferences: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/account/preferences', { headers });
+        return data?.preferences || null;
+    },
+    updateAccountPreferences: async (payload) => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/account/preferences', {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(payload),
+        });
+        return data?.preferences || null;
     },
     updateProfile: async (payload) => {
         const headers = await getAuthHeader();
@@ -416,6 +510,11 @@ export const userApi = {
         }
         throw lastError || new Error('Failed to deactivate seller mode');
     },
+    getAddresses: async () => {
+        const headers = await getAuthHeader();
+        const { data } = await apiFetch('/users/addresses', { headers });
+        return data;
+    },
     addAddress: async (payload) => {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/users/addresses', {
@@ -446,5 +545,8 @@ export const userApi = {
         const headers = await getAuthHeader();
         const { data } = await apiFetch('/users/dashboard', { headers });
         return data;
-    }
+    },
+    clearAccountCache: () => {
+        invalidateProfileCache();
+    },
 };

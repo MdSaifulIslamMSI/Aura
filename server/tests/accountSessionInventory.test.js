@@ -31,9 +31,12 @@ describe('account browser-session inventory', () => {
 
     const createSession = (service, user, { userAgent, authUid }) => service.createBrowserSession({
         req: {
+            ip: '203.0.113.42',
             headers: {
                 host: 'localhost:5173',
                 'user-agent': userAgent,
+                cookie: 'non_auth_cookie=session-cookie-sentinel',
+                'x-device-fingerprint': 'device-fingerprint-sentinel',
             },
             secure: false,
         },
@@ -79,6 +82,15 @@ describe('account browser-session inventory', () => {
             os: 'Windows',
         });
         expect(sessions[0].id).toMatch(/^[A-Za-z0-9_-]{43}$/);
+        expect(Object.keys(sessions[0]).sort()).toEqual([
+            'client',
+            'createdAt',
+            'current',
+            'expiresAt',
+            'id',
+            'lastActiveAt',
+            'os',
+        ]);
 
         const serialized = JSON.stringify(sessions);
         expect(serialized).not.toContain(current.sessionId);
@@ -88,6 +100,11 @@ describe('account browser-session inventory', () => {
         expect(serialized).not.toContain('trusted-device-private-id');
         expect(serialized).not.toContain('firebase-session-owner');
         expect(serialized).not.toContain('otp');
+        expect(serialized).not.toContain('Mozilla/5.0');
+        expect(serialized).not.toContain('203.0.113.42');
+        expect(serialized).not.toContain('session-cookie-sentinel');
+        expect(serialized).not.toContain('device-fingerprint-sentinel');
+        expect(serialized).not.toContain('{test:auth}:session:');
     });
 
     test('resolves a public alias only inside the authenticated user inventory', async () => {

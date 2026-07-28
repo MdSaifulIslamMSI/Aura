@@ -97,6 +97,10 @@ listingSchema.index({ category: 1, status: 1, createdAt: -1 });         // Brows
 listingSchema.index({ 'location.city': 1, status: 1, createdAt: -1 }); // Browse by city
 listingSchema.index({ 'location.latitude': 1, 'location.longitude': 1, status: 1 }); // GPS proximity helpers
 listingSchema.index({ seller: 1, status: 1 });                          // Seller's listings
+listingSchema.index(
+    { seller: 1, createdAt: -1, _id: -1 },
+    { name: 'listing_owner_history' }
+);
 listingSchema.index({ status: 1, source: 1, createdAt: -1 });           // Real-only marketplace path
 listingSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 24 * 3600 }); // Auto-expire 60 days
 

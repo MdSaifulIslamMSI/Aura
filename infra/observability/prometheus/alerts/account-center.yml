@@ -1,0 +1,90 @@
+groups:
+  - name: aura-account-center
+    rules:
+      - alert: AuraAccountOperationFailureBurst
+        expr: sum(increase(aura_account_operations_total{outcome="failed"}[10m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          domain: account-center
+          runbook: account-center-observability
+        annotations:
+          summary: Account Center operations are failing
+          description: More than five instrumented Account Center operations failed in ten minutes.
+
+      - alert: AuraAccountSessionRevocationFailure
+        expr: sum(increase(aura_account_operations_total{operation=~"session_revoke_.*",outcome="failed"}[10m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          domain: account-security
+          runbook: account-center-observability
+        annotations:
+          summary: Account session revocation failed
+          description: At least one Account Center session-revocation operation failed in ten minutes.
+
+      - alert: AuraAccountPrivacyJobFailure
+        expr: sum(increase(aura_account_privacy_job_transitions_total{state="failed"}[15m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          domain: account-privacy
+          runbook: account-center-observability
+        annotations:
+          summary: Account privacy background job failed
+          description: An export, deactivation, or deletion job entered the failed state.
+
+      - alert: AuraAccountClientErrorBurst
+        expr: sum(increase(aura_client_diagnostics_total{severity=~"warn|error"}[10m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+          domain: account-center
+          runbook: account-center-observability
+        annotations:
+          summary: Client diagnostic volume is elevated
+          description: More than twenty bounded warning or error diagnostics were ingested in ten minutes.
+
+      - alert: AuraAccountLcpP75BudgetExceeded
+        expr: histogram_quantile(0.75, sum by (le) (rate(aura_account_web_vital_lcp_seconds_bucket[15m]))) > 2.5 and sum(increase(aura_account_web_vital_lcp_seconds_count[15m])) >= 20
+        for: 10m
+        labels:
+          severity: warning
+          domain: account-performance
+          runbook: account-center-observability
+        annotations:
+          summary: Account Center LCP p75 exceeds 2.5 seconds
+          description: The Account Center LCP p75 budget is exceeded with at least twenty samples.
+
+      - alert: AuraAccountInpP75BudgetExceeded
+        expr: histogram_quantile(0.75, sum by (le) (rate(aura_account_web_vital_inp_seconds_bucket[15m]))) > 0.2 and sum(increase(aura_account_web_vital_inp_seconds_count[15m])) >= 20
+        for: 10m
+        labels:
+          severity: warning
+          domain: account-performance
+          runbook: account-center-observability
+        annotations:
+          summary: Account Center INP p75 exceeds 200 milliseconds
+          description: The Account Center INP p75 budget is exceeded with at least twenty samples.
+
+      - alert: AuraAccountClsP75BudgetExceeded
+        expr: histogram_quantile(0.75, sum by (le) (rate(aura_account_web_vital_cls_ratio_bucket[15m]))) > 0.1 and sum(increase(aura_account_web_vital_cls_ratio_count[15m])) >= 20
+        for: 10m
+        labels:
+          severity: warning
+          domain: account-performance
+          runbook: account-center-observability
+        annotations:
+          summary: Account Center CLS p75 exceeds 0.1
+          description: The Account Center CLS p75 budget is exceeded with at least twenty samples.
+
+      - alert: AuraAccountMigrationFailure
+        expr: sum(increase(aura_account_migration_runs_total{status="failed"}[30m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          domain: account-migration
+          runbook: account-center-observability
+        annotations:
+          summary: Account Center migration failed
+          description: An Account Center audit or apply migration run failed in the last thirty minutes.

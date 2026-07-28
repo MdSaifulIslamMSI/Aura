@@ -56,7 +56,10 @@
     "wipe:firebase-auth": "node scripts/wipe_firebase_auth_users.js",
     "migrate:otp-session-identity": "node scripts/migrate_otp_session_identity_key.js",
     "migrate:trusted-device-v2": "node scripts/trusted_device_v2_migration.js",
-    "migrate:admin-security-v2": "node scripts/migrate_admin_security_v2.js"
+    "migrate:admin-security-v2": "node scripts/migrate_admin_security_v2.js",
+    "avatar:cleanup": "node scripts/cleanup_avatar_media.js",
+    "migrate:account-center-v2": "node scripts/migrate_account_center_v2.js",
+    "verify:account-center-queries": "node scripts/verify_account_center_queries.js"
   },
   "keywords": [],
   "author": "",
@@ -90,6 +93,7 @@
     "qrcode": "^1.5.4",
     "redis": "^5.12.1",
     "resend": "^4.1.2",
+    "sharp": "0.35.3",
     "socket.io": "^4.8.1",
     "stripe": "^22.1.0",
     "svix": "^1.92.2",

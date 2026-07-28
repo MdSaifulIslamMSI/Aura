@@ -13,6 +13,7 @@ validate_staging_admin_security_phase
 
 release_sha="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || die "Staging deploy requires a full lowercase source commit SHA"
+[[ "$STAGING_SWAP_GB" =~ ^[1-9][0-9]*$ ]] || die "STAGING_SWAP_GB must be a positive integer"
 
 [ -f "$STATE_DIR/ssh_config" ] || die "Missing $STATE_DIR/ssh_config. Run 06-render-ssh-config.sh first."
 if [ -z "${STAGING_BACKEND_IMAGE:-}" ] && [ ! -f "$REPO_ROOT/server/Dockerfile" ]; then
@@ -80,6 +81,11 @@ if [[ "$mongo_uri" != *"replicaSet=rs0"* ]]; then
   fi
 fi
 jwt_secret="$(ssm_get JWT_SECRET)"
+session_secret="$(ssm_get SESSION_SECRET)"
+session_hash_secret="$(ssm_get SESSION_HASH_SECRET)"
+account_cursor_signing_secret="$(ssm_get ACCOUNT_CURSOR_SIGNING_SECRET)"
+observability_hash_secret="$(ssm_get OBSERVABILITY_HASH_SECRET)"
+metrics_secret="$(ssm_get METRICS_SECRET)"
 postgres_password="$(ssm_get POSTGRES_PASSWORD)"
 otp_flow_secret="$(ssm_get OTP_FLOW_SECRET)"
 otp_challenge_secret="$(ssm_get OTP_CHALLENGE_SECRET)"
@@ -257,6 +263,11 @@ AWS_PARAMETER_STORE_PATH_PREFIX=$STAGING_SSM_PREFIX
 AWS_REGION=$AWS_REGION
 S3_BUCKET=$bucket
 AWS_S3_BUCKET=$bucket
+UPLOAD_STORAGE_DRIVER=s3
+AWS_S3_AVATAR_BUCKET=$bucket
+AWS_S3_AVATAR_PREFIX=avatar-media
+AWS_S3_REVIEW_BUCKET=$bucket
+AWS_S3_REVIEW_PREFIX=review-media
 DATABASE_URL=$database_url
 MONGO_URI=$mongo_uri
 MONGO_REQUIRE_TLS=false
@@ -264,6 +275,11 @@ MONGO_REQUIRE_REPLICA_SET=true
 REDIS_URL=redis://redis:6379
 POSTGRES_PASSWORD=$postgres_password
 JWT_SECRET=$jwt_secret
+SESSION_SECRET=$session_secret
+SESSION_HASH_SECRET=$session_hash_secret
+ACCOUNT_CURSOR_SIGNING_SECRET=$account_cursor_signing_secret
+OBSERVABILITY_HASH_SECRET=$observability_hash_secret
+METRICS_SECRET=$metrics_secret
 OTP_FLOW_SECRET=$otp_flow_secret
 OTP_CHALLENGE_SECRET=$otp_challenge_secret
 UPLOAD_SIGNING_SECRET=$upload_signing_secret
@@ -387,7 +403,7 @@ if [ -f "$backend_image_tar" ]; then
   scp -F "$STATE_DIR/ssh_config" "$backend_image_tar" aura-staging:/tmp/aura-staging-backend-image.tar.gz >/dev/null
 fi
 
-remote_env="STAGING_BACKEND_IMAGE='$backend_image' STAGING_BACKEND_PORT='$STAGING_BACKEND_PORT' ENABLE_CERTBOT='$ENABLE_CERTBOT' STAGING_API_HOST='${STAGING_API_HOST:-}' STAGING_ADMIN_EMAIL='${STAGING_ADMIN_EMAIL:-}'"
+remote_env="STAGING_BACKEND_IMAGE='$backend_image' STAGING_BACKEND_PORT='$STAGING_BACKEND_PORT' STAGING_SWAP_GB='$STAGING_SWAP_GB' ENABLE_CERTBOT='$ENABLE_CERTBOT' STAGING_API_HOST='${STAGING_API_HOST:-}' STAGING_ADMIN_EMAIL='${STAGING_ADMIN_EMAIL:-}'"
 
 ssh -F "$STATE_DIR/ssh_config" aura-staging "$remote_env bash -s" <<'REMOTE'
 set -euo pipefail
@@ -454,7 +470,43 @@ install_runtime() {
   buildx_is_new_enough || install_buildx
 }
 
+configure_swap() {
+  local expected_bytes minimum_bytes actual_bytes file_bytes
+  expected_bytes="$((STAGING_SWAP_GB * 1024 * 1024 * 1024))"
+  minimum_bytes="$((expected_bytes - 1024 * 1024))"
+  actual_bytes="$(sudo swapon --show=SIZE --bytes --noheadings | awk '{ total += $1 } END { print total + 0 }')"
+  if (( actual_bytes >= minimum_bytes )); then
+    echo "STAGING_SWAP_READY bytes=$actual_bytes"
+    return 0
+  fi
+  if sudo swapon --show=NAME --noheadings | grep -qx '/swapfile'; then
+    echo "Active staging swap is smaller than the required ${STAGING_SWAP_GB} GiB." >&2
+    return 1
+  fi
+  file_bytes=0
+  if [ -f /swapfile ]; then
+    file_bytes="$(sudo stat -c '%s' /swapfile)"
+  fi
+  if (( file_bytes < expected_bytes )); then
+    sudo rm -f /swapfile
+    sudo fallocate -l "${STAGING_SWAP_GB}G" /swapfile \
+      || sudo dd if=/dev/zero of=/swapfile bs=1M count="$((STAGING_SWAP_GB * 1024))" status=none
+  fi
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile >/dev/null
+  sudo swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab \
+    || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+  actual_bytes="$(sudo swapon --show=SIZE --bytes --noheadings | awk '{ total += $1 } END { print total + 0 }')"
+  (( actual_bytes >= minimum_bytes )) || {
+    echo "Staging swap did not reach the required ${STAGING_SWAP_GB} GiB." >&2
+    return 1
+  }
+  echo "STAGING_SWAP_READY bytes=$actual_bytes"
+}
+
 install_runtime
+configure_swap
 if ! id aura >/dev/null 2>&1; then
   sudo useradd --system --create-home --shell /bin/bash aura
 fi
@@ -471,7 +523,13 @@ sudo chown -R aura:aura /opt/aura-staging
 cd /opt/aura-staging/src/infra/staging
 backend_image_loaded=false
 if [ -f /tmp/aura-staging-backend-image.tar.gz ]; then
+  # Preserve every image referenced by a running container while reclaiming
+  # stale deploy layers on the deliberately small staging host.
+  sudo docker container prune --force >/dev/null
+  sudo docker image prune --all --force >/dev/null
+  sudo docker builder prune --all --force >/dev/null
   gzip -dc /tmp/aura-staging-backend-image.tar.gz | sudo docker load
+  sudo rm -f /tmp/aura-staging-backend-image.tar.gz
   backend_image_loaded=true
 fi
 if [ "$backend_image_loaded" = "true" ]; then

@@ -12,12 +12,12 @@ Status definitions:
 | Protected account entry | `/profile` uses `ProtectedRoute` | Auth middleware required | Implemented | Live unauthenticated route redirects to sign-in |
 | Account overview | Hero, metrics, quick actions | Dashboard aggregation endpoint | Partial | Expensive broad fan-out; some metrics are session/page scoped but presented as broad account intelligence |
 | Personal details | Name, phone, DOB, gender, bio, avatar | Explicit field allowlist; fresh phone proof | Partial | Bio limits disagree between client validation and Mongoose schema |
-| Avatar | Preview and update | MIME/size/magic-byte/malware checks | Partial | Stores base64 data URI in user document; no signed object-storage lifecycle |
+| Avatar | Three-phase upload with progress, validation and durable preview | One-time owner-bound intent/finalize tokens; MIME/extension/magic-byte/size/dimension/decode/scan checks; normalized WebP quarantine, promotion and cleanup | Implemented on integration branch | Account Center writes randomized object media; legacy avatar reads remain for migration compatibility; staging S3/IAM proof remains a release gate |
 | Addresses | Embedded CRUD | Owner-scoped user mutation | Partial | Placeholder-only form, no address cap, weak field-error semantics, browser-native delete confirmation |
 | Order history | Embedded profile summary and dedicated orders page | Cursor-ready owner-scoped API | Partial | Client requests one page with limit 100, ignores `nextCursor`, lacks search/status/date filters |
 | Order detail/actions | Timeline and command surfaces | Ownership and trust guards for sensitive commands | Partial | No invoice download route found; UX is split across account and orders destinations |
 | Returns/refunds/replacements | Available through order commands | Server-side ownership/eligibility guards | Implemented | Must remain server-authoritative |
-| Wishlist | Separate page and snapshot fields | User-scoped wishlist contract | Partial | Public route wrapper and not integrated into account information architecture |
+| Wishlist | Dedicated page plus bounded live-hydrated Account Center preview | User-scoped revisioned wishlist contract | Implemented | Full mutations remain in the existing dedicated workflow; Account Center links to it without duplicating authority |
 | Rewards/loyalty | Rewards section | User rewards endpoint and embedded ledger | Partial | Ledger growth and independent pagination need review |
 | Saved payments | Payment methods section | Auth, active-account, OTP/step-up, ownership guards | Partial | Destructive remove flow needs deliberate confirmation and accessible error recovery |
 | Notifications inbox | Read/unread filtering and mark-read controls | User-scoped paginated endpoint | Partial | Client does not expose pagination/error states; rows are not consistently keyboard-semantic |
@@ -27,23 +27,24 @@ Status definitions:
 | TOTP MFA | Setup and verification | MFA endpoints and step-up | Implemented | Preserve deployment flags and recent-auth gates |
 | Recovery codes | Generate/download/verify | Hashed, single-use server codes | Implemented | One-time display semantics already present |
 | Trusted devices | Rename/revoke/revoke-others | Customer/admin policy and device-scoped session revocation | Implemented | Must not be relabeled as complete active sessions |
-| Active sessions | Settings copy refers to signed-in devices | Redis has per-user session sets | Absent | No customer list/revoke-one/revoke-others/all API or session-specific UI |
-| Security activity | No customer history screen | Security event/outbox models exist | Absent | Raw internal events must not be exposed; needs redacted subject-linked projection |
+| Active sessions | Dedicated inventory, refresh, revoke-one, revoke-others, and deliberate revoke-all controls | Owner-scoped opaque aliases, bounded projection, targeted revocation, fresh-MFA bulk revocation | Implemented | Public response excludes raw session, identity, network, fingerprint, cookie, token, and Redis material |
+| Security activity | Bounded, retryable, cursor-paginated customer history | Owner filter, explicit event allowlist, safe three-field projection, signed owner-bound cursor, 180-day published-event retention | Implemented | Raw outbox records, identifiers, network data, provider payloads, and internal risk details are never returned |
 | Linked sign-in providers | Microsoft/Apple linking controls | Firebase/session identity support | Partial | Needs unlink/recovery policy and tested last-provider protection |
-| Seller listings | Summary and link | Owner-scoped listing APIs | Partial | No unified status/search/pagination account module |
-| Trade-ins | Separate route | Owner-scoped CRUD and estimates | Partial | Not integrated into Account Center |
-| Price alerts | Separate route | Dedicated API | Partial | Not integrated into Account Center |
-| Review management | No account review history found | Review/media routes exist elsewhere | Absent | Needs owner-scoped list/edit/delete policy and pagination |
+| Seller listings | Bounded Account Center preview plus full management route | Owner-scoped listing APIs and account-hub projection | Implemented for supported capability | Full listing mutations remain behind existing seller and owner guards |
+| Trade-ins | Bounded Account Center preview plus full workflow | Owner-scoped CRUD; server-computed valuation | Implemented for supported capability | Account hub never accepts or exposes client authority over valuation |
+| Price alerts | Bounded Account Center preview plus full workflow | Owner-scoped alert API | Implemented for supported capability | Full create/delete actions remain in the dedicated route |
+| Review management | Owner-scoped Account Center history preview linking to the real product review editor | Verified-purchase upsert, media validation and moderation-aware status | Implemented for supported capability | No fake inline moderation or delete UI was introduced; full pagination remains follow-up work |
 | Support tickets | Large embedded support section | User-scoped paginated ticket APIs | Partial | Section is oversized; client fetch limits/history continuation need explicit UX |
 | Privacy policy | Link to `/privacy` | Static policy/data inventory docs | Implemented | Policy display is not data-rights execution |
-| Data export | No UI | Required by docs, no customer route found | Absent | Needs fresh auth, scoped export, async job, expiry, audit evidence |
-| Deactivation | No UI | Account state exists | Absent | Needs reversible server transition and active-session handling |
-| Account deletion | No UI | Retention guidance exists | Absent | Needs grace period, re-auth, legal holds, cancellation, pseudonymization and audit |
+| Data export | Account Center control reflects real capability status | Fresh-MFA, idempotent owner job, worker lease and safe state contract | Policy-gated framework | Activation blocked until delivery, retention, jurisdiction, bucket/KMS and export-handler policy is approved |
+| Deactivation | Exact-confirmation control and cancellation state | Fresh-MFA, owner job, cancellable state machine and audit event | Policy-gated framework | Active-order/dispute and reactivation handlers remain blocked on authoritative policy |
+| Account deletion | Exact-confirmation grace-period control and cancellation state | Fresh-MFA, owner-bound async job, grace boundary, worker recovery and audit event | Policy-gated framework | Legal hold, retention, anonymization, provider/media cleanup and evidence handlers remain blocked on authoritative policy |
 | Offline account UX | No deliberate offline account state found | N/A | Absent | Needs per-module stale/offline semantics |
 | Responsive account shell | Horizontal pills and global style overrides | N/A | Partial | Authenticated visual audit blocked; code indicates overflow and density risks |
 | Accessibility | Some labels, sections, live status patterns | N/A | Partial | Missing complete tabs semantics, focus treatment, field errors, keyboard rows |
 | Account observability | Generic auth/security telemetry exists | Metrics and security outbox | Partial | No account-module latency/failure/adoption dashboard or rollout SLOs |
 | Account feature flags | Deployment flags exist for auth/MFA | No unified account-overhaul flag contract found | Absent | Needed for progressive rollout and rollback |
+| Account schema migration | Version 2 readers tolerate absent version metadata | Additive audit/apply CLI, persistent checkpoints, named indexes and safe query-plan evidence | Implemented on integration branch | No live database apply occurred; staging snapshot, index-build, backup/restore and explain evidence remain release gates |
 
 ## Preserve-worthy security behavior
 

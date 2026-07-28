@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const path = require('path');
+const mongoose = require('mongoose');
 const admin = require('../config/firebase');
 const connectDB = require('../config/db');
 const User = require('../models/User');
@@ -87,12 +87,28 @@ const requiredAccounts = [
         isAdmin: true,
         isSeller: false,
     },
+    {
+        label: 'secondary-customer',
+        email: normalizeText(process.env.SMOKE_OTHER_USER_EMAIL),
+        password: normalizeText(process.env.SMOKE_OTHER_USER_PASSWORD),
+        name: normalizeText(process.env.SMOKE_OTHER_USER_NAME || 'Smoke Secondary Customer'),
+        phone: normalizeText(process.env.SMOKE_OTHER_USER_PHONE || '+919999999997'),
+        isAdmin: false,
+        isSeller: false,
+    },
 ].filter((entry) => entry.email && entry.password);
+
+const toSafeResult = ({ label, backendUser }) => ({
+    label,
+    ready: true,
+    isAdmin: Boolean(backendUser?.isAdmin),
+    isSeller: Boolean(backendUser?.isSeller),
+});
 
 const run = async () => {
     if (requiredAccounts.length === 0) {
         throw new Error(
-            'Provide SMOKE_USER_EMAIL/SMOKE_USER_PASSWORD and SMOKE_ADMIN_EMAIL/SMOKE_ADMIN_PASSWORD to bootstrap staging smoke accounts.'
+            'Provide dedicated staging smoke account credentials before bootstrapping accounts.'
         );
     }
 
@@ -116,12 +132,9 @@ const run = async () => {
         });
 
         results.push({
-            label: account.label,
-            email: account.email,
-            firebaseUid: firebaseUser.uid,
-            backendUserId: String(backendUser._id),
-            isAdmin: backendUser.isAdmin,
-            isSeller: backendUser.isSeller,
+            ...toSafeResult({ label: account.label, backendUser }),
+            firebaseReady: Boolean(firebaseUser?.uid),
+            backendReady: Boolean(backendUser?._id),
         });
     }
 
@@ -129,12 +142,24 @@ const run = async () => {
         success: true,
         results,
         generatedAt: new Date().toISOString(),
-        cwd: path.resolve(process.cwd()),
     }, null, 2));
+    return results;
 };
 
-run()
-    .catch((error) => {
-        console.error(`Smoke account bootstrap failed: ${error.message}`);
-        process.exitCode = 1;
-    });
+if (require.main === module) {
+    run()
+        .catch((error) => {
+            console.error(`Smoke account bootstrap failed: ${error.message}`);
+            process.exitCode = 1;
+        })
+        .finally(async () => {
+            if (mongoose.connection.readyState !== 0) {
+                await mongoose.connection.close().catch(() => null);
+            }
+        });
+}
+
+module.exports = {
+    run,
+    toSafeResult,
+};

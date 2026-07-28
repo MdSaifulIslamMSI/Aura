@@ -742,6 +742,148 @@ describe('authApi', () => {
     expect(global.fetch.mock.calls[2][1].method).toBe('POST');
   });
 
+  it('loads customer-safe security activity and revokes every account session explicitly', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        version: 1,
+        activity: [{ type: 'sign_in', outcome: 'success' }],
+        pagination: { hasMore: true, nextCursor: 'next.cursor' },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        status: 'all_sessions_revoked',
+        revoked: 2,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+    await expect(authApi.getAccountSecurityActivity(
+      { cursor: 'current.cursor', limit: 20 },
+      { firebaseUser },
+    )).resolves.toMatchObject({
+      activity: [{ type: 'sign_in' }],
+      pagination: { hasMore: true },
+    });
+    await authApi.revokeAllAccountSessions({ firebaseUser });
+
+    expect(global.fetch.mock.calls[0][0]).toContain(
+      '/account/security-activity?limit=20&cursor=current.cursor',
+    );
+    expect(global.fetch.mock.calls[0][1].method).toBe('GET');
+    expect(global.fetch.mock.calls[1][0]).toContain('/account/sessions/revoke-all');
+    expect(global.fetch.mock.calls[1][1].method).toBe('POST');
+  });
+
+  it('loads the owner-scoped account marketplace hub', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch.mockResolvedValueOnce(new Response(JSON.stringify({
+      contractVersion: 1,
+      savedItems: { count: 1, items: [{ productId: 9 }] },
+      reviews: { count: 0, items: [] },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await expect(authApi.getAccountMarketplace({ firebaseUser })).resolves.toMatchObject({
+      contractVersion: 1,
+      savedItems: { count: 1 },
+    });
+
+    expect(global.fetch.mock.calls[0][0]).toContain('/account/marketplace');
+    expect(global.fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('uses fresh authenticated idempotent privacy lifecycle endpoints', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        enabled: true,
+        policyVersion: 'policy-2026-07',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        request: { id: '507f1f77bcf86cd799439299', type: 'export', status: 'queued' },
+      }), { status: 202, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        request: { id: '507f1f77bcf86cd799439298', type: 'deletion', status: 'awaiting_grace' },
+      }), { status: 202, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        request: { id: '507f1f77bcf86cd799439298', type: 'deletion', status: 'cancelled' },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await authApi.getAccountPrivacyCapabilities({ firebaseUser });
+    await authApi.requestAccountExport({
+      idempotencyKey: 'export-request-0001',
+    }, { firebaseUser });
+    await authApi.requestAccountDeletion({
+      confirmation: 'DELETE MY ACCOUNT',
+      idempotencyKey: 'deletion-request-0001',
+    }, { firebaseUser });
+    await authApi.cancelAccountDeletion({
+      requestId: '507f1f77bcf86cd799439298',
+    }, { firebaseUser });
+
+    expect(global.fetch.mock.calls[0][0]).toContain('/account/privacy/capabilities');
+    expect(global.fetch.mock.calls[1][0]).toContain('/account/privacy/exports');
+    expect(global.fetch.mock.calls[1][1].headers.get('Idempotency-Key')).toBe('export-request-0001');
+    expect(global.fetch.mock.calls[2][0]).toContain('/account/privacy/deletion-requests');
+    expect(global.fetch.mock.calls[2][1].headers.get('Idempotency-Key')).toBe('deletion-request-0001');
+    expect(global.fetch.mock.calls[3][1].method).toBe('DELETE');
+  });
+
+  it('uses explicit signed avatar intent, upload, and finalize endpoints', async () => {
+    const firebaseUser = { getIdToken: vi.fn().mockResolvedValue('fresh-token') };
+    mocks.getAuthHeaderMock.mockResolvedValue({ Authorization: 'Bearer fresh-token' });
+    global.fetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        uploadToken: 'upload-token',
+      }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        finalizeToken: 'finalize-token',
+      }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        avatar: '/uploads/avatars/normalized.webp',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    const intent = await authApi.createAvatarUploadIntent({
+      fileName: 'portrait.png',
+      mimeType: 'image/png',
+      sizeBytes: 1024,
+    }, { firebaseUser });
+    const uploaded = await authApi.uploadAvatarMedia({
+      uploadToken: intent.uploadToken,
+      fileName: 'portrait.png',
+      mimeType: 'image/png',
+      dataUrl: 'data:image/png;base64,AAAA',
+    }, { firebaseUser });
+    await expect(authApi.finalizeAvatarMedia({
+      finalizeToken: uploaded.finalizeToken,
+    }, { firebaseUser })).resolves.toMatchObject({
+      avatar: '/uploads/avatars/normalized.webp',
+    });
+
+    expect(global.fetch.mock.calls.map(([url]) => url)).toEqual(expect.arrayContaining([
+      expect.stringContaining('/account/avatar/upload-intents'),
+      expect.stringContaining('/account/avatar/uploads'),
+      expect.stringContaining('/account/avatar/finalize'),
+    ]));
+    expect(global.fetch.mock.calls.every(([, options]) => options.method === 'POST')).toBe(true);
+  });
+
   it('rejects malformed account-session aliases before making a request', async () => {
     await expect(authApi.revokeAccountSession({ sessionId: 'raw-session-id' }))
       .rejects

@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-The active-session contracts below are implemented in the current branch. Summary, security-activity, notification-preference, and privacy-lifecycle contracts remain target contracts and are not represented as shipped. Destructive privacy contracts stay blocked until jurisdiction, retention, deletion-grace, and export-delivery policy is approved.
+The account summary, notification-preference, active-session, and customer-safe security-activity contracts below are implemented in the current branch. Destructive privacy contracts stay blocked until jurisdiction, retention, deletion-grace, and export-delivery policy is approved.
 
 ## Contract principles
 
@@ -169,7 +169,6 @@ Never return raw session IDs, cookies, access/refresh tokens, IPs, user-agent st
 
 ### `POST /api/account/sessions/revoke-all`
 
-- **Target contract; not implemented in this wave.**
 - Requires fresh auth/step-up and explicit confirmation.
 - Revokes all subject sessions and clears the current cookie.
 
@@ -178,8 +177,9 @@ Never return raw session IDs, cookies, access/refresh tokens, IPs, user-agent st
 ### `GET /api/account/security-activity?cursor=...&limit=20`
 
 - Owner-only, cursor-paginated, maximum limit 50.
+- Cursors are HMAC-signed, owner-bound, and stable across equal timestamps; malformed, altered, or cross-user cursors fail closed.
 - Maps allowlisted internal event types to customer language.
-- Coarsens location and strips identifiers.
+- Returns only allowlisted event type, normalized outcome, and occurrence time.
 - Excludes admin-only rationale, fraud features, raw risk scores, IPs, tokens, provider responses, and other users.
 
 Allowed initial events:
@@ -222,27 +222,57 @@ Example:
 
 ### `POST /api/account/avatar/upload-intents`
 
-Request allowlist: file name, content type, byte size, checksum.
+Request allowlist: `fileName`, `mimeType`, and `sizeBytes`.
 
-Server validates JPEG/PNG/WebP, 2 MB maximum unless policy is intentionally changed, user quota, extension/MIME consistency, and generates a short-lived signed object-store intent scoped to a server-generated key.
+The server allows JPEG, PNG, and WebP up to 2 MB and returns a ten-minute, one-time, owner-bound upload token plus the fixed account upload endpoint. The token never grants bucket, key, ACL, or credential authority.
+
+### `POST /api/account/avatar/uploads`
+
+Requires the one-time upload token and its exact file name and MIME type. The server:
+
+- rejects token replay, owner mismatch, path-bearing names, unsupported extensions, MIME/magic-byte mismatches, oversized files, malformed decodes, animation, images over 4,096 pixels on an axis or 16 megapixels, and unavailable or negative malware scans;
+- decodes and auto-orients the image;
+- crops it to a 512 by 512 square;
+- strips source metadata and encodes WebP;
+- writes only the normalized object into private quarantine; and
+- returns a separate ten-minute, one-time finalize token.
 
 ### `POST /api/account/avatar/finalize`
 
-Requires the server-issued intent ID and checksum. The server verifies object existence, scan status, dimensions, and ownership before updating the user avatar key. Previous object deletion is asynchronous and audited.
+Requires only the server-issued finalize token. The server verifies token ownership, purpose, object existence, and normalized byte length, promotes the quarantined object, and performs an optimistic-version user update. It stores the randomized object key and derived metadata plus the durable media URL. A database conflict removes the newly promoted object, and successful replacement schedules the previous object for bounded asynchronous deletion.
 
 Client-supplied bucket names, arbitrary keys, public ACLs, and URLs are rejected.
 
+`GET /uploads/avatars/:storageKey` serves only the strict randomized `.webp` key shape with immutable caching and `nosniff`. Quarantine paths are never served. `npm --prefix server run avatar:cleanup` is dry-run by default; `-- --execute` is required to remove stale quarantine and old unreferenced final objects.
+
+## Saved items, reviews, and marketplace activity
+
+### `GET /api/account/marketplace`
+
+Returns an authenticated, owner-scoped Account Center hub over repository-supported domains:
+
+- live-hydrated saved-product previews and the current wishlist revision;
+- the owner’s review previews and moderation-visible status;
+- the owner’s listing previews;
+- the owner’s trade-in previews; and
+- the owner’s price-alert previews.
+
+Each domain includes a total count, at most six newest preview rows, and routes into the existing full management workflow. The response is `private, no-store`, uses strict projections, and omits seller/user authority fields, review risk snapshots, trade-in valuation authority, payout claims, moderation controls, and administrative notes. The existing `/api/users/wishlist`, `/api/products/:id/reviews`, `/api/listings/my`, `/api/trade-in/my`, and `/api/price-alerts/my` contracts remain authoritative for mutations and full histories.
+
 ## Privacy lifecycle
 
-Contracts remain **blocked** until retention jurisdiction, deletion grace period, reactivation policy, and export delivery are approved. Required shape:
+The technical contracts are implemented behind a fail-closed policy activation gate. `GET /api/account/privacy/capabilities` is always safe to call and reports whether authoritative policy and encrypted-delivery contracts are complete. Every mutation remains disabled unless `ACCOUNT_CENTER_V2_PRIVACY`, explicit policy approval, a versioned jurisdiction/retention/grace/reactivation/delivery policy, a private artifact bucket, and a KMS key contract are all present.
 
 - `POST /api/account/privacy/exports`
-- `GET /api/account/privacy/exports/:jobId`
+- `GET /api/account/privacy/requests/:requestId`
 - `POST /api/account/privacy/deactivation`
+- `DELETE /api/account/privacy/deactivation/:requestId`
 - `POST /api/account/privacy/deletion-requests`
 - `DELETE /api/account/privacy/deletion-requests/:requestId`
 
-All require fresh authentication. Deletion never directly hard-deletes records in the request transaction.
+Mutations require CSRF unless authenticated by bearer proof, fresh MFA, strict confirmation for destructive actions, rate limiting, and an `Idempotency-Key` for creation. Jobs are owner-scoped and expose only safe state, policy version, timestamps, and failure code. The queue uses bounded attempts and a stale-lease recovery path. Deletion begins in `awaiting_grace`; it never directly hard-deletes records in the request transaction. Cancellation is state checked.
+
+The queue handlers for export assembly/encryption/delivery, active-order and dispute evaluation, legal-hold evaluation, external-provider/media cleanup, and durable completion evidence cannot be installed or activated until the missing policy is approved. The default production capability response therefore remains disabled.
 
 ## Pagination
 

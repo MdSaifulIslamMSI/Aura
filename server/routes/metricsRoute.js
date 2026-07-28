@@ -12,15 +12,56 @@
 
 const express = require('express');
 const { registry, metricsAuth } = require('../middleware/metrics');
+const { refreshAccountMigrationMetrics } = require('../services/accountProductTelemetryService');
 
 const router = express.Router();
 
+const waitForDrain = (res) => new Promise((resolve, reject) => {
+    const cleanup = () => {
+        res.off('drain', onDrain);
+        res.off('close', onClose);
+    };
+    const onDrain = () => {
+        cleanup();
+        resolve();
+    };
+    const onClose = () => {
+        cleanup();
+        reject(new Error('Metrics client disconnected during scrape'));
+    };
+
+    res.once('drain', onDrain);
+    res.once('close', onClose);
+});
+
+const streamRegistryMetrics = async (res, targetRegistry = registry) => {
+    const metrics = targetRegistry.getMetricsAsArray();
+    res.setHeader('Content-Type', targetRegistry.contentType);
+    res.status(200);
+
+    for (let index = 0; index < metrics.length; index += 1) {
+        const output = await targetRegistry.getMetricsAsString(metrics[index]);
+        const chunk = index === 0 ? output : `\n\n${output}`;
+        if (!res.write(chunk)) {
+            await waitForDrain(res);
+        }
+    }
+
+    res.end('\n');
+};
+
 router.get('/', metricsAuth, async (req, res, next) => {
     try {
-        const metrics = await registry.metrics();
-        res.setHeader('Content-Type', registry.contentType);
-        return res.status(200).send(metrics);
+        await refreshAccountMigrationMetrics();
+        // prom-client's Registry.metrics() renders every family concurrently and
+        // joins all intermediate strings. Stream sequentially to bound scrape heap.
+        await streamRegistryMetrics(res);
+        return undefined;
     } catch (error) {
+        if (res.headersSent) {
+            res.destroy(error);
+            return undefined;
+        }
         return next(error);
     }
 });

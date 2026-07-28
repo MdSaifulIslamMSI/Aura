@@ -1,23 +1,23 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-07-26T13:25:55.963Z
+Generated: 2026-07-28T05:09:25.434Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
 ## Summary
 
-- Tracked files: 103
-- Stable ICU hook files: 69
+- Tracked files: 112
+- Stable ICU hook files: 78
 - Delegated stable ICU translator files: 2
-- Migrated stable ICU message IDs observed across files: 3242
+- Migrated stable ICU message IDs observed across files: 3401
 - Residual production legacy literal message IDs: 0
 - Test-harness legacy literal message IDs: 4
 - Production files with direct residual stable literals: 0
-- Computed-key translator lookup files: 28
+- Computed-key translator lookup files: 34
 - Runtime enum compatibility files: 0
 - High-risk files: 0
 - Medium-risk files: 18
-- Low-risk files: 85
+- Low-risk files: 94
 - Dynamic runtime translation files: 18
 - Legacy pack import files: 21
 
@@ -46,10 +46,10 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Login/useLoginController.js` | 159 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Sell/index.jsx` | 140 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/StepPayment.jsx` | 133 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Profile/components/SettingsSection.jsx` | 132 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
-| low | `app/src/pages/Orders/index.jsx` | 102 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Orders/index.jsx` | 126 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Profile/components/SettingsSection.jsx` | 126 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
+| low | `app/src/pages/Profile/index.jsx` | 120 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Admin/Payments.jsx` | 99 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Profile/index.jsx` | 99 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Admin/Users.jsx` | 96 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Admin/EmailOps.jsx` | 93 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/index.jsx` | 92 | 0 | useMarket, stable-icu-hook |
@@ -64,36 +64,39 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/components/auth/AdminSecurityCheckpoint.jsx` | 48 | 0 | stable-icu-hook |
 | low | `app/src/components/layout/Navbar/index.jsx` | 48 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Admin/RefundLedger.jsx` | 46 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Profile/components/PersonalInfoSection.jsx` | 45 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Cart/index.jsx` | 44 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/OrderSummary.jsx` | 43 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Profile/components/PersonalInfoSection.jsx` | 43 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Profile/components/PaymentsSection.jsx` | 39 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Profile/components/SecurityActivityPanel.jsx` | 39 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Admin/ClientDiagnosticsPanel.jsx` | 38 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/components/features/product/Filters/index.jsx` | 34 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
-| low | `app/src/pages/Profile/components/ActiveSessionsPanel.jsx` | 30 | 0 | stable-icu-hook, computed-key-compatibility |
+| low | `app/src/pages/Profile/components/ActiveSessionsPanel.jsx` | 33 | 0 | stable-icu-hook, computed-key-compatibility |
+| low | `app/src/pages/Profile/components/AddressesSection.jsx` | 29 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/MyListings/index.jsx` | 28 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Profile/components/MarketplaceActivitySection.jsx` | 28 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/components/RewardsSection.jsx` | 28 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/AICompare/index.jsx` | 26 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
-| low | `app/src/pages/Profile/components/AddressesSection.jsx` | 23 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Profile/components/NotificationPreferencesPanel.jsx` | 24 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/components/features/auth/DesktopBrowserAuthShell.jsx` | 22 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Checkout/components/StepAddress.jsx` | 22 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Profile/components/NotificationsSection.jsx` | 22 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/BecomeSeller/index.jsx` | 21 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
+| low | `app/src/pages/Profile/components/PrivacyControlsSection.jsx` | 21 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/SellerProfile/index.jsx` | 21 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/PriceAlerts/index.jsx` | 20 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx` | 17 | 0 | stable-icu-hook |
 | low | `app/src/components/features/chat/MessageItem.jsx` | 16 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/components/layout/Footer/index.jsx` | 15 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Profile/components/AccountCenterShell.jsx` | 15 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/components/shared/VoiceSearch.jsx` | 14 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/StepReview.jsx` | 14 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/components/shared/BackendStatusBanner.jsx` | 13 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Login/BrandVisualPanel.jsx` | 12 | 0 | stable-icu-hook, computed-key-compatibility |
-| low | `app/src/pages/Profile/components/AccountCenterShell.jsx` | 12 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Login/CountryCodePicker.jsx` | 11 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/components/shared/ProtectedRoute.jsx` | 10 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/StepDelivery.jsx` | 10 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Wishlist/index.jsx` | 10 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Profile/components/ListingsSection.jsx` | 6 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/VisualSearch/index.jsx` | 4 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/components/welcome/PremiumWelcomeCurtain.jsx` | 3 | 0 | stable-icu-hook |
 | low | `app/src/pages/Profile/components/ProfileShared.jsx` | 2 | 0 | useMarket, stable-icu-hook |
@@ -124,6 +127,12 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/i18n/StableText.jsx` | 0 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/i18n/useStableIcuMessages.js` | 0 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/DesktopLogin/index.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
+| low | `app/src/pages/Profile/components/AddressesSection.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
+| low | `app/src/pages/Profile/components/MarketplaceActivitySection.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
+| low | `app/src/pages/Profile/components/NotificationPreferencesPanel.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
+| low | `app/src/pages/Profile/components/NotificationsSection.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
+| low | `app/src/pages/Profile/components/PersonalInfoSection.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
+| low | `app/src/pages/Profile/components/PrivacyControlsSection.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/pages/Profile/index.test.jsx` | 0 | 0 | stable-icu-hook, test-harness |
 | low | `app/src/utils/authErrors.js` | 0 | 0 | computed-key-compatibility |
 | low | `app/src/utils/enumLocalization.js` | 0 | 0 | t() |

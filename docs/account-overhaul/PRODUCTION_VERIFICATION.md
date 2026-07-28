@@ -4,7 +4,7 @@
 
 **Not run. Production unchanged.**
 
-This file is the evidence template for a future explicitly authorized rollout. It must not be converted to PASS from static code, a preview, a pending workflow, or a different SHA.
+This file is the evidence template for the conditionally authorized final rollout. Authorization applies only after every required gate passes; it must not be converted to PASS from static code, a preview, a pending workflow, or a different SHA.
 
 ## Release identity
 
@@ -19,14 +19,14 @@ This file is the evidence template for a future explicitly authorized rollout. I
 | AWS frontend marker | Same SHA where targeted | Pending |
 | Rollback targets captured | Immutable provider-specific targets | Pending |
 
-The audit observed live commit `1c44b26e27aab5203b9b546c9a2efd8c4c4e96b4` while the local checkout was `0e4216c8fbf537f79f75f25a119f4dde13efd33b`. That observation proves a mismatch, not readiness.
+Foundation PR #368 merged as `4c7cd5549aaf689cd987570d4a1daa4de879680d` with green PR and main checks. That SHA is the baseline for the remaining program, not the final production release identity.
 
 ## Pre-production gates
 
 | Gate | Required evidence | Status |
 |---|---|---|
-| Source reconciliation | Scoped target diff based on intended main | Local branch reconciled to `f451584d`; commit/CI still pending |
-| Branch protection | Required checks terminal green on exact SHA | Pending |
+| Source reconciliation | Scoped target diff based on intended main | Foundation reconciled to `4c7cd554`; final release SHA pending |
+| Branch protection | Required checks terminal green on exact SHA | Foundation green; umbrella PR pending |
 | Dependency audit | Findings fixed or accepted with evidence | Blocked |
 | Secret scan/SBOM/CodeQL | Terminal green | Pending |
 | Frontend focused/full CI | Terminal green | Pending |
@@ -39,7 +39,7 @@ The audit observed live commit `1c44b26e27aab5203b9b546c9a2efd8c4c4e96b4` while 
 | Staging health/smoke | Exact SHA and account tasks | Pending |
 | Cost/observability | Guard pass and dashboards active | Pending |
 | Rollback rehearsal | Captured targets and successful smoke | Pending |
-| Production authorization | Explicit confirmation | Not granted |
+| Production authorization | Explicit confirmation | Conditionally granted on 2026-07-26 for the final gated rollout; no gate waiver |
 
 ## Production smoke checklist
 

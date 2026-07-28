@@ -480,6 +480,7 @@ describe('repo environment contract scripts', () => {
     test('staging smoke contract script fails when staging URL is missing', () => {
         const result = runScript('scripts/smoke/assert-staging-contract.mjs', {
             SMOKE_TARGET_ENV: 'staging',
+            STAGING_BASE_URL: '',
             STAGING_SSM_PREFIX: '/aura/staging',
             SMOKE_REQUIRE_BACKEND_STAGING: 'true',
             SMOKE_FORBID_PRODUCTION_ORIGINS: 'true',
@@ -721,6 +722,7 @@ describe('repo environment contract scripts', () => {
 
     test('frontend staging target script fails closed when frontend URL is missing', () => {
         const result = runScript('scripts/smoke/assert-frontend-staging-target.mjs', {
+            STAGING_FRONTEND_URL: '',
             STAGING_API_BASE_URL: 'https://api.staging.example.test',
             STAGING_HEALTH_URL: 'https://api.staging.example.test/health',
             PROD_BASE_URL: 'https://prod.example.test',
@@ -962,6 +964,17 @@ describe('repo environment contract scripts', () => {
         expect(restoreScript).toContain('--network none');
         expect(restoreScript).toContain('cmp --silent "$data_dir/mongo-stats.json"');
         expect(restoreScript).toContain('cmp --silent "$data_dir/postgres-stats.tsv"');
+        expect(restoreScript).toContain('wait_for_postgres_restore_ready "$postgres_container"');
+        expect(restoreScript).toContain('PostgreSQL init process complete; ready for start up.');
+        expect(restoreScript).toMatch(
+            /wait_for_postgres_restore_ready "\$postgres_container"[\s\S]*?pg_restore --exit-on-error/
+        );
+        expect(restoreScript).toMatch(
+            /cmp --silent "\$data_dir\/mongo-stats\.json"[\s\S]*?release_restore_service "\$mongo_container" "\$mongo_volume"[\s\S]*?postgres_password=/
+        );
+        expect(restoreScript).toMatch(
+            /cmp --silent "\$data_dir\/postgres-stats\.tsv"[\s\S]*?release_restore_service "\$postgres_container" "\$postgres_volume"[\s\S]*?redis-check-rdb/
+        );
         expect(restoreScript).toContain('cleanup_restore_drill');
         expect(restoreScript).toContain('RESTORE_DRILL_PASS');
         expect(restoreScript).toContain('|| status=$?; rm -f ${remoteJob} /tmp/aura-staging-restore-runner.b64; exit $status');
@@ -1116,6 +1129,9 @@ describe('repo environment contract scripts', () => {
 
     test('staging AWS deploy workflow is manual and explicitly gated', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-aws-deploy.yml'), 'utf8');
+        const browserConfig = fs.readFileSync(path.join(repoRoot, 'app', 'playwright.staging.config.js'), 'utf8');
+        const browserSetup = fs.readFileSync(path.join(repoRoot, 'app', 'e2e', 'account-center.staging.setup.js'), 'utf8');
+        const browserSpec = fs.readFileSync(path.join(repoRoot, 'app', 'e2e', 'account-center.staging.e2e.js'), 'utf8');
 
         expect(workflow).toMatch(/workflow_dispatch/);
         expect(workflow).toMatch(/environment: staging/);
@@ -1127,6 +1143,18 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
         expect(workflow).toMatch(/cache-dependency-path:[\s\S]*?package-lock\.json[\s\S]*?app\/package-lock\.json/);
         expect(workflow).toMatch(/npm ci[\s\S]*?npm --prefix app ci/);
+        expect(workflow).toContain('npm --prefix app exec -- playwright test --config=app/playwright.staging.config.js');
+        expect(browserConfig).toContain("globalSetup: './e2e/account-center.staging.setup.js'");
+        expect(browserSetup.match(/api\.post\('\/api\/auth\/sync'/g)).toHaveLength(1);
+        expect(browserSetup).toContain('ACCOUNT_CENTER_STAGING_AUTH_STATE');
+        expect(browserSetup).toContain("import { chromium, request } from '@playwright/test'");
+        expect(browserSetup).toContain('context.storageState({ indexedDB: true })');
+        expect(browserSetup).toContain('database.close()');
+        expect(browserSpec).toContain('await use(getAuthState().storageState)');
+        expect(browserSpec).not.toContain('test.beforeEach');
+        expect(browserSpec).not.toContain('installFirebaseSession');
+        expect(browserSpec).not.toContain("request.post('/api/auth/sync'");
+        expect(browserSpec).toContain("page.locator('#account-center-page-title')");
         expect(workflow).toMatch(/id:\s*lease-runner-ssh/);
         expect(workflow).toContain('https://checkip.amazonaws.com');
         expect(workflow).toMatch(/RUNNER_CIDR="\$\{RUNNER_IP\}\/32"/);
@@ -1775,6 +1803,39 @@ describe('repo environment contract scripts', () => {
         expect(stagingBootstrap).toContain('put_string MONGO_REQUIRE_REPLICA_SET true');
         expect(stagingDeploy).toContain('MONGO_REQUIRE_REPLICA_SET=true');
         expect(stagingDeploy).toContain('MONGO_URI must not select a replica set other than rs0');
+        expect(stagingDeploy).toContain('docker image prune --all --force');
+        expect(stagingDeploy).toContain('docker builder prune --all --force');
+        expect(stagingDeploy).toContain('rm -f /tmp/aura-staging-backend-image.tar.gz');
+        expect(stagingDeploy).toContain('configure_swap');
+        expect(stagingDeploy).toContain('STAGING_SWAP_READY bytes=');
+        expect(stagingDeploy).toContain('STAGING_SWAP_GB must be a positive integer');
+        expect(stagingDeploy).not.toMatch(/docker (?:system|volume) prune/);
+
+        const stagingWorkflow = fs.readFileSync(
+            path.join(repoRoot, '.github', 'workflows', 'staging-aws-deploy.yml'),
+            'utf8'
+        );
+        for (const command of [
+            '"--run-id=${ACCOUNT_MIGRATION_RUN_ID}-audit" </dev/null',
+            '--delay-ms=50 </dev/null',
+            'backend node scripts/bootstrap_staging_smoke_accounts.js </dev/null',
+            '--owner-from-env=SMOKE_USER_EMAIL </dev/null',
+            'backend node scripts/account_center_staging_smoke.js </dev/null',
+            'missing non-zero Account Center metrics',
+            'event="account\\.section_viewed"',
+            'mode="apply",status="completed"',
+            'metrics_secret="$(sed -n \'s/^METRICS_SECRET=//p\' .env.staging | tail -n 1)"',
+            'backend_port="$(sed -n \'s/^PORT=//p\' .env.staging | tail -n 1)"',
+            'curl --fail --silent --show-error --connect-timeout 5 --max-time 30',
+            "STAGING_SWAP_GB: ${{ vars.STAGING_SWAP_GB || '2' }}",
+            'Staging backend restarted during Account Center metrics verification.',
+            'docker compose ps backend redis',
+            'docker compose exec -T redis redis-cli ping',
+            "grep -Ei 'redis|rate_limit|traffic\\.load_shedding_denied|traffic\\.attack_mode_denied'",
+        ]) {
+            expect(stagingWorkflow).toContain(command);
+        }
+        expect(stagingWorkflow).not.toContain("docker compose exec -T backend node <<'NODE'");
     });
 
     test('performance smoke fails when no real target is reachable', () => {
@@ -1788,17 +1849,33 @@ describe('repo environment contract scripts', () => {
         expect(result.output).toMatch(/No performance target was reachable/);
     });
 
-    test('performance smoke workflow starts local targets when no target vars are configured', () => {
+    test('Account Center load failures report only bounded endpoint and status dimensions', () => {
+        const loadScript = fs.readFileSync(
+            path.join(repoRoot, 'tests', 'performance', 'k6', 'account-center.js'),
+            'utf8'
+        );
+
+        expect(loadScript).toContain('[account-center-load] endpoint=${name} status=${response.status}');
+        expect(loadScript).toContain('[`${name} returned 200`]');
+        expect(loadScript).toContain("duration: '90s'");
+        expect(loadScript).toContain('PERF_ACCOUNT_P95_MS || 1200');
+        expect(loadScript).not.toMatch(/response\.(?:body|json)\(/);
+    });
+
+    test('performance smoke workflow isolates pull requests from configured remote targets', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'performance-smoke.yml'), 'utf8');
 
         expect(workflow).toMatch(/Build local frontend performance target/);
         expect(workflow).toMatch(/Start local performance targets/);
+        expect(workflow).toContain("github.event_name == 'pull_request' ||");
+        expect(workflow).toContain("github.event_name == 'pull_request' && 'http://127.0.0.1:3000'");
+        expect(workflow).toContain("github.event_name == 'pull_request' && 'http://127.0.0.1:5000'");
         expect(workflow).toContain("docker compose up -d --build mongo redis aura-api");
         expect(workflow).toContain("npm --prefix app run preview -- --host 0.0.0.0 --port 3000");
         expect(workflow).toContain("http://127.0.0.1:5000/health");
         expect(workflow).toContain("http://127.0.0.1:3000/");
         expect(workflow).toMatch(/Lighthouse if configured URL available/);
-        expect(workflow).toMatch(/if: \$\{\{ \(vars\.PERF_BASE_URL \|\| ''\) != '' \}\}/);
+        expect(workflow).toContain("github.event_name != 'pull_request' && (vars.PERF_BASE_URL || '') != ''");
         expect(workflow).toMatch(/Stop local performance targets/);
         expect(workflow).toContain("docker compose down -v --remove-orphans");
     });
