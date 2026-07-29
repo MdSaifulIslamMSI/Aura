@@ -9,6 +9,7 @@ const RATE_LIMIT_DEPENDENCY_MESSAGE = 'Rate limiter dependency unavailable. Plea
 const RATE_LIMIT_RECOVERY_DELAY_MS = 11_000;
 const FIREBASE_NETWORK_RECOVERY_DELAY_MS = 5_000;
 const AVATAR_SCAN_UNAVAILABLE_MESSAGE = 'Avatar malware scan unavailable. Please try again later.';
+const AVATAR_SCAN_UNAVAILABLE_CODE = 'UPLOAD_SCANNER_UNAVAILABLE';
 const SAFE_FAILURE_CODES = new Set([
     'ATTACK_MODE_ROUTE_DISABLED',
     'AUTH_BUDGET_EXCEEDED',
@@ -52,7 +53,8 @@ const assertSafeSessionProjection = (sessions = []) => {
 const assertAvatarScanDisabledFailClosed = ({ payload = {}, status }) => {
     assert(status === 503, `Disabled avatar scanner must fail closed with 503; got ${status}`);
     assert(
-        String(payload?.message || '') === AVATAR_SCAN_UNAVAILABLE_MESSAGE,
+        String(payload?.code || '') === AVATAR_SCAN_UNAVAILABLE_CODE
+        && ['Request failed', AVATAR_SCAN_UNAVAILABLE_MESSAGE].includes(String(payload?.message || '')),
         'Disabled avatar scanner returned an unexpected failure'
     );
     assert(!payload?.finalizeToken, 'Fail-closed avatar upload exposed a finalize token');

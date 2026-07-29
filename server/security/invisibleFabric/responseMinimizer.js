@@ -2,6 +2,9 @@ const { getInvisibleFabricConfig } = require('./config');
 
 const ADMIN_ROUTE_PATTERN = /^\/api\/admin(?:\/|$)/i;
 const INTERNAL_DETAIL_PATTERN = /(Mongo|Mongoose|Redis|Postgres|Stripe|Razorpay|Firebase|ENOENT|ECONNREFUSED|stack|node_modules|server\\|server\/|PRIVATE_KEY|SECRET|TOKEN)/i;
+const SAFE_OPERATIONAL_5XX_CODES = new Set([
+    'UPLOAD_SCANNER_UNAVAILABLE',
+]);
 
 const getRequestPath = (req = {}) => String(req.originalUrl || req.path || '').split('?')[0];
 
@@ -42,9 +45,13 @@ const buildMinimizedErrorResponse = ({ err = {}, req = {}, statusCode = 500 } = 
 
     const message = String(err.message || '');
     if (statusCode >= 500 || INTERNAL_DETAIL_PATTERN.test(message)) {
+        const safeCode = SAFE_OPERATIONAL_5XX_CODES.has(String(err.code || ''))
+            ? String(err.code)
+            : '';
         return {
             statusCode: statusCode >= 400 ? statusCode : 500,
             body: {
+                ...(safeCode ? { success: false, code: safeCode } : {}),
                 status: 'error',
                 message: 'Request failed',
                 requestId,

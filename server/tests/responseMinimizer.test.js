@@ -93,4 +93,25 @@ describe('Invisible Fabric response minimization', () => {
             requestId: 'req-minimized',
         });
     });
+
+    test('preserves only the allowlisted scanner-unavailable code on minimized 5xx responses', async () => {
+        const app = buildApp((req, _res, next) => {
+            const error = new AppError('Avatar malware scan unavailable. Please try again later.', 503);
+            error.code = 'UPLOAD_SCANNER_UNAVAILABLE';
+            next(error);
+        });
+
+        const response = await request(app)
+            .get('/api/products/fail')
+            .set('X-Request-Id', 'req-scanner-unavailable')
+            .expect(503);
+
+        expect(response.body).toEqual({
+            success: false,
+            code: 'UPLOAD_SCANNER_UNAVAILABLE',
+            status: 'error',
+            message: 'Request failed',
+            requestId: 'req-scanner-unavailable',
+        });
+    });
 });

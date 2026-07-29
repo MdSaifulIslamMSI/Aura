@@ -54,19 +54,24 @@ describe('Account Center staging smoke guards', () => {
             status: 503,
             payload: {
                 success: false,
-                message: 'Avatar malware scan unavailable. Please try again later.',
+                code: 'UPLOAD_SCANNER_UNAVAILABLE',
+                message: 'Request failed',
             },
         })).not.toThrow();
         expect(() => assertAvatarScanDisabledFailClosed({
             status: 503,
             payload: {
+                code: 'UPLOAD_SCANNER_UNAVAILABLE',
                 message: 'Avatar malware scan unavailable. Please try again later.',
                 finalizeToken: 'must-not-exist',
             },
         })).toThrow('finalize token');
         expect(() => assertAvatarScanDisabledFailClosed({
             status: 503,
-            payload: { message: 'Different dependency failure' },
+            payload: {
+                code: 'DIFFERENT_DEPENDENCY_FAILURE',
+                message: 'Request failed',
+            },
         })).toThrow('unexpected failure');
         expect(() => assertAvatarScanDisabledFailClosed({
             status: 201,
