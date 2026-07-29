@@ -1210,6 +1210,7 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_BASE_URL\s*\}\}/);
         expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
         expect(workflow).toMatch(/SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED:\s*"true"/);
+        expect(workflow).toMatch(/-e SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED/);
         expect(workflow).toMatch(/cache-dependency-path:[\s\S]*?package-lock\.json[\s\S]*?app\/package-lock\.json/);
         expect(workflow).toMatch(/npm ci[\s\S]*?npm --prefix app ci/);
         expect(workflow).toContain('npm --prefix app exec -- playwright test --config=app/playwright.staging.config.js');

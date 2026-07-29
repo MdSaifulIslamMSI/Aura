@@ -479,6 +479,7 @@ jobs:
             -e SMOKE_BASE_URL \
             -e SMOKE_TARGET_ENV \
             -e SMOKE_STAGING_ISOLATED \
+            -e SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED \
             -e STAGING_SSM_PREFIX \
             -e PROD_BASE_URL \
             -e PROD_API_BASE_URL \

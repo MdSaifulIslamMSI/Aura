@@ -4,6 +4,7 @@ const path = require('path');
 jest.mock('sharp', () => jest.fn());
 
 const {
+    assertAvatarScanDisabledFailClosed,
     assertSafeSessionProjection,
     assertStagingTarget,
     classifyFailurePayload,
@@ -45,6 +46,31 @@ describe('Account Center staging smoke guards', () => {
             id: 'raw-session-id',
             ip: '127.0.0.1',
         }])).toThrow();
+    });
+
+    test('accepts only the exact fail-closed avatar scanner response without promotion authority', () => {
+        expect(() => assertAvatarScanDisabledFailClosed({
+            status: 503,
+            payload: {
+                success: false,
+                message: 'Avatar malware scan unavailable. Please try again later.',
+            },
+        })).not.toThrow();
+        expect(() => assertAvatarScanDisabledFailClosed({
+            status: 503,
+            payload: {
+                message: 'Avatar malware scan unavailable. Please try again later.',
+                finalizeToken: 'must-not-exist',
+            },
+        })).toThrow('finalize token');
+        expect(() => assertAvatarScanDisabledFailClosed({
+            status: 503,
+            payload: { message: 'Different dependency failure' },
+        })).toThrow('unexpected failure');
+        expect(() => assertAvatarScanDisabledFailClosed({
+            status: 201,
+            payload: {},
+        })).toThrow('must fail closed with 503');
     });
 
     test('uses authenticated telemetry through the internal-route cloak', () => {

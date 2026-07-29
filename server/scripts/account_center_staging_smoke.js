@@ -7,6 +7,7 @@ const normalizeUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
 const baseUrl = normalizeUrl(process.env.SMOKE_BASE_URL);
 const RATE_LIMIT_DEPENDENCY_MESSAGE = 'Rate limiter dependency unavailable. Please try again shortly.';
 const RATE_LIMIT_RECOVERY_DELAY_MS = 11_000;
+const AVATAR_SCAN_UNAVAILABLE_MESSAGE = 'Avatar malware scan unavailable. Please try again later.';
 const SAFE_FAILURE_CODES = new Set([
     'ATTACK_MODE_ROUTE_DISABLED',
     'AUTH_BUDGET_EXCEEDED',
@@ -45,6 +46,16 @@ const assertSafeSessionProjection = (sessions = []) => {
         assert(unexpected.length === 0, `Session response exposed unexpected fields: ${unexpected.join(', ')}`);
         assert(/^[A-Za-z0-9_-]{43}$/.test(String(session.id || '')), 'Session alias must be opaque');
     }
+};
+
+const assertAvatarScanDisabledFailClosed = ({ payload = {}, status }) => {
+    assert(status === 503, `Disabled avatar scanner must fail closed with 503; got ${status}`);
+    assert(
+        String(payload?.message || '') === AVATAR_SCAN_UNAVAILABLE_MESSAGE,
+        'Disabled avatar scanner returned an unexpected failure'
+    );
+    assert(!payload?.finalizeToken, 'Fail-closed avatar upload exposed a finalize token');
+    assert(!payload?.avatar, 'Fail-closed avatar upload exposed an avatar');
 };
 
 const printStep = (name, detail = '') => {
@@ -332,6 +343,7 @@ const run = async () => {
     printStep('account.read-domains', '8 bounded surfaces');
 
     const avatar = await buildAvatarDataUrl();
+    const acceptScannerDisabledFailClosed = process.env.SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED === 'true';
     const { payload: intent } = await requestJson('/api/account/avatar/upload-intents', {
         method: 'POST',
         token: primaryToken,
@@ -342,10 +354,10 @@ const run = async () => {
             sizeBytes: avatar.sizeBytes,
         },
     });
-    const { payload: uploaded } = await requestJson('/api/account/avatar/uploads', {
+    const { payload: uploaded, response: uploadResponse } = await requestJson('/api/account/avatar/uploads', {
         method: 'POST',
         token: primaryToken,
-        expectedStatuses: [201],
+        expectedStatuses: acceptScannerDisabledFailClosed ? [201, 503] : [201],
         body: {
             uploadToken: intent.uploadToken,
             fileName: 'account-qualification.png',
@@ -353,16 +365,21 @@ const run = async () => {
             dataUrl: avatar.dataUrl,
         },
     });
-    const { payload: finalized } = await requestJson('/api/account/avatar/finalize', {
-        method: 'POST',
-        token: primaryToken,
-        body: { finalizeToken: uploaded.finalizeToken },
-    });
-    assert(/^\/uploads\/avatars\/[A-Za-z0-9_-]+\.webp$/.test(String(finalized.avatar || '')), 'Avatar URL is unsafe');
-    const avatarResponse = await fetch(new URL(finalized.avatar, `${baseUrl}/`));
-    assert(avatarResponse.status === 200, 'Finalized avatar is not readable');
-    assert(/^image\/webp\b/i.test(String(avatarResponse.headers.get('content-type') || '')), 'Finalized avatar is not WebP');
-    printStep('avatar.scan-normalize-s3');
+    if (uploadResponse.status === 503) {
+        assertAvatarScanDisabledFailClosed({ payload: uploaded, status: uploadResponse.status });
+        printStep('avatar.scan-disabled-fail-closed');
+    } else {
+        const { payload: finalized } = await requestJson('/api/account/avatar/finalize', {
+            method: 'POST',
+            token: primaryToken,
+            body: { finalizeToken: uploaded.finalizeToken },
+        });
+        assert(/^\/uploads\/avatars\/[A-Za-z0-9_-]+\.webp$/.test(String(finalized.avatar || '')), 'Avatar URL is unsafe');
+        const avatarResponse = await fetch(new URL(finalized.avatar, `${baseUrl}/`));
+        assert(avatarResponse.status === 200, 'Finalized avatar is not readable');
+        assert(/^image\/webp\b/i.test(String(avatarResponse.headers.get('content-type') || '')), 'Finalized avatar is not WebP');
+        printStep('avatar.scan-normalize-s3');
+    }
 
     console.log('ACCOUNT_CENTER_STAGING_SMOKE_PASS');
 };
@@ -376,6 +393,7 @@ if (require.main === module) {
 
 module.exports = {
     allowedSessionFields,
+    assertAvatarScanDisabledFailClosed,
     assertSafeSessionProjection,
     assertStagingTarget,
     classifyFailurePayload,
