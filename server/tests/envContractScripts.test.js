@@ -1016,6 +1016,11 @@ describe('repo environment contract scripts', () => {
         expect(composeScript).toMatch(/append_env_if_set DUO_CLIENT_SECRET "\$duo_client_secret"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_DISCOVERY_URL "\$duo_discovery_url"/);
         expect(composeScript).toMatch(/append_env_if_set AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET "\$cloudfront_origin_verify_secret"/);
+        expect(composeScript).toMatch(
+            /if \[ "\$scanner_health" = "unhealthy" \]; then[\s\S]*?docker compose restart scanner[\s\S]*?fi/
+        );
+        expect(composeScript).toMatch(/for attempt in \$\(seq 1 90\); do[\s\S]*?STAGING_SCANNER_READY/);
+        expect(composeScript).toContain('Staging scanner did not become healthy after bounded recovery.');
 
         const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
         expect(ssmScript).toMatch(/^\s+put_string ADMIN_REQUIRE_PASSKEY false$/m);

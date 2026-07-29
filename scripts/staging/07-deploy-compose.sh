@@ -542,6 +542,33 @@ else
   sudo docker compose build backend
 sudo docker compose up -d
 fi
+
+scanner_container_id="$(sudo docker compose ps -q scanner)"
+[ -n "$scanner_container_id" ] || {
+  echo "Staging scanner container is missing after compose deployment." >&2
+  exit 1
+}
+scanner_health="$(sudo docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$scanner_container_id" 2>/dev/null || true)"
+if [ "$scanner_health" = "unhealthy" ]; then
+  echo "[staging] Scanner is unhealthy after compose deployment; restarting it once before readiness verification."
+  sudo docker compose restart scanner
+fi
+for attempt in $(seq 1 90); do
+  scanner_container_id="$(sudo docker compose ps -q scanner)"
+  scanner_health="$(sudo docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$scanner_container_id" 2>/dev/null || true)"
+  if [ "$scanner_health" = "healthy" ]; then
+    echo "STAGING_SCANNER_READY"
+    break
+  fi
+  if [ "$attempt" -eq 90 ]; then
+    echo "Staging scanner did not become healthy after bounded recovery." >&2
+    sudo docker compose ps scanner >&2 || true
+    sudo docker compose logs --tail=120 scanner >&2 || true
+    exit 1
+  fi
+  sleep 5
+done
+
 sudo docker compose ps
 for attempt in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${STAGING_BACKEND_PORT}/health" >/tmp/aura-staging-local-health.json 2>/dev/null; then
