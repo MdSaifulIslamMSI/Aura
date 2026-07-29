@@ -64,12 +64,9 @@ put_string MONGO_URI 'mongodb://mongo:27017/aura_staging?replicaSet=rs0'
 put_string MONGO_REQUIRE_TLS false
 put_string MONGO_REQUIRE_REPLICA_SET true
 put_string REDIS_URL redis://redis:6379
-put_string UPLOAD_SCANNER_HOST scanner
-put_string UPLOAD_SCANNER_PORT 3310
-put_string CLAMAV_HOST scanner
-put_string CLAMAV_PORT 3310
-put_string CLAMAV_ENABLED true
-put_string UPLOAD_MALWARE_SCAN_ENABLED true
+put_string CLAMAV_ENABLED false
+put_string YARA_ENABLED false
+put_string UPLOAD_MALWARE_SCAN_ENABLED false
 put_string UPLOAD_MALWARE_SCAN_FAIL_CLOSED true
 put_string CORS_ORIGIN "$cors_origin"
 put_secure JWT_SECRET "$jwt_secret"

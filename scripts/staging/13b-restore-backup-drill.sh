@@ -40,6 +40,26 @@ redis_container="aura-staging-restore-redis-$DRILL_ID"
 mongo_volume="aura-staging-restore-mongo-$DRILL_ID"
 postgres_volume="aura-staging-restore-postgres-$DRILL_ID"
 redis_volume="aura-staging-restore-redis-$DRILL_ID"
+compose_dir="/opt/aura-staging/src/infra/staging"
+staging_stack_quiesced=false
+
+restart_staging_stack() {
+  [ "$staging_stack_quiesced" = "true" ] || return 0
+  cd "$compose_dir"
+  sudo docker compose up -d --no-build postgres mongo redis backend >/dev/null
+  for _ in $(seq 1 90); do
+    local backend_id backend_health
+    backend_id="$(sudo docker compose ps -q backend 2>/dev/null || true)"
+    backend_health="$(sudo docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$backend_id" 2>/dev/null || true)"
+    if [ "$backend_health" = "healthy" ]; then
+      staging_stack_quiesced=false
+      return 0
+    fi
+    sleep 2
+  done
+  sudo docker compose logs --tail=120 backend mongo postgres redis >&2 || true
+  return 1
+}
 
 cleanup_restore_drill() {
   local status=$?
@@ -47,6 +67,10 @@ cleanup_restore_drill() {
   sudo docker rm -f "$mongo_container" "$postgres_container" "$redis_container" >/dev/null 2>&1 || true
   sudo docker volume rm -f "$mongo_volume" "$postgres_volume" "$redis_volume" >/dev/null 2>&1 || true
   sudo rm -rf -- "$restore_root"
+  if ! restart_staging_stack; then
+    echo "Failed to restore the staging stack after the isolated restore drill" >&2
+    status=1
+  fi
   exit "$status"
 }
 trap cleanup_restore_drill EXIT
@@ -90,6 +114,20 @@ release_restore_service() {
   sudo docker volume rm -f "$volume" >/dev/null
 }
 
+cd "$compose_dir"
+for service in backend mongo postgres redis; do
+  service_id="$(sudo docker compose ps -q "$service" 2>/dev/null || true)"
+  if [ -n "$service_id" ] \
+    && [ "$(sudo docker inspect --format '{{.State.Running}}' "$service_id" 2>/dev/null || true)" = "true" ]; then
+    staging_stack_quiesced=true
+    break
+  fi
+done
+if [ "$staging_stack_quiesced" = "true" ]; then
+  echo "Quiescing the live staging stack during the isolated restore drill" >&2
+  sudo docker compose stop -t 30 backend mongo postgres redis >/dev/null
+fi
+
 sudo rm -rf -- "$restore_root"
 sudo mkdir -p "$data_dir"
 sudo chown -R "$(id -u):$(id -g)" "$restore_root"
@@ -124,8 +162,9 @@ sudo docker run -d \
   -v "$data_dir:/backup:ro" \
   mongo:7 mongod --bind_ip_all >/dev/null
 wait_for_container_command "$mongo_container" mongosh --quiet --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)'
-sudo docker exec "$mongo_container" mongorestore --quiet --drop --archive=/backup/mongo.archive.gz --gzip
-sudo docker exec "$mongo_container" mongosh --quiet --eval '
+mongo_restore_uri='mongodb://127.0.0.1:27017/?serverSelectionTimeoutMS=30000&connectTimeoutMS=30000'
+sudo docker exec "$mongo_container" mongorestore --uri="$mongo_restore_uri" --quiet --drop --archive=/backup/mongo.archive.gz --gzip
+sudo docker exec "$mongo_container" mongosh "$mongo_restore_uri" --quiet --eval '
 const ignored = new Set(["admin", "config", "local"]);
 const out = [];
 for (const info of db.adminCommand({ listDatabases: 1, nameOnly: true }).databases.filter((entry) => !ignored.has(entry.name)).sort((a, b) => a.name.localeCompare(b.name))) {
