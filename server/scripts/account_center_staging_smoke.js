@@ -261,6 +261,7 @@ const run = async () => {
     const { payload: preferences } = await requestJson('/api/account/preferences', {
         token: primaryToken,
         retryRateLimitDependency: true,
+        retryIdempotentTransientFailure: true,
     });
     assert(Number.isInteger(Number(preferences?.preferences?.version)), 'Preference version is missing');
     const { payload: updatedPreferences } = await requestJson('/api/account/preferences', {
