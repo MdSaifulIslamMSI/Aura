@@ -969,6 +969,8 @@ describe('repo environment contract scripts', () => {
         expect(backupScript).toContain('remote_backup_root="/opt/aura-staging/backup-work-$backup_id"');
         expect(backupScript).toContain('trap cleanup_backup_workspace EXIT');
         expect(backupScript).toContain('REMOTE_BACKUP_ROOT');
+        expect(backupScript).toContain('REMOTE_STATUS');
+        expect(backupScript).toContain('STAGING_BACKUP_EXIT_GRACE_ATTEMPTS');
         expect(backupScript).toContain('application-quiesced-logical');
         expect(backupScript).toContain('db.adminCommand({ fsync: 1, lock: true })');
         expect(backupScript).toContain('db.fsyncUnlock()');
