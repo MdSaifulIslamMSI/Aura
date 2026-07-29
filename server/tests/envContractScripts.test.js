@@ -1003,6 +1003,11 @@ describe('repo environment contract scripts', () => {
             /cmp --silent "\$data_dir\/postgres-stats\.tsv"[\s\S]*?release_restore_service "\$postgres_container" "\$postgres_volume"[\s\S]*?redis-check-rdb/
         );
         expect(restoreScript).toContain('cleanup_restore_drill');
+        expect(restoreScript).toContain('Quiescing the live staging stack during the isolated restore drill');
+        expect(restoreScript).toContain('docker compose stop -t 30 backend mongo postgres redis');
+        expect(restoreScript).toContain('docker compose up -d --no-build postgres mongo redis backend');
+        expect(restoreScript).toContain('serverSelectionTimeoutMS=30000');
+        expect(restoreScript).toContain('Failed to restore the staging stack after the isolated restore drill');
         expect(restoreScript).toContain('RESTORE_DRILL_PASS');
         expect(restoreScript).toContain('|| status=$?; rm -f ${remoteJob} /tmp/aura-staging-restore-runner.b64; exit $status');
         expect(restoreScript).not.toContain('--publish');
