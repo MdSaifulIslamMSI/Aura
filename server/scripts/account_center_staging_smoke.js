@@ -334,6 +334,7 @@ const run = async () => {
                 method: 'DELETE',
                 token: primaryToken,
                 expectedStatuses: [200, 404],
+                retryIdempotentTransientFailure: true,
             });
         }
     }
