@@ -7,6 +7,7 @@ const normalizeUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
 const baseUrl = normalizeUrl(process.env.SMOKE_BASE_URL);
 const RATE_LIMIT_DEPENDENCY_MESSAGE = 'Rate limiter dependency unavailable. Please try again shortly.';
 const RATE_LIMIT_RECOVERY_DELAY_MS = 11_000;
+const FIREBASE_NETWORK_RECOVERY_DELAY_MS = 5_000;
 const AVATAR_SCAN_UNAVAILABLE_MESSAGE = 'Avatar malware scan unavailable. Please try again later.';
 const SAFE_FAILURE_CODES = new Set([
     'ATTACK_MODE_ROUTE_DISABLED',
@@ -57,6 +58,11 @@ const assertAvatarScanDisabledFailClosed = ({ payload = {}, status }) => {
     assert(!payload?.finalizeToken, 'Fail-closed avatar upload exposed a finalize token');
     assert(!payload?.avatar, 'Fail-closed avatar upload exposed an avatar');
 };
+
+const isRetryableFirebaseNetworkError = (error) => (
+    error instanceof TypeError
+    && String(error?.message || '').trim().toLowerCase() === 'fetch failed'
+);
 
 const printStep = (name, detail = '') => {
     console.log(`[ok] ${name}${detail ? ` - ${detail}` : ''}`);
@@ -162,13 +168,26 @@ const requestJson = async (pathname, {
 };
 
 const signIn = async ({ email, password }) => {
-    const result = await signInWithEmailPassword({
-        apiKey: process.env.SMOKE_FIREBASE_API_KEY,
-        email,
-        password,
-    });
-    assert(result.idToken, 'Firebase sign-in did not return an ID token');
-    return result.idToken;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+            const result = await signInWithEmailPassword({
+                apiKey: process.env.SMOKE_FIREBASE_API_KEY,
+                email,
+                password,
+            });
+            assert(result.idToken, 'Firebase sign-in did not return an ID token');
+            return result.idToken;
+        } catch (error) {
+            if (attempt === 0 && isRetryableFirebaseNetworkError(error)) {
+                console.warn('[retry] Firebase sign-in after transport failure');
+                await new Promise((resolve) => setTimeout(resolve, FIREBASE_NETWORK_RECOVERY_DELAY_MS));
+                continue;
+            }
+            throw error;
+        }
+    }
+
+    throw new Error('Firebase sign-in exhausted the bounded transport recovery attempt');
 };
 
 const syncAccount = async ({ token, email, name, phone }) => {
@@ -397,6 +416,7 @@ module.exports = {
     assertSafeSessionProjection,
     assertStagingTarget,
     classifyFailurePayload,
+    isRetryableFirebaseNetworkError,
     run,
     shouldRetryIdempotentTransientFailure,
     shouldRetryRateLimitDependency,

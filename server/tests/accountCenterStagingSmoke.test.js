@@ -8,6 +8,7 @@ const {
     assertSafeSessionProjection,
     assertStagingTarget,
     classifyFailurePayload,
+    isRetryableFirebaseNetworkError,
     shouldRetryIdempotentTransientFailure,
     shouldRetryRateLimitDependency,
 } = require('../scripts/account_center_staging_smoke');
@@ -155,5 +156,12 @@ describe('Account Center staging smoke guards', () => {
             retryIdempotentTransientFailure: true,
             status: 503,
         })).toBe(false);
+    });
+
+    test('retries only Firebase transport failures, not credential or status errors', () => {
+        expect(isRetryableFirebaseNetworkError(new TypeError('fetch failed'))).toBe(true);
+        expect(isRetryableFirebaseNetworkError(new Error('fetch failed'))).toBe(false);
+        expect(isRetryableFirebaseNetworkError(new Error('INVALID_PASSWORD'))).toBe(false);
+        expect(isRetryableFirebaseNetworkError(new TypeError('invalid URL'))).toBe(false);
     });
 });
