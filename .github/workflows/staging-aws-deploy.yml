@@ -360,6 +360,7 @@ jobs:
             printf 'ACCOUNT_MIGRATION_BACKUP_EVIDENCE=%s\n' "${BACKUP_EVIDENCE}"
             printf 'ACCOUNT_MIGRATION_ROLLBACK_SHA=%s\n' "${QUALIFICATION_ROLLBACK_SHA}"
             printf 'ACCOUNT_MIGRATION_RUN_ID=account-center-%s\n' "${GITHUB_RUN_ID}"
+            printf 'SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED=%s\n' "${SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED}"
           } >> .staging/account-center-qualification.env
           scp -F .staging/ssh_config \
             .staging/account-center-qualification.env \
