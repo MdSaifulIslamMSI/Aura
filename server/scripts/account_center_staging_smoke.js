@@ -112,7 +112,7 @@ const shouldRetryIdempotentTransientFailure = ({
     retryIdempotentTransientFailure === true
     && attempt === 0
     && status === 503
-    && ['rate_limit_dependency_unavailable', 'traffic_route_timeout']
+    && ['rate_limit_dependency_unavailable', 'traffic_load_shedding', 'traffic_route_timeout']
         .includes(classifyFailurePayload(payload).reason)
 );
 
@@ -340,16 +340,22 @@ const run = async () => {
         }
     }
 
-    const readChecks = await Promise.all([
-        requestJson('/api/account/summary', { token: primaryToken }),
-        requestJson('/api/users/dashboard', { token: primaryToken }),
-        requestJson('/api/users/rewards', { token: primaryToken }),
-        requestJson('/api/orders/myorders?limit=5', { token: primaryToken }),
-        requestJson('/api/account/marketplace', { token: primaryToken }),
-        requestJson('/api/account/security-activity?limit=10', { token: primaryToken }),
-        requestJson('/api/account/sessions?limit=10', { token: primaryToken }),
-        requestJson('/api/account/privacy/capabilities', { token: primaryToken }),
-    ]);
+    const readChecks = [];
+    for (const pathname of [
+        '/api/account/summary',
+        '/api/users/dashboard',
+        '/api/users/rewards',
+        '/api/orders/myorders?limit=5',
+        '/api/account/marketplace',
+        '/api/account/security-activity?limit=10',
+        '/api/account/sessions?limit=10',
+        '/api/account/privacy/capabilities',
+    ]) {
+        readChecks.push(await requestJson(pathname, {
+            token: primaryToken,
+            retryIdempotentTransientFailure: true,
+        }));
+    }
     const securityActivity = readChecks[5].payload;
     for (const event of securityActivity.activity || []) {
         const unexpected = Object.keys(event || {}).filter(

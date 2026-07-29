@@ -118,7 +118,7 @@ describe('Account Center staging smoke guards', () => {
         })).toBe(false);
     });
 
-    test('retries one explicit route timeout only for an idempotent smoke request', () => {
+    test('retries one explicit transient overload only for an idempotent smoke request', () => {
         const routeTimeout = {
             code: 'TRAFFIC_ROUTE_TIMEOUT',
             message: 'This route is temporarily overloaded. Please try again shortly.',
@@ -149,7 +149,7 @@ describe('Account Center staging smoke guards', () => {
             },
             retryIdempotentTransientFailure: true,
             status: 503,
-        })).toBe(false);
+        })).toBe(true);
         expect(shouldRetryIdempotentTransientFailure({
             attempt: 0,
             payload: { code: 'OTHER_DEPENDENCY_FAILURE' },
