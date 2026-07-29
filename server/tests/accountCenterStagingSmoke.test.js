@@ -85,6 +85,18 @@ describe('Account Center staging smoke guards', () => {
         );
     });
 
+    test('serializes customer sync admission before broader qualification', () => {
+        const source = fs.readFileSync(
+            path.join(__dirname, '..', 'scripts', 'account_center_staging_smoke.js'),
+            'utf8'
+        );
+
+        expect(source).toMatch(
+            /await syncAccount\(\{ token: primaryToken,[\s\S]*?await syncAccount\(\{ token: secondaryToken,/
+        );
+        expect(source).not.toMatch(/Promise\.all\(\[\s*syncAccount/);
+    });
+
     test('retries only a first security-limiter dependency failure', () => {
         const dependencyFailure = {
             message: 'Rate limiter dependency unavailable. Please try again shortly.',

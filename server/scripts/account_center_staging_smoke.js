@@ -239,10 +239,8 @@ const run = async () => {
         signIn(primary),
         signIn(secondary),
     ]);
-    await Promise.all([
-        syncAccount({ token: primaryToken, ...primary }),
-        syncAccount({ token: secondaryToken, ...secondary }),
-    ]);
+    await syncAccount({ token: primaryToken, ...primary });
+    await syncAccount({ token: secondaryToken, ...secondary });
     printStep('auth.owner-boundary', 'two isolated customers');
 
     const { payload: profile } = await requestJson('/api/users/profile', { token: primaryToken });
