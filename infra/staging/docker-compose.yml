@@ -16,8 +16,6 @@ services:
         condition: service_started
       redis:
         condition: service_started
-      scanner:
-        condition: service_healthy
     expose:
       - "${STAGING_BACKEND_PORT:-3000}"
     ports:
@@ -75,6 +73,7 @@ services:
 
   scanner:
     image: clamav/clamav:1.4_base
+    profiles: ["malware-scan"]
     environment:
       CLAMD_CONF_ConcurrentDatabaseReload: "no"
     healthcheck:

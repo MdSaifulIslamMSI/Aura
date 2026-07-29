@@ -26,6 +26,9 @@ const prodBaseUrl = normalizeUrl(process.env.PROD_BASE_URL || '');
 const prodApiBaseUrl = normalizeUrl(process.env.PROD_API_BASE_URL || '');
 const vercelAutomationBypassSecret = normalize(process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '');
 const scannerReadyRequired = ['1', 'true', 'yes', 'on'].includes(normalize(process.env.SMOKE_REQUIRE_SCANNER_READY).toLowerCase());
+const scannerDisabledFailClosedAccepted = ['1', 'true', 'yes', 'on'].includes(
+  normalize(process.env.SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED).toLowerCase()
+);
 
 const fail = (message) => failures.push(message);
 
@@ -124,9 +127,11 @@ const assertHealthJson = async (label, response, text) => {
     const value = normalize(json[field]).toLowerCase();
     if (value !== 'staging') fail(`${label} ${field} must be staging; got ${value || '<unset>'}.`);
   }
-  if (json.scanner !== 'ready') {
-    const scannerStatus = json.scanner || '<unset>';
-    if (scannerReadyRequired) {
+  const scannerStatus = normalize(json.scanner).toLowerCase() || '<unset>';
+  if (scannerStatus !== 'ready') {
+    if (scannerStatus === 'disabled_fail_closed' && scannerDisabledFailClosedAccepted) {
+      notes.push(`${label} scanner: disabled_fail_closed (accepted)`);
+    } else if (scannerReadyRequired) {
       fail(`${label} scanner must be ready; got ${scannerStatus}.`);
     } else {
       notes.push(`${label} scanner: ${scannerStatus} (not required)`);
