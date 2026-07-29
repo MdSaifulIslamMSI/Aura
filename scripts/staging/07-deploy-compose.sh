@@ -512,35 +512,47 @@ if ! id aura >/dev/null 2>&1; then
 fi
 sudo usermod -aG docker aura || true
 sudo mkdir -p /opt/aura-staging/src /opt/aura-staging/logs
-sudo rm -rf /opt/aura-staging/src
+echo "[staging] Replacing staged release source."
+sudo timeout 120s rm -rf /opt/aura-staging/src
 sudo mkdir -p /opt/aura-staging/src
-sudo tar -xzf /tmp/aura-staging-release.tar.gz -C /opt/aura-staging/src
+sudo timeout 120s tar -xzf /tmp/aura-staging-release.tar.gz -C /opt/aura-staging/src
 sudo cp /tmp/aura-staging.env /opt/aura-staging/src/infra/staging/.env.staging
 sudo cp /tmp/aura-staging.env /opt/aura-staging/src/infra/staging/.env
 sudo chmod 600 /opt/aura-staging/src/infra/staging/.env.staging
 sudo chmod 600 /opt/aura-staging/src/infra/staging/.env
-sudo chown -R aura:aura /opt/aura-staging
+sudo timeout 120s chown -R aura:aura /opt/aura-staging
 cd /opt/aura-staging/src/infra/staging
+
+existing_scanner_container_id="$(sudo timeout 15s docker compose ps -q scanner || true)"
+if [ -n "$existing_scanner_container_id" ]; then
+  echo "[staging] Quiescing the existing scanner before image maintenance."
+  sudo timeout 60s docker stop --time 20 "$existing_scanner_container_id" >/dev/null \
+    || sudo timeout 20s docker kill "$existing_scanner_container_id" >/dev/null
+fi
+
 backend_image_loaded=false
 if [ -f /tmp/aura-staging-backend-image.tar.gz ]; then
   # Preserve every image referenced by a running container while reclaiming
   # stale deploy layers on the deliberately small staging host.
-  sudo docker container prune --force >/dev/null
-  sudo docker image prune --all --force >/dev/null
-  sudo docker builder prune --all --force >/dev/null
-  gzip -dc /tmp/aura-staging-backend-image.tar.gz | sudo docker load
+  echo "[staging] Reclaiming stale Docker artifacts."
+  sudo timeout 60s docker container prune --force >/dev/null
+  sudo timeout 180s docker image prune --all --force >/dev/null
+  sudo timeout 180s docker builder prune --all --force >/dev/null
+  echo "[staging] Loading the backend image."
+  gzip -dc /tmp/aura-staging-backend-image.tar.gz | sudo timeout 600s docker load
   sudo rm -f /tmp/aura-staging-backend-image.tar.gz
   backend_image_loaded=true
 fi
 if [ "$backend_image_loaded" = "true" ]; then
-  sudo docker compose pull postgres mongo redis scanner || true
-  sudo docker compose up -d --no-build
+  sudo timeout 300s docker compose pull scanner
+  sudo timeout 300s docker compose pull postgres mongo redis || true
+  sudo timeout 300s docker compose up -d --no-build
 elif [ -n "$STAGING_BACKEND_IMAGE" ]; then
-  sudo docker compose pull || true
-  sudo docker compose up -d --no-build
+  sudo timeout 300s docker compose pull
+  sudo timeout 300s docker compose up -d --no-build
 else
-  sudo docker compose build backend
-sudo docker compose up -d
+  sudo timeout 900s docker compose build backend
+  sudo timeout 300s docker compose up -d
 fi
 
 scanner_container_id="$(sudo timeout 15s docker compose ps -q scanner || true)"

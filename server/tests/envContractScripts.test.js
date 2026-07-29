@@ -1023,6 +1023,13 @@ describe('repo environment contract scripts', () => {
         expect(composeScript).toContain('Staging scanner did not become healthy within 20 minutes.');
         expect(composeScript).toMatch(/timeout 15s docker inspect/);
         expect(composeScript).toMatch(/timeout 30s docker compose logs --tail=120 scanner/);
+        expect(composeScript).toMatch(
+            /Quiescing the existing scanner[\s\S]*?timeout 60s docker stop --time 20/
+        );
+        expect(composeScript).toMatch(/timeout 180s docker image prune --all --force/);
+        expect(composeScript).toMatch(/timeout 600s docker load/);
+        expect(composeScript).toMatch(/timeout 300s docker compose pull scanner/);
+        expect(composeScript).toMatch(/timeout 300s docker compose up -d --no-build/);
 
         const stagingCompose = fs.readFileSync(
             path.join(repoRoot, 'infra', 'staging', 'docker-compose.yml'),
