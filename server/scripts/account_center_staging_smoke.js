@@ -11,6 +11,7 @@ const SAFE_FAILURE_CODES = new Set([
     'ATTACK_MODE_ROUTE_DISABLED',
     'AUTH_BUDGET_EXCEEDED',
     'TRAFFIC_LOAD_SHEDDING',
+    'TRAFFIC_ROUTE_TIMEOUT',
 ]);
 const allowedSessionFields = new Set([
     'id',
@@ -66,6 +67,8 @@ const classifyFailurePayload = (payload = {}) => {
         reason = 'attack_mode_route_disabled';
     } else if (code === 'TRAFFIC_LOAD_SHEDDING') {
         reason = 'traffic_load_shedding';
+    } else if (code === 'TRAFFIC_ROUTE_TIMEOUT') {
+        reason = 'traffic_route_timeout';
     }
 
     return { code, reason, retryAfter };
@@ -83,6 +86,19 @@ const shouldRetryRateLimitDependency = ({
     && classifyFailurePayload(payload).reason === 'rate_limit_dependency_unavailable'
 );
 
+const shouldRetryIdempotentTransientFailure = ({
+    attempt,
+    payload,
+    retryIdempotentTransientFailure,
+    status,
+}) => (
+    retryIdempotentTransientFailure === true
+    && attempt === 0
+    && status === 503
+    && ['rate_limit_dependency_unavailable', 'traffic_route_timeout']
+        .includes(classifyFailurePayload(payload).reason)
+);
+
 const requestJson = async (pathname, {
     method = 'GET',
     token = '',
@@ -90,6 +106,7 @@ const requestJson = async (pathname, {
     expectedStatuses = [200],
     headers = {},
     retryRateLimitDependency = false,
+    retryIdempotentTransientFailure = false,
 } = {}) => {
     for (let attempt = 0; attempt < 2; attempt += 1) {
         const response = await fetch(new URL(pathname, `${baseUrl}/`), {
@@ -105,13 +122,21 @@ const requestJson = async (pathname, {
         if (expectedStatuses.includes(response.status)) {
             return { payload, response };
         }
-        if (shouldRetryRateLimitDependency({
+        const retryRateLimit = shouldRetryRateLimitDependency({
             attempt,
             payload,
             retryRateLimitDependency,
             status: response.status,
-        })) {
-            console.warn(`[retry] ${method} ${pathname} after rate_limit_dependency_unavailable`);
+        });
+        const retryIdempotentTransient = shouldRetryIdempotentTransientFailure({
+            attempt,
+            payload,
+            retryIdempotentTransientFailure,
+            status: response.status,
+        });
+        if (retryRateLimit || retryIdempotentTransient) {
+            const failure = classifyFailurePayload(payload);
+            console.warn(`[retry] ${method} ${pathname} after ${failure.reason}`);
             await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_RECOVERY_DELAY_MS));
             continue;
         }
@@ -142,6 +167,7 @@ const syncAccount = async ({ token, email, name, phone }) => {
         expectedStatuses: [200],
         headers: { 'Idempotency-Key': `account-qualification-${crypto.randomUUID()}` },
         body: { email, name, phone },
+        retryIdempotentTransientFailure: true,
     });
     assert(payload.status === 'authenticated', 'Account sync did not authenticate');
 };
@@ -354,5 +380,6 @@ module.exports = {
     assertStagingTarget,
     classifyFailurePayload,
     run,
+    shouldRetryIdempotentTransientFailure,
     shouldRetryRateLimitDependency,
 };

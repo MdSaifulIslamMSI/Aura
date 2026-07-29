@@ -7,6 +7,7 @@ const {
     assertSafeSessionProjection,
     assertStagingTarget,
     classifyFailurePayload,
+    shouldRetryIdempotentTransientFailure,
     shouldRetryRateLimitDependency,
 } = require('../scripts/account_center_staging_smoke');
 
@@ -86,6 +87,46 @@ describe('Account Center staging smoke guards', () => {
                 message: 'This feature is temporarily unavailable while traffic protection is active.',
             },
             retryRateLimitDependency: true,
+            status: 503,
+        })).toBe(false);
+    });
+
+    test('retries one explicit route timeout only for an idempotent smoke request', () => {
+        const routeTimeout = {
+            code: 'TRAFFIC_ROUTE_TIMEOUT',
+            message: 'This route is temporarily overloaded. Please try again shortly.',
+        };
+
+        expect(classifyFailurePayload(routeTimeout)).toEqual({
+            code: 'TRAFFIC_ROUTE_TIMEOUT',
+            reason: 'traffic_route_timeout',
+            retryAfter: 0,
+        });
+        expect(shouldRetryIdempotentTransientFailure({
+            attempt: 0,
+            payload: routeTimeout,
+            retryIdempotentTransientFailure: true,
+            status: 503,
+        })).toBe(true);
+        expect(shouldRetryIdempotentTransientFailure({
+            attempt: 1,
+            payload: routeTimeout,
+            retryIdempotentTransientFailure: true,
+            status: 503,
+        })).toBe(false);
+        expect(shouldRetryIdempotentTransientFailure({
+            attempt: 0,
+            payload: {
+                code: 'TRAFFIC_LOAD_SHEDDING',
+                message: 'Traffic protection is active.',
+            },
+            retryIdempotentTransientFailure: true,
+            status: 503,
+        })).toBe(false);
+        expect(shouldRetryIdempotentTransientFailure({
+            attempt: 0,
+            payload: { code: 'OTHER_DEPENDENCY_FAILURE' },
+            retryIdempotentTransientFailure: true,
             status: 503,
         })).toBe(false);
     });
