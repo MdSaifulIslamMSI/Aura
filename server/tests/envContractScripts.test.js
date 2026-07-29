@@ -1021,8 +1021,11 @@ describe('repo environment contract scripts', () => {
         );
         expect(composeScript).toMatch(/scanner_ready_deadline=.*1200[\s\S]*?STAGING_SCANNER_READY/);
         expect(composeScript).toContain('Staging scanner did not become healthy within 20 minutes.');
-        expect(composeScript).toMatch(/timeout 15s docker inspect/);
-        expect(composeScript).toMatch(/timeout 30s docker compose logs --tail=120 scanner/);
+        expect(composeScript).toMatch(/timeout 60s docker inspect/);
+        expect(composeScript).toMatch(/timeout 120s docker compose logs --tail=120 scanner/);
+        expect(composeScript).toMatch(
+            /Quiescing the existing backend before scanner and image maintenance[\s\S]*?timeout 60s docker stop --time 20/
+        );
         expect(composeScript).toMatch(
             /Quiescing the existing scanner[\s\S]*?timeout 60s docker stop --time 20/
         );
