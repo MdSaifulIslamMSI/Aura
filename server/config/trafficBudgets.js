@@ -117,7 +117,7 @@ const TRAFFIC_BUDGETS = Object.freeze({
         routeClass: ROUTE_CLASSES.AUTH_LOGIN,
         categoryName: 'loginAttempts',
         maxBodyBytes: 64 * KB,
-        timeoutMs: 7000,
+        timeoutMs: 8000,
         perIp: 40,
         perAccount: 20,
         perSession: 20,
