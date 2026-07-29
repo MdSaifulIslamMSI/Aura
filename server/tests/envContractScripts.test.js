@@ -1029,7 +1029,14 @@ describe('repo environment contract scripts', () => {
         expect(composeScript).toMatch(/timeout 180s docker image prune --all --force/);
         expect(composeScript).toMatch(/timeout 1800s docker load/);
         expect(composeScript).toMatch(/timeout 300s docker compose pull scanner/);
-        expect(composeScript).toMatch(/timeout 300s docker compose up -d --no-build/);
+        expect(composeScript).toMatch(
+            /Starting data services and scanner before the backend[\s\S]*?docker compose up -d --no-build postgres mongo redis scanner/
+        );
+        expect(composeScript).toMatch(
+            /STAGING_SCANNER_READY[\s\S]*?Starting backend after scanner readiness[\s\S]*?docker compose up -d --no-build backend/
+        );
+        expect(composeScript).toMatch(/scanner_stability_deadline=.*60[\s\S]*?STAGING_SCANNER_STABLE_AFTER_BACKEND/);
+        expect(composeScript).toMatch(/oom_killed=\{\{\.State\.OOMKilled\}\}/);
 
         const stagingCompose = fs.readFileSync(
             path.join(repoRoot, 'infra', 'staging', 'docker-compose.yml'),
@@ -1037,6 +1044,9 @@ describe('repo environment contract scripts', () => {
         );
         expect(stagingCompose).toContain('image: clamav/clamav:1.4_base');
         expect(stagingCompose).toContain('CLAMD_CONF_ConcurrentDatabaseReload: "no"');
+        expect(stagingCompose).toMatch(/scanner:\s*\n\s+condition: service_healthy/);
+        expect(stagingCompose).toContain('test: ["CMD-SHELL", "clamdcheck.sh"]');
+        expect(stagingCompose).toContain('start_period: 20m');
 
         const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
         expect(ssmScript).toMatch(/^\s+put_string ADMIN_REQUIRE_PASSKEY false$/m);

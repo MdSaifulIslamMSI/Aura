@@ -523,6 +523,22 @@ sudo chmod 600 /opt/aura-staging/src/infra/staging/.env
 sudo timeout 120s chown -R aura:aura /opt/aura-staging
 cd /opt/aura-staging/src/infra/staging
 
+scanner_diagnostics() {
+  local diagnostic_scanner_id
+  echo "[staging] Scanner failure diagnostics." >&2
+  sudo timeout 15s docker compose ps -a scanner >&2 || true
+  diagnostic_scanner_id="$(sudo timeout 15s docker compose ps -a -q scanner 2>/dev/null || true)"
+  if [ -n "$diagnostic_scanner_id" ]; then
+    sudo timeout 15s docker inspect --format \
+      'scanner status={{.State.Status}} running={{.State.Running}} restarting={{.State.Restarting}} oom_killed={{.State.OOMKilled}} exit_code={{.State.ExitCode}} restart_count={{.RestartCount}} error={{json .State.Error}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
+      "$diagnostic_scanner_id" >&2 || true
+    sudo timeout 15s docker stats --no-stream "$diagnostic_scanner_id" >&2 || true
+  fi
+  sudo timeout 30s docker compose logs --tail=120 scanner >&2 || true
+  free -h >&2 || true
+  sudo swapon --show >&2 || true
+}
+
 existing_scanner_container_id="$(sudo timeout 15s docker compose ps -q scanner || true)"
 if [ -n "$existing_scanner_container_id" ]; then
   echo "[staging] Quiescing the existing scanner before image maintenance."
@@ -546,18 +562,19 @@ fi
 if [ "$backend_image_loaded" = "true" ]; then
   sudo timeout 300s docker compose pull scanner
   sudo timeout 300s docker compose pull postgres mongo redis || true
-  sudo timeout 300s docker compose up -d --no-build
 elif [ -n "$STAGING_BACKEND_IMAGE" ]; then
   sudo timeout 300s docker compose pull
-  sudo timeout 300s docker compose up -d --no-build
 else
   sudo timeout 900s docker compose build backend
-  sudo timeout 300s docker compose up -d
 fi
+
+echo "[staging] Starting data services and scanner before the backend."
+sudo timeout 300s docker compose up -d --no-build postgres mongo redis scanner
 
 scanner_container_id="$(sudo timeout 15s docker compose ps -q scanner || true)"
 [ -n "$scanner_container_id" ] || {
   echo "Staging scanner container is missing after compose deployment." >&2
+  scanner_diagnostics
   exit 1
 }
 scanner_health="$(sudo timeout 15s docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$scanner_container_id" 2>/dev/null || true)"
@@ -577,12 +594,29 @@ while [ "$(date +%s)" -lt "$scanner_ready_deadline" ]; do
 done
 if [ "$scanner_health" != "healthy" ]; then
   echo "Staging scanner did not become healthy within 20 minutes." >&2
-  sudo timeout 15s docker compose ps scanner >&2 || true
-  sudo timeout 30s docker compose logs --tail=120 scanner >&2 || true
-  sudo timeout 15s docker stats --no-stream scanner >&2 || true
-  free -h >&2 || true
+  scanner_diagnostics
   exit 1
 fi
+
+echo "[staging] Starting backend after scanner readiness."
+if [ "$backend_image_loaded" = "true" ] || [ -n "$STAGING_BACKEND_IMAGE" ]; then
+  sudo timeout 300s docker compose up -d --no-build backend
+else
+  sudo timeout 300s docker compose up -d backend
+fi
+
+scanner_stability_deadline="$(( $(date +%s) + 60 ))"
+while [ "$(date +%s)" -lt "$scanner_stability_deadline" ]; do
+  scanner_container_id="$(sudo timeout 15s docker compose ps -q scanner || true)"
+  scanner_health="$(sudo timeout 15s docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$scanner_container_id" 2>/dev/null || true)"
+  if [ -z "$scanner_container_id" ] || [ "$scanner_health" != "healthy" ]; then
+    echo "Staging scanner did not remain healthy after backend startup." >&2
+    scanner_diagnostics
+    exit 1
+  fi
+  sleep 5
+done
+echo "STAGING_SCANNER_STABLE_AFTER_BACKEND"
 
 sudo docker compose ps
 for attempt in $(seq 1 30); do
