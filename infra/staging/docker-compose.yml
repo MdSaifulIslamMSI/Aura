@@ -74,7 +74,9 @@ services:
     restart: unless-stopped
 
   scanner:
-    image: clamav/clamav:stable
+    image: clamav/clamav:1.4_base
+    environment:
+      CLAMD_CONF_ConcurrentDatabaseReload: "no"
     expose:
       - "3310"
     volumes:

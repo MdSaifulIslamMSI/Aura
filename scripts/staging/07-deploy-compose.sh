@@ -543,31 +543,34 @@ else
 sudo docker compose up -d
 fi
 
-scanner_container_id="$(sudo docker compose ps -q scanner)"
+scanner_container_id="$(sudo timeout 15s docker compose ps -q scanner || true)"
 [ -n "$scanner_container_id" ] || {
   echo "Staging scanner container is missing after compose deployment." >&2
   exit 1
 }
-scanner_health="$(sudo docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$scanner_container_id" 2>/dev/null || true)"
+scanner_health="$(sudo timeout 15s docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$scanner_container_id" 2>/dev/null || true)"
 if [ "$scanner_health" = "unhealthy" ]; then
   echo "[staging] Scanner is unhealthy after compose deployment; restarting it once before readiness verification."
-  sudo docker compose restart scanner
+  sudo timeout 60s docker compose restart scanner
 fi
-for attempt in $(seq 1 90); do
-  scanner_container_id="$(sudo docker compose ps -q scanner)"
-  scanner_health="$(sudo docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$scanner_container_id" 2>/dev/null || true)"
+scanner_ready_deadline="$(( $(date +%s) + 1200 ))"
+while [ "$(date +%s)" -lt "$scanner_ready_deadline" ]; do
+  scanner_container_id="$(sudo timeout 15s docker compose ps -q scanner || true)"
+  scanner_health="$(sudo timeout 15s docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$scanner_container_id" 2>/dev/null || true)"
   if [ "$scanner_health" = "healthy" ]; then
     echo "STAGING_SCANNER_READY"
     break
   fi
-  if [ "$attempt" -eq 90 ]; then
-    echo "Staging scanner did not become healthy after bounded recovery." >&2
-    sudo docker compose ps scanner >&2 || true
-    sudo docker compose logs --tail=120 scanner >&2 || true
-    exit 1
-  fi
   sleep 5
 done
+if [ "$scanner_health" != "healthy" ]; then
+  echo "Staging scanner did not become healthy within 20 minutes." >&2
+  sudo timeout 15s docker compose ps scanner >&2 || true
+  sudo timeout 30s docker compose logs --tail=120 scanner >&2 || true
+  sudo timeout 15s docker stats --no-stream scanner >&2 || true
+  free -h >&2 || true
+  exit 1
+fi
 
 sudo docker compose ps
 for attempt in $(seq 1 30); do

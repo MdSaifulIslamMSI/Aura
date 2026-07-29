@@ -1019,8 +1019,17 @@ describe('repo environment contract scripts', () => {
         expect(composeScript).toMatch(
             /if \[ "\$scanner_health" = "unhealthy" \]; then[\s\S]*?docker compose restart scanner[\s\S]*?fi/
         );
-        expect(composeScript).toMatch(/for attempt in \$\(seq 1 90\); do[\s\S]*?STAGING_SCANNER_READY/);
-        expect(composeScript).toContain('Staging scanner did not become healthy after bounded recovery.');
+        expect(composeScript).toMatch(/scanner_ready_deadline=.*1200[\s\S]*?STAGING_SCANNER_READY/);
+        expect(composeScript).toContain('Staging scanner did not become healthy within 20 minutes.');
+        expect(composeScript).toMatch(/timeout 15s docker inspect/);
+        expect(composeScript).toMatch(/timeout 30s docker compose logs --tail=120 scanner/);
+
+        const stagingCompose = fs.readFileSync(
+            path.join(repoRoot, 'infra', 'staging', 'docker-compose.yml'),
+            'utf8'
+        );
+        expect(stagingCompose).toContain('image: clamav/clamav:1.4_base');
+        expect(stagingCompose).toContain('CLAMD_CONF_ConcurrentDatabaseReload: "no"');
 
         const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
         expect(ssmScript).toMatch(/^\s+put_string ADMIN_REQUIRE_PASSKEY false$/m);
