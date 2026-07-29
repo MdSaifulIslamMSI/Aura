@@ -1027,7 +1027,7 @@ describe('repo environment contract scripts', () => {
             /Quiescing the existing scanner[\s\S]*?timeout 60s docker stop --time 20/
         );
         expect(composeScript).toMatch(/timeout 180s docker image prune --all --force/);
-        expect(composeScript).toMatch(/timeout 600s docker load/);
+        expect(composeScript).toMatch(/timeout 1800s docker load/);
         expect(composeScript).toMatch(/timeout 300s docker compose pull scanner/);
         expect(composeScript).toMatch(/timeout 300s docker compose up -d --no-build/);
 

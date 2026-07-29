@@ -539,7 +539,7 @@ if [ -f /tmp/aura-staging-backend-image.tar.gz ]; then
   sudo timeout 180s docker image prune --all --force >/dev/null
   sudo timeout 180s docker builder prune --all --force >/dev/null
   echo "[staging] Loading the backend image."
-  gzip -dc /tmp/aura-staging-backend-image.tar.gz | sudo timeout 600s docker load
+  gzip -dc /tmp/aura-staging-backend-image.tar.gz | sudo timeout 1800s docker load
   sudo rm -f /tmp/aura-staging-backend-image.tar.gz
   backend_image_loaded=true
 fi
