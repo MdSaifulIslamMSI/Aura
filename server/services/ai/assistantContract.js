@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { safeString } = require('../../utils/safeString.js');
 
 const INTENTS = Object.freeze([
     'general_knowledge',
@@ -56,7 +57,6 @@ const VERIFICATION_LABELS = Object.freeze([
     'cannot_verify',
 ]);
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
 
 const normalizeIntent = (value, fallback = 'general_knowledge') => {

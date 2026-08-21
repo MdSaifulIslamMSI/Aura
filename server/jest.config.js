@@ -2,6 +2,7 @@ module.exports = {
     testEnvironment: 'node',
     verbose: true,
     maxWorkers: 1,
+    testTimeout: 20000,
     workerIdleMemoryLimit: process.env.JEST_WORKER_IDLE_MEMORY_LIMIT || '512MB',
     setupFilesAfterEnv: ['./tests/setup.js'],
     testMatch: ['**/*.test.js'],
@@ -15,10 +16,10 @@ module.exports = {
     ],
     coverageThreshold: {
         global: {
-            branches: 10,
-            functions: 15,
-            lines: 20,
-            statements: 20,
+            branches: 47,
+            functions: 26,
+            lines: 34,
+            statements: 34,
         },
     },
 };

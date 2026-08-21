@@ -10,6 +10,7 @@ const { evaluateLoginRisk } = require('./authRiskEngineService');
 const { getIntegrityIssue } = require('./marketplaceIntegrityService');
 const { buildSellerTrustPassport } = require('./sellerTrustService');
 const logger = require('../utils/logger');
+const { safeString } = require('../utils/safeString.js');
 
 const DECISIONS = Object.freeze({
     ALLOW: 'allow',
@@ -36,7 +37,6 @@ const DECISION_RANK = Object.freeze({
 
 const clampScore = (value) => Math.max(0, Math.min(100, Number(value) || 0));
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const normalizeMode = (mode, fallback = flags.fraudDecisioningMode) => {
     const normalized = safeString(mode || fallback).toLowerCase();

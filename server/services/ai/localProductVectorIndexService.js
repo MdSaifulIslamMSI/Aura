@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Product = require('../../models/Product');
 const logger = require('../../utils/logger');
 const { embedText, getGatewayConfig, getModelGatewayHealth } = require('./modelGatewayService');
+const { safeString } = require('../../utils/safeString.js');
 
 const INDEX_DIRECTORY = path.resolve(__dirname, '../../.assistant');
 const INDEX_FILE = path.join(INDEX_DIRECTORY, 'product-vector-index.json');
@@ -19,7 +20,6 @@ let writePromise = Promise.resolve();
 let rebuildPromise = null;
 const scheduledRefreshes = new Set();
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
 const toPositiveNumber = (value, fallback) => {
     const parsed = Number(value);

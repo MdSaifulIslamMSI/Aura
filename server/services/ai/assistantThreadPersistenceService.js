@@ -4,13 +4,13 @@ const AssistantProductSnapshot = require('../../models/AssistantProductSnapshot'
 const AssistantThread = require('../../models/AssistantThread');
 const AssistantThreadMessage = require('../../models/AssistantThreadMessage');
 const logger = require('../../utils/logger');
+const { safeString } = require('../../utils/safeString.js');
 
 const DEFAULT_THREAD_TITLE = 'New chat';
 const DEFAULT_THREAD_PREVIEW = 'Start a new assistant thread.';
 const ACTIVE_PERSISTENCE_EXCHANGES_PATH = 'metadata.activePersistenceExchangeIds';
 const CREATION_PERSISTENCE_EXCHANGE_PATH = 'metadata.creationPersistenceExchangeId';
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const buildPersistenceAbortError = (abortSignal = null) => {
     const error = new Error('assistant_request_aborted');

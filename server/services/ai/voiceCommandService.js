@@ -1,3 +1,4 @@
+const { safeString } = require('../../utils/safeString.js');
 const CATEGORY_ROUTES = [
     { aliases: ['mobiles', 'mobile', 'phone', 'smartphone', 'phones', 'mobiles dikhao'], slug: 'mobiles', label: 'Mobiles' },
     { aliases: ['laptops', 'laptop', 'notebook', 'macbook'], slug: 'laptops', label: 'Laptops' },
@@ -27,7 +28,6 @@ const ROUTE_COMMANDS = [
     { aliases: ['checkout'], path: '/checkout', label: 'Checkout' },
 ];
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const normalizeText = (value = '') => safeString(value)
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ')
