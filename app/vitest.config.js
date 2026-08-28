@@ -10,15 +10,21 @@ export default defineConfig({
         exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/cypress/**'],
         setupFiles: './src/setupTests.js',
         css: true,
-        fileParallelism: false,
         pool: 'threads',
-        maxWorkers: 1,
         isolate: true,
         sequence: {
             concurrent: false,
         },
         testTimeout: 15000,
         hookTimeout: 15000,
+        coverage: {
+            thresholds: {
+                statements: 62,
+                branches: 51,
+                functions: 59,
+                lines: 63,
+            },
+        },
         alias: {
             '@': path.resolve(__dirname, './src'),
         },
