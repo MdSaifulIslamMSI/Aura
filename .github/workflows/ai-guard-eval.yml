@@ -1,0 +1,51 @@
+name: AI Guard Red-Team Eval
+# Runs the promptfoo red-team corpus against the assistant prompt guard
+# (deterministic — no LLM calls, no API keys). Fails the job on any
+# false-negative (attack that passes) or false-positive (benign blocked).
+
+on:
+  pull_request:
+    paths:
+      - 'server/services/ai/promptGuardService.js'
+      - 'server/controllers/aiController.js'
+      - 'security/ai/**'
+      - '.github/workflows/ai-guard-eval.yml'
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-guard-eval-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    name: promptfoo red-team eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.x
+
+      - name: Run promptfoo red-team eval
+        run: npx --yes promptfoo@0.122.2 eval -c security/ai/promptfooconfig.yaml --no-cache --output promptfoo-output.json
+
+      - name: Upload eval results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: promptfoo-results
+          path: promptfoo-output.json
+          retention-days: 30
