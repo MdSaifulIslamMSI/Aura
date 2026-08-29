@@ -1,0 +1,51 @@
+name: Edge WAF Verification
+# Proves the free ModSecurity/CRS + CrowdSec edge stack actually blocks the
+# attack classes the removed AWS WAF used to cover (SQLi, XSS, traversal,
+# command injection) while passing benign traffic. Runs the compose stack
+# from infra/edge with the verify-profile mock backend.
+
+on:
+  pull_request:
+    paths:
+      - 'infra/edge/**'
+      - 'scripts/security/edge-waf-verification.mjs'
+      - '.github/workflows/edge-waf-verification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/edge/**'
+  schedule:
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edge-waf-verification-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: CRS blocks attacks, passes benign traffic
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Start edge WAF stack
+        run: docker compose -f infra/edge/docker-compose.yml --profile verify up -d --wait
+
+      - name: Verify WAF blocking and pass-through behavior
+        run: node scripts/security/edge-waf-verification.mjs --base-url http://127.0.0.1:8080
+
+      - name: Dump WAF logs on failure
+        if: failure()
+        run: docker compose -f infra/edge/docker-compose.yml logs waf crowdsec | tail -100
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f infra/edge/docker-compose.yml --profile verify down -v
