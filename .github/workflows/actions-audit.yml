@@ -1,0 +1,62 @@
+name: Actions Security Audit
+# zizmor v1 audit of every GitHub Actions workflow (template injection,
+# credential persistence, excessive permissions, dangerous triggers, ...).
+#
+# PROMOTION POLICY (docs/security-actions-audit-policy.md):
+# This job is deliberately NON-BLOCKING while the existing 404-finding
+# baseline (248 unpinned-uses, 102 artipacked, 36 template-injection, ...)
+# is driven down in batches. Once the high-severity count reaches zero the
+# continue-on-error flag below must be removed so the audit blocks merges.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: actions-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zizmor:
+    name: zizmor workflow audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      # Non-blocking during baseline burn-down; see the promotion policy above.
+      - name: Run zizmor audit
+        id: zizmor
+        continue-on-error: true
+        uses: zizmorcore/zizmor-action@7999d8c8ac51dbd3bd44e6e35e7cd015b5dcdc82 # v0.6.2
+        with:
+          persona: regular
+          format: sarif
+          output-path: zizmor.sarif
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        with:
+          sarif_file: zizmor.sarif
+
+      - name: Upload findings artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: zizmor-findings
+          path: zizmor.sarif
+          retention-days: 30
