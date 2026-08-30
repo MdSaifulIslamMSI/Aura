@@ -40,7 +40,15 @@ Tuples are `user:<id> <relation> listing:<id>` / `order:<id>`.
 2. **monitor**: set `monitor` in staging — FGA evaluates and logs
    disagreements but the legacy seller check decides. Review logs until
    disagreements are understood (they should only be admin grants).
-3. **Backfill**: write `owner` tuples for all existing listings.
+3. **Backfill**: write `owner` tuples for all existing listings and
+   `buyer`/`viewer` tuples for all existing orders:
+
+   ```bash
+   # from server/, with MONGO_URI + OPENFGA_* env set:
+   node scripts/openfga-backfill.cjs              # dry run (default)
+   node scripts/openfga-backfill.cjs --apply      # writes tuples (batched, resumable)
+   ```
+
 4. **enforce**: FGA decides. Transport errors fail **closed**. Only enable
    after the backfill is verified.
 
