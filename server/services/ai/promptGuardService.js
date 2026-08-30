@@ -132,8 +132,28 @@ const inspectAssistantOutput = (text) => {
     return { blocked: reasons.length > 0, reasons };
 };
 
+/**
+ * Inspect multi-turn conversation history for delayed (second-order) prompt
+ * injection planted in earlier user turns. Only `user`-role entries are
+ * evaluated — assistant/system entries are model-managed content.
+ *
+ * @param {Array<{ role?: string, content?: string }>} history
+ * @returns {{ blocked: boolean, entries: Array<{ index: number, reasons: string[] }> }}
+ */
+const inspectConversationHistory = (history) => {
+    if (!Array.isArray(history)) return { blocked: false, entries: [] };
+    const flagged = [];
+    history.forEach((entry, index) => {
+        if (String(entry?.role || '') !== 'user') return;
+        const decision = inspectUserPrompt(typeof entry?.content === 'string' ? entry.content : '');
+        if (decision.blocked) flagged.push({ index, reasons: decision.reasons });
+    });
+    return { blocked: flagged.length > 0, entries: flagged };
+};
+
 module.exports = {
     categories,
     inspectAssistantOutput,
+    inspectConversationHistory,
     inspectUserPrompt,
 };
