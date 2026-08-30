@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   staging-smoke:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: staging
     env:
