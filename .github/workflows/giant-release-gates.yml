@@ -66,6 +66,7 @@ jobs:
       - run: npm run security:maturity
 
   smoke-staging:
+    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: smoke:staging
     runs-on: ubuntu-latest
     environment: staging
@@ -99,6 +100,7 @@ jobs:
           retention-days: 14
 
   smoke-staging-frontend:
+    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: smoke:staging:frontend
     runs-on: ubuntu-latest
     environment: staging
@@ -125,6 +127,7 @@ jobs:
       - run: npm run smoke:staging:frontend
 
   smoke-env-contract:
+    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: smoke:env-contract
     runs-on: ubuntu-latest
     environment: staging
@@ -158,6 +161,7 @@ jobs:
           retention-days: 14
 
   aws-cost-guard:
+    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: aws:cost-guard
     runs-on: ubuntu-latest
     environment: staging
@@ -190,6 +194,7 @@ jobs:
           retention-days: 14
 
   aws-observability-guard:
+    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: aws:observability:guard
     runs-on: ubuntu-latest
     environment: staging
@@ -215,6 +220,7 @@ jobs:
       - run: npm run aws:observability:guard
 
   release-rollback-ready:
+    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: release:rollback-ready
     runs-on: ubuntu-latest
     environment: staging
@@ -253,6 +259,7 @@ jobs:
       - run: npm run test:reliability
 
   sre-synthetic-staging:
+    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: sre:synthetic:staging
     runs-on: ubuntu-latest
     environment: staging
@@ -288,6 +295,7 @@ jobs:
           retention-days: 14
 
   sre-latency-staging:
+    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: sre:latency:staging
     runs-on: ubuntu-latest
     environment: staging
