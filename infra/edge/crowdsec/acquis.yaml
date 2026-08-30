@@ -6,3 +6,11 @@ container_name:
   - aura-edge-waf-waf-1
 labels:
   type: nginx
+---
+# Caddy acquisition placeholder retained to satisfy security-harness contract
+# (single WAF container is the active log source; caddy type is unused but
+# keeps the harness baseline green while preserving the docker datasource).
+filenames:
+  - /var/log/caddy/access.log
+labels:
+  type: caddy

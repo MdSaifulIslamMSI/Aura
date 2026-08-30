@@ -45,9 +45,10 @@ jobs:
       - name: Verify CrowdSec parses WAF traffic (acquisition pipeline)
         run: |
           set -euo pipefail
-          METRICS=$(docker compose -f infra/edge/docker-compose.yml exec -T crowdsec cscli metrics --force-warning)
+          METRICS=$(docker compose -f infra/edge/docker-compose.yml exec -T crowdsec cscli metrics)
           echo "$METRICS" | grep -q "Local API Metrics" || { echo "crowdsec metrics unavailable"; exit 1; }
-          LINES_PARSED=$(echo "$METRICS" | grep -A3 "Lines parsed" | grep -oE "[0-9]+" | head -1 || echo 0)
+          LINES_PARSED=$(echo "$METRICS" | grep -Ei "lines[_ ]parsed" -A3 | grep -oE "[0-9]+" | head -1 || echo 0)
+          LINES_PARSED=${LINES_PARSED:-0}
           echo "lines parsed by acquisition: ${LINES_PARSED}"
           test "${LINES_PARSED}" -gt 0 || { echo "crowdsec acquisition parsed 0 lines — log pipeline broken"; exit 1; }
 
