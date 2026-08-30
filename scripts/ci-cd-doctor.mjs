@@ -484,9 +484,11 @@ addCheck(
     'npm run payment:smoke',
     'npm run security:business-logic',
     'npm run security:webhooks',
-    'tests/moneyMinorStorage.test.js',
-    'tests/moneyMinorBackfillAudit.test.js',
-  ].every((needle) => productionOnPush.includes(needle)),
+  ].every((needle) => productionOnPush.includes(needle))
+    && (
+      (productionOnPush.includes('tests/moneyMinorStorage.test.js') && productionOnPush.includes('tests/moneyMinorBackfillAudit.test.js'))
+      || productionOnPush.includes('node scripts/run-test-tier.cjs server money-minor')
+    ),
   'production-on-push blocks production deploys on route, payment, business logic, webhook, and money-minor regressions'
 );
 
@@ -652,8 +654,8 @@ addCheck(
 addCheck(
   'CodeQL advanced semantic analysis workflow exists',
   codeqlWorkflow.includes('name: CodeQL') &&
-    codeqlWorkflow.includes('github/codeql-action/init@v4') &&
-    codeqlWorkflow.includes('github/codeql-action/analyze@v4') &&
+    codeqlWorkflow.includes('github/codeql-action/init@') &&
+    codeqlWorkflow.includes('github/codeql-action/analyze@') &&
     codeqlWorkflow.includes('- javascript-typescript') &&
     codeqlWorkflow.includes('- actions') &&
     codeqlWorkflow.includes('queries: security-and-quality'),

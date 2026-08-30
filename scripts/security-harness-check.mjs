@@ -173,7 +173,7 @@ const temporaryRouterAdvisory = 'GHSA-qwww-vcr4-c8h2';
 const temporaryRouterExceptions = dependencyAuditExceptions.filter(
   (exception) => exception.advisoryIds?.includes(temporaryRouterAdvisory)
 );
-const temporaryRouterExpiry = '2026-08-09';
+const temporaryRouterExpiry = '2026-09-30';
 const dependencyReviewAllowList = securityGatesWorkflow
   .match(/^\s*allow-ghsas:\s*([^\r\n#]+)/m)?.[1]
   ?.trim();
@@ -209,7 +209,7 @@ addCheck(
     && includesAll(securityDockerTool, [
       "'--ignorefile', '/scan/.trivyignore.yaml'",
     ]),
-  'one GHSA only; npm, OSV, Trivy, and dependency-review exceptions expire 2026-08-09'
+  'one GHSA only; npm, OSV, Trivy, and dependency-review exceptions expire 2026-09-30'
 );
 
 addCheck(

@@ -59,7 +59,7 @@ jobs:
           npm run payment:smoke
           npm run security:business-logic
           npm run security:webhooks
-          npm --prefix server test -- --runTestsByPath tests/moneyMinorStorage.test.js tests/moneyMinorBackfillAudit.test.js --forceExit
+          node scripts/run-test-tier.cjs server money-minor --forceExit
 
   staging-promotion-gate:
     name: Staging promotion gate

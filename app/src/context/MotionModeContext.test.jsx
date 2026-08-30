@@ -25,12 +25,36 @@ const renderMotionMode = () => renderHook(() => useMotionMode(), { wrapper });
 
 describe('MotionModeContext', () => {
     const originalMatchMedia = window.matchMedia;
+    const originalHardwareConcurrencyDesc = Object.getOwnPropertyDescriptor(window.navigator, 'hardwareConcurrency');
+    const originalDeviceMemoryDesc = Object.getOwnPropertyDescriptor(window.navigator, 'deviceMemory');
+    const originalConnectionDesc = Object.getOwnPropertyDescriptor(window.navigator, 'connection');
 
     beforeEach(() => {
         window.localStorage.clear();
         document.documentElement.removeAttribute('data-motion-mode');
         document.documentElement.removeAttribute('data-motion-effective');
         document.documentElement.removeAttribute('data-motion-auto');
+        window.matchMedia = createMatchMedia(false);
+        Object.defineProperty(window.navigator, 'hardwareConcurrency', {
+            configurable: true,
+            writable: true,
+            value: 8,
+        });
+        Object.defineProperty(window.navigator, 'deviceMemory', {
+            configurable: true,
+            writable: true,
+            value: 8,
+        });
+        Object.defineProperty(window.navigator, 'connection', {
+            configurable: true,
+            writable: true,
+            value: {
+                effectiveType: '4g',
+                saveData: false,
+                addEventListener: vi.fn(),
+                removeEventListener: vi.fn(),
+            },
+        });
     });
 
     afterEach(() => {
@@ -39,6 +63,27 @@ describe('MotionModeContext', () => {
             configurable: true,
             value: originalMatchMedia,
         });
+        if (originalHardwareConcurrencyDesc) {
+            Object.defineProperty(window.navigator, 'hardwareConcurrency', originalHardwareConcurrencyDesc);
+        } else {
+            try {
+                delete window.navigator.hardwareConcurrency;
+            } catch {}
+        }
+        if (originalDeviceMemoryDesc) {
+            Object.defineProperty(window.navigator, 'deviceMemory', originalDeviceMemoryDesc);
+        } else {
+            try {
+                delete window.navigator.deviceMemory;
+            } catch {}
+        }
+        if (originalConnectionDesc) {
+            Object.defineProperty(window.navigator, 'connection', originalConnectionDesc);
+        } else {
+            try {
+                delete window.navigator.connection;
+            } catch {}
+        }
     });
 
     it('defaults to the balanced motion mode with a normal device tier', () => {
