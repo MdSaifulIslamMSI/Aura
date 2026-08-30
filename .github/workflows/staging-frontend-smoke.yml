@@ -49,31 +49,38 @@ jobs:
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live frontend smoke skipped" && exit 0
       - name: Checkout
+        if: github.event_name != 'pull_request'
         uses: actions/checkout@v6
 
       - name: Setup Node
+        if: github.event_name != 'pull_request'
         uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
 
       - name: Install dependencies
+        if: github.event_name != 'pull_request'
         run: npm ci
 
       - name: Install server dependencies
+        if: github.event_name != 'pull_request'
         run: npm --prefix server install --no-audit --no-fund
 
       - name: Validate environment contract
+        if: github.event_name != 'pull_request'
         run: npm run env:validate
 
       - name: Scan for production fallback regressions
+        if: github.event_name != 'pull_request'
         run: npm run scan:prod-fallbacks
 
       - name: Verify backend staging
+        if: github.event_name != 'pull_request'
         run: npm run smoke:staging
 
       - name: Resolve latest Vercel staging frontend URL
-        if: ${{ env.STAGING_FRONTEND_URL == '' }}
+        if: github.event_name != 'pull_request' && env.STAGING_FRONTEND_URL == ''
         run: |
           node --input-type=module <<'NODE'
           const required = ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'];
@@ -114,7 +121,9 @@ jobs:
           NODE
 
       - name: Verify frontend staging target
+        if: github.event_name != 'pull_request'
         run: npm run smoke:staging:frontend
 
       - name: Verify staging CORS contract
+        if: github.event_name != 'pull_request'
         run: node scripts/run-test-tier.cjs server staging-cors --forceExit
