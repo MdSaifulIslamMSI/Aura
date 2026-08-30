@@ -8,7 +8,7 @@
         "GHSA-qwww-vcr4-c8h2"
       ],
       "reason": "Temporary exception for GHSA-qwww-vcr4-c8h2 only. Aura is a Vite client SPA using BrowserRouter and declarative Routes; it does not use React Server Components, framework/data route actions, loaders, or server route modules. react-router-dom 7.18.1 fixes the other current Router advisories, while no compatible react-router-dom release containing react-router 8.3.0 is published. Remove this exception when a compatible fixed DOM package is available.",
-      "expires": "2026-08-09"
+      "expires": "2026-09-30"
     },
     {
       "workspace": "app",
@@ -18,7 +18,7 @@
         "GHSA-qwww-vcr4-c8h2"
       ],
       "reason": "Transitive effect of GHSA-qwww-vcr4-c8h2 only. Aura does not expose the affected React Server Components action-handling path. This companion exception expires with the direct react-router exception and must be removed when a compatible fixed react-router-dom release is available.",
-      "expires": "2026-08-09"
+      "expires": "2026-09-30"
     }
   ]
 }
