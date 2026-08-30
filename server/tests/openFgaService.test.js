@@ -78,6 +78,15 @@ describe('openFgaService', () => {
             expect(calls.some((c) => c.url.includes('/check'))).toBe(true);
         });
 
+        it('falls back to the legacy decision when OpenFGA is unreachable', async () => {
+            const service = createOpenFgaService({ ...BASE_CONFIG, enforcementMode: 'monitor' }, {
+                fetchImpl: createFetchStub({ respondError: true }),
+            });
+            const result = await service.authorizeListingEditor({ userId: 'u1', listingId: 'l1', legacyAllowed: true });
+            expect(result).toMatchObject({ allowed: true, enforced: false, fgaChecked: false });
+            expect(result.fgaError).toContain('503');
+        });
+    });
 
     describe('enforcement mode: enforce', () => {
         it('grants editors FGA granted by relations even without the legacy check', async () => {
@@ -122,7 +131,7 @@ describe('openFgaService', () => {
                 { user: 'user:u1', relation: 'owner', object: 'listing:l1' },
             ]);
             expect(result.written).toBe(1);
-            const writeCall = calls.find((c) => c.url.includes('/writes'));
+            const writeCall = calls.find((c) => c.url.includes('/write'));
             expect(writeCall.body.writes.tuple_keys).toEqual([
                 { user: 'user:u1', relation: 'owner', object: 'listing:l1' },
             ]);
@@ -154,12 +163,3 @@ describe('openFgaService', () => {
         });
     });
 });
-        it('falls back to the legacy decision when OpenFGA is unreachable', async () => {
-            const service = createOpenFgaService({ ...BASE_CONFIG, enforcementMode: 'monitor' }, {
-                fetchImpl: createFetchStub({ respondError: true }),
-            });
-            const result = await service.authorizeListingEditor({ userId: 'u1', listingId: 'l1', legacyAllowed: true });
-            expect(result).toMatchObject({ allowed: true, enforced: false, fgaChecked: false });
-            expect(result.fgaError).toContain('503');
-        });
-    });
