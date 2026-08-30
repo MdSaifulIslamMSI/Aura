@@ -1,4 +1,4 @@
-# Aura free edge WAF stack (Phase 2 cost-cutoff replacement for AWS WAF).
+﻿# Aura free edge WAF stack (Phase 2 cost-cutoff replacement for AWS WAF).
 #
 # - waf: OWASP ModSecurity CRS v4 in blocking mode, paranoia level 1, in front
 #   of the API backend (WAF_BACKEND, default: the CI mock API).
@@ -28,7 +28,7 @@ services:
   waf:
     image: owasp/modsecurity-crs:4.25.1-nginx-lts
     restart: unless-stopped
-    # NOTE: no hard depends_on on the verify-profile mock — production runs
+    # NOTE: no hard depends_on on the verify-profile mock â€” production runs
     # `up -d waf crowdsec` without that profile; readiness is asserted by
     # scripts/security/edge-waf-verification.mjs instead.
     environment:
@@ -44,7 +44,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
-      # ModSec directives must live in /etc/modsecurity.d/, NOT nginx conf.d —
+      # ModSec directives must live in /etc/modsecurity.d/, NOT nginx conf.d â€”
       # nginx conf.d expects NGINX directives and will crash on Sec* rules.
       - ./modsecurity-crs/crs-overrides.conf:/etc/modsecurity.d/crs-overrides.conf:ro
       - waf-logs:/var/log/nginx
@@ -53,7 +53,7 @@ services:
       - aura-edge-internal
 
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.7.8
+    image: crowdsecurity/crowdsec:v1.7.8-debian
     restart: unless-stopped
     environment:
       COLLECTIONS: "crowdsecurity/nginx"

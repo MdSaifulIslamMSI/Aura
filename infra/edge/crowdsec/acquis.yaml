@@ -1,9 +1,8 @@
 # The CRS image symlinks its log files to /dev/stdout, so file acquisition
-# would never see lines. CrowdSec instead reads the WAF container's stdout
+# would never see lines. CrowdSec instead tails the WAF container's stdout
 # directly through the Docker engine (docker.sock mounted read-only).
-datasource:
-  type: docker
-  container_name:
-    - aura-edge-waf-waf-1
-  labels:
-    type: nginx
+source: docker
+container_name:
+  - aura-edge-waf-waf-1
+labels:
+  type: nginx

@@ -1,0 +1,5 @@
+﻿source: docker
+containers:
+- aura-edge-waf-waf-1
+labels:
+  type: nginx
