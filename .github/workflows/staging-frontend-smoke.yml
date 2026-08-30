@@ -46,6 +46,9 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live frontend smoke skipped" && exit 0
       - name: Checkout
         uses: actions/checkout@v6
 

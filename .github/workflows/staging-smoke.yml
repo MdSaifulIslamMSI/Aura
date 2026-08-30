@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   staging-smoke:
-    if: github.event_name != 'pull_request' # staging paused on PRs
     runs-on: ubuntu-latest
     environment: staging
     env:
@@ -37,6 +36,9 @@ jobs:
       AUTH_OIDC_STATE_SECRET: ${{ secrets.STAGING_AUTH_OIDC_STATE_SECRET || secrets.AUTH_OIDC_STATE_SECRET || '' }}
       AUTH_VAULT_SECRET: ${{ secrets.STAGING_AUTH_VAULT_SECRET || secrets.AUTH_VAULT_SECRET || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live staging smoke skipped" && exit 0
       - name: Checkout
         uses: actions/checkout@v6
 

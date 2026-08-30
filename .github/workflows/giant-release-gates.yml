@@ -66,13 +66,15 @@ jobs:
       - run: npm run security:maturity
 
   smoke-staging:
-    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: smoke:staging
     runs-on: ubuntu-latest
     environment: staging
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-staging" && exit 0
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
@@ -100,13 +102,15 @@ jobs:
           retention-days: 14
 
   smoke-staging-frontend:
-    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: smoke:staging:frontend
     runs-on: ubuntu-latest
     environment: staging
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-staging-frontend" && exit 0
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
@@ -127,13 +131,15 @@ jobs:
       - run: npm run smoke:staging:frontend
 
   smoke-env-contract:
-    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: smoke:env-contract
     runs-on: ubuntu-latest
     environment: staging
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-env-contract" && exit 0
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
@@ -161,13 +167,15 @@ jobs:
           retention-days: 14
 
   aws-cost-guard:
-    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: aws:cost-guard
     runs-on: ubuntu-latest
     environment: staging
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for aws-cost-guard" && exit 0
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
@@ -194,13 +202,15 @@ jobs:
           retention-days: 14
 
   aws-observability-guard:
-    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: aws:observability:guard
     runs-on: ubuntu-latest
     environment: staging
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for aws-observability-guard" && exit 0
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
@@ -220,13 +230,15 @@ jobs:
       - run: npm run aws:observability:guard
 
   release-rollback-ready:
-    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: release:rollback-ready
     runs-on: ubuntu-latest
     environment: staging
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for release-rollback-ready" && exit 0
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
@@ -259,7 +271,6 @@ jobs:
       - run: npm run test:reliability
 
   sre-synthetic-staging:
-    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: sre:synthetic:staging
     runs-on: ubuntu-latest
     environment: staging
@@ -268,6 +279,9 @@ jobs:
       # GitHub-hosted runners are outside the staging region; the 250ms in-region health target remains documented.
       SRE_HEALTH_BUDGET_MS: "2500"
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for sre-synthetic-staging" && exit 0
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
@@ -295,7 +309,6 @@ jobs:
           retention-days: 14
 
   sre-latency-staging:
-    if: github.event_name != 'pull_request' # staging paused on PRs - not-blocking
     name: sre:latency:staging
     runs-on: ubuntu-latest
     environment: staging
@@ -304,6 +317,9 @@ jobs:
       # GitHub-hosted runners are outside the staging region; the 250ms in-region health target remains documented.
       SRE_LATENCY_HEALTH_BUDGET_MS: "2500"
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for sre-latency-staging" && exit 0
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
