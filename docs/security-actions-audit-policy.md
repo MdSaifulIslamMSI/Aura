@@ -1,39 +1,41 @@
 # GitHub Actions Audit — Baseline & Promotion Policy
 
 `actions-audit.yml` runs [zizmor](https://docs.zizmor.sh/) over every workflow
-and publishes findings to code scanning. It is **non-blocking during the
-baseline burn-down period**; it becomes merge-blocking once the criteria below
-are met.
+with **two tiers**:
 
-## Baseline (measured 2026-08-29, zizmor 1.29.0, regular persona)
+1. **SARIF report (non-blocking)** — all findings published to code scanning.
+2. **Regression gate (BLOCKING)** — fails on any finding from the enforced
+   classes (`artipacked`, `unpinned-uses`) via
+   `scripts/security/actions-audit-regression-gate.mjs`.
 
-Total findings: **404** across 36 workflows.
+## Baseline history
 
-| Audit | Count | Typical fix |
-| --- | --- | --- |
-| `unpinned-uses` | 248 | Pin third-party actions to commit SHA (e.g. `ossf/scorecard-action@2d11466...`) |
-| `artipacked` | 102 | Add `persist-credentials: false` to `actions/checkout` steps |
-| `template-injection` | 36 | Move untrusted `github.event.*` values into `env:` instead of inline `${{ }}` |
-| `excessive-permissions` | 16 | Narrow top-level `permissions:` blocks |
-| `dangerous-triggers` | 1 | Review `pull_request_target` usage; scope checkout to the PR base |
-| `superfluous-actions` | 1 | Remove the unnecessary action |
+| Date | zizmor | Total | Breakdown | Gate |
+| --- | --- | --- | --- | --- |
+| 2026-08-29 (pre-hardening) | 1.29.0 | 404 | 248 unpinned-uses, 102 artipacked, 36 template-injection, 16 excessive-permissions, 1 dangerous-triggers, 1 superfluous-actions | none (audit added) |
+| 2026-08-29 (post-hardening) | 1.29.0 | **54** | 36 template-injection, 16 excessive-permissions, 1 dangerous-triggers, 1 superfluous-actions | **blocking on enforced classes** |
 
-Severity/confidence split: 264 findings are `high/high`, 3 `medium/high`.
+## Hardening batch (2026-08-29)
 
-## Promotion to blocking (gate flip criteria)
+- `persist-credentials: false` added to 102 checkout steps (4 already had it).
+- 248 tag-pinned actions replaced with commit-SHA pins (resolved via the
+  GitHub API at the tag each workflow referenced; e.g. `actions/checkout@v6`
+  → `@d23441a...`).
+- Enforced classes driven to **zero**; the regression gate now blocks any
+  reintroduction.
 
-1. `unpinned-uses` findings at or below 10 (remaining entries are first-party
-   actions owned by this repo, or individually waived in `.github/zizmor.yml`).
-2. `artipacked` findings at 0 (purely mechanical: one line per checkout).
-3. `template-injection` findings at 0.
-4. After (1)-(3): remove `continue-on-error: true` from the
-   `Run zizmor audit` step in `.github/workflows/actions-audit.yml`.
+## Remaining 54 findings (review-required, SARIF-tracked)
 
-Suggested batches: (a) `artipacked` — mechanical, ~100 line changes;
-(b) `excessive-permissions` + `dangerous-triggers` — small;
-(c) `template-injection` — needs per-site review;
-(d) `unpinned-uses` — automate with a pinning pass (e.g. Dependabot or
-`pin-jact`) and waive first-party entries.
+- 36 `template-injection` — each needs per-site review: move untrusted
+  `github.event.*` values into `env:` and reference the env var.
+- 16 `excessive-permissions` — narrow top-level `permissions:` per workflow.
+- 1 `dangerous-triggers` — `workflow_run` in `status-watch.yml`: review
+  checkout/credential handling in the triggered run.
+- 1 `superfluous-actions` — `softprops/action-gh-release` in
+  `mobile-release.yml`: evaluate replacing with a release API call.
+
+These do NOT block the gate; they are reported in SARIF and must be burned
+down before the report tier is also promoted to blocking.
 
 ## Local runs
 
@@ -42,3 +44,4 @@ npm run security:zizmor          # SARIF report into security-reports/
 ```
 
 (zizmor runs pinned container image `ghcr.io/zizmorcore/zizmor`.)
+

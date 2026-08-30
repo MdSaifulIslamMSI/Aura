@@ -31,10 +31,12 @@ jobs:
       PRODUCTION_URL: ${{ vars.PRODUCTION_URL || '' }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.x
 
@@ -42,7 +44,7 @@ jobs:
         run: npm run security:free-scanners
 
       - name: Upload scanner reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
           name: free-security-scanner-reports
