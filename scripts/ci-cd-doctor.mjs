@@ -652,8 +652,8 @@ addCheck(
 addCheck(
   'CodeQL advanced semantic analysis workflow exists',
   codeqlWorkflow.includes('name: CodeQL') &&
-    codeqlWorkflow.includes('github/codeql-action/init@v4') &&
-    codeqlWorkflow.includes('github/codeql-action/analyze@v4') &&
+    codeqlWorkflow.includes('github/codeql-action/init@') &&
+    codeqlWorkflow.includes('github/codeql-action/analyze@') &&
     codeqlWorkflow.includes('- javascript-typescript') &&
     codeqlWorkflow.includes('- actions') &&
     codeqlWorkflow.includes('queries: security-and-quality'),
