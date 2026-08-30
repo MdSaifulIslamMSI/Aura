@@ -47,16 +47,14 @@ jobs:
     steps:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
-        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for staging-frontend-smoke" && exit 0
+        run: echo "::warning::staging is paused on PRs - live frontend smoke skipped" && exit 0
       - name: Checkout
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
+        uses: actions/checkout@v6
 
       - name: Setup Node
         if: github.event_name != 'pull_request'
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -67,7 +65,7 @@ jobs:
 
       - name: Install server dependencies
         if: github.event_name != 'pull_request'
-        run: npm --prefix server ci
+        run: npm --prefix server install --no-audit --no-fund
 
       - name: Validate environment contract
         if: github.event_name != 'pull_request'
