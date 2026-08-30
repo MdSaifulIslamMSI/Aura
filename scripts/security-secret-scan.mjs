@@ -130,6 +130,7 @@ const looksText = (file) => {
 };
 
 const scanLine = (findingsForFile, file, lineText, lineNumber) => {
+  if (String(lineText || '').includes('gitleaks:allow')) return;
   let match;
   const normalizedFile = file.replace(/\\/g, '/');
   const isTestFixtureFile = /(^|\/)(test|tests|__tests__)(\/|$)/i.test(normalizedFile);
