@@ -80,7 +80,7 @@ jobs:
         run: npm run smoke:staging
 
       - name: Resolve latest Vercel staging frontend URL
-        if: github.event_name != 'pull_request' && env.STAGING_FRONTEND_URL == ''
+        if: ${{ env.STAGING_FRONTEND_URL == '' && github.event_name != 'pull_request' }}
         run: |
           node --input-type=module <<'NODE'
           const required = ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'];
@@ -126,4 +126,4 @@ jobs:
 
       - name: Verify staging CORS contract
         if: github.event_name != 'pull_request'
-        run: node scripts/run-test-tier.cjs server staging-cors --forceExit
+        run: npm --prefix server test -- --runTestsByPath tests/corsFlags.test.js tests/stagingFrontendCors.test.js

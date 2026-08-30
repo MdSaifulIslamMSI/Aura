@@ -2,8 +2,8 @@ const crypto = require('crypto');
 const AuthSecurityEventOutbox = require('../models/AuthSecurityEventOutbox');
 const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnforcementPolicy');
 const logger = require('../utils/logger');
+const { safeString } = require('../utils/safeString.js');
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const isAuthSecurityOutboxEnabled = () => getLoginRuntimeEnforcementPolicy().authSecurityOutboxEnabled;
 

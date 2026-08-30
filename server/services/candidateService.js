@@ -3,6 +3,7 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const RecommendationEvent = require('../models/RecommendationEvent');
 const { queryProducts, getActiveCatalogVersion } = require('./catalogService');
+const { safeString } = require('../utils/safeString.js');
 const {
     ACCESSORY_KEYWORDS_BY_CATEGORY,
     EVENT_WEIGHTS,
@@ -40,7 +41,6 @@ const PRODUCT_SELECT = [
     'createdAt',
 ].join(' ');
 
-const safeString = (value = '') => String(value === undefined || value === null ? '' : value).trim();
 const safeLower = (value = '') => safeString(value).toLowerCase();
 const escapeRegExp = (value = '') => safeString(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const toPlain = (doc) => (doc?.toObject?.() ? doc.toObject() : doc);

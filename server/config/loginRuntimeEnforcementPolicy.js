@@ -1,3 +1,4 @@
+const { safeString } = require('../utils/safeString.js');
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 const RISK_ENGINE_MODES = Object.freeze(['off', 'monitor', 'enforce']);
@@ -16,7 +17,6 @@ const ACTIVATION_SEQUENCE = Object.freeze([
     'enable_privileged_jit_only_after_approval_workflow_exists',
 ]);
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const parseBooleanFlag = (name, fallback = false) => {
     const normalized = safeString(process.env[name]).toLowerCase();

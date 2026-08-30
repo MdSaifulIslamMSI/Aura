@@ -1,6 +1,7 @@
 const Cart = require('../models/Cart');
 const User = require('../models/User');
 const RecommendationEvent = require('../models/RecommendationEvent');
+const { safeString } = require('../utils/safeString.js');
 const {
     EVENT_WEIGHTS,
 } = require('../utils/recommendationConstants');
@@ -10,7 +11,6 @@ const {
     productDisplayId,
 } = require('./candidateService');
 
-const safeString = (value = '') => String(value === undefined || value === null ? '' : value).trim();
 const safeLower = (value = '') => safeString(value).toLowerCase();
 
 const increment = (map, key, weight = 1) => {

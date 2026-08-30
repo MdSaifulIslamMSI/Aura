@@ -10,7 +10,9 @@ export default defineConfig({
         exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/cypress/**'],
         setupFiles: './src/setupTests.js',
         css: true,
+        fileParallelism: false,
         pool: 'threads',
+        maxWorkers: 1,
         isolate: true,
         sequence: {
             concurrent: false,

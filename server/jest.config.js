@@ -1,8 +1,8 @@
 module.exports = {
     testEnvironment: 'node',
     verbose: true,
-    maxWorkers: '50%',
-    testTimeout: 30000,
+    maxWorkers: 1,
+    testTimeout: 20000,
     workerIdleMemoryLimit: process.env.JEST_WORKER_IDLE_MEMORY_LIMIT || '512MB',
     setupFilesAfterEnv: ['./tests/setup.js'],
     testMatch: ['**/*.test.js'],

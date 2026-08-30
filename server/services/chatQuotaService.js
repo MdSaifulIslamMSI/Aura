@@ -1,5 +1,6 @@
 const AppError = require('../utils/AppError');
 const { flags: redisFlags, getRedisClient } = require('../config/redis');
+const { safeString } = require('../utils/safeString.js');
 
 const CHAT_WINDOW_MS = Number(process.env.CHAT_USER_WINDOW_MS || (15 * 60 * 1000));
 const CHAT_MAX_REQUESTS_PER_WINDOW = Number(process.env.CHAT_USER_MAX_REQUESTS || 60);
@@ -10,7 +11,6 @@ const chatQuotaHealth = {
     lastError: '',
 };
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const buildRedisQuotaKey = (userId) => `${redisFlags.redisPrefix}:chat:quota:${safeString(userId)}`;
 
 const updateChatQuotaHealth = (partial = {}) => {

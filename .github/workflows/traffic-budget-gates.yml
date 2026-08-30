@@ -48,7 +48,7 @@ jobs:
         run: npm run traffic:fortress:test
 
       - name: Registry and response smoothness tests
-        run: node scripts/run-test-tier.cjs server traffic-budget --forceExit
+        run: npm --prefix server test -- --runTestsByPath tests/trafficPolicyRegistry.test.js tests/trafficResponseSmoothness.test.js --forceExit
 
       - name: Upload traffic artifacts
         if: always()
