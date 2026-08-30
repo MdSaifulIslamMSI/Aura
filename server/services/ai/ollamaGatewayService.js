@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const { getBreaker } = require('../../utils/circuitBreaker');
 const logger = require('../../utils/logger');
+const { safeString } = require('../../utils/safeString.js');
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 const DEFAULT_CHAT_MODEL = 'llama3.2:3b';
@@ -30,7 +31,6 @@ const healthState = {
     keepAlive: '',
 };
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const toPositiveNumber = (value, fallback) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;

@@ -1,6 +1,6 @@
 const { productDisplayId } = require('./candidateService');
+const { safeString } = require('../utils/safeString.js');
 
-const safeString = (value = '') => String(value === undefined || value === null ? '' : value).trim();
 const safeLower = (value = '') => safeString(value).toLowerCase();
 
 const hasImage = (product = {}) => Boolean(product.image || (Array.isArray(product.images) && product.images.length > 0));

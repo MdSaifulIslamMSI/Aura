@@ -10,6 +10,7 @@ const Product = require('./models/Product');
 const SystemState = require('./models/SystemState');
 const { resolveCategory } = require('./config/categories');
 const { selectSemanticImageSet } = require('./services/productImageResolver');
+const { safeString } = require('./utils/safeString.js');
 
 const SYSTEM_KEY = 'singleton';
 const BATCH_SIZE = Math.max(250, Number(process.env.CATALOG_BATCH_SIZE || 5000));
@@ -20,7 +21,6 @@ const SOURCE_FILE = path.resolve(
 );
 const CATALOG_VERSION = process.env.CATALOG_VERSION || `catalog-jockeroika-${Date.now()}`;
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
 const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
 const clamp = (value, min, max) => Math.min(Math.max(Number(value || 0), min), max);

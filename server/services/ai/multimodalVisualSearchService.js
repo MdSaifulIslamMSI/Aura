@@ -1,10 +1,10 @@
 const { queryProducts } = require('../catalogService');
 const { describeVisualInput, embedTexts, cosineSimilarity, rerankDocuments } = require('./providerRegistry');
+const { safeString } = require('../../utils/safeString.js');
 
 const MAX_CANDIDATES = 36;
 const MAX_MATCHES = 24;
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const normalizeText = (value = '') => safeString(value)
     .toLowerCase()

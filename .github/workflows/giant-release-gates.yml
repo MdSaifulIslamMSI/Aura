@@ -79,11 +79,9 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-staging" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         if: github.event_name != 'pull_request'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v6
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -106,7 +104,7 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run smoke:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@v6
         if: always() && github.event_name != 'pull_request'
         with:
           name: staging-smoke-evidence
@@ -124,11 +122,9 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-staging-frontend" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         if: github.event_name != 'pull_request'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v6
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -162,11 +158,9 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-env-contract" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         if: github.event_name != 'pull_request'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v6
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -189,7 +183,7 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run smoke:env-contract
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@v6
         if: always() && github.event_name != 'pull_request'
         with:
           name: env-contract-evidence
@@ -207,11 +201,9 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for aws-cost-guard" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         if: github.event_name != 'pull_request'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v6
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -232,7 +224,7 @@ jobs:
           unset-current-credentials: true
       - run: npm run aws:cost-guard
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@v6
         if: always() && github.event_name != 'pull_request'
         with:
           name: cost-guard-evidence
@@ -250,11 +242,9 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for aws-observability-guard" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         if: github.event_name != 'pull_request'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v6
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -286,11 +276,9 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for release-rollback-ready" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         if: github.event_name != 'pull_request'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v6
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -339,11 +327,9 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for sre-synthetic-staging" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         if: github.event_name != 'pull_request'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v6
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -366,7 +352,7 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run sre:synthetic:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@v6
         if: always() && github.event_name != 'pull_request'
         with:
           name: sre-synthetic-evidence
@@ -386,11 +372,9 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for sre-latency-staging" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         if: github.event_name != 'pull_request'
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@v6
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -413,7 +397,7 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run sre:latency:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@v6
         if: always() && github.event_name != 'pull_request'
         with:
           name: sre-latency-evidence
