@@ -28,8 +28,9 @@ services:
   waf:
     image: owasp/modsecurity-crs:4.25.1-nginx-lts
     restart: unless-stopped
-    depends_on:
-      - aura-api-mock
+    # NOTE: no hard depends_on on the verify-profile mock — production runs
+    # `up -d waf crowdsec` without that profile; readiness is asserted by
+    # scripts/security/edge-waf-verification.mjs instead.
     environment:
       SERVER_NAME: aura-waf
       BACKEND: ${WAF_BACKEND:-http://aura-api-mock:8000}
@@ -61,8 +62,9 @@ services:
       - crowdsec-config:/etc/crowdsec
       - crowdsec-db:/var/lib/crowdsec/data
       - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
-      - waf-logs:/var/log/nginx:ro
-      - waf-logs:/var/log/waf:ro
+      # Docker datasource: read-only socket access so CrowdSec can tail the
+      # WAF container's stdout logs (see crowdsec/acquis.yaml).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - aura-edge-internal
 
