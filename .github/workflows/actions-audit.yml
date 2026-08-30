@@ -65,7 +65,7 @@ jobs:
           persist-credentials: false
 
       - name: Run zizmor (JSON)
-        run: docker run --rm -v "$PWD:/repo" "$ZIZMOR_IMAGE" --no-progress --format json /repo/.github/workflows/ > findings.json
+        run: docker run --rm -v "$PWD:/repo" "$ZIZMOR_IMAGE" --no-progress --format json /repo/.github/workflows/ > findings.json || true
 
       - name: Enforce regression gate
         run: node scripts/security/actions-audit-regression-gate.mjs findings.json

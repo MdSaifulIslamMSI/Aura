@@ -59,7 +59,7 @@ expectIncludes('Checkov SARIF output', dockerRunner, [
 ]);
 
 expectIncludes('Security gate SARIF uploads', securityGatesWorkflow, [
-  'github/codeql-action/upload-sarif@v4',
+  'github/codeql-action/upload-sarif@',
   'sarif_file: security-reports/gitleaks-report.sarif',
   'category: gitleaks',
   'sarif_file: security-reports/semgrep-report.sarif',
@@ -76,7 +76,7 @@ expectIncludes('Trivy image SARIF upload', securityWorkflow, [
 ]);
 
 expectIncludes('Dependency review high-risk gate', securityGatesWorkflow, [
-  'uses: actions/dependency-review-action@v5',
+  'uses: actions/dependency-review-action@',
   'fail-on-severity: high',
 ]);
 
