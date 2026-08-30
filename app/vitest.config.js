@@ -19,6 +19,14 @@ export default defineConfig({
         },
         testTimeout: 15000,
         hookTimeout: 15000,
+        coverage: {
+            thresholds: {
+                statements: 62,
+                branches: 51,
+                functions: 59,
+                lines: 63,
+            },
+        },
         alias: {
             '@': path.resolve(__dirname, './src'),
         },

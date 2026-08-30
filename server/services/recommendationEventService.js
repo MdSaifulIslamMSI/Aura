@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const RecommendationEvent = require('../models/RecommendationEvent');
+const { safeString } = require('../utils/safeString.js');
 const {
     RECOMMENDATION_EVENT_TYPES,
 } = require('../utils/recommendationConstants');
@@ -7,7 +8,6 @@ const {
     resolveProductByIdentifier,
 } = require('./candidateService');
 
-const safeString = (value = '') => String(value === undefined || value === null ? '' : value).trim();
 const isObjectIdLike = (value) => mongoose.Types.ObjectId.isValid(safeString(value));
 
 const resolveProductReference = async (productIdentifier = '') => {

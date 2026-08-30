@@ -72,15 +72,23 @@ jobs:
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-staging" && exit 0
       - uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
       - uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+        if: github.event_name != 'pull_request'
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -89,9 +97,11 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run staging:state:refresh
+        if: github.event_name != 'pull_request'
       - run: npm run smoke:staging
+        if: github.event_name != 'pull_request'
       - uses: actions/upload-artifact@v6
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         with:
           name: staging-smoke-evidence
           path: artifacts/release-gates/
@@ -105,15 +115,23 @@ jobs:
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-staging-frontend" && exit 0
       - uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
       - uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+        if: github.event_name != 'pull_request'
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -122,7 +140,9 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run staging:state:refresh
+        if: github.event_name != 'pull_request'
       - run: npm run smoke:staging:frontend
+        if: github.event_name != 'pull_request'
 
   smoke-env-contract:
     name: smoke:env-contract
@@ -131,15 +151,23 @@ jobs:
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-env-contract" && exit 0
       - uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
       - uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+        if: github.event_name != 'pull_request'
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -148,9 +176,11 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run staging:state:refresh
+        if: github.event_name != 'pull_request'
       - run: npm run smoke:env-contract
+        if: github.event_name != 'pull_request'
       - uses: actions/upload-artifact@v6
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         with:
           name: env-contract-evidence
           path: artifacts/release-gates/
@@ -164,15 +194,23 @@ jobs:
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for aws-cost-guard" && exit 0
       - uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
       - uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+        if: github.event_name != 'pull_request'
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -181,8 +219,9 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run aws:cost-guard
+        if: github.event_name != 'pull_request'
       - uses: actions/upload-artifact@v6
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         with:
           name: cost-guard-evidence
           path: artifacts/release-gates/
@@ -196,15 +235,23 @@ jobs:
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for aws-observability-guard" && exit 0
       - uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
       - uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+        if: github.event_name != 'pull_request'
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -213,6 +260,7 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run aws:observability:guard
+        if: github.event_name != 'pull_request'
 
   release-rollback-ready:
     name: release:rollback-ready
@@ -221,15 +269,23 @@ jobs:
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for release-rollback-ready" && exit 0
       - uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
       - uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+        if: github.event_name != 'pull_request'
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role for optional S3 rollback proof
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -238,6 +294,7 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run release:rollback-ready
+        if: github.event_name != 'pull_request'
 
   test-reliability:
     name: test:reliability
@@ -261,15 +318,23 @@ jobs:
       # GitHub-hosted runners are outside the staging region; the 250ms in-region health target remains documented.
       SRE_HEALTH_BUDGET_MS: "2500"
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for sre-synthetic-staging" && exit 0
       - uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
       - uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+        if: github.event_name != 'pull_request'
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -278,9 +343,11 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run staging:state:refresh
+        if: github.event_name != 'pull_request'
       - run: npm run sre:synthetic:staging
+        if: github.event_name != 'pull_request'
       - uses: actions/upload-artifact@v6
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         with:
           name: sre-synthetic-evidence
           path: artifacts/sre/
@@ -296,15 +363,23 @@ jobs:
       # GitHub-hosted runners are outside the staging region; the 250ms in-region health target remains documented.
       SRE_LATENCY_HEALTH_BUDGET_MS: "2500"
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for sre-latency-staging" && exit 0
       - uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
       - uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+        if: github.event_name != 'pull_request'
       - name: Assert staging AWS role is configured
+        if: github.event_name != 'pull_request'
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
+        if: github.event_name != 'pull_request'
         uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -313,9 +388,11 @@ jobs:
           mask-aws-account-id: true
           unset-current-credentials: true
       - run: npm run staging:state:refresh
+        if: github.event_name != 'pull_request'
       - run: npm run sre:latency:staging
+        if: github.event_name != 'pull_request'
       - uses: actions/upload-artifact@v6
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         with:
           name: sre-latency-evidence
           path: artifacts/sre/

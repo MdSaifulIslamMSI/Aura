@@ -6,10 +6,10 @@ const {
 const { extractTrustedDeviceContext } = require('../services/trustedDeviceChallengeService');
 const { getTrustedRequestIp } = require('../utils/requestIdentity');
 const logger = require('../utils/logger');
+const { safeString } = require('../utils/safeString.js');
 
 const AUTH_SYNC_PATH_PATTERN = /^\/api\/auth\/sync\/?$/i;
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const splitEnvList = (...names) => names
     .flatMap((name) => safeString(process.env[name]).split(/[,;\s]+/))

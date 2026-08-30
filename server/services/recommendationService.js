@@ -21,8 +21,8 @@ const { recordRecommendationEvent } = require('./recommendationEventService');
 const { applyBusinessReranking } = require('./rerankingService');
 const { mergeAndScoreCandidates } = require('./scoringService');
 const { buildUserPreferenceProfile } = require('./userPreferenceService');
+const { safeString } = require('../utils/safeString.js');
 
-const safeString = (value = '') => String(value === undefined || value === null ? '' : value).trim();
 const safeLower = (value = '') => safeString(value).toLowerCase();
 
 const parseAssistantBudgetAmount = (value = '', suffix = '') => {

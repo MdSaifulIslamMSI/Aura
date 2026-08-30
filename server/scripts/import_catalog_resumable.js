@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const { resolveProductImage } = require('../services/productImageResolver');
 const { auditCatalogSample } = require('../services/catalogSourceIntegrityService');
+const { safeString } = require('../utils/safeString.js');
 
 const DATA_FILE = process.argv[2]
     ? path.resolve(process.cwd(), process.argv[2])
@@ -24,7 +25,6 @@ const ALLOW_SYNTHETIC_DATASET = String(process.env.CATALOG_IMPORT_ALLOW_SYNTHETI
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeNumber = (value, fallback = 0) => {
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
