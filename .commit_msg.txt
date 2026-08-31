@@ -1,9 +1,0 @@
-fix(i18n): dedupe formatjs message ids blocking i18n:extract
-
-- criticalMessages.js: drop unreferenced cart entry (nav.cart) that collided
-  with the generated stableUiMessages catalog (same defaultMessage, different
-  description) - formatjs extract --throws failed on the duplicate
-- VoiceSearch.jsx: use the component translator for voice.listening instead
-  of an inline intl.formatMessage literal that duplicated the stable catalog
-- regenerate source en.json, compiled catalogs, and migration inventory
-  artifacts (deterministic outputs of i18n:stable-catalogs / i18n:check)
