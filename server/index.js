@@ -130,6 +130,7 @@ const {
     allowedOrigins,
 } = require('./config/corsFlags');
 const { assertSigningSecretsConfig } = require('./config/signingSecrets');
+const { assertProductionTurnstileConfig } = require('./config/turnstileFlags');
 const { assertAuthRiskSignalConfig } = require('./services/authRiskSignalService');
 const {
     getRedisHealth,
@@ -181,8 +182,11 @@ const {
     DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES,
 } = require('../config/desktopAuthLoopback.cjs');
 initOtel();
-const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '256kb';
 const AUTH_BODY_LIMIT = process.env.AUTH_BODY_LIMIT || '64kb';
+// Large-payload routes (base64 data-URI uploads in JSON bodies) keep their
+// scoped parsers; everything else no longer accepts 12 MB JSON bodies.
+const LARGE_JSON_BODY_LIMIT = process.env.LARGE_JSON_BODY_LIMIT || '10mb';
 const runtimeNodeEnv = process.env.NODE_ENV || 'production';
 const STAGING_HEALTH_SSM_PREFIX = '/aura/staging';
 const toWebSocketOrigin = (origin = '') => String(origin || '').replace(/\/+$/, '').replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
@@ -465,6 +469,15 @@ app.use(['/api/auth', '/api/otp'], express.urlencoded({
     extended: false,
     limit: AUTH_BODY_LIMIT,
     parameterLimit: 25,
+}));
+app.use(['/api/uploads', '/api/listings', '/api/ai'], express.json({
+    limit: LARGE_JSON_BODY_LIMIT,
+    verify: captureRawBody,
+}));
+app.use(['/api/uploads', '/api/listings', '/api/ai'], express.urlencoded({
+    extended: false,
+    limit: LARGE_JSON_BODY_LIMIT,
+    parameterLimit: 100,
 }));
 app.use(express.json({
     limit: JSON_BODY_LIMIT,
@@ -872,6 +885,7 @@ if (require.main === module) {
     assertSigningSecretsConfig();
     assertAuthRiskSignalConfig();
     assertProductionCorsConfig();
+    assertProductionTurnstileConfig();
     assertWebhookConfig();
     assertProductionPaymentConfig();
     assertProductionEmailConfig();

@@ -45,6 +45,8 @@ const validate = require('../middleware/validate');
 const { sensitiveActions } = require('../middleware/routeSecurityGuards');
 const { loginSchema } = require('../validators/userValidators');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { adaptiveRateLimit } = require('../middleware/adaptiveRateLimit');
+const { loginLockoutGate, authFailureRecorder } = require('../middleware/loginLockoutGate');
 const {
     csrfTokenGenerator,
     csrfTokenValidator,
@@ -265,6 +267,13 @@ const authenticatedSessionMutationLimiter = createDistributedRateLimit({
     keyGenerator: (req) => req.authUid || req.user?.email || req.ip,
 });
 
+// Phase 5A: adaptive escalation (slow_down -> challenge -> contain) plus the
+// distributed per-account lockout gate run ahead of every auth route; the
+// recorder at the end of this router turns 401-class responses into lockout
+// failures (covers the OTP sub-router mounted below).
+router.use(adaptiveRateLimit({ action: 'auth', windowMs: 5 * 60 * 1000, max: 60 }));
+router.use(loginLockoutGate({ surface: 'auth' }));
+
 router.get('/duo/start', duoOidcLimiter, beginAtomicAuthResponse, startDuoLogin);
 router.get('/duo/step-up', protect, duoOidcLimiter, beginAtomicAuthResponse, establishSessionCookie, startDuoStepUp);
 router.get('/duo/callback', duoOidcLimiter, beginAtomicAuthResponse, completeDuoLogin);
@@ -301,5 +310,7 @@ router.post('/complete-phone-factor-login', protect, phoneFactorCompletionLimite
 router.post('/complete-phone-factor-verification', protectPhoneFactorProof, phoneFactorCompletionLimiter, beginAtomicAuthResponse, sensitiveActions.authFactorChange, completePhoneFactorVerification);
 router.post('/verify-device', authGuardRateLimit, protect, trustedDeviceVerificationLimiter, beginAtomicAuthResponse, csrfTokenValidatorUnlessBearerAuth, verifyDeviceChallenge);
 router.use('/otp', otpRoutes);
+
+router.use(authFailureRecorder({ surface: 'auth' }));
 
 module.exports = router;

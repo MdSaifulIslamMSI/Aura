@@ -25,6 +25,24 @@ const getTurnstileFlags = (env = process.env) => {
     };
 };
 
+// Phase 5A: Turnstile previously degraded silently to "skipped: true" when
+// the secret was missing, leaving OTP/auth endpoints with rate limits only
+// and no alert. Production must now fail at startup instead; staging and
+// development get a loud warning so the gap is visible without blocking.
+const assertProductionTurnstileConfig = (env = process.env, log = console) => {
+    const runtime = trim(env.NODE_ENV).toLowerCase();
+    const flags = getTurnstileFlags(env);
+    if (flags.enabled && flags.secretKey) return;
+    if (runtime === 'production') {
+        throw new Error('TURNSTILE_ENABLED with TURNSTILE_SECRET_KEY is required in production; OTP/auth bot checks would silently degrade to rate limits only.');
+    }
+    if (runtime === 'staging' || runtime === 'development') {
+        log.warn('Turnstile bot checks are disabled in ' + runtime + '; OTP/auth endpoints rely on rate limits only.');
+    }
+};
+
+
 module.exports = {
     getTurnstileFlags,
+    assertProductionTurnstileConfig,
 };
