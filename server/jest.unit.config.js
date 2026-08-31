@@ -1,7 +1,7 @@
 /**
- * Pure-unit jest config: runs tests that have no MongoDB/Redis dependency
- * without the global tests/setup.js bootstrap (which requires a live
- * database). Usage:
+ * Pure-unit jest config: runs tests that have no MongoDB/Redis/Redis-cluster
+ * dependency without the global tests/setup.js bootstrap (which requires a
+ * live database). Usage:
  *
  *   node node_modules/jest/bin/jest.js --config jest.unit.config.js
  *
@@ -11,8 +11,5 @@
 module.exports = {
     rootDir: '.',
     testEnvironment: 'node',
-    testMatch: [
-        '**/tests/promptGuardService.test.js',
-        '**/tests/openFgaService.test.js',
-    ],
+    testMatch: ['**/tests/promptGuardService.test.js'],
 };

@@ -9,6 +9,7 @@ const {
     synthesizeSpeech,
 } = require('../services/ai/providerRegistry');
 const { assertPrivateChatQuota } = require('../services/chatQuotaService');
+const { inspectConversationHistory, inspectUserPrompt } = require('../services/ai/promptGuardService');
 const {
     validateAssistantAudioDataUriUpload,
     validateImageDataUriUpload,
@@ -250,6 +251,26 @@ const handleAiChat = asyncHandler(async (req, res, next) => {
 
     payload = await validateAssistantMediaPayload(payload, req);
 
+    // OWASP LLM01/02 gate: hard-reject injection, role-confusion, prompt
+    // extraction, secret exfiltration, and excessive-agency attempts before
+    // they reach the model. Reasons are category ids only — never raw text.
+    const promptGuard = inspectUserPrompt(payload.message);
+    const historyGuard = inspectConversationHistory(payload.conversationHistory);
+    if (promptGuard.blocked || historyGuard.blocked) {
+        const categories = [
+            ...promptGuard.categories,
+            ...historyGuard.entries.flatMap((entry) => entry.reasons),
+        ];
+        logger.warn('[ai] assistant request rejected by safety policy', {
+            categories,
+            historyEntriesFlagged: historyGuard.entries.length,
+            sessionId: safeString(payload.sessionId),
+        });
+        const rejection = new AppError('Assistant request rejected by the safety policy.', 400);
+        rejection.code = 'ASSISTANT_SAFETY_POLICY';
+        return next(rejection);
+    }
+
     if (payload.user?._id) {
         await assertPrivateChatQuota(payload.user._id);
     }
@@ -287,6 +308,25 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
     }
 
     payload = await validateAssistantMediaPayload(payload, req);
+
+    // Same safety gate as handleAiChat — the streaming path must not become
+    // a bypass for injection, extraction, or excessive-agency attempts.
+    const promptGuard = inspectUserPrompt(payload.message);
+    const historyGuard = inspectConversationHistory(payload.conversationHistory);
+    if (promptGuard.blocked || historyGuard.blocked) {
+        const categories = [
+            ...promptGuard.categories,
+            ...historyGuard.entries.flatMap((entry) => entry.reasons),
+        ];
+        logger.warn('[ai] streaming assistant request rejected by safety policy', {
+            categories,
+            historyEntriesFlagged: historyGuard.entries.length,
+            sessionId: safeString(payload.sessionId),
+        });
+        const rejection = new AppError('Assistant request rejected by the safety policy.', 400);
+        rejection.code = 'ASSISTANT_SAFETY_POLICY';
+        return next(rejection);
+    }
 
     if (payload.user?._id) {
         await assertPrivateChatQuota(payload.user._id);

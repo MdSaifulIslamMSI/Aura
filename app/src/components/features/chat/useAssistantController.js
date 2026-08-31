@@ -593,14 +593,19 @@ export const useAssistantController = () => {
             }
         } catch (error) {
             if (!isCurrentRequest()) return;
+            const safetyRejection = error?.code === 'ASSISTANT_SAFETY_POLICY';
             appendAssistantTurn({
                 sessionId: initiatingSessionId,
-                text: error?.message || 'I could not complete that action right now.',
+                text: safetyRejection
+                    ? 'This request was blocked by the assistant safety policy. Please rephrase it and try again.'
+                    : (error?.message || 'I could not complete that action right now.'),
                 mode: 'explore',
                 assistantTurn: {
                     intent: 'general_knowledge',
                     decision: 'respond',
-                    response: error?.message || 'I could not complete that action right now.',
+                    response: safetyRejection
+                        ? 'This request was blocked by the assistant safety policy. Please rephrase it and try again.'
+                        : (error?.message || 'I could not complete that action right now.'),
                     ui: {
                         surface: 'plain_answer',
                     },
@@ -884,7 +889,9 @@ export const useAssistantController = () => {
                     if (isCurrentRequest()) {
                         failAssistantStream(
                             streamMessageId,
-                            error?.message || 'I could not complete that action right now.',
+                            error?.code === 'ASSISTANT_SAFETY_POLICY'
+                                ? 'This request was blocked by the assistant safety policy. Please rephrase it and try again.'
+                                : (error?.message || 'I could not complete that action right now.'),
                             {},
                             initiatingSessionId,
                         );
@@ -896,8 +903,44 @@ export const useAssistantController = () => {
                     sessionId: initiatingSessionId,
                 });
             }
-        } catch {
+        } catch (error) {
             if (!isCurrentRequest()) return;
+
+            // Safety-policy rejections are deterministic server decisions, not
+            // outages — answer the user directly instead of the "unavailable"
+            // fallback, so the request is never mistaken for a service failure.
+            if (error?.code === 'ASSISTANT_SAFETY_POLICY') {
+                const safetyMessage = 'This request was blocked by the assistant safety policy. Please rephrase it and try again.';
+                finalizeAssistantStream(streamMessageId, {
+                    text: safetyMessage,
+                    mode: 'explore',
+                    cartSummary: cartSummary || null,
+                    primaryAction: null,
+                    secondaryActions: [],
+                    activeProductId: null,
+                    providerInfo: {
+                        name: 'local',
+                        model: 'safety-policy',
+                    },
+                    providerCapabilities: {
+                        textInput: true,
+                        imageInput: false,
+                        audioInput: false,
+                    },
+                    decision: 'respond',
+                    assistantTurn: {
+                        intent: 'general_knowledge',
+                        decision: 'respond',
+                        response: safetyMessage,
+                        actions: [],
+                        ui: {
+                            surface: 'plain_answer',
+                        },
+                        followUps: [],
+                    },
+                }, initiatingSessionId);
+                return;
+            }
 
             clearTurnActions(initiatingSessionId);
             const fallback = buildUnavailableAssistantResponse(cleanedText, {
