@@ -3,6 +3,7 @@ const router = express.Router();
 const { rateLimit } = require('express-rate-limit');
 const { protect, requireOtpAssurance, requireActiveAccount } = require('../middleware/authMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { adaptiveRateLimit } = require('../middleware/adaptiveRateLimit');
 const validate = require('../middleware/validate');
 const {
     authorizePaymentMethodOwner,
@@ -88,6 +89,10 @@ const paymentMethodMutationLimiter = createDistributedRateLimit({
 
 router.post('/webhooks/razorpay', requireTrustDecision('payment.webhook.process', loadPaymentWebhookResource('razorpay'), { actor: { actorType: 'payment_webhook', role: 'payment_webhook' } }), handleRazorpayWebhook);
 router.post('/webhooks/stripe', requireTrustDecision('payment.webhook.process', loadPaymentWebhookResource('stripe'), { actor: { actorType: 'payment_webhook', role: 'payment_webhook' } }), handleStripeWebhook);
+
+// Phase 5A: adaptive escalation for customer-facing payment actions (after
+// the server-to-server webhook routes, which must never be throttled).
+router.use(adaptiveRateLimit({ action: 'payment', windowMs: 5 * 60 * 1000, max: 60, skip: () => process.env.NODE_ENV === 'test' }));
 
 router.post('/intents', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(createIntentSchema), sensitiveActions.paymentPayoutChange, createIntent);
 router.post('/intents/:intentId/challenge/complete', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(completeChallengeSchema), sensitiveActions.paymentPayoutChange, completeChallenge);
