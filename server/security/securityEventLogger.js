@@ -3,6 +3,7 @@ const {
     hashSecurityValue,
     redactSecurityMetadata,
 } = require('./redactSecurityMetadata');
+const { appendSecurityEventToLedger } = require('../services/securityEventLedgerService');
 
 const bufferedEvents = [];
 const MAX_BUFFERED_EVENTS = 200;
@@ -66,6 +67,16 @@ const writeSecurityEvent = (payload = {}, options = {}) => {
         writer('security.event', event);
     } catch {
         // Security event logging must not change the request outcome.
+    }
+
+    // Phase 5B: durable tamper-evident copy (flag-gated, fire-and-forget).
+    try {
+        const pending = appendSecurityEventToLedger(event);
+        if (pending && typeof pending.catch === 'function') {
+            pending.catch(() => undefined);
+        }
+    } catch {
+        // Never change the request outcome because of the ledger.
     }
 
     return event;
