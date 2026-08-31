@@ -48,6 +48,10 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for staging-frontend-smoke" && exit 0
+
+      - name: Staging infra paused - skip live checks
+        if: github.event_name != 'pull_request' && vars.STAGING_INFRA_PAUSED == 'true'
+        run: echo "::warning::staging infra is paused (repo variable STAGING_INFRA_PAUSED=true) - live EC2/S3/CloudFront checks skipped; unset the variable to restore them" && exit 0
       - name: Checkout
         if: github.event_name != 'pull_request'
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -78,11 +82,11 @@ jobs:
         run: npm run scan:prod-fallbacks
 
       - name: Verify backend staging
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && vars.STAGING_INFRA_PAUSED != 'true'
         run: npm run smoke:staging
 
       - name: Resolve latest Vercel staging frontend URL
-        if: github.event_name != 'pull_request' && env.STAGING_FRONTEND_URL == ''
+        if: github.event_name != 'pull_request' && vars.STAGING_INFRA_PAUSED != 'true' && env.STAGING_FRONTEND_URL == ''
         run: |
           node --input-type=module <<'NODE'
           const required = ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'];
@@ -123,7 +127,7 @@ jobs:
           NODE
 
       - name: Verify frontend staging target
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && vars.STAGING_INFRA_PAUSED != 'true'
         run: npm run smoke:staging:frontend
 
       - name: Verify staging CORS contract

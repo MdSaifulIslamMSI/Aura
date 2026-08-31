@@ -32,6 +32,10 @@ jobs:
       SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
       SMOKE_REQUIRE_SCANNER_READY: "true"
     steps:
+      - name: Staging infra paused - skip live checks
+        if: vars.STAGING_INFRA_PAUSED == 'true'
+        run: echo "::warning::staging infra is paused (repo variable STAGING_INFRA_PAUSED=true) - live staging smoke/DAST checks skipped; unset the variable to restore them"
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -52,11 +56,13 @@ jobs:
           npm run scan:prod-fallbacks
 
       - name: Run backend and frontend staging smoke
+        if: vars.STAGING_INFRA_PAUSED != 'true'
         run: |
           npm run smoke:staging
           npm run smoke:staging:frontend
 
       - name: Run live staging DAST baseline
+        if: vars.STAGING_INFRA_PAUSED != 'true'
         env:
           STAGING_URL: ${{ vars.STAGING_FRONTEND_URL || vars.STAGING_BASE_URL }}
           FREE_SECURITY_SCANNERS_REQUIRED: "true"
