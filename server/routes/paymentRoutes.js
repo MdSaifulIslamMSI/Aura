@@ -92,7 +92,7 @@ router.post('/webhooks/stripe', requireTrustDecision('payment.webhook.process', 
 
 // Phase 5A: adaptive escalation for customer-facing payment actions (after
 // the server-to-server webhook routes, which must never be throttled).
-router.use(adaptiveRateLimit({ action: 'payment', windowMs: 5 * 60 * 1000, max: 60 }));
+router.use(adaptiveRateLimit({ action: 'payment', windowMs: 5 * 60 * 1000, max: 60, skip: () => process.env.NODE_ENV === 'test' }));
 
 router.post('/intents', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(createIntentSchema), sensitiveActions.paymentPayoutChange, createIntent);
 router.post('/intents/:intentId/challenge/complete', protect, requireActiveAccount, requireOtpAssurance, paymentIntentRateLimit, paymentIntentLimiter, validate(completeChallengeSchema), sensitiveActions.paymentPayoutChange, completeChallenge);

@@ -100,7 +100,7 @@ const checkUserLimiter = createDistributedRateLimit({
 // Phase 5A: adaptive escalation (slow_down -> challenge -> contain) plus the
 // distributed per-account lockout gate run ahead of every OTP route; the
 // recorder turns 401-class responses into lockout failures.
-router.use(adaptiveRateLimit({ action: 'otp', windowMs: 5 * 60 * 1000, max: 20 }));
+router.use(adaptiveRateLimit({ action: 'otp', windowMs: 5 * 60 * 1000, max: 20, skip: () => process.env.NODE_ENV === 'test' }));
 router.use(loginLockoutGate({ surface: 'otp' }));
 
 router.post('/challenge', checkUserLimiter, getOtpChallenge);

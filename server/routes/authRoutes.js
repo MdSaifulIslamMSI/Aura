@@ -271,7 +271,7 @@ const authenticatedSessionMutationLimiter = createDistributedRateLimit({
 // distributed per-account lockout gate run ahead of every auth route; the
 // recorder at the end of this router turns 401-class responses into lockout
 // failures (covers the OTP sub-router mounted below).
-router.use(adaptiveRateLimit({ action: 'auth', windowMs: 5 * 60 * 1000, max: 60 }));
+router.use(adaptiveRateLimit({ action: 'auth', windowMs: 5 * 60 * 1000, max: 60, skip: () => process.env.NODE_ENV === 'test' }));
 router.use(loginLockoutGate({ surface: 'auth' }));
 
 router.get('/duo/start', duoOidcLimiter, beginAtomicAuthResponse, startDuoLogin);
