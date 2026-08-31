@@ -128,4 +128,4 @@ jobs:
 
       - name: Verify staging CORS contract
         if: github.event_name != 'pull_request'
-        run: npm --prefix server test -- --runTestsByPath tests/corsFlags.test.js tests/stagingFrontendCors.test.js
+        run: node scripts/run-test-tier.cjs server staging-cors
