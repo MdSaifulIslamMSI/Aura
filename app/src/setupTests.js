@@ -28,6 +28,16 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
     });
 }
 
+// Mock hardwareConcurrency/deviceMemory/connection for MotionModeContext tier tests
+if (typeof window !== 'undefined' && window.navigator) {
+    Object.defineProperty(window.navigator, 'hardwareConcurrency', { writable: true, value: 8 });
+    Object.defineProperty(window.navigator, 'deviceMemory', { writable: true, value: 8 });
+    Object.defineProperty(window.navigator, 'connection', {
+        writable: true,
+        value: { effectiveType: '4g', saveData: false, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+    });
+}
+
 // Mock Firebase Analytics
 vi.mock('firebase/analytics', () => ({
     getAnalytics: vi.fn(),

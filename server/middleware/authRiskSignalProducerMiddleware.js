@@ -8,8 +8,7 @@ const { getTrustedRequestIp } = require('../utils/requestIdentity');
 const logger = require('../utils/logger');
 
 const AUTH_SYNC_PATH_PATTERN = /^\/api\/auth\/sync\/?$/i;
-
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 
 const splitEnvList = (...names) => names
     .flatMap((name) => safeString(process.env[name]).split(/[,;\s]+/))

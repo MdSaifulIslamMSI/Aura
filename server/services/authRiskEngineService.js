@@ -5,8 +5,7 @@ const RISK_LEVELS = {
 };
 
 const clampScore = (value) => Math.max(0, Math.min(100, Number(value) || 0));
-
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 
 const normalizeIpRisk = (value = '') => safeString(value).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
 

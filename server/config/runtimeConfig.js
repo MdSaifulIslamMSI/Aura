@@ -77,7 +77,7 @@ let runtimePrimeResult = {
     pathPrefix: '',
 };
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 const parseBoolean = (value, fallback = false) => {
     const normalized = safeString(value).toLowerCase();
     if (!normalized) return fallback;

@@ -18,7 +18,7 @@ const LOGIN_RISK_SIGNAL_HEADER_NAMES = Object.freeze([
 
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 
 const parsePositiveInteger = (value) => {
     const numeric = Number(value || 0);

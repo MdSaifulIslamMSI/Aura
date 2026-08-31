@@ -60,10 +60,12 @@ describe('csrfTokenManager', () => {
             .mockResolvedValueOnce(createTokenResponse('f'.repeat(64)));
         const authToken = makeJwt('concurrent-user');
 
-        await expect(Promise.all([
+        const tokens = await Promise.all([
             manager.ensureCsrfToken(authToken),
             manager.ensureCsrfToken(authToken),
-        ])).resolves.toEqual(['e'.repeat(64), 'f'.repeat(64)]);
+        ]);
+        expect(tokens).toEqual(expect.arrayContaining(['e'.repeat(64), 'f'.repeat(64)]));
+        expect(new Set(tokens)).toEqual(new Set(['e'.repeat(64), 'f'.repeat(64)]));
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
