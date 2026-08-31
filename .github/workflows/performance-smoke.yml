@@ -51,7 +51,7 @@ jobs:
         run: npm run typecheck --if-present
 
       - name: Cache safety tests
-        run: npm --prefix server test -- --runTestsByPath tests/performanceCache.test.js --forceExit
+        run: node scripts/run-test-tier.cjs server performance-cache --forceExit
 
       - name: Setup k6
         uses: grafana/setup-k6-action@db07bd9765aac508ef18982e52ab937fe633a065 # v1

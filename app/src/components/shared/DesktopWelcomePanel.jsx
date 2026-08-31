@@ -133,7 +133,7 @@ const DesktopWelcomePanel = () => {
                 onClick={openMarketplace}
                 className="inline-flex flex-1 items-center justify-center rounded-full bg-cyan-300 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-950 transition-transform hover:scale-[1.02]"
               >
-                <FormattedMessage id="desktopWelcome.openMarketplace" defaultMessage="Open marketplace" />
+                <FormattedMessage id="desktopWelcome.openMarketplacePanel" defaultMessage="Open marketplace" />
               </button>
               <button
                 type="button"

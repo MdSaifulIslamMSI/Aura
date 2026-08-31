@@ -1,0 +1,87 @@
+{
+  "$comment": "Single source of truth for test tiers. Consumed by scripts/run-test-tier.mjs and server/tests/setup.js. CI must not hardcode test file lists.",
+  "server": {
+    "regression": [
+      "tests/adminAnalyticsRoutes.integration.test.js",
+      "tests/adminFraudRoutes.test.js",
+      "tests/adminNotificationRoutes.integration.test.js",
+      "tests/adminPaymentRoutes.integration.test.js",
+      "tests/adminProductRoutes.integration.test.js",
+      "tests/adminUserControllerResilience.test.js",
+      "tests/adminUserRoutes.integration.test.js",
+      "tests/aiRoutes.test.js",
+      "tests/authMiddleware.test.js",
+      "tests/cartController.test.js",
+      "tests/catalogNormalizer.test.js",
+      "tests/commerceAssistantService.test.js",
+      "tests/communicationServices.test.js",
+      "tests/communicationUtilities.test.js",
+      "tests/emergencyControlController.test.js",
+      "tests/envContractScripts.test.js",
+      "tests/fraudDecisionController.test.js",
+      "tests/fraudDecisioningService.test.js",
+      "tests/frontendLinks.test.js",
+      "tests/geminiGatewayService.test.js",
+      "tests/healthReadinessService.test.js",
+      "tests/healthRoutes.test.js",
+      "tests/marketplaceIntegrityService.test.js",
+      "tests/mfaRolloutSmoke.test.js",
+      "tests/modelGatewayService.test.js",
+      "tests/moneyMinorBackfillAudit.test.js",
+      "tests/moneyMinorStorage.test.js",
+      "tests/ollamaGatewayService.test.js",
+      "tests/orderControllerCreate.test.js",
+      "tests/orderPlacementService.test.js",
+      "tests/otpEmailFailClosed.test.js",
+      "tests/otpSystem.test.js",
+      "tests/paymentOrderIntegrity.test.js",
+      "tests/paymentRefundState.test.js",
+      "tests/paymentSecurityGuards.test.js",
+      "tests/profileSecurity.test.js",
+      "tests/requireObjectOwnership.test.js",
+      "tests/requireTenantBoundary.test.js",
+      "tests/routeCostClassifier.test.js",
+      "tests/runtimeConfig.test.js",
+      "tests/stagingFrontendCors.test.js",
+      "tests/stagingSmokeSafety.test.js",
+      "tests/turnstileFlags.test.js",
+      "tests/userPhoneIndex.test.js"
+    ],
+    "performance-cache": [
+      "tests/performanceCache.test.js"
+    ],
+    "money-minor": [
+      "tests/moneyMinorStorage.test.js",
+      "tests/moneyMinorBackfillAudit.test.js"
+    ],
+    "staging-cors": [
+      "tests/corsFlags.test.js",
+      "tests/stagingFrontendCors.test.js"
+    ],
+    "traffic-budget": [
+      "tests/trafficPolicyRegistry.test.js",
+      "tests/trafficResponseSmoothness.test.js"
+    ],
+    "noDbFiles": [
+      "cartController.test.js",
+      "catalogNormalizer.test.js",
+      "emergencyControlController.test.js",
+      "frontendLinks.test.js",
+      "frontendSecretlessScanner.test.js",
+      "invisibleFabricAuthz.test.js",
+      "invisibleFabricConfig.test.js",
+      "invisibleFabricMiddleware.test.js",
+      "moneyMinorBackfillAudit.test.js",
+      "moneyMinorStorage.test.js",
+      "paymentArchitectureFoundation.test.js",
+      "requireObjectOwnership.test.js",
+      "requireTenantBoundary.test.js",
+      "responseMinimizer.test.js",
+      "routeCostClassifier.test.js",
+      "routeExposureRegistry.test.js",
+      "stagingFrontendCors.test.js",
+      "trustedEdgeMiddleware.test.js",
+      "turnstileFlags.test.js"
+    ]
+  }
+}
