@@ -150,6 +150,7 @@
     "security:sarif-contract": "node scripts/security/validate-sarif-contract.mjs",
     "security:toolchain": "npm run security:gitleaks && npm run security:semgrep && npm run security:trivy && npm run security:hadolint",
     "security:zizmor": "node scripts/security/run-docker-tool.mjs zizmor",
+    "security:csp-drift": "node scripts/security/check-csp-drift.mjs",
     "security:all:free-tools": "npm test && npm run security:deps && npm run security:toolchain",
     "security:prod-hardening-audit": "node server/scripts/audit_production_hardening_contract.js",
     "security:prod-env-audit": "node server/scripts/audit_login_production_env_contract.js",

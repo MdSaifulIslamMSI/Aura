@@ -5,18 +5,30 @@ const {
     recordAuthSuccess,
 } = require('../services/loginLockoutService');
 const { writeSecurityEvent } = require('../security/securityEventLogger');
+const { resolveTrustedDeviceFingerprint } = require('../services/deviceFingerprintAttestationService');
 
 // Pre-route gate + post-route failure recorder for the distributed login
 // lockout (Phase 5A). The gate blocks locked accounts in enforce mode and
 // only observes in monitor mode; the recorder counts 401-class responses as
 // failed attempts and clears counters after successful auth responses.
 
-const identityForRequest = (req = {}) => ({
-    uid: req.authUid || req.user?._id || '',
-    email: req.body?.email || req.user?.email || '',
-    phone: req.body?.phone || '',
-    ip: req.ip || req.socket?.remoteAddress || '',
-});
+const identityForRequest = (req = {}) => {
+    // Phase 5B: prefer the server-attested fingerprint over the client-asserted
+    // header so fingerprint rotation cannot fragment limiter/lockout keys.
+    let attestedFingerprint = '';
+    try {
+        attestedFingerprint = resolveTrustedDeviceFingerprint(req).fingerprint || '';
+    } catch {
+        attestedFingerprint = '';
+    }
+    return {
+        uid: req.authUid || req.user?._id || '',
+        email: req.body?.email || req.user?.email || '',
+        phone: req.body?.phone || '',
+        ip: req.ip || req.socket?.remoteAddress || '',
+        fingerprint: attestedFingerprint || req.headers?.['x-device-fingerprint'] || '',
+    };
+};
 
 const loginLockoutGate = ({ surface = 'auth' } = {}) => (req, res, next) => {
     const mode = require('../services/loginLockoutService').parseMode();

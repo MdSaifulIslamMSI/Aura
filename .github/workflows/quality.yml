@@ -95,6 +95,8 @@ jobs:
 
       - name: Validate GitHub Actions workflows
         run: npm run quality:actions
+      - name: Check CSP drift across the four policy copies
+        run: npm run security:csp-drift
 
       - name: Validate shell scripts
         run: npm run quality:shell

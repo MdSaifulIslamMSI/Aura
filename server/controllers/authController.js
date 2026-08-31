@@ -64,6 +64,15 @@ const {
 const { shouldRequireTrustedDevice } = require('../config/authTrustedDeviceFlags');
 const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnforcementPolicy');
 const { RISK_LEVELS, evaluateLoginRisk } = require('../services/authRiskEngineService');
+const {
+    ATTESTATION_COOKIE_NAME,
+    attestationCookieOptions,
+    buildDeviceFingerprintAttestation,
+} = require('../services/deviceFingerprintAttestationService');
+const {
+    evaluateBehaviorSignals,
+    recordAuthObservation,
+} = require('../services/authBehaviorBaselineService');
 const { extractTrustedLoginRiskSignals } = require('../services/authRiskSignalService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 const {
@@ -400,7 +409,7 @@ const resolveLoginRiskInputs = ({ req = {}, user = null } = {}) => {
     };
 };
 
-const evaluateRuntimeLoginRisk = ({ req = {}, user = null } = {}) => {
+const evaluateRuntimeLoginRisk = async ({ req = {}, user = null } = {}) => {
     const policy = getLoginRuntimeEnforcementPolicy();
     if (policy.riskEngineMode === 'off') {
         return {
@@ -413,7 +422,14 @@ const evaluateRuntimeLoginRisk = ({ req = {}, user = null } = {}) => {
     }
 
     const { riskSignal, ...riskInputs } = resolveLoginRiskInputs({ req, user });
-    const risk = evaluateLoginRisk(riskInputs);
+    const uid = req.authUid || req.authToken?.uid || user?._id || '';
+    const baseline = await recordAuthObservation({ uid, ip: req.ip || '' })
+        .then(() => evaluateBehaviorSignals({ uid }))
+        .catch(() => ({ enabled: false, distinctIpCount: 0, attempts15m: 0 }));
+    const risk = evaluateLoginRisk({
+        ...riskInputs,
+        distinctIpCount: baseline.distinctIpCount,
+    });
     const forceStepUp = Boolean(
         policy.riskEngineEnforced
         && risk.requireStepUp
@@ -442,6 +458,11 @@ const evaluateRuntimeLoginRisk = ({ req = {}, user = null } = {}) => {
             signalTrusted: riskSignal.trusted,
             ignoredUntrustedSignals: riskSignal.ignoredUntrustedHeaders,
             signalTrustReason: riskSignal.reason,
+            behaviorBaseline: {
+                enabled: baseline.enabled,
+                distinctIpCount: baseline.distinctIpCount,
+                attempts15m: baseline.attempts15m,
+            },
         },
     });
 
@@ -528,6 +549,24 @@ const establishSessionCookie = asyncHandler(async (req, res, next) => {
         rotate: false,
     });
     if (!authSession) return undefined;
+
+    // Phase 5B: attest the observed device fingerprint so later requests can
+    // prove it (defeats fingerprint rotation for limiter/lockout keys).
+    try {
+        const attestation = buildDeviceFingerprintAttestation({
+            fingerprint: req.headers?.['x-device-fingerprint'] || '',
+            sessionId: authSession?.sessionId || req.authSession?.sessionId || '',
+        });
+        if (attestation.enabled && attestation.attestation) {
+            res.cookie(
+                ATTESTATION_COOKIE_NAME,
+                attestation.attestation,
+                attestationCookieOptions({ isProduction: process.env.NODE_ENV === 'production' })
+            );
+        }
+    } catch {
+        // Attestation must never break session establishment.
+    }
 
     return next();
 });
@@ -849,7 +888,7 @@ const getSession = asyncHandler(async (req, res) => {
         authSession: req.authSession || null,
     });
 
-    const loginRisk = evaluateRuntimeLoginRisk({ req, user: resolved.user });
+    const loginRisk = await evaluateRuntimeLoginRisk({ req, user: resolved.user });
     const establishedDesktopHandoffSession = isEstablishedDesktopHandoffSession(req);
     const deviceState = await resolveDeviceChallengeState({
         req,
@@ -1435,7 +1474,7 @@ const syncSession = asyncHandler(async (req, res) => {
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(user?.email || authUser.email || '');
 
-    const loginRisk = evaluateRuntimeLoginRisk({ req, user });
+    const loginRisk = await evaluateRuntimeLoginRisk({ req, user });
     const deviceState = await resolveDeviceChallengeState({
         req,
         authUser,
@@ -2146,7 +2185,7 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
             riskState: LOGIN_RISK_STATE_HIGH,
             stepUpReason: verification.postDeviceMfaReason || 'trusted_device_step_up',
         }
-        : evaluateRuntimeLoginRisk({ req, user: policyUser });
+        : await evaluateRuntimeLoginRisk({ req, user: policyUser });
     const mfaState = await resolveLoginMfaState({
         req,
         user: policyUser,
