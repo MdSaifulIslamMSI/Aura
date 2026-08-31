@@ -7,7 +7,7 @@
 
 const crypto = require('crypto');
 
-const { safeString } = require('./safeString');
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
 const safeNumber = (value, fallback = 0) => {
     const num = Number(value);

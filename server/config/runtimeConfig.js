@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
-const { safeString } = require('../utils/safeString.js');
 
 const DEFAULT_AWS_PARAMETER_KEYS = [
     'MONGO_URI',
@@ -77,6 +76,7 @@ let runtimePrimeResult = {
     pathPrefix: '',
 };
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const parseBoolean = (value, fallback = false) => {
     const normalized = safeString(value).toLowerCase();
     if (!normalized) return fallback;

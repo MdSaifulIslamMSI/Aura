@@ -98,13 +98,13 @@ jobs:
           node scripts/auth/smoke.mjs "${args[@]}"
 
       - name: Validate staging environment contract
-        if: steps.staging.outputs.configured == 'true' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.staging.outputs.configured == 'true'
         run: node scripts/env/validate-env.mjs --environment staging --env-file config/environments/staging.example.env
 
       - name: Curl staging health
-        if: steps.staging.outputs.configured == 'true' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.staging.outputs.configured == 'true'
         run: curl --fail --show-error --silent --connect-timeout 5 --max-time 20 "${STAGING_HEALTH_URL}" > /dev/null
 
       - name: Run guarded staging smoke
-        if: steps.staging.outputs.configured == 'true' && github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.staging.outputs.configured == 'true'
         run: npm run smoke:staging

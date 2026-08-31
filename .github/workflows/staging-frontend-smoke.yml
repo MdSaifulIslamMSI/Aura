@@ -80,7 +80,7 @@ jobs:
         run: npm run smoke:staging
 
       - name: Resolve latest Vercel staging frontend URL
-        if: ${{ env.STAGING_FRONTEND_URL == '' && github.event_name != 'pull_request' }}
+        if: github.event_name != 'pull_request' && env.STAGING_FRONTEND_URL == ''
         run: |
           node --input-type=module <<'NODE'
           const required = ['VERCEL_TOKEN', 'VERCEL_ORG_ID', 'VERCEL_PROJECT_ID'];

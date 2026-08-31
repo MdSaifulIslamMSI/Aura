@@ -1,4 +1,3 @@
-const { safeString } = require('../utils/safeString.js');
 const {
     RECOMMENDATION_REASONS,
     SOURCE_LABELS,
@@ -8,6 +7,7 @@ const {
     productDisplayId,
 } = require('./candidateService');
 
+const safeString = (value = '') => String(value === undefined || value === null ? '' : value).trim();
 const safeLower = (value = '') => safeString(value).toLowerCase();
 const clamp = (value, min = 0, max = 100) => Math.min(Math.max(Number(value) || 0, min), max);
 

@@ -3,7 +3,6 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const SystemState = require('../models/SystemState');
-const { safeString } = require('../utils/safeString.js');
 
 const EXECUTE = process.argv.includes('--execute');
 
@@ -18,6 +17,7 @@ const DEMO_FILTER = {
     ],
 };
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const isDemoVersion = (value) => /^demo-catalog/i.test(safeString(value));
 

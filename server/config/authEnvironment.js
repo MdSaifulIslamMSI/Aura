@@ -1,4 +1,3 @@
-const { safeString } = require('../utils/safeString.js');
 const DEFAULT_ALLOWED_CLOCK_SKEW_SECONDS = 60;
 const MAX_ALLOWED_CLOCK_SKEW_SECONDS = 300;
 const DEFAULT_AUTH_COOKIE_NAME = 'aura_sid';
@@ -15,6 +14,7 @@ const KEYCLOAK_REQUIRED_ENV = [
     'AUTH_POST_LOGOUT_REDIRECT_URI',
 ];
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const normalizeProvider = (value = '') => {
     const normalized = safeString(value || 'legacy').toLowerCase();
