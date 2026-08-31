@@ -9,7 +9,6 @@ const { z } = require('zod');
 const AppError = require('../utils/AppError');
 const { resolveCategory } = require('../config/categories');
 const { auditCatalogSample } = require('./catalogSourceIntegrityService');
-const { safeString } = require('../utils/safeString.js');
 
 const SNAPSHOT_CACHE_DIR = process.env.CATALOG_SNAPSHOT_CACHE_DIR
     ? path.resolve(process.cwd(), process.env.CATALOG_SNAPSHOT_CACHE_DIR)
@@ -20,6 +19,7 @@ const REMOTE_TIMEOUT_MS = Math.max(1000, Number(process.env.CATALOG_SNAPSHOT_REM
 const REMOTE_MAX_BYTES = Math.max(1024 * 1024, Number(process.env.CATALOG_SNAPSHOT_REMOTE_MAX_BYTES || 25 * 1024 * 1024));
 const REMOTE_MAX_REDIRECTS = Math.max(0, Number(process.env.CATALOG_SNAPSHOT_REMOTE_MAX_REDIRECTS || 3));
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
 const hashValue = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
 

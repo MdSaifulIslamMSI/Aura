@@ -3,7 +3,6 @@ const Product = require('../models/Product');
 const User = require('../models/User');
 const Cart = require('../models/Cart');
 const { queryProducts, getActiveCatalogVersion } = require('./catalogService');
-const { safeString } = require('../utils/safeString.js');
 
 const MAX_RECENTLY_VIEWED = 8;
 const MAX_SEARCH_HISTORY = 5;
@@ -22,6 +21,7 @@ const CATEGORY_RULES = [
     { category: 'sports', pattern: /\bfootball|cricket|tennis|gym|sports|dumbbell|yoga\b/i },
 ];
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const normalizeId = (value) => safeString(value);
 const formatCategoryLabel = (value = '') => safeString(value).replace(/-/g, ' ');
 

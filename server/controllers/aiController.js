@@ -21,7 +21,7 @@ const MAX_AI_CHAT_TIMEOUT_MS = 60000;
 const ASSISTANT_IMAGE_MAX_BYTES = Number(process.env.ASSISTANT_IMAGE_MAX_BYTES || 8 * 1024 * 1024);
 const ASSISTANT_AUDIO_MAX_BYTES = Number(process.env.ASSISTANT_AUDIO_MAX_BYTES || 8 * 1024 * 1024);
 
-const { safeString } = require('../utils/safeString');
+const safeString = (value = '', fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const resolveAiChatTimeoutMs = () => {
     const parsed = Number(process.env.AI_CHAT_TIMEOUT_MS || DEFAULT_AI_CHAT_TIMEOUT_MS);

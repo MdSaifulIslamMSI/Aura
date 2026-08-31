@@ -15,8 +15,8 @@ process.env.INTELLIGENCE_SERVICE_STREAM_TIMEOUT_MS = process.env.INTELLIGENCE_SE
 const connectDB = require('../config/db');
 const Product = require('../models/Product');
 const { processAssistantTurn } = require('../services/ai/commerceAssistantService');
-const { safeString } = require('../utils/safeString.js');
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const deepClone = (value) => JSON.parse(JSON.stringify(value));
 const trimHistory = (history = []) => (
     Array.isArray(history)

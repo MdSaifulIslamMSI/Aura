@@ -4,7 +4,6 @@ const path = require('path');
 const fetch = require('node-fetch');
 const { getBreaker } = require('../../utils/circuitBreaker');
 const logger = require('../../utils/logger');
-const { safeString } = require('../../utils/safeString.js');
 const {
     ASSISTANT_AUDIO_ALLOWED_EXTENSIONS,
     ASSISTANT_AUDIO_ALLOWED_MIME,
@@ -70,6 +69,7 @@ const healthState = {
 };
 const modelAvailabilityState = new Map();
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const toPositiveNumber = (value, fallback) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;

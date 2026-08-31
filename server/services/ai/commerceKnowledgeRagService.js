@@ -1,8 +1,8 @@
 const ProductReview = require('../../models/ProductReview');
 const logger = require('../../utils/logger');
 const assistantCapabilities = require('../../../shared/assistantCapabilities.json');
-const { safeString } = require('../../utils/safeString.js');
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
 
 const STATIC_KNOWLEDGE_CHUNKS = Object.freeze([

@@ -1,10 +1,10 @@
 const crypto = require('crypto');
-const { safeString } = require('../utils/safeString.js');
 
 const MIN_MFA_SECRET_LENGTH = 32;
 const DEFAULT_MFA_CHALLENGE_TTL_SECONDS = 300;
 const DEFAULT_MFA_FRESH_WINDOW_SECONDS = 900;
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
 const parseBoolean = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;

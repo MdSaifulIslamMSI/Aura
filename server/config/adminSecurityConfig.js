@@ -5,7 +5,10 @@ const {
     resolveMfaConfig,
     secretLooksStrong,
 } = require('./mfaConfig');
-const { safeString } = require('../utils/safeString');
+
+const safeString = (value, fallback = '') => String(
+    value === undefined || value === null ? fallback : value
+).trim();
 
 const isProductionRuntime = (env = process.env) => safeString(env.NODE_ENV).toLowerCase() === 'production';
 
