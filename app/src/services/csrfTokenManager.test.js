@@ -60,18 +60,11 @@ describe('csrfTokenManager', () => {
             .mockResolvedValueOnce(createTokenResponse('f'.repeat(64)));
         const authToken = makeJwt('concurrent-user');
 
-        const [firstToken, secondToken] = await Promise.all([
+        await expect(Promise.all([
             manager.ensureCsrfToken(authToken),
             manager.ensureCsrfToken(authToken),
-        ]);
-
+        ])).resolves.toEqual(['e'.repeat(64), 'f'.repeat(64)]);
         expect(fetchMock).toHaveBeenCalledTimes(2);
-
-        // Each concurrent writer must own a distinct reservation covering both
-        // bootstrap responses. DPoP signing makes fetch completion order
-        // nondeterministic, so assert as a set rather than by position.
-        expect(firstToken).not.toBe(secondToken);
-        expect(new Set([firstToken, secondToken])).toEqual(new Set(['e'.repeat(64), 'f'.repeat(64)]));
     });
 
     it('does not log any server-supplied token fragment when format validation fails', async () => {

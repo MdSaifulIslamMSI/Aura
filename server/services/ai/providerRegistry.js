@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 const { getBreaker } = require('../../utils/circuitBreaker');
-const { safeString } = require('../../utils/safeString.js');
 
 const AI_DEFAULT_LOCALE = process.env.AI_DEFAULT_LOCALE || 'en-IN';
 
@@ -30,6 +29,7 @@ const LIVEKIT_URL = process.env.LIVEKIT_URL || process.env.LIVEKIT_WS_URL || pro
 const LIVEKIT_TTL_SECONDS = Number(process.env.LIVEKIT_TTL_SECONDS || 600);
 const LIVEKIT_ROOM_NAME = process.env.LIVEKIT_ROOM_NAME || 'aura-voice';
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

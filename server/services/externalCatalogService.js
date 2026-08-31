@@ -10,7 +10,6 @@ const Product = require('../models/Product');
 const { resolveCategory } = require('../config/categories');
 const { isWeakImageUrl } = require('./productImageResolver');
 const { canonicalizeProductImageUrl } = require('./productImageResolver');
-const { safeString } = require('../utils/safeString.js');
 
 const DEFAULT_OUTPUT_ROOT = path.resolve(
     process.cwd(),
@@ -37,6 +36,7 @@ const CORE_FIELD_ALIASES = {
     warranty: ['warranty', 'warranty_info'],
 };
 
+const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
 const hashValue = (value) => crypto.createHash('sha256').update(String(value)).digest('hex');
 const normalizeTitleKey = (value) => (typeof Product.normalizeTitleKey === 'function'

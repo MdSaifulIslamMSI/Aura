@@ -30,10 +30,6 @@ const createProduct = (overrides = {}) => Product.create({
 });
 
 describe('recommendation routes', () => {
-    beforeEach(() => {
-        process.env.TRAFFIC_FORTRESS_ENABLED = 'false';
-    });
-
     test('tracks guest recommendation events with session identity', async () => {
         const phone = await createProduct({ id: 1001, title: 'Aura Phone Prime' });
 
