@@ -22,6 +22,16 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, './src'),
         },
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'lcov'],
+            thresholds: {
+                statements: 62,
+                branches: 51,
+                functions: 59,
+                lines: 63,
+            },
+        },
     },
     resolve: {
         alias: {
