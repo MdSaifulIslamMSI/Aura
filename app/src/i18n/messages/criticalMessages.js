@@ -1,11 +1,6 @@
 import { defineMessages } from 'react-intl';
 
 export const criticalMessages = defineMessages({
-    cart: {
-        id: 'nav.cart',
-        defaultMessage: 'Cart',
-        description: 'Navigation label for the shopping cart.',
-    },
     signIn: {
         id: 'auth.signIn',
         defaultMessage: 'Sign in',

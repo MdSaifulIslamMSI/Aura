@@ -1,15 +1,15 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-07-28T05:09:25.434Z
+Generated: 2026-08-31T07:01:42.238Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
 ## Summary
 
-- Tracked files: 112
-- Stable ICU hook files: 78
+- Tracked files: 132
+- Stable ICU hook files: 79
 - Delegated stable ICU translator files: 2
-- Migrated stable ICU message IDs observed across files: 3401
+- Migrated stable ICU message IDs observed across files: 3404
 - Residual production legacy literal message IDs: 0
 - Test-harness legacy literal message IDs: 4
 - Production files with direct residual stable literals: 0
@@ -17,9 +17,9 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 - Runtime enum compatibility files: 0
 - High-risk files: 0
 - Medium-risk files: 18
-- Low-risk files: 94
+- Low-risk files: 114
 - Dynamic runtime translation files: 18
-- Legacy pack import files: 21
+- Legacy pack import files: 40
 
 ## Files
 
@@ -99,30 +99,50 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Wishlist/index.jsx` | 10 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/VisualSearch/index.jsx` | 4 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/components/welcome/PremiumWelcomeCurtain.jsx` | 3 | 0 | stable-icu-hook |
+| low | `app/src/i18n/useStableIcuMessages.test.js` | 3 | 0 | useMarket, stable-icu-hook, test-harness |
 | low | `app/src/pages/Profile/components/ProfileShared.jsx` | 2 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Bundles/index.jsx` | 1 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Login/loginFlowHelpers.js` | 1 | 0 | delegated-stable-icu, computed-key-compatibility |
 | low | `app/src/config/marketConfig.js` | 0 | 0 | legacy-pack-import |
 | low | `app/src/config/marketMessagePacks/ar.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/ar.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/as.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/as.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/bn.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/bn.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/de.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/de.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/en.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/en.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/es.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/es.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/fr.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/fr.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/gu.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/gu.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/hi.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/hi.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/ja.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/ja.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/kn.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/kn.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/ml.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/ml.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/mr.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/mr.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/or.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/or.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/pa.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/pa.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/pt.js` | 0 | 0 | legacy-pack-import |
 | low | `app/src/config/marketMessagePacks/sa.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/sa.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/te.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/te.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/ur.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/ur.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/config/marketMessagePacks/zh.js` | 0 | 0 | legacy-pack-import |
+| low | `app/src/config/marketMessagePacks/zh.test.js` | 0 | 0 | legacy-pack-import, test-harness |
 | low | `app/src/context/MarketContext.test.jsx` | 0 | 0 | useMarket, test-harness |
 | low | `app/src/i18n/StableText.jsx` | 0 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/i18n/useStableIcuMessages.js` | 0 | 0 | useMarket, stable-icu-hook |

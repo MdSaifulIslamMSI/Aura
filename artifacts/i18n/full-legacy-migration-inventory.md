@@ -1,22 +1,22 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-07-28T05:09:24.083Z
+Generated: 2026-08-31T07:01:12.196Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 385
-- Tracked files: 121
+- Source files scanned: 459
+- Tracked files: 142
 - Production files with stable literal UI copy: 89
-- Production stable literal references: 4061
+- Production stable literal references: 4062
 - Unique production stable IDs: 3666
 - Dynamic lookup references requiring manual review: 14
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
 - Runtime enum compatibility files: 1
-- Legacy pack internal files: 21
-- Test-harness literal references: 4
+- Legacy pack internal files: 40
+- Test-harness literal references: 16
 - Stable references with no English pack or call-site fallback: 0
 - Parse errors: 0
 
@@ -75,7 +75,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | medium | `app/src/pages/AICompare/index.jsx` | 45 | 45 | 2 | stable-ui |
 | medium | `app/src/components/features/product/Filters/index.jsx` | 38 | 34 | 0 | stable-ui |
 | medium | `app/src/components/features/chat/MessageItem.jsx` | 29 | 29 | 5 | stable-ui |
-| medium | `app/src/components/shared/VoiceSearch.jsx` | 21 | 20 | 0 | stable-ui |
+| medium | `app/src/components/shared/VoiceSearch.jsx` | 22 | 20 | 0 | stable-ui |
 | medium | `app/src/components/features/product/ProductCard/index.jsx` | 27 | 19 | 0 | runtime-content-nearby |
 | medium | `app/src/components/features/chat/ProductCardInline.jsx` | 14 | 13 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/TradeIn/index.jsx` | 12 | 11 | 0 | runtime-content-nearby |
@@ -174,25 +174,44 @@ These files remain compatibility inputs while stable UI call sites move to ICU c
 
 - `app/src/config/marketConfig.js`
 - `app/src/config/marketMessagePacks/ar.js`
+- `app/src/config/marketMessagePacks/ar.test.js`
 - `app/src/config/marketMessagePacks/as.js`
+- `app/src/config/marketMessagePacks/as.test.js`
 - `app/src/config/marketMessagePacks/bn.js`
+- `app/src/config/marketMessagePacks/bn.test.js`
 - `app/src/config/marketMessagePacks/de.js`
+- `app/src/config/marketMessagePacks/de.test.js`
 - `app/src/config/marketMessagePacks/en.js`
+- `app/src/config/marketMessagePacks/en.test.js`
 - `app/src/config/marketMessagePacks/es.js`
+- `app/src/config/marketMessagePacks/es.test.js`
 - `app/src/config/marketMessagePacks/fr.js`
+- `app/src/config/marketMessagePacks/fr.test.js`
 - `app/src/config/marketMessagePacks/gu.js`
+- `app/src/config/marketMessagePacks/gu.test.js`
 - `app/src/config/marketMessagePacks/hi.js`
+- `app/src/config/marketMessagePacks/hi.test.js`
 - `app/src/config/marketMessagePacks/ja.js`
+- `app/src/config/marketMessagePacks/ja.test.js`
 - `app/src/config/marketMessagePacks/kn.js`
+- `app/src/config/marketMessagePacks/kn.test.js`
 - `app/src/config/marketMessagePacks/ml.js`
+- `app/src/config/marketMessagePacks/ml.test.js`
 - `app/src/config/marketMessagePacks/mr.js`
+- `app/src/config/marketMessagePacks/mr.test.js`
 - `app/src/config/marketMessagePacks/or.js`
+- `app/src/config/marketMessagePacks/or.test.js`
 - `app/src/config/marketMessagePacks/pa.js`
+- `app/src/config/marketMessagePacks/pa.test.js`
 - `app/src/config/marketMessagePacks/pt.js`
 - `app/src/config/marketMessagePacks/sa.js`
+- `app/src/config/marketMessagePacks/sa.test.js`
 - `app/src/config/marketMessagePacks/te.js`
+- `app/src/config/marketMessagePacks/te.test.js`
 - `app/src/config/marketMessagePacks/ur.js`
+- `app/src/config/marketMessagePacks/ur.test.js`
 - `app/src/config/marketMessagePacks/zh.js`
+- `app/src/config/marketMessagePacks/zh.test.js`
 
 ### Unresolved English defaults
 

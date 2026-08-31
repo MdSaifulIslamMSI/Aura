@@ -3,7 +3,7 @@
 This folder contains the repo-owned, self-hosted edge security stack — the
 $0 replacement for the removed AWS WAF:
 
-- `docker-compose.yml`: the runnable stack — OWASP ModSecurity CRS v4
+- `docker-compose.yml`: the runnable stack — OWASP CRS (ModSecurity Core Rule Set) v4
   (blocking, paranoia level 1) in front of the API, plus a CrowdSec agent
   parsing WAF access/audit logs.
 - `nginx/auth-rate-limit.conf`: first-layer NGINX request throttling for auth, recovery, refresh, and admin paths.
