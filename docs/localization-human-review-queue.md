@@ -5,36 +5,36 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 ## Summary
 
 - Stable ICU message IDs: 3666
-- Former raw review rows: 92157
-- Actionable grouped queue entries: 3413
-- Actionable affected locale-message pairs: 48187
+- Former raw review rows: 92176
+- Actionable grouped queue entries: 3414
+- Actionable affected locale-message pairs: 48206
 - Native-review audit grouped entries: 2456
 - Native-review audit affected locale-message pairs: 43970
 - High-risk actionable entries: 1469 (22923 affected pairs)
 - Medium-risk actionable entries: 657 (8006 affected pairs)
-- Low-risk actionable entries: 1287 (17258 affected pairs)
+- Low-risk actionable entries: 1288 (17277 affected pairs)
 
 ## Actionable Queue By Locale
 
-- `bn`: 2015 grouped entries / 2074 affected pairs
-- `hi`: 3080 grouped entries / 3241 affected pairs
-- `te`: 2082 grouped entries / 2144 affected pairs
-- `mr`: 2088 grouped entries / 2150 affected pairs
-- `ur`: 2069 grouped entries / 2130 affected pairs
-- `gu`: 2115 grouped entries / 2181 affected pairs
-- `pa`: 2103 grouped entries / 2168 affected pairs
-- `ml`: 2085 grouped entries / 2146 affected pairs
-- `kn`: 2080 grouped entries / 2142 affected pairs
-- `or`: 2109 grouped entries / 2174 affected pairs
-- `as`: 2069 grouped entries / 2131 affected pairs
-- `sa`: 2087 grouped entries / 2150 affected pairs
-- `es`: 2950 grouped entries / 3048 affected pairs
-- `fr`: 2969 grouped entries / 3077 affected pairs
-- `de`: 2944 grouped entries / 3045 affected pairs
-- `ar`: 2861 grouped entries / 2968 affected pairs
-- `ja`: 2977 grouped entries / 3089 affected pairs
-- `pt`: 2956 grouped entries / 3051 affected pairs
-- `zh`: 2968 grouped entries / 3078 affected pairs
+- `bn`: 2016 grouped entries / 2075 affected pairs
+- `hi`: 3081 grouped entries / 3242 affected pairs
+- `te`: 2083 grouped entries / 2145 affected pairs
+- `mr`: 2089 grouped entries / 2151 affected pairs
+- `ur`: 2070 grouped entries / 2131 affected pairs
+- `gu`: 2116 grouped entries / 2182 affected pairs
+- `pa`: 2104 grouped entries / 2169 affected pairs
+- `ml`: 2086 grouped entries / 2147 affected pairs
+- `kn`: 2081 grouped entries / 2143 affected pairs
+- `or`: 2110 grouped entries / 2175 affected pairs
+- `as`: 2070 grouped entries / 2132 affected pairs
+- `sa`: 2088 grouped entries / 2151 affected pairs
+- `es`: 2951 grouped entries / 3049 affected pairs
+- `fr`: 2970 grouped entries / 3078 affected pairs
+- `de`: 2945 grouped entries / 3046 affected pairs
+- `ar`: 2862 grouped entries / 2969 affected pairs
+- `ja`: 2978 grouped entries / 3090 affected pairs
+- `pt`: 2957 grouped entries / 3052 affected pairs
+- `zh`: 2969 grouped entries / 3079 affected pairs
 
 ## Actionable Queue By Reason
 
@@ -44,7 +44,7 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 - `foundation-placeholder-mismatch-uses-english-fallback`: 2 grouped entries / 30 affected pairs
 - `legacy-placeholder-mismatch-uses-english-fallback`: 106 grouped entries / 852 affected pairs
 - `missing-foundation-locale-uses-english-fallback`: 21 grouped entries / 306 affected pairs
-- `missing-legacy-locale-uses-english-fallback`: 1379 grouped entries / 26282 affected pairs
+- `missing-legacy-locale-uses-english-fallback`: 1380 grouped entries / 26301 affected pairs
 
 ## Native Review Audit
 
