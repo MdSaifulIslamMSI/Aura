@@ -106,8 +106,8 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run smoke:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@v6
-        if: github.event_name != 'pull_request'
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always() && github.event_name != 'pull_request'
         with:
           name: staging-smoke-evidence
           path: artifacts/release-gates/
@@ -189,8 +189,8 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run smoke:env-contract
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@v6
-        if: github.event_name != 'pull_request'
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always() && github.event_name != 'pull_request'
         with:
           name: env-contract-evidence
           path: artifacts/release-gates/
@@ -232,8 +232,8 @@ jobs:
           unset-current-credentials: true
       - run: npm run aws:cost-guard
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@v6
-        if: github.event_name != 'pull_request'
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always() && github.event_name != 'pull_request'
         with:
           name: cost-guard-evidence
           path: artifacts/release-gates/
@@ -366,8 +366,8 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run sre:synthetic:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@v6
-        if: github.event_name != 'pull_request'
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always() && github.event_name != 'pull_request'
         with:
           name: sre-synthetic-evidence
           path: artifacts/sre/
@@ -413,8 +413,8 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run sre:latency:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@v6
-        if: github.event_name != 'pull_request'
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always() && github.event_name != 'pull_request'
         with:
           name: sre-latency-evidence
           path: artifacts/sre/
