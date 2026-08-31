@@ -1,0 +1,30 @@
+# Aura fine-grained authorization (OpenFGA, CNCF sandbox project).
+#
+# Dev / CI: in-memory datastore, zero setup. Production: switch the datastore
+# to Postgres (OPENFGA_DATASTORE_ENGINE=postgres + OPENFGA_DATASTORE_URI) and
+# persist the store id / model id in configuration.
+#
+# The service in server/services/authorization/openFgaService.js talks to this
+# server over the OpenFGA HTTP API with plain fetch — no SDK dependency.
+name: aura-openfga
+
+services:
+  openfga:
+    image: openfga/openfga:v1.19.0
+    command: run
+    environment:
+      OPENFGA_DATASTORE_ENGINE: memory
+      OPENFGA_LOG_FORMAT: json
+    ports:
+      - "127.0.0.1:8081:8080"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - aura-authz
+
+networks:
+  aura-authz:
+    driver: bridge
