@@ -9244,6 +9244,9 @@
     "defaultMessage": "Open marketplace",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "desktopWelcome.openMarketplacePanel": {
+    "defaultMessage": "Open marketplace"
+  },
   "desktopWelcome.platformChannel": {
     "defaultMessage": "{platform} desktop channel"
   },
