@@ -30,7 +30,9 @@ describe('security headers', () => {
 
     test('API responses include defensive browser headers and do not leak Express', async () => {
         const response = await request(app)
-            .get('/api/products?limit=1')
+            // A 404 path exercises the same global header middleware without
+            // depending on catalog/DB availability in CI.
+            .get('/api/__header_probe__')
             .set('Origin', 'http://localhost:5173');
 
         expect(response.statusCode).toBeLessThan(500);
