@@ -343,6 +343,8 @@ const mergeRecommendationProducts = ({ responses, excludeIds, limit }) => {
     return output;
 };
 
+const { pickPublicProductFields } = require('../serializers/publicProductSerializer');
+
 const buildProductRecommendations = async ({ userId = null, input = {} } = {}) => {
     const normalizedInput = normalizeClientInput(input);
     const persisted = await loadUserSignals(userId);
@@ -365,7 +367,7 @@ const buildProductRecommendations = async ({ userId = null, input = {} } = {}) =
         responses,
         excludeIds: signals.excludeIds,
         limit: normalizedInput.limit,
-    });
+    }).map((product) => pickPublicProductFields(product));
 
     return {
         ...buildMetaFromSignals({

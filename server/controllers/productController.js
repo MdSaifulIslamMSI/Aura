@@ -35,6 +35,7 @@ const {
     shouldProxyProductImage,
 } = require('../services/productImageResolver');
 const { buildCatalogMarketMetadata } = require('../services/markets/marketCatalog');
+const { pickPublicProductFields } = require('../serializers/publicProductSerializer');
 const { buildDisplayPair } = require('../services/markets/marketPricing');
 
 const REVIEW_LIMIT_DEFAULT = 8;
@@ -55,25 +56,28 @@ const buildFraudRequestMeta = (req) => ({
 const toClientProduct = async (product, market = null) => {
     const plain = product?.toObject?.() ? product.toObject() : product;
     if (!plain || typeof plain !== 'object') return plain;
-    const clientTitle = plain.displayTitle || plain.title;
+    // Phase 6 (P0): strict public DTO — internal provenance, publish-gate,
+    // ad economics, and catalog-ingestion fields never leave the server.
+    const safe = pickPublicProductFields(plain);
+    const clientTitle = safe.displayTitle || safe.title;
     const pricing = market
         ? await buildDisplayPair({
-            amount: plain.price || 0,
-            originalAmount: plain.originalPrice || plain.price || 0,
+            amount: safe.price || 0,
+            originalAmount: safe.originalPrice || safe.price || 0,
             baseCurrency: market.baseCurrency,
             market,
         })
         : null;
     const marketMetadata = market
-        ? buildCatalogMarketMetadata({ product: plain, market })
+        ? buildCatalogMarketMetadata({ product: safe, market })
         : null;
 
     return {
-        ...plain,
+        ...safe,
         title: clientTitle,
-        image: buildProductImageDeliveryUrl(plain.image),
-        images: Array.isArray(plain.images)
-            ? plain.images.map((entry) => buildProductImageDeliveryUrl(entry))
+        image: buildProductImageDeliveryUrl(safe.image),
+        images: Array.isArray(safe.images)
+            ? safe.images.map((entry) => buildProductImageDeliveryUrl(entry))
             : [],
         pricing,
         market: market ? {
