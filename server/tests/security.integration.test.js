@@ -39,6 +39,46 @@ jest.mock('../config/redis', () => ({
         },
         del: async (key) => { mockRedisStore.delete(key); return 1; },
         scan: async () => ({ cursor: 0, keys: Array.from(mockRedisStore.keys()) }),
+        // Emulates the atomic one-time-verify Lua script in csrfMiddleware:
+        // returns the same decision strings and deletes on successful use.
+        eval: async (_script, { keys = [], arguments: args = [] } = {}) => {
+            const key = keys[0];
+            const record = mockRedisStore.get(key);
+            if (!record) return 'missing';
+            let stored;
+            try {
+                stored = JSON.parse(record.value);
+            } catch {
+                mockRedisStore.delete(key);
+                return 'invalid_record';
+            }
+            if (!stored || typeof stored !== 'object') {
+                mockRedisStore.delete(key);
+                return 'invalid_record';
+            }
+            if (Number(stored.expiresAt || 0) <= Number(args[0])) {
+                mockRedisStore.delete(key);
+                return 'expired';
+            }
+            const metadata = stored.metadata || {};
+            if ((metadata.uid || 'anonymous') !== args[1]) return 'principal_mismatch';
+            const storedStrictOrigin = metadata.strictOrigin || '';
+            if (storedStrictOrigin !== '' && storedStrictOrigin !== args[2]) return 'origin_mismatch';
+            const storedSessionId = metadata.sessionId || '';
+            if (storedSessionId !== '' && storedSessionId !== args[3]) return 'session_mismatch';
+            const storedFingerprint = metadata.deviceFingerprint || '';
+            if (storedFingerprint !== '' && storedFingerprint !== args[4]) return 'device_mismatch';
+            const storedIp = metadata.ip || '';
+            const storedUserAgent = metadata.userAgent || '';
+            const ipMismatch = storedIp !== '' && args[5] !== '' && storedIp !== args[5];
+            const userAgentMismatch = storedUserAgent !== '' && args[6] !== '' && storedUserAgent !== args[6];
+            if (args[7] === '1' && (ipMismatch || userAgentMismatch)) return 'client_signal_mismatch';
+            mockRedisStore.delete(key);
+            if (ipMismatch && userAgentMismatch) return 'ok:ip,user_agent';
+            if (ipMismatch) return 'ok:ip';
+            if (userAgentMismatch) return 'ok:user_agent';
+            return 'ok';
+        },
     }),
     initRedis: jest.fn().mockResolvedValue(undefined),
     getRedisHealth: jest.fn().mockReturnValue({ connected: true, required: false }),
@@ -163,6 +203,11 @@ describe('SECURITY FIXES INTEGRATION TESTS', () => {
         userCache.clear();
         mockRedisStore.clear();
         app = buildTestApp();
+    });
+
+    // A failing test must not leak Date.now mocks into later assertions.
+    afterEach(() => {
+        jest.restoreAllMocks();
     });
 
     // ─── 1. Password Policy Validation ───────────────────────────────────

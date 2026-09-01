@@ -42,8 +42,11 @@
       "tests/requireTenantBoundary.test.js",
       "tests/routeCostClassifier.test.js",
       "tests/runtimeConfig.test.js",
+      "tests/security.integration.test.js",
+      "tests/security/egressGuard.security.test.js",
       "tests/stagingFrontendCors.test.js",
       "tests/stagingSmokeSafety.test.js",
+      "tests/totpMfaService.test.js",
       "tests/turnstileFlags.test.js",
       "tests/userPhoneIndex.test.js"
     ],
