@@ -148,7 +148,16 @@ describe('totpMfaService', () => {
             },
         });
 
-        const result = await disableTotpAfterFreshMfa({ userId: user._id });
+        // The disable route runs behind the step-up gate, which records the
+        // fresh second factor on the session before the service re-asserts
+        // with that same session evidence.
+        const result = await disableTotpAfterFreshMfa({
+            userId: user._id,
+            session: {
+                stepUpUntil: new Date(Date.now() + 5 * 60 * 1000),
+                amr: ['firebase_mfa'],
+            },
+        });
 
         expect(result.mfa.totp.enabled).toBe(false);
         expect(result.mfa.totp.disabledAt).toBeInstanceOf(Date);
