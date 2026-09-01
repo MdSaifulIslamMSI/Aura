@@ -3,7 +3,8 @@ const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const Order = require('../models/Order');
 const ProductReview = require('../models/ProductReview');
-const { validateProxyUrl } = require('../services/productImageProxyService');
+const { validateProxyUrl, ALLOWED_PROXY_HOSTNAMES } = require('../services/productImageProxyService');
+const { guardedFetch } = require('../security/remoteFetchGuardService');
 const {
     queryProducts,
     getProductByIdentifier,
@@ -890,15 +891,19 @@ const getProductImageProxy = asyncHandler(async (req, res, next) => {
 
     let upstream;
     try {
-        upstream = await fetch(upstreamUrl, {
-            method: 'GET',
-            redirect: 'follow',
+        // Redirect hops are re-validated against the proxy allowlist and all
+        // connections resolve through the safe egress agent, so a trusted CDN
+        // cannot pivot the fetch to internal or metadata targets.
+        upstream = await guardedFetch(upstreamUrl, {
+            allowedHosts: [...ALLOWED_PROXY_HOSTNAMES],
+            maxRedirects: 3,
+            timeoutMs: PRODUCT_IMAGE_PROXY_TIMEOUT_MS,
+            req,
             headers: {
                 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
                 accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
                 referer: 'https://www.flipkart.com/',
             },
-            signal: AbortSignal.timeout(PRODUCT_IMAGE_PROXY_TIMEOUT_MS),
         });
     } catch (error) {
         logger.warn('products.image_proxy_upstream_failed', {
