@@ -1,6 +1,6 @@
 const crypto = require('crypto');
-const fetch = require('node-fetch');
 const AppError = require('../../utils/AppError');
+const { guardedFetch } = require('../../security/remoteFetchGuardService');
 const { withTimeout } = require('../../utils/timeout');
 const {
     resolveAuthEnvironment,
@@ -21,15 +21,31 @@ const sha256Base64url = (value) => crypto.createHash('sha256').update(value).dig
 const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeEmail = (value) => normalizeText(value).toLowerCase();
 
-const fetchOidc = (url, options, label) => withTimeout(
-    ({ signal }) => fetch(url, { ...options, signal }),
-    {
-        label,
-        timeoutMs: OIDC_HTTP_TIMEOUT_MS,
-        code: 'ENTERPRISE_OIDC_TIMEOUT',
-        statusCode: 503,
+const fetchOidc = (url, options, label) => {
+    let host = '';
+    try {
+        host = new URL(url).hostname;
+    } catch {
+        // Invalid URLs are rejected by the egress guard.
     }
-);
+    return withTimeout(
+        ({ signal }) => guardedFetch(url, {
+            allowedHosts: host ? [host] : [],
+            validateDns: false,
+            allowPrivateTarget: true,
+            method: options?.method || 'GET',
+            headers: options?.headers || {},
+            body: options?.body,
+            signal,
+        }),
+        {
+            label,
+            timeoutMs: OIDC_HTTP_TIMEOUT_MS,
+            code: 'ENTERPRISE_OIDC_TIMEOUT',
+            statusCode: 503,
+        }
+    );
+};
 
 const assertTrustedHttpsEndpoint = (value, expectedOrigin = '') => {
     try {

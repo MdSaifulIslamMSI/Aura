@@ -1,6 +1,6 @@
 const { existsSync, readFileSync } = require('fs');
 const { join, resolve } = require('path');
-const fetch = require('node-fetch');
+const { guardedFetch } = require('../security/remoteFetchGuardService');
 
 const DEFAULT_LOCALSTACK_HEALTH_URL = 'http://127.0.0.1:4566/_localstack/health';
 const repoRoot = resolve(__dirname, '..', '..');
@@ -382,7 +382,20 @@ const probeLocalStack = async ({ timeoutMs = 1200 } = {}) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await guardedFetch(url, {
+            // LocalStack is an internal-by-design endpoint; the operator
+            // explicitly configures LOCALSTACK_HEALTH_URL.
+            allowedHosts: (() => {
+                try {
+                    return [new URL(url).hostname];
+                } catch {
+                    return [];
+                }
+            })(),
+            validateDns: false,
+            allowPrivateTarget: true,
+            signal: controller.signal,
+        });
         if (!response.ok) {
             return { ready: false, detail: `HTTP ${response.status}`, url };
         }

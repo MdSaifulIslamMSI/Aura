@@ -1,8 +1,26 @@
 const crypto = require('crypto');
-const fetch = require('node-fetch');
+const { guardedFetch } = require('../../../security/remoteFetchGuardService');
 const { PaymentDomainError, PaymentProviderError } = require('./domainErrors');
 const { assertMinorUnitMoney, withTimeout, retryWithBackoff, createCircuitBreaker } = require('./providerContract');
 const { assertNoRawPaymentData } = require('./stateMachines');
+
+const operatorFetch = (url, init = {}) => {
+    let host = '';
+    try {
+        host = new URL(url).hostname;
+    } catch {
+        // Invalid URLs are rejected by the egress guard.
+    }
+    return guardedFetch(url, {
+        allowedHosts: host ? [host] : [],
+        validateDns: false,
+        allowPrivateTarget: true,
+        method: init.method,
+        headers: init.headers,
+        body: init.body,
+        signal: init.signal,
+    });
+};
 
 const BILLING_PROVIDER_METHODS = Object.freeze([
     'createCustomer',
@@ -140,7 +158,7 @@ class LagoProvider {
         this.name = 'lago';
         this.baseUrl = String(options.baseUrl || '').replace(/\/+$/, '');
         this.apiKey = options.apiKey;
-        this.fetchImpl = options.fetchImpl || fetch;
+        this.fetchImpl = options.fetchImpl || operatorFetch;
         this.timeoutMs = options.timeoutMs || 5000;
         this.retryOptions = options.retryOptions || { retries: 2, initialDelayMs: 150, maxDelayMs: 1000 };
         this.runWithCircuitBreaker = createCircuitBreaker(options.circuitBreaker);

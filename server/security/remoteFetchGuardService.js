@@ -124,7 +124,7 @@ const rejectRemoteFetch = ({ req = null, url = '', reason = 'remote_fetch_blocke
 // validateRemoteFetchUrl before its DNS resolution and directly by
 // guardedFetch in operator mode, where the configured host is trusted and
 // connect-time pinning provides the authoritative private-IP enforcement.
-const assertRemoteFetchPolicy = ({ url, req = null, allowedHosts = [] } = {}) => {
+const assertRemoteFetchPolicy = ({ url, req = null, allowedHosts = [], allowPrivateTarget = false } = {}) => {
     let parsed;
     try {
         parsed = new URL(String(url || ''));
@@ -142,7 +142,10 @@ const assertRemoteFetchPolicy = ({ url, req = null, allowedHosts = [] } = {}) =>
         rejectRemoteFetch({ req, url, reason: 'remote_host_not_allowlisted' });
     }
 
-    if (isDeniedHostname(host)) {
+    // Operator-configured destinations may legitimately be internal
+    // (self-hosted Ollama, LibreTranslate, status probes of internal deps);
+    // the allowlist above already pins the host to operator configuration.
+    if (!allowPrivateTarget && isDeniedHostname(host)) {
         rejectRemoteFetch({ req, url, reason: 'remote_host_denied' });
     }
 
@@ -245,15 +248,20 @@ const guardedFetch = async (url, {
     signal = undefined,
     req = null,
     validateDns = true,
+    allowPrivateTarget = false,
     fetchImpl = fetch,
 } = {}) => {
-    const dispatcher = getSafeEgressAgent();
+    // Internal-target operator calls (self-hosted Ollama, LibreTranslate,
+    // status probes of internal deps) connect directly; everything else goes
+    // through the safe egress agent, which denies private/metadata targets at
+    // connect time.
+    const dispatcher = allowPrivateTarget ? undefined : getSafeEgressAgent();
     const validateUrl = async (hopUrl) => {
         if (validateDns) {
             await validateRemoteFetchUrl({ url: hopUrl, req, allowedHosts, timeoutMs });
             return;
         }
-        assertRemoteFetchPolicy({ url: hopUrl, req, allowedHosts });
+        assertRemoteFetchPolicy({ url: hopUrl, req, allowedHosts, allowPrivateTarget });
     };
     let currentUrl = String(url || '');
     let currentHeaders = { ...headers };
