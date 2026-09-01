@@ -10,6 +10,9 @@
  *      '**\/*.test.js' testMatch (dead suite that can never run).
  *   4. A GitHub workflow reintroduces a hardcoded --runTestsByPath list
  *      (test file lists must live only in config/test-tiers.json).
+ *   5. A test suite is listed in no tier and not in the surface's
+ *      "$untriaged" allowlist (new suites must be triaged explicitly —
+ *      tiered for CI, or consciously allowlisted as untriaged).
  *
  * Usage: node scripts/check-test-tiers.cjs
  * Exit 0 = manifest healthy; exit 1 = problems listed.
@@ -52,6 +55,7 @@ try {
 const problems = [];
 let tierCount = 0;
 let suiteCount = 0;
+let untriagedCount = 0;
 
 for (const surface of TIER_SURFACES) {
     const surfaceConfig = manifest[surface];
@@ -63,7 +67,29 @@ for (const surface of TIER_SURFACES) {
     suiteCount = testFiles.length;
     const basenames = new Set(testFiles.map((f) => path.basename(f)));
 
+    // 5: coverage — every suite must be in a tier or the $untriaged allowlist
+    const coveredSuites = new Set();
+
     for (const [tier, files] of Object.entries(surfaceConfig)) {
+        if (tier.startsWith('$')) {
+            if (tier === '$untriaged') {
+                if (!Array.isArray(files)) {
+                    problems.push(`${surface}/$untriaged: must be an array of tests/ paths`);
+                } else {
+                    untriagedCount = files.length;
+                    for (const f of files) {
+                        if (!f.startsWith('tests/')) {
+                            problems.push(`${surface}/$untriaged: entry outside tests/: ${f}`);
+                        } else if (!fs.existsSync(path.join(serverDir, f))) {
+                            problems.push(`${surface}/$untriaged: stale entry (file missing): ${f}`);
+                        } else {
+                            coveredSuites.add(f);
+                        }
+                    }
+                }
+            }
+            continue;
+        }
         if (noDbTierNames.has(tier)) {
             for (const base of files) {
                 if (!basenames.has(base)) {
@@ -82,7 +108,26 @@ for (const surface of TIER_SURFACES) {
                 problems.push(`${surface}/${tier}: entry outside tests/: ${f}`);
             } else if (!fs.existsSync(path.join(serverDir, f))) {
                 problems.push(`${surface}/${tier}: stale entry (file missing): ${f}`);
+            } else {
+                coveredSuites.add(f);
             }
+        }
+    }
+
+    // noDbFiles holds basenames, not paths — resolve them to paths for
+    // coverage so a noDbFiles listing alone still counts as a triage.
+    for (const base of surfaceConfig.noDbFiles || []) {
+        for (const file of testFiles) {
+            if (path.basename(file) === base) {
+                coveredSuites.add(`tests/${path.relative(path.join(serverDir, 'tests'), file).split(path.sep).join('/')}`);
+            }
+        }
+    }
+
+    for (const file of testFiles) {
+        const relative = `tests/${path.relative(path.join(serverDir, 'tests'), file).split(path.sep).join('/')}`;
+        if (!coveredSuites.has(relative)) {
+            problems.push(`${relative}: suite is in no tier and not in ${surface}/$untriaged (triage it: add to a CI tier or the allowlist)`);
         }
     }
 
@@ -115,4 +160,4 @@ if (problems.length > 0) {
     process.exit(1);
 }
 
-console.log(`[check-test-tiers] OK — ${tierCount} tiers validated, ${suiteCount} server suites reachable, ${workflowFiles.length} workflows drift-free.`);
+console.log(`[check-test-tiers] OK — ${tierCount} tiers validated, ${suiteCount} server suites reachable (${suiteCount - untriagedCount} tiered, ${untriagedCount} allowlisted untriaged), ${workflowFiles.length} workflows drift-free.`);
