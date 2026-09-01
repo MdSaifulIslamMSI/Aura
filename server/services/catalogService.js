@@ -211,8 +211,19 @@ const cacheIdentifierValue = (identifier, value) => {
     });
 };
 
+const PRODUCT_DETAIL_INTERNAL_EXCLUSION = {
+    searchText: 0,
+    titleKey: 0,
+    imageKey: 0,
+    ingestHash: 0,
+};
+
+// Phase 6 (P0): detail reads previously used `undefined` (full document).
+// Internal indexing fields are now always excluded; the public DTO boundary
+// (server/serializers/publicProductSerializer.js) strips provenance internals,
+// publish-gate metadata, and ad economics at serialization time.
 const buildProductReadProjection = ({ includeDetails = false } = {}) => (
-    includeDetails ? undefined : PRODUCT_LIST_PROJECTION
+    includeDetails ? PRODUCT_DETAIL_INTERNAL_EXCLUSION : PRODUCT_LIST_PROJECTION
 );
 
 const resolveSourceRefPath = (sourceRef) => {
