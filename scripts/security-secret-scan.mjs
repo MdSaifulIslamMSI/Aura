@@ -84,15 +84,22 @@ const addFinding = (findings, { file, line, rule, evidence, severity = 'high' })
   });
 };
 
-const envFilePattern = /(^|\/)\.env($|\.local$|\.production$|\.staging$|\.aws-secrets$)/i;
+const envFilePattern = /(^|\/)\.env(?:$|\.[^/]+$)/i;
 const allowedEnvExamplePattern = /(^|\/)\.env[^/]*\.example$/i;
+const pinnedEnvFileHashes = new Map([
+  // Content-pin the legacy Vitest fixture so any change fails closed.
+  ['app/.env.test', '32dd63a10645253fb150449f2e798415a91fbd6f'],
+]);
 const sensitiveArtifactPattern = /(^|\/)(?:[^/]+\.)?(?:jks|keystore|p12|pem|key)$|(^|\/)app\/android\/ci\/.*\.base64$/i;
 
 const findings = [];
 
 for (const file of trackedFiles) {
   const normalized = file.replace(/\\/g, '/');
-  if (envFilePattern.test(normalized) && !allowedEnvExamplePattern.test(normalized)) {
+  const pinnedHash = pinnedEnvFileHashes.get(normalized);
+  const actualHash = pinnedHash ? String(run('git', ['hash-object', '--', normalized]).stdout || '').trim() : '';
+  const isPinnedEnvFile = Boolean(pinnedHash) && actualHash === pinnedHash;
+  if (envFilePattern.test(normalized) && !allowedEnvExamplePattern.test(normalized) && !isPinnedEnvFile) {
     addFinding(findings, {
       file,
       line: 1,
@@ -124,6 +131,8 @@ const tokenPatterns = [
 ];
 
 const looksText = (file) => {
+  const normalized = file.replace(/\\/g, '/');
+  if (envFilePattern.test(normalized)) return true;
   const ext = path.extname(file).toLowerCase();
   if (textExtensions.has(ext)) return true;
   return /(^|\/)(Dockerfile|Caddyfile|Fastfile|Gemfile|package-lock\.json|package\.json)$/i.test(file.replace(/\\/g, '/'));

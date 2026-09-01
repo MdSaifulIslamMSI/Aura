@@ -3,13 +3,13 @@ node_modules/
 
 # Environment variables
 .env
-.env.local
-.env.production
+.env.*
 **/.env
-**/.env.local
-**/.env.production
-**/.env.staging
-**/.env.*.local
+**/.env.*
+!.env.example
+!.env.*.example
+!**/.env.example
+!**/.env.*.example
 server/.env.aws-secrets
 server/.env.aws-secrets.*
 !server/.env.aws-secrets.example
