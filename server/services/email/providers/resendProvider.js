@@ -12,7 +12,10 @@
  */
 
 const AppError = require('../../../utils/AppError');
+const { guardedFetch } = require('../../../security/remoteFetchGuardService');
 const BaseEmailProvider = require('./baseProvider');
+
+const RESEND_API_HOST = 'api.resend.com';
 
 class ResendProvider extends BaseEmailProvider {
     constructor({ apiKey, fromName, fromAddress, replyTo = '' }) {
@@ -68,14 +71,16 @@ class ResendProvider extends BaseEmailProvider {
 
         let response;
         try {
-            response = await fetch('https://api.resend.com/emails', {
+            response = await guardedFetch(`https://${RESEND_API_HOST}/emails`, {
+                allowedHosts: [RESEND_API_HOST],
+                validateDns: false,
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.apiKey}`,
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(body),
-                signal: AbortSignal.timeout(15000),
+                timeoutMs: 15000,
             });
         } catch (error) {
             const normalized = this.normalizeError(error);

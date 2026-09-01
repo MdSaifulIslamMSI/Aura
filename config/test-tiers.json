@@ -44,6 +44,7 @@
       "tests/runtimeConfig.test.js",
       "tests/security.integration.test.js",
       "tests/security/egressGuard.security.test.js",
+      "tests/security/operatorEgress.test.js",
       "tests/stagingFrontendCors.test.js",
       "tests/stagingSmokeSafety.test.js",
       "tests/totpMfaService.test.js",

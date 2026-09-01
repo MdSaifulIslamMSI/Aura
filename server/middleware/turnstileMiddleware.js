@@ -1,6 +1,15 @@
 const AppError = require('../utils/AppError');
 const { getTurnstileFlags } = require('../config/turnstileFlags');
+const { guardedFetch } = require('../security/remoteFetchGuardService');
 const logger = require('../utils/logger');
+
+const siteverifyHost = (siteverifyUrl) => {
+    try {
+        return new URL(siteverifyUrl).hostname;
+    } catch {
+        return '';
+    }
+};
 
 const TOKEN_BODY_FIELDS = [
     'turnstileToken',
@@ -56,7 +65,9 @@ const verifyTurnstileToken = async ({ token, remoteIp, flags = getTurnstileFlags
         body.set('response', token);
         if (remoteIp) body.set('remoteip', remoteIp);
 
-        const response = await fetch(flags.siteverifyUrl, {
+        const response = await guardedFetch(flags.siteverifyUrl, {
+            allowedHosts: [siteverifyHost(flags.siteverifyUrl)],
+            validateDns: false,
             method: 'POST',
             headers: { 'content-type': 'application/x-www-form-urlencoded' },
             body,

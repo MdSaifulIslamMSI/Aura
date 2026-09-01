@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { guardedFetch } = require('../../security/remoteFetchGuardService');
 const { getBreaker } = require('../../utils/circuitBreaker');
 
 const AI_DEFAULT_LOCALE = process.env.AI_DEFAULT_LOCALE || 'en-IN';
@@ -74,6 +75,14 @@ const normalizeErrorPayload = (payload) => {
     return safeString(payload?.error?.message || payload?.error || payload?.message || JSON.stringify(payload || {}));
 };
 
+const hostFromUrl = (value) => {
+    try {
+        return new URL(String(value || '')).hostname;
+    } catch {
+        return '';
+    }
+};
+
 const performRequest = async ({
     provider,
     url,
@@ -89,11 +98,14 @@ const performRequest = async ({
     for (let attempt = 0; attempt <= retries; attempt += 1) {
         let response;
         try {
-            response = await fetch(url, {
+            const host = hostFromUrl(url);
+            response = await guardedFetch(url, {
+                allowedHosts: host ? [host] : [],
+                validateDns: false,
                 method,
                 headers,
                 body,
-                signal: AbortSignal.timeout(timeoutMs),
+                timeoutMs,
             });
         } catch (error) {
             lastError = error;
