@@ -325,6 +325,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm --prefix server ci
+      - name: Clear stale mongodb binary cache
+        run: rm -rf ~/.cache/mongodb-binaries
       - run: npm run test:reliability
 
   sre-synthetic-staging:
