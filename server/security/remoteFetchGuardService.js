@@ -120,12 +120,11 @@ const rejectRemoteFetch = ({ req = null, url = '', reason = 'remote_fetch_blocke
     throw error;
 };
 
-const validateRemoteFetchUrl = async ({
-    url,
-    req = null,
-    allowedHosts = [],
-    timeoutMs = 3000,
-} = {}) => {
+// String-only URL policy check (scheme, allowlist, denylist). Used by
+// validateRemoteFetchUrl before its DNS resolution and directly by
+// guardedFetch in operator mode, where the configured host is trusted and
+// connect-time pinning provides the authoritative private-IP enforcement.
+const assertRemoteFetchPolicy = ({ url, req = null, allowedHosts = [] } = {}) => {
     let parsed;
     try {
         parsed = new URL(String(url || ''));
@@ -146,6 +145,18 @@ const validateRemoteFetchUrl = async ({
     if (isDeniedHostname(host)) {
         rejectRemoteFetch({ req, url, reason: 'remote_host_denied' });
     }
+
+    return parsed;
+};
+
+const validateRemoteFetchUrl = async ({
+    url,
+    req = null,
+    allowedHosts = [],
+    timeoutMs = 3000,
+} = {}) => {
+    const parsed = assertRemoteFetchPolicy({ url, req, allowedHosts });
+    const host = parsed.hostname;
 
     const lookup = await Promise.race([
         dns.promises.lookup(host, { all: true, verbatim: true }),
@@ -220,7 +231,10 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 // Fetch wrapper that enforces the remote-fetch policy on the initial URL and
 // on every redirect hop, with connect-time private-IP pinning via the safe
-// egress agent. `fetchImpl` is injectable for tests.
+// egress agent. `fetchImpl` is injectable for tests. With `validateDns:
+// false` (operator mode for fixed, configured hosts) hops are checked with
+// the string-only policy and the safe egress agent remains the authoritative
+// private-IP enforcement at connect time.
 const guardedFetch = async (url, {
     allowedHosts = [],
     maxRedirects = 3,
@@ -228,24 +242,33 @@ const guardedFetch = async (url, {
     method = 'GET',
     headers = {},
     body = undefined,
+    signal = undefined,
     req = null,
+    validateDns = true,
     fetchImpl = fetch,
 } = {}) => {
     const dispatcher = getSafeEgressAgent();
+    const validateUrl = async (hopUrl) => {
+        if (validateDns) {
+            await validateRemoteFetchUrl({ url: hopUrl, req, allowedHosts, timeoutMs });
+            return;
+        }
+        assertRemoteFetchPolicy({ url: hopUrl, req, allowedHosts });
+    };
     let currentUrl = String(url || '');
     let currentHeaders = { ...headers };
     let currentMethod = method;
     let currentBody = body;
 
     for (let hop = 0; hop <= maxRedirects; hop += 1) {
-        await validateRemoteFetchUrl({ url: currentUrl, req, allowedHosts, timeoutMs });
+        await validateUrl(currentUrl);
 
         const response = await fetchImpl(currentUrl, {
             method: currentMethod,
             headers: currentHeaders,
             body: currentBody,
             redirect: 'manual',
-            signal: AbortSignal.timeout(timeoutMs),
+            signal: signal || AbortSignal.timeout(timeoutMs),
             dispatcher,
         });
 
@@ -279,6 +302,7 @@ module.exports = {
     isPrivateIpv4,
     isPrivateIpv6,
     validateRemoteFetchUrl,
+    assertRemoteFetchPolicy,
     guardedFetch,
     safeConnectLookup,
     stripSensitiveHeaders,
