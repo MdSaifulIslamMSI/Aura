@@ -1,4 +1,5 @@
 const request = require('supertest');
+const mongoose = require('mongoose');
 
 const app = require('../index');
 const {
@@ -17,6 +18,16 @@ const getDirectiveSources = (policy = '', name = '') => String(policy || '')
     .slice(1) || [];
 
 describe('security headers', () => {
+    // Header assertions are global middleware behavior, but the probed
+    // endpoints answer 503 until Mongo connects; wait for readiness so the
+    // suite does not race the connection in CI.
+    beforeAll(async () => {
+        const deadline = Date.now() + 10000;
+        while (mongoose.connection.readyState !== 1 && Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+    }, 15000);
+
     test('API responses include defensive browser headers and do not leak Express', async () => {
         const response = await request(app)
             .get('/api/products?limit=1')
