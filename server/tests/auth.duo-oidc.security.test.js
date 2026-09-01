@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const request = require('supertest');
-const fetch = require('node-fetch');
+const fetch = jest.fn();
+globalThis.fetch = fetch;
 const app = require('../index');
 const User = require('../models/User');
 const {
@@ -13,8 +14,6 @@ const {
     getBrowserSession,
     refreshBrowserSession,
 } = require('../services/browserSessionService');
-
-jest.mock('node-fetch');
 
 const issuer = 'https://sso-example.sso.duosecurity.com/oidc/example-client-id';
 const clientId = 'example-duo-client-id';

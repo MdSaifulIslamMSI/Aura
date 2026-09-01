@@ -1,7 +1,7 @@
 const dns = require('dns').promises;
 const net = require('net');
 const path = require('path');
-const fetch = require('node-fetch');
+const { guardedFetch } = require('../../security/remoteFetchGuardService');
 const { getBreaker } = require('../../utils/circuitBreaker');
 const logger = require('../../utils/logger');
 const {
@@ -354,9 +354,19 @@ const executeGeminiRequest = async (path, {
 
     const url = `${config.baseUrl}${path}`;
     const effectiveTimeoutMs = toPositiveNumber(timeoutMs, config.timeoutMs);
+    const geminiHost = (() => {
+        try {
+            return new URL(config.baseUrl).hostname;
+        } catch {
+            return '';
+        }
+    })();
 
     return breaker.call(async () => {
-        const response = await fetch(url, {
+        const response = await guardedFetch(url, {
+            allowedHosts: geminiHost ? [geminiHost] : [],
+            validateDns: false,
+            allowPrivateTarget: true,
             method,
             headers: {
                 Accept: 'application/json',
@@ -364,7 +374,7 @@ const executeGeminiRequest = async (path, {
                 'x-goog-api-key': config.apiKey,
             },
             body: body === undefined ? undefined : JSON.stringify(body),
-            timeout: effectiveTimeoutMs,
+            timeoutMs: effectiveTimeoutMs,
         });
 
         if (!response.ok) {
@@ -760,11 +770,14 @@ const readResponseBodyWithLimit = async (response, maxBytes = MAX_INLINE_MEDIA_B
 
 const fetchRemoteInlineData = async ({ url = '', mimeType = '', timeoutMs = DEFAULT_TIMEOUT_MS } = {}) => {
     const validatedUrl = await validateRemoteMediaUrl(url);
-    const response = await fetch(validatedUrl, {
+    // validateRemoteMediaUrl already applies the full user-influenced policy;
+    // maxRedirects 0 preserves the previous redirect: 'error' strictness, and
+    // the safe egress agent pins the connection at connect time.
+    const response = await guardedFetch(validatedUrl, {
+        validateDns: false,
+        maxRedirects: 0,
         method: 'GET',
-        timeout: timeoutMs,
-        redirect: 'error',
-        size: MAX_INLINE_MEDIA_BYTES,
+        timeoutMs,
     });
     if (!response.ok) {
         throw new Error(`gemini_media_fetch_failed:${response.status}`);

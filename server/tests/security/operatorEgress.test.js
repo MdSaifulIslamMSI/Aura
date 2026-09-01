@@ -74,6 +74,37 @@ describe('operator egress — guardedFetch redirect policy without DNS validatio
     });
 });
 
+describe('operator egress — internal-target allowance', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    test('allowPrivateTarget permits an operator-configured internal host', async () => {
+        const fetchImpl = jest.fn().mockResolvedValue(jsonResponse(200));
+
+        await expect(guardedFetch('http://127.0.0.1:11434/api/tags', {
+            allowedHosts: ['127.0.0.1'],
+            validateDns: false,
+            allowPrivateTarget: true,
+            fetchImpl,
+        })).resolves.toBeDefined();
+
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    test('allowPrivateTarget still enforces the allowlist on every hop', async () => {
+        const fetchImpl = jest.fn()
+            .mockResolvedValueOnce(jsonResponse(302, { location: 'http://10.0.0.9:8200/steal' }));
+
+        await expect(guardedFetch('http://127.0.0.1:11434/api/tags', {
+            allowedHosts: ['127.0.0.1'],
+            validateDns: false,
+            allowPrivateTarget: true,
+            fetchImpl,
+        })).rejects.toThrow('Remote URL is not allowed.');
+
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe('operator egress — provider source contracts', () => {
     const readSource = (relative) => fs.readFileSync(
         path.join(__dirname, '..', '..', ...relative.split('/')),
@@ -86,6 +117,16 @@ describe('operator egress — provider source contracts', () => {
         'services/payments/providers/razorpayProvider.js',
         'middleware/turnstileMiddleware.js',
         'services/ai/providerRegistry.js',
+        'services/ai/geminiGatewayService.js',
+        'services/auth/keycloakOidcService.js',
+        'services/auth/oidcTokenVerifier.js',
+        'services/duoOidcService.js',
+        'services/ai/ollamaGatewayService.js',
+        'services/translation/providers/libreTranslateProvider.js',
+        'services/statusService.js',
+        'services/studentPackSecurityHarnessService.js',
+        'services/payments/foundation/billingProvider.js',
+        'services/payments/foundation/hyperswitchProvider.js',
     ];
 
     test.each(migratedSites)('%s routes egress through guardedFetch', (relative) => {

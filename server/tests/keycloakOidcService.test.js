@@ -1,5 +1,6 @@
 const crypto = require('crypto');
-const fetch = require('node-fetch');
+const fetch = jest.fn();
+globalThis.fetch = fetch;
 const {
     STATE_COOKIE_NAME,
     buildAuthorizationUrl,
@@ -7,8 +8,6 @@ const {
     exchangeCodeForAuthContext,
     resetKeycloakOidcTestState,
 } = require('../services/auth/keycloakOidcService');
-
-jest.mock('node-fetch');
 
 const issuer = 'https://idp.company.test/realms/aura';
 const clientId = 'aura-web';
