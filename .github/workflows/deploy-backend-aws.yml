@@ -62,8 +62,9 @@ jobs:
       release_sha: ${{ steps.release.outputs.sha }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          persist-credentials: false
           ref: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && inputs.git_ref || github.sha }}
 
       - name: Resolve immutable release commit
@@ -71,7 +72,7 @@ jobs:
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.x
           cache: npm
@@ -109,7 +110,7 @@ jobs:
         run: node server/scripts/audit_parameter_store_secret_contract.js
 
       - name: Configure AWS credentials for preflight
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
@@ -141,12 +142,13 @@ jobs:
       rollback_ref: ${{ steps.current_release.outputs.sha }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          persist-credentials: false
           ref: ${{ needs.preflight.outputs.release_sha }}
 
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24.x
 
@@ -199,7 +201,7 @@ jobs:
       # Acquire the deploy session after the potentially long image build so
       # the full SSM polling window remains inside the OIDC role lifetime.
       - name: Configure fresh AWS credentials for deployment
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
@@ -388,7 +390,7 @@ jobs:
       - name: Refresh AWS credentials for failure restoration
         id: rollback_credentials
         if: failure() && steps.wait_ssm.outcome == 'success' && steps.current_release.outputs.sha != ''
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}

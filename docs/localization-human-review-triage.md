@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 423
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (102711/102711 required locale/message pairs)
+- Locale key coverage: 100% (102732/102732 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4891
+- Source message keys: 4892
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,10 +16,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 92157
-- Unique review locale/id pairs: 92157
-- Actionable grouped queue entries: 3413
-- Actionable affected locale/message pairs: 48187
+- Total tracked review pairs preserved: 92176
+- Unique review locale/id pairs: 92176
+- Actionable grouped queue entries: 3414
+- Actionable affected locale/message pairs: 48206
 - Native-review audit grouped entries: 2456
 - Native-review audit affected locale/message pairs: 43970
 
@@ -31,7 +31,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | --- | ---: | ---: | --- |
 | critical | 1264 | 22056 | bn 1044, hi 1226, te 1103, mr 1109, ur 1089, gu 1123, pa 1117, ml 1104, kn 1103, or 1117, as 1102, sa 1106, es 1237, fr 1270, de 1257, ar 1186, ja 1260, pt 1248, zh 1255 |
 | high | 205 | 867 | bn 9, hi 185, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 74, fr 80, de 78, ar 76, ja 80, pt 74, zh 77 |
-| medium | 1432 | 21891 | bn 1019, hi 1331, te 1026, mr 1025, ur 1024, gu 1043, pa 1037, ml 1024, kn 1024, or 1034, as 1023, sa 1033, es 1331, fr 1315, de 1302, ar 1298, ja 1341, pt 1322, zh 1339 |
+| medium | 1433 | 21910 | bn 1020, hi 1332, te 1027, mr 1026, ur 1025, gu 1044, pa 1038, ml 1025, kn 1025, or 1035, as 1024, sa 1034, es 1332, fr 1316, de 1303, ar 1299, ja 1342, pt 1323, zh 1340 |
 | low | 512 | 3373 | bn 2, hi 499, te 1, mr 2, ur 2, gu 2, pa 1, ml 1, kn 1, or 2, as 1, sa 3, es 406, fr 412, de 408, ar 408, ja 408, pt 407, zh 407 |
 
 ## Examples

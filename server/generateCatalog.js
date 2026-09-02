@@ -20,7 +20,7 @@ const SOURCE_FILE = path.resolve(
 );
 const CATALOG_VERSION = process.env.CATALOG_VERSION || `catalog-jockeroika-${Date.now()}`;
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('./utils/safeString');
 const safeLower = (value, fallback = '') => safeString(value, fallback).toLowerCase();
 const roundCurrency = (value) => Math.round(Number(value || 0) * 100) / 100;
 const clamp = (value, min, max) => Math.min(Math.max(Number(value || 0), min), max);

@@ -5,7 +5,7 @@ const { getRedisHealth } = require('../config/redis');
 const { flags: emailFlags } = require('../config/emailFlags');
 const { flags: paymentFlags } = require('../config/paymentFlags');
 const { getCachedHealthSnapshot } = require('../services/healthService');
-const { buildHealthMetadata } = require('../services/healthDisclosureService');
+const { buildHealthMetadata, shouldExposeDetailedHealth } = require('../services/healthDisclosureService');
 const { getReviewUploadStorageHealth } = require('../services/reviewMediaStorageService');
 
 const router = express.Router();
@@ -51,11 +51,27 @@ const sendHealth = (req, res, checks, extra = {}) => {
     const status = aggregateStatus(checks);
     res.set('Cache-Control', 'no-store');
     res.set('X-Request-Id', req.requestId || req.headers['x-request-id'] || '');
+    const correlationId = req.requestId || req.headers['x-request-id'] || '';
+
+    // Phase 6 (P1): unauthenticated callers get the minimal public payload
+    // ({status, timestamp}) — service identity, environment, and per-dependency
+    // check details stay behind the x-health-token gate, same as /health.
+    if (!shouldExposeDetailedHealth({
+        req,
+        healthReadyToken: process.env.HEALTH_READY_TOKEN || '',
+    })) {
+        return res.status(status === 'healthy' ? 200 : 503).json({
+            status,
+            timestamp: new Date().toISOString(),
+            correlationId,
+        });
+    }
+
     return res.status(status === 'healthy' ? 200 : 503).json({
         status,
         ...buildHealthMetadata(),
         timestamp: new Date().toISOString(),
-        correlationId: req.requestId || req.headers['x-request-id'] || '',
+        correlationId,
         checks,
         ...extra,
     });

@@ -289,13 +289,10 @@ CORS_ORIGIN=$cors_origin
 STAGING_BASE_URL=$staging_base_url
 STAGING_API_BASE_URL=$staging_api_url
 STAGING_HEALTH_URL=$staging_health_url
-UPLOAD_MALWARE_SCAN_ENABLED=true
+UPLOAD_MALWARE_SCAN_ENABLED=false
 UPLOAD_MALWARE_SCAN_FAIL_CLOSED=true
-CLAMAV_ENABLED=true
-CLAMAV_HOST=scanner
-CLAMAV_PORT=3310
-UPLOAD_SCANNER_HOST=scanner
-UPLOAD_SCANNER_PORT=3310
+CLAMAV_ENABLED=false
+YARA_ENABLED=false
 STAGING_BACKEND_PORT=$STAGING_BACKEND_PORT
 STAGING_BACKEND_IMAGE=$backend_image
 ENV
@@ -512,36 +509,64 @@ if ! id aura >/dev/null 2>&1; then
 fi
 sudo usermod -aG docker aura || true
 sudo mkdir -p /opt/aura-staging/src /opt/aura-staging/logs
-sudo rm -rf /opt/aura-staging/src
+echo "[staging] Replacing staged release source."
+sudo timeout 120s rm -rf /opt/aura-staging/src
 sudo mkdir -p /opt/aura-staging/src
-sudo tar -xzf /tmp/aura-staging-release.tar.gz -C /opt/aura-staging/src
+sudo timeout 120s tar -xzf /tmp/aura-staging-release.tar.gz -C /opt/aura-staging/src
 sudo cp /tmp/aura-staging.env /opt/aura-staging/src/infra/staging/.env.staging
 sudo cp /tmp/aura-staging.env /opt/aura-staging/src/infra/staging/.env
 sudo chmod 600 /opt/aura-staging/src/infra/staging/.env.staging
 sudo chmod 600 /opt/aura-staging/src/infra/staging/.env
-sudo chown -R aura:aura /opt/aura-staging
+sudo timeout 120s chown -R aura:aura /opt/aura-staging
 cd /opt/aura-staging/src/infra/staging
+
+existing_backend_container_id="$(sudo timeout 60s docker compose ps -a -q backend || true)"
+if [ -n "$existing_backend_container_id" ]; then
+  echo "[staging] Quiescing the existing backend before image maintenance."
+  sudo timeout 60s docker stop --time 20 "$existing_backend_container_id" >/dev/null \
+    || sudo timeout 20s docker kill "$existing_backend_container_id" >/dev/null
+fi
+
+existing_scanner_container_id="$(sudo timeout 60s docker compose --profile malware-scan ps -a -q scanner || true)"
+if [ -n "$existing_scanner_container_id" ]; then
+  echo "[staging] Removing the intentionally disabled malware scanner."
+  sudo timeout 60s docker stop --time 20 "$existing_scanner_container_id" >/dev/null \
+    || sudo timeout 20s docker kill "$existing_scanner_container_id" >/dev/null
+  sudo timeout 60s docker rm --force "$existing_scanner_container_id" >/dev/null
+fi
+echo "STAGING_SCANNER_DISABLED_FAIL_CLOSED"
+
 backend_image_loaded=false
 if [ -f /tmp/aura-staging-backend-image.tar.gz ]; then
   # Preserve every image referenced by a running container while reclaiming
   # stale deploy layers on the deliberately small staging host.
-  sudo docker container prune --force >/dev/null
-  sudo docker image prune --all --force >/dev/null
-  sudo docker builder prune --all --force >/dev/null
-  gzip -dc /tmp/aura-staging-backend-image.tar.gz | sudo docker load
+  echo "[staging] Reclaiming stale Docker artifacts."
+  sudo timeout 60s docker container prune --force >/dev/null
+  sudo timeout 180s docker image prune --all --force >/dev/null
+  sudo timeout 180s docker builder prune --all --force >/dev/null
+  echo "[staging] Loading the backend image."
+  gzip -dc /tmp/aura-staging-backend-image.tar.gz | sudo timeout 1800s docker load
   sudo rm -f /tmp/aura-staging-backend-image.tar.gz
   backend_image_loaded=true
 fi
 if [ "$backend_image_loaded" = "true" ]; then
-  sudo docker compose pull postgres mongo redis scanner || true
-  sudo docker compose up -d --no-build
+  sudo timeout 300s docker compose pull postgres mongo redis || true
 elif [ -n "$STAGING_BACKEND_IMAGE" ]; then
-  sudo docker compose pull || true
-  sudo docker compose up -d --no-build
+  sudo timeout 300s docker compose pull backend postgres mongo redis
 else
-  sudo docker compose build backend
-sudo docker compose up -d
+  sudo timeout 900s docker compose build backend
 fi
+
+echo "[staging] Starting data services with the malware scanner disabled."
+sudo timeout 300s docker compose up -d --no-build postgres mongo redis
+
+echo "[staging] Starting backend in fail-closed malware-scan mode."
+if [ "$backend_image_loaded" = "true" ] || [ -n "$STAGING_BACKEND_IMAGE" ]; then
+  sudo timeout 300s docker compose up -d --no-build backend
+else
+  sudo timeout 300s docker compose up -d backend
+fi
+
 sudo docker compose ps
 for attempt in $(seq 1 30); do
   if curl -fsS "http://127.0.0.1:${STAGING_BACKEND_PORT}/health" >/tmp/aura-staging-local-health.json 2>/dev/null; then

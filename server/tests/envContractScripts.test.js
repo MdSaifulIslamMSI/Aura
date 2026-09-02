@@ -762,6 +762,7 @@ describe('repo environment contract scripts', () => {
     });
 
     test('backend staging route smoke only requires scanner readiness when explicitly configured', async () => {
+        let scannerStatus = 'not_ready';
         const server = http.createServer((request, response) => {
             const url = request.url || '';
             if (url === '/health') {
@@ -772,7 +773,7 @@ describe('repo environment contract scripts', () => {
                     database: 'staging',
                     cache: 'staging',
                     storage: 'staging',
-                    scanner: 'not_ready',
+                    scanner: scannerStatus,
                 }));
                 return;
             }
@@ -813,12 +814,25 @@ describe('repo environment contract scripts', () => {
             });
             expect(requiredResult.status).not.toBe(0);
             expect(requiredResult.output).toMatch(/Health scanner must be ready; got not_ready/);
+
+            scannerStatus = 'disabled_fail_closed';
+            const disabledFailClosedResult = await runScriptAsync('scripts/smoke/staging-route-smoke.mjs', {
+                STAGING_API_BASE_URL: target,
+                STAGING_HEALTH_URL: `${target}/health`,
+                PROD_BASE_URL: 'https://prod.example.test',
+                PROD_API_BASE_URL: 'https://api.prod.example.test',
+                SMOKE_REQUIRE_SCANNER_READY: 'true',
+                SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED: 'true',
+            });
+            expect(disabledFailClosedResult.status).toBe(0);
+            expect(disabledFailClosedResult.output).toMatch(/health scanner: disabled_fail_closed \(accepted\)/);
         } finally {
             await new Promise((resolve) => server.close(resolve));
         }
     });
 
     test('frontend staging target script only requires scanner readiness when explicitly configured', async () => {
+        let scannerStatus = 'not_ready';
         const server = http.createServer((request, response) => {
             const url = request.url || '';
             if (url === '/' || url === '/health') {
@@ -831,7 +845,7 @@ describe('repo environment contract scripts', () => {
                         database: 'staging',
                         cache: 'staging',
                         storage: 'staging',
-                        scanner: 'not_ready',
+                        scanner: scannerStatus,
                     }));
                 return;
             }
@@ -874,6 +888,19 @@ describe('repo environment contract scripts', () => {
             });
             expect(requiredResult.status).not.toBe(0);
             expect(requiredResult.output).toMatch(/scanner must be ready; got not_ready/);
+
+            scannerStatus = 'disabled_fail_closed';
+            const disabledFailClosedResult = await runScriptAsync('scripts/smoke/assert-frontend-staging-target.mjs', {
+                STAGING_FRONTEND_URL: target,
+                STAGING_API_BASE_URL: target,
+                STAGING_HEALTH_URL: `${target}/health`,
+                PROD_BASE_URL: 'https://prod.example.test',
+                PROD_API_BASE_URL: 'https://api.prod.example.test',
+                SMOKE_REQUIRE_SCANNER_READY: 'true',
+                SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED: 'true',
+            });
+            expect(disabledFailClosedResult.status).toBe(0);
+            expect(disabledFailClosedResult.output).toMatch(/scanner: disabled_fail_closed \(accepted\)/);
         } finally {
             await new Promise((resolve) => server.close(resolve));
         }
@@ -942,6 +969,8 @@ describe('repo environment contract scripts', () => {
         expect(backupScript).toContain('remote_backup_root="/opt/aura-staging/backup-work-$backup_id"');
         expect(backupScript).toContain('trap cleanup_backup_workspace EXIT');
         expect(backupScript).toContain('REMOTE_BACKUP_ROOT');
+        expect(backupScript).toContain('REMOTE_STATUS');
+        expect(backupScript).toContain('STAGING_BACKUP_EXIT_GRACE_ATTEMPTS');
         expect(backupScript).toContain('application-quiesced-logical');
         expect(backupScript).toContain('db.adminCommand({ fsync: 1, lock: true })');
         expect(backupScript).toContain('db.fsyncUnlock()');
@@ -976,6 +1005,11 @@ describe('repo environment contract scripts', () => {
             /cmp --silent "\$data_dir\/postgres-stats\.tsv"[\s\S]*?release_restore_service "\$postgres_container" "\$postgres_volume"[\s\S]*?redis-check-rdb/
         );
         expect(restoreScript).toContain('cleanup_restore_drill');
+        expect(restoreScript).toContain('Quiescing the live staging stack during the isolated restore drill');
+        expect(restoreScript).toContain('docker compose stop -t 30 backend mongo postgres redis');
+        expect(restoreScript).toContain('docker compose up -d --no-build postgres mongo redis backend');
+        expect(restoreScript).toContain('serverSelectionTimeoutMS=30000');
+        expect(restoreScript).toContain('Failed to restore the staging stack after the isolated restore drill');
         expect(restoreScript).toContain('RESTORE_DRILL_PASS');
         expect(restoreScript).toContain('|| status=$?; rm -f ${remoteJob} /tmp/aura-staging-restore-runner.b64; exit $status');
         expect(restoreScript).not.toContain('--publish');
@@ -1016,10 +1050,46 @@ describe('repo environment contract scripts', () => {
         expect(composeScript).toMatch(/append_env_if_set DUO_CLIENT_SECRET "\$duo_client_secret"/);
         expect(composeScript).toMatch(/append_env_if_set DUO_DISCOVERY_URL "\$duo_discovery_url"/);
         expect(composeScript).toMatch(/append_env_if_set AURA_CLOUDFRONT_ORIGIN_VERIFY_SECRET "\$cloudfront_origin_verify_secret"/);
+        expect(composeScript).toContain('UPLOAD_MALWARE_SCAN_ENABLED=false');
+        expect(composeScript).toContain('UPLOAD_MALWARE_SCAN_FAIL_CLOSED=true');
+        expect(composeScript).toContain('CLAMAV_ENABLED=false');
+        expect(composeScript).toContain('YARA_ENABLED=false');
+        expect(composeScript).toMatch(
+            /Quiescing the existing backend before image maintenance[\s\S]*?timeout 60s docker stop --time 20/
+        );
+        expect(composeScript).toMatch(
+            /Removing the intentionally disabled malware scanner[\s\S]*?docker rm --force/
+        );
+        expect(composeScript).toContain('STAGING_SCANNER_DISABLED_FAIL_CLOSED');
+        expect(composeScript).toMatch(/timeout 180s docker image prune --all --force/);
+        expect(composeScript).toMatch(/timeout 1800s docker load/);
+        expect(composeScript).not.toMatch(/docker compose pull scanner/);
+        expect(composeScript).toMatch(
+            /Starting data services with the malware scanner disabled[\s\S]*?docker compose up -d --no-build postgres mongo redis/
+        );
+        expect(composeScript).toMatch(
+            /Starting backend in fail-closed malware-scan mode[\s\S]*?docker compose up -d --no-build backend/
+        );
+        expect(composeScript).not.toContain('STAGING_SCANNER_READY');
+
+        const stagingCompose = fs.readFileSync(
+            path.join(repoRoot, 'infra', 'staging', 'docker-compose.yml'),
+            'utf8'
+        );
+        expect(stagingCompose).toContain('image: clamav/clamav:1.4_base');
+        expect(stagingCompose).toContain('CLAMD_CONF_ConcurrentDatabaseReload: "no"');
+        expect(stagingCompose).toContain('profiles: ["malware-scan"]');
+        expect(stagingCompose).not.toMatch(/scanner:\s*\n\s+condition: service_healthy/);
+        expect(stagingCompose).toContain('test: ["CMD-SHELL", "clamdcheck.sh"]');
+        expect(stagingCompose).toContain('start_period: 20m');
 
         const ssmScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '03-put-ssm-params.sh'), 'utf8');
         expect(ssmScript).toMatch(/^\s+put_string ADMIN_REQUIRE_PASSKEY false$/m);
         expect(ssmScript).toMatch(/if staging_admin_security_enabled; then/);
+        expect(ssmScript).toMatch(/^put_string CLAMAV_ENABLED false$/m);
+        expect(ssmScript).toMatch(/^put_string YARA_ENABLED false$/m);
+        expect(ssmScript).toMatch(/^put_string UPLOAD_MALWARE_SCAN_ENABLED false$/m);
+        expect(ssmScript).toMatch(/^put_string UPLOAD_MALWARE_SCAN_FAIL_CLOSED true$/m);
 
         const frontendDockerScript = fs.readFileSync(path.join(repoRoot, 'scripts', 'staging', '12-deploy-frontend-docker.sh'), 'utf8');
         expect(frontendDockerScript).toMatch(/nginx_staging_server_name "\$frontend_url"/);
@@ -1141,6 +1211,11 @@ describe('repo environment contract scripts', () => {
         expect(workflow).toMatch(/PROD_SSM_PREFIX.*\/aura\/prod/);
         expect(workflow).toMatch(/SMOKE_BASE_URL:\s*\$\{\{\s*vars\.STAGING_BASE_URL\s*\}\}/);
         expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
+        expect(workflow).toMatch(/SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED:\s*"true"/);
+        expect(workflow).toContain(
+            "printf 'SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED=%s\\n' \"${SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED}\""
+        );
+        expect(workflow).toMatch(/-e SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED/);
         expect(workflow).toMatch(/cache-dependency-path:[\s\S]*?package-lock\.json[\s\S]*?app\/package-lock\.json/);
         expect(workflow).toMatch(/npm ci[\s\S]*?npm --prefix app ci/);
         expect(workflow).toContain('npm --prefix app exec -- playwright test --config=app/playwright.staging.config.js');
@@ -1173,10 +1248,11 @@ describe('repo environment contract scripts', () => {
         expect(revokeIndex).toBeGreaterThan(deployIndex);
     });
 
-    test('scheduled staging operations require malware scanner readiness', () => {
+    test('scheduled staging operations accept only the intentional fail-closed scanner state', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'staging-ops-watch.yml'), 'utf8');
 
         expect(workflow).toMatch(/SMOKE_REQUIRE_SCANNER_READY:\s*"true"/);
+        expect(workflow).toMatch(/SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED:\s*"true"/);
     });
 
     test('production-on-push requires manual confirmation before production dispatch', () => {
@@ -1573,6 +1649,10 @@ describe('repo environment contract scripts', () => {
         expect(deployRelease).toContain("''|ollama)");
         expect(deployRelease).toContain("Refusing deploy: unsupported production Compose profile");
         expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_ENABLED" "false"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_FAIL_CLOSED" "true"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "CLAMAV_ENABLED" "false"');
+        expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "YARA_ENABLED" "false"');
         expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER" "disabled"');
         expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER_FALLBACKS" ""');
         expect(deployRelease).toContain('upsert_env_value "${staged_base_env}" "ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA" "false"');
@@ -1601,6 +1681,7 @@ describe('repo environment contract scripts', () => {
         expect(deployRelease).toMatch(/cat > "\$\{staged_release_env\}" <<EOF[\s\S]*AI_MODEL_PROVIDER=disabled[\s\S]*ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false/);
         expect(deployRelease).toContain('export COMPOSE_PROFILES="${compose_profiles}"');
         expect(deployRelease).toMatch(/--profile ollama\s+\\\s+rm --stop --force ollama/);
+        expect(deployRelease).toMatch(/--profile malware-scan\s+\\\s+rm --stop --force clamav/);
         expect(deployRelease).not.toContain('rm --volumes');
         expect(deployRelease).not.toContain('down -v');
         expect(deployRelease).toContain('restore_previous_release()');
@@ -1617,6 +1698,10 @@ describe('repo environment contract scripts', () => {
         expect(rollbackBackend.indexOf('trap release_exit_handler EXIT')).toBeLessThan(rollbackBackend.indexOf('acquire_release_lock "${release_lock_path}"'));
         expect(rollbackBackend.indexOf('acquire_release_lock "${release_lock_path}"')).toBeLessThan(rollbackBackend.indexOf('mkdir -p "${shared_dir}"'));
         expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_ENABLED" "false"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_FAIL_CLOSED" "true"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "CLAMAV_ENABLED" "false"');
+        expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "YARA_ENABLED" "false"');
         expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER" "disabled"');
         expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER_FALLBACKS" ""');
         expect(rollbackBackend).toContain('upsert_env_value "${staged_base_env}" "ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA" "false"');
@@ -1642,6 +1727,7 @@ describe('repo environment contract scripts', () => {
         expect(rollbackBackend).toContain('export ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA="false"');
         expect(rollbackBackend).toContain('export ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED="false"');
         expect(rollbackBackend).toMatch(/--profile ollama\s+\\\s+rm --stop --force ollama/);
+        expect(rollbackBackend).toMatch(/--profile malware-scan\s+\\\s+rm --stop --force clamav/);
         expect(rollbackBackend).not.toContain('rm --volumes');
         expect(rollbackBackend).not.toContain('down -v');
         expect(rollbackBackend).toContain('restore_previous_release()');
@@ -1695,7 +1781,7 @@ describe('repo environment contract scripts', () => {
         scripts.forEach((source) => {
             expect(runComposeProfileSanitizer(source, '').output).toBe('');
             expect(runComposeProfileSanitizer(source, 'ollama').output).toBe('');
-            expect(runComposeProfileSanitizer(source, ' OLLAMA , malware-scan ').output).toBe('malware-scan');
+            expect(runComposeProfileSanitizer(source, ' OLLAMA , malware-scan ').output).toBe('');
 
             const unsupported = runComposeProfileSanitizer(source, 'malware-scan,debug-shell');
             expect(unsupported.status).not.toBe(0);

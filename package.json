@@ -10,6 +10,8 @@
     "quality:lint": "npm --prefix app run lint -- --quiet",
     "quality:typecheck": "node scripts/quality/typecheck-status.mjs",
     "quality:test": "npm test && npm --prefix app test",
+    "test:inventory": "node scripts/test-inventory.mjs",
+    "test:tiers:check": "node scripts/check-test-tiers.cjs",
     "quality:coverage": "npm run test:server:coverage && npm --prefix app run test:coverage",
     "quality:deadcode": "node scripts/quality/run-knip.mjs",
     "quality:secrets": "npm run security:secrets",
@@ -35,7 +37,7 @@
     "cloudflare:performance:plan": "node scripts/performance/cloudflare-cache-plan.mjs",
     "lint": "npm --prefix app run lint",
     "test:server:full": "npm --prefix server test",
-    "test:server:regression": "npm --prefix server test -- --runTestsByPath tests/authMiddleware.test.js tests/mfaRolloutSmoke.test.js tests/profileSecurity.test.js tests/otpSystem.test.js tests/otpEmailFailClosed.test.js tests/paymentOrderIntegrity.test.js tests/userPhoneIndex.test.js tests/orderControllerCreate.test.js tests/communicationUtilities.test.js tests/communicationServices.test.js tests/adminUserControllerResilience.test.js tests/adminUserRoutes.integration.test.js tests/paymentSecurityGuards.test.js tests/adminProductRoutes.integration.test.js tests/paymentRefundState.test.js tests/adminPaymentRoutes.integration.test.js tests/adminAnalyticsRoutes.integration.test.js tests/adminNotificationRoutes.integration.test.js tests/aiRoutes.test.js tests/healthRoutes.test.js tests/healthReadinessService.test.js tests/adminFraudRoutes.test.js tests/fraudDecisioningService.test.js tests/marketplaceIntegrityService.test.js tests/orderPlacementService.test.js tests/commerceAssistantService.test.js tests/geminiGatewayService.test.js tests/modelGatewayService.test.js tests/ollamaGatewayService.test.js tests/runtimeConfig.test.js tests/stagingSmokeSafety.test.js tests/envContractScripts.test.js tests/stagingFrontendCors.test.js --forceExit",
+    "test:server:regression": "node scripts/run-test-tier.cjs server regression --forceExit",
     "test:server:coverage": "npm run test:server:regression -- --coverage",
     "build": "cd app && npm install && npm run build",
     "test:i18n": "npm --prefix server test -- --runTestsByPath tests/translationService.test.js tests/translationPrivacy.test.js tests/i18nTranslationPolicy.test.js tests/i18nRateLimitPolicy.test.js && npm --prefix app test -- runtimeTranslationPolicy.test.js runtimeTranslation.test.js i18nApi.test.js useDynamicTranslations.test.js marketMessagesCoverage.test.js LocaleProvider.test.jsx MarketContext.test.jsx StepPayment.test.jsx ProductCardInline.test.jsx Orders.test.jsx",
@@ -147,6 +149,9 @@
     "security:supply-chain-pins": "node scripts/security/check-supply-chain-pins.mjs",
     "security:sarif-contract": "node scripts/security/validate-sarif-contract.mjs",
     "security:toolchain": "npm run security:gitleaks && npm run security:semgrep && npm run security:trivy && npm run security:hadolint",
+    "security:zizmor": "node scripts/security/run-docker-tool.mjs zizmor",
+    "security:csp-drift": "node scripts/security/check-csp-drift.mjs",
+    "security:admin-chunk-isolation": "node scripts/security/check-admin-chunk-isolation.mjs",
     "security:all:free-tools": "npm test && npm run security:deps && npm run security:toolchain",
     "security:prod-hardening-audit": "node server/scripts/audit_production_hardening_contract.js",
     "security:prod-env-audit": "node server/scripts/audit_login_production_env_contract.js",
@@ -159,7 +164,7 @@
     "security:auth-tests": "npm --prefix server test -- --runTestsByPath tests/authRoutes.integration.test.js tests/otpRoutes.test.js tests/authMiddleware.cookie.test.js tests/browserSessionService.test.js tests/trustedDeviceChallengeService.test.js tests/authSessionService.test.js tests/csrfMiddleware.test.js tests/distributedRateLimit.test.js tests/authRecoveryCodeService.test.js tests/authMiddleware.admin.test.js tests/authSecurityTelemetryService.test.js tests/metricsAuth.test.js",
     "security:all": "node scripts/security-runner.mjs",
     "security:harness": "node scripts/security-harness-check.mjs",
-    "security:secrets": "node scripts/security-secret-scan.mjs",
+    "security:secrets": "node --test scripts/security-secret-scan.test.mjs && node scripts/security-secret-scan.mjs",
     "security:deps": "node scripts/security-dependency-audit.mjs",
     "security:routes": "node scripts/security/check-sensitive-routes.mjs",
     "security:auth": "npm --prefix server test -- --runTestsByPath tests/authRoutes.integration.test.js tests/mfaRolloutSmoke.test.js tests/loginAttackSmoke.test.js tests/authMiddleware.test.js tests/authMiddleware.cookie.test.js tests/authSessionService.test.js tests/authEnvironment.test.js tests/oidcTokenVerifier.test.js tests/keycloakOidcService.test.js tests/authProviderAdapter.test.js tests/authorizationService.test.js tests/observabilityRoutes.test.js --forceExit",
@@ -229,7 +234,7 @@
     "aws:observability:guard": "node scripts/aws/assert-observability-guard.mjs",
     "sre:synthetic:staging": "node scripts/sre/synthetic-staging-check.mjs",
     "sre:latency:staging": "node scripts/sre/backend-latency-probe.mjs",
-    "test:reliability": "npm --prefix server test -- --runTestsByPath tests/reliability/timeoutRetry.test.js tests/reliability/paymentProviderRetry.test.js --forceExit",
+    "test:reliability": "npm --prefix server test -- --runInBand --runTestsByPath tests/reliability/timeoutRetry.test.js tests/reliability/paymentProviderRetry.test.js --forceExit",
     "release:manifest": "node scripts/release/write-release-manifest.mjs",
     "release:rollback-ready": "node scripts/release/assert-rollback-ready.mjs",
     "release:production-mutation-gate": "node scripts/release/assert-production-mutation-gate.mjs",
@@ -267,26 +272,32 @@
     "http-proxy-middleware": "^4.1.1"
   },
   "devDependencies": {
-    "electron": "^42.4.1",
+    "electron": "^42.5.1",
     "electron-builder": "^26.15.3",
-    "knip": "^6.16.1"
+    "knip": "^6.29.0"
   },
   "overrides": {
     "@electron/asar": "^4.2.0",
     "@electron/get": {
       ".": "^5.0.0",
-      "undici": "7.28.0"
+      "undici": "7.29.0"
     },
     "@electron/rebuild": "^4.0.4",
-    "brace-expansion": "5.0.8",
+    "brace-expansion": "5.0.9",
     "cacache": "^20.0.4",
+    "fast-uri": "3.1.5",
     "glob": "^13.0.6",
+    "ip-address": "10.4.0",
+    "js-yaml": "4.3.1",
     "lodash.isequal": "npm:fast-deep-equal@^3.1.3",
     "make-fetch-happen": "^15.0.5",
     "minimatch": "10.2.5",
+    "nanoid": "3.3.18",
     "node-gyp": "^12.3.0",
     "rimraf": "^6.1.3",
-    "tmp": "0.2.7"
+    "socket.io-parser": "4.2.7",
+    "tmp": "0.2.7",
+    "undici": "7.29.0"
   },
   "build": {
     "appId": "com.aura.marketplace.desktop",

@@ -3,7 +3,7 @@ const AuthSecurityEventOutbox = require('../models/AuthSecurityEventOutbox');
 const { getLoginRuntimeEnforcementPolicy } = require('../config/loginRuntimeEnforcementPolicy');
 const logger = require('../utils/logger');
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 
 const isAuthSecurityOutboxEnabled = () => getLoginRuntimeEnforcementPolicy().authSecurityOutboxEnabled;
 

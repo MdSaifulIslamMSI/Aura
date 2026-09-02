@@ -14,7 +14,7 @@ const KEYCLOAK_REQUIRED_ENV = [
     'AUTH_POST_LOGOUT_REDIRECT_URI',
 ];
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 
 const normalizeProvider = (value = '') => {
     const normalized = safeString(value || 'legacy').toLowerCase();

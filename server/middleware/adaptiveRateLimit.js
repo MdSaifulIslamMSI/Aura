@@ -40,8 +40,12 @@ const adaptiveRateLimit = ({
     windowMs = 5 * 60 * 1000,
     max = 20,
     keyGenerator = defaultKeyGenerator,
+    skip,
 } = {}) => (req, res, next) => {
     if (String(process.env.SECURITY_ADAPTIVE_RATE_LIMIT_ENABLED || 'true').trim().toLowerCase() === 'false') {
+        return next();
+    }
+    if (typeof skip === 'function' && skip(req)) {
         return next();
     }
 

@@ -269,17 +269,19 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: app/package-lock.json
 
       - name: Use Java 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '21'
@@ -367,7 +369,7 @@ jobs:
           fi
 
       - name: Upload Android release artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: mobile-android
           path: release-artifacts/android/*
@@ -383,10 +385,12 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -559,7 +563,7 @@ jobs:
           mv release-artifacts/ios/App.ipa "release-artifacts/ios/Aura-Marketplace-iOS-${VERSION}.ipa"
 
       - name: Upload iOS release artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: mobile-ios
           path: release-artifacts/ios/*
@@ -576,15 +580,17 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Ruby for Fastlane
-        uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
         with:
           bundler-cache: true
 
       - name: Download Android release artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: mobile-android
           path: release-artifacts/android
@@ -617,15 +623,17 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Ruby for Fastlane
-        uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
         with:
           bundler-cache: true
 
       - name: Download iOS release artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: mobile-ios
           path: release-artifacts/ios
@@ -667,12 +675,13 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Download mobile release artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: mobile-*
           path: release-artifacts

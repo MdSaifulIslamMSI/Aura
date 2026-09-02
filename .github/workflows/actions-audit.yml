@@ -1,0 +1,71 @@
+﻿name: Actions Security Audit
+# zizmor v1 audit of every GitHub Actions workflow (template injection,
+# credential persistence, excessive permissions, dangerous triggers, ...).
+#
+# TWO TIERS:
+#  1. zizmor-sarif (non-blocking): all findings published to code scanning,
+#     including the review-required classes tracked in
+#     docs/security-actions-audit-policy.md.
+#  2. regression-gate (BLOCKING): fails on any finding from audit classes
+#     eliminated in the 2026-08 hardening batch (artipacked, unpinned-uses).
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/security/actions-audit-regression-gate.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: actions-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZIZMOR_IMAGE: ghcr.io/zizmorcore/zizmor:1.29.0
+
+jobs:
+  zizmor-sarif:
+    name: zizmor workflow audit (SARIF report)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      # Findings are expected (54 review-required items remain); the SARIF
+      # report is the deliverable, so the non-zero exit is tolerated here.
+      - name: Run zizmor (SARIF)
+        run: docker run --rm -v "$PWD:/repo" "$ZIZMOR_IMAGE" --no-progress --format sarif /repo/.github/workflows/ > zizmor.sarif || true
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        with:
+          sarif_file: zizmor.sarif
+
+  regression-gate:
+    name: Regression gate (artipacked / unpinned-uses = zero tolerance)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor (JSON)
+        run: docker run --rm -v "$PWD:/repo" "$ZIZMOR_IMAGE" --no-progress --format json /repo/.github/workflows/ > findings.json || true
+
+      - name: Enforce regression gate
+        run: node scripts/security/actions-audit-regression-gate.mjs findings.json

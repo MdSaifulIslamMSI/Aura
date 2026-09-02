@@ -5,8 +5,7 @@ const RISK_LEVELS = {
 };
 
 const clampScore = (value) => Math.max(0, Math.min(100, Number(value) || 0));
-
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 
 const normalizeIpRisk = (value = '') => safeString(value).toLowerCase().replace(/[^a-z0-9_-]+/g, '_');
 
@@ -39,6 +38,7 @@ const evaluateLoginRisk = ({
     impossibleTravel = false,
     emailVerified = true,
     trustedDeviceRequired = false,
+    distinctIpCount = 0,
 } = {}) => {
     const signals = [];
     const failures = Number(recentFailureCount || 0);
@@ -68,6 +68,15 @@ const evaluateLoginRisk = ({
 
     if (impossibleTravel) {
         addSignal(signals, { reason: 'impossible_travel', points: 40, detail: 'geo_velocity_placeholder' });
+    }
+
+    const distinctIps = Number(distinctIpCount || 0);
+    if (distinctIps >= 3) {
+        addSignal(signals, {
+            reason: 'ip_diversity',
+            points: 20,
+            detail: `${distinctIps}_distinct_source_ips_in_baseline_window`,
+        });
     }
 
     if (emailVerified === false) {

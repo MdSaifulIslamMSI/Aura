@@ -105,9 +105,10 @@ jobs:
       gateway: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.gateway || steps.filter.outputs.gateway }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         if: github.event_name != 'workflow_dispatch' && github.event_name != 'workflow_call'
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Mark all surfaces changed for manual runs
@@ -254,10 +255,12 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -281,6 +284,10 @@ jobs:
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     services:
       redis:
         image: redis:7-alpine
@@ -296,10 +303,12 @@ jobs:
         working-directory: ./server
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -319,42 +328,11 @@ jobs:
         env:
           NODE_ENV: test
 
+      - name: Check test tier manifest
+        run: node ../scripts/check-test-tiers.cjs
+
       - name: Run backend regression suite
-        run: >
-          npx jest --runInBand --runTestsByPath
-          tests/authMiddleware.test.js
-          tests/profileSecurity.test.js
-          tests/otpSystem.test.js
-          tests/otpEmailFailClosed.test.js
-          tests/moneyMinorBackfillAudit.test.js
-          tests/moneyMinorStorage.test.js
-          tests/paymentOrderIntegrity.test.js
-          tests/userPhoneIndex.test.js
-          tests/orderControllerCreate.test.js
-          tests/communicationUtilities.test.js
-          tests/communicationServices.test.js
-          tests/adminUserControllerResilience.test.js
-          tests/adminUserRoutes.integration.test.js
-          tests/paymentSecurityGuards.test.js
-          tests/adminProductRoutes.integration.test.js
-          tests/paymentRefundState.test.js
-          tests/adminPaymentRoutes.integration.test.js
-          tests/adminAnalyticsRoutes.integration.test.js
-          tests/adminNotificationRoutes.integration.test.js
-          tests/aiRoutes.test.js
-          tests/healthRoutes.test.js
-          tests/healthReadinessService.test.js
-          tests/adminFraudRoutes.test.js
-          tests/fraudDecisioningService.test.js
-          tests/marketplaceIntegrityService.test.js
-          tests/orderPlacementService.test.js
-          tests/commerceAssistantService.test.js
-          tests/geminiGatewayService.test.js
-          tests/modelGatewayService.test.js
-          tests/ollamaGatewayService.test.js
-          tests/runtimeConfig.test.js
-          tests/stagingSmokeSafety.test.js
-          tests/envContractScripts.test.js
+        run: node ../scripts/run-test-tier.cjs server regression --runInBand --shard=${{ matrix.shard }}/3
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_ci
           TEST_USE_IN_MEMORY_MONGO: "false"
@@ -382,10 +360,12 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -409,10 +389,12 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -457,10 +439,12 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -513,7 +497,7 @@ jobs:
           STRIPE_WEBHOOK_SECRET: whsec_fake_security_suite
 
       - name: Upload security reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
           name: security-reports
@@ -527,10 +511,12 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -553,15 +539,21 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     defaults:
       run:
         working-directory: ./app
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -574,18 +566,22 @@ jobs:
         run: npm run lint
 
       - name: Run component tests
-        run: npm test
+        run: npm test -- --shard=${{ matrix.shard }}/2
 
       - name: Audit locale coverage
+        if: matrix.shard == 1
         run: npm run audit:locale
 
       - name: Audit locale quality
+        if: matrix.shard == 1
         run: npm run audit:locale:quality
 
       - name: Verify build
+        if: matrix.shard == 1
         run: npm run build
 
       - name: Enforce bundle budgets
+        if: matrix.shard == 1
         run: npm run bundle:budget
 
   frontend-e2e:
@@ -595,6 +591,10 @@ jobs:
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     services:
       redis:
         image: redis:7-alpine
@@ -610,10 +610,12 @@ jobs:
         working-directory: ./app
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -638,7 +640,7 @@ jobs:
           npx playwright --version
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
         env:
           CI: "true"
           CI_DISABLE_PLAYWRIGHT_VIDEO: "true"
@@ -650,10 +652,10 @@ jobs:
           REDIS_URL: redis://127.0.0.1:6379
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: app/playwright-report/
           retention-days: 7
 
@@ -664,7 +666,9 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Validate gateway download links
         run: npm run gateway:release-contract
@@ -676,10 +680,12 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -704,10 +710,12 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -735,7 +743,7 @@ jobs:
         run: kubectl kustomize k8s/base > /tmp/k8s-base.yaml
 
       - name: Set up Helm
-        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
 
       - name: Lint and render Helm chart
         run: |

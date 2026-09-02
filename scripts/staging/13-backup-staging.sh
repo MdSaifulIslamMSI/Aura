@@ -17,6 +17,7 @@ remote_backup_root="/opt/aura-staging/backup-work-$backup_id"
 remote_archive="$remote_backup_root/aura-staging-backup.tar.gz"
 remote_job="/tmp/aura-staging-backup-$backup_id.sh"
 remote_log="/tmp/aura-staging-backup-$backup_id.log"
+remote_status="/tmp/aura-staging-backup-$backup_id.status"
 s3_key="backups/$backup_id/aura-staging-backup.tar.gz"
 runner_file="$STATE_DIR/backup-runner-$backup_id.sh"
 backup_source_sha="${STAGING_BACKUP_SOURCE_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD)}"
@@ -62,6 +63,9 @@ cleanup_backup_workspace() {
     status=1
   fi
   sudo rm -rf -- "$backup_root"
+  if [ -n "${REMOTE_STATUS:-}" ]; then
+    printf '%s\n' "$status" > "$REMOTE_STATUS"
+  fi
   exit "$status"
 }
 trap cleanup_backup_workspace EXIT
@@ -155,21 +159,33 @@ ssm_ready() {
 }
 
 run_backup_over_ssh() {
-  ssh -F "$STATE_DIR/ssh_config" aura-staging "cat > '$remote_job' && chmod 700 '$remote_job'" < "$runner_file"
+  ssh -F "$STATE_DIR/ssh_config" aura-staging "rm -f '$remote_status'; cat > '$remote_job' && chmod 700 '$remote_job'" < "$runner_file"
   local backup_pid
   backup_pid="$(ssh -F "$STATE_DIR/ssh_config" aura-staging \
-    "nohup env BACKUP_ID='$backup_id' BACKUP_SOURCE_SHA='$backup_source_sha' STAGING_BACKEND_PORT='$STAGING_BACKEND_PORT' REMOTE_BACKUP_ROOT='$remote_backup_root' REMOTE_ARCHIVE='$remote_archive' AWS_REGION='$AWS_REGION' STAGING_BUCKET_NAME='$STAGING_BUCKET_NAME' S3_KEY='$s3_key' bash '$remote_job' > '$remote_log' 2>&1 < /dev/null & echo \$!")"
+    "nohup env BACKUP_ID='$backup_id' BACKUP_SOURCE_SHA='$backup_source_sha' STAGING_BACKEND_PORT='$STAGING_BACKEND_PORT' REMOTE_BACKUP_ROOT='$remote_backup_root' REMOTE_ARCHIVE='$remote_archive' REMOTE_STATUS='$remote_status' AWS_REGION='$AWS_REGION' STAGING_BUCKET_NAME='$STAGING_BUCKET_NAME' S3_KEY='$s3_key' bash '$remote_job' > '$remote_log' 2>&1 < /dev/null & echo \$!")"
   log "Started detached staging backup over SSH (pid $backup_pid); polling S3 for completion"
 
   local wait_attempts="${STAGING_BACKUP_WAIT_ATTEMPTS:-90}"
   local wait_delay="${STAGING_BACKUP_WAIT_DELAY_SECONDS:-10}"
   for attempt in $(seq 1 "$wait_attempts"); do
     if aws_cli s3api head-object --bucket "$STAGING_BUCKET_NAME" --key "$s3_key" --region "$AWS_REGION" >/dev/null 2>&1; then
-      ssh -F "$STATE_DIR/ssh_config" aura-staging "rm -f '$remote_job'; rm -rf -- '$remote_backup_root'; tail -20 '$remote_log' 2>/dev/null || true" >&2 || true
+      ssh -F "$STATE_DIR/ssh_config" aura-staging "rm -f '$remote_job' '$remote_status'; rm -rf -- '$remote_backup_root'; tail -20 '$remote_log' 2>/dev/null || true" >&2 || true
       return 0
     fi
     if ! ssh -F "$STATE_DIR/ssh_config" aura-staging "kill -0 '$backup_pid' 2>/dev/null" >/dev/null 2>&1; then
-      warn "Remote backup job exited before S3 object was visible. Recent remote log:"
+      local remote_exit=""
+      for _ in $(seq 1 "${STAGING_BACKUP_EXIT_GRACE_ATTEMPTS:-6}"); do
+        if aws_cli s3api head-object --bucket "$STAGING_BUCKET_NAME" --key "$s3_key" --region "$AWS_REGION" >/dev/null 2>&1; then
+          ssh -F "$STATE_DIR/ssh_config" aura-staging "rm -f '$remote_job' '$remote_status'; rm -rf -- '$remote_backup_root'; tail -20 '$remote_log' 2>/dev/null || true" >&2 || true
+          return 0
+        fi
+        remote_exit="$(ssh -F "$STATE_DIR/ssh_config" aura-staging "cat '$remote_status' 2>/dev/null || true" 2>/dev/null || true)"
+        if [ -n "$remote_exit" ] && [ "$remote_exit" != "0" ]; then
+          break
+        fi
+        sleep "${STAGING_BACKUP_EXIT_GRACE_DELAY_SECONDS:-5}"
+      done
+      warn "Remote backup job exited with status ${remote_exit:-unknown} before S3 object was visible. Recent remote log:"
       ssh -F "$STATE_DIR/ssh_config" aura-staging "tail -80 '$remote_log' 2>/dev/null || true" >&2 || true
       return 1
     fi

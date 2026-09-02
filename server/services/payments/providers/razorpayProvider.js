@@ -1,10 +1,13 @@
 const crypto = require('crypto');
 const AppError = require('../../../utils/AppError');
+const { guardedFetch } = require('../../../security/remoteFetchGuardService');
 const {
     toMinorUnits,
     fromMinorUnits,
     normalizeCurrencyCode,
 } = require('../helpers');
+
+const RAZORPAY_API_HOST = 'api.razorpay.com';
 
 const secureCompare = (left, right) => {
     const leftBuffer = Buffer.from(String(left || ''), 'utf8');
@@ -34,13 +37,16 @@ class RazorpayProvider {
     }
 
     async request(path, { method = 'GET', body, authHeader } = {}) {
-        const response = await fetch(`${this.baseUrl}${path}`, {
+        const response = await guardedFetch(`${this.baseUrl}${path}`, {
+            allowedHosts: [RAZORPAY_API_HOST],
+            validateDns: false,
             method,
             headers: {
                 Authorization: authHeader || this.authHeader,
                 'Content-Type': 'application/json',
             },
             body: body ? JSON.stringify(body) : undefined,
+            timeoutMs: 15000,
         });
 
         const data = await response.json().catch(() => ({}));

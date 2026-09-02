@@ -153,6 +153,7 @@ describe('uploadSecurityPipeline', () => {
             purpose: 'assistant-image',
         })).rejects.toMatchObject({
             statusCode: 503,
+            code: 'UPLOAD_SCANNER_UNAVAILABLE',
         });
     });
 

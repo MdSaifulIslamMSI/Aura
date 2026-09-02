@@ -1,8 +1,2 @@
-vulnerabilities:
-  - id: GHSA-qwww-vcr4-c8h2
-    paths:
-      - app/package-lock.json
-    purls:
-      - pkg:npm/react-router@7.18.1
-    expired_at: 2026-08-09
-    statement: Aura is a Vite client SPA and does not expose the affected React Server Components action-handling path. Remove when a compatible fixed react-router-dom release is available.
+vulnerabilities: []
+

@@ -4,9 +4,12 @@ const path = require('path');
 jest.mock('sharp', () => jest.fn());
 
 const {
+    assertAvatarScanDisabledFailClosed,
     assertSafeSessionProjection,
     assertStagingTarget,
     classifyFailurePayload,
+    isRetryableFirebaseNetworkError,
+    shouldRetryIdempotentTransientFailure,
     shouldRetryRateLimitDependency,
 } = require('../scripts/account_center_staging_smoke');
 
@@ -46,6 +49,36 @@ describe('Account Center staging smoke guards', () => {
         }])).toThrow();
     });
 
+    test('accepts only the exact fail-closed avatar scanner response without promotion authority', () => {
+        expect(() => assertAvatarScanDisabledFailClosed({
+            status: 503,
+            payload: {
+                success: false,
+                code: 'UPLOAD_SCANNER_UNAVAILABLE',
+                message: 'Request failed',
+            },
+        })).not.toThrow();
+        expect(() => assertAvatarScanDisabledFailClosed({
+            status: 503,
+            payload: {
+                code: 'UPLOAD_SCANNER_UNAVAILABLE',
+                message: 'Avatar malware scan unavailable. Please try again later.',
+                finalizeToken: 'must-not-exist',
+            },
+        })).toThrow('finalize token');
+        expect(() => assertAvatarScanDisabledFailClosed({
+            status: 503,
+            payload: {
+                code: 'DIFFERENT_DEPENDENCY_FAILURE',
+                message: 'Request failed',
+            },
+        })).toThrow('unexpected failure');
+        expect(() => assertAvatarScanDisabledFailClosed({
+            status: 201,
+            payload: {},
+        })).toThrow('must fail closed with 503');
+    });
+
     test('uses authenticated telemetry through the internal-route cloak', () => {
         const source = fs.readFileSync(
             path.join(__dirname, '..', 'scripts', 'account_center_staging_smoke.js'),
@@ -54,6 +87,40 @@ describe('Account Center staging smoke guards', () => {
 
         expect(source).toMatch(
             /requestJson\('\/api\/observability\/client-diagnostics',[\s\S]*?token: primaryToken/
+        );
+    });
+
+    test('serializes customer sync admission before broader qualification', () => {
+        const source = fs.readFileSync(
+            path.join(__dirname, '..', 'scripts', 'account_center_staging_smoke.js'),
+            'utf8'
+        );
+
+        expect(source).toMatch(
+            /await syncAccount\(\{ token: primaryToken,[\s\S]*?await syncAccount\(\{ token: secondaryToken,/
+        );
+        expect(source).not.toMatch(/Promise\.all\(\[\s*syncAccount/);
+    });
+
+    test('retries only the idempotent primary address cleanup on transient overload', () => {
+        const source = fs.readFileSync(
+            path.join(__dirname, '..', 'scripts', 'account_center_staging_smoke.js'),
+            'utf8'
+        );
+
+        expect(source).toMatch(
+            /if \(addressId\)[\s\S]*?method: 'DELETE',[\s\S]*?expectedStatuses: \[200, 404\],[\s\S]*?retryIdempotentTransientFailure: true/
+        );
+    });
+
+    test('allows one transient-overload retry for the idempotent preferences read', () => {
+        const source = fs.readFileSync(
+            path.join(__dirname, '..', 'scripts', 'account_center_staging_smoke.js'),
+            'utf8'
+        );
+
+        expect(source).toMatch(
+            /requestJson\('\/api\/account\/preferences',[\s\S]*?retryRateLimitDependency: true,[\s\S]*?retryIdempotentTransientFailure: true/
         );
     });
 
@@ -88,5 +155,52 @@ describe('Account Center staging smoke guards', () => {
             retryRateLimitDependency: true,
             status: 503,
         })).toBe(false);
+    });
+
+    test('retries one explicit transient overload only for an idempotent smoke request', () => {
+        const routeTimeout = {
+            code: 'TRAFFIC_ROUTE_TIMEOUT',
+            message: 'This route is temporarily overloaded. Please try again shortly.',
+        };
+
+        expect(classifyFailurePayload(routeTimeout)).toEqual({
+            code: 'TRAFFIC_ROUTE_TIMEOUT',
+            reason: 'traffic_route_timeout',
+            retryAfter: 0,
+        });
+        expect(shouldRetryIdempotentTransientFailure({
+            attempt: 0,
+            payload: routeTimeout,
+            retryIdempotentTransientFailure: true,
+            status: 503,
+        })).toBe(true);
+        expect(shouldRetryIdempotentTransientFailure({
+            attempt: 1,
+            payload: routeTimeout,
+            retryIdempotentTransientFailure: true,
+            status: 503,
+        })).toBe(false);
+        expect(shouldRetryIdempotentTransientFailure({
+            attempt: 0,
+            payload: {
+                code: 'TRAFFIC_LOAD_SHEDDING',
+                message: 'Traffic protection is active.',
+            },
+            retryIdempotentTransientFailure: true,
+            status: 503,
+        })).toBe(true);
+        expect(shouldRetryIdempotentTransientFailure({
+            attempt: 0,
+            payload: { code: 'OTHER_DEPENDENCY_FAILURE' },
+            retryIdempotentTransientFailure: true,
+            status: 503,
+        })).toBe(false);
+    });
+
+    test('retries only Firebase transport failures, not credential or status errors', () => {
+        expect(isRetryableFirebaseNetworkError(new TypeError('fetch failed'))).toBe(true);
+        expect(isRetryableFirebaseNetworkError(new Error('fetch failed'))).toBe(false);
+        expect(isRetryableFirebaseNetworkError(new Error('INVALID_PASSWORD'))).toBe(false);
+        expect(isRetryableFirebaseNetworkError(new TypeError('invalid URL'))).toBe(false);
     });
 });

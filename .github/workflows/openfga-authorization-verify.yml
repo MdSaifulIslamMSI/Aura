@@ -1,0 +1,61 @@
+name: OpenFGA Authorization Verification
+# Starts a pinned OpenFGA server, loads the Aura authorization model, writes
+# tuples through the service, and asserts the relationship decisions end to
+# end (owner/admin grants, unrelated-user denial, undeclared-relation rejection).
+
+on:
+  pull_request:
+    paths:
+      - 'infra/security/openfga/**'
+      - 'server/services/authorization/**'
+      - 'scripts/security/openfga-verification.mjs'
+      - '.github/workflows/openfga-authorization-verify.yml'
+  push:
+    branches: [main]
+  schedule:
+    - cron: '37 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openfga-verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: OpenFGA model + service decisions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.x
+
+      - name: Start OpenFGA
+        run: docker run -d --name aura-openfga -p 127.0.0.1:8081:8080 openfga/openfga:v1.19.0 run
+
+      - name: Wait for OpenFGA health
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8081/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs aura-openfga
+          exit 1
+
+      - name: Run authorization verification
+        run: node scripts/security/openfga-verification.mjs --api-url http://127.0.0.1:8081
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f aura-openfga

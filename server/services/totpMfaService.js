@@ -298,9 +298,10 @@ const buildFreshMfaRequiredError = () => {
     return error;
 };
 
-const assertFreshMfaForTotpDisable = (user) => {
+const assertFreshMfaForTotpDisable = (user, session = null) => {
     const policy = evaluateAction({
         user,
+        session,
         action: 'auth.mfa.disable',
         route: '/api/auth/mfa/totp/disable',
         category: SENSITIVE_ACTION_CATEGORIES.PASSWORD_OR_AUTH_FACTOR_CHANGE,
@@ -311,10 +312,10 @@ const assertFreshMfaForTotpDisable = (user) => {
     }
 };
 
-const disableTotpAfterFreshMfa = async ({ userId } = {}) => {
+const disableTotpAfterFreshMfa = async ({ userId, session = null } = {}) => {
     const user = await User.findById(userId, 'mfa recoveryCodeState trustedDevices').lean();
     if (!user?._id) throw new AppError('User not found.', 404);
-    assertFreshMfaForTotpDisable(user);
+    assertFreshMfaForTotpDisable(user, session);
 
     const now = new Date();
     return User.findByIdAndUpdate(

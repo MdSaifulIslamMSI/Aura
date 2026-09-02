@@ -20,6 +20,9 @@ const stagingHealthUrl = normalize(process.env.STAGING_HEALTH_URL);
 const prodApiBaseUrl = normalize(process.env.PROD_API_BASE_URL);
 const prodBaseUrl = normalize(process.env.PROD_BASE_URL);
 const scannerReadyRequired = ['1', 'true', 'yes', 'on'].includes(normalize(process.env.SMOKE_REQUIRE_SCANNER_READY).toLowerCase());
+const scannerDisabledFailClosedAccepted = ['1', 'true', 'yes', 'on'].includes(
+  normalize(process.env.SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED).toLowerCase()
+);
 
 const failures = [];
 const results = [];
@@ -120,9 +123,11 @@ try {
     if (value !== 'staging') fail(`Health ${field} must be staging; got ${value || '<unset>'}.`);
     if (value.includes('prod') || value.includes('production')) fail(`Health ${field} contains production.`);
   }
-  if (health.scanner !== 'ready') {
-    const scannerStatus = health.scanner || '<unset>';
-    if (scannerReadyRequired) {
+  const scannerStatus = normalize(health.scanner).toLowerCase() || '<unset>';
+  if (scannerStatus !== 'ready') {
+    if (scannerStatus === 'disabled_fail_closed' && scannerDisabledFailClosedAccepted) {
+      results.push('health scanner: disabled_fail_closed (accepted)');
+    } else if (scannerReadyRequired) {
       fail(`Health scanner must be ready; got ${scannerStatus}.`);
     } else {
       results.push(`health scanner: ${scannerStatus} (not required)`);

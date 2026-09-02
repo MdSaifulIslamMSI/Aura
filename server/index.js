@@ -130,6 +130,7 @@ const {
     allowedOrigins,
 } = require('./config/corsFlags');
 const { assertSigningSecretsConfig } = require('./config/signingSecrets');
+const { assertProductionTurnstileConfig } = require('./config/turnstileFlags');
 const { assertAuthRiskSignalConfig } = require('./services/authRiskSignalService');
 const {
     getRedisHealth,
@@ -139,7 +140,7 @@ const {
 const {
     getCachedHealthSnapshot,
 } = require('./services/healthService');
-const { checkClamAvReady } = require('./services/malwareScanService');
+const { checkClamAvReady, getMalwareScanConfig } = require('./services/malwareScanService');
 const {
     buildStartupReadinessFailure,
     getReadinessGraceState,
@@ -181,8 +182,11 @@ const {
     DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES,
 } = require('../config/desktopAuthLoopback.cjs');
 initOtel();
-const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '12mb';
+const JSON_BODY_LIMIT = process.env.JSON_BODY_LIMIT || '256kb';
 const AUTH_BODY_LIMIT = process.env.AUTH_BODY_LIMIT || '64kb';
+// Large-payload routes (base64 data-URI uploads in JSON bodies) keep their
+// scoped parsers; everything else no longer accepts 12 MB JSON bodies.
+const LARGE_JSON_BODY_LIMIT = process.env.LARGE_JSON_BODY_LIMIT || '10mb';
 const runtimeNodeEnv = process.env.NODE_ENV || 'production';
 const STAGING_HEALTH_SSM_PREFIX = '/aura/staging';
 const toWebSocketOrigin = (origin = '') => String(origin || '').replace(/\/+$/, '').replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
@@ -466,6 +470,15 @@ app.use(['/api/auth', '/api/otp'], express.urlencoded({
     limit: AUTH_BODY_LIMIT,
     parameterLimit: 25,
 }));
+app.use(['/api/uploads', '/api/listings', '/api/ai'], express.json({
+    limit: LARGE_JSON_BODY_LIMIT,
+    verify: captureRawBody,
+}));
+app.use(['/api/uploads', '/api/listings', '/api/ai'], express.urlencoded({
+    extended: false,
+    limit: LARGE_JSON_BODY_LIMIT,
+    parameterLimit: 100,
+}));
 app.use(express.json({
     limit: JSON_BODY_LIMIT,
     verify: captureRawBody,
@@ -591,21 +604,31 @@ const buildStagingHealthFingerprint = async (core) => {
     if (!isStagingRuntime()) return {};
 
     const ssmPrefix = String(process.env.STAGING_SSM_PREFIX || process.env.AWS_PARAMETER_STORE_PATH_PREFIX || '').trim();
-    const scannerHealth = await checkClamAvReady({ timeoutMs: 1000 }).catch((error) => ({
-        ready: false,
-        detail: error?.message || 'scanner readiness failed',
-    }));
+    const scannerConfig = getMalwareScanConfig();
+    const scannerDisabledFailClosed = !scannerConfig.enabled
+        && !scannerConfig.clamAvEnabled
+        && !scannerConfig.yaraEnabled
+        && scannerConfig.failClosed;
+    const scannerHealth = scannerDisabledFailClosed
+        ? { ready: false, detail: 'scanner disabled in fail-closed mode' }
+        : await checkClamAvReady({ timeoutMs: 1000 }).catch((error) => ({
+            ready: false,
+            detail: error?.message || 'scanner readiness failed',
+        }));
     const database = core.dbConnected ? 'staging' : 'not_ready';
     const cache = core.redisConnected ? 'staging' : 'not_ready';
     const storage = getStagingStorageFingerprint();
-    const scanner = scannerHealth.ready ? 'ready' : 'not_ready';
+    const scanner = scannerDisabledFailClosed
+        ? 'disabled_fail_closed'
+        : (scannerHealth.ready ? 'ready' : 'not_ready');
+    const scannerSafe = scanner === 'ready' || scanner === 'disabled_fail_closed';
 
     return {
         ok: ssmPrefix === STAGING_HEALTH_SSM_PREFIX
             && database === 'staging'
             && cache === 'staging'
             && storage === 'staging'
-            && scanner === 'ready',
+            && scannerSafe,
         env: 'staging',
         ssmPrefix,
         database,
@@ -872,6 +895,7 @@ if (require.main === module) {
     assertSigningSecretsConfig();
     assertAuthRiskSignalConfig();
     assertProductionCorsConfig();
+    assertProductionTurnstileConfig();
     assertWebhookConfig();
     assertProductionPaymentConfig();
     assertProductionEmailConfig();

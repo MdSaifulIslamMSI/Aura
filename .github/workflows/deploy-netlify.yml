@@ -146,10 +146,12 @@ jobs:
         working-directory: ./app
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -268,7 +270,7 @@ jobs:
         run: npm run build
 
       - name: Upload frontend dist bundle
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: frontend-dist
           path: app/dist
@@ -281,15 +283,17 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download shared frontend
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -309,7 +313,7 @@ jobs:
           printf '{"orgId":"%s","projectId":"%s"}\n' "${VERCEL_ORG_ID}" "${VERCEL_PROJECT_ID}" > .vercel/project.json
 
       - name: Upload Vercel prebuilt output
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: vercel-prebuilt-output
           include-hidden-files: true
@@ -328,15 +332,17 @@ jobs:
       site_url: ${{ steps.deploy.outputs.site_url }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download built frontend
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -384,7 +390,7 @@ jobs:
 
       - name: Comment preview URL on pull request
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
           SITE_URL: ${{ steps.deploy.outputs.site_url }}
@@ -449,7 +455,7 @@ jobs:
           echo "Public URL: ${AWS_FRONTEND_PUBLIC_URL}"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
@@ -487,15 +493,17 @@ jobs:
       deployment_attempted: ${{ steps.mutation.outputs.attempted }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download built frontend
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: frontend-dist
           path: app/dist
@@ -553,15 +561,17 @@ jobs:
       deploy_url: ${{ steps.deploy.outputs.deploy_url }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download Vercel prebuilt output
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: vercel-prebuilt-output
           path: .vercel
@@ -609,7 +619,7 @@ jobs:
 
       - name: Comment Vercel preview URL on pull request
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
           PROJECT_NAME: ${{ env.VERCEL_PROJECT_NAME }}
@@ -666,15 +676,17 @@ jobs:
       deployment_attempted: ${{ steps.mutation.outputs.attempted }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download Vercel prebuilt output
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: vercel-prebuilt-output
           path: .vercel
@@ -751,7 +763,9 @@ jobs:
       rollback_ref: ${{ steps.snapshot.outputs.rollback_ref }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Validate AWS frontend deployment configuration
         run: |
@@ -767,13 +781,13 @@ jobs:
           echo "Public URL: ${AWS_FRONTEND_PUBLIC_URL}"
 
       - name: Download shared frontend
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: frontend-dist
           path: app/dist
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
@@ -907,10 +921,12 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -955,10 +971,12 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 

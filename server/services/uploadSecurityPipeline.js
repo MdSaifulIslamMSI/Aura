@@ -130,7 +130,14 @@ const serializeScanEngines = (engines = []) => (
 
 const getEventReason = (eventName = '') => String(eventName || '').split('.').pop() || 'upload_event';
 
-const rejectUpload = ({ message, statusCode = 400, eventName = '', eventLevel = 'warn', event = {} }) => {
+const rejectUpload = ({
+    message,
+    statusCode = 400,
+    code = '',
+    eventName = '',
+    eventLevel = 'warn',
+    event = {},
+}) => {
     if (eventName) {
         const reason = getEventReason(eventName);
         recordUploadSecurityEvent({
@@ -144,7 +151,9 @@ const rejectUpload = ({ message, statusCode = 400, eventName = '', eventLevel = 
         const log = eventLevel === 'error' ? logger.error : logger.warn;
         log(eventName, event);
     }
-    throw new AppError(message, statusCode);
+    const error = new AppError(message, statusCode);
+    if (code) error.code = code;
+    throw error;
 };
 
 const validateUploadBuffer = async ({
@@ -274,6 +283,7 @@ const validateUploadBuffer = async ({
         rejectUpload({
             message: scanFailedMessage,
             statusCode: 503,
+            code: 'UPLOAD_SCANNER_UNAVAILABLE',
             eventName: `${eventPrefix}.malware_scan_unavailable`,
             eventLevel: 'error',
             event: {
@@ -448,6 +458,7 @@ const validateDataUriUpload = async ({
         rejectUpload({
             message: scanFailedMessage,
             statusCode: 503,
+            code: 'UPLOAD_SCANNER_UNAVAILABLE',
             eventName: `${eventPrefix}.malware_scan_unavailable`,
             eventLevel: 'error',
             event: {

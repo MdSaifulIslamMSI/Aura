@@ -129,7 +129,7 @@ sanitize_compose_profiles() {
     profile="$(to_lower "$(normalize_env_value "${profile}")")"
     case "${profile}" in
       malware-scan)
-        sanitized_profiles+=("${profile}")
+        echo "ClamAV remains intentionally disabled; omitting the malware-scan production profile." >&2
         ;;
       ''|ollama)
         ;;
@@ -641,6 +641,10 @@ upsert_env_value "${staged_base_env}" "MFA_ENABLED" "true"
 upsert_env_value "${staged_base_env}" "MFA_PASSKEY_ENABLED" "true"
 upsert_env_value "${staged_base_env}" "AURA_DESKTOP_OWNER_ACCESS_ENABLED" "false"
 upsert_env_value "${staged_base_env}" "COMPOSE_PROFILES" "${compose_profiles}"
+upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_ENABLED" "false"
+upsert_env_value "${staged_base_env}" "UPLOAD_MALWARE_SCAN_FAIL_CLOSED" "true"
+upsert_env_value "${staged_base_env}" "CLAMAV_ENABLED" "false"
+upsert_env_value "${staged_base_env}" "YARA_ENABLED" "false"
 upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER" "disabled"
 upsert_env_value "${staged_base_env}" "AI_MODEL_PROVIDER_FALLBACKS" ""
 upsert_env_value "${staged_base_env}" "ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA" "false"
@@ -651,6 +655,10 @@ AURA_BACKEND_IMAGE=aura-backend:${release_sha}
 AURA_APP_BUILD_SHA=${release_sha}
 AURA_PREVIOUS_SUCCESSFUL_SHA=${previous_active_sha}
 COMPOSE_PROFILES=${compose_profiles}
+UPLOAD_MALWARE_SCAN_ENABLED=false
+UPLOAD_MALWARE_SCAN_FAIL_CLOSED=true
+CLAMAV_ENABLED=false
+YARA_ENABLED=false
 AI_MODEL_PROVIDER=disabled
 AI_MODEL_PROVIDER_FALLBACKS=
 ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA=false
@@ -660,6 +668,10 @@ EOF
 chmod 600 "${staged_release_env}"
 
 export COMPOSE_PROFILES="${compose_profiles}"
+export UPLOAD_MALWARE_SCAN_ENABLED="false"
+export UPLOAD_MALWARE_SCAN_FAIL_CLOSED="true"
+export CLAMAV_ENABLED="false"
+export YARA_ENABLED="false"
 export AI_MODEL_PROVIDER="disabled"
 export AI_MODEL_PROVIDER_FALLBACKS=""
 export ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA="false"
@@ -739,6 +751,16 @@ docker compose \
   -f "${compose_file}" \
   --profile ollama \
   rm --stop --force ollama
+
+# Keep ClamAV disabled until a later, explicitly authorized release changes
+# this contract. Its named database volume is retained for that future rollout.
+docker compose \
+  --env-file "${shared_dir}/base.env" \
+  --env-file "${shared_dir}/runtime-secrets.env" \
+  --env-file "${shared_dir}/release.env" \
+  -f "${compose_file}" \
+  --profile malware-scan \
+  rm --stop --force clamav
 
 docker compose \
   --env-file "${shared_dir}/base.env" \

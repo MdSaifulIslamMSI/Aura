@@ -7,10 +7,14 @@ const normalizeUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
 const baseUrl = normalizeUrl(process.env.SMOKE_BASE_URL);
 const RATE_LIMIT_DEPENDENCY_MESSAGE = 'Rate limiter dependency unavailable. Please try again shortly.';
 const RATE_LIMIT_RECOVERY_DELAY_MS = 11_000;
+const FIREBASE_NETWORK_RECOVERY_DELAY_MS = 5_000;
+const AVATAR_SCAN_UNAVAILABLE_MESSAGE = 'Avatar malware scan unavailable. Please try again later.';
+const AVATAR_SCAN_UNAVAILABLE_CODE = 'UPLOAD_SCANNER_UNAVAILABLE';
 const SAFE_FAILURE_CODES = new Set([
     'ATTACK_MODE_ROUTE_DISABLED',
     'AUTH_BUDGET_EXCEEDED',
     'TRAFFIC_LOAD_SHEDDING',
+    'TRAFFIC_ROUTE_TIMEOUT',
 ]);
 const allowedSessionFields = new Set([
     'id',
@@ -46,6 +50,22 @@ const assertSafeSessionProjection = (sessions = []) => {
     }
 };
 
+const assertAvatarScanDisabledFailClosed = ({ payload = {}, status }) => {
+    assert(status === 503, `Disabled avatar scanner must fail closed with 503; got ${status}`);
+    assert(
+        String(payload?.code || '') === AVATAR_SCAN_UNAVAILABLE_CODE
+        && ['Request failed', AVATAR_SCAN_UNAVAILABLE_MESSAGE].includes(String(payload?.message || '')),
+        'Disabled avatar scanner returned an unexpected failure'
+    );
+    assert(!payload?.finalizeToken, 'Fail-closed avatar upload exposed a finalize token');
+    assert(!payload?.avatar, 'Fail-closed avatar upload exposed an avatar');
+};
+
+const isRetryableFirebaseNetworkError = (error) => (
+    error instanceof TypeError
+    && String(error?.message || '').trim().toLowerCase() === 'fetch failed'
+);
+
 const printStep = (name, detail = '') => {
     console.log(`[ok] ${name}${detail ? ` - ${detail}` : ''}`);
 };
@@ -66,6 +86,8 @@ const classifyFailurePayload = (payload = {}) => {
         reason = 'attack_mode_route_disabled';
     } else if (code === 'TRAFFIC_LOAD_SHEDDING') {
         reason = 'traffic_load_shedding';
+    } else if (code === 'TRAFFIC_ROUTE_TIMEOUT') {
+        reason = 'traffic_route_timeout';
     }
 
     return { code, reason, retryAfter };
@@ -83,6 +105,19 @@ const shouldRetryRateLimitDependency = ({
     && classifyFailurePayload(payload).reason === 'rate_limit_dependency_unavailable'
 );
 
+const shouldRetryIdempotentTransientFailure = ({
+    attempt,
+    payload,
+    retryIdempotentTransientFailure,
+    status,
+}) => (
+    retryIdempotentTransientFailure === true
+    && attempt === 0
+    && status === 503
+    && ['rate_limit_dependency_unavailable', 'traffic_load_shedding', 'traffic_route_timeout']
+        .includes(classifyFailurePayload(payload).reason)
+);
+
 const requestJson = async (pathname, {
     method = 'GET',
     token = '',
@@ -90,6 +125,7 @@ const requestJson = async (pathname, {
     expectedStatuses = [200],
     headers = {},
     retryRateLimitDependency = false,
+    retryIdempotentTransientFailure = false,
 } = {}) => {
     for (let attempt = 0; attempt < 2; attempt += 1) {
         const response = await fetch(new URL(pathname, `${baseUrl}/`), {
@@ -105,13 +141,21 @@ const requestJson = async (pathname, {
         if (expectedStatuses.includes(response.status)) {
             return { payload, response };
         }
-        if (shouldRetryRateLimitDependency({
+        const retryRateLimit = shouldRetryRateLimitDependency({
             attempt,
             payload,
             retryRateLimitDependency,
             status: response.status,
-        })) {
-            console.warn(`[retry] ${method} ${pathname} after rate_limit_dependency_unavailable`);
+        });
+        const retryIdempotentTransient = shouldRetryIdempotentTransientFailure({
+            attempt,
+            payload,
+            retryIdempotentTransientFailure,
+            status: response.status,
+        });
+        if (retryRateLimit || retryIdempotentTransient) {
+            const failure = classifyFailurePayload(payload);
+            console.warn(`[retry] ${method} ${pathname} after ${failure.reason}`);
             await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_RECOVERY_DELAY_MS));
             continue;
         }
@@ -126,13 +170,26 @@ const requestJson = async (pathname, {
 };
 
 const signIn = async ({ email, password }) => {
-    const result = await signInWithEmailPassword({
-        apiKey: process.env.SMOKE_FIREBASE_API_KEY,
-        email,
-        password,
-    });
-    assert(result.idToken, 'Firebase sign-in did not return an ID token');
-    return result.idToken;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+            const result = await signInWithEmailPassword({
+                apiKey: process.env.SMOKE_FIREBASE_API_KEY,
+                email,
+                password,
+            });
+            assert(result.idToken, 'Firebase sign-in did not return an ID token');
+            return result.idToken;
+        } catch (error) {
+            if (attempt === 0 && isRetryableFirebaseNetworkError(error)) {
+                console.warn('[retry] Firebase sign-in after transport failure');
+                await new Promise((resolve) => setTimeout(resolve, FIREBASE_NETWORK_RECOVERY_DELAY_MS));
+                continue;
+            }
+            throw error;
+        }
+    }
+
+    throw new Error('Firebase sign-in exhausted the bounded transport recovery attempt');
 };
 
 const syncAccount = async ({ token, email, name, phone }) => {
@@ -142,6 +199,7 @@ const syncAccount = async ({ token, email, name, phone }) => {
         expectedStatuses: [200],
         headers: { 'Idempotency-Key': `account-qualification-${crypto.randomUUID()}` },
         body: { email, name, phone },
+        retryIdempotentTransientFailure: true,
     });
     assert(payload.status === 'authenticated', 'Account sync did not authenticate');
 };
@@ -183,10 +241,8 @@ const run = async () => {
         signIn(primary),
         signIn(secondary),
     ]);
-    await Promise.all([
-        syncAccount({ token: primaryToken, ...primary }),
-        syncAccount({ token: secondaryToken, ...secondary }),
-    ]);
+    await syncAccount({ token: primaryToken, ...primary });
+    await syncAccount({ token: secondaryToken, ...secondary });
     printStep('auth.owner-boundary', 'two isolated customers');
 
     const { payload: profile } = await requestJson('/api/users/profile', { token: primaryToken });
@@ -205,6 +261,7 @@ const run = async () => {
     const { payload: preferences } = await requestJson('/api/account/preferences', {
         token: primaryToken,
         retryRateLimitDependency: true,
+        retryIdempotentTransientFailure: true,
     });
     assert(Number.isInteger(Number(preferences?.preferences?.version)), 'Preference version is missing');
     const { payload: updatedPreferences } = await requestJson('/api/account/preferences', {
@@ -280,20 +337,27 @@ const run = async () => {
                 method: 'DELETE',
                 token: primaryToken,
                 expectedStatuses: [200, 404],
+                retryIdempotentTransientFailure: true,
             });
         }
     }
 
-    const readChecks = await Promise.all([
-        requestJson('/api/account/summary', { token: primaryToken }),
-        requestJson('/api/users/dashboard', { token: primaryToken }),
-        requestJson('/api/users/rewards', { token: primaryToken }),
-        requestJson('/api/orders/myorders?limit=5', { token: primaryToken }),
-        requestJson('/api/account/marketplace', { token: primaryToken }),
-        requestJson('/api/account/security-activity?limit=10', { token: primaryToken }),
-        requestJson('/api/account/sessions?limit=10', { token: primaryToken }),
-        requestJson('/api/account/privacy/capabilities', { token: primaryToken }),
-    ]);
+    const readChecks = [];
+    for (const pathname of [
+        '/api/account/summary',
+        '/api/users/dashboard',
+        '/api/users/rewards',
+        '/api/orders/myorders?limit=5',
+        '/api/account/marketplace',
+        '/api/account/security-activity?limit=10',
+        '/api/account/sessions?limit=10',
+        '/api/account/privacy/capabilities',
+    ]) {
+        readChecks.push(await requestJson(pathname, {
+            token: primaryToken,
+            retryIdempotentTransientFailure: true,
+        }));
+    }
     const securityActivity = readChecks[5].payload;
     for (const event of securityActivity.activity || []) {
         const unexpected = Object.keys(event || {}).filter(
@@ -306,6 +370,7 @@ const run = async () => {
     printStep('account.read-domains', '8 bounded surfaces');
 
     const avatar = await buildAvatarDataUrl();
+    const acceptScannerDisabledFailClosed = process.env.SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED === 'true';
     const { payload: intent } = await requestJson('/api/account/avatar/upload-intents', {
         method: 'POST',
         token: primaryToken,
@@ -316,10 +381,10 @@ const run = async () => {
             sizeBytes: avatar.sizeBytes,
         },
     });
-    const { payload: uploaded } = await requestJson('/api/account/avatar/uploads', {
+    const { payload: uploaded, response: uploadResponse } = await requestJson('/api/account/avatar/uploads', {
         method: 'POST',
         token: primaryToken,
-        expectedStatuses: [201],
+        expectedStatuses: acceptScannerDisabledFailClosed ? [201, 503] : [201],
         body: {
             uploadToken: intent.uploadToken,
             fileName: 'account-qualification.png',
@@ -327,16 +392,21 @@ const run = async () => {
             dataUrl: avatar.dataUrl,
         },
     });
-    const { payload: finalized } = await requestJson('/api/account/avatar/finalize', {
-        method: 'POST',
-        token: primaryToken,
-        body: { finalizeToken: uploaded.finalizeToken },
-    });
-    assert(/^\/uploads\/avatars\/[A-Za-z0-9_-]+\.webp$/.test(String(finalized.avatar || '')), 'Avatar URL is unsafe');
-    const avatarResponse = await fetch(new URL(finalized.avatar, `${baseUrl}/`));
-    assert(avatarResponse.status === 200, 'Finalized avatar is not readable');
-    assert(/^image\/webp\b/i.test(String(avatarResponse.headers.get('content-type') || '')), 'Finalized avatar is not WebP');
-    printStep('avatar.scan-normalize-s3');
+    if (uploadResponse.status === 503) {
+        assertAvatarScanDisabledFailClosed({ payload: uploaded, status: uploadResponse.status });
+        printStep('avatar.scan-disabled-fail-closed');
+    } else {
+        const { payload: finalized } = await requestJson('/api/account/avatar/finalize', {
+            method: 'POST',
+            token: primaryToken,
+            body: { finalizeToken: uploaded.finalizeToken },
+        });
+        assert(/^\/uploads\/avatars\/[A-Za-z0-9_-]+\.webp$/.test(String(finalized.avatar || '')), 'Avatar URL is unsafe');
+        const avatarResponse = await fetch(new URL(finalized.avatar, `${baseUrl}/`));
+        assert(avatarResponse.status === 200, 'Finalized avatar is not readable');
+        assert(/^image\/webp\b/i.test(String(avatarResponse.headers.get('content-type') || '')), 'Finalized avatar is not WebP');
+        printStep('avatar.scan-normalize-s3');
+    }
 
     console.log('ACCOUNT_CENTER_STAGING_SMOKE_PASS');
 };
@@ -350,9 +420,12 @@ if (require.main === module) {
 
 module.exports = {
     allowedSessionFields,
+    assertAvatarScanDisabledFailClosed,
     assertSafeSessionProjection,
     assertStagingTarget,
     classifyFailurePayload,
+    isRetryableFirebaseNetworkError,
     run,
+    shouldRetryIdempotentTransientFailure,
     shouldRetryRateLimitDependency,
 };

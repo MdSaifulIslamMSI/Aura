@@ -85,6 +85,7 @@ jobs:
       SMOKE_REQUIRE_BACKEND_STAGING: "true"
       SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
       SMOKE_REQUIRE_SCANNER_READY: "true"
+      SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED: "true"
       STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
       STAGING_ACCOUNT_SMOKE_EMAIL: ${{ secrets.STAGING_ACCOUNT_SMOKE_EMAIL }}
       STAGING_ACCOUNT_SMOKE_PASSWORD: ${{ secrets.STAGING_ACCOUNT_SMOKE_PASSWORD }}
@@ -94,12 +95,13 @@ jobs:
       STAGING_ACCOUNT_OTHER_SMOKE_PHONE: ${{ secrets.STAGING_ACCOUNT_OTHER_SMOKE_PHONE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          persist-credentials: false
           ref: ${{ inputs.git_ref }}
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
           cache: npm
@@ -130,7 +132,7 @@ jobs:
         run: npm run staging:preflight
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -359,6 +361,7 @@ jobs:
             printf 'ACCOUNT_MIGRATION_BACKUP_EVIDENCE=%s\n' "${BACKUP_EVIDENCE}"
             printf 'ACCOUNT_MIGRATION_ROLLBACK_SHA=%s\n' "${QUALIFICATION_ROLLBACK_SHA}"
             printf 'ACCOUNT_MIGRATION_RUN_ID=account-center-%s\n' "${GITHUB_RUN_ID}"
+            printf 'SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED=%s\n' "${SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED}"
           } >> .staging/account-center-qualification.env
           scp -F .staging/ssh_config \
             .staging/account-center-qualification.env \
@@ -478,6 +481,7 @@ jobs:
             -e SMOKE_BASE_URL \
             -e SMOKE_TARGET_ENV \
             -e SMOKE_STAGING_ISOLATED \
+            -e SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED \
             -e STAGING_SSM_PREFIX \
             -e PROD_BASE_URL \
             -e PROD_API_BASE_URL \

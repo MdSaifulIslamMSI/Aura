@@ -82,12 +82,15 @@ describe('traffic resilience policy', () => {
     });
 
     test('sensitive budgets fail closed or stay non-degradable where expected', () => {
+        const authLogin = getTrafficBudget(ROUTE_CLASSES.AUTH_LOGIN);
         const payment = getTrafficBudget(ROUTE_CLASSES.PAYMENT);
         const webauthn = getTrafficBudget(ROUTE_CLASSES.AUTH_WEBAUTHN);
         const otpReset = getTrafficBudget(ROUTE_CLASSES.OTP_RESET);
         const ai = getTrafficBudget(ROUTE_CLASSES.AI_EXPENSIVE);
         const webhook = getTrafficBudget(ROUTE_CLASSES.WEBHOOK);
 
+        expect(authLogin.timeoutMs).toBe(8000);
+        expect(authLogin.productionFailMode).toBe('fail-closed');
         expect(payment.costRisk).toBe('critical');
         expect(payment.productionFailMode).toBe('fail-closed');
         expect(payment.canDegrade).toBe(false);

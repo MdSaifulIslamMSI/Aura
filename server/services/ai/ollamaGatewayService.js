@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const { guardedFetch } = require('../../security/remoteFetchGuardService');
 const { getBreaker } = require('../../utils/circuitBreaker');
 const logger = require('../../utils/logger');
 
@@ -74,15 +74,29 @@ const performOllamaHttpRequest = async (url, {
     method = 'POST',
     body = undefined,
     timeoutMs,
-} = {}) => fetch(url, {
-    method,
-    headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    timeout: timeoutMs,
-});
+} = {}) => {
+    let host = '';
+    try {
+        host = new URL(url).hostname;
+    } catch {
+        // Invalid URLs are rejected by the egress guard.
+    }
+    // Ollama is commonly self-hosted on internal networks, so operator
+    // configuration decides the destination; the allowlist above pins every
+    // request (and redirect hop) to that host.
+    return guardedFetch(url, {
+        allowedHosts: host ? [host] : [],
+        validateDns: false,
+        allowPrivateTarget: true,
+        method,
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        timeoutMs: toPositiveNumber(timeoutMs, DEFAULT_TIMEOUT_MS),
+    });
+};
 
 const executeOllamaRequest = async (path, {
     method = 'POST',

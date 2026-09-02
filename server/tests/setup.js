@@ -38,9 +38,34 @@ process.env.OTP_SMS_ENABLED = process.env.OTP_SMS_ENABLED || 'true';
 process.env.OTP_SMS_FAIL_CLOSED = process.env.OTP_SMS_FAIL_CLOSED || 'true';
 process.env.OTP_SMS_SEND_IN_TEST = process.env.OTP_SMS_SEND_IN_TEST || 'true';
 
+// Parallel-worker safety: scope the auth vault file per Jest worker so
+// concurrent test files never clobber each other's vault state.
+const TEST_JEST_WORKER_ID = process.env.JEST_WORKER_ID || '1';
+process.env.AUTH_VAULT_FILE = `auth-vault.test.w${TEST_JEST_WORKER_ID}.json`;
+
 const FALLBACK_TEST_URI = 'mongodb://127.0.0.1:27017/aura_test';
 
 const normalizeUri = (uri) => String(uri || '').trim().replace(/\/+$/, '');
+
+// Parallel-worker safety: when multiple Jest workers share one MongoDB
+// (TEST_MONGO_URI), give each worker its own database so afterEach cleanups
+// in one worker cannot wipe another worker's data. In-memory Mongo URIs are
+// per-file instances on random ports and are never passed through this.
+const workerScopedMongoUri = (uri) => {
+    try {
+        const parsed = new URL(uri);
+        if (!parsed.protocol.startsWith('mongodb')) {
+            return uri;
+        }
+        const dbName = parsed.pathname.replace(/^\/+/, '');
+        const scopedDb = dbName ? `${dbName}_w${TEST_JEST_WORKER_ID}` : `aura_test_w${TEST_JEST_WORKER_ID}`;
+        parsed.pathname = `/${scopedDb}`;
+        return parsed.toString();
+    } catch {
+        // Non-standard URI (e.g. multi-host seed list); leave unscoped rather than break connection.
+        return uri;
+    }
+};
 
 const TEST_MONGO_URI = process.env.TEST_MONGO_URI || FALLBACK_TEST_URI;
 
@@ -62,19 +87,9 @@ const shouldPreferInMemoryMongo = () => {
 
 const shouldFallbackToInMemoryMongo = () => parseBoolean(process.env.TEST_FALLBACK_TO_IN_MEMORY_MONGO, true);
 const shouldRequireTransactionMongo = () => parseBoolean(process.env.TEST_REQUIRE_TRANSACTION_MONGO, false);
-const NO_DB_TEST_FILES = new Set([
-    'paymentArchitectureFoundation.test.js',
-    'stagingFrontendCors.test.js',
-    'frontendSecretlessScanner.test.js',
-    'invisibleFabricAuthz.test.js',
-    'invisibleFabricConfig.test.js',
-    'invisibleFabricMiddleware.test.js',
-    'moneyMinorBackfillAudit.test.js',
-    'moneyMinorStorage.test.js',
-    'responseMinimizer.test.js',
-    'routeExposureRegistry.test.js',
-    'trustedEdgeMiddleware.test.js',
-]);
+// Single source of truth: DB-less test files live in config/test-tiers.json
+// (consumed also by scripts/run-test-tier.mjs).
+const NO_DB_TEST_FILES = new Set(require('../../config/test-tiers.json').server.noDbFiles);
 
 const shouldSkipDbSetup = () => {
     if (parseBoolean(process.env.TEST_SKIP_DB_SETUP, false)) {
@@ -101,7 +116,7 @@ const startInMemoryMongo = async () => {
                     count: 1,
                     storageEngine: 'wiredTiger',
                 },
-                instanceOpts: [{ dbName: 'aura_test' }],
+                instanceOpts: [{ dbName: 'aura_test', launchTimeout: 30000 }],
             });
         }
         return memoryReplicaSet.getUri();
@@ -110,7 +125,7 @@ const startInMemoryMongo = async () => {
     if (!memoryServer) {
         memoryServer = await MongoMemoryServer.create({
             binary: { version: '7.0.11' },
-            instance: { dbName: 'aura_test' },
+            instance: { dbName: 'aura_test', launchTimeout: 30000 },
         });
     }
     return memoryServer.getUri();
@@ -198,6 +213,9 @@ beforeAll(async () => {
     }
 
     if (mongoose.connection.readyState === 0) {
+        if (connectUri === TEST_MONGO_URI) {
+            connectUri = workerScopedMongoUri(connectUri);
+        }
         try {
             await mongoose.connect(connectUri, {
                 serverSelectionTimeoutMS: 5000,

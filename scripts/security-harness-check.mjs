@@ -169,47 +169,26 @@ addCheck(
   'advisory ID + reason + expires exception contract'
 );
 
-const temporaryRouterAdvisory = 'GHSA-qwww-vcr4-c8h2';
-const temporaryRouterExceptions = dependencyAuditExceptions.filter(
-  (exception) => exception.advisoryIds?.includes(temporaryRouterAdvisory)
-);
-const temporaryRouterExpiry = '2026-08-09';
-const dependencyReviewAllowList = securityGatesWorkflow
-  .match(/^\s*allow-ghsas:\s*([^\r\n#]+)/m)?.[1]
-  ?.trim();
+const retiredRouterAdvisory = 'GHSA-qwww-vcr4-c8h2';
+const appPackageLock = readJson('app/package-lock.json');
+const reactRouterVersion = String(appPackageLock.packages?.['node_modules/react-router']?.version || '');
+const reactRouterDomVersion = String(appPackageLock.packages?.['node_modules/react-router-dom']?.version || '');
+const atLeastPatched = (version) => {
+  const [major, minor, patch] = String(version || '0').split('.').map(Number);
+  if (major !== 7) return major > 7;
+  if (minor !== 18) return minor > 18;
+  return patch >= 2;
+};
 
 addCheck(
-  'temporary React Router RSC exception stays exact and expiring',
-  temporaryRouterExceptions.length === 2
-    && temporaryRouterExceptions.every((exception) => (
-      exception.workspace === 'app'
-      && ['react-router', 'react-router-dom'].includes(exception.name)
-      && exception.severity === 'high'
-      && exception.advisoryIds.length === 1
-      && exception.expires === temporaryRouterExpiry
-      && Number.isFinite(new Date(exception.expires).getTime())
-      && new Date(exception.expires).getTime() >= Date.now()
-      && exception.reason?.includes(temporaryRouterAdvisory)
-    ))
-    && dependencyReviewAllowList === temporaryRouterAdvisory
-    && includesAll(appOsvScannerConfig, [
-      `id = "${temporaryRouterAdvisory}"`,
-      `ignoreUntil = ${temporaryRouterExpiry}`,
-      'React Server Components',
-    ])
-    && includesAll(trivyIgnoreConfig, [
-      `id: ${temporaryRouterAdvisory}`,
-      'paths:',
-      '- app/package-lock.json',
-      'purls:',
-      '- pkg:npm/react-router@7.18.1',
-      `expired_at: ${temporaryRouterExpiry}`,
-      'React Server Components',
-    ])
-    && includesAll(securityDockerTool, [
-      "'--ignorefile', '/scan/.trivyignore.yaml'",
-    ]),
-  'one GHSA only; npm, OSV, Trivy, and dependency-review exceptions expire 2026-08-09'
+  'temporary React Router RSC exception is retired and the patched floor is held',
+  !dependencyAuditExceptions.some((exception) => exception.advisoryIds?.includes(retiredRouterAdvisory))
+    && !/allow-ghsas:/m.test(securityGatesWorkflow)
+    && !appOsvScannerConfig.includes(retiredRouterAdvisory)
+    && !trivyIgnoreConfig.includes(retiredRouterAdvisory)
+    && atLeastPatched(reactRouterVersion)
+    && atLeastPatched(reactRouterDomVersion),
+  `react-router ${reactRouterVersion} / react-router-dom ${reactRouterDomVersion} include the 7.18.2 fix; no exception may return without an expiry`
 );
 
 addCheck(

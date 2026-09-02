@@ -2,9 +2,9 @@ const crypto = require('crypto');
 const fs = require('fs/promises');
 const path = require('path');
 const firebaseAdmin = require('firebase-admin');
-const fetch = require('node-fetch');
 const mongoose = require('mongoose');
 const xss = require('xss');
+const { guardedFetch } = require('../security/remoteFetchGuardService');
 
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -2158,7 +2158,13 @@ const runHttpCheck = async (component) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), Number(component.timeoutMs || 5000));
     try {
-        const response = await fetch(url.toString(), {
+        const response = await guardedFetch(url.toString(), {
+            // assertAllowedMonitorUrl already enforced the operator allowlist
+            // and private-host policy; explicitly allowlisted internal
+            // monitors are a deliberate configuration.
+            allowedHosts: [url.hostname.toLowerCase()],
+            validateDns: false,
+            allowPrivateTarget: true,
             method: component.checkMethod || 'GET',
             signal: controller.signal,
             headers: { 'User-Agent': 'AuraStatusMonitor/1.0' },
