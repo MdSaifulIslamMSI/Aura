@@ -14,6 +14,18 @@ const lockfiles = [
 const findings = [];
 const missing = [];
 
+// Accepted deprecations: upstream-deprecated packages we intentionally keep
+// until a tracked migration lands. Keyed by `${lockfile} :: ${packagePath}`.
+// Removing an entry requires completing the migration, not silencing the gate.
+const acceptedDeprecations = new Map([
+  [
+    'server/package-lock.json :: node_modules/prom-client',
+    'prom-client is deprecated upstream in favor of @prometheus-io/client. ' +
+      'The metrics surface (metrics middleware, telemetry services) spans 8 modules; ' +
+      'migration is tracked as dedicated follow-up work, not bundled with dependency refreshes.',
+  ],
+]);
+
 for (const lockfile of lockfiles) {
   const absolutePath = path.join(rootDir, lockfile);
 
@@ -31,6 +43,13 @@ for (const lockfile of lockfiles) {
 
   for (const [packagePath, metadata] of Object.entries(packages)) {
     if (!metadata || !metadata.deprecated) continue;
+
+    const lockfileKey = lockfile.split(path.sep).join('/');
+    const accepted =
+      acceptedDeprecations.get(`${lockfileKey} :: ${packagePath}`) ||
+      acceptedDeprecations.get(`* :: ${packagePath}`);
+
+    if (accepted) continue;
 
     findings.push({
       lockfile,
