@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -83,7 +83,7 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -128,7 +128,7 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -166,7 +166,7 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -211,7 +211,7 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -254,7 +254,7 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -290,7 +290,7 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -319,7 +319,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -345,7 +345,7 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -392,7 +392,7 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: github.event_name != 'pull_request'
         with:
           node-version: ${{ env.NODE_VERSION }}
