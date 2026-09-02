@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
-  Github,
   Loader2,
   Lock,
   Mail,
@@ -14,6 +13,7 @@ import {
   ShieldCheck,
   User,
 } from 'lucide-react';
+import { Github } from '@/components/ui/BrandIcons';
 import { AuthFeedback } from '@/components/shared/AuthFeedback';
 import AuraTrustedDeviceChallenge from '@/components/features/auth/AuraTrustedDeviceChallenge';
 import MfaChallengePanel from '@/components/features/auth/MfaChallengePanel';

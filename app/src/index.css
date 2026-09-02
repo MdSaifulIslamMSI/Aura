@@ -1,6 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@config "../tailwind.config.js";
+
+/* Legacy dark-mode selector support for the JS config's class strategy. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
@@ -921,6 +924,73 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
 
 /* Pruned Crazy Mode visual bloat. */
 
+/* Tailwind v4: classes that other rules @apply must be registered as
+   utilities via @utility instead of @layer components. */
+@utility premium-panel {
+  @apply relative overflow-hidden rounded-[1.9rem] border shadow-glass;
+  background:
+    radial-gradient(circle at top right, rgb(var(--theme-primary-rgb) / 0.14), transparent 34%),
+    radial-gradient(circle at bottom left, rgb(var(--theme-secondary-rgb) / 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(8, 13, 26, 0.88), rgba(5, 9, 20, 0.9));
+  border-color: rgb(255 255 255 / 0.09);
+  box-shadow:
+    0 30px 80px rgba(2, 8, 23, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 18%);
+    opacity: 0.7;
+  }
+}
+
+@utility premium-grid-backdrop {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+      linear-gradient(rgb(255 255 255 / 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent 82%);
+    opacity: 0.5;
+  }
+}
+
+@utility premium-chip {
+  @apply inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold text-slate-100;
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+@utility premium-hero-panel {
+  @apply premium-panel;
+  background:
+    radial-gradient(circle at top left, rgb(var(--theme-primary-rgb) / 0.22), transparent 32%),
+    radial-gradient(circle at top right, rgb(var(--theme-secondary-rgb) / 0.2), transparent 28%),
+    linear-gradient(135deg, rgba(7, 12, 24, 0.96), rgba(8, 16, 32, 0.92));
+}
+
+@utility admin-premium-subpanel {
+  @apply rounded-[1.45rem] border p-4;
+  background:
+    radial-gradient(circle at top right, rgb(var(--theme-primary-rgb) / 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(9, 15, 31, 0.78), rgba(6, 10, 22, 0.84));
+  border-color: rgb(255 255 255 / 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 48px rgba(2, 8, 23, 0.2);
+}
+
 @layer components {
   .aura-app-shell {
     position: relative;
@@ -935,35 +1005,6 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
 
   .premium-page-frame {
     @apply mx-auto w-full max-w-[88rem] px-4 sm:px-6 lg:px-8;
-  }
-
-  .premium-panel {
-    @apply relative overflow-hidden rounded-[1.9rem] border shadow-glass;
-    background:
-      radial-gradient(circle at top right, rgb(var(--theme-primary-rgb) / 0.14), transparent 34%),
-      radial-gradient(circle at bottom left, rgb(var(--theme-secondary-rgb) / 0.12), transparent 32%),
-      linear-gradient(180deg, rgba(8, 13, 26, 0.88), rgba(5, 9, 20, 0.9));
-    border-color: rgb(255 255 255 / 0.09);
-    box-shadow:
-      0 30px 80px rgba(2, 8, 23, 0.42),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  }
-
-  .premium-panel::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 18%);
-    opacity: 0.7;
-  }
-
-  .premium-hero-panel {
-    @apply premium-panel;
-    background:
-      radial-gradient(circle at top left, rgb(var(--theme-primary-rgb) / 0.22), transparent 32%),
-      radial-gradient(circle at top right, rgb(var(--theme-secondary-rgb) / 0.2), transparent 28%),
-      linear-gradient(135deg, rgba(7, 12, 24, 0.96), rgba(8, 16, 32, 0.92));
   }
 
   .premium-stat-card {
@@ -990,13 +1031,6 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
     @apply text-sm leading-7 text-slate-300 md:text-base;
   }
 
-  .premium-chip {
-    @apply inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold text-slate-100;
-    border-color: rgb(255 255 255 / 0.1);
-    background: rgb(255 255 255 / 0.05);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  }
-
   .premium-chip-muted {
     @apply premium-chip text-slate-300;
     background: rgb(255 255 255 / 0.03);
@@ -1005,24 +1039,6 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
   .premium-divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.12), transparent);
-  }
-
-  .premium-grid-backdrop {
-    position: relative;
-  }
-
-  .premium-grid-backdrop::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    border-radius: inherit;
-    background:
-      linear-gradient(rgb(255 255 255 / 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(255 255 255 / 0.03) 1px, transparent 1px);
-    background-size: 56px 56px;
-    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent 82%);
-    opacity: 0.5;
   }
 
   .aura-home-hero-shell {
@@ -2927,17 +2943,6 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
 
   .admin-premium-panel {
     @apply premium-panel premium-grid-backdrop p-5 md:p-6;
-  }
-
-  .admin-premium-subpanel {
-    @apply rounded-[1.45rem] border p-4;
-    background:
-      radial-gradient(circle at top right, rgb(var(--theme-primary-rgb) / 0.1), transparent 34%),
-      linear-gradient(180deg, rgba(9, 15, 31, 0.78), rgba(6, 10, 22, 0.84));
-    border-color: rgb(255 255 255 / 0.08);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.04),
-      0 16px 48px rgba(2, 8, 23, 0.2);
   }
 
   .admin-premium-stat-card {

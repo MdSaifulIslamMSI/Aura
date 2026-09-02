@@ -4,16 +4,13 @@ import {
   Mail,
   Phone,
   MapPin,
-  Facebook,
-  Twitter,
-  Instagram,
-  Youtube,
   CreditCard,
   ShieldCheck,
   Activity,
   Server,
   Lock,
 } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Youtube } from '@/components/ui/BrandIcons';
 import { trustApi } from '@/services/api';
 import { useMarket } from '@/context/MarketContext';
 import { buildSupportHandoffPath } from '@/utils/supportRouting';

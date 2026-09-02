@@ -1,3 +1,4 @@
+import { Github } from "@/components/ui/BrandIcons";
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useIntl } from 'react-intl';
@@ -8,7 +9,6 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
-  Github,
   Loader2,
   Lock,
   Mail,
