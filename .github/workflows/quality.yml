@@ -69,6 +69,13 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Build frontend bundle
+        working-directory: app
+        run: npx vite build
+
+      - name: Check admin chunk isolation from the public shell
+        run: npm run security:admin-chunk-isolation
+
   repo-hygiene:
     name: Repo hygiene
     runs-on: ubuntu-latest
