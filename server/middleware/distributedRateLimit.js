@@ -1,4 +1,5 @@
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
+const { isRequestExecutionClosed } = require('./requestTimeouts');
 const logger = require('../utils/logger');
 
 const memoryStore = new Map();
@@ -171,6 +172,8 @@ const createDistributedRateLimit = ({
                 state = computeMemoryWindow(storeKey, windowMs);
             }
 
+            if (isRequestExecutionClosed(req, res)) return undefined;
+
             if (!state) {
                 return failClosedIfRequired(res, skipRedis ? 'redis_circuit_open' : 'redis_unavailable')
                     || res.status(503).json(buildRedisUnavailablePayload(req));
@@ -185,6 +188,8 @@ const createDistributedRateLimit = ({
             }
             return next();
         } catch (error) {
+            if (isRequestExecutionClosed(req, res)) return undefined;
+
             logger.error('rate_limit.unexpected_error', {
                 limiter: limiterName,
                 error: error?.message || 'unknown error',

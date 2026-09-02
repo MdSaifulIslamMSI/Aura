@@ -31,6 +31,7 @@ jobs:
       SMOKE_REQUIRE_BACKEND_STAGING: "true"
       SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
       SMOKE_REQUIRE_SCANNER_READY: "true"
+      SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED: "true"
     steps:
       - name: Staging infra paused - skip live checks
         if: vars.STAGING_INFRA_PAUSED == 'true'

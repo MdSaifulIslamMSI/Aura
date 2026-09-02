@@ -22,6 +22,7 @@ export SMOKE_BASE_URL="$staging_base_url"
 export SMOKE_REQUIRE_BACKEND_STAGING="true"
 export SMOKE_FORBID_PRODUCTION_ORIGINS="true"
 export SMOKE_REQUIRE_SCANNER_READY="${SMOKE_REQUIRE_SCANNER_READY:-false}"
+export SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED="${SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED:-false}"
 export PROD_SSM_PREFIX="/aura/prod"
 if [ -n "$staging_frontend_url" ]; then
   export STAGING_FRONTEND_URL="$staging_frontend_url"
@@ -29,7 +30,8 @@ fi
 
 node "$(node_path "$REPO_ROOT/scripts/smoke/assert-staging-contract.mjs")"
 if ! node "$(node_path "$REPO_ROOT/scripts/smoke/staging-route-smoke.mjs")"; then
-  if [ "${SMOKE_REQUIRE_SCANNER_READY:-false}" = "true" ]; then
+  if [ "${SMOKE_REQUIRE_SCANNER_READY:-false}" = "true" ] \
+    && [ "${SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED:-false}" != "true" ]; then
     bash "$SCRIPT_DIR/17-diagnose-scanner.sh" || true
   fi
   exit 1

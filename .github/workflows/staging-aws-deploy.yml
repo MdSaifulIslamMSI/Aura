@@ -85,6 +85,7 @@ jobs:
       SMOKE_REQUIRE_BACKEND_STAGING: "true"
       SMOKE_FORBID_PRODUCTION_ORIGINS: "true"
       SMOKE_REQUIRE_SCANNER_READY: "true"
+      SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED: "true"
       STAGING_SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
       STAGING_ACCOUNT_SMOKE_EMAIL: ${{ secrets.STAGING_ACCOUNT_SMOKE_EMAIL }}
       STAGING_ACCOUNT_SMOKE_PASSWORD: ${{ secrets.STAGING_ACCOUNT_SMOKE_PASSWORD }}
@@ -360,6 +361,7 @@ jobs:
             printf 'ACCOUNT_MIGRATION_BACKUP_EVIDENCE=%s\n' "${BACKUP_EVIDENCE}"
             printf 'ACCOUNT_MIGRATION_ROLLBACK_SHA=%s\n' "${QUALIFICATION_ROLLBACK_SHA}"
             printf 'ACCOUNT_MIGRATION_RUN_ID=account-center-%s\n' "${GITHUB_RUN_ID}"
+            printf 'SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED=%s\n' "${SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED}"
           } >> .staging/account-center-qualification.env
           scp -F .staging/ssh_config \
             .staging/account-center-qualification.env \
@@ -479,6 +481,7 @@ jobs:
             -e SMOKE_BASE_URL \
             -e SMOKE_TARGET_ENV \
             -e SMOKE_STAGING_ISOLATED \
+            -e SMOKE_ACCEPT_SCANNER_DISABLED_FAIL_CLOSED \
             -e STAGING_SSM_PREFIX \
             -e PROD_BASE_URL \
             -e PROD_API_BASE_URL \

@@ -140,7 +140,7 @@ const {
 const {
     getCachedHealthSnapshot,
 } = require('./services/healthService');
-const { checkClamAvReady } = require('./services/malwareScanService');
+const { checkClamAvReady, getMalwareScanConfig } = require('./services/malwareScanService');
 const {
     buildStartupReadinessFailure,
     getReadinessGraceState,
@@ -604,21 +604,31 @@ const buildStagingHealthFingerprint = async (core) => {
     if (!isStagingRuntime()) return {};
 
     const ssmPrefix = String(process.env.STAGING_SSM_PREFIX || process.env.AWS_PARAMETER_STORE_PATH_PREFIX || '').trim();
-    const scannerHealth = await checkClamAvReady({ timeoutMs: 1000 }).catch((error) => ({
-        ready: false,
-        detail: error?.message || 'scanner readiness failed',
-    }));
+    const scannerConfig = getMalwareScanConfig();
+    const scannerDisabledFailClosed = !scannerConfig.enabled
+        && !scannerConfig.clamAvEnabled
+        && !scannerConfig.yaraEnabled
+        && scannerConfig.failClosed;
+    const scannerHealth = scannerDisabledFailClosed
+        ? { ready: false, detail: 'scanner disabled in fail-closed mode' }
+        : await checkClamAvReady({ timeoutMs: 1000 }).catch((error) => ({
+            ready: false,
+            detail: error?.message || 'scanner readiness failed',
+        }));
     const database = core.dbConnected ? 'staging' : 'not_ready';
     const cache = core.redisConnected ? 'staging' : 'not_ready';
     const storage = getStagingStorageFingerprint();
-    const scanner = scannerHealth.ready ? 'ready' : 'not_ready';
+    const scanner = scannerDisabledFailClosed
+        ? 'disabled_fail_closed'
+        : (scannerHealth.ready ? 'ready' : 'not_ready');
+    const scannerSafe = scanner === 'ready' || scanner === 'disabled_fail_closed';
 
     return {
         ok: ssmPrefix === STAGING_HEALTH_SSM_PREFIX
             && database === 'staging'
             && cache === 'staging'
             && storage === 'staging'
-            && scanner === 'ready',
+            && scannerSafe,
         env: 'staging',
         ssmPrefix,
         database,
