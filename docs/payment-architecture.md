@@ -169,3 +169,14 @@ npm.cmd --prefix server test -- --runTestsByPath tests/paymentIntentCreateCartQu
 ```
 
 Broaden to the rest of the payment tests before changing production payment behavior.
+
+## CI stability note (September 2026)
+
+The Payment Architecture workflow executes the server regression tier (88 suites) in a
+single shared jest process. `server/middleware/loadShedding.js` sheds sheddable routes
+with 503 when event-loop lag exceeds `TRAFFIC_FORTRESS_MAX_EVENT_LOOP_LAG_MS`; in the
+shared test process, test execution itself produces lag spikes, so lag-based shedding is
+skipped when `NODE_ENV=test` unless overload is explicitly forced via
+`TRAFFIC_FORTRESS_FORCE_OVERLOAD=yes` (see PR #399). Production shedding behavior is
+unchanged.
+

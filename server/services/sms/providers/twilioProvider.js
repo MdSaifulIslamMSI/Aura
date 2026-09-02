@@ -1,6 +1,9 @@
 const AppError = require('../../../utils/AppError');
+const { guardedFetch } = require('../../../security/remoteFetchGuardService');
 const BaseSmsProvider = require('./baseProvider');
 const { flags } = require('../../../config/otpSmsFlags');
+
+const TWILIO_API_HOST = 'api.twilio.com';
 
 const normalizeTwilioError = (error, statusCode) => {
     const message = String(error?.message || 'Failed to send OTP SMS via Twilio');
@@ -75,7 +78,7 @@ class TwilioProvider extends BaseSmsProvider {
 
         const routing = resolveTwilioRouting({ channel, toPhone });
 
-        const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(flags.twilioAccountSid)}/Messages.json`;
+        const endpoint = `https://${TWILIO_API_HOST}/2010-04-01/Accounts/${encodeURIComponent(flags.twilioAccountSid)}/Messages.json`;
         const payload = new URLSearchParams({
             To: routing.to,
             From: routing.from,
@@ -85,13 +88,16 @@ class TwilioProvider extends BaseSmsProvider {
 
         let response;
         try {
-            response = await fetch(endpoint, {
+            response = await guardedFetch(endpoint, {
+                allowedHosts: [TWILIO_API_HOST],
+                validateDns: false,
                 method: 'POST',
                 headers: {
                     Authorization: `Basic ${Buffer.from(`${flags.twilioAccountSid}:${flags.twilioAuthToken}`).toString('base64')}`,
                     'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
                 },
                 body: payload.toString(),
+                timeoutMs: 15000,
             });
         } catch (networkError) {
             const normalized = normalizeTwilioError(networkError, 503);

@@ -66,6 +66,7 @@ const images = {
   checkov: process.env.CHECKOV_IMAGE || 'bridgecrew/checkov:3.2.485',
   tfsec: process.env.TFSEC_IMAGE || 'aquasec/tfsec:v1.28.14',
   terrascan: process.env.TERRASCAN_IMAGE || 'tenable/terrascan:1.19.9',
+  zizmor: process.env.ZIZMOR_IMAGE || 'ghcr.io/zizmorcore/zizmor:1.29.0',
 };
 
 const acceptedCheckovFindings = [
@@ -719,6 +720,23 @@ const runIac = () => {
   }
 };
 
+const runZizmor = () => {
+  const reportPath = path.join(reportDir, 'zizmor-report.sarif');
+  runDocker([
+    'run', '--rm',
+    '-v', repoAsSrcMount,
+    '-v', reportMount,
+    images.zizmor,
+    '--no-progress',
+    '--format', 'sarif',
+    '--output', '/zap/wrk/zizmor-report.sarif',
+    '/src/.github/workflows/',
+  ]);
+  if (!fs.existsSync(reportPath)) {
+    throw new Error('zizmor SARIF scan did not produce security-reports/zizmor-report.sarif');
+  }
+};
+
 const commands = {
   gitleaks: runGitleaks,
   semgrep: runSemgrep,
@@ -727,6 +745,7 @@ const commands = {
   zap: runZap,
   hadolint: runHadolint,
   iac: runIac,
+  zizmor: runZizmor,
 };
 
 if (!commands[tool]) {

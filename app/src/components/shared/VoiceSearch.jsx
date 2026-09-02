@@ -267,7 +267,7 @@ const VoiceSearch = ({
 
     recognition.onstart = () => {
       setIsListening(true);
-      setAssistantReply(intl.formatMessage({ id: 'voice.listening', defaultMessage: 'Listening for command...' }));
+      setAssistantReply(t('voice.listening', {}, 'Listening for command...'));
     };
 
     recognition.onresult = (event) => {

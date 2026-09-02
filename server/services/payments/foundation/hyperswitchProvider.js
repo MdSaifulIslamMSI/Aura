@@ -1,6 +1,24 @@
 const crypto = require('crypto');
-const fetch = require('node-fetch');
+const { guardedFetch } = require('../../../security/remoteFetchGuardService');
 const { PaymentDomainError, PaymentProviderError } = require('./domainErrors');
+
+const operatorFetch = (url, init = {}) => {
+    let host = '';
+    try {
+        host = new URL(url).hostname;
+    } catch {
+        // Invalid URLs are rejected by the egress guard.
+    }
+    return guardedFetch(url, {
+        allowedHosts: host ? [host] : [],
+        validateDns: false,
+        allowPrivateTarget: true,
+        method: init.method,
+        headers: init.headers,
+        body: init.body,
+        signal: init.signal,
+    });
+};
 const {
     validatePaymentIntentInput,
     assertMinorUnitMoney,
@@ -19,7 +37,7 @@ class HyperswitchProvider {
         this.merchantId = options.merchantId;
         this.webhookSecret = options.webhookSecret;
         this.timeoutMs = options.timeoutMs || 5000;
-        this.fetchImpl = options.fetchImpl || fetch;
+        this.fetchImpl = options.fetchImpl || operatorFetch;
         this.runWithCircuitBreaker = createCircuitBreaker(options.circuitBreaker);
         this.retryOptions = options.retryOptions || { retries: 2, initialDelayMs: 150, maxDelayMs: 1000 };
     }

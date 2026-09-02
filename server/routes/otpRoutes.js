@@ -4,6 +4,8 @@ const { rateLimit } = require('express-rate-limit');
 const router = express.Router();
 const { getOtpChallenge, sendOtp, verifyOtp, resetPasswordWithOtp, checkUserExists } = require('../controllers/otpController');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
+const { adaptiveRateLimit } = require('../middleware/adaptiveRateLimit');
+const { loginLockoutGate, authFailureRecorder } = require('../middleware/loginLockoutGate');
 const { requireTurnstile } = require('../middleware/turnstileMiddleware');
 const { startTrafficBudgetCommit } = require('../middleware/requestTimeouts');
 
@@ -95,10 +97,18 @@ const checkUserLimiter = createDistributedRateLimit({
     message: 'Too many account checks. Please wait before trying again.',
 });
 
+// Phase 5A: adaptive escalation (slow_down -> challenge -> contain) plus the
+// distributed per-account lockout gate run ahead of every OTP route; the
+// recorder turns 401-class responses into lockout failures.
+router.use(adaptiveRateLimit({ action: 'otp', windowMs: 5 * 60 * 1000, max: 20, skip: () => process.env.NODE_ENV === 'test' }));
+router.use(loginLockoutGate({ surface: 'otp' }));
+
 router.post('/challenge', checkUserLimiter, getOtpChallenge);
 router.post('/send', requireTurnstile({ routeName: 'otp_send' }), otpLimiter, beginAtomicOtpResponse, sendOtp);
 router.post('/verify', requireTurnstile({ routeName: 'otp_verify' }), verifyLimiter, beginAtomicOtpResponse, verifyOtp);
 router.post('/reset-password', resetPasswordScannerRateLimit, requireTurnstile({ routeName: 'otp_reset_password' }), resetPasswordNetworkLimiter, resetPasswordLimiter, beginAtomicOtpResponse, resetPasswordWithOtp);
 router.post('/check-user', requireTurnstile({ routeName: 'otp_check_user' }), checkUserLimiter, checkUserExists);
+
+router.use(authFailureRecorder({ surface: 'otp' }));
 
 module.exports = router;

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
-const fetch = require('node-fetch');
 const AppError = require('../../utils/AppError');
+const { guardedFetch } = require('../../security/remoteFetchGuardService');
 const { resolveAuthEnvironment } = require('../../config/authEnvironment');
 const { withTimeout } = require('../../utils/timeout');
 
@@ -40,9 +40,19 @@ const fetchJwks = async (jwksUrl = '', fetchJson = null) => {
         return cached.jwks;
     }
 
+    let host = '';
+    try {
+        host = new URL(url).hostname;
+    } catch {
+        // Invalid URLs are rejected by the egress guard.
+    }
+
     const jwks = fetchJson
         ? await fetchJson(url)
-        : await withTimeout(({ signal }) => fetch(url, {
+        : await withTimeout(({ signal }) => guardedFetch(url, {
+            allowedHosts: host ? [host] : [],
+            validateDns: false,
+            allowPrivateTarget: true,
             method: 'GET',
             headers: { accept: 'application/json' },
             signal,

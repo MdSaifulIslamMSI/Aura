@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const { guardedFetch } = require('../../../security/remoteFetchGuardService');
 
 const createLibreTranslateProvider = ({ baseUrl, timeoutMs }) => ({
     name: 'libretranslate',
@@ -10,8 +10,20 @@ const createLibreTranslateProvider = ({ baseUrl, timeoutMs }) => ({
             ? setTimeout(() => controller.abort(), timeoutMs)
             : null;
 
+        let host = '';
         try {
-            const response = await fetch(`${baseUrl}/translate`, {
+            host = new URL(baseUrl).hostname;
+        } catch {
+            // Invalid URLs are rejected by the egress guard.
+        }
+
+        try {
+            // LibreTranslate is often self-hosted on internal networks, so
+            // operator configuration decides the destination.
+            const response = await guardedFetch(`${baseUrl}/translate`, {
+                allowedHosts: host ? [host] : [],
+                validateDns: false,
+                allowPrivateTarget: true,
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
@@ -24,7 +36,7 @@ const createLibreTranslateProvider = ({ baseUrl, timeoutMs }) => ({
                     target: targetLanguage,
                 }),
                 signal: controller?.signal,
-                timeout: timeoutMs,
+                timeoutMs,
             });
 
             if (!response.ok) {

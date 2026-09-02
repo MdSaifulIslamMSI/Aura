@@ -13,6 +13,10 @@ const {
     buildRealListingsFilter,
     isRealListingDoc,
 } = require('../services/marketplaceIntegrityService');
+const {
+    authorizeListingEditor,
+    recordListingOwnerTuple,
+} = require('../services/authorization/openFgaService');
 const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
 const { buildSellerTrustPassport } = require('../services/sellerTrustService');
 const { assessFraudDecision } = require('../services/fraudDecisioningService');
@@ -579,6 +583,18 @@ const createListing = asyncHandler(async (req, res, next) => {
         });
     }
 
+    // Best-effort FGA tuple sync so the listing owner can be granted the
+    // `editor` relation the moment the listing exists (no-op unless the
+    // OpenFGA service is configured).
+    try {
+        await recordListingOwnerTuple({
+            userId: req.user._id.toString(),
+            listingId: String(listing._id),
+        });
+    } catch (tupleError) {
+        logger.warn('[listing] OpenFGA owner tuple sync failed', { error: tupleError.message });
+    }
+
     res.status(201).json({ success: true, listing });
 });
 
@@ -848,7 +864,15 @@ const updateListing = asyncHandler(async (req, res, next) => {
     const listing = await Listing.findById(req.params.id);
 
     if (!listing) return next(new AppError('Listing not found', 404));
-    if (listing.seller.toString() !== req.user._id.toString()) {
+    // Legacy seller-identity check + fine-grained FGA relation (listing:editor).
+    // Behavior is unchanged while OPENFGA_ENFORCEMENT_MODE is 'off'/'monitor'.
+    const isOwner = listing.seller.toString() === req.user._id.toString();
+    const listingAuthorization = await authorizeListingEditor({
+        userId: req.user._id.toString(),
+        listingId: String(listing._id),
+        legacyAllowed: isOwner,
+    });
+    if (!listingAuthorization.allowed) {
         return next(new AppError('Not authorized to edit this listing', 403));
     }
 
@@ -948,7 +972,13 @@ const deleteListing = asyncHandler(async (req, res, next) => {
     const listing = await Listing.findById(req.params.id);
 
     if (!listing) return next(new AppError('Listing not found', 404));
-    if (listing.seller.toString() !== req.user._id.toString()) {
+    const isOwner = listing.seller.toString() === req.user._id.toString();
+    const listingAuthorization = await authorizeListingEditor({
+        userId: req.user._id.toString(),
+        listingId: String(listing._id),
+        legacyAllowed: isOwner,
+    });
+    if (!listingAuthorization.allowed) {
         return next(new AppError('Not authorized', 403));
     }
 

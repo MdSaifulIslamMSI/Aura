@@ -465,7 +465,10 @@ const verifyTotpLogin = asyncHandler(async (req, res) => {
 const disableTotp = asyncHandler(async (req, res) => {
     assertMfaFeature({ method: MFA_METHODS.TOTP });
     if (!startTrafficBudgetCommit(req, res)) return undefined;
-    const user = await disableTotpAfterFreshMfa({ userId: req.user?._id });
+    const user = await disableTotpAfterFreshMfa({
+        userId: req.user?._id,
+        session: req.authSession || null,
+    });
     await invalidateUserCache(req.authUid || '');
     await invalidateUserCacheByEmail(req.user?.email || '');
     recordAuthSecurityEvent({

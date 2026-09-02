@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user"
+    },
+    {
+      "type": "listing",
+      "relations": {
+        "owner": { "this": {} },
+        "admin": { "this": {} },
+        "editor": {
+          "union": {
+            "child": [
+              { "computed_userset": { "relation": "owner" } },
+              { "computed_userset": { "relation": "admin" } }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "owner": { "directly_related_user_types": [{ "type": "user" }] },
+          "admin": { "directly_related_user_types": [{ "type": "user" }] }
+        }
+      }
+    },
+    {
+      "type": "order",
+      "relations": {
+        "buyer": { "this": {} },
+        "seller": { "this": {} },
+        "admin": { "this": {} },
+        "viewer": {
+          "union": {
+            "child": [
+              { "computed_userset": { "relation": "buyer" } },
+              { "computed_userset": { "relation": "seller" } },
+              { "computed_userset": { "relation": "admin" } }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "buyer": { "directly_related_user_types": [{ "type": "user" }] },
+          "seller": { "directly_related_user_types": [{ "type": "user" }] },
+          "admin": { "directly_related_user_types": [{ "type": "user" }] }
+        }
+      }
+    }
+  ]
+}

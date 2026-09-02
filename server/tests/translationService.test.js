@@ -1,6 +1,5 @@
-jest.mock('node-fetch', () => jest.fn());
-
-const fetch = require('node-fetch');
+const fetch = jest.fn();
+globalThis.fetch = fetch;
 const logger = require('../utils/logger');
 const {
     clearTranslationCache,
@@ -118,6 +117,10 @@ describe('translationService', () => {
             texts: ['Add to cart'],
             targetLanguage: 'es',
         });
+
+        // guardedFetch validates the URL before invoking fetch, which defers
+        // the call by a microtask; flush before asserting.
+        await Promise.resolve();
 
         expect(fetch).toHaveBeenCalledTimes(1);
 

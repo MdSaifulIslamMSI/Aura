@@ -2430,6 +2430,7 @@
   "desktopWelcome.desktopBuild": "Aura Marketplace Desktop",
   "desktopWelcome.eyebrow": "Installed desktop app",
   "desktopWelcome.openMarketplace": "Open marketplace",
+  "desktopWelcome.openMarketplacePanel": "Open marketplace",
   "desktopWelcome.platformChannel": "{platform} desktop channel",
   "desktopWelcome.releaseChannel": "Desktop release channel",
   "desktopWelcome.stableSignIn.detail": "The desktop runtime uses a stable local identity so closing the X does not create a new login origin.",

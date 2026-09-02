@@ -36,19 +36,28 @@ jobs:
       AUTH_OIDC_STATE_SECRET: ${{ secrets.STAGING_AUTH_OIDC_STATE_SECRET || secrets.AUTH_OIDC_STATE_SECRET || '' }}
       AUTH_VAULT_SECRET: ${{ secrets.STAGING_AUTH_VAULT_SECRET || secrets.AUTH_VAULT_SECRET || '' }}
     steps:
+      - name: Staging paused on PR - skip live checks
+        if: github.event_name == 'pull_request'
+        run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for staging-smoke" && exit 0
       - name: Checkout
-        uses: actions/checkout@v6
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        if: github.event_name != 'pull_request'
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
           cache: npm
 
       - name: Install dependencies
+        if: github.event_name != 'pull_request'
         run: npm ci
 
       - name: Check staging smoke target
+        if: github.event_name != 'pull_request'
         id: staging
         shell: bash
         run: |
@@ -80,6 +89,7 @@ jobs:
           echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Run staging Keycloak auth smoke gate
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -90,13 +100,13 @@ jobs:
           node scripts/auth/smoke.mjs "${args[@]}"
 
       - name: Validate staging environment contract
-        if: steps.staging.outputs.configured == 'true'
+        if: github.event_name != 'pull_request' && steps.staging.outputs.configured == 'true'
         run: node scripts/env/validate-env.mjs --environment staging --env-file config/environments/staging.example.env
 
       - name: Curl staging health
-        if: steps.staging.outputs.configured == 'true'
+        if: github.event_name != 'pull_request' && steps.staging.outputs.configured == 'true'
         run: curl --fail --show-error --silent --connect-timeout 5 --max-time 20 "${STAGING_HEALTH_URL}" > /dev/null
 
       - name: Run guarded staging smoke
-        if: steps.staging.outputs.configured == 'true'
+        if: github.event_name != 'pull_request' && steps.staging.outputs.configured == 'true'
         run: npm run smoke:staging

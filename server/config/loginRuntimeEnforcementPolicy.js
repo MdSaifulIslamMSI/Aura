@@ -16,7 +16,7 @@ const ACTIVATION_SEQUENCE = Object.freeze([
     'enable_privileged_jit_only_after_approval_workflow_exists',
 ]);
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 
 const parseBooleanFlag = (name, fallback = false) => {
     const normalized = safeString(process.env[name]).toLowerCase();

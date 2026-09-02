@@ -63,6 +63,9 @@ const DEFAULT_AWS_PARAMETER_KEYS = [
     'AI_INTERNAL_AUTH_SECRET',
     'AI_INTERNAL_AUTH_PREVIOUS_SECRETS',
     'AI_INTERNAL_TOOL_SECRET',
+    'DEVICE_FP_ATTEST_SECRET',
+    'SECURITY_EVENT_LEDGER_SECRET',
+    'OPENFGA_API_TOKEN',
 ];
 
 let localEnvLoaded = false;
@@ -76,7 +79,7 @@ let runtimePrimeResult = {
     pathPrefix: '',
 };
 
-const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+const { safeString } = require('../utils/safeString');
 const parseBoolean = (value, fallback = false) => {
     const normalized = safeString(value).toLowerCase();
     if (!normalized) return fallback;

@@ -9,7 +9,7 @@ const mockBreakerStats = jest.fn(() => ({
     openedAt: null,
 }));
 
-jest.mock('node-fetch', () => (...args) => mockFetch(...args));
+globalThis.fetch = mockFetch;
 jest.mock('../utils/circuitBreaker', () => ({
     getBreaker: jest.fn(() => ({
         call: mockBreakerCall,

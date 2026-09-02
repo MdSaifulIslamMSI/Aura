@@ -10,7 +10,6 @@ const mockBreakerStats = jest.fn(() => ({
 }));
 const mockDnsLookup = jest.fn();
 
-jest.mock('node-fetch', () => (...args) => mockFetch(...args));
 jest.mock('dns', () => ({
     promises: {
         lookup: (...args) => mockDnsLookup(...args),
@@ -26,6 +25,7 @@ jest.mock('../utils/circuitBreaker', () => ({
 describe('geminiGatewayService helpers', () => {
     beforeEach(() => {
         jest.resetModules();
+        globalThis.fetch = mockFetch;
         mockFetch.mockReset();
         mockDnsLookup.mockReset();
         mockBreakerCall.mockClear();
