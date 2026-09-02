@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs/promises');
 const path = require('path');
-const firebaseAdmin = require('firebase-admin');
+const { getApps } = require('firebase-admin/app');
 const mongoose = require('mongoose');
 const xss = require('xss');
 const { guardedFetch } = require('../security/remoteFetchGuardService');
@@ -2218,7 +2218,7 @@ const getHealthSignal = (component = {}) => String(component?.metadata?.healthSi
 
 const isSplitRuntimeEnabled = () => toBool(process.env.SPLIT_RUNTIME_ENABLED, false);
 
-const hasFirebaseAdminApp = () => Array.isArray(firebaseAdmin.apps) && firebaseAdmin.apps.length > 0;
+const hasFirebaseAdminApp = () => getApps().length > 0;
 
 const resolveCoreHealth = (snapshot = {}) => {
     const ok = Boolean(snapshot?.core?.dbConnected && snapshot?.core?.redisConnected);
