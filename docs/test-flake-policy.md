@@ -32,6 +32,13 @@
 2. Check duration vs timeout — compare the failing test's duration to the suite's `jest.setTimeout` (or 5s default). Near-timeout durations point at DB-seed latency.
 3. Check for cascade dup-key failures — a timed-out seed can leave partial documents; follow-on `E11000 duplicate key` errors in the same run are cascade noise, not new failures.
 
+## DB-free suites skip DB setup
+
+Suites that never touch mongoose/models (verified statically) belong in
+`config/test-tiers.json` `server.noDbFiles` so `server/tests/setup.js` skips
+the DB connect/cleanup hooks for them. This removes the 30s setup-hook flake
+surface for pure unit suites (e.g. the four `traffic*.test.js` policy suites).
+
 ## Aspiration
 
 Zero flakes, full-suite green. Add timeouts only to absorb CI latency — keep suites fast and investigate any suite that needs repeated bumps.
