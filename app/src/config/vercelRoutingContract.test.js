@@ -6,8 +6,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
     buildFrontendSecurityHeaders,
+    buildGatewayContentSecurityPolicy,
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
+    buildRenderBlueprint,
+    buildRenderGatewayServiceLines,
+    buildRenderProxyRoutes,
     DEFAULT_HOSTED_BACKEND_ORIGIN,
     FRONTEND_ASSET_CACHE_CONTROL,
     FRONTEND_DOCUMENT_CACHE_CONTROL,
@@ -37,6 +41,48 @@ const readNetlifyRedirects = async () => {
         }))
         .filter(({ from, to }) => from && to);
 };
+
+describe('render blueprint contract', () => {
+    it('emits proxy rewrites for every backend surface plus the root and SPA fallbacks', () => {
+        const routes = [
+            ...buildRenderProxyRoutes(DEFAULT_HOSTED_BACKEND_ORIGIN),
+            { type: 'rewrite', source: '/', destination: '/index.html' },
+            { type: 'rewrite', source: '/*', destination: '/index.html' },
+        ];
+
+        expect(routes[0]).toEqual({
+            type: 'rewrite',
+            source: '/socket.io',
+            destination: `${DEFAULT_HOSTED_BACKEND_ORIGIN}/socket.io/`,
+        });
+        expect(routes).toContainEqual({
+            type: 'rewrite',
+            source: '/api/*',
+            destination: `${DEFAULT_HOSTED_BACKEND_ORIGIN}/api/*`,
+        });
+        expect(routes.at(-2)).toEqual({ type: 'rewrite', source: '/', destination: '/index.html' });
+        expect(routes.at(-1)).toEqual({ type: 'rewrite', source: '/*', destination: '/index.html' });
+    });
+
+    it('generates the render.yaml blueprint with both static services', async () => {
+        const blueprint = buildRenderBlueprint(DEFAULT_HOSTED_BACKEND_ORIGIN);
+        const generated = await readFile(path.join(repoRoot, 'render.yaml'), 'utf8');
+
+        expect(blueprint).toBe(generated);
+        expect(blueprint).toContain('name: aura-storefront');
+        expect(blueprint).toContain('staticPublishPath: app/dist');
+        expect(blueprint).toContain('name: aura-gateway');
+        expect(blueprint).toContain('staticPublishPath: gateway');
+    });
+
+    it('keeps the gateway policy narrower than the storefront policy', () => {
+        const gateway = buildGatewayContentSecurityPolicy();
+
+        expect(gateway).toContain('connect-src \'self\' https://api.github.com');
+        expect(gateway).not.toContain('dbtrhsolhec1s.cloudfront.net');
+        expect(buildRenderGatewayServiceLines().join('\n')).toContain(gateway);
+    });
+});
 
 describe('vercel routing contract', () => {
     it('keeps root and app rewrites aligned to the hosted backend origin', async () => {

@@ -32,7 +32,8 @@ This repository is not a demo landing page. It is the operating surface for prod
 
 | Surface | URL | Role |
 |---|---|---|
-| Gateway | [aura-gateway.vercel.app](https://aura-gateway.vercel.app) | Public gateway and launch surface. |
+| Gateway | [aura-gateway.vercel.app](https://aura-gateway.vercel.app) | Public gateway and launch surface (Vercel). |
+| Gateway - Render | Aura gateway static site (connect `render.yaml` blueprint) | Same gateway artifact on Render; GitHub release API reads, no backend proxy. |
 | Storefront - Vercel | [aurapilot.vercel.app](https://aurapilot.vercel.app) | Primary hosted React storefront. |
 | Storefront - Netlify | [aurapilot.netlify.app](https://aurapilot.netlify.app) | Same storefront artifact on Netlify. |
 | AWS CloudFront | [dbtrhsolhec1s.cloudfront.net](https://dbtrhsolhec1s.cloudfront.net) | AWS-hosted production surface and same-origin backend proxy target. |

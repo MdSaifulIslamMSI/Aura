@@ -62,3 +62,44 @@ services:
       - path: /*
         name: Permissions-Policy
         value: "camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()"
+
+  - type: web
+    name: aura-gateway
+    runtime: static
+    buildCommand: echo "gateway is fully static; nothing to build"
+    staticPublishPath: gateway
+    previews:
+      generation: automatic
+    buildFilter:
+      paths:
+        - gateway/**
+        - render.yaml
+    routes:
+      - type: rewrite
+        source: /
+        destination: /index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: https:; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://api.github.com; frame-ancestors 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: "DENY"
+      - path: /*
+        name: X-Content-Type-Options
+        value: "nosniff"
+      - path: /*
+        name: Referrer-Policy
+        value: "no-referrer"
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: "same-origin-allow-popups"
+      - path: /*
+        name: Cross-Origin-Resource-Policy
+        value: "same-site"
+      - path: /*
+        name: Permissions-Policy
+        value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"

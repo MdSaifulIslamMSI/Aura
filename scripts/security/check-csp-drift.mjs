@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-// Phase 5B: CSP drift check. The Content-Security-Policy is maintained in five
-// places (app/index.html meta, vercel.json, netlify.toml, render.yaml, and the
-// Helmet config in server/index.js). This script asserts:
+// Phase 5B: CSP drift check. The storefront Content-Security-Policy is
+// maintained in five places (app/index.html meta, vercel.json, netlify.toml,
+// render.yaml storefront headers, and the Helmet config in server/index.js).
+// The gateway launch surface carries its own narrower policy (GitHub release
+// API reads, no backend edge); render.yaml gateway headers are checked
+// against that second canonical instead. This script asserts:
 //   1. The three static copies are semantically identical to the canonical
 //      policy in app/index.html (directive-by-directive, order-insensitive).
 //   2. The server-side imgSrc directive matches the canonical img-src sources.
@@ -10,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildGatewayContentSecurityPolicy } from '../../app/config/vercelRoutingContract.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoDir = path.resolve(scriptDir, '..', '..');
@@ -103,10 +107,14 @@ const parseDirectives = (value) => (
 const failures = [];
 const canonical = extractFromIndexHtml();
 
+const renderPolicies = extractFromRenderYaml();
+const renderStorefront = renderPolicies.slice(0, 1);
+const renderGateway = renderPolicies.slice(1);
+
 const others = [
     ...extractFromVercelJson().map((value, i) => ({ file: `vercel.json#${i + 1}`, value })),
     ...extractFromNetlifyToml().map((value, i) => ({ file: `netlify.toml#${i + 1}`, value })),
-    ...extractFromRenderYaml().map((value, i) => ({ file: `render.yaml#${i + 1}`, value })),
+    ...renderStorefront.map((value, i) => ({ file: `render.yaml#${i + 1}`, value })),
 ];
 const canonicalDirectives = parseDirectives(canonical);
 for (const other of others) {
@@ -120,6 +128,18 @@ for (const other of others) {
             `${other.file} CSP differs from app/index.html\n`
             + `    directives only in canonical: ${missing.join(' ; ') || '(none)'}\n`
             + `    directives only in ${other.file}: ${extra.join(' ; ') || '(none)'}`
+        );
+    }
+}
+
+// Gateway headers (render.yaml entries after the storefront policy) must match
+// the gateway canonical exactly; anything else is drift.
+const gatewayCanonical = parseDirectives(buildGatewayContentSecurityPolicy());
+for (const [i, value] of renderGateway.entries()) {
+    const gatewayDirectives = parseDirectives(value);
+    if (JSON.stringify(gatewayDirectives) !== JSON.stringify(gatewayCanonical)) {
+        failures.push(
+            `render.yaml gateway CSP #${i + 2} differs from the gateway canonical`
         );
     }
 }
