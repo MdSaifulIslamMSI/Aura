@@ -185,6 +185,15 @@ const validateAuthEnvironment = ({
         if (production && !config.requireMfaForAdmin) {
             failures.push('AUTH_REQUIRE_MFA_FOR_ADMIN=false is forbidden in production');
         }
+
+        // The declarative admin-MFA flag must agree with the runtime switch
+        // consumed by mfaPolicyService/trustedDeviceManagementService: a green
+        // contract with AUTH_REQUIRE_MFA_FOR_ADMIN=true but
+        // MFA_REQUIRED_FOR_ADMINS=false would declare protection the runtime
+        // never enforces.
+        if (production && config.requireMfaForAdmin && !config.mfa.requiredForAdmins) {
+            failures.push('MFA_REQUIRED_FOR_ADMINS must be true when AUTH_REQUIRE_MFA_FOR_ADMIN=true in production');
+        }
     }
 
     if (production && config.provider === 'legacy' && safeString(env.AUTH_PROVIDER) === '') {
