@@ -4,7 +4,7 @@ services:
   - type: web
     name: aura-storefront
     runtime: static
-    buildCommand: npm run build --prefix app
+    buildCommand: npm --prefix app ci && npm run build --prefix app
     staticPublishPath: app/dist
     previews:
       generation: automatic
@@ -34,6 +34,9 @@ services:
       - type: rewrite
         source: /uploads/*
         destination: https://dbtrhsolhec1s.cloudfront.net/uploads/*
+      - type: rewrite
+        source: /
+        destination: /index.html
       - type: rewrite
         source: /*
         destination: /index.html

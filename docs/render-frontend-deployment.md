@@ -4,6 +4,16 @@ Fourth static storefront lane (Vercel, Netlify, AWS CloudFront, Render).
 Same `app/dist` artifact, same backend proxy rewrites, same security
 headers — all generated from `app/config/vercelRoutingContract.mjs`.
 
+## Live service
+
+- URL: `https://aura-storefront.onrender.com`
+- Service: `aura-storefront` (static site, branch `main`, auto-deploy on
+  commit, PR previews automatic).
+- Routes/headers are managed to match `render.yaml`; after any routing
+  change, regenerate the blueprint, then re-apply rules to the live service
+  (Render API `PUT /services/{id}/headers`, `POST /services/{id}/routes`)
+  or reconnect the Blueprint in the dashboard.
+
 ## Connect (one-time, dashboard)
 
 1. Render Dashboard > New > Blueprint > select this repo.

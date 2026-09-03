@@ -307,6 +307,11 @@ const RENDER_PROXY_ROUTES = [
     { source: '/uploads/*', destination: '/uploads/*' },
 ];
 
+// Render serves published files before evaluating rules, but the bare
+// domain root needs an explicit rewrite: its `/*` wildcard does not match
+// `/`, and directory-index behavior is unreliable once rules exist.
+const RENDER_ROOT_REWRITE = { source: '/', destination: '/index.html' };
+
 export const buildRenderProxyRoutes = (origin = HOSTED_BACKEND_ORIGIN) => {
     assertAbsoluteHttpUrl(origin);
 
@@ -331,6 +336,7 @@ export const buildRenderBlueprint = (origin = HOSTED_BACKEND_ORIGIN) => {
     const headers = buildFrontendSecurityHeaderValues(backendOrigin);
     const routes = [
         ...buildRenderProxyRoutes(backendOrigin),
+        { type: 'rewrite', ...RENDER_ROOT_REWRITE },
         { type: 'rewrite', source: '/*', destination: '/index.html' },
     ];
 
@@ -341,7 +347,7 @@ export const buildRenderBlueprint = (origin = HOSTED_BACKEND_ORIGIN) => {
         '  - type: web',
         '    name: aura-storefront',
         '    runtime: static',
-        '    buildCommand: npm run build --prefix app',
+        '    buildCommand: npm --prefix app ci && npm run build --prefix app',
         '    staticPublishPath: app/dist',
         '    previews:',
         '      generation: automatic',
