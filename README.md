@@ -36,7 +36,7 @@ This repository is not a demo landing page. It is the operating surface for prod
 | Storefront - Vercel | [aurapilot.vercel.app](https://aurapilot.vercel.app) | Primary hosted React storefront. |
 | Storefront - Netlify | [aurapilot.netlify.app](https://aurapilot.netlify.app) | Same storefront artifact on Netlify. |
 | AWS CloudFront | [dbtrhsolhec1s.cloudfront.net](https://dbtrhsolhec1s.cloudfront.net) | AWS-hosted production surface and same-origin backend proxy target. |
-| Storefront - Render | Aura storefront static site (connect `render.yaml` blueprint) | Same storefront artifact on Render with backend rewrites. |
+| Storefront - Render | [aura-storefront.onrender.com](https://aura-storefront.onrender.com) | Same storefront artifact on Render with backend rewrites. |
 
 Production pages expose release traceability through `aura-release-id` and `aura-release-commit` meta tags. Treat those tags, the GitHub production workflow run, and read-only health probes as the source of truth for what is live.
 
