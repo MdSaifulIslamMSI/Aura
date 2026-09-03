@@ -1,0 +1,35 @@
+# Render Storefront Deployment
+
+Fourth static storefront lane (Vercel, Netlify, AWS CloudFront, Render).
+Same `app/dist` artifact, same backend proxy rewrites, same security
+headers — all generated from `app/config/vercelRoutingContract.mjs`.
+
+## Connect (one-time, dashboard)
+
+1. Render Dashboard > New > Blueprint > select this repo.
+2. Render detects `render.yaml` at the root and proposes service
+   `aura-storefront` (static, free plan by default).
+3. Apply. First deploy builds `npm run build --prefix app` and publishes
+   `app/dist` on the `.onrender.com` subdomain; add a custom domain after.
+
+## What the blueprint wires
+
+- Build: `npm run build --prefix app` → publishes `app/dist`.
+- Rewrites (proxy, top-down): `/socket.io`, `/socket.io/*`, `/api/*`,
+  `/health*`, `/uploads/*` → the CloudFront backend edge; `/*` →
+  `/index.html` SPA fallback. Existing files always win over rules.
+- Headers on `/*`: full CSP + deny/nosniff/referrer/COOP/CORP/
+  Permissions-Policy set, identical to Vercel/Netlify (drift-gated).
+- `previews.generation: automatic` — PR previews like the other lanes.
+- `buildFilter: app/**, render.yaml` — backend-only changes skip rebuilds.
+
+## Regenerate after routing changes
+
+`render.yaml` is generated — never hand-edit:
+
+```sh
+npm run vercel:routing:sync
+node scripts/security/check-csp-drift.mjs
+```
+
+The drift gate treats `render.yaml` as the fifth CSP copy.

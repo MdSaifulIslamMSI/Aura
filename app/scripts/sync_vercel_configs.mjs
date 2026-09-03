@@ -7,6 +7,7 @@ import {
     buildFrontendSecurityHeaderValues,
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
+    buildRenderBlueprint,
     assertDeployableHostedBackendOrigin,
     DEFAULT_HOSTED_BACKEND_ORIGIN,
     FRONTEND_META_CONTENT_SECURITY_POLICY,
@@ -39,6 +40,9 @@ for (const target of targets) {
 
     await writeFile(target, `${JSON.stringify(nextConfig, null, 4)}\n`);
 }
+
+const renderBlueprint = buildRenderBlueprint(hostedBackendOrigin);
+await writeFile(path.join(repoRoot, 'render.yaml'), renderBlueprint);
 
 const appIndexTarget = path.join(repoRoot, 'app', 'index.html');
 const appIndexHtml = await readFile(appIndexTarget, 'utf8');

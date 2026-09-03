@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Phase 5B: CSP drift check. The Content-Security-Policy is maintained in four
-// places (app/index.html meta, vercel.json, netlify.toml, and the Helmet config
-// in server/index.js). This script asserts:
+// Phase 5B: CSP drift check. The Content-Security-Policy is maintained in five
+// places (app/index.html meta, vercel.json, netlify.toml, render.yaml, and the
+// Helmet config in server/index.js). This script asserts:
 //   1. The three static copies are semantically identical to the canonical
 //      policy in app/index.html (directive-by-directive, order-insensitive).
 //   2. The server-side imgSrc directive matches the canonical img-src sources.
@@ -19,7 +19,7 @@ const read = (relative) => fs.readFileSync(path.join(repoDir, relative), 'utf8')
 const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
 // frame-ancestors is ignored inside <meta> per the CSP spec; the header copies
-// (vercel.json / netlify.toml / server) are the enforcement point. Strip it
+// (vercel.json / netlify.toml / render.yaml / server) are the enforcement point. Strip it
 // from all copies so the meta vs header comparison is apples to apples for the
 // directives the meta can actually enforce.
 const normalizeHeaderPolicy = (value) => (
@@ -53,6 +53,17 @@ const extractFromVercelJson = () => {
         Object.values(node).forEach(walk);
     };
     walk(json);
+    return [...values];
+};
+
+const extractFromRenderYaml = () => {
+    const source = read('render.yaml');
+    const values = new Set();
+    const pattern = /name:\s*Content-Security-Policy\s*\n\s*value:\s*"((?:[^"\\]|\\.)*)"/g;
+    let match;
+    while ((match = pattern.exec(source)) !== null) {
+        values.add(normalize(match[1].replace(/\\"/g, '"')));
+    }
     return [...values];
 };
 
@@ -95,6 +106,7 @@ const canonical = extractFromIndexHtml();
 const others = [
     ...extractFromVercelJson().map((value, i) => ({ file: `vercel.json#${i + 1}`, value })),
     ...extractFromNetlifyToml().map((value, i) => ({ file: `netlify.toml#${i + 1}`, value })),
+    ...extractFromRenderYaml().map((value, i) => ({ file: `render.yaml#${i + 1}`, value })),
 ];
 const canonicalDirectives = parseDirectives(canonical);
 for (const other of others) {
@@ -129,4 +141,4 @@ if (failures.length > 0) {
     process.exit(1);
 }
 
-console.log('[csp-drift] OK — CSP copies in app/index.html, vercel.json, netlify.toml, and server/index.js are in sync.');
+console.log('[csp-drift] OK — CSP copies in app/index.html, vercel.json, netlify.toml, render.yaml, and server/index.js are in sync.');
