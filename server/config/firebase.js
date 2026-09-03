@@ -1,8 +1,27 @@
 const fs = require('fs');
 const path = require('path');
-const admin = require('firebase-admin');
+const firebaseAdminApp = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
 require('colors');
 const logger = require('../utils/logger');
+
+// firebase-admin v14 no longer re-exports the full v13 namespace from the root
+// entry: credential, apps and the app()/auth() accessors moved to the
+// firebase-admin/app and firebase-admin/auth subpath modules. Rebuild the
+// namespace surface this codebase consumes so call sites stay unchanged.
+const admin = {
+    ...firebaseAdminApp,
+    credential: {
+        cert: firebaseAdminApp.cert,
+        applicationDefault: firebaseAdminApp.applicationDefault,
+        refreshToken: firebaseAdminApp.refreshToken,
+    },
+    get apps() {
+        return firebaseAdminApp.getApps();
+    },
+    app: (name) => (name ? firebaseAdminApp.getApp(name) : firebaseAdminApp.getApp()),
+    auth: () => getAuth(),
+};
 
 const isBlank = (value) => value === undefined || value === null || String(value).trim() === '';
 const isPlaceholder = (value) => {

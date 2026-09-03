@@ -9,6 +9,12 @@ jest.mock('../services/emergencyControlService', () => ({
     updateFlagMessage: jest.fn(),
 }));
 
+// Must be registered before requiring the controller (no babel hoisting for
+// project files â€” see server/jest.config.js scoped svix|jose transform).
+jest.mock('../models/EmergencyAuditLog', () => ({
+    find: jest.fn(),
+}));
+
 const {
     activateFlag,
     buildPublicStatus,
@@ -30,10 +36,6 @@ const {
     updateEmergencyControlMessage,
 } = require('../controllers/emergencyControlController');
 const EmergencyAuditLog = require('../models/EmergencyAuditLog');
-
-jest.mock('../models/EmergencyAuditLog', () => ({
-    find: jest.fn(),
-}));
 
 let auditLogStub = [];
 
