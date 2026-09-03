@@ -579,6 +579,11 @@ img {
   left: 4%;
 }
 
+.atlas-render {
+  top: 0;
+  left: 42%;
+}
+
 .atlas-telemetry {
   right: 1%;
   bottom: 10%;
@@ -650,7 +655,7 @@ img {
 
 .route-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.72rem;
   margin-top: 1rem;
 }
@@ -690,6 +695,10 @@ img {
 
 .route-link-aws::before {
   background: linear-gradient(90deg, rgba(216, 170, 88, 0.2), transparent 70%);
+}
+
+.route-link-render::before {
+  background: linear-gradient(90deg, rgba(70, 227, 183, 0.18), transparent 70%);
 }
 
 .route-link-control::before {

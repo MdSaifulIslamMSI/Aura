@@ -64,7 +64,7 @@
                 </a>
                 <a class="action-button" href="#routes">
                   <span>Choose another route</span>
-                  <small>Mirror, CloudFront, or AWS Control</small>
+                  <small>Mirror, CloudFront, Render, or AWS Control</small>
                 </a>
                 <a class="action-button action-device" href="#downloads" data-device-cta>
                   <span data-device-cta-label>Find your install lane</span>
@@ -74,12 +74,12 @@
 
               <p class="hero-lede">
                 One gateway introduces Aura&apos;s production stack, then hands you to the runtime or install channel
-                that fits your device. Vercel, Netlify, and AWS CloudFront stay separate at the edge while account,
+                that fits your device. Vercel, Netlify, AWS CloudFront, and Render stay separate at the edge while account,
                 cart, wishlist, checkout, profile, and order behavior keep one shared contract.
               </p>
 
               <ul class="hero-facts" aria-label="Gateway contract facts">
-                <li><strong>3</strong><span>storefront edges</span></li>
+                <li><strong>4</strong><span>storefront edges</span></li>
                 <li><strong>1</strong><span>shared behavior contract</span></li>
                 <li><strong>SHA-256</strong><span>gated release links</span></li>
               </ul>
@@ -95,6 +95,7 @@
               <div class="atlas-node atlas-vercel"><span>01</span><strong>Vercel</strong><small>Primary</small></div>
               <div class="atlas-node atlas-netlify"><span>02</span><strong>Netlify</strong><small>Mirror</small></div>
               <div class="atlas-node atlas-cloudfront"><span>03</span><strong>CloudFront</strong><small>Secure edge</small></div>
+              <div class="atlas-node atlas-render"><span>04</span><strong>Render</strong><small>Auto-deploy</small></div>
               <div class="atlas-telemetry"><span></span>Release intelligence resolves after first paint</div>
             </div>
 
@@ -144,8 +145,19 @@
                   <span class="route-arrow" aria-hidden="true"></span>
                 </a>
 
-                <a class="route-link route-link-control" href="https://aurapilot.vercel.app/admin/aws-control" rel="noreferrer">
+                <a class="route-link route-link-render" href="https://aura-storefront.onrender.com" rel="noreferrer">
                   <span class="route-index">04</span>
+                  <span class="route-icon" aria-hidden="true"></span>
+                  <span>
+                    <span class="route-role">Mirror storefront</span>
+                    <strong>aura-storefront.onrender.com</strong>
+                    <small>Auto-deploys from main</small>
+                  </span>
+                  <span class="route-arrow" aria-hidden="true"></span>
+                </a>
+
+                <a class="route-link route-link-control" href="https://aurapilot.vercel.app/admin/aws-control" rel="noreferrer">
+                  <span class="route-index">05</span>
                   <span class="route-icon" aria-hidden="true"></span>
                   <span>
                     <span class="route-role">Admin only</span>
@@ -1229,6 +1241,7 @@
           <a href="https://aurapilot.vercel.app" rel="noreferrer"><span>Primary</span>Vercel storefront</a>
           <a href="https://aurapilot.netlify.app" rel="noreferrer"><span>Mirror</span>Netlify storefront</a>
           <a href="https://dbtrhsolhec1s.cloudfront.net" rel="noreferrer"><span>AWS edge</span>CloudFront storefront</a>
+          <a href="https://aura-storefront.onrender.com" rel="noreferrer"><span>Mirror</span>Render storefront</a>
           <a href="https://aurapilot.vercel.app/admin/aws-control" aria-label="AWS Control, admin-only" rel="noreferrer"><span>Admin only</span>AWS Control</a>
         </nav>
 
