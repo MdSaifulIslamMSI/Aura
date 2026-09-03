@@ -71,6 +71,7 @@ describe('authEnvironment', () => {
             AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
             MFA_ENABLED: 'true',
             MFA_PASSKEY_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'true',
         };
 
         const result = validateAuthEnvironment({ env, runtimeEnv: 'production' });
@@ -143,6 +144,35 @@ describe('authEnvironment', () => {
             'MFA_ENABLED must be true when production admin passkeys are required',
             'MFA_PASSKEY_ENABLED must be true when production admin passkeys are required',
         ]));
+    });
+
+    test('requires the runtime admin-MFA switch when admin MFA is declared in production', () => {
+        const base = {
+            NODE_ENV: 'production',
+            AUTH_PROVIDER: 'keycloak',
+            AUTH_ISSUER_URL: 'https://idp.company.test/realms/aura',
+            AUTH_CLIENT_ID: 'aura-web',
+            AUTH_CLIENT_TYPE: 'public',
+            AUTH_OIDC_STATE_SECRET: 'prod-state-secret-with-more-than-32-characters',
+            AUTH_AUDIENCE: 'aura-web',
+            AUTH_REDIRECT_URI: 'https://app.company.test/auth/callback',
+            AUTH_POST_LOGOUT_REDIRECT_URI: 'https://app.company.test/login',
+            AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
+            MFA_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+        };
+
+        const declared = validateAuthEnvironment({ env: base, runtimeEnv: 'production' });
+        expect(declared.safe).toBe(false);
+        expect(declared.failures).toEqual(expect.arrayContaining([
+            'MFA_REQUIRED_FOR_ADMINS must be true when AUTH_REQUIRE_MFA_FOR_ADMIN=true in production',
+        ]));
+
+        const enforced = validateAuthEnvironment({
+            env: { ...base, MFA_REQUIRED_FOR_ADMINS: 'true' },
+            runtimeEnv: 'production',
+        });
+        expect(enforced.safe).toBe(true);
     });
 
     test('forbids disabling admin MFA in production', () => {
