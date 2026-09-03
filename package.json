@@ -78,6 +78,7 @@
     "security:login-live-readiness": "node scripts/validate-login-live-readiness.mjs",
     "security:login-next10": "node scripts/validate-login-architecture-next10.mjs && node scripts/validate-login-live-readiness.mjs && npm --prefix server test -- --runTestsByPath tests/authRiskEngineService.test.js tests/authRiskSignalService.test.js tests/authRiskSignalProducerMiddleware.test.js tests/authSecurityEventOutboxService.test.js tests/loginArchitecturePolicy.test.js tests/loginRuntimeEnforcementPolicy.test.js",
     "vercel:routing:sync": "node .\\app\\scripts\\sync_vercel_configs.mjs",
+    "vercel:routing:check": "node .\\app\\scripts\\sync_vercel_configs.mjs && git diff --exit-code -- render.yaml vercel.json netlify.toml app/vercel.json app/index.html",
     "gateway:release-contract": "node scripts/validate-gateway-release-contract.mjs",
     "dev:on": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-on.ps1",
     "dev:off": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\dev-off.ps1",
