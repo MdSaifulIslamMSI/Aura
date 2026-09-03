@@ -72,6 +72,7 @@ describe('authEnvironment', () => {
             MFA_ENABLED: 'true',
             MFA_PASSKEY_ENABLED: 'true',
             MFA_REQUIRED_FOR_ADMINS: 'true',
+            AUTH_LOCKOUT_MODE: 'monitor',
         };
 
         const result = validateAuthEnvironment({ env, runtimeEnv: 'production' });
@@ -160,6 +161,7 @@ describe('authEnvironment', () => {
             AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
             MFA_ENABLED: 'true',
             MFA_PASSKEY_ENABLED: 'true',
+            AUTH_LOCKOUT_MODE: 'monitor',
         };
 
         const declared = validateAuthEnvironment({ env: base, runtimeEnv: 'production' });
@@ -198,6 +200,59 @@ describe('authEnvironment', () => {
         expect(result.failures).toEqual(expect.arrayContaining([
             'AUTH_REQUIRE_MFA_FOR_ADMIN=false is forbidden in production',
         ]));
+    });
+
+    test.each(['off', undefined, 'bogus'])(
+        'forbids lockout mode %s in production',
+        (mode) => {
+            const env = {
+                NODE_ENV: 'production',
+                AUTH_PROVIDER: 'keycloak',
+                AUTH_ISSUER_URL: 'https://idp.company.test/realms/aura',
+                AUTH_CLIENT_ID: 'aura-web',
+                AUTH_CLIENT_TYPE: 'public',
+                AUTH_OIDC_STATE_SECRET: 'prod-state-secret-with-more-than-32-characters',
+                AUTH_AUDIENCE: 'aura-web',
+                AUTH_REDIRECT_URI: 'https://app.company.test/auth/callback',
+                AUTH_POST_LOGOUT_REDIRECT_URI: 'https://app.company.test/login',
+                AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
+                MFA_ENABLED: 'true',
+                MFA_PASSKEY_ENABLED: 'true',
+                MFA_REQUIRED_FOR_ADMINS: 'true',
+            };
+            if (mode !== undefined) env.AUTH_LOCKOUT_MODE = mode;
+
+            const result = validateAuthEnvironment({ env, runtimeEnv: 'production' });
+
+            expect(result.safe).toBe(false);
+            expect(result.failures).toEqual(expect.arrayContaining([
+                'AUTH_LOCKOUT_MODE must be monitor or enforce in production (found off/unset/invalid)',
+            ]));
+        }
+    );
+
+    test('accepts monitor lockout mode in production', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_PROVIDER: 'keycloak',
+                AUTH_ISSUER_URL: 'https://idp.company.test/realms/aura',
+                AUTH_CLIENT_ID: 'aura-web',
+                AUTH_CLIENT_TYPE: 'public',
+                AUTH_OIDC_STATE_SECRET: 'prod-state-secret-with-more-than-32-characters',
+                AUTH_AUDIENCE: 'aura-web',
+                AUTH_REDIRECT_URI: 'https://app.company.test/auth/callback',
+                AUTH_POST_LOGOUT_REDIRECT_URI: 'https://app.company.test/login',
+                AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
+                MFA_ENABLED: 'true',
+                MFA_PASSKEY_ENABLED: 'true',
+                MFA_REQUIRED_FOR_ADMINS: 'true',
+                AUTH_LOCKOUT_MODE: 'monitor',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(true);
     });
 
     test('accepts passkey-only MFA for the production admin passkey contract', () => {
