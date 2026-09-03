@@ -15,6 +15,9 @@ const {
 const { issueOtpFlowToken } = require('../utils/otpFlowToken');
 const { registerOtpFlowGrant } = require('../services/otpFlowGrantService');
 
+// Absorbs DB-seed/bcrypt latency under parallel CI load (flake policy: docs/test-flake-policy.md).
+jest.setTimeout(15000);
+
 let counter = 0;
 const stamp = Date.now();
 

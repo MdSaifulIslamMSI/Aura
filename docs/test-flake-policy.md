@@ -3,6 +3,7 @@
 ## Known timeout-flake pool
 
 - `server/tests/payments.webhook.security.test.js` — 9 DB-heavy seed tests flaked in CI with `Exceeded timeout of 5000 ms` under parallel load; 9/9 pass in isolation. Fixed with `jest.setTimeout(15000)`.
+- `server/tests/authSessionService.test.js` — phone-conflict seed test (`User.create` + sync) flaked the same way in the Focused Security Tests job; 15/15 pass in isolation. Fixed with `jest.setTimeout(15000)`.
 - 14 suites already carry explicit `jest.setTimeout(...)` (established pattern):
   - `adminOpsRoutes.test.js` (30000)
   - `adminRouteSurfaceSecurity.test.js` (30000)
