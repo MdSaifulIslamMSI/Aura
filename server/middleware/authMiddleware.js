@@ -7,7 +7,9 @@ const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const {
     normalizeEmail,
     normalizeUid,
-    normalizeText: normalizeIdentityText,
+    normalizeText,
+    normalizePhone,
+    PHONE_REGEX,
     buildInternalAuthEmail,
     buildIdentityQuery,
     resolveEmailVerifiedState,
@@ -200,8 +202,6 @@ const AUTH_PROJECTION = {
     softDeleted: 1,
     'moderation.suspendedUntil': 1,
 };
-const PHONE_REGEX = /^\+?\d{10,15}$/;
-
 const parseBooleanEnv = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
     if (typeof value === 'boolean') return value;
@@ -216,17 +216,6 @@ const parsePositiveIntEnv = (value, fallback) => {
     if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
     return Math.trunc(parsed);
 };
-
-const normalizePhone = (value) => (
-    typeof value === 'string'
-        ? value.trim().replace(/[\s\-()]/g, '')
-        : ''
-);
-const normalizeText = (value) => (
-    typeof value === 'string'
-        ? value.trim()
-        : ''
-);
 const normalizeName = (value, fallbackEmail = '') => {
     const raw = typeof value === 'string' ? value.trim() : '';
     if (raw) return raw;
@@ -1789,14 +1778,14 @@ const admin = asyncHandler(async (req, res, next) => {
     const actorEmail = normalizeEmail(req.user?.email || req.authToken?.email || '');
     const emailVerified = resolveEmailVerifiedState({
         authUser: {
-            uid: normalizeIdentityText(req.authIdentity?.uid || req.authUid || ''),
+            uid: normalizeText(req.authIdentity?.uid || req.authUid || ''),
             email: normalizeEmail(req.authIdentity?.email || req.authToken?.email || req.user?.email || ''),
             emailVerified: req.authIdentity?.emailVerified,
             isVerified: req.user?.isVerified,
             providerIds: Array.isArray(req.authSession?.providerIds)
                 ? req.authSession.providerIds
                 : [],
-            signInProvider: normalizeIdentityText(req.authToken?.firebase?.sign_in_provider || ''),
+            signInProvider: normalizeText(req.authToken?.firebase?.sign_in_provider || ''),
         },
         authToken: req.authToken || null,
         authSession: req.authSession || null,

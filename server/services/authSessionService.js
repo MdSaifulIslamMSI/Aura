@@ -8,6 +8,9 @@ const { inspectOtpFlowToken, verifyOtpFlowToken } = require('../utils/otpFlowTok
 const {
     normalizeEmail,
     normalizeUid,
+    normalizeText,
+    normalizePhone,
+    PHONE_REGEX,
     buildInternalAuthEmail,
     isInternalAuthEmail,
     buildIdentityQuery,
@@ -33,7 +36,6 @@ const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin admin
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
 const SESSION_PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation authAssurance authAssuranceAt trustedDevices recoveryCodeState mfa +loginOtpAssuranceExpiresAt loyalty createdAt';
 
-const PHONE_REGEX = /^\+?\d{10,15}$/;
 const LOGIN_ASSURANCE_TTL_MS = 10 * 60 * 1000;
 const LOGIN_ASSURANCE_FRESH_AUTH_SECONDS = Math.floor(LOGIN_ASSURANCE_TTL_MS / 1000);
 const SENSITIVE_ACTION_FRESH_LOGIN_SECONDS = Math.max(
@@ -104,10 +106,6 @@ const resolveAdminAccessState = (user = null, env = process.env) => {
     };
 };
 
-const normalizePhone = (value) => (
-    typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
-);
-
 const canonicalizePhone = (value) => {
     const normalized = normalizePhone(value);
     if (!normalized || !PHONE_REGEX.test(normalized)) return '';
@@ -147,10 +145,6 @@ const buildPhoneLookupCandidates = (value) => {
 
     return Array.from(candidates).filter(Boolean);
 };
-
-const normalizeText = (value) => (
-    typeof value === 'string' ? value.trim() : ''
-);
 
 const getDuplicateField = (error) => {
     if (!error || error.code !== 11000) return null;

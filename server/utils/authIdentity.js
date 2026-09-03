@@ -20,6 +20,12 @@ const normalizeText = (value) => (
     typeof value === 'string' ? value.trim() : ''
 );
 
+const PHONE_REGEX = /^\+?\d{10,15}$/;
+
+const normalizePhone = (value) => (
+    typeof value === 'string' ? value.trim().replace(/[\s\-()]/g, '') : ''
+);
+
 const encodeUidForEmail = (uid) => {
     const safeUid = normalizeUid(uid);
     if (!safeUid) return '';
@@ -156,6 +162,8 @@ module.exports = {
     normalizeEmail,
     normalizeUid,
     normalizeText,
+    normalizePhone,
+    PHONE_REGEX,
     buildInternalAuthEmail,
     isInternalAuthEmail,
     resolvePublicEmail,

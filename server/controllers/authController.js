@@ -58,6 +58,7 @@ const {
     getPasskeyCount,
 } = require('../services/authRecoveryCodeService');
 const {
+    normalizeEmail,
     resolveProviderIds,
     resolveEmailVerifiedState,
 } = require('../utils/authIdentity');
@@ -104,10 +105,6 @@ const MFA_METHOD_REQUIRED_CODE = 'MFA_METHOD_REQUIRED';
 const MFA_METHOD_REQUIRED_MESSAGE = 'MFA is required but no allowed verification method is available.';
 const DUO_STEP_UP_ACTION_SET = new Set(Object.values(DUO_STEP_UP_ACTIONS));
 const DESKTOP_HANDOFF_REQUEST_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const normalizeEmail = (value) => (
-    typeof value === 'string' ? value.trim().toLowerCase() : ''
-);
 
 const resolveFreshLoginAuthTimeSeconds = (authToken = null) => {
     const authTime = Number(authToken?.auth_time || 0);
