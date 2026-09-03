@@ -1,7 +1,8 @@
 'use strict';
 
+let mockRedisClient = null;
 jest.mock('../config/redis', () => ({
-    getRedisClient: () => null,
+    getRedisClient: () => mockRedisClient,
     flags: { redisPrefix: 'aura_test' },
 }));
 
@@ -19,6 +20,7 @@ const {
     authFailureRecorder,
 } = require('../middleware/loginLockoutGate');
 const { assertProductionTurnstileConfig, getTurnstileFlags } = require('../config/turnstileFlags');
+const { __getBufferedEvents, __resetBufferedEvents } = require('../security/securityEventLogger');
 const fs = require('fs');
 const path = require('path');
 
@@ -108,6 +110,38 @@ describe('loginLockoutService', () => {
         const state = await evaluateAccountLockout(identity);
         expect(state.locked).toBe(true);
         expect(state.retryAfterMs).toBeGreaterThan(0);
+    });
+
+    it('emits a degraded security event when failure recording fails open', async () => {
+        mockRedisClient = { sendCommand: async () => { throw new Error('redis down'); } };
+        try {
+            __resetBufferedEvents();
+            const outcome = await recordAuthFailure({ ...uniqueIdentity('degraded-record'), surface: 'otp' });
+            expect(outcome.degraded).toBe(true);
+            expect(outcome.locked).toBe(false);
+            const degraded = __getBufferedEvents().filter((e) => e.event === 'auth.lockout.degraded');
+            expect(degraded.length).toBe(1);
+            expect(degraded[0]).toMatchObject({ decision: 'DEGRADED', reasonCode: 'record_failure_failed' });
+        } finally {
+            mockRedisClient = null;
+            __resetBufferedEvents();
+        }
+    });
+
+    it('emits a degraded security event when lockout evaluation fails open', async () => {
+        mockRedisClient = { sendCommand: async () => { throw new Error('redis down'); } };
+        try {
+            __resetBufferedEvents();
+            const state = await evaluateAccountLockout(uniqueIdentity('degraded-eval'));
+            expect(state.degraded).toBe(true);
+            expect(state.locked).toBe(false);
+            const degraded = __getBufferedEvents().filter((e) => e.event === 'auth.lockout.degraded');
+            expect(degraded.length).toBe(1);
+            expect(degraded[0]).toMatchObject({ decision: 'DEGRADED', reasonCode: 'evaluate_failed' });
+        } finally {
+            mockRedisClient = null;
+            __resetBufferedEvents();
+        }
     });
 
     it('clears the lock after a successful authentication', async () => {

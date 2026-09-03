@@ -147,6 +147,17 @@ const recordAuthFailure = async ({ uid = '', email = '', phone = '', ip = '', su
         }
     } catch (error) {
         logger.warn('login_lockout.record_failure_failed', { error: error?.message || 'unknown' });
+        // Fail-open episodes must reach the security-event pipeline (alertable),
+        // not just the log stream. writeSecurityEvent never throws.
+        writeSecurityEvent({
+            event: 'auth.lockout.degraded',
+            req,
+            action: surface,
+            riskScore: 60,
+            decision: 'DEGRADED',
+            reasonCode: 'record_failure_failed',
+            metadata: { error: error?.message || 'unknown', surface, mode: parseMode() },
+        }, { level: 'warn' });
         return { failures: 0, lockMs: 0, locked: false, degraded: true };
     }
 
@@ -191,6 +202,13 @@ const evaluateAccountLockout = async ({ uid = '', email = '', phone = '', ip = '
         return { ...base, failures: entry.failures };
     } catch (error) {
         logger.warn('login_lockout.evaluate_failed', { error: error?.message || 'unknown' });
+        writeSecurityEvent({
+            event: 'auth.lockout.degraded',
+            riskScore: 60,
+            decision: 'DEGRADED',
+            reasonCode: 'evaluate_failed',
+            metadata: { error: error?.message || 'unknown', mode: parseMode() },
+        }, { level: 'warn' });
         return { ...base, degraded: true };
     }
 };
