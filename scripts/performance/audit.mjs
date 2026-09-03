@@ -23,8 +23,7 @@ const requiredFiles = [
   'infra/performance/grafana/dashboards/app-performance.json',
   'infra/performance/otel/collector.yml',
   'scripts/performance/cloudflare-cache-plan.mjs',
-  '.github/workflows/performance-smoke.yml',
-  '.github/workflows/performance-nightly.yml',
+  '.github/workflows/performance.yml',
   'lighthouserc.js',
 ];
 

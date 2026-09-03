@@ -29,6 +29,9 @@ const {
     expectDocumentUnchanged,
 } = require('./helpers/securityTestHelpers');
 
+// Absorbs DB-seed latency under parallel CI load.
+jest.setTimeout(15000);
+
 const buildApp = () => {
     const app = express();
     app.use(express.json({

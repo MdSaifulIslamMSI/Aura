@@ -234,6 +234,7 @@
     "aws:observability:guard": "node scripts/aws/assert-observability-guard.mjs",
     "sre:synthetic:staging": "node scripts/sre/synthetic-staging-check.mjs",
     "sre:latency:staging": "node scripts/sre/backend-latency-probe.mjs",
+    "sre:slo:burn": "node scripts/sre/slo-burn-rate-check.mjs",
     "test:reliability": "npm --prefix server test -- --runInBand --runTestsByPath tests/reliability/timeoutRetry.test.js tests/reliability/paymentProviderRetry.test.js --forceExit",
     "release:manifest": "node scripts/release/write-release-manifest.mjs",
     "release:rollback-ready": "node scripts/release/assert-rollback-ready.mjs",

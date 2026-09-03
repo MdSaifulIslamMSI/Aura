@@ -1949,7 +1949,7 @@ describe('repo environment contract scripts', () => {
     });
 
     test('performance smoke workflow isolates pull requests from configured remote targets', () => {
-        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'performance-smoke.yml'), 'utf8');
+        const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'performance.yml'), 'utf8');
 
         expect(workflow).toMatch(/Build local frontend performance target/);
         expect(workflow).toMatch(/Start local performance targets/);
