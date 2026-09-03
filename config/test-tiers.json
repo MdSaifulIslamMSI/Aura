@@ -382,6 +382,10 @@
       "routeCostClassifier.test.js",
       "routeExposureRegistry.test.js",
       "stagingFrontendCors.test.js",
+      "trafficBudgetPolicy.test.js",
+      "trafficPolicyRegistry.test.js",
+      "trafficResiliencePolicy.test.js",
+      "trafficResponseSmoothness.test.js",
       "trustedEdgeMiddleware.test.js",
       "turnstileFlags.test.js"
     ]
