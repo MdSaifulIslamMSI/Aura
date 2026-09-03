@@ -194,6 +194,16 @@ const validateAuthEnvironment = ({
         if (production && config.requireMfaForAdmin && !config.mfa.requiredForAdmins) {
             failures.push('MFA_REQUIRED_FOR_ADMINS must be true when AUTH_REQUIRE_MFA_FOR_ADMIN=true in production');
         }
+
+        // Brute-force lockout must not be fully off in production. Anything
+        // other than monitor|enforce (including unset or misspelled modes,
+        // which loginLockoutService silently folds back to off) fails closed
+        // here. Lockout evaluation itself still fails open at runtime for
+        // availability; the distributed rate limiters remain the hard cap.
+        const lockoutMode = safeString(env.AUTH_LOCKOUT_MODE || 'off').toLowerCase();
+        if (production && !['monitor', 'enforce'].includes(lockoutMode)) {
+            failures.push('AUTH_LOCKOUT_MODE must be monitor or enforce in production (found off/unset/invalid)');
+        }
     }
 
     if (production && config.provider === 'legacy' && safeString(env.AUTH_PROVIDER) === '') {
