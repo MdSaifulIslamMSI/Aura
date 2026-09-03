@@ -28,6 +28,36 @@ jest.mock('../config/redis', () => {
 const fs = require('fs');
 const path = require('path');
 
+// Test-visible ledger stand-in. Prefixed with `mock` so the jest.mock factory
+// below may legally close over it under babel-plugin-jest-hoist, and defined
+// before the service require so the (lazy) mock factory sees it initialized
+// even without hoisting (see server/jest.config.js scoped svix|jose transform).
+const mockLedgerState = { seq: 0, lastHash: '', records: [] };
+
+jest.mock('../models/SecurityEventLedger', () => ({
+    findOneAndUpdate: jest.fn(async (query, update) => {
+        const returningNew = Boolean(update && update.options && update.options.new);
+        const previous = { _id: query._id, seq: mockLedgerState.seq, lastHash: mockLedgerState.lastHash };
+        if (update && update.$inc) mockLedgerState.seq += update.$inc.seq;
+        if (update && update.$set) Object.assign(mockLedgerState, update.$set);
+        if (update && update.$set && update.$set.seq !== undefined) mockLedgerState.seq = update.$set.seq;
+        return returningNew
+            ? { _id: query._id, seq: mockLedgerState.seq, lastHash: mockLedgerState.lastHash }
+            : previous;
+    }),
+    create: jest.fn(async (doc) => {
+        mockLedgerState.records.push(doc);
+        return doc;
+    }),
+    find: jest.fn(() => ({
+        sort: () => ({
+            limit: () => ({
+                lean: async () => mockLedgerState.records.slice().sort((a, b) => a.seq - b.seq),
+            }),
+        }),
+    })),
+}));
+
 const {
     appendSecurityEventToLedger,
     canonicalize,
@@ -35,32 +65,6 @@ const {
     isSecurityEventLedgerEnabled,
     verifySecurityEventLedger,
 } = require('../services/securityEventLedgerService');
-
-const ledgerState = { seq: 0, lastHash: '', records: [] };
-
-jest.mock('../models/SecurityEventLedger', () => ({
-    findOneAndUpdate: jest.fn(async (query, update) => {
-        const returningNew = Boolean(update && update.options && update.options.new);
-        const previous = { _id: query._id, seq: ledgerState.seq, lastHash: ledgerState.lastHash };
-        if (update && update.$inc) ledgerState.seq += update.$inc.seq;
-        if (update && update.$set) Object.assign(ledgerState, update.$set);
-        if (update && update.$set && update.$set.seq !== undefined) ledgerState.seq = update.$set.seq;
-        return returningNew
-            ? { _id: query._id, seq: ledgerState.seq, lastHash: ledgerState.lastHash }
-            : previous;
-    }),
-    create: jest.fn(async (doc) => {
-        ledgerState.records.push(doc);
-        return doc;
-    }),
-    find: jest.fn(() => ({
-        sort: () => ({
-            limit: () => ({
-                lean: async () => ledgerState.records.slice().sort((a, b) => a.seq - b.seq),
-            }),
-        }),
-    })),
-}));
 
 const {
     buildDeviceFingerprintAttestation,
@@ -81,9 +85,9 @@ describe('securityEventLedgerService', () => {
     beforeEach(() => {
         process.env.SECURITY_EVENT_LEDGER_ENABLED = 'true';
         process.env.SECURITY_EVENT_LEDGER_SECRET = 'ledger-test-secret';
-        ledgerState.seq = 0;
-        ledgerState.lastHash = '';
-        ledgerState.records.length = 0;
+        mockLedgerState.seq = 0;
+        mockLedgerState.lastHash = '';
+        mockLedgerState.records.length = 0;
     });
 
     afterEach(() => {
@@ -105,9 +109,9 @@ describe('securityEventLedgerService', () => {
         await appendSecurityEventToLedger({ event: 'b', requestId: 'r2' });
         await appendSecurityEventToLedger({ event: 'c', requestId: 'r3' });
 
-        expect(ledgerState.records).toHaveLength(3);
-        expect(ledgerState.records[0].prevHash).toBe('genesis');
-        expect(ledgerState.records[1].prevHash).toBe(ledgerState.records[0].hash);
+        expect(mockLedgerState.records).toHaveLength(3);
+        expect(mockLedgerState.records[0].prevHash).toBe('genesis');
+        expect(mockLedgerState.records[1].prevHash).toBe(mockLedgerState.records[0].hash);
 
         const outcome = await verifySecurityEventLedger({});
         expect(outcome.verified).toBe(true);
@@ -118,7 +122,7 @@ describe('securityEventLedgerService', () => {
         await appendSecurityEventToLedger({ event: 'a', requestId: 'r1' });
         await appendSecurityEventToLedger({ event: 'b', requestId: 'r2' });
 
-        ledgerState.records[1].payload.event = 'tampered';
+        mockLedgerState.records[1].payload.event = 'tampered';
 
         const outcome = await verifySecurityEventLedger({});
         expect(outcome.verified).toBe(false);

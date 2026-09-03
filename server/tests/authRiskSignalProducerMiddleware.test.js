@@ -1,3 +1,12 @@
+// Must be registered before requiring the middleware (no babel hoisting for
+// project files â€” see server/jest.config.js scoped svix|jose transform).
+jest.mock('../utils/logger', () => ({
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+}));
+
 const express = require('express');
 const request = require('supertest');
 const {
@@ -9,13 +18,6 @@ const {
     signLoginRiskSignals,
 } = require('../services/authRiskSignalService');
 const { extractTrustedDeviceContext } = require('../services/trustedDeviceChallengeService');
-
-jest.mock('../utils/logger', () => ({
-    warn: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-}));
 
 const logger = require('../utils/logger');
 const DEVICE_ID = 'device-test-1234';
