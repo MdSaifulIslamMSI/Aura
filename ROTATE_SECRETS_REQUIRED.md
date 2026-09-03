@@ -24,3 +24,22 @@ No secret values are reproduced in this report.
 - Revoke any bearer/API token that may have been copied into documentation.
 - Re-run `npm run security:gitleaks` after rotation; new findings must fail the gate.
 - Avoid force-pushing history unless the repository owner explicitly approves a coordinated history rewrite.
+
+## Owner Verification Checklist (console actions — record dates, never values)
+
+Complete each item in the provider console, then fill in the date + ticket
+reference and commit this file. Do not paste keys, tokens, or secrets here.
+
+- [ ] Firebase/GCP API key from historical commits rotated or deleted
+  (APIs & Services > Credentials). Old key state: ______. Date: ______
+- [ ] Replacement key (if any) restricted by application (Android package
+  name + SHA-1 / HTTP referrer / IP) and by API scope (only APIs Aura
+  calls). Restriction summary: ______. Date: ______
+- [ ] Doc bearer/authorization examples confirmed placeholders; any live
+  token rotated and old token revoked. Outcome: ______. Date: ______
+- [ ] Generated asset (market-locale JS) confirmed false positive or
+  provider key rotated. Outcome: ______. Date: ______
+- [ ] `npm run security:gitleaks` re-run after rotation: PASS. Date: ______
+
+Verification evidence lives in this checklist plus the gitleaks gate.
+History is intentionally not rewritten (see Owner Checklist above).

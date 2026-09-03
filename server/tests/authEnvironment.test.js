@@ -145,6 +145,31 @@ describe('authEnvironment', () => {
         ]));
     });
 
+    test('forbids disabling admin MFA in production', () => {
+        const result = validateAuthEnvironment({
+            env: {
+                NODE_ENV: 'production',
+                AUTH_PROVIDER: 'keycloak',
+                AUTH_ISSUER_URL: 'https://idp.company.test/realms/aura',
+                AUTH_CLIENT_ID: 'aura-web',
+                AUTH_CLIENT_TYPE: 'public',
+                AUTH_OIDC_STATE_SECRET: 'prod-state-secret-with-more-than-32-characters',
+                AUTH_AUDIENCE: 'aura-web',
+                AUTH_REDIRECT_URI: 'https://app.company.test/auth/callback',
+                AUTH_POST_LOGOUT_REDIRECT_URI: 'https://app.company.test/login',
+                AUTH_REQUIRE_MFA_FOR_ADMIN: 'false',
+                MFA_ENABLED: 'true',
+                MFA_PASSKEY_ENABLED: 'true',
+            },
+            runtimeEnv: 'production',
+        });
+
+        expect(result.safe).toBe(false);
+        expect(result.failures).toEqual(expect.arrayContaining([
+            'AUTH_REQUIRE_MFA_FOR_ADMIN=false is forbidden in production',
+        ]));
+    });
+
     test('accepts passkey-only MFA for the production admin passkey contract', () => {
         const result = validateAuthEnvironment({
             env: {

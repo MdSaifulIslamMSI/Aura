@@ -183,7 +183,7 @@ const validateAuthEnvironment = ({
         }
 
         if (production && !config.requireMfaForAdmin) {
-            warnings.push('AUTH_REQUIRE_MFA_FOR_ADMIN=false weakens production admin posture');
+            failures.push('AUTH_REQUIRE_MFA_FOR_ADMIN=false is forbidden in production');
         }
     }
 
