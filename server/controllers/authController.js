@@ -432,15 +432,21 @@ const evaluateRuntimeLoginRisk = async ({ req = {}, user = null } = {}) => {
         && risk.requireStepUp
         && risk.level === RISK_LEVELS.HIGH
     );
+    // Deny-on-denylist: an enforced block verdict refuses the login outright
+    // instead of merely challenging. Monitor mode still only observes.
+    const forceBlock = Boolean(
+        policy.riskEngineEnforced
+        && risk.block
+    );
     const stepUpReason = risk.block ? 'login_risk_block' : 'login_risk_high';
 
     recordAuthSecurityEvent({
         event: 'login_risk',
-        outcome: forceStepUp ? 'required' : 'success',
-        reason: forceStepUp ? 'required' : 'none',
+        outcome: forceBlock ? 'blocked' : (forceStepUp ? 'required' : 'success'),
+        reason: forceBlock ? 'blocked' : (forceStepUp ? 'required' : 'none'),
         surface: 'auth',
         req,
-        level: forceStepUp ? 'warn' : 'info',
+        level: (forceBlock || forceStepUp) ? 'warn' : 'info',
         meta: {
             mode: policy.riskEngineMode,
             enforced: policy.riskEngineEnforced,
@@ -467,9 +473,40 @@ const evaluateRuntimeLoginRisk = async ({ req = {}, user = null } = {}) => {
         policy,
         risk,
         forceStepUp,
+        forceBlock,
         riskState: forceStepUp ? LOGIN_RISK_STATE_HIGH : 'standard',
         stepUpReason,
     };
+};
+
+// Deny-on-denylist gate for the session-establishing flows. Returns true when
+// it responds 403 so callers stop. The message is deliberately generic: it
+// must not reveal which signal triggered the denial.
+const denyBlockedLoginRisk = ({ req = {}, res = null, loginRisk = null } = {}) => {
+    if (!loginRisk?.forceBlock || !res) return false;
+
+    recordAuthSecurityEvent({
+        event: 'login_risk',
+        outcome: 'blocked',
+        reason: 'login_risk_block',
+        surface: 'auth',
+        req,
+        level: 'warn',
+        meta: {
+            score: loginRisk.risk?.score || 0,
+            riskLevel: loginRisk.risk?.level || '',
+            reasons: loginRisk.risk?.reasons || [],
+        },
+    });
+
+    res.set('Cache-Control', 'no-store');
+    res.status(403).json({
+        success: false,
+        code: 'LOGIN_RISK_DENIED',
+        message: 'Sign-in denied for this request.',
+        requestId: req.requestId || '',
+    });
+    return true;
 };
 
 const persistBrowserSessionForUser = async ({
@@ -886,6 +923,7 @@ const getSession = asyncHandler(async (req, res) => {
     });
 
     const loginRisk = await evaluateRuntimeLoginRisk({ req, user: resolved.user });
+    if (denyBlockedLoginRisk({ req, res, loginRisk })) return;
     const establishedDesktopHandoffSession = isEstablishedDesktopHandoffSession(req);
     const deviceState = await resolveDeviceChallengeState({
         req,
@@ -1472,6 +1510,7 @@ const syncSession = asyncHandler(async (req, res) => {
     await invalidateUserCacheByEmail(user?.email || authUser.email || '');
 
     const loginRisk = await evaluateRuntimeLoginRisk({ req, user });
+    if (denyBlockedLoginRisk({ req, res, loginRisk })) return undefined;
     const deviceState = await resolveDeviceChallengeState({
         req,
         authUser,
@@ -2183,6 +2222,7 @@ const verifyDeviceChallenge = asyncHandler(async (req, res) => {
             stepUpReason: verification.postDeviceMfaReason || 'trusted_device_step_up',
         }
         : await evaluateRuntimeLoginRisk({ req, user: policyUser });
+    if (denyBlockedLoginRisk({ req, res, loginRisk })) return undefined;
     const mfaState = await resolveLoginMfaState({
         req,
         user: policyUser,
