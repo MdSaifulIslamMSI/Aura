@@ -1659,7 +1659,7 @@ describe('Auth sync lattice challenge policy', () => {
         expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
     });
 
-    test('POST /api/auth/sync requires step-up for signed high login risk when enforcement is staged on', async () => {
+    test('POST /api/auth/sync denies signed denylist login risk when enforcement is staged on', async () => {
         const riskSignalSecret = buildRuntimeSecret('risk-signal-secret');
         const timestamp = new Date().toISOString();
         const signature = signLoginRiskSignals({
@@ -1683,24 +1683,16 @@ describe('Auth sync lattice challenge policy', () => {
             .set('x-aura-login-risk-signature', signature)
             .send({ email: 'verified@example.com', name: 'Verified User' });
 
-        expect(res.statusCode).toBe(200);
-        expect(res.body.status).toBe('device_challenge_required');
-        expect(res.body.deviceChallenge).toEqual({
-            token: expect.any(String),
-            challenge: expect.any(String),
-            mode: 'assert',
-            deviceId: 'device-test-1234',
-            audience: 'public',
-            purpose: 'sign_in',
-            surface: 'authentication',
-            requiredAssurance: 'device_proof',
-            blocking: true,
-            exitMode: 'sign_out',
+        expect(res.statusCode).toBe(403);
+        expect(res.body).toMatchObject({
+            success: false,
+            code: 'LOGIN_RISK_DENIED',
+            message: 'Sign-in denied for this request.',
         });
-        expect(issueTrustedDeviceChallenge).toHaveBeenCalledTimes(1);
+        expect(res.body.session).toBeUndefined();
+        expect(issueTrustedDeviceChallenge).not.toHaveBeenCalled();
         expect(refreshBrowserSession).not.toHaveBeenCalled();
         expect(res.headers['set-cookie']).toBeUndefined();
-        expect(res.body.session.sessionId).toBeUndefined();
     });
 });
 
