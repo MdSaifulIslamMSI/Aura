@@ -4,11 +4,11 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Machine Certification
 
-- Stable UI candidates discovered: 423
+- Stable UI candidates discovered: 422
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (102732/102732 required locale/message pairs)
+- Locale key coverage: 100% (102879/102879 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4892
+- Source message keys: 4899
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,10 +16,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 92176
-- Unique review locale/id pairs: 92176
-- Actionable grouped queue entries: 3414
-- Actionable affected locale/message pairs: 48206
+- Total tracked review pairs preserved: 92309
+- Unique review locale/id pairs: 92309
+- Actionable grouped queue entries: 3420
+- Actionable affected locale/message pairs: 48339
 - Native-review audit grouped entries: 2456
 - Native-review audit affected locale/message pairs: 43970
 
@@ -31,7 +31,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | --- | ---: | ---: | --- |
 | critical | 1264 | 22056 | bn 1044, hi 1226, te 1103, mr 1109, ur 1089, gu 1123, pa 1117, ml 1104, kn 1103, or 1117, as 1102, sa 1106, es 1237, fr 1270, de 1257, ar 1186, ja 1260, pt 1248, zh 1255 |
 | high | 205 | 867 | bn 9, hi 185, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 74, fr 80, de 78, ar 76, ja 80, pt 74, zh 77 |
-| medium | 1433 | 21910 | bn 1020, hi 1332, te 1027, mr 1026, ur 1025, gu 1044, pa 1038, ml 1025, kn 1025, or 1035, as 1024, sa 1034, es 1332, fr 1316, de 1303, ar 1299, ja 1342, pt 1323, zh 1340 |
+| medium | 1439 | 22043 | bn 1027, hi 1339, te 1034, mr 1033, ur 1032, gu 1051, pa 1045, ml 1032, kn 1032, or 1042, as 1031, sa 1041, es 1339, fr 1323, de 1310, ar 1306, ja 1349, pt 1330, zh 1347 |
 | low | 512 | 3373 | bn 2, hi 499, te 1, mr 2, ur 2, gu 2, pa 1, ml 1, kn 1, or 2, as 1, sa 3, es 406, fr 412, de 408, ar 408, ja 408, pt 407, zh 407 |
 
 ## Examples
@@ -55,13 +55,13 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | high | high | 9 | Tell Aura Support what happened | profile.support.compose.messageLabel |
 | high | high | 9 | This thread is the shared record for you and Aura Support. No more disconnected alerts. | profile.support.thread.activeBody |
 | medium | low | 49 | Aura points | profile.heroMetric.points.label, profile.overview.stats.points, profile.tab.rewards |
+| medium | medium | 38 | +{value} more | assistant.attachment.moreAudio, assistant.attachment.moreImages |
 | medium | medium | 38 | Frequently Bought Together | product.jsx.prop.label.frequently.bought.together, recommendations.frequentlyBoughtTogether.title |
 | medium | medium | 38 | Resolved | status.incident.resolved, status.incident.state.resolved |
 | medium | low | 38 | Privacy controls | profile.privacy.title, profile.tab.privacy |
 | medium | low | 38 | Returns and refunds | profile.overview.stats.pendingPostPurchase, profile.settings.notifications.returnRefundUpdates.label |
 | medium | low | 38 | Sign out | admin.security.signOut, profile.sessions.signOut |
 | medium | low | 38 | Try again | profile.marketplace.retry, profile.privacy.retry |
-| medium | low | 38 | Back to app | common.jsx.text.back.to.app, videoCall.backToApp.title |
 | low | low | 9 | Explore Aura | wishlist.explore |
 | low | low | 9 | Dashboard Sync | admin.diagnostics.cards.dashboardSync |
 | low | low | 9 | Ingested At | admin.diagnostics.meta.ingestedAt |
