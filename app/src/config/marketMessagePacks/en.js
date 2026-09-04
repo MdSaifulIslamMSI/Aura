@@ -870,7 +870,7 @@ export const MARKET_MESSAGE_PACK = {
   "cart.summary.backendStock": "Stock rechecked before payment",
   "cart.summary.checkoutUnavailable": "Checkout Temporarily Unavailable",
   "cart.summary.delivery": "Delivery",
-  "cart.summary.discount": "Delta Offset",
+  "cart.summary.discount": "Discount",
   "cart.summary.free": "FREE",
   "cart.summary.itemsQueued": "Queued",
   "cart.summary.kicker": "Secure summary",

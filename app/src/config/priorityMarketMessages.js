@@ -585,7 +585,7 @@ export const PRIORITY_MARKET_MESSAGES = {
     'cart.subtotal': 'Subtotal',
     'cart.summary.title': 'Transaction Summary',
     'cart.summary.subtotalWithCount': 'Subtotal ({{count}} items)',
-    'cart.summary.discount': 'Delta Offset',
+    'cart.summary.discount': 'Discount',
     'cart.summary.shipping': 'Shipping',
     'cart.summary.free': 'FREE',
     'cart.summary.netValue': 'Net Value',

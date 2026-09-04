@@ -206,7 +206,7 @@ const Cart = () => {
               const itemBaseCurrency = getBaseCurrency(item);
               const unitPrice = getLineBaseTotal({ ...item, quantity: 1 });
               const unitOriginal = getLineOriginalBaseTotal({ ...item, quantity: 1 });
-              const productHref = `/product/${itemId}`;
+              const productHref = `/product/${item.productId ?? itemId}`;
 
               return (
                 <article key={itemId} className="cart-item-card group">
@@ -347,7 +347,7 @@ const Cart = () => {
                     <strong>{formatPrice(browseSummary.totalOriginalPrice, undefined, undefined, { baseCurrency: BROWSE_BASE_CURRENCY })}</strong>
                   </div>
                   <div className="cart-summary-row text-neo-cyan">
-                    <span>{t('cart.summary.discount', {}, 'Delta Offset')}</span>
+                    <span>{t('cart.summary.discount', {}, 'Discount')}</span>
                     <strong>- {formatPrice(browseDiscount, undefined, undefined, { baseCurrency: BROWSE_BASE_CURRENCY })}</strong>
                   </div>
                   <div className="cart-summary-row">
