@@ -77,7 +77,7 @@ export default function SettingsSection({
     handleLinkMicrosoftProvider,
     handleLinkAppleProvider,
 }) {
-    const { t: legacyT } = useMarket();
+    const { t: legacyT, formatDateTime } = useMarket();
     const t = useStableIcuMessages(legacyT);
     const [editingDeviceId, setEditingDeviceId] = useState('');
     const [deviceLabelDraft, setDeviceLabelDraft] = useState('');
@@ -155,14 +155,14 @@ export default function SettingsSection({
 
     const lastCheckText = useMemo(() => {
         if (!trustStatus?.backend?.timestamp) return t('profile.settings.trust.noRecent', {}, 'No recent check timestamp');
-        return new Date(trustStatus.backend.timestamp).toLocaleString('en-IN');
-    }, [t, trustStatus?.backend?.timestamp]);
+        return formatDateTime(trustStatus.backend.timestamp);
+    }, [formatDateTime, t, trustStatus?.backend?.timestamp]);
 
     const formatDeviceDate = (value) => {
         if (!value) return t('profile.settings.devices.never', {}, 'Never');
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return t('profile.settings.devices.unknown', {}, 'Unknown');
-        return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+        return formatDateTime(value, undefined, { dateStyle: 'medium', timeStyle: 'short' });
     };
 
     const startDeviceRename = (device) => {
@@ -221,7 +221,7 @@ export default function SettingsSection({
                     {t('profile.settings.security.title', {}, 'Security')}
                 </h2>
                 <div className="space-y-4">
-                    <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <p className="text-sm font-semibold text-white">{t('profile.settings.security.password', {}, 'Password')}</p>
@@ -245,7 +245,7 @@ export default function SettingsSection({
                     </div>
 
                     {linkableProviders.length > 0 ? (
-                        <div className="rounded-[1.6rem] border border-white/10 bg-white/5 p-4">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
                                     <p className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -283,7 +283,7 @@ export default function SettingsSection({
                     ) : null}
 
                     {showMfaCenterLoading ? (
-                        <div className="rounded-[1.6rem] border border-cyan-300/20 bg-cyan-400/10 p-5" role="status" aria-live="polite">
+                        <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-5" role="status" aria-live="polite">
                             <div className="flex items-center gap-3">
                                 <RefreshCw className="h-5 w-5 animate-spin text-cyan-100" aria-hidden="true" />
                                 <div>
@@ -299,7 +299,7 @@ export default function SettingsSection({
                     ) : null}
 
                     {hasMfaCenterError ? (
-                        <div className="rounded-[1.6rem] border border-rose-300/25 bg-rose-400/10 p-5" role="alert">
+                        <div className="rounded-2xl border border-rose-300/25 bg-rose-400/10 p-5" role="alert">
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="flex min-w-0 gap-3">
                                     <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-200" aria-hidden="true" />
@@ -367,7 +367,7 @@ export default function SettingsSection({
 
                     {showMfaCenterContent ? (
                     <>
-                    <section aria-labelledby="passkeys-mfa-heading" className={`rounded-[1.6rem] border p-4 ${mfaFactorReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-cyan-300/20 bg-cyan-400/10'}`}>
+                    <section aria-labelledby="passkeys-mfa-heading" className={`rounded-2xl border p-4 ${mfaFactorReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-cyan-300/20 bg-cyan-400/10'}`}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -437,7 +437,7 @@ export default function SettingsSection({
                         ) : null}
 
                         {totpSetup ? (
-                            <div className="mt-4 grid gap-4 rounded-[1.4rem] border border-cyan-300/20 bg-slate-950/45 p-4 md:grid-cols-[auto,1fr]">
+                            <div className="mt-4 grid gap-4 rounded-2xl border border-cyan-300/20 bg-slate-950/45 p-4 md:grid-cols-[auto,1fr]">
                                 {totpSetup.qrCodeDataUrl ? (
                                     <img
                                         src={totpSetup.qrCodeDataUrl}
@@ -488,7 +488,7 @@ export default function SettingsSection({
 
                     <section
                         aria-labelledby="signed-in-devices-heading"
-                        className="rounded-[1.6rem] border border-violet-300/20 bg-violet-400/[0.08] p-4"
+                        className="rounded-2xl border border-violet-300/20 bg-violet-400/[0.08] p-4"
                     >
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="min-w-0">
@@ -590,7 +590,7 @@ export default function SettingsSection({
                                     return (
                                         <article
                                             key={device.deviceId}
-                                            className={`rounded-[1.25rem] border p-4 ${active ? 'border-white/10 bg-slate-950/35' : 'border-white/5 bg-black/20 opacity-70'}`}
+                                            className={`rounded-2xl border p-4 ${active ? 'border-white/10 bg-slate-950/35' : 'border-white/5 bg-black/20 opacity-70'}`}
                                         >
                                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                                 <div className="min-w-0 flex-1">
@@ -713,7 +713,7 @@ export default function SettingsSection({
                         )}
                     </section>
 
-                    <div className={`rounded-[1.6rem] border p-4 ${recoveryReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
+                    <div className={`rounded-2xl border p-4 ${recoveryReady ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -762,7 +762,7 @@ export default function SettingsSection({
                         </div>
 
                         {hasVisibleRecoveryCodes ? (
-                            <div className="mt-4 rounded-[1.4rem] border border-cyan-300/20 bg-slate-950/45 p-4">
+                            <div className="mt-4 rounded-2xl border border-cyan-300/20 bg-slate-950/45 p-4">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
                                         <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">
@@ -812,7 +812,7 @@ export default function SettingsSection({
                     ) : null}
 
                     <div className="grid gap-3 md:grid-cols-2">
-                        <div className={`rounded-[1.6rem] border p-4 ${hasOtpReadyIdentity ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
+                        <div className={`rounded-2xl border p-4 ${hasOtpReadyIdentity ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-300">{t('profile.settings.security.otpLabel', {}, 'OTP posture')}</p>
                             <p className={`mt-2 text-lg font-black ${hasOtpReadyIdentity ? 'text-emerald-100' : 'text-amber-100'}`}>
                                 {hasOtpReadyIdentity ? t('profile.settings.security.ready', {}, 'Ready') : t('profile.settings.security.incomplete', {}, 'Incomplete')}
@@ -824,7 +824,7 @@ export default function SettingsSection({
                             </p>
                         </div>
 
-                        <div className={`rounded-[1.6rem] border p-4 ${paymentMethodsSecured ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
+                        <div className={`rounded-2xl border p-4 ${paymentMethodsSecured ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-300">{t('profile.settings.security.paymentLabel', {}, 'Payment posture')}</p>
                             <p className={`mt-2 text-lg font-black ${paymentMethodsSecured ? 'text-emerald-100' : 'text-amber-100'}`}>
                                 {paymentMethodsSecured ? t('profile.settings.security.tokenized', {}, 'Tokenized') : t('profile.settings.security.reviewNeeded', {}, 'Review needed')}
@@ -846,7 +846,7 @@ export default function SettingsSection({
                 </h2>
 
                 <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className={`rounded-[1.6rem] border p-4 ${trustHealthy ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
+                    <div className={`rounded-2xl border p-4 ${trustHealthy ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-300">{t('profile.settings.trust.platformStatus', {}, 'Platform status')}</p>
                         <p className={`mt-2 text-sm font-black ${trustHealthy ? 'text-emerald-100' : 'text-amber-100'}`}>
                             {trustLoading
@@ -856,13 +856,13 @@ export default function SettingsSection({
                                     : t('profile.settings.trust.degraded', {}, 'Degraded')}
                         </p>
                     </div>
-                    <div className={`rounded-[1.6rem] border p-4 ${hasOtpReadyIdentity ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
+                    <div className={`rounded-2xl border p-4 ${hasOtpReadyIdentity ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-300">{t('profile.settings.trust.identityLabel', {}, 'Identity posture')}</p>
                         <p className={`mt-2 text-sm font-black ${hasOtpReadyIdentity ? 'text-emerald-100' : 'text-amber-100'}`}>
                             {hasOtpReadyIdentity ? t('profile.settings.trust.fortified', {}, 'Fortified') : t('profile.settings.trust.needsAttention', {}, 'Needs attention')}
                         </p>
                     </div>
-                    <div className={`rounded-[1.6rem] border p-4 ${paymentMethodsSecured ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
+                    <div className={`rounded-2xl border p-4 ${paymentMethodsSecured ? 'border-emerald-400/20 bg-emerald-500/12' : 'border-amber-400/20 bg-amber-500/12'}`}>
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-300">{t('profile.settings.trust.paymentSafety', {}, 'Payment safety')}</p>
                         <p className={`mt-2 text-sm font-black ${paymentMethodsSecured ? 'text-emerald-100' : 'text-amber-100'}`}>
                             {paymentMethodsSecured ? t('profile.settings.trust.tokenizedDefault', {}, 'Tokenized + default') : t('profile.settings.trust.reviewNeeded', {}, 'Review needed')}
@@ -870,7 +870,7 @@ export default function SettingsSection({
                     </div>
                 </div>
 
-                <div className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
                     <div className="flex flex-wrap items-center gap-2 font-black text-slate-200">
                         <Clock3 className="h-4 w-4 text-neo-cyan" />
                         {t('profile.settings.trust.lastSweep', {}, 'Last trust sweep')}
@@ -890,7 +890,7 @@ export default function SettingsSection({
                 </div>
 
                 {!trustHealthy ? (
-                    <div className="mt-4 rounded-[1.4rem] border border-amber-400/20 bg-amber-500/12 px-4 py-3 text-xs text-amber-100">
+                    <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/12 px-4 py-3 text-xs text-amber-100">
                         {t('profile.settings.trust.warning', {}, 'Some live trust checks are degraded. Core account actions still work, but use official support channels if behavior looks suspicious.')}
                     </div>
                 ) : null}

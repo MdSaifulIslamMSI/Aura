@@ -447,13 +447,19 @@ export const userApi = {
     },
     removeWishlistItem: async ({ productId, expectedRevision = null, firebaseUser = null } = {}) => {
         const headers = await getAuthHeader(firebaseUser);
-        const { data } = await apiFetch(`/users/wishlist/items/${productId}`, {
-            method: 'DELETE',
-            headers,
-            body: JSON.stringify({
-                ...(expectedRevision !== null && expectedRevision !== undefined ? { expectedRevision } : {}),
-            }),
-        });
+        const hasRevision = expectedRevision !== null && expectedRevision !== undefined;
+        const { data } = await apiFetch(
+            `/users/wishlist/items/${productId}${hasRevision ? `?expectedRevision=${encodeURIComponent(expectedRevision)}` : ''}`,
+            {
+                method: 'DELETE',
+                headers,
+                // Deprecated body fallback: some proxies strip DELETE bodies,
+                // the server prefers the query string above.
+                body: JSON.stringify({
+                    ...(hasRevision ? { expectedRevision } : {}),
+                }),
+            }
+        );
         invalidateProfileCache();
         return data;
     },

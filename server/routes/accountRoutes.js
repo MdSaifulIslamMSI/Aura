@@ -101,7 +101,7 @@ const accountPrivacyLimiter = createDistributedRateLimit({
 
 router.use(protect);
 
-router.get('/summary', getAccountOverview);
+router.get('/summary', accountMarketplaceLimiter, getAccountOverview);
 router.get('/marketplace', accountMarketplaceLimiter, getAccountMarketplace);
 router.get('/privacy/capabilities', accountPrivacyLimiter, getPrivacyCapabilities);
 router.post(

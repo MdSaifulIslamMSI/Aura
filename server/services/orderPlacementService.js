@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Order = require('../models/Order');
+const User = require('../models/User');
 const Product = require('../models/Product');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
@@ -239,6 +240,27 @@ const executeOrderCreation = async ({
     });
 
     const createdOrder = session ? await order.save({ session }) : await order.save();
+    // Maintain the gross lifetime-spend counter read by the profile dashboard.
+    // Atomic $inc inside the placement transaction when one exists; a retry of
+    // a failed placement re-saves a NEW order document, so each increment maps
+    // to exactly one persisted order. Idempotency keys guard double placement.
+    try {
+        const spendIncrement = Number(quote.pricing.totalPrice || 0);
+        if (Number.isFinite(spendIncrement) && spendIncrement !== 0) {
+            await User.updateOne(
+                { _id: userId },
+                { $inc: { lifetimeSpent: spendIncrement } },
+                session ? { session } : {}
+            );
+        }
+    } catch (spendError) {
+        logger.warn('loyalty.lifetime_spend_increment_failed', {
+            requestId,
+            userId: String(userId),
+            orderId: String(createdOrder._id),
+            error: spendError.message,
+        });
+    }
     if (paymentIntent?.intentId) {
         const linkedIntent = await linkIntentToOrder({
             intentId: paymentIntent.intentId,

@@ -11,11 +11,12 @@ export default function PersonalInfoSection({
     profilePhone,
     editMode,
     setEditMode,
+    onCancelEdit,
     editForm,
     handleProfileFieldChange,
+    handleProfileFieldBlur,
     saving,
     handleSaveProfile,
-    createEditForm,
     profileDirty,
     profileFieldErrors,
     profileSubmitError,
@@ -51,10 +52,7 @@ export default function PersonalInfoSection({
                         <div className="flex gap-2">
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setEditMode(false);
-                                    setEditForm(createEditForm(profile));
-                                }}
+                                onClick={onCancelEdit}
                                 className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-white/10"
                             >
                                 {t('profile.personal.cancel', {}, 'Cancel')}
@@ -62,6 +60,10 @@ export default function PersonalInfoSection({
                             <button
                                 type="submit"
                                 disabled={saving || !profileDirty}
+                                aria-describedby={saving || !profileDirty ? 'account-profile-save-hint' : undefined}
+                                title={saving
+                                    ? t('profile.personal.savingHint', {}, 'Saving your profile…')
+                                    : t('profile.personal.noChangesHint', {}, 'Make a change before saving')}
                                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-5 py-2 text-sm font-black text-[#051018] disabled:opacity-60"
                             >
                                 {saving ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#051018] border-t-transparent" /> : <Save className="h-4 w-4" />}
@@ -78,6 +80,14 @@ export default function PersonalInfoSection({
                         </button>
                     )}
                 </div>
+
+                {saving || !profileDirty ? (
+                    <p id="account-profile-save-hint" className="sr-only">
+                        {saving
+                            ? t('profile.personal.savingHint', {}, 'Saving your profile…')
+                            : t('profile.personal.noChangesHint', {}, 'Make a change before saving')}
+                    </p>
+                ) : null}
 
                 {profileSubmitError ? (
                     <div className="mb-5 rounded-2xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100" role="alert">
@@ -104,6 +114,7 @@ export default function PersonalInfoSection({
                                     id="account-profile-name"
                                     value={editForm.name}
                                     onChange={(event) => handleProfileFieldChange('name', event.target.value)}
+                                    onBlur={() => handleProfileFieldBlur('name')}
                                     autoComplete="name"
                                     maxLength={50}
                                     aria-label={t('profile.personal.fullName', {}, 'Full Name')}
@@ -135,6 +146,7 @@ export default function PersonalInfoSection({
                                     type="tel"
                                     value={editForm.phone}
                                     onChange={(event) => handleProfileFieldChange('phone', event.target.value)}
+                                    onBlur={() => handleProfileFieldBlur('phone')}
                                     autoComplete="tel"
                                     inputMode="tel"
                                     aria-label={t('profile.personal.phone', {}, 'Phone Number')}
@@ -186,6 +198,7 @@ export default function PersonalInfoSection({
                                     value={editForm.dob}
                                     max={new Date().toISOString().slice(0, 10)}
                                     onChange={(event) => handleProfileFieldChange('dob', event.target.value)}
+                                    onBlur={() => handleProfileFieldBlur('dob')}
                                     autoComplete="bday"
                                     aria-label={t('profile.personal.dob', {}, 'Date of Birth')}
                                     aria-invalid={Boolean(profileFieldErrors.dob)}
@@ -208,13 +221,14 @@ export default function PersonalInfoSection({
                                     id="account-profile-bio"
                                     value={editForm.bio}
                                     onChange={(event) => handleProfileFieldChange('bio', event.target.value)}
+                                    onBlur={() => handleProfileFieldBlur('bio')}
                                     maxLength={200}
                                     rows={4}
                                     aria-label={t('profile.personal.bio', {}, 'Bio')}
                                     aria-invalid={Boolean(profileFieldErrors.bio)}
                                     aria-describedby="account-profile-bio-help"
                                     placeholder={t('profile.personal.bioPlaceholder', {}, 'Tell Aura what matters about you...')}
-                                    className="w-full resize-none rounded-[1.6rem] border border-white/10 bg-white/5 px-4 py-4 text-white outline-none transition-colors focus:border-cyan-300/30"
+                                    className="w-full resize-none rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-white outline-none transition-colors focus:border-cyan-300/30"
                                 />
                                 <p id="account-profile-bio-help" className={`mt-2 text-xs ${profileFieldErrors.bio ? 'text-rose-200' : 'text-slate-400'}`}>
                                     {profileFieldErrors.bio || t(
@@ -277,7 +291,7 @@ export default function PersonalInfoSection({
                         </span>
                     </div>
                     <p className="mt-4 text-sm text-slate-300">{accountCopy[accountState] || accountCopy.active}</p>
-                    <div className="mt-4 rounded-[1.4rem] border border-white/10 bg-white/[0.03] px-4 py-4">
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
                         <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{t('profile.personal.surfaceNote.label', {}, 'Surface note')}</p>
                         <p className="mt-2 text-sm text-slate-300">
                             {t('profile.personal.surfaceNote.body', {}, 'This tab is your identity layer. Rewards, support, governance, and notifications depend on these details being real and current.')}

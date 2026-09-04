@@ -128,10 +128,12 @@ const loadPlaceOrderService = ({
         result.session = jest.fn(async () => ({ modifiedCount: 1 }));
         return result;
     });
+    const userUpdateOne = jest.fn(async () => ({ modifiedCount: 1 }));
 
     jest.doMock('mongoose', () => ({ startSession }));
     jest.doMock('../models/Order', () => FakeOrder);
     jest.doMock('../models/Product', () => ({ updateOne: productUpdateOne }));
+    jest.doMock('../models/User', () => ({ updateOne: userUpdateOne }));
     jest.doMock('../utils/logger', () => logger);
     jest.doMock('../services/orderPricingService', () => ({
         PRICING_VERSION: 'v2',
@@ -191,6 +193,7 @@ const loadPlaceOrderService = ({
         commitTransaction,
         endSession,
         productUpdateOne,
+        userUpdateOne,
     };
 };
 
@@ -357,5 +360,42 @@ describe('orderPlacementService hardening', () => {
         expect(scanForMarketplaceAnomalies).not.toHaveBeenCalled();
         expect(result.response.priceBreakdown).not.toHaveProperty('integrityInsights');
         expect(commitTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    test('increments the buyer lifetime-spend counter on placement', async () => {
+        const {
+            placeOrderWithIdempotency,
+            userUpdateOne,
+        } = loadPlaceOrderService();
+
+        const result = await placeOrderWithIdempotency({
+            body: {
+                paymentMethod: 'COD',
+                shippingAddress: {
+                    address: '42 Main Road',
+                    city: 'Pune',
+                    postalCode: '411001',
+                    country: 'India',
+                },
+            },
+            user: {
+                _id: 'user_spend',
+                email: 'spend@example.com',
+                name: 'Spend User',
+            },
+            userId: 'user_spend',
+            authUid: 'auth_uid_spend',
+            requestId: 'req_lifetime_spend',
+            idempotencyKey: 'order-key-spend',
+            userKey: 'user-key-spend',
+            market: null,
+        });
+
+        expect(result.statusCode).toBe(201);
+        expect(userUpdateOne).toHaveBeenCalledWith(
+            { _id: 'user_spend' },
+            { $inc: { lifetimeSpent: 1200 } },
+            expect.anything()
+        );
     });
 });

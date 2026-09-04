@@ -20,10 +20,16 @@ const {
     AVATAR_UPLOAD_ALLOWED_MIME,
 } = require('../utils/avatarValidation');
 const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
+const { normalizeAvatarImage } = require('../services/avatarImageService');
+const {
+    deleteAvatarMedia,
+    promoteAvatarMedia,
+    quarantineAvatarMedia,
+} = require('../services/avatarMediaStorageService');
 const { normalizePhoneE164 } = require('../services/sms');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt updatedAt __v';
+const PROFILE_PROJECTION = 'name email phone avatar avatarMedia gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt updatedAt __v';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
@@ -51,6 +57,9 @@ const normalizeText = (value) => (
 const normalizeAddressText = (value) => normalizeText(value).replace(/\s+/g, ' ');
 
 const buildAddressFingerprint = (address = {}) => [
+    normalizeAddressText(address.type).toLowerCase(),
+    normalizeAddressText(address.name).toLowerCase(),
+    normalizePhone(address.phone).replace(/\D/g, ''),
     normalizeAddressText(address.address).toLowerCase(),
     normalizeAddressText(address.city).toLowerCase(),
     normalizeAddressText(address.state).toLowerCase(),
@@ -189,6 +198,24 @@ const parseExpectedRevision = (value) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed < 0) return Number.NaN;
     return parsed;
+};
+
+// DELETE bodies are stripped by some proxies and fetch defaults, so the
+// wishlist remove endpoint accepts the optimistic-concurrency revision via
+// query string (preferred) or If-Match, keeping the body field as a
+// deprecated fallback.
+const parseDeleteExpectedRevision = (req) => {
+    if (req.query?.expectedRevision !== undefined) {
+        return parseExpectedRevision(req.query.expectedRevision);
+    }
+    const ifMatch = String(req.headers?.['if-match'] || '')
+        .trim()
+        .replace(/^W\//, '')
+        .replace(/^"|"$/g, '');
+    if (ifMatch !== '') {
+        return parseExpectedRevision(ifMatch);
+    }
+    return parseExpectedRevision(req.body?.expectedRevision);
 };
 
 const sendWishlistConflict = async (res, userLike, market = null) => (
@@ -569,8 +596,8 @@ const loginUser = asyncHandler(async (req, res, next) => {
     }
 
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
 
     res.json({
         _id: user._id,
@@ -618,6 +645,8 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
 
     await persistAuthSnapshot(hydratedUser);
 
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Vary', 'Authorization, Cookie');
     res.json({
         ...toProfilePayload(hydratedUser, {
             includeCollections: true,
@@ -635,13 +664,28 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res, next) => {
     const requestBody = req.body && typeof req.body === 'object' ? req.body : {};
-    const expectedVersion = requestBody.version;
+    const rawVersion = requestBody.version;
+    const expectedVersion = rawVersion === undefined || rawVersion === null || rawVersion === ''
+        ? undefined
+        : Number(rawVersion);
+    if (expectedVersion !== undefined && (!Number.isInteger(expectedVersion) || expectedVersion < 0)) {
+        return next(new AppError('Invalid profile version', 400));
+    }
     const updates = { ...requestBody };
     delete updates.version;
+    let clearPhone = false;
     const allowedFields = ['name', 'avatar', 'gender', 'dob', 'bio', 'phone'];
     const blockedFields = Object.keys(updates).filter((key) => !allowedFields.includes(key));
 
     if (blockedFields.length > 0) {
+        recordAuthSecurityEvent({
+            event: 'account.profile.updated',
+            outcome: 'failure',
+            reason: 'blocked_fields',
+            surface: 'account_profile',
+            req,
+            meta: { fields: [...blockedFields].sort() },
+        });
         return next(new AppError(`Unsupported profile fields: ${blockedFields.join(', ')}`, 400));
     }
 
@@ -686,30 +730,53 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
             return next(new AppError('Phone number must be a string', 400));
         }
         const normalizedPhone = normalizePhone(updates.phone);
-        if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone)) {
-            return next(new AppError('Valid phone number is required', 400));
-        }
-        updates.phone = normalizedPhone || undefined;
-        if (!updates.phone) {
+        if (!normalizedPhone) {
             delete updates.phone;
-        }
-        if (updates.phone) {
-            await requireFreshPhoneProofForProfileChange({
-                req,
-                nextPhone: updates.phone,
-            });
+            clearPhone = true;
+        } else {
+            if (!PHONE_REGEX.test(normalizedPhone)) {
+                return next(new AppError('Valid phone number is required', 400));
+            }
+            updates.phone = normalizedPhone;
+            try {
+                await requireFreshPhoneProofForProfileChange({
+                    req,
+                    nextPhone: updates.phone,
+                });
+            } catch (error) {
+                recordAuthSecurityEvent({
+                    event: 'account.profile.updated',
+                    outcome: 'failure',
+                    reason: 'phone_proof',
+                    surface: 'account_profile',
+                    req,
+                    meta: { statusCode: Number(error?.statusCode || error?.status || 0) || undefined },
+                });
+                throw error;
+            }
         }
     }
 
-    // Handle avatar updates with security validation
+    // Handle avatar updates through the shared normalize -> store pipeline so the
+    // legacy PUT /profile path produces the same 512px webp media as the
+    // token-based avatar flow instead of persisting raw data URIs in Mongo.
+    let promotedAvatar = null;
+    let previousAvatarStorageKey = '';
     if (updates.avatar !== undefined) {
         if (typeof updates.avatar !== 'string') {
             return next(new AppError('Avatar must be a string', 400));
         }
 
+        const previousAvatar = await User.findOne(
+            { email: req.user.email },
+            'avatarMedia'
+        ).lean();
+        previousAvatarStorageKey = String(previousAvatar?.avatarMedia?.storageKey || '').trim();
+
         // Empty string is allowed (clears avatar)
         if (updates.avatar === '') {
             updates.avatar = '';
+            updates.avatarMedia = null;
         } else {
             const validatedAvatar = await validateImageDataUriUpload({
                 dataUrl: updates.avatar,
@@ -727,7 +794,28 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
                 infectedMessage: 'Avatar failed malware scan',
                 scanFailedMessage: 'Avatar malware scan unavailable. Please try again later.',
             });
-            updates.avatar = validatedAvatar.dataUrl;
+            const normalized = await normalizeAvatarImage(validatedAvatar.fileBuffer);
+            const ownerId = String(req.user?._id || req.authUid || '');
+            const pending = await quarantineAvatarMedia({
+                fileBuffer: normalized.fileBuffer,
+                ownerId,
+            });
+            try {
+                promotedAvatar = await promoteAvatarMedia({ storageKey: pending.storageKey });
+            } catch (error) {
+                await deleteAvatarMedia({ storageKey: pending.storageKey, quarantine: true }).catch(() => {});
+                throw error;
+            }
+            updates.avatar = promotedAvatar.url;
+            updates.avatarMedia = {
+                storageKey: promotedAvatar.storageKey,
+                storageDriver: promotedAvatar.storageDriver,
+                mimeType: 'image/webp',
+                sizeBytes: normalized.sizeBytes,
+                width: normalized.width,
+                height: normalized.height,
+                updatedAt: new Date(),
+            };
         }
     }
 
@@ -737,33 +825,56 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         if (expectedVersion !== undefined) {
             profileFilter.__v = expectedVersion;
         }
+        const updateDoc = {
+            $set: updates,
+            $inc: { __v: 1 },
+        };
+        if (clearPhone) {
+            updateDoc.$unset = { phone: '' };
+        }
         user = await User.findOneAndUpdate(
             profileFilter,
-            {
-                $set: updates,
-                $inc: { __v: 1 },
-            },
+            updateDoc,
             { returnDocument: 'after', projection: PROFILE_PROJECTION, lean: true }
         );
     } catch (error) {
+        if (promotedAvatar) {
+            await deleteAvatarMedia({ storageKey: promotedAvatar.storageKey }).catch(() => {});
+        }
         if (getDuplicateField(error) === 'phone') {
-            return next(new AppError('Phone number is already linked to another account', 409));
+            return next(new AppError('This phone number cannot be used', 409));
         }
         throw error;
     }
 
     if (!user) {
+        if (promotedAvatar) {
+            await deleteAvatarMedia({ storageKey: promotedAvatar.storageKey }).catch(() => {});
+        }
         if (expectedVersion !== undefined && await User.exists({ email: req.user.email })) {
             const conflict = new AppError('Profile changed in another session. Refresh and try again.', 409);
             conflict.code = 'ACCOUNT_PROFILE_VERSION_CONFLICT';
+            recordAuthSecurityEvent({
+                event: 'account.profile.updated',
+                outcome: 'failure',
+                reason: 'version_conflict',
+                surface: 'account_profile',
+                req,
+                meta: { optimisticConcurrency: true },
+            });
             return next(conflict);
         }
         return next(new AppError('User not found', 404));
     }
 
+    if (previousAvatarStorageKey
+        && previousAvatarStorageKey !== String(user.avatarMedia?.storageKey || '').trim()) {
+        await deleteAvatarMedia({ storageKey: previousAvatarStorageKey }).catch(() => {});
+    }
+
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
     recordAuthSecurityEvent({
         event: 'account.profile.updated',
         outcome: 'success',
@@ -771,7 +882,7 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         surface: 'account_profile',
         req,
         meta: {
-            fields: Object.keys(updates).sort(),
+            fields: [...new Set([...Object.keys(updates), ...(clearPhone ? ['phone'] : [])])].sort(),
             optimisticConcurrency: expectedVersion !== undefined,
         },
     });
@@ -780,6 +891,54 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         ...toProfilePayload(user),
         addresses: user.addresses || [],
     });
+});
+
+const DASHBOARD_ORDER_PROJECTION = [
+    '_id',
+    'createdAt',
+    'totalPrice',
+    'presentmentTotalPrice',
+    'presentmentCurrency',
+    'currency',
+    'orderStatus',
+    'isPaid',
+    'isDelivered',
+    'paymentMethod',
+    'paymentState',
+    'paymentProvider',
+    'paymentIntentId',
+    'orderItems.title',
+    'orderItems.image',
+    'orderItems.quantity',
+    'orderItems.price',
+    'shippingAddress.city',
+    'commandCenter.refunds',
+    'refundSummary',
+].join(' ');
+
+const toDashboardOrderPreview = (order = {}) => ({
+    _id: order._id,
+    createdAt: order.createdAt,
+    totalPrice: order.totalPrice,
+    presentmentTotalPrice: order.presentmentTotalPrice,
+    presentmentCurrency: order.presentmentCurrency,
+    currency: order.currency,
+    orderStatus: order.orderStatus,
+    isPaid: order.isPaid,
+    isDelivered: order.isDelivered,
+    paymentMethod: order.paymentMethod,
+    paymentState: order.paymentState,
+    paymentProvider: order.paymentProvider,
+    paymentIntentId: order.paymentIntentId,
+    orderItems: Array.isArray(order.orderItems) ? order.orderItems.map((item = {}) => ({
+        title: item.title,
+        image: item.image,
+        quantity: item.quantity,
+        price: item.price,
+    })) : [],
+    shippingAddress: order.shippingAddress?.city ? { city: order.shippingAddress.city } : undefined,
+    commandCenter: Array.isArray(order.commandCenter?.refunds) ? { refunds: order.commandCenter.refunds } : undefined,
+    refundSummary: order.refundSummary,
 });
 
 // @desc    Get profile dashboard (stats + recent orders + listings count)
@@ -792,12 +951,13 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
     const user = await ensureUserLean({
         email,
         authUser: req.user,
-        projection: '_id loyalty wishlist',
+        projection: '_id loyalty wishlist lifetimeSpent',
     });
     if (!user) return next(new AppError('Unable to recover user profile', 500));
 
     const [orders, listingStats, cartSnapshot] = await Promise.all([
         Order.find({ user: user._id })
+            .select(DASHBOARD_ORDER_PROJECTION)
             .sort({ createdAt: -1 })
             .limit(5)
             .lean(),
@@ -812,12 +972,10 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
     ]);
 
     const totalOrders = await Order.countDocuments({ user: user._id });
-    const totalSpent = orders.length > 0
-        ? (await Order.aggregate([
-            { $match: { user: user._id } },
-            { $group: { _id: null, total: { $sum: '$totalPrice' } } }
-        ]))[0]?.total || 0
-        : 0;
+    // Gross lifetime spend maintained incrementally at order placement
+    // (User.lifetimeSpent); the legacy full-collection $sum aggregate this
+    // replaces scanned every order on every dashboard view.
+    const totalSpent = Number(user.lifetimeSpent || 0);
 
     const listings = { active: 0, sold: 0, totalViews: 0 };
     listingStats.forEach((s) => {
@@ -830,6 +988,15 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
         }
     });
 
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Vary', 'Authorization, Cookie');
+    recordAuthSecurityEvent({
+        event: 'account.dashboard.viewed',
+        outcome: 'success',
+        reason: 'user_requested',
+        surface: 'account_profile',
+        req,
+    });
     res.json({
         success: true,
         stats: {
@@ -840,7 +1007,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
             listings,
             rewards: getRewardSnapshotFromUser(user),
         },
-        recentOrders: orders.slice(0, 5)
+        recentOrders: orders.slice(0, 5).map(toDashboardOrderPreview)
     });
 });
 
@@ -928,8 +1095,8 @@ const addAddress = asyncHandler(async (req, res, next) => {
 
     await user.save();
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
     recordAuthSecurityEvent({
         event: 'account.address.added',
         outcome: 'success',
@@ -1002,8 +1169,8 @@ const updateAddress = asyncHandler(async (req, res, next) => {
     Object.assign(addr, fieldsToUpdate);
     await user.save();
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
     recordAuthSecurityEvent({
         event: 'account.address.updated',
         outcome: 'success',
@@ -1042,8 +1209,8 @@ const deleteAddress = asyncHandler(async (req, res, next) => {
 
     await user.save();
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
     recordAuthSecurityEvent({
         event: 'account.address.deleted',
         outcome: 'success',
@@ -1186,7 +1353,7 @@ const addWishlistItem = asyncHandler(async (req, res, next) => {
 // @access  Private
 const removeWishlistItem = asyncHandler(async (req, res, next) => {
     const productId = Number(req.params.productId);
-    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+    const expectedRevision = parseDeleteExpectedRevision(req);
 
     if (!Number.isFinite(productId) || productId <= 0) {
         return next(new AppError('productId must be a valid product identifier', 400));
@@ -1305,6 +1472,16 @@ const activateSellerAccount = asyncHandler(async (req, res, next) => {
         return next(new AppError('Valid phone number required before seller activation', 400));
     }
 
+    if (user.dob) {
+        const dobTime = new Date(user.dob).getTime();
+        if (!Number.isNaN(dobTime)) {
+            const ageYears = (Date.now() - dobTime) / (365.2425 * 24 * 60 * 60 * 1000);
+            if (ageYears < 18) {
+                return next(new AppError('Seller accounts require you to be at least 18 years old', 403));
+            }
+        }
+    }
+
     if (!user.isSeller) {
         user.isSeller = true;
         user.sellerActivatedAt = new Date();
@@ -1312,8 +1489,8 @@ const activateSellerAccount = asyncHandler(async (req, res, next) => {
     }
 
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
 
     return res.json({
         success: true,
@@ -1384,7 +1561,7 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
 
     if (activeListingCount > 0) {
         return next(new AppError(
-            `Cannot deactivate seller mode while ${activeListingCount} active listing(s) exist. Mark them sold or delete them first.`,
+            'Cannot deactivate seller mode while active listings exist. Mark them sold or delete them first.',
             409
         ));
     }
@@ -1394,8 +1571,8 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
     await user.save();
 
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
 
     return res.json({
         success: true,

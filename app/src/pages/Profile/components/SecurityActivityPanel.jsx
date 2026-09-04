@@ -89,7 +89,7 @@ export default function SecurityActivityPanel({
     const unknownDate = t('profile.securityActivity.unknownDate', {}, 'Unknown time');
 
     return (
-        <section aria-labelledby="security-activity-heading" className="rounded-[1.6rem] border border-white/10 bg-white/[0.03] p-4">
+        <section aria-labelledby="security-activity-heading" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <h3 id="security-activity-heading" className="flex items-center gap-2 text-sm font-black text-white">

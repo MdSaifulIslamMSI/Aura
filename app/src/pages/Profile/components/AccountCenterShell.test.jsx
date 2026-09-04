@@ -55,6 +55,54 @@ describe('AccountCenterShell', () => {
         expect(onTabChange).toHaveBeenLastCalledWith('orders');
     });
 
+    it('moves focus to the page heading when the active tab changes', () => {
+        const { rerender } = render(
+            <AccountCenterShell
+                tabs={tabs}
+                activeTab="overview"
+                onTabChange={vi.fn()}
+                profile={{
+                    name: 'Profile User',
+                    email: 'profile@example.com',
+                    initials: 'PU',
+                }}
+                pageTitle="Overview"
+                pageDescription="Account overview"
+                memberSince="July 2026"
+                profileCompletion={75}
+                accountState="active"
+                accountStateLabel="active"
+                onAvatarClick={vi.fn()}
+            >
+                <p>Account content</p>
+            </AccountCenterShell>,
+        );
+
+        rerender(
+            <AccountCenterShell
+                tabs={tabs}
+                activeTab="orders"
+                onTabChange={vi.fn()}
+                profile={{
+                    name: 'Profile User',
+                    email: 'profile@example.com',
+                    initials: 'PU',
+                }}
+                pageTitle="Orders"
+                pageDescription="Order history"
+                memberSince="July 2026"
+                profileCompletion={75}
+                accountState="active"
+                accountStateLabel="active"
+                onAvatarClick={vi.fn()}
+            >
+                <p>Account content</p>
+            </AccountCenterShell>,
+        );
+
+        expect(screen.getByRole('heading', { name: 'Orders', level: 1 })).toHaveFocus();
+    });
+
     it('disables avatar replacement and exposes progress while an upload is active', () => {
         render(
             <AccountCenterShell

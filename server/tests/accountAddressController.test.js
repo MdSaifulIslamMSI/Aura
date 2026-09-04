@@ -107,6 +107,26 @@ describe('account address controller', () => {
         }));
     });
 
+    test('allows the same street for a different recipient', async () => {
+        const addresses = [{ ...baseAddress }];
+        const user = buildUser(addresses);
+        User.findOne.mockResolvedValue(user);
+        const req = buildRequest({
+            ...baseAddress,
+            _id: undefined,
+            name: 'Other Person',
+            phone: '919000000001',
+        });
+        const res = buildResponse();
+        const next = jest.fn();
+
+        await addAddress(req, res, next);
+
+        expect(user.save).toHaveBeenCalled();
+        expect(next).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(201);
+    });
+
     test('does not allow an address identifier outside the authenticated owner document', async () => {
         const addresses = [];
         addresses.id = jest.fn().mockReturnValue(null);

@@ -9,6 +9,8 @@ vi.mock('@/context/MarketContext', () => ({
     }),
     useMarket: () => ({
         t: (_key, _values, fallback) => fallback,
+        formatDateTime: (value) => new Date(value).toISOString(),
+        formatNumber: (value) => String(value),
     }),
 }));
 

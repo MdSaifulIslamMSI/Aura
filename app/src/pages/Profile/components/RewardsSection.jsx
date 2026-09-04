@@ -2,58 +2,59 @@ import { Link } from 'react-router-dom';
 import { Sparkles, Trophy, Activity } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { EmptyState, SectionSkeleton } from './ProfileShared';
 
 export default function RewardsSection({
     auraTier, auraPoints, rewardSnapshot, nextMilestone, handleOptimizeRewards,
     optimizing, intelligenceLoading, intelligenceData, rewardActivity, rewardsLoading,
 }) {
-    const { t: legacyT, formatPrice } = useMarket();
+    const { t: legacyT, formatDateTime, formatNumber, formatPrice } = useMarket();
     const t = useStableIcuMessages(legacyT);
 
     return (
-        <div className="max-w-3xl space-y-5">
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="space-y-5">
+            <div className="premium-panel premium-card-hover p-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-                            <Sparkles className="h-5 w-5 text-amber-500" />
+                        <h2 className="flex items-center gap-2 text-xl font-black text-white">
+                            <Sparkles className="h-5 w-5 text-[#d2a96c]" aria-hidden="true" />
                             {t('profile.rewards.title', {}, 'Aura Points Command Center')}
                         </h2>
-                        <p className="mt-1 text-xs text-gray-500">{t('profile.rewards.body', {}, 'Earn points from secure login, orders, and marketplace actions.')}</p>
+                        <p className="mt-1 text-xs text-slate-400">{t('profile.rewards.body', {}, 'Earn points from secure login, orders, and marketplace actions.')}</p>
                     </div>
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-amber-700">
+                    <span className="rounded-full border border-[#d2a96c]/30 bg-[#d2a96c]/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#f3c982]">
                         {t('profile.rewards.tierBadge', { tier: auraTier }, `${auraTier} Tier`)}
                     </span>
                 </div>
 
                 <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">{t('profile.rewards.balance.label', {}, 'Balance')}</p>
-                        <p className="mt-1 text-2xl font-black text-amber-700">{auraPoints.toLocaleString('en-IN')}</p>
-                        <p className="mt-1 text-xs text-amber-600">{t('profile.rewards.balance.body', {}, 'Aura Points available')}</p>
+                    <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200">{t('profile.rewards.balance.label', {}, 'Balance')}</p>
+                        <p className="mt-1 text-2xl font-black text-white">{formatNumber(auraPoints)}</p>
+                        <p className="mt-1 text-xs text-amber-200/70">{t('profile.rewards.balance.body', {}, 'Aura Points available')}</p>
                     </div>
-                    <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">{t('profile.rewards.lifetime.label', {}, 'Lifetime Earned')}</p>
-                        <p className="mt-1 text-2xl font-black text-indigo-700">{Number(rewardSnapshot.lifetimeEarned || 0).toLocaleString('en-IN')}</p>
-                        <p className="mt-1 text-xs text-indigo-600">{t('profile.rewards.lifetime.body', {}, 'Total reward accumulation')}</p>
+                    <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-200">{t('profile.rewards.lifetime.label', {}, 'Lifetime Earned')}</p>
+                        <p className="mt-1 text-2xl font-black text-white">{formatNumber(Number(rewardSnapshot.lifetimeEarned || 0))}</p>
+                        <p className="mt-1 text-xs text-cyan-200/70">{t('profile.rewards.lifetime.body', {}, 'Total reward accumulation')}</p>
                     </div>
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">{t('profile.rewards.streak.label', {}, 'Login Streak')}</p>
-                        <p className="mt-1 text-2xl font-black text-emerald-700">{Number(rewardSnapshot.streakDays || 0)}</p>
-                        <p className="mt-1 text-xs text-emerald-600">{t('profile.rewards.streak.body', {}, 'Consecutive reward days')}</p>
+                    <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">{t('profile.rewards.streak.label', {}, 'Login Streak')}</p>
+                        <p className="mt-1 text-2xl font-black text-white">{Number(rewardSnapshot.streakDays || 0)}</p>
+                        <p className="mt-1 text-xs text-emerald-200/70">{t('profile.rewards.streak.body', {}, 'Consecutive reward days')}</p>
                     </div>
                 </div>
 
                 {nextMilestone !== null && Number.isFinite(nextMilestone) ? (
-                    <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                        <p className="text-xs text-gray-600">
-                            {t('profile.rewards.nextTier', { points: nextMilestone.toLocaleString('en-IN') }, `Next tier unlock at ${nextMilestone.toLocaleString('en-IN')} lifetime points.`)}
+                    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <p className="text-xs text-slate-400">
+                            {t('profile.rewards.nextTier', { points: formatNumber(nextMilestone) }, `Next tier unlock at ${formatNumber(nextMilestone)} lifetime points.`)}
                         </p>
                     </div>
                 ) : null}
             </div>
 
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="premium-panel premium-card-hover p-6">
                 <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
@@ -82,9 +83,7 @@ export default function RewardsSection({
                 </div>
 
                 {intelligenceLoading ? (
-                    <div className="animate-pulse space-y-3">
-                        <div className="h-20 rounded-xl bg-gray-50" />
-                    </div>
+                    <SectionSkeleton rows={1} label={t('profile.rewards.insights.loading', {}, 'Loading smart insights...')} />
                 ) : intelligenceData?.insights ? (
                     <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 p-5 text-white">
                         <div className="pointer-events-none absolute right-0 top-0 p-8 opacity-10">
@@ -122,40 +121,38 @@ export default function RewardsSection({
                         </div>
                     </div>
                 ) : (
-                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
-                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-                            <Sparkles className="h-6 w-6 text-gray-300" />
-                        </div>
-                        <p className="text-sm font-bold text-gray-700">{t('profile.rewards.insights.emptyTitle', {}, 'No Intelligence Insights Yet')}</p>
-                        <p className="mx-auto mt-1 max-w-[240px] text-xs text-gray-400">{t('profile.rewards.insights.emptyBody', {}, "Click 'Re-calc Rewards' to run our optimization engine over your historical data.")}</p>
-                    </div>
+                    <EmptyState
+                        icon={Sparkles}
+                        title={t('profile.rewards.insights.emptyTitle', {}, 'No Intelligence Insights Yet')}
+                        body={t('profile.rewards.insights.emptyBody', {}, "Click 'Re-calc Rewards' to run our optimization engine over your historical data.")}
+                    />
                 )}
             </div>
 
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="premium-panel premium-card-hover p-6">
                 <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-bold text-gray-900">{t('profile.rewards.activity.title', {}, 'Recent Rewards Activity')}</h3>
-                    {rewardsLoading ? <span className="text-xs text-gray-400">{t('profile.rewards.activity.syncing', {}, 'Syncing...')}</span> : null}
+                    <h3 className="font-black text-white">{t('profile.rewards.activity.title', {}, 'Recent Rewards Activity')}</h3>
+                    {rewardsLoading ? <span role="status" className="text-xs text-slate-400">{t('profile.rewards.activity.syncing', {}, 'Syncing...')}</span> : null}
                 </div>
                 {rewardActivity.length === 0 ? (
-                    <div className="py-8 text-center">
-                        <Sparkles className="mx-auto mb-2 h-10 w-10 text-gray-200" />
-                        <p className="text-sm text-gray-500">{t('profile.rewards.activity.empty', {}, 'No rewards activity yet.')}</p>
-                    </div>
+                    <EmptyState
+                        icon={Sparkles}
+                        title={t('profile.rewards.activity.empty', {}, 'No rewards activity yet.')}
+                    />
                 ) : (
                     <div className="space-y-3">
                         {rewardActivity.slice(0, 12).map((entry, index) => (
-                            <div key={`${entry.createdAt || index}-${entry.eventType || 'reward'}`} className="flex items-start justify-between gap-3 rounded-xl border p-3">
+                            <div key={`${entry.createdAt || index}-${entry.eventType || 'reward'}`} className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                                 <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-gray-900">
+                                    <p className="text-sm font-semibold text-white">
                                         {entry.reason || String(entry.eventType || t('profile.rewards.activity.rewardFallback', {}, 'Reward')).replace(/_/g, ' ')}
                                     </p>
-                                    <p className="mt-0.5 text-xs text-gray-500">
-                                        {entry.createdAt ? new Date(entry.createdAt).toLocaleString('en-IN') : t('profile.rewards.activity.recently', {}, 'Recently')}
+                                    <p className="mt-0.5 text-xs text-slate-400">
+                                        {entry.createdAt ? formatDateTime(entry.createdAt) : t('profile.rewards.activity.recently', {}, 'Recently')}
                                     </p>
                                 </div>
-                                <span className="whitespace-nowrap text-sm font-black text-emerald-600">
-                                    {t('profile.rewards.activity.points', { points: Number(entry.points || 0).toLocaleString('en-IN') }, `+${Number(entry.points || 0).toLocaleString('en-IN')} AP`)}
+                                <span className="whitespace-nowrap text-sm font-black text-emerald-200">
+                                    {t('profile.rewards.activity.points', { points: formatNumber(Number(entry.points || 0)) }, `+${formatNumber(Number(entry.points || 0))} AP`)}
                                 </span>
                             </div>
                         ))}

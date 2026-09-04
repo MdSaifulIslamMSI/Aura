@@ -35,6 +35,8 @@ const baseProps = {
         bio: 'Profile biography',
     },
     handleProfileFieldChange: vi.fn(),
+    handleProfileFieldBlur: vi.fn(),
+    onCancelEdit: vi.fn(),
     saving: false,
     handleSaveProfile: vi.fn((event) => event.preventDefault()),
     createEditForm: vi.fn(),
@@ -95,5 +97,27 @@ describe('PersonalInfoSection', () => {
         render(<PersonalInfoSection {...baseProps} profileDirty={false} />);
 
         expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    });
+
+    it('validates a field on blur and explains a disabled Save', () => {
+        const handleProfileFieldBlur = vi.fn();
+        render(<PersonalInfoSection
+            {...baseProps}
+            profileDirty={false}
+            handleProfileFieldBlur={handleProfileFieldBlur}
+        />);
+
+        fireEvent.blur(screen.getByRole('textbox', { name: 'Phone Number' }));
+        expect(handleProfileFieldBlur).toHaveBeenCalledWith('phone');
+        expect(screen.getByRole('button', { name: 'Save' }))
+            .toHaveAccessibleDescription('Make a change before saving');
+    });
+
+    it('cancels editing through the stable cancel handler', () => {
+        const onCancelEdit = vi.fn();
+        render(<PersonalInfoSection {...baseProps} onCancelEdit={onCancelEdit} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+        expect(onCancelEdit).toHaveBeenCalledTimes(1);
     });
 });
