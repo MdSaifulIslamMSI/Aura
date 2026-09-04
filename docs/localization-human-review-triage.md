@@ -4,11 +4,11 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Machine Certification
 
-- Stable UI candidates discovered: 422
+- Stable UI candidates discovered: 417
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (102879/102879 required locale/message pairs)
+- Locale key coverage: 100% (103131/103131 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4899
+- Source message keys: 4911
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,12 +16,12 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 92309
-- Unique review locale/id pairs: 92309
-- Actionable grouped queue entries: 3420
-- Actionable affected locale/message pairs: 48339
-- Native-review audit grouped entries: 2456
-- Native-review audit affected locale/message pairs: 43970
+- Total tracked review pairs preserved: 92537
+- Unique review locale/id pairs: 92537
+- Actionable grouped queue entries: 3124
+- Actionable affected locale/message pairs: 30592
+- Native-review audit grouped entries: 3013
+- Native-review audit affected locale/message pairs: 61945
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -29,71 +29,71 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 1264 | 22056 | bn 1044, hi 1226, te 1103, mr 1109, ur 1089, gu 1123, pa 1117, ml 1104, kn 1103, or 1117, as 1102, sa 1106, es 1237, fr 1270, de 1257, ar 1186, ja 1260, pt 1248, zh 1255 |
-| high | 205 | 867 | bn 9, hi 185, te 14, mr 14, ur 15, gu 13, pa 13, ml 17, kn 14, or 21, as 5, sa 8, es 74, fr 80, de 78, ar 76, ja 80, pt 74, zh 77 |
-| medium | 1439 | 22043 | bn 1027, hi 1339, te 1034, mr 1033, ur 1032, gu 1051, pa 1045, ml 1032, kn 1032, or 1042, as 1031, sa 1041, es 1339, fr 1323, de 1310, ar 1306, ja 1349, pt 1330, zh 1347 |
-| low | 512 | 3373 | bn 2, hi 499, te 1, mr 2, ur 2, gu 2, pa 1, ml 1, kn 1, or 2, as 1, sa 3, es 406, fr 412, de 408, ar 408, ja 408, pt 407, zh 407 |
+| critical | 1044 | 16042 | bn 779, hi 771, te 841, mr 842, ur 826, gu 855, pa 847, ml 840, kn 841, or 853, as 838, sa 845, es 840, fr 862, de 860, ar 777, ja 842, pt 1046, zh 837 |
+| high | 273 | 492 | bn 10, hi 21, te 20, mr 15, ur 21, gu 14, pa 18, ml 26, kn 20, or 31, as 5, sa 10, es 2, fr 6, de 6, ar 2, ja 2, pt 262, zh 1 |
+| medium | 1085 | 13223 | bn 672, hi 643, te 676, mr 678, ur 676, gu 700, pa 691, ml 678, kn 673, or 691, as 677, sa 693, es 680, fr 664, de 669, ar 665, ja 676, pt 1045, zh 676 |
+| low | 722 | 835 | bn 3, hi 7, te 7, mr 3, ur 4, gu 4, pa 3, ml 3, kn 7, or 8, as 6, sa 8, es 10, fr 19, de 17, ar 1, ja 3, pt 720, zh 2 |
 
 ## Examples
 
 | Priority | Risk | Affected pairs | Source message | Sample IDs |
 | --- | --- | ---: | --- | --- |
-| critical | high | 76 | Retry | common.retry, orders.error.retry, profile.addresses.retry, profile.settings.notifications.retry |
-| critical | high | 66 | Cancel | common.action.cancel, common.cancel, profile.sessions.cancel, checkout.cancel, profile.payments.addCard.cancel |
 | critical | high | 57 | Recheck your email and phone details, then request a new code. | auth.error.noAccountFound.hint, auth.error.noAccountFoundWithThisEmail.hint, auth.error.noAccountFoundWithThisPhone.hint |
 | critical | high | 57 | Sign in for support | securePathDock.support.guest.title, support.jsx.text.sign.in.for.support, supportLauncher.guest.title |
 | critical | high | 57 | We could not verify those account details for OTP. | auth.error.noAccountFound.detail, auth.error.noAccountFoundWithThisEmail.detail, auth.error.noAccountFoundWithThisPhone.detail |
-| critical | high | 39 | {count} active | profile.sessions.activeCount, profile.settings.devices.activeCount, marketplace.filters.activeCount |
-| critical | high | 38 | Choose country code | login.country.panelLabel, login.country.panelTitle |
-| critical | high | 38 | Confirm password | desktopLogin.field.confirmPassword, desktopLogin.placeholder.confirmPasswordShort |
+| critical | high | 38 | Active incidents | status.incidents.active, support.jsx.prop.label.active.incidents |
+| critical | high | 38 | Authorize the exact live domain in Firebase Authentication settings, or continue with email and OTP sign-in. | auth.error.illegalIframe.hint, auth.error.illegalUrlForNewIframe.hint |
+| critical | high | 38 | Firebase rejected the current site host for popup-based sign-in. | auth.error.illegalIframe.detail, auth.error.illegalUrlForNewIframe.detail |
+| critical | high | 38 | Frontier AI Layer | common.jsx.text.frontier.ai.layer.21e85bce, common.jsx.text.frontier.ai.layer.39f8bb96 |
+| critical | high | 38 | Guest | assistant.context.guest, common.jsx.expression.guest.c539652f |
 | high | high | 10 | Aura Catalog | listing.catalogTitleFull |
+| high | high | 10 | Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes. | desktopLogin.handoff.stepsDetail |
 | high | high | 9 | Aura never asks for your OTP outside this secure verification step. | login.trust.otp.default.2 |
 | high | high | 9 | Keep all negotiation inside Aura chat. | listingDetail.safety.note4 |
 | high | high | 9 | Negotiate, ask for proof, lock an offer, and move to live inspection without leaving Aura. | listingDetail.chat.threadBody |
 | high | high | 9 | Reply to Aura Support and keep things moving... | profile.support.compose.replyPlaceholder |
 | high | high | 9 | Start your negotiation in Aura chat. | listingDetail.chat.readyPreview |
 | high | high | 9 | Tell Aura Support what happened | profile.support.compose.messageLabel |
-| high | high | 9 | This thread is the shared record for you and Aura Support. No more disconnected alerts. | profile.support.thread.activeBody |
 | medium | low | 49 | Aura points | profile.heroMetric.points.label, profile.overview.stats.points, profile.tab.rewards |
 | medium | medium | 38 | +{value} more | assistant.attachment.moreAudio, assistant.attachment.moreImages |
 | medium | medium | 38 | Frequently Bought Together | product.jsx.prop.label.frequently.bought.together, recommendations.frequentlyBoughtTogether.title |
 | medium | medium | 38 | Resolved | status.incident.resolved, status.incident.state.resolved |
-| medium | low | 38 | Privacy controls | profile.privacy.title, profile.tab.privacy |
-| medium | low | 38 | Returns and refunds | profile.overview.stats.pendingPostPurchase, profile.settings.notifications.returnRefundUpdates.label |
-| medium | low | 38 | Sign out | admin.security.signOut, profile.sessions.signOut |
-| medium | low | 38 | Try again | profile.marketplace.retry, profile.privacy.retry |
+| medium | low | 38 | Back to app | common.jsx.text.back.to.app, videoCall.backToApp.title |
+| medium | low | 38 | Home | assistant.intent.navigation.home, mobileTabBar.home |
+| medium | low | 38 | Later | desktopUpdate.later, mobileUpdate.later |
+| medium | low | 38 | Open the focused commerce copilot | assistantLauncher.openCopilot.ariaLabel, assistantLauncher.openCopilot.title |
 | low | low | 9 | Explore Aura | wishlist.explore |
-| low | low | 9 | Dashboard Sync | admin.diagnostics.cards.dashboardSync |
-| low | low | 9 | Ingested At | admin.diagnostics.meta.ingestedAt |
-| low | low | 9 | admin | admin.shared.adminActor |
-| low | low | 8 | A few account and checkout actions may take an extra moment while everything reconnects. | status.banner.warmingMessage |
-| low | low | 8 | Account, checkout, or support actions are temporarily unavailable. Please try again in a moment. | status.banner.unavailableMessage |
-| low | low | 8 | Action Power Map | admin.users.panels.actionPowerMap |
-| low | low | 8 | Action completed | admin.users.action.completed |
+| low | low | 9 | Aura evaluated a sign-in security signal. | profile.securityActivity.risk.body |
+| low | low | 8 | Chat with Aura Support | profile.support.inbox.title |
+| low | low | 8 | ID | admin.orders.table.id |
+| low | low | 8 | Manual | admin.products.source.manual |
+| low | low | 8 | sms | profile.settings.notifications.channel.sms |
+| low | low | 7 | req-... | admin.diagnostics.filters.requestIdPlaceholder |
+| low | low | 6 | Ref | admin.refunds.reference |
 
 ## Native Review Audit By Locale
 
 | Locale | Affected pairs |
 | --- | ---: |
-| bn | 2613 |
-| hi | 1446 |
-| te | 2747 |
-| mr | 2741 |
-| ur | 2601 |
-| gu | 2710 |
-| pa | 2723 |
-| ml | 2745 |
-| kn | 2749 |
-| or | 2717 |
-| as | 2760 |
-| sa | 2741 |
-| es | 1843 |
-| fr | 1814 |
-| de | 1846 |
-| ar | 1719 |
-| ja | 1802 |
-| pt | 1840 |
-| zh | 1813 |
+| bn | 3243 |
+| hi | 3265 |
+| te | 3367 |
+| mr | 3373 |
+| ur | 3224 |
+| gu | 3338 |
+| pa | 3352 |
+| ml | 3364 |
+| kn | 3370 |
+| or | 3328 |
+| as | 3385 |
+| sa | 3355 |
+| es | 3379 |
+| fr | 3360 |
+| de | 3359 |
+| ar | 3262 |
+| ja | 3388 |
+| pt | 1838 |
+| zh | 3395 |
 
 ## Files
 
