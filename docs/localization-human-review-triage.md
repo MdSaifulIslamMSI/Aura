@@ -18,10 +18,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Total tracked review pairs preserved: 92537
 - Unique review locale/id pairs: 92537
-- Actionable grouped queue entries: 3124
-- Actionable affected locale/message pairs: 30592
-- Native-review audit grouped entries: 3013
-- Native-review audit affected locale/message pairs: 61945
+- Actionable grouped queue entries: 1730
+- Actionable affected locale/message pairs: 28896
+- Native-review audit grouped entries: 3043
+- Native-review audit affected locale/message pairs: 63641
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -29,10 +29,10 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 1044 | 16042 | bn 779, hi 771, te 841, mr 842, ur 826, gu 855, pa 847, ml 840, kn 841, or 853, as 838, sa 845, es 840, fr 862, de 860, ar 777, ja 842, pt 1046, zh 837 |
-| high | 273 | 492 | bn 10, hi 21, te 20, mr 15, ur 21, gu 14, pa 18, ml 26, kn 20, or 31, as 5, sa 10, es 2, fr 6, de 6, ar 2, ja 2, pt 262, zh 1 |
-| medium | 1085 | 13223 | bn 672, hi 643, te 676, mr 678, ur 676, gu 700, pa 691, ml 678, kn 673, or 691, as 677, sa 693, es 680, fr 664, de 669, ar 665, ja 676, pt 1045, zh 676 |
-| low | 722 | 835 | bn 3, hi 7, te 7, mr 3, ur 4, gu 4, pa 3, ml 3, kn 7, or 8, as 6, sa 8, es 10, fr 19, de 17, ar 1, ja 3, pt 720, zh 2 |
+| critical | 876 | 15798 | bn 779, hi 763, te 841, mr 842, ur 826, gu 855, pa 846, ml 840, kn 841, or 853, as 838, sa 845, es 840, fr 861, de 859, ar 777, ja 826, pt 845, zh 821 |
+| high | 46 | 217 | bn 9, hi 20, te 19, mr 14, ur 20, gu 13, pa 18, ml 25, kn 19, or 30, as 4, sa 9, es 1, fr 6, de 6, ar 1, ja 1, pt 2 |
+| medium | 762 | 12765 | bn 673, hi 625, te 677, mr 679, ur 677, gu 701, pa 692, ml 679, kn 674, or 692, as 678, sa 694, es 681, fr 665, de 670, ar 666, ja 635, pt 671, zh 636 |
+| low | 46 | 116 | bn 3, hi 2, te 7, mr 3, ur 4, gu 4, pa 3, ml 3, kn 7, or 8, as 6, sa 8, es 10, fr 19, de 17, ar 1, ja 2, pt 8, zh 1 |
 
 ## Examples
 
@@ -46,15 +46,15 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | critical | high | 38 | Firebase rejected the current site host for popup-based sign-in. | auth.error.illegalIframe.detail, auth.error.illegalUrlForNewIframe.detail |
 | critical | high | 38 | Frontier AI Layer | common.jsx.text.frontier.ai.layer.21e85bce, common.jsx.text.frontier.ai.layer.39f8bb96 |
 | critical | high | 38 | Guest | assistant.context.guest, common.jsx.expression.guest.c539652f |
-| high | high | 10 | Aura Catalog | listing.catalogTitleFull |
-| high | high | 10 | Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes. | desktopLogin.handoff.stepsDetail |
+| high | high | 9 | Aura Support can move this same thread into voice or video without losing the written history or the resolution summary. | profile.support.arch.defaultBody |
 | high | high | 9 | Aura never asks for your OTP outside this secure verification step. | login.trust.otp.default.2 |
+| high | high | 9 | Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes. | desktopLogin.handoff.stepsDetail |
 | high | high | 9 | Keep all negotiation inside Aura chat. | listingDetail.safety.note4 |
 | high | high | 9 | Negotiate, ask for proof, lock an offer, and move to live inspection without leaving Aura. | listingDetail.chat.threadBody |
 | high | high | 9 | Reply to Aura Support and keep things moving... | profile.support.compose.replyPlaceholder |
 | high | high | 9 | Start your negotiation in Aura chat. | listingDetail.chat.readyPreview |
 | high | high | 9 | Tell Aura Support what happened | profile.support.compose.messageLabel |
-| medium | low | 49 | Aura points | profile.heroMetric.points.label, profile.overview.stats.points, profile.tab.rewards |
+| medium | low | 50 | Aura points | profile.heroMetric.points.label, profile.overview.stats.points, profile.tab.rewards |
 | medium | medium | 38 | +{value} more | assistant.attachment.moreAudio, assistant.attachment.moreImages |
 | medium | medium | 38 | Frequently Bought Together | product.jsx.prop.label.frequently.bought.together, recommendations.frequentlyBoughtTogether.title |
 | medium | medium | 38 | Resolved | status.incident.resolved, status.incident.state.resolved |
@@ -63,20 +63,20 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | medium | low | 38 | Later | desktopUpdate.later, mobileUpdate.later |
 | medium | low | 38 | Open the focused commerce copilot | assistantLauncher.openCopilot.ariaLabel, assistantLauncher.openCopilot.title |
 | low | low | 9 | Explore Aura | wishlist.explore |
-| low | low | 9 | Aura evaluated a sign-in security signal. | profile.securityActivity.risk.body |
+| low | low | 8 | Aura evaluated a sign-in security signal. | profile.securityActivity.risk.body |
 | low | low | 8 | Chat with Aura Support | profile.support.inbox.title |
-| low | low | 8 | ID | admin.orders.table.id |
-| low | low | 8 | Manual | admin.products.source.manual |
-| low | low | 8 | sms | profile.settings.notifications.channel.sms |
-| low | low | 7 | req-... | admin.diagnostics.filters.requestIdPlaceholder |
-| low | low | 6 | Ref | admin.refunds.reference |
+| low | low | 7 | ID | admin.orders.table.id |
+| low | low | 7 | sms | profile.settings.notifications.channel.sms |
+| low | low | 6 | req-... | admin.diagnostics.filters.requestIdPlaceholder |
+| low | low | 5 | For warnings and suspensions, Aura now opens a real moderation support case so the user can appeal and the admin team can resolve it in one thread. | admin.users.copy.appealCase |
+| low | low | 5 | Manual | admin.products.source.manual |
 
 ## Native Review Audit By Locale
 
 | Locale | Affected pairs |
 | --- | ---: |
 | bn | 3243 |
-| hi | 3265 |
+| hi | 3297 |
 | te | 3367 |
 | mr | 3373 |
 | ur | 3224 |
@@ -91,9 +91,9 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | fr | 3360 |
 | de | 3359 |
 | ar | 3262 |
-| ja | 3388 |
-| pt | 1838 |
-| zh | 3395 |
+| ja | 3447 |
+| pt | 3385 |
+| zh | 3453 |
 
 ## Files
 

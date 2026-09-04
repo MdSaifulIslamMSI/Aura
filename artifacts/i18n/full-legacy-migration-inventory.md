@@ -1,16 +1,16 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-08-31T07:01:12.196Z
+Generated: 2026-09-04T18:20:50.891Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 459
-- Tracked files: 142
-- Production files with stable literal UI copy: 89
-- Production stable literal references: 4062
-- Unique production stable IDs: 3666
+- Source files scanned: 472
+- Tracked files: 151
+- Production files with stable literal UI copy: 98
+- Production stable literal references: 4077
+- Unique production stable IDs: 3679
 - Dynamic lookup references requiring manual review: 14
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
@@ -29,12 +29,12 @@ These production references are eligible for reviewed ICU catalog migration.
 | Risk | File | Stable refs | IDs | Dynamic refs | Signals |
 | --- | --- | ---: | ---: | ---: | --- |
 | high | `app/src/pages/Login/useLoginController.js` | 170 | 159 | 1 | stable-ui |
-| high | `app/src/pages/Profile/components/SupportSection.jsx` | 149 | 134 | 0 | runtime-content-nearby |
 | high | `app/src/pages/Checkout/components/StepPayment.jsx` | 151 | 133 | 0 | stable-ui |
 | high | `app/src/pages/Orders/index.jsx` | 129 | 126 | 0 | stable-ui |
 | high | `app/src/pages/Profile/components/SettingsSection.jsx` | 129 | 126 | 0 | stable-ui |
 | high | `app/src/pages/ListingDetail/index.jsx` | 123 | 116 | 0 | runtime-content-nearby |
 | high | `app/src/pages/Checkout/index.jsx` | 103 | 92 | 0 | stable-ui |
+| high | `app/src/pages/Profile/components/SupportSection.jsx` | 83 | 73 | 0 | runtime-content-nearby |
 | high | `app/src/pages/Login/LoginView.jsx` | 69 | 65 | 0 | stable-ui |
 | high | `app/src/pages/DesktopLogin/index.jsx` | 67 | 63 | 0 | stable-ui |
 | high | `app/src/pages/ProductListing/index.jsx` | 53 | 51 | 1 | stable-ui |
@@ -61,12 +61,11 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/Checkout/components/StepDelivery.jsx` | 10 | 10 | 0 | stable-ui |
 | high | `app/src/pages/Status/Subscribe.jsx` | 8 | 8 | 0 | stable-ui |
 | high | `app/src/pages/Status/IncidentDetail.jsx` | 7 | 7 | 0 | stable-ui |
-| high | `app/src/pages/Profile/components/OrdersSection.jsx` | 6 | 6 | 0 | stable-ui |
 | high | `app/src/App.jsx` | 4 | 4 | 0 | stable-ui |
 | high | `app/src/pages/Status/History.jsx` | 4 | 4 | 0 | stable-ui |
 | high | `app/src/pages/Login/loginFlowHelpers.js` | 1 | 1 | 0 | stable-ui |
 | medium | `app/src/pages/Admin/Dashboard.jsx` | 146 | 132 | 0 | runtime-content-nearby |
-| medium | `app/src/pages/Marketplace/index.jsx` | 127 | 126 | 0 | runtime-content-nearby |
+| medium | `app/src/pages/Marketplace/index.jsx` | 130 | 129 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/Admin/Support.jsx` | 128 | 106 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/ProductDetails/index.jsx` | 108 | 98 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/Home/index.jsx` | 94 | 81 | 0 | stable-ui |
@@ -74,14 +73,13 @@ These production references are eligible for reviewed ICU catalog migration.
 | medium | `app/src/components/layout/Navbar/index.jsx` | 75 | 49 | 1 | stable-ui |
 | medium | `app/src/pages/AICompare/index.jsx` | 45 | 45 | 2 | stable-ui |
 | medium | `app/src/components/features/product/Filters/index.jsx` | 38 | 34 | 0 | stable-ui |
-| medium | `app/src/components/features/chat/MessageItem.jsx` | 29 | 29 | 5 | stable-ui |
-| medium | `app/src/components/shared/VoiceSearch.jsx` | 22 | 20 | 0 | stable-ui |
+| medium | `app/src/components/features/chat/MessageItem.jsx` | 32 | 32 | 5 | stable-ui |
 | medium | `app/src/components/features/product/ProductCard/index.jsx` | 27 | 19 | 0 | runtime-content-nearby |
+| medium | `app/src/components/shared/VoiceSearch.jsx` | 20 | 18 | 0 | stable-ui |
 | medium | `app/src/components/features/chat/ProductCardInline.jsx` | 14 | 13 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/TradeIn/index.jsx` | 12 | 11 | 0 | runtime-content-nearby |
 | medium | `app/src/context/NotificationContext.jsx` | 1 | 1 | 0 | runtime-content-nearby |
 | low | `app/src/pages/Sell/index.jsx` | 140 | 140 | 0 | stable-ui |
-| low | `app/src/pages/Profile/index.jsx` | 130 | 120 | 0 | stable-ui |
 | low | `app/src/pages/Admin/Payments.jsx` | 102 | 99 | 0 | stable-ui |
 | low | `app/src/pages/Admin/Users.jsx` | 116 | 96 | 0 | stable-ui |
 | low | `app/src/pages/Admin/EmailOps.jsx` | 116 | 93 | 0 | stable-ui |
@@ -90,32 +88,43 @@ These production references are eligible for reviewed ICU catalog migration.
 | low | `app/src/pages/Admin/ProductList.jsx` | 58 | 55 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/OverviewSection.jsx` | 50 | 50 | 0 | stable-ui |
 | low | `app/src/components/auth/AdminSecurityCheckpoint.jsx` | 49 | 48 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/PersonalInfoSection.jsx` | 57 | 47 | 0 | stable-ui |
+| low | `app/src/pages/Profile/index.jsx` | 53 | 47 | 0 | stable-ui |
 | low | `app/src/pages/Admin/RefundLedger.jsx` | 46 | 46 | 0 | stable-ui |
-| low | `app/src/pages/Profile/components/PersonalInfoSection.jsx` | 53 | 45 | 0 | stable-ui |
-| low | `app/src/pages/Profile/components/PaymentsSection.jsx` | 39 | 39 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/PaymentsSection.jsx` | 40 | 40 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/SecurityActivityPanel.jsx` | 39 | 39 | 0 | stable-ui |
 | low | `app/src/pages/Admin/ClientDiagnosticsPanel.jsx` | 42 | 38 | 0 | stable-ui |
+| low | `app/src/pages/Profile/hooks/useSecurityCenter.js` | 38 | 35 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/ActiveSessionsPanel.jsx` | 39 | 33 | 0 | stable-ui |
-| low | `app/src/pages/Profile/components/AddressesSection.jsx` | 30 | 29 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/AddressesSection.jsx` | 31 | 30 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/RewardsSection.jsx` | 29 | 29 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/useSupportConversation.js` | 30 | 29 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/MarketplaceActivitySection.jsx` | 30 | 28 | 0 | stable-ui |
-| low | `app/src/pages/Profile/components/RewardsSection.jsx` | 28 | 28 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/NotificationPreferencesPanel.jsx` | 24 | 24 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/NotificationsSection.jsx` | 23 | 22 | 0 | stable-ui |
 | low | `app/src/pages/BecomeSeller/index.jsx` | 21 | 21 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/PrivacyControlsSection.jsx` | 21 | 21 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/supportHelpers.js` | 22 | 21 | 0 | stable-ui |
 | low | `app/src/pages/PriceAlerts/index.jsx` | 20 | 20 | 0 | stable-ui |
 | low | `app/src/components/features/video/VideoCallOverlay.jsx` | 21 | 18 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/AccountCenterShell.jsx` | 18 | 15 | 0 | stable-ui |
+| low | `app/src/pages/Profile/hooks/usePaymentHub.js` | 15 | 15 | 0 | stable-ui |
 | low | `app/src/components/shared/BackendStatusBanner.jsx` | 13 | 13 | 0 | stable-ui |
-| low | `app/src/pages/Profile/components/AccountStatusBanner.jsx` | 11 | 10 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/TicketInbox.jsx` | 12 | 12 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/OrdersSection.jsx` | 11 | 11 | 0 | stable-ui |
+| low | `app/src/pages/Profile/hooks/useProfileDeck.js` | 11 | 11 | 0 | stable-ui |
 | low | `app/src/pages/Wishlist/index.jsx` | 10 | 10 | 0 | stable-ui |
 | low | `app/src/components/welcome/PremiumWelcomeCurtain.jsx` | 9 | 9 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/AccountStatusBanner.jsx` | 10 | 9 | 0 | stable-ui |
 | low | `app/src/components/shared/MobileUpdateBanner.jsx` | 8 | 7 | 0 | stable-ui |
+| low | `app/src/pages/Profile/hooks/useAddresses.js` | 8 | 7 | 0 | stable-ui |
 | low | `app/src/components/layout/Navbar/NotificationDropdown.jsx` | 5 | 5 | 0 | stable-ui |
+| low | `app/src/pages/Profile/hooks/profileUtils.js` | 4 | 4 | 0 | stable-ui |
 | low | `app/src/components/features/chat/ConfirmationCard.jsx` | 3 | 3 | 0 | stable-ui |
 | low | `app/src/components/shared/AppErrorBoundary.jsx` | 3 | 3 | 0 | stable-ui |
 | low | `app/src/components/shared/SectionErrorBoundary.jsx` | 3 | 3 | 0 | stable-ui |
 | low | `app/src/main.jsx` | 3 | 3 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/supportBadges.jsx` | 3 | 3 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/ProfileShared.jsx` | 2 | 2 | 0 | stable-ui |
 
 ### Dynamic lookups
@@ -124,11 +133,11 @@ These computed keys stay outside automatic migration until manually reviewed.
 
 | File | Line | Reason |
 | --- | ---: | --- |
-| `app/src/components/features/chat/MessageItem.jsx` | 202 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/features/chat/MessageItem.jsx` | 308 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/features/chat/MessageItem.jsx` | 310 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/features/chat/MessageItem.jsx` | 311 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/features/chat/MessageItem.jsx` | 491 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 208 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 314 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 316 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 317 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/features/chat/MessageItem.jsx` | 510 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/components/layout/Navbar/index.jsx` | 380 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/i18n/StableText.jsx` | 6 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/AICompare/index.jsx` | 89 | First t() argument is computed or interpolated and requires manual review. |
