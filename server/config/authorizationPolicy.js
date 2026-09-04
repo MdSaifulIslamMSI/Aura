@@ -45,7 +45,7 @@ const SENSITIVE_USER_ROUTE_POLICIES = [
     ['POST', '/api/auth/sync', 'auth.session.sync', 'authenticated'],
     ['POST', '/api/auth/recovery-codes', 'auth.recovery_codes.issue', 'passkey'],
     ['POST', '/api/auth/verify-device', 'auth.trusted_device.verify', 'authenticated'],
-    ['PATCH', '/api/users/profile', 'user.profile.write', 'authenticated'],
+    ['PUT', '/api/users/profile', 'user.profile.write', 'authenticated'],
     ['DELETE', '/api/users/account', 'user.account.delete', 'fresh_session'],
 ].map(([method, path, permission, assurance]) => ({
     method,

@@ -19,6 +19,7 @@ const SURFACES = new Set([
     'policy',
     'data',
     'ai',
+    'account_profile',
 ]);
 const AUDIENCES = new Set(['admin', 'seller', 'public', 'unknown']);
 const METHODS = new Set([
@@ -32,6 +33,10 @@ const METHODS = new Set([
     'unknown',
 ]);
 const REASON_ALIASES = [
+    ['user_requested', ['user requested', 'user_requested']],
+    ['blocked_fields', ['blocked field', 'blocked_fields', 'unsupported profile field', 'unsupported field']],
+    ['version_conflict', ['version conflict', 'version_conflict', 'optimistic concurrency']],
+    ['phone_proof', ['phone proof', 'phone_proof', 'phone verification', 'fresh phone verification']],
     ['already_used', ['already used', 'replay']],
     ['allowlist', ['allowlist']],
     ['denied', ['denied', 'unauthorized', 'not authorized', 'forbidden']],

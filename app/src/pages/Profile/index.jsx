@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     AlertTriangle,
@@ -17,10 +17,7 @@ import {
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { getFirebaseSocialAuthStatus } from '@/config/firebase';
-import { authApi, paymentApi, trustApi, userApi, intelligenceApi } from '@/services/api';
 import { getUserVisibleEmail } from '@/utils/authIdentity';
-import { isTrustedDeviceChallengeError } from '@/utils/authStepUp';
-import { openStripeSetupModal } from '@/utils/stripe';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
 import SectionErrorBoundary from '@/components/shared/SectionErrorBoundary';
 import {
@@ -33,6 +30,17 @@ import OverviewSection from './components/OverviewSection';
 import AccountStatusBanner from './components/AccountStatusBanner';
 import AccountCenterShell from './components/AccountCenterShell';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import {
+    PHONE_REGEX,
+    normalizePhone,
+    trimText,
+    createEditForm,
+} from './hooks/profileUtils';
+import { useAccountNotice } from './hooks/useAccountNotice';
+import { useAddresses } from './hooks/useAddresses';
+import { useProfileDeck } from './hooks/useProfileDeck';
+import { usePaymentHub } from './hooks/usePaymentHub';
+import { useSecurityCenter } from './hooks/useSecurityCenter';
 
 const PersonalInfoSection = lazy(() => import('./components/PersonalInfoSection'));
 const AddressesSection = lazy(() => import('./components/AddressesSection'));
@@ -44,45 +52,6 @@ const NotificationsSection = lazy(() => import('./components/NotificationsSectio
 const SettingsSection = lazy(() => import('./components/SettingsSection'));
 const MarketplaceActivitySection = lazy(() => import('./components/MarketplaceActivitySection'));
 const PrivacyControlsSection = lazy(() => import('./components/PrivacyControlsSection'));
-const PROFILE_FIELDS = ['name', 'phone', 'gender', 'dob', 'bio'];
-const AVATAR_ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
-
-const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('Avatar file could not be read.'));
-    reader.readAsDataURL(file);
-});
-
-const normalizeProfileFormForComparison = (value = {}) => ({
-    name: trimText(value.name),
-    phone: normalizePhone(value.phone),
-    gender: trimText(value.gender),
-    dob: trimText(value.dob),
-    bio: trimText(value.bio),
-});
-
-const validateProfileForm = (value = {}, t) => {
-    const errors = {};
-    const normalized = normalizeProfileFormForComparison(value);
-    if (normalized.name.length < 2 || normalized.name.length > 50) {
-        errors.name = t('profile.personal.error.name', {}, 'Enter a name between 2 and 50 characters.');
-    }
-    if (normalized.phone && !PHONE_REGEX.test(normalized.phone)) {
-        errors.phone = t('profile.personal.error.phone', {}, 'Enter a valid phone number with 10 to 15 digits.');
-    }
-    if (normalized.bio.length > 200) {
-        errors.bio = t('profile.personal.error.bio', {}, 'Keep your bio to 200 characters or fewer.');
-    }
-    if (normalized.dob) {
-        const date = new Date(normalized.dob);
-        if (Number.isNaN(date.getTime()) || date.getTime() > Date.now()) {
-            errors.dob = t('profile.personal.error.dob', {}, 'Enter a valid date of birth that is not in the future.');
-        }
-    }
-    return errors;
-};
 
 const buildTabs = (t) => [
     {
@@ -159,17 +128,6 @@ const ADDRESS_TYPES = [
     { value: 'other', label: 'Other', icon: MapPin },
 ];
 
-const PHONE_REGEX = /^\+?\d{10,15}$/;
-const DEFAULT_TRUST_STATUS = {
-    backend: { status: 'degraded', db: 'unknown', uptime: 0, timestamp: null },
-    client: { online: true, secureContext: false, language: 'unknown', timezone: 'unknown' },
-    derivedStatus: 'degraded',
-};
-
-const normalizePhone = (phone) => String(phone || '').replace(/[\s\-()]/g, '').trim();
-const trimText = (value) => String(value || '').trim();
-const isNotFoundError = (error) => Number(error?.status) === 404 || /not found/i.test(String(error?.message || ''));
-
 const AccountSectionFallback = ({ message }) => (
     <div className="account-section-fallback premium-panel p-6" role="status" aria-live="polite">
         <span className="account-section-fallback__line" aria-hidden="true" />
@@ -207,76 +165,147 @@ export default function Profile() {
     const [isOnline, setIsOnline] = useState(() => (
         typeof navigator === 'undefined' || navigator.onLine !== false
     ));
-    const [profile, setProfile] = useState(null);
-    const [dashboard, setDashboard] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const { message, showMsg } = useAccountNotice();
+    const {
+        profile,
+        setProfile,
+        dashboard,
+        loading,
+        profileSaving,
+        avatarUploading,
+        editMode,
+        handleEditModeChange,
+        editForm,
+        handleProfileFieldChange,
+        handleSaveProfile,
+        handleAvatarChange,
+        profileDirty,
+        profileFieldErrors,
+        profileSubmitError,
+        profileRequiresReauth,
+        fileInputRef,
+        refreshProfileDeck,
+    } = useProfileDeck({
+        canUseProtectedProfileApis: Boolean(currentUser?.uid && isAuthenticated),
+        currentUser,
+        dbUser,
+        showMsg,
+        t,
+        updateProfileInContext,
+    });
     const [recoveryLaunching, setRecoveryLaunching] = useState(false);
-    const [recoveryCodesGenerating, setRecoveryCodesGenerating] = useState(false);
-    const [visibleRecoveryCodes, setVisibleRecoveryCodes] = useState([]);
-    const [message, setMessage] = useState({ type: '', text: '' });
-    const [paymentMethods, setPaymentMethods] = useState([]);
-    const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
-    const [netbankingCatalog, setNetbankingCatalog] = useState(null);
-    const [netbankingCatalogLoading, setNetbankingCatalogLoading] = useState(false);
-    const [rewards, setRewards] = useState(null);
-    const [rewardsLoading, setRewardsLoading] = useState(false);
-    const [trustStatus, setTrustStatus] = useState(DEFAULT_TRUST_STATUS);
-    const [trustLoading, setTrustLoading] = useState(false);
-    const [mfaCenter, setMfaCenter] = useState(null);
-    const [mfaCenterLoading, setMfaCenterLoading] = useState(false);
-    const [mfaCenterLoaded, setMfaCenterLoaded] = useState(false);
-    const [mfaCenterError, setMfaCenterError] = useState(null);
-    const [totpSetup, setTotpSetup] = useState(null);
-    const [totpSetupCode, setTotpSetupCode] = useState('');
-    const [totpSetupLoading, setTotpSetupLoading] = useState(false);
-    const [totpVerifyLoading, setTotpVerifyLoading] = useState(false);
-    const [mfaPasskeyWorking, setMfaPasskeyWorking] = useState(false);
-    const [trustedDeviceAction, setTrustedDeviceAction] = useState('');
-    const [activeSessions, setActiveSessions] = useState([]);
-    const [activeSessionsLoading, setActiveSessionsLoading] = useState(false);
-    const [activeSessionsLoaded, setActiveSessionsLoaded] = useState(false);
-    const [activeSessionsError, setActiveSessionsError] = useState(null);
-    const [activeSessionAction, setActiveSessionAction] = useState('');
-    const [avatarUploading, setAvatarUploading] = useState(false);
-    const [securityActivity, setSecurityActivity] = useState([]);
-    const [securityActivityPagination, setSecurityActivityPagination] = useState({
-        hasMore: false,
-        nextCursor: null,
+    const {
+        trustStatus,
+        trustLoading,
+        mfaCenter,
+        mfaStatus,
+        mfaFlags,
+        mfaPolicy,
+        mfaCenterLoading,
+        mfaCenterLoaded,
+        mfaCenterError,
+        totpSetup,
+        totpSetupCode,
+        setTotpSetupCode,
+        totpSetupLoading,
+        totpVerifyLoading,
+        mfaPasskeyWorking,
+        trustedDeviceAction,
+        activeSessions,
+        activeSessionsLoading,
+        activeSessionsLoaded,
+        activeSessionsError,
+        activeSessionAction,
+        securityActivity,
+        securityActivityPagination,
+        securityActivityRetentionDays,
+        securityActivityLoading,
+        securityActivityLoaded,
+        securityActivityError,
+        visibleRecoveryCodes,
+        recoveryCodesGenerating,
+        providerLinking,
+        securityActions,
+    } = useSecurityCenter({
+        canUseProtectedProfileApis: Boolean(currentUser?.uid && isAuthenticated),
+        currentUser,
+        dbUser,
+        profile,
+        sessionIntelligence,
+        showMsg,
+        t,
+        logout,
+        navigate,
+        refreshProfileDeck,
+        contextFns: {
+            generateRecoveryCodes,
+            startTotpSetup,
+            verifyTotpSetup,
+            registerMfaPasskey,
+            renameTrustedDeviceInContext,
+            revokeTrustedDeviceInContext,
+            revokeOtherTrustedDevicesInContext,
+            regenerateMfaRecoveryCodes,
+            linkMicrosoftProvider,
+            linkAppleProvider,
+        },
     });
-    const [securityActivityRetentionDays, setSecurityActivityRetentionDays] = useState(180);
-    const [securityActivityLoading, setSecurityActivityLoading] = useState(false);
-    const [securityActivityLoaded, setSecurityActivityLoaded] = useState(false);
-    const [securityActivityError, setSecurityActivityError] = useState(null);
-    const [intelligenceData, setIntelligenceData] = useState(null);
-    const [intelligenceLoading, setIntelligenceLoading] = useState(false);
-    const [optimizing, setOptimizing] = useState(false);
-    const [providerLinking, setProviderLinking] = useState('');
+    const {
+        refreshTrustStatus,
+        refreshMfaCenter,
+        refreshActiveSessions,
+        refreshSecurityActivity,
+        handleGenerateBackupRecoveryCodes,
+        handleStartTotpSetup,
+        handleVerifyTotpSetup,
+        handleRegisterMfaPasskey,
+        handleRenameTrustedDevice,
+        handleRevokeTrustedDevice,
+        handleRevokeOtherTrustedDevices,
+        handleRevokeActiveSession,
+        handleRevokeOtherActiveSessions,
+        handleRevokeAllActiveSessions,
+        handleCopyRecoveryCodes,
+        handleDownloadRecoveryCodes,
+        clearVisibleRecoveryCodes,
+        handleLinkMicrosoftProvider,
+        handleLinkAppleProvider,
+    } = securityActions;
 
-    const [editMode, setEditMode] = useState(false);
-    const [editForm, setEditForm] = useState({});
-    const [profileFieldErrors, setProfileFieldErrors] = useState({});
-    const [profileSubmitError, setProfileSubmitError] = useState('');
-    const [profileRequiresReauth, setProfileRequiresReauth] = useState(false);
-
-    const [showAddressForm, setShowAddressForm] = useState(false);
-    const [editingAddress, setEditingAddress] = useState(null);
-    const [addressSubmitError, setAddressSubmitError] = useState('');
-    const [addressesLoading, setAddressesLoading] = useState(false);
-    const [addressesError, setAddressesError] = useState('');
-    const [addressForm, setAddressForm] = useState({
-        type: 'home',
-        name: '',
-        phone: '',
-        address: '',
-        city: '',
-        state: '',
-        pincode: '',
-        isDefault: false,
+    const canUseProtectedProfileApis = Boolean(currentUser?.uid && isAuthenticated);
+    const {
+        showAddressForm,
+        setShowAddressForm,
+        editingAddress,
+        addressForm,
+        setAddressForm,
+        addressSaving,
+        addressSubmitError,
+        addressesLoading,
+        addressesError,
+        addressActions,
+    } = useAddresses({
+        canUseProtectedProfileApis,
+        showMsg,
+        t,
+        setProfile,
     });
-
-    const fileInputRef = useRef(null);
-    const editModeRef = useRef(false);
+    const {
+        paymentMethods,
+        paymentMethodsLoading,
+        netbankingCatalog,
+        netbankingCatalogLoading,
+        rewards,
+        rewardsLoading,
+        intelligenceData,
+        intelligenceLoading,
+        optimizing,
+        paymentHubActions,
+    } = usePaymentHub({
+        canUseProtectedProfileApis,
+        showMsg,
+        t,
+    });
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
@@ -300,7 +329,6 @@ export default function Profile() {
         () => tabs.find((tab) => tab.id === activeTab) || tabs[0],
         [activeTab, tabs],
     );
-    const canUseProtectedProfileApis = Boolean(currentUser?.uid && isAuthenticated);
     const socialAuthStatus = useMemo(() => getFirebaseSocialAuthStatus(), [currentUser?.uid]);
     const linkedProviderIds = useMemo(() => (
         Array.isArray(currentUser?.providerData)
@@ -308,365 +336,14 @@ export default function Profile() {
             : []
     ), [currentUser?.providerData]);
 
-    const createEditForm = useCallback((source = {}) => ({
-        name: source?.name || '',
-        phone: source?.phone || '',
-        gender: source?.gender || '',
-        dob: source?.dob ? new Date(source.dob).toISOString().split('T')[0] : '',
-        bio: source?.bio || '',
-    }), []);
+    const {
+        refreshPaymentMethods,
+        refreshNetbankingCatalog,
+        refreshIntelligence,
+        refreshRewards,
+    } = paymentHubActions;
 
-    useEffect(() => {
-        editModeRef.current = editMode;
-    }, [editMode]);
-
-    const showMsg = useCallback((type, text) => {
-        setMessage({ type, text });
-        window.setTimeout(() => setMessage({ type: '', text: '' }), 4000);
-    }, []);
-
-    const refreshPaymentMethods = useCallback(async ({ silent = false } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setPaymentMethods([]);
-            setPaymentMethodsLoading(false);
-            return [];
-        }
-
-        if (!silent) {
-            setPaymentMethodsLoading(true);
-        }
-        try {
-            const methodsResult = await paymentApi.getMethods();
-            const nextMethods = Array.isArray(methodsResult)
-                ? methodsResult
-                : Array.isArray(methodsResult?.paymentMethods)
-                    ? methodsResult.paymentMethods
-                    : [];
-            setPaymentMethods(nextMethods);
-            return nextMethods;
-        } catch (error) {
-            if (!isTrustedDeviceChallengeError(error)) {
-                console.error('Failed to load payment methods', error);
-            }
-            setPaymentMethods([]);
-            return [];
-        } finally {
-            if (!silent) {
-                setPaymentMethodsLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis]);
-
-    const refreshNetbankingCatalog = useCallback(async ({ silent = false } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setNetbankingCatalog(null);
-            setNetbankingCatalogLoading(false);
-            return null;
-        }
-
-        if (!silent) {
-            setNetbankingCatalogLoading(true);
-        }
-
-        try {
-            const catalog = await paymentApi.getNetbankingBanks();
-            setNetbankingCatalog(catalog || { banks: [], featuredBanks: [] });
-            return catalog;
-        } catch (error) {
-            if (!isTrustedDeviceChallengeError(error)) {
-                console.error('Failed to load netbanking catalog', error);
-            }
-            if (!silent) {
-                showMsg('error', error.message || t('profile.message.netbankingCatalogFailed', {}, 'Failed to load netbanking banks.'));
-            }
-            setNetbankingCatalog({ banks: [], featuredBanks: [], stale: true, source: 'unavailable' });
-            return null;
-        } finally {
-            if (!silent) {
-                setNetbankingCatalogLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis, showMsg, t]);
-
-    const refreshTrustStatus = useCallback(async ({ silent = false } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setTrustStatus(DEFAULT_TRUST_STATUS);
-            setTrustLoading(false);
-            return DEFAULT_TRUST_STATUS;
-        }
-
-        if (!silent) {
-            setTrustLoading(true);
-        }
-        try {
-            const nextStatus = await trustApi.getHealthStatus();
-            setTrustStatus(nextStatus || DEFAULT_TRUST_STATUS);
-        } catch (error) {
-            if (!isTrustedDeviceChallengeError(error)) {
-                console.error('Trust status fetch failed:', error);
-            }
-            setTrustStatus((previous) => ({
-                ...previous,
-                derivedStatus: 'degraded',
-                backend: { ...(previous?.backend || DEFAULT_TRUST_STATUS.backend), status: 'degraded' },
-            }));
-        } finally {
-            if (!silent) {
-                setTrustLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis]);
-
-    const refreshMfaCenter = useCallback(async ({ silent = false } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setMfaCenter(null);
-            setMfaCenterError(null);
-            setMfaCenterLoaded(false);
-            setMfaCenterLoading(false);
-            return null;
-        }
-
-        if (!silent) {
-            setMfaCenterLoading(true);
-            setMfaCenterError(null);
-        }
-
-        try {
-            const nextCenter = await authApi.getMfaSecurityCenter({ firebaseUser: currentUser });
-            setMfaCenter(nextCenter || null);
-            setMfaCenterError(null);
-            setMfaCenterLoaded(true);
-            return nextCenter || null;
-        } catch (error) {
-            if (!isTrustedDeviceChallengeError(error) && Number(error?.status || 0) !== 403) {
-                console.error('MFA security center fetch failed:', error);
-            }
-            setMfaCenterError(error);
-            setMfaCenterLoaded(true);
-            return null;
-        } finally {
-            if (!silent) {
-                setMfaCenterLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis, currentUser]);
-
-    const refreshActiveSessions = useCallback(async ({ silent = false } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setActiveSessions([]);
-            setActiveSessionsError(null);
-            setActiveSessionsLoaded(false);
-            setActiveSessionsLoading(false);
-            return [];
-        }
-
-        if (!silent) {
-            setActiveSessionsLoading(true);
-            setActiveSessionsError(null);
-        }
-
-        try {
-            const result = await authApi.getAccountSessions({ firebaseUser: currentUser });
-            const nextSessions = Array.isArray(result?.data) ? result.data : [];
-            setActiveSessions(nextSessions);
-            setActiveSessionsError(null);
-            setActiveSessionsLoaded(true);
-            return nextSessions;
-        } catch (error) {
-            if (!isTrustedDeviceChallengeError(error)) {
-                console.error('Active sessions fetch failed:', error);
-            }
-            setActiveSessionsError(error);
-            setActiveSessionsLoaded(true);
-            return null;
-        } finally {
-            if (!silent) {
-                setActiveSessionsLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis, currentUser]);
-
-    const refreshSecurityActivity = useCallback(async ({
-        silent = false,
-        append = false,
-        cursor = null,
-    } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setSecurityActivity([]);
-            setSecurityActivityPagination({ hasMore: false, nextCursor: null });
-            setSecurityActivityError(null);
-            setSecurityActivityLoaded(false);
-            setSecurityActivityLoading(false);
-            return [];
-        }
-
-        if (!silent) {
-            setSecurityActivityLoading(true);
-            setSecurityActivityError(null);
-        }
-
-        try {
-            const result = await authApi.getAccountSecurityActivity(
-                { cursor: cursor || '', limit: 20 },
-                { firebaseUser: currentUser }
-            );
-            const nextActivity = Array.isArray(result?.activity) ? result.activity : [];
-            setSecurityActivity((current) => append ? [...current, ...nextActivity] : nextActivity);
-            setSecurityActivityPagination({
-                hasMore: Boolean(result?.pagination?.hasMore),
-                nextCursor: result?.pagination?.nextCursor || null,
-            });
-            setSecurityActivityRetentionDays(Number(result?.retentionDays || 180));
-            setSecurityActivityError(null);
-            setSecurityActivityLoaded(true);
-            return nextActivity;
-        } catch (error) {
-            if (!isTrustedDeviceChallengeError(error)) {
-                console.error('Security activity fetch failed:', error);
-            }
-            setSecurityActivityError(error);
-            setSecurityActivityLoaded(true);
-            return null;
-        } finally {
-            if (!silent) {
-                setSecurityActivityLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis, currentUser]);
-
-    const refreshIntelligence = useCallback(async ({ silent = false } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setIntelligenceData(null);
-            setIntelligenceLoading(false);
-            return null;
-        }
-
-        if (!silent) {
-            setIntelligenceLoading(true);
-        }
-        try {
-            const nextData = await intelligenceApi.getLatestRewards();
-            setIntelligenceData(nextData || null);
-        } catch (error) {
-            if (!isNotFoundError(error) && !isTrustedDeviceChallengeError(error)) {
-                console.error('Intelligence fetch failed:', error);
-            }
-            setIntelligenceData(null);
-        } finally {
-            if (!silent) {
-                setIntelligenceLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis]);
-
-    const refreshRewards = useCallback(async ({ silent = false } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setRewards(null);
-            setRewardsLoading(false);
-            return null;
-        }
-
-        if (!silent) {
-            setRewardsLoading(true);
-        }
-
-        try {
-            const result = await userApi.getRewards();
-            setRewards(result?.rewards || result || null);
-            return result?.rewards || result || null;
-        } catch (error) {
-            if (!isTrustedDeviceChallengeError(error)) {
-                console.error('Rewards fetch failed:', error);
-            }
-            setRewards(null);
-            return null;
-        } finally {
-            if (!silent) {
-                setRewardsLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis]);
-
-    const refreshAddresses = useCallback(async () => {
-        if (!canUseProtectedProfileApis) return null;
-        setAddressesLoading(true);
-        setAddressesError('');
-        try {
-            const result = await userApi.getAddresses();
-            setProfile((previous) => ({
-                ...(previous || {}),
-                addresses: Array.isArray(result?.addresses) ? result.addresses : [],
-            }));
-            return result;
-        } catch (error) {
-            const messageText = error.message || t(
-                'profile.addresses.loadError',
-                {},
-                'Saved addresses could not be loaded.'
-            );
-            setAddressesError(messageText);
-            return null;
-        } finally {
-            setAddressesLoading(false);
-        }
-    }, [canUseProtectedProfileApis, t]);
-
-    const refreshProfileDeck = useCallback(async ({ silent = false } = {}) => {
-        if (!canUseProtectedProfileApis) {
-            setProfile(dbUser || null);
-            setDashboard(null);
-            setLoading(false);
-            return null;
-        }
-
-        if (!silent) {
-            setLoading(true);
-        }
-
-        try {
-            const [profileData, dashData] = await Promise.all([
-                userApi.getProfile({ firebaseUser: currentUser }),
-                userApi.getAccountOverview({ firebaseUser: currentUser }),
-            ]);
-
-            setProfile(profileData);
-            setDashboard(dashData);
-            if (!editModeRef.current) {
-                setEditForm(createEditForm(profileData));
-            }
-
-            return { profileData, dashData };
-        } catch (error) {
-            if (!isTrustedDeviceChallengeError(error)) {
-                console.error('Profile fetch failed:', error);
-            }
-            if (dbUser) {
-                setProfile((previous) => ({ ...(previous || {}), ...dbUser }));
-                if (!editModeRef.current) {
-                    setEditForm(createEditForm(dbUser));
-                }
-            }
-            return null;
-        } finally {
-            if (!silent) {
-                setLoading(false);
-            }
-        }
-    }, [canUseProtectedProfileApis, createEditForm, currentUser, dbUser]);
-
-    useEffect(() => {
-        void refreshProfileDeck();
-    }, [canUseProtectedProfileApis, refreshProfileDeck]);
-
-    useEffect(() => {
-        if (!dbUser) return;
-        setProfile((previous) => ({ ...(previous || {}), ...dbUser }));
-        setEditForm((previous) => ({
-            ...previous,
-            name: dbUser.name || previous.name || '',
-            phone: dbUser.phone || previous.phone || '',
-        }));
-    }, [dbUser]);
+    const { refreshAddresses } = addressActions;
 
     useEffect(() => {
         if (!['payments', 'settings'].includes(activeTab)) return;
@@ -738,10 +415,15 @@ export default function Profile() {
     useEffect(() => {
         const requestedTab = String(searchParams.get('tab') || '').trim();
         const normalizedTab = requestedTab === 'listings' ? 'marketplace' : requestedTab;
-        if (normalizedTab && tabs.some((tab) => tab.id === normalizedTab)) {
-            setActiveTab(normalizedTab);
+        if (!normalizedTab) return;
+        if (tabs.some((tab) => tab.id === normalizedTab)) {
+            setActiveTab((previous) => (previous === normalizedTab ? previous : normalizedTab));
+            return;
         }
-    }, [searchParams, tabs]);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('tab', activeTab);
+        setSearchParams(nextParams, { replace: true });
+    }, [searchParams, tabs, activeTab, setSearchParams]);
 
     const handleTabChange = useCallback((tabId) => {
         setActiveTab(tabId);
@@ -758,232 +440,12 @@ export default function Profile() {
         setSearchParams(nextParams, { replace: true });
     }, [searchParams, setSearchParams]);
 
-    const handleProfileFieldChange = useCallback((field, value) => {
-        if (!PROFILE_FIELDS.includes(field)) return;
-        setEditForm((previous) => ({ ...previous, [field]: value }));
-        setProfileFieldErrors((previous) => {
-            if (!previous[field]) return previous;
-            const next = { ...previous };
-            delete next[field];
-            return next;
-        });
-        setProfileSubmitError('');
-        setProfileRequiresReauth(false);
-    }, []);
-
-    const handleSaveProfile = async (event) => {
-        event?.preventDefault?.();
-        if (saving) return;
-
-        const fieldErrors = validateProfileForm(editForm, t);
-        if (Object.keys(fieldErrors).length > 0) {
-            setProfileFieldErrors(fieldErrors);
-            setProfileSubmitError(t('profile.personal.error.reviewFields', {}, 'Review the highlighted fields before saving.'));
-            setProfileRequiresReauth(false);
-            return;
-        }
-
-        const currentForm = normalizeProfileFormForComparison(editForm);
-        const baselineForm = normalizeProfileFormForComparison(createEditForm(profile));
-        if (JSON.stringify(currentForm) === JSON.stringify(baselineForm)) {
-            setProfileSubmitError(t('profile.personal.error.noChanges', {}, 'Make a change before saving.'));
-            return;
-        }
-
-        setSaving(true);
-        setProfileFieldErrors({});
-        setProfileSubmitError('');
-        setProfileRequiresReauth(false);
-        try {
-            const payload = {
-                ...editForm,
-                phone: normalizePhone(editForm.phone),
-                bio: trimText(editForm.bio),
-                name: trimText(editForm.name),
-                ...(Number.isInteger(profile?.version) ? { version: profile.version } : {}),
-            };
-
-            const updated = updateProfileInContext
-                ? await updateProfileInContext(payload)
-                : await userApi.updateProfile(payload);
-
-            setProfile((previous) => ({ ...previous, ...updated }));
-            setEditForm(createEditForm({ ...profile, ...updated }));
-            setEditMode(false);
-            setProfileFieldErrors({});
-            setProfileSubmitError('');
-            showMsg('success', t('profile.message.profileUpdated', {}, 'Profile updated successfully.'));
-            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.PROFILE_UPDATED, {
-                changedFields: PROFILE_FIELDS.filter((field) => currentForm[field] !== baselineForm[field]),
-            });
-        } catch (error) {
-            const serverErrors = Array.isArray(error?.data?.errors) ? error.data.errors : [];
-            const nextFieldErrors = {};
-            serverErrors.forEach((entry) => {
-                const field = String(entry?.field || '').split('.').pop();
-                if (PROFILE_FIELDS.includes(field)) {
-                    nextFieldErrors[field] = entry.message;
-                }
-            });
-            setProfileFieldErrors(nextFieldErrors);
-            setProfileSubmitError(error.message || t('profile.message.profileUpdateFailed', {}, 'Failed to update profile.'));
-            setProfileRequiresReauth(
-                Boolean(editForm.phone !== baselineForm.phone && [401, 403].includes(Number(error?.status || 0)))
-            );
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleAvatarChange = async (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        event.target.value = '';
-
-        if (!AVATAR_ALLOWED_MIME_TYPES.has(String(file.type || '').toLowerCase())) {
-            showMsg('error', t(
-                'profile.message.avatarTypeInvalid',
-                {},
-                'Choose a JPEG, PNG, or WebP image.'
-            ));
-            return;
-        }
-        if (file.size < 1 || file.size > AVATAR_MAX_BYTES) {
-            showMsg('error', t(
-                'profile.message.avatarSizeInvalid',
-                {},
-                'Choose an image smaller than 2 MB.'
-            ));
-            return;
-        }
-
-        setAvatarUploading(true);
-        setMessage({
-            type: 'info',
-            text: t('profile.message.avatarPreparing', {}, 'Preparing secure avatar upload...'),
-        });
-        try {
-            const intent = await authApi.createAvatarUploadIntent({
-                fileName: file.name,
-                mimeType: file.type,
-                sizeBytes: file.size,
-            }, { firebaseUser: currentUser });
-            const dataUrl = await readFileAsDataUrl(file);
-            setMessage({
-                type: 'info',
-                text: t('profile.message.avatarScanning', {}, 'Uploading, scanning, and normalizing your avatar...'),
-            });
-            const uploaded = await authApi.uploadAvatarMedia({
-                uploadToken: intent.uploadToken,
-                fileName: file.name,
-                mimeType: file.type,
-                dataUrl,
-            }, { firebaseUser: currentUser });
-            setMessage({
-                type: 'info',
-                text: t('profile.message.avatarSaving', {}, 'Saving your new avatar...'),
-            });
-            const updated = await authApi.finalizeAvatarMedia({
-                finalizeToken: uploaded.finalizeToken,
-            }, { firebaseUser: currentUser });
-            userApi.clearAccountCache();
-            setProfile((previous) => ({ ...previous, avatar: updated.avatar }));
-            showMsg('success', t('profile.message.avatarUpdated', {}, 'Avatar updated.'));
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.avatarUpdateFailed', {}, 'Failed to update avatar.'));
-        } finally {
-            setAvatarUploading(false);
-        }
-    };
-
-    const resetAddressForm = () => {
-        setAddressForm({
-            type: 'home',
-            name: '',
-            phone: '',
-            address: '',
-            city: '',
-            state: '',
-            pincode: '',
-            isDefault: false,
-        });
-        setEditingAddress(null);
-        setAddressSubmitError('');
-        setShowAddressForm(false);
-    };
-
-    const handleSaveAddress = async () => {
-        setSaving(true);
-        setAddressSubmitError('');
-        const addingAddress = !editingAddress;
-        try {
-            const payload = {
-                ...addressForm,
-                name: trimText(addressForm.name),
-                phone: normalizePhone(addressForm.phone),
-                address: trimText(addressForm.address),
-                city: trimText(addressForm.city),
-                state: trimText(addressForm.state),
-                pincode: trimText(addressForm.pincode),
-            };
-
-            const result = editingAddress
-                ? await userApi.updateAddress(editingAddress, payload)
-                : await userApi.addAddress(payload);
-
-            setProfile((previous) => ({ ...previous, addresses: result.addresses }));
-            resetAddressForm();
-            showMsg('success', editingAddress
-                ? t('profile.message.addressUpdated', {}, 'Address updated.')
-                : t('profile.message.addressSaved', {}, 'Address saved.'));
-            if (addingAddress) {
-                trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.ADDRESS_ADDED, {
-                    addressType: payload.type,
-                });
-            }
-        } catch (error) {
-            const errorMessage = error.message || t('profile.message.addressSaveFailed', {}, 'Failed to save address.');
-            setAddressSubmitError(errorMessage);
-            showMsg('error', errorMessage);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDeleteAddress = async (id) => {
-        try {
-            const result = await userApi.deleteAddress(id);
-            setProfile((previous) => ({ ...previous, addresses: result.addresses }));
-            showMsg('success', t('profile.message.addressDeleted', {}, 'Address deleted.'));
-            return true;
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.addressDeleteFailed', {}, 'Failed to delete address.'));
-            return false;
-        }
-    };
-
-    const handleSetDefaultAddress = async (address) => {
-        if (!address?._id || address.isDefault || saving) return;
-        setSaving(true);
-        try {
-            const result = await userApi.updateAddress(address._id, {
-                type: address.type || 'home',
-                name: trimText(address.name),
-                phone: normalizePhone(address.phone),
-                address: trimText(address.address),
-                city: trimText(address.city),
-                state: trimText(address.state),
-                pincode: trimText(address.pincode),
-                isDefault: true,
-            });
-            setProfile((previous) => ({ ...previous, addresses: result.addresses }));
-            showMsg('success', t('profile.message.addressDefaultUpdated', {}, 'Default shipping address updated.'));
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.addressSaveFailed', {}, 'Failed to save address.'));
-        } finally {
-            setSaving(false);
-        }
-    };
+    const {
+        resetAddressForm,
+        handleSaveAddress,
+        handleDeleteAddress,
+        handleSetDefaultAddress,
+    } = addressActions;
 
     const handleSecureRecovery = async () => {
         const recoveryEmail = String(profileEmail || '').trim().toLowerCase();
@@ -1017,423 +479,15 @@ export default function Profile() {
         setRecoveryLaunching(false);
     };
 
-    const handleGenerateBackupRecoveryCodes = async () => {
-        if (!hasMfaFactor) {
-            showMsg('error', t('profile.message.recoveryCodesNeedPasskey', {}, 'Add a passkey or authenticator app before generating backup recovery codes.'));
-            return;
-        }
+    const {
+        handleSetDefaultMethod,
+        handleDeletePaymentMethod,
+        handleAddStripeCard,
+        handleSaveNetbankingBank,
+        handleOptimizeRewards,
+    } = paymentHubActions;
 
-        const recoveryCodeGenerator = regenerateMfaRecoveryCodes || generateRecoveryCodes;
-        if (!recoveryCodeGenerator) {
-            showMsg('error', t('profile.message.recoveryCodesUnavailable', {}, 'Recovery-code setup is not available in this session yet.'));
-            return;
-        }
-
-        setRecoveryCodesGenerating(true);
-
-        try {
-            const result = await recoveryCodeGenerator();
-            const nextCodes = Array.isArray(result?.recoveryCodes) ? result.recoveryCodes : [];
-            setVisibleRecoveryCodes(nextCodes);
-            await Promise.all([
-                refreshMfaCenter({ silent: true }),
-                refreshProfileDeck({ silent: true }),
-            ]);
-            showMsg(
-                'success',
-                t(
-                    'profile.message.recoveryCodesGenerated',
-                    { count: nextCodes.length },
-                    `${nextCodes.length} backup recovery codes generated. They are shown once.`,
-                ),
-            );
-        } catch (error) {
-            showMsg(
-                'error',
-                error.message || t('profile.message.recoveryCodesFailed', {}, 'Could not generate backup recovery codes. Complete the passkey checkpoint and try again.'),
-            );
-        } finally {
-            setRecoveryCodesGenerating(false);
-        }
-    };
-
-    const handleStartTotpSetup = async () => {
-        if (!startTotpSetup) {
-            showMsg('error', t('profile.message.totpUnavailable', {}, 'Authenticator app setup is not available in this session.'));
-            return;
-        }
-
-        setTotpSetupLoading(true);
-        try {
-            const result = await startTotpSetup();
-            setTotpSetup(result || null);
-            setTotpSetupCode('');
-            showMsg('success', t('profile.message.totpSetupStarted', {}, 'Authenticator app setup started.'));
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.totpSetupFailed', {}, 'Could not start authenticator app setup.'));
-        } finally {
-            setTotpSetupLoading(false);
-        }
-    };
-
-    const handleVerifyTotpSetup = async () => {
-        const code = trimText(totpSetupCode);
-        if (!code) {
-            showMsg('error', t('profile.message.totpCodeRequired', {}, 'Enter the authenticator code to finish setup.'));
-            return;
-        }
-        if (!verifyTotpSetup) {
-            showMsg('error', t('profile.message.totpUnavailable', {}, 'Authenticator app setup is not available in this session.'));
-            return;
-        }
-
-        setTotpVerifyLoading(true);
-        try {
-            const result = await verifyTotpSetup(code);
-            const nextCodes = Array.isArray(result?.recoveryCodes) ? result.recoveryCodes : [];
-            if (nextCodes.length) {
-                setVisibleRecoveryCodes(nextCodes);
-            }
-            setTotpSetup(null);
-            setTotpSetupCode('');
-            await Promise.all([
-                refreshMfaCenter({ silent: true }),
-                refreshProfileDeck({ silent: true }),
-            ]);
-            showMsg('success', t('profile.message.totpEnabled', {}, 'Authenticator app MFA enabled.'));
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.totpVerifyFailed', {}, 'Could not verify the authenticator code.'));
-        } finally {
-            setTotpVerifyLoading(false);
-        }
-    };
-
-    const handleRegisterMfaPasskey = async () => {
-        if (!registerMfaPasskey) {
-            showMsg('error', t('profile.message.passkeyUnavailable', {}, 'Passkey registration is not available in this session.'));
-            return;
-        }
-
-        setMfaPasskeyWorking(true);
-        try {
-            await registerMfaPasskey();
-            await Promise.all([
-                refreshMfaCenter({ silent: true }),
-                refreshProfileDeck({ silent: true }),
-            ]);
-            showMsg('success', t('profile.message.passkeyRegistered', {}, 'Passkey MFA registered.'));
-            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.PASSKEY_ADDED);
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.passkeyRegisterFailed', {}, 'Could not register this passkey.'));
-        } finally {
-            setMfaPasskeyWorking(false);
-        }
-    };
-
-    const applyTrustedDeviceMutation = async ({ actionKey, operation, successMessage }) => {
-        setTrustedDeviceAction(actionKey);
-        try {
-            const result = await operation();
-            if (result?.mfa) {
-                setMfaCenter((previous) => ({ ...(previous || {}), success: true, mfa: result.mfa }));
-            } else if (!result?.revokedCurrentDevice) {
-                await refreshMfaCenter({ silent: true });
-            }
-            showMsg('success', successMessage);
-            return result;
-        } catch (error) {
-            showMsg(
-                'error',
-                error.message || t('profile.message.trustedDeviceActionFailed', {}, 'Could not update this trusted device.')
-            );
-            throw error;
-        } finally {
-            setTrustedDeviceAction('');
-        }
-    };
-
-    const handleRenameTrustedDevice = async (deviceId, label) => {
-        if (!renameTrustedDeviceInContext) {
-            throw new Error(t('profile.message.trustedDeviceUnavailable', {}, 'Trusted-device management is unavailable in this session.'));
-        }
-        return applyTrustedDeviceMutation({
-            actionKey: `rename:${deviceId}`,
-            operation: () => renameTrustedDeviceInContext({ deviceId, label }),
-            successMessage: t('profile.message.trustedDeviceRenamed', {}, 'Trusted device renamed.'),
-        });
-    };
-
-    const handleRevokeTrustedDevice = async (deviceId, { isCurrent = false } = {}) => {
-        if (!revokeTrustedDeviceInContext) {
-            throw new Error(t('profile.message.trustedDeviceUnavailable', {}, 'Trusted-device management is unavailable in this session.'));
-        }
-        return applyTrustedDeviceMutation({
-            actionKey: `revoke:${deviceId}`,
-            operation: () => revokeTrustedDeviceInContext({ deviceId }),
-            successMessage: isCurrent
-                ? t('profile.message.currentTrustedDeviceRevoked', {}, 'This device was revoked. You are being signed out.')
-                : t('profile.message.trustedDeviceRevoked', {}, 'Trusted device revoked.'),
-        });
-    };
-
-    const handleRevokeOtherTrustedDevices = async () => {
-        if (!revokeOtherTrustedDevicesInContext) {
-            throw new Error(t('profile.message.trustedDeviceUnavailable', {}, 'Trusted-device management is unavailable in this session.'));
-        }
-        return applyTrustedDeviceMutation({
-            actionKey: 'revoke-others',
-            operation: () => revokeOtherTrustedDevicesInContext(),
-            successMessage: t('profile.message.otherTrustedDevicesRevoked', {}, 'Other trusted devices were revoked.'),
-        });
-    };
-
-    const handleRevokeActiveSession = async (session) => {
-        const sessionId = String(session?.id || '').trim();
-        setActiveSessionAction(`revoke:${sessionId}`);
-        try {
-            const result = await authApi.revokeAccountSession(
-                { sessionId },
-                { firebaseUser: currentUser }
-            );
-            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.SESSION_REVOKED, {
-                scope: session?.current ? 'current' : 'one',
-            });
-
-            if (session?.current) {
-                showMsg('success', t('profile.message.currentSessionRevoked', {}, 'This browser session was revoked. You are being signed out.'));
-                await logout?.();
-                navigate('/login', { replace: true });
-                return result;
-            }
-
-            await refreshActiveSessions({ silent: true });
-            showMsg('success', t('profile.message.sessionRevoked', {}, 'Browser session signed out.'));
-            return result;
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.sessionRevokeFailed', {}, 'Could not sign out this browser session.'));
-            throw error;
-        } finally {
-            setActiveSessionAction('');
-        }
-    };
-
-    const handleRevokeOtherActiveSessions = async () => {
-        setActiveSessionAction('revoke-others');
-        try {
-            const result = await authApi.revokeOtherAccountSessions({ firebaseUser: currentUser });
-            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.SESSION_REVOKED, {
-                scope: 'others',
-            });
-            await refreshActiveSessions({ silent: true });
-            const revoked = Number(result?.revoked || 0);
-            const revokedMessage = revoked === 1
-                ? t(
-                    'profile.message.otherSessionRevoked',
-                    { count: revoked },
-                    `${revoked} other browser session was signed out.`
-                )
-                : t(
-                    'profile.message.otherSessionsRevoked',
-                    { count: revoked },
-                    `${revoked} other browser sessions were signed out.`
-                );
-            showMsg('success', revokedMessage);
-            return result;
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.otherSessionsRevokeFailed', {}, 'Could not sign out the other browser sessions.'));
-            throw error;
-        } finally {
-            setActiveSessionAction('');
-        }
-    };
-
-    const handleRevokeAllActiveSessions = async () => {
-        setActiveSessionAction('revoke-all');
-        try {
-            const result = await authApi.revokeAllAccountSessions({ firebaseUser: currentUser });
-            trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.SESSION_REVOKED, {
-                scope: 'all',
-            });
-            showMsg('success', t(
-                'profile.message.allSessionsRevoked',
-                {},
-                'Every browser session was revoked. You are being signed out.'
-            ));
-            await logout?.();
-            navigate('/login', { replace: true });
-            return result;
-        } catch (error) {
-            showMsg('error', error.message || t(
-                'profile.message.allSessionsRevokeFailed',
-                {},
-                'Could not sign out every browser session.'
-            ));
-            throw error;
-        } finally {
-            setActiveSessionAction('');
-        }
-    };
-
-    const handleCopyRecoveryCodes = async () => {
-        if (!visibleRecoveryCodes.length) return;
-
-        try {
-            await navigator.clipboard.writeText(visibleRecoveryCodes.join('\n'));
-            showMsg('success', t('profile.message.recoveryCodesCopied', {}, 'Backup recovery codes copied.'));
-        } catch {
-            showMsg('error', t('profile.message.recoveryCodesCopyFailed', {}, 'Could not copy recovery codes from this browser.'));
-        }
-    };
-
-    const handleDownloadRecoveryCodes = () => {
-        if (!visibleRecoveryCodes.length || typeof window === 'undefined') return;
-
-        const generatedAt = new Date().toISOString();
-        const contents = [
-            'Aura backup recovery codes',
-            `Generated: ${generatedAt}`,
-            'Use each code once from the secure recovery flow.',
-            '',
-            ...visibleRecoveryCodes,
-            '',
-        ].join('\n');
-        const blob = new Blob([contents], { type: 'text/plain;charset=utf-8' });
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `aura-recovery-codes-${generatedAt.slice(0, 10)}.txt`;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-        window.URL.revokeObjectURL?.(url);
-        showMsg('success', t('profile.message.recoveryCodesDownloaded', {}, 'Backup recovery codes downloaded.'));
-    };
-
-    const handleSetDefaultMethod = async (methodId) => {
-        try {
-            await paymentApi.setDefaultMethod(methodId);
-            await refreshPaymentMethods();
-            showMsg('success', t('profile.message.defaultPaymentUpdated', {}, 'Default payment method updated.'));
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.defaultPaymentUpdateFailed', {}, 'Failed to update default payment method.'));
-        }
-    };
-
-    const handleDeletePaymentMethod = async (methodId) => {
-        if (!confirm(t('profile.confirm.deletePaymentMethod', {}, 'Are you sure you want to delete this payment method?'))) return;
-        try {
-            await paymentApi.deleteMethod(methodId);
-            await refreshPaymentMethods();
-            showMsg('success', t('profile.message.paymentMethodDeleted', {}, 'Payment method deleted.'));
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.paymentMethodDeleteFailed', {}, 'Failed to delete payment method.'));
-        }
-    };
-
-    const handleAddStripeCard = async () => {
-        try {
-            const setup = await paymentApi.createMethodSetupIntent({ provider: 'stripe', type: 'card' });
-            const setupIntent = await openStripeSetupModal({
-                publishableKey: setup.publishableKey,
-                clientSecret: setup.clientSecret,
-                title: t('profile.payments.addCard.title', {}, 'Add card'),
-                submitLabel: t('profile.payments.addCard.submit', {}, 'Save card'),
-                cancelLabel: t('profile.payments.addCard.cancel', {}, 'Cancel'),
-            });
-
-            await paymentApi.saveMethod({
-                provider: 'stripe',
-                type: 'card',
-                providerSetupIntentId: setupIntent.id || setup.setupIntentId,
-                metadata: {
-                    enrollmentSource: 'settings',
-                },
-            });
-            await refreshPaymentMethods();
-            showMsg('success', t('profile.message.cardSaved', {}, 'Card saved successfully.'));
-        } catch (error) {
-            if (/cancelled/i.test(String(error?.message || ''))) return;
-            showMsg('error', error.message || t('profile.message.cardSaveFailed', {}, 'Failed to save card.'));
-        }
-    };
-
-    const handleSaveNetbankingBank = async (bank) => {
-        const bankCode = String(bank?.code || '').trim().toUpperCase();
-        if (!bankCode) {
-            showMsg('error', t('profile.message.bankRequired', {}, 'Choose a netbanking bank to save.'));
-            return;
-        }
-
-        try {
-            await paymentApi.saveMethod({
-                provider: 'razorpay',
-                type: 'bank',
-                providerMethodId: bankCode,
-                isDefault: paymentMethods.length === 0,
-                metadata: {
-                    enrollmentSource: 'settings',
-                    bankCode,
-                    bankName: bank?.name || bankCode,
-                },
-            });
-            await Promise.all([
-                refreshPaymentMethods(),
-                refreshNetbankingCatalog({ silent: true }),
-            ]);
-            showMsg('success', t('profile.message.bankPreferenceSaved', {}, 'NetBanking bank saved.'));
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.bankPreferenceFailed', {}, 'Failed to save netbanking bank.'));
-        }
-    };
-
-    const handleLinkProvider = useCallback(async (providerKey, providerLabel, linkProvider) => {
-        if (!linkProvider) {
-            showMsg('error', t('profile.message.providerLinkUnavailable', { provider: providerLabel }, `${providerLabel} linking is not available in this build.`));
-            return;
-        }
-
-        setProviderLinking(providerKey);
-        try {
-            const result = await linkProvider();
-            if (result?.redirecting) {
-                showMsg('success', t('profile.message.providerLinkRedirect', { provider: providerLabel }, `Complete ${providerLabel} linking in the provider window.`));
-                return;
-            }
-
-            showMsg('success', result?.alreadyLinked
-                ? t('profile.message.providerAlreadyLinked', { provider: providerLabel }, `${providerLabel} is already linked to this account.`)
-                : t('profile.message.providerLinked', { provider: providerLabel }, `${providerLabel} linked to this account.`));
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.providerLinkFailed', { provider: providerLabel }, `Could not link ${providerLabel}.`));
-        } finally {
-            setProviderLinking('');
-        }
-    }, [showMsg, t]);
-
-    const handleLinkMicrosoftProvider = useCallback(() => (
-        handleLinkProvider('microsoft', 'Microsoft', linkMicrosoftProvider)
-    ), [handleLinkProvider, linkMicrosoftProvider]);
-
-    const handleLinkAppleProvider = useCallback(() => (
-        handleLinkProvider('apple', 'Apple', linkAppleProvider)
-    ), [handleLinkProvider, linkAppleProvider]);
-
-    const handleOptimizeRewards = async () => {
-        setOptimizing(true);
-        try {
-            await intelligenceApi.optimizeRewards();
-            showMsg('success', t('profile.message.optimizationStarted', {}, 'Aura Intelligence optimization started. Fresh insights will appear shortly.'));
-            window.setTimeout(() => {
-                void refreshIntelligence({ silent: true });
-            }, 6000);
-        } catch (error) {
-            showMsg('error', error.message || t('profile.message.optimizationFailed', {}, 'Failed to start optimization.'));
-        } finally {
-            setOptimizing(false);
-        }
-    };
-
-    const supportLaunch = {
+    const supportLaunch = useMemo(() => ({
         focusTicketId: String(searchParams.get('ticket') || '').trim(),
         startCompose: searchParams.get('compose') === '1',
         prefill: {
@@ -1442,7 +496,7 @@ export default function Profile() {
             subject: String(searchParams.get('subject') || '').trim(),
             intent: String(searchParams.get('intent') || '').trim(),
         },
-    };
+    }), [searchParams]);
 
     const accountOverview = dashboard || {};
     const stats = {
@@ -1506,9 +560,6 @@ export default function Profile() {
     const isAdminAccount = Boolean(profile?.isAdmin || dbUser?.isAdmin);
     const accountState = profile?.accountState || 'active';
     const recoveryReadiness = sessionIntelligence?.readiness || {};
-    const mfaStatus = mfaCenter?.mfa || profile?.mfa || dbUser?.mfa || null;
-    const mfaFlags = mfaCenter?.flags || {};
-    const mfaPolicy = mfaCenter?.policy || null;
     const mfaMethods = mfaStatus?.methods || {};
     const hasTotp = Boolean(mfaMethods?.totp?.enabled || profile?.mfa?.totp?.enabled || dbUser?.mfa?.totp?.enabled);
     const mfaPasskeyCount = Number(mfaMethods?.passkey?.count || 0);
@@ -1535,10 +586,6 @@ export default function Profile() {
         ];
         return Math.round((checklist.filter(Boolean).length / checklist.length) * 100);
     }, [currentUser?.emailVerified, hasValidProfilePhone, profile, profileEmail, profileName]);
-    const profileDirty = useMemo(() => (
-        JSON.stringify(normalizeProfileFormForComparison(editForm))
-        !== JSON.stringify(normalizeProfileFormForComparison(createEditForm(profile)))
-    ), [createEditForm, editForm, profile]);
 
     const heroMetrics = [
         {
@@ -1665,17 +712,10 @@ export default function Profile() {
                                 profileEmail={profileEmail}
                                 profilePhone={profilePhone}
                                 editMode={editMode}
-                                setEditMode={(nextMode) => {
-                                    setEditMode(nextMode);
-                                    if (!nextMode) {
-                                        setProfileFieldErrors({});
-                                        setProfileSubmitError('');
-                                        setProfileRequiresReauth(false);
-                                    }
-                                }}
+                                setEditMode={handleEditModeChange}
                                 editForm={editForm}
                                 handleProfileFieldChange={handleProfileFieldChange}
-                                saving={saving}
+                                saving={profileSaving}
                                 handleSaveProfile={handleSaveProfile}
                                 createEditForm={createEditForm}
                                 profileDirty={profileDirty}
@@ -1704,23 +744,10 @@ export default function Profile() {
                                 editingAddress={editingAddress}
                                 addressForm={addressForm}
                                 setAddressForm={setAddressForm}
-                                saving={saving}
+                                saving={addressSaving}
                                 handleSaveAddress={handleSaveAddress}
                                 resetAddressForm={resetAddressForm}
-                                startEditAddress={(address) => {
-                                    setAddressForm({
-                                        type: address.type || 'home',
-                                        name: address.name || '',
-                                        phone: address.phone || '',
-                                        address: address.address || '',
-                                        city: address.city || '',
-                                        state: address.state || '',
-                                        pincode: address.pincode || '',
-                                        isDefault: Boolean(address.isDefault),
-                                    });
-                                    setEditingAddress(address._id);
-                                    setShowAddressForm(true);
-                                }}
+                                startEditAddress={addressActions.startEditAddress}
                                 handleDeleteAddress={handleDeleteAddress}
                                 handleSetDefaultAddress={handleSetDefaultAddress}
                                 addressSubmitError={addressSubmitError}
@@ -1823,7 +850,7 @@ export default function Profile() {
                             handleGenerateRecoveryCodes={handleGenerateBackupRecoveryCodes}
                             handleCopyRecoveryCodes={handleCopyRecoveryCodes}
                             handleDownloadRecoveryCodes={handleDownloadRecoveryCodes}
-                            handleClearVisibleRecoveryCodes={() => setVisibleRecoveryCodes([])}
+                            handleClearVisibleRecoveryCodes={clearVisibleRecoveryCodes}
                             mfaStatus={mfaStatus}
                             mfaFlags={mfaFlags}
                             mfaPolicy={mfaPolicy}
@@ -1831,7 +858,7 @@ export default function Profile() {
                             mfaCenterLoaded={mfaCenterLoaded}
                             mfaCenterHasData={Boolean(mfaCenter)}
                             mfaCenterError={mfaCenterError}
-                            handleRetryMfaCenter={() => refreshMfaCenter()}
+                            handleRetryMfaCenter={refreshMfaCenter}
                             totpSetup={totpSetup}
                             totpSetupCode={totpSetupCode}
                             setTotpSetupCode={setTotpSetupCode}
@@ -1850,7 +877,7 @@ export default function Profile() {
                             activeSessionsLoaded={activeSessionsLoaded}
                             activeSessionsError={activeSessionsError}
                             activeSessionAction={activeSessionAction}
-                            handleRetryActiveSessions={() => refreshActiveSessions()}
+                            handleRetryActiveSessions={refreshActiveSessions}
                             handleRevokeActiveSession={handleRevokeActiveSession}
                             handleRevokeOtherActiveSessions={handleRevokeOtherActiveSessions}
                             handleRevokeAllActiveSessions={handleRevokeAllActiveSessions}
@@ -1860,7 +887,7 @@ export default function Profile() {
                             securityActivityError={securityActivityError}
                             securityActivityHasMore={securityActivityPagination.hasMore}
                             securityActivityRetentionDays={securityActivityRetentionDays}
-                            handleRetrySecurityActivity={() => refreshSecurityActivity()}
+                            handleRetrySecurityActivity={refreshSecurityActivity}
                             handleLoadMoreSecurityActivity={() => refreshSecurityActivity({
                                 append: true,
                                 cursor: securityActivityPagination.nextCursor,

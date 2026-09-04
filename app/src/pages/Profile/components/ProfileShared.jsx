@@ -6,21 +6,21 @@ import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 
 export function StatCard({ icon: Icon, label, value, color }) {
     const colorMap = {
-        blue: 'bg-blue-50 text-blue-600',
-        green: 'bg-green-50 text-green-600',
-        pink: 'bg-pink-50 text-pink-600',
-        purple: 'bg-purple-50 text-purple-600',
-        indigo: 'bg-indigo-50 text-indigo-600',
-        emerald: 'bg-emerald-50 text-emerald-600',
-        amber: 'bg-amber-50 text-amber-600',
-        cyan: 'bg-cyan-50 text-cyan-600',
+        blue: 'border-blue-400/20 bg-blue-500/12 text-blue-200',
+        green: 'border-emerald-400/20 bg-emerald-500/12 text-emerald-200',
+        pink: 'border-pink-400/20 bg-pink-500/12 text-pink-200',
+        purple: 'border-purple-400/20 bg-purple-500/12 text-purple-200',
+        indigo: 'border-indigo-400/20 bg-indigo-500/12 text-indigo-200',
+        emerald: 'border-emerald-400/20 bg-emerald-500/12 text-emerald-200',
+        amber: 'border-amber-400/20 bg-amber-500/12 text-amber-200',
+        cyan: 'border-cyan-400/20 bg-cyan-500/12 text-cyan-200',
     };
-    const iconColor = colorMap[color] || colorMap.blue;
+    const iconColor = colorMap[color] || colorMap.cyan;
 
     return (
         <div className="premium-stat-card premium-card-hover">
-            <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 ${iconColor}`}>
-                <Icon className="w-5 h-5" />
+            <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${iconColor}`}>
+                <Icon className="w-5 h-5" aria-hidden="true" />
             </div>
             <p className="mt-5 text-3xl font-black tracking-tight text-white">{value}</p>
             <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{label}</p>
@@ -35,12 +35,12 @@ export function QuickLink({ to, icon: Icon, label, desc }) {
     return (
         <Link to={to} className="premium-panel premium-card-hover group p-5">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-neo-cyan">
-                <Icon className="w-6 h-6 transition-transform duration-300 group-hover:scale-110" />
+                <Icon className="w-6 h-6 transition-transform duration-300 group-hover:scale-110" aria-hidden="true" />
             </div>
             <p className="mt-4 text-base font-black text-white">{label}</p>
             <p className="mt-1 text-sm text-slate-400">{desc}</p>
             <div className="mt-5 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-neo-cyan">
-                {t('profile.shared.open', {}, 'Open')} <ChevronRight className="w-4 h-4" />
+                {t('profile.shared.open', {}, 'Open')} <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </div>
         </Link>
     );
@@ -53,7 +53,7 @@ export function InfoRow({ icon: Icon, label, value, badge }) {
     return (
         <div className="profile-premium-info-row">
             <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-neo-cyan">
-                <Icon className="w-5 h-5" />
+                <Icon className="w-5 h-5" aria-hidden="true" />
             </div>
             <div className="flex-1 min-w-0">
                 <p className="mb-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">{label}</p>
@@ -71,9 +71,14 @@ export function TogglePref({ label, desc, on, setOn }) {
                 <p className="text-sm font-semibold text-white">{label}</p>
                 <p className="text-xs text-slate-400">{desc}</p>
             </div>
-            <button onClick={() => setOn(!on)}
+            <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(on)}
+                aria-label={label}
+                onClick={() => setOn(!on)}
                 className={cn('profile-premium-toggle', on && 'profile-premium-toggle-on')}>
-                <div className={cn('profile-premium-toggle-thumb', on && 'profile-premium-toggle-thumb-on')} />
+                <div aria-hidden="true" className={cn('profile-premium-toggle-thumb', on && 'profile-premium-toggle-thumb-on')} />
             </button>
         </div>
     );

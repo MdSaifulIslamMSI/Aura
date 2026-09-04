@@ -147,7 +147,7 @@ export default function OverviewSection({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <StatCard icon={Package} label={t('profile.overview.stats.activeOrders', {}, 'Active orders')} value={formatNumber(stats.activeOrders || 0)} color="blue" />
                 <StatCard icon={Wallet} label={t('profile.overview.stats.pendingPostPurchase', {}, 'Returns and refunds')} value={formatNumber(stats.pendingPostPurchase || 0)} color="green" />
                 <StatCard icon={Heart} label={t('profile.overview.stats.savedItems', {}, 'Saved items')} value={formatNumber(stats.savedItems || 0)} color="pink" />
@@ -177,20 +177,20 @@ export default function OverviewSection({
                 </div>
 
                 {recentOrders.length === 0 ? (
-                    <div className="rounded-[1.8rem] border border-dashed border-white/10 py-12 text-center">
-                        <Package className="mx-auto mb-3 h-12 w-12 text-slate-600" />
+                    <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center">
+                        <Package className="mx-auto mb-3 h-12 w-12 text-slate-600" aria-hidden="true" />
                         <p className="font-semibold text-white">{t('profile.overview.orders.emptyTitle', {}, 'No orders yet')}</p>
                         <p className="mt-1 text-sm text-slate-400">{t('profile.overview.orders.emptyBody', {}, 'Start shopping to populate your command deck.')}</p>
-                        <Link to="/products" className="mt-3 inline-block text-sm font-semibold text-neo-cyan hover:underline">
+                        <Link to="/products" className="mt-3 inline-block min-h-11 text-sm font-semibold text-neo-cyan hover:underline">
                             {t('profile.overview.orders.start', {}, 'Start shopping')}
                         </Link>
                     </div>
                 ) : (
                     <div className="space-y-3">
                         {recentOrders.map((order) => (
-                            <div key={order._id} className="flex items-center gap-4 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4">
+                            <div key={order._id} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-neo-cyan">
-                                    <Package className="h-5 w-5" />
+                                    <Package className="h-5 w-5" aria-hidden="true" />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-bold text-white">

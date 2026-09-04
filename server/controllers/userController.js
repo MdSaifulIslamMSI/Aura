@@ -51,6 +51,9 @@ const normalizeText = (value) => (
 const normalizeAddressText = (value) => normalizeText(value).replace(/\s+/g, ' ');
 
 const buildAddressFingerprint = (address = {}) => [
+    normalizeAddressText(address.type).toLowerCase(),
+    normalizeAddressText(address.name).toLowerCase(),
+    normalizePhone(address.phone).replace(/\D/g, ''),
     normalizeAddressText(address.address).toLowerCase(),
     normalizeAddressText(address.city).toLowerCase(),
     normalizeAddressText(address.state).toLowerCase(),
@@ -618,6 +621,8 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
 
     await persistAuthSnapshot(hydratedUser);
 
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Vary', 'Authorization, Cookie');
     res.json({
         ...toProfilePayload(hydratedUser, {
             includeCollections: true,
@@ -635,13 +640,28 @@ const getUserProfile = asyncHandler(async (req, res, next) => {
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res, next) => {
     const requestBody = req.body && typeof req.body === 'object' ? req.body : {};
-    const expectedVersion = requestBody.version;
+    const rawVersion = requestBody.version;
+    const expectedVersion = rawVersion === undefined || rawVersion === null || rawVersion === ''
+        ? undefined
+        : Number(rawVersion);
+    if (expectedVersion !== undefined && (!Number.isInteger(expectedVersion) || expectedVersion < 0)) {
+        return next(new AppError('Invalid profile version', 400));
+    }
     const updates = { ...requestBody };
     delete updates.version;
+    let clearPhone = false;
     const allowedFields = ['name', 'avatar', 'gender', 'dob', 'bio', 'phone'];
     const blockedFields = Object.keys(updates).filter((key) => !allowedFields.includes(key));
 
     if (blockedFields.length > 0) {
+        recordAuthSecurityEvent({
+            event: 'account.profile.updated',
+            outcome: 'failure',
+            reason: 'blocked_fields',
+            surface: 'account_profile',
+            req,
+            meta: { fields: [...blockedFields].sort() },
+        });
         return next(new AppError(`Unsupported profile fields: ${blockedFields.join(', ')}`, 400));
     }
 
@@ -686,18 +706,30 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
             return next(new AppError('Phone number must be a string', 400));
         }
         const normalizedPhone = normalizePhone(updates.phone);
-        if (normalizedPhone && !PHONE_REGEX.test(normalizedPhone)) {
-            return next(new AppError('Valid phone number is required', 400));
-        }
-        updates.phone = normalizedPhone || undefined;
-        if (!updates.phone) {
+        if (!normalizedPhone) {
             delete updates.phone;
-        }
-        if (updates.phone) {
-            await requireFreshPhoneProofForProfileChange({
-                req,
-                nextPhone: updates.phone,
-            });
+            clearPhone = true;
+        } else {
+            if (!PHONE_REGEX.test(normalizedPhone)) {
+                return next(new AppError('Valid phone number is required', 400));
+            }
+            updates.phone = normalizedPhone;
+            try {
+                await requireFreshPhoneProofForProfileChange({
+                    req,
+                    nextPhone: updates.phone,
+                });
+            } catch (error) {
+                recordAuthSecurityEvent({
+                    event: 'account.profile.updated',
+                    outcome: 'failure',
+                    reason: 'phone_proof',
+                    surface: 'account_profile',
+                    req,
+                    meta: { statusCode: Number(error?.statusCode || error?.status || 0) || undefined },
+                });
+                throw error;
+            }
         }
     }
 
@@ -737,12 +769,16 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         if (expectedVersion !== undefined) {
             profileFilter.__v = expectedVersion;
         }
+        const updateDoc = {
+            $set: updates,
+            $inc: { __v: 1 },
+        };
+        if (clearPhone) {
+            updateDoc.$unset = { phone: '' };
+        }
         user = await User.findOneAndUpdate(
             profileFilter,
-            {
-                $set: updates,
-                $inc: { __v: 1 },
-            },
+            updateDoc,
             { returnDocument: 'after', projection: PROFILE_PROJECTION, lean: true }
         );
     } catch (error) {
@@ -756,14 +792,22 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         if (expectedVersion !== undefined && await User.exists({ email: req.user.email })) {
             const conflict = new AppError('Profile changed in another session. Refresh and try again.', 409);
             conflict.code = 'ACCOUNT_PROFILE_VERSION_CONFLICT';
+            recordAuthSecurityEvent({
+                event: 'account.profile.updated',
+                outcome: 'failure',
+                reason: 'version_conflict',
+                surface: 'account_profile',
+                req,
+                meta: { optimisticConcurrency: true },
+            });
             return next(conflict);
         }
         return next(new AppError('User not found', 404));
     }
 
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
     recordAuthSecurityEvent({
         event: 'account.profile.updated',
         outcome: 'success',
@@ -771,7 +815,7 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         surface: 'account_profile',
         req,
         meta: {
-            fields: Object.keys(updates).sort(),
+            fields: [...new Set([...Object.keys(updates), ...(clearPhone ? ['phone'] : [])])].sort(),
             optimisticConcurrency: expectedVersion !== undefined,
         },
     });
@@ -780,6 +824,54 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         ...toProfilePayload(user),
         addresses: user.addresses || [],
     });
+});
+
+const DASHBOARD_ORDER_PROJECTION = [
+    '_id',
+    'createdAt',
+    'totalPrice',
+    'presentmentTotalPrice',
+    'presentmentCurrency',
+    'currency',
+    'orderStatus',
+    'isPaid',
+    'isDelivered',
+    'paymentMethod',
+    'paymentState',
+    'paymentProvider',
+    'paymentIntentId',
+    'orderItems.title',
+    'orderItems.image',
+    'orderItems.quantity',
+    'orderItems.price',
+    'shippingAddress.city',
+    'commandCenter.refunds',
+    'refundSummary',
+].join(' ');
+
+const toDashboardOrderPreview = (order = {}) => ({
+    _id: order._id,
+    createdAt: order.createdAt,
+    totalPrice: order.totalPrice,
+    presentmentTotalPrice: order.presentmentTotalPrice,
+    presentmentCurrency: order.presentmentCurrency,
+    currency: order.currency,
+    orderStatus: order.orderStatus,
+    isPaid: order.isPaid,
+    isDelivered: order.isDelivered,
+    paymentMethod: order.paymentMethod,
+    paymentState: order.paymentState,
+    paymentProvider: order.paymentProvider,
+    paymentIntentId: order.paymentIntentId,
+    orderItems: Array.isArray(order.orderItems) ? order.orderItems.map((item = {}) => ({
+        title: item.title,
+        image: item.image,
+        quantity: item.quantity,
+        price: item.price,
+    })) : [],
+    shippingAddress: order.shippingAddress?.city ? { city: order.shippingAddress.city } : undefined,
+    commandCenter: Array.isArray(order.commandCenter?.refunds) ? { refunds: order.commandCenter.refunds } : undefined,
+    refundSummary: order.refundSummary,
 });
 
 // @desc    Get profile dashboard (stats + recent orders + listings count)
@@ -798,6 +890,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
 
     const [orders, listingStats, cartSnapshot] = await Promise.all([
         Order.find({ user: user._id })
+            .select(DASHBOARD_ORDER_PROJECTION)
             .sort({ createdAt: -1 })
             .limit(5)
             .lean(),
@@ -830,6 +923,8 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
         }
     });
 
+    res.set('Cache-Control', 'private, no-store');
+    res.set('Vary', 'Authorization, Cookie');
     res.json({
         success: true,
         stats: {
@@ -840,7 +935,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
             listings,
             rewards: getRewardSnapshotFromUser(user),
         },
-        recentOrders: orders.slice(0, 5)
+        recentOrders: orders.slice(0, 5).map(toDashboardOrderPreview)
     });
 });
 
@@ -1303,6 +1398,16 @@ const activateSellerAccount = asyncHandler(async (req, res, next) => {
     const normalizedPhone = normalizePhone(user.phone || '');
     if (!PHONE_REGEX.test(normalizedPhone)) {
         return next(new AppError('Valid phone number required before seller activation', 400));
+    }
+
+    if (user.dob) {
+        const dobTime = new Date(user.dob).getTime();
+        if (!Number.isNaN(dobTime)) {
+            const ageYears = (Date.now() - dobTime) / (365.2425 * 24 * 60 * 60 * 1000);
+            if (ageYears < 18) {
+                return next(new AppError('Seller accounts require you to be at least 18 years old', 403));
+            }
+        }
     }
 
     if (!user.isSeller) {

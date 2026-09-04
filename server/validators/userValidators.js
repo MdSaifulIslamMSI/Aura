@@ -33,14 +33,14 @@ const loginSchema = z.object({
 const updateProfileSchema = z.object({
     body: z.object({
         name: z.string().trim().min(2, 'Name must be at least 2 characters').max(50, 'Name too long').optional(),
-        phone: z.string().trim().regex(PHONE_REGEX, 'Invalid phone number').optional(),
+        phone: z.string().trim().regex(PHONE_REGEX, 'Invalid phone number').or(z.literal('')).optional(),
         avatar: z.string().url().optional().or(z.literal('')),
         gender: z.enum(['male', 'female', 'other', 'prefer-not-to-say', '']).optional(),
         dob: z.union([z.string().trim(), z.null()])
             .refine(isValidProfileDate, 'Date of birth must be a valid date that is not in the future')
             .optional(),
         bio: z.string().trim().max(200).optional().or(z.literal('')),
-        version: z.number().int().nonnegative().optional(),
+        version: z.coerce.number().int().nonnegative().optional(),
     }).strict().refine(data => Object.keys(data).length > 0, {
         message: 'At least one field must be provided to update',
     }),

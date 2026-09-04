@@ -48,18 +48,27 @@ const loginLimiter = createDistributedRateLimit({
 
 router.post('/login', protect, loginLimiter, validate(loginSchema), loginUser); // Protected: requires Firebase token
 
+const profileReadLimiter = createDistributedRateLimit({
+    securityCritical: true,
+    name: 'user_profile_read',
+    windowMs: 5 * 60 * 1000,
+    max: process.env.NODE_ENV === 'development' ? 300 : 60,
+    message: 'Too many profile requests. Please try again shortly.',
+    keyGenerator: (req) => req.authUid || req.user?.email || req.ip,
+});
+
 router
     .route('/profile')
-    .get(protect, getUserProfile) // Protected
+    .get(protect, profileReadLimiter, getUserProfile) // Protected
     .put(protect, csrfTokenValidatorUnlessBearerAuth, validate(updateProfileSchema), updateUserProfile); // Protected
 
-router.get('/dashboard', protect, getProfileDashboard); // Protected
-router.get('/rewards', protect, getRewards); // Protected
+router.get('/dashboard', protect, profileReadLimiter, getProfileDashboard); // Protected
+router.get('/rewards', protect, profileReadLimiter, getRewards); // Protected
 // Seller account CRUD — canonical routes only.
 // Backward-compat aliases (/activate-seller, /seller/enable, etc.) were
 // removed. Clients should use /seller/activate and /seller/deactivate.
-router.post('/seller/activate', protect, validate(activateSellerSchema), activateSellerAccount);
-router.post('/seller/deactivate', protect, validate(deactivateSellerSchema), deactivateSellerAccount);
+router.post('/seller/activate', protect, csrfTokenValidatorUnlessBearerAuth, validate(activateSellerSchema), activateSellerAccount);
+router.post('/seller/deactivate', protect, csrfTokenValidatorUnlessBearerAuth, validate(deactivateSellerSchema), deactivateSellerAccount);
 
 
 // Address CRUD
@@ -69,9 +78,9 @@ router.put('/addresses/:addressId', protect, csrfTokenValidatorUnlessBearerAuth,
 router.delete('/addresses/:addressId', protect, csrfTokenValidatorUnlessBearerAuth, validate(addressDeleteSchema), deleteAddress);
 
 router.get('/wishlist', protect, getWishlist); // Protected
-router.put('/wishlist', protect, syncWishlist); // Protected
-router.post('/wishlist/merge', protect, mergeWishlist); // Protected
-router.post('/wishlist/items', protect, addWishlistItem); // Protected
-router.delete('/wishlist/items/:productId', protect, removeWishlistItem); // Protected
+router.put('/wishlist', protect, csrfTokenValidatorUnlessBearerAuth, syncWishlist); // Protected
+router.post('/wishlist/merge', protect, csrfTokenValidatorUnlessBearerAuth, mergeWishlist); // Protected
+router.post('/wishlist/items', protect, csrfTokenValidatorUnlessBearerAuth, addWishlistItem); // Protected
+router.delete('/wishlist/items/:productId', protect, csrfTokenValidatorUnlessBearerAuth, removeWishlistItem); // Protected
 
 module.exports = router;

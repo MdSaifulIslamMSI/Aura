@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Building2, CheckCircle, CreditCard, Clock, Loader2, Plus, ReceiptText, ShieldCheck } from 'lucide-react';
 import { useIntl } from 'react-intl';
 import { useMarket } from '@/context/MarketContext';
@@ -43,12 +43,12 @@ const getOrderPaymentState = (order) => {
 
 const getPaymentStateTone = (state) => {
     if (['captured', 'paid', 'authorized', 'partially_refunded'].includes(state)) {
-        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        return 'border-emerald-400/20 bg-emerald-500/12 text-emerald-200';
     }
     if (['failed', 'expired', 'refunded'].includes(state)) {
-        return 'border-red-200 bg-red-50 text-red-700';
+        return 'border-rose-400/20 bg-rose-500/12 text-rose-200';
     }
-    return 'border-amber-200 bg-amber-50 text-amber-700';
+    return 'border-amber-400/20 bg-amber-500/12 text-amber-200';
 };
 
 const getPaymentStateIcon = (state) => {
@@ -107,6 +107,24 @@ export default function PaymentsSection({
     const [cardEnrollmentBusy, setCardEnrollmentBusy] = useState(false);
     const [bankEnrollmentBusy, setBankEnrollmentBusy] = useState(false);
     const [selectedBankCode, setSelectedBankCode] = useState('');
+    const [pendingDeleteId, setPendingDeleteId] = useState('');
+    const pendingDeleteTimer = useRef(null);
+
+    useEffect(() => () => {
+        if (pendingDeleteTimer.current) window.clearTimeout(pendingDeleteTimer.current);
+    }, []);
+
+    const onRemoveMethod = (methodId) => {
+        if (pendingDeleteId !== methodId) {
+            setPendingDeleteId(methodId);
+            if (pendingDeleteTimer.current) window.clearTimeout(pendingDeleteTimer.current);
+            pendingDeleteTimer.current = window.setTimeout(() => setPendingDeleteId(''), 5000);
+            return;
+        }
+        if (pendingDeleteTimer.current) window.clearTimeout(pendingDeleteTimer.current);
+        setPendingDeleteId('');
+        void handleDeletePaymentMethod(methodId);
+    };
     const banks = useMemo(
         () => (Array.isArray(netbankingCatalog?.banks) ? netbankingCatalog.banks : []),
         [netbankingCatalog?.banks]
@@ -137,11 +155,11 @@ export default function PaymentsSection({
     };
 
     return (
-        <div className="max-w-3xl space-y-5">
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="space-y-5">
+            <div className="premium-panel premium-card-hover p-6">
                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-lg font-bold text-gray-900">{t('profile.payments.title', {}, 'Saved Payment Methods')}</h2>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">{t('profile.payments.tokenizedOnly', {}, 'Tokenized methods only')}</span>
+                    <h2 className="text-xl font-black text-white">{t('profile.payments.title', {}, 'Saved Payment Methods')}</h2>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('profile.payments.tokenizedOnly', {}, 'Tokenized methods only')}</span>
                 </div>
 
                 <div className="mb-6 grid gap-3 lg:grid-cols-[0.9fr_1.4fr]">
@@ -199,21 +217,21 @@ export default function PaymentsSection({
                 </div>
 
                 {paymentMethodsLoading ? (
-                    <div className="py-6 text-sm text-gray-500">{t('profile.payments.loading', {}, 'Loading payment methods...')}</div>
+                    <div role="status" className="py-6 text-sm text-slate-400">{t('profile.payments.loading', {}, 'Loading payment methods...')}</div>
                 ) : paymentMethods.length === 0 ? (
-                    <div className="rounded-xl border border-dashed py-10 text-center">
-                        <CreditCard className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                        <p className="font-semibold text-gray-700">{t('profile.payments.empty.title', {}, 'No saved payment methods yet')}</p>
-                        <p className="mt-1 text-xs text-gray-400">{t('profile.payments.empty.body', {}, 'Complete a digital payment to auto-save tokenized methods.')}</p>
+                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-10 text-center">
+                        <CreditCard className="mx-auto mb-3 h-10 w-10 text-slate-600" aria-hidden="true" />
+                        <p className="font-semibold text-white">{t('profile.payments.empty.title', {}, 'No saved payment methods yet')}</p>
+                        <p className="mt-1 text-xs text-slate-400">{t('profile.payments.empty.body', {}, 'Complete a digital payment to auto-save tokenized methods.')}</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
                         {paymentMethods.map((method) => {
                             const methodDetail = getMethodDetail(method, t);
                             return (
-                                <div key={method._id} className="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div key={method._id} className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
-                                        <p className="font-semibold text-gray-900">
+                                        <p className="font-semibold text-white">
                                             {formatPaymentType(method.type, t)}
                                             {method.brand ? ' ' + intl.formatMessage(
                                                 { id: 'profile.payments.method.brandSuffix', defaultMessage: '| {brand}' },
@@ -224,31 +242,36 @@ export default function PaymentsSection({
                                                 { last4: method.last4 },
                                             ) : ''}
                                         </p>
-                                        <p className="mt-1 text-xs text-gray-500">{t('profile.payments.provider', { provider: method.provider || 'razorpay' }, `Provider: ${method.provider || 'razorpay'}`)}</p>
+                                        <p className="mt-1 text-xs text-slate-400">{t('profile.payments.provider', { provider: method.provider || 'razorpay' }, `Provider: ${method.provider || 'razorpay'}`)}</p>
                                         {methodDetail ? (
-                                            <p className="mt-1 text-xs text-gray-400">{methodDetail}</p>
+                                            <p className="mt-1 text-xs text-slate-400">{methodDetail}</p>
                                         ) : null}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {method.isDefault ? (
-                                            <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                                            <span className="rounded-full border border-emerald-400/20 bg-emerald-500/12 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200">
                                                 {t('profile.payments.defaultBadge', {}, 'Default')}
                                             </span>
                                         ) : (
                                             <button
                                                 type="button"
                                                 onClick={() => handleSetDefaultMethod(method._id)}
-                                                className="rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50"
+                                                className="rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20"
                                             >
                                                 {t('profile.payments.setDefault', {}, 'Set Default')}
                                             </button>
                                         )}
                                         <button
                                             type="button"
-                                            onClick={() => handleDeletePaymentMethod(method._id)}
-                                            className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50"
+                                            onClick={() => onRemoveMethod(method._id)}
+                                            aria-live="polite"
+                                            className={`rounded-xl border px-3 py-1.5 text-xs font-bold ${pendingDeleteId === method._id
+                                                ? 'border-rose-300/40 bg-rose-500/25 text-white'
+                                                : 'border-rose-400/20 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20'}`}
                                         >
-                                            {t('profile.payments.remove', {}, 'Remove')}
+                                            {pendingDeleteId === method._id
+                                                ? t('profile.payments.confirmRemove', {}, 'Click again to confirm')
+                                                : t('profile.payments.remove', {}, 'Remove')}
                                         </button>
                                     </div>
                                 </div>
@@ -258,20 +281,20 @@ export default function PaymentsSection({
                 )}
             </div>
 
-            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <div className="premium-panel premium-card-hover p-6">
                 <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900">{t('profile.payments.activity.title', {}, 'Recent Payment Activity')}</h2>
-                        <p className="mt-1 text-xs text-gray-500">{t('profile.payments.activity.body', {}, 'Recent order payment states, provider routing, and refund signals from your account.')}</p>
+                        <h2 className="text-xl font-black text-white">{t('profile.payments.activity.title', {}, 'Recent Payment Activity')}</h2>
+                        <p className="mt-1 text-xs text-slate-400">{t('profile.payments.activity.body', {}, 'Recent order payment states, provider routing, and refund signals from your account.')}</p>
                     </div>
-                    <ReceiptText className="h-5 w-5 text-indigo-500" />
+                    <ReceiptText className="h-5 w-5 text-[#d2a96c]" aria-hidden="true" />
                 </div>
 
                 {paymentActivity.length === 0 ? (
-                    <div className="rounded-xl border border-dashed py-8 text-center">
-                        <ShieldCheck className="mx-auto mb-3 h-9 w-9 text-gray-300" />
-                        <p className="font-semibold text-gray-700">{t('profile.payments.activity.empty.title', {}, 'No payment activity yet')}</p>
-                        <p className="mt-1 text-xs text-gray-400">{t('profile.payments.activity.empty.body', {}, 'Completed orders will show provider and payment state here.')}</p>
+                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-8 text-center">
+                        <ShieldCheck className="mx-auto mb-3 h-9 w-9 text-slate-600" aria-hidden="true" />
+                        <p className="font-semibold text-white">{t('profile.payments.activity.empty.title', {}, 'No payment activity yet')}</p>
+                        <p className="mt-1 text-xs text-slate-400">{t('profile.payments.activity.empty.body', {}, 'Completed orders will show provider and payment state here.')}</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -284,20 +307,20 @@ export default function PaymentsSection({
                             const refundStatus = getRefundStatus(order);
                             const orderId = String(order._id || '').slice(-8).toUpperCase();
                             return (
-                                <div key={order._id || order.createdAt} className="rounded-xl border p-4">
+                                <div key={order._id || order.createdAt} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                         <div className="min-w-0">
-                                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                                                 {t('profile.payments.activity.order', { id: orderId }, `Order #${orderId}`)}
                                             </p>
-                                            <p className="mt-1 font-semibold text-gray-900">
+                                            <p className="mt-1 font-semibold text-white">
                                                 {method}
                                                 {provider ? ' ' + intl.formatMessage(
                                                     { id: 'profile.payments.activity.providerSuffix', defaultMessage: '| {provider}' },
                                                     { provider },
                                                 ) : ''}
                                             </p>
-                                            <p className="mt-1 text-xs text-gray-500">
+                                            <p className="mt-1 text-xs text-slate-400">
                                                 {formatDateTime(order.createdAt)}
                                                 {order.paymentIntentId ? ' ' + intl.formatMessage(
                                                     { id: 'profile.payments.activity.paymentIntentSuffix', defaultMessage: '| {paymentIntentId}' },
@@ -307,16 +330,16 @@ export default function PaymentsSection({
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${getPaymentStateTone(state)}`}>
-                                                <StateIcon className="h-3 w-3" />
+                                                <StateIcon className="h-3 w-3" aria-hidden="true" />
                                                 {formatPaymentState(state, t)}
                                             </span>
-                                            <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-600">
+                                            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-200">
                                                 {formatPrice(order.presentmentTotalPrice || order.totalPrice || 0, order.presentmentCurrency || order.currency || 'INR')}
                                             </span>
                                         </div>
                                     </div>
                                     {refundStatus ? (
-                                        <p className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700">
+                                        <p className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200">
                                             {t('profile.payments.activity.refundStatus', { status: refundStatus }, `Refund status: ${refundStatus}`)}
                                         </p>
                                     ) : null}

@@ -38,7 +38,7 @@ export default function AccountCenterShell({
 
     useEffect(() => {
         if (previousTabRef.current !== activeTab) {
-            pageTitleRef.current?.focus({ preventScroll: true });
+            pageTitleRef.current?.focus({ preventScroll: false });
             previousTabRef.current = activeTab;
         }
     }, [activeTab]);
@@ -64,7 +64,7 @@ export default function AccountCenterShell({
                 <div className="mx-3 mb-4 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
                     <button
                         type="button"
-                        className="relative grid h-13 w-13 place-items-center rounded-xl border border-white/20 bg-white/10 font-black text-[#fffaf0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+                        className="relative grid h-[52px] w-[52px] place-items-center rounded-xl border border-white/20 bg-white/10 font-black text-[#fffaf0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
                         onClick={onAvatarClick}
                         disabled={avatarUploading}
                         aria-busy={avatarUploading || undefined}

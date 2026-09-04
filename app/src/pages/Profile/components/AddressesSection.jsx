@@ -71,34 +71,34 @@ export default function AddressesSection({
     }));
 
     return (
-        <div className="max-w-3xl space-y-6">
+        <div className="space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-lg font-bold text-gray-900">{t('profile.addresses.title', {}, 'Saved Addresses')}</h2>
+                <h2 className="text-xl font-black text-white">{t('profile.addresses.title', {}, 'Saved Addresses')}</h2>
                 <button
                     type="button"
                     onClick={() => {
                         resetAddressForm();
                         setShowAddressForm(true);
                     }}
-                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-indigo-700"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#d2a96c] px-5 py-2 text-sm font-bold text-[#17231e] transition-colors hover:bg-[#f3c982]"
                 >
-                    <Plus className="h-4 w-4" /> {t('profile.addresses.add', {}, 'Add Address')}
+                    <Plus className="h-4 w-4" aria-hidden="true" /> {t('profile.addresses.add', {}, 'Add Address')}
                 </button>
             </div>
 
             {addressesLoading ? (
-                <p role="status" className="rounded-xl border bg-white p-4 text-sm text-gray-600">
+                <p role="status" className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
                     {t('profile.addresses.loading', {}, 'Loading saved addresses...')}
                 </p>
             ) : null}
 
             {addressesError ? (
-                <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-                    <p className="text-sm font-semibold text-red-800">{addressesError}</p>
+                <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4">
+                    <p className="text-sm font-semibold text-rose-200">{addressesError}</p>
                     <button
                         type="button"
                         onClick={onRetryAddresses}
-                        className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-bold text-red-800"
+                        className="rounded-xl border border-rose-400/20 bg-white/[0.04] px-3 py-1.5 text-sm font-bold text-rose-200 hover:bg-white/[0.08]"
                     >
                         {t('profile.addresses.retry', {}, 'Retry')}
                     </button>
@@ -107,14 +107,14 @@ export default function AddressesSection({
 
             {showAddressForm ? (
                 <form
-                    className="rounded-2xl border bg-white p-6 shadow-sm"
+                    className="premium-panel premium-card-hover p-6"
                     onSubmit={(event) => {
                         event.preventDefault();
                         handleSaveAddress();
                     }}
                     aria-describedby={addressSubmitError ? `${formId}-error` : undefined}
                 >
-                    <h3 className="mb-4 font-bold text-gray-900">
+                    <h3 className="mb-4 font-black text-white">
                         {editingAddress
                             ? t('profile.addresses.form.editTitle', {}, 'Edit Address')
                             : t('profile.addresses.form.newTitle', {}, 'New Address')}
@@ -139,7 +139,7 @@ export default function AddressesSection({
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-name`}>
+                        <label className="space-y-1 text-sm font-semibold text-slate-200" htmlFor={`${formId}-name`}>
                             {t('profile.personal.fullName', {}, 'Full Name')}
                         <input
                             id={`${formId}-name`}
@@ -150,10 +150,10 @@ export default function AddressesSection({
                             required
                             minLength={2}
                             maxLength={80}
-                            className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
+                            className="rounded-xl border-2 border-white/10 bg-white/[0.04] p-3 text-white outline-none focus:border-cyan-300"
                         />
                         </label>
-                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-phone`}>
+                        <label className="space-y-1 text-sm font-semibold text-slate-200" htmlFor={`${formId}-phone`}>
                             {t('profile.personal.phone', {}, 'Phone Number')}
                         <input
                             id={`${formId}-phone`}
@@ -164,10 +164,10 @@ export default function AddressesSection({
                             autoComplete="tel"
                             required
                             pattern="^\+?[0-9 ()-]{10,20}$"
-                            className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
+                            className="rounded-xl border-2 border-white/10 bg-white/[0.04] p-3 text-white outline-none focus:border-cyan-300"
                         />
                         </label>
-                        <label className="space-y-1 text-sm font-semibold text-gray-700 sm:col-span-2" htmlFor={`${formId}-street`}>
+                        <label className="space-y-1 text-sm font-semibold text-slate-200 sm:col-span-2" htmlFor={`${formId}-street`}>
                             {t('profile.addresses.form.addressLabel', {}, 'Address')}
                         <textarea
                             id={`${formId}-street`}
@@ -179,10 +179,10 @@ export default function AddressesSection({
                             minLength={5}
                             maxLength={200}
                             rows={2}
-                            className="w-full resize-none rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
+                            className="w-full resize-none rounded-xl border-2 border-white/10 bg-white/[0.04] p-3 text-white outline-none focus:border-cyan-300"
                         />
                         </label>
-                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-city`}>
+                        <label className="space-y-1 text-sm font-semibold text-slate-200" htmlFor={`${formId}-city`}>
                             {t('profile.addresses.form.cityPlaceholder', {}, 'City')}
                         <input
                             id={`${formId}-city`}
@@ -193,10 +193,10 @@ export default function AddressesSection({
                             required
                             minLength={2}
                             maxLength={50}
-                            className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
+                            className="rounded-xl border-2 border-white/10 bg-white/[0.04] p-3 text-white outline-none focus:border-cyan-300"
                         />
                         </label>
-                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-state`}>
+                        <label className="space-y-1 text-sm font-semibold text-slate-200" htmlFor={`${formId}-state`}>
                             {t('profile.addresses.form.statePlaceholder', {}, 'State')}
                         <input
                             id={`${formId}-state`}
@@ -207,10 +207,10 @@ export default function AddressesSection({
                             required
                             minLength={2}
                             maxLength={50}
-                            className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
+                            className="rounded-xl border-2 border-white/10 bg-white/[0.04] p-3 text-white outline-none focus:border-cyan-300"
                         />
                         </label>
-                        <label className="space-y-1 text-sm font-semibold text-gray-700" htmlFor={`${formId}-pincode`}>
+                        <label className="space-y-1 text-sm font-semibold text-slate-200" htmlFor={`${formId}-pincode`}>
                             {t('profile.addresses.form.pincodePlaceholder', {}, 'PIN code')}
                         <input
                             id={`${formId}-pincode`}
@@ -222,7 +222,7 @@ export default function AddressesSection({
                             pattern="[1-9][0-9]{5}"
                             required
                             maxLength={6}
-                            className="rounded-xl border-2 border-gray-200 p-3 outline-none focus:border-indigo-500"
+                            className="rounded-xl border-2 border-white/10 bg-white/[0.04] p-3 text-white outline-none focus:border-cyan-300"
                         />
                         </label>
                         <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-gray-200 bg-gray-50 p-3">
@@ -232,7 +232,7 @@ export default function AddressesSection({
                                 onChange={(event) => setAddressForm((previous) => ({ ...previous, isDefault: event.target.checked }))}
                                 className="h-5 w-5 rounded text-indigo-600"
                             />
-                            <span className="text-sm font-semibold text-gray-700">{t('profile.addresses.form.default', {}, 'Set as default')}</span>
+                            <span className="text-sm font-semibold text-slate-200">{t('profile.addresses.form.default', {}, 'Set as default')}</span>
                         </label>
                     </div>
 
@@ -265,10 +265,10 @@ export default function AddressesSection({
             ) : null}
 
             {(!profile?.addresses || profile.addresses.length === 0) && !showAddressForm ? (
-                <div className="rounded-2xl border bg-white p-12 text-center shadow-sm">
-                    <MapPin className="mx-auto mb-3 h-16 w-16 text-gray-200" />
-                    <h2 className="mb-1 text-lg font-bold text-gray-900">{t('profile.addresses.empty.title', {}, 'No addresses saved')}</h2>
-                    <p className="text-sm text-gray-400">{t('profile.addresses.empty.body', {}, 'Add your delivery address for faster checkout')}</p>
+                <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center">
+                    <MapPin className="mx-auto mb-3 h-12 w-12 text-slate-600" aria-hidden="true" />
+                    <h2 className="mb-1 text-lg font-black text-white">{t('profile.addresses.empty.title', {}, 'No addresses saved')}</h2>
+                    <p className="text-sm text-slate-400">{t('profile.addresses.empty.body', {}, 'Add your delivery address for faster checkout')}</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -277,35 +277,35 @@ export default function AddressesSection({
                         const TypeIcon = typeOption?.icon || MapPin;
 
                         return (
-                            <div key={address._id} className={`relative rounded-2xl border bg-white p-5 shadow-sm ${address.isDefault ? 'ring-2 ring-indigo-500' : ''}`}>
+                            <div key={address._id} className={`relative rounded-2xl border border-white/10 bg-white/[0.03] p-5 ${address.isDefault ? 'ring-2 ring-[#d2a96c]/60' : ''}`}>
                                 {address.isDefault ? (
-                                    <span className="absolute right-3 top-3 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                    <span className="absolute right-3 top-3 rounded-full border border-[#d2a96c]/30 bg-[#d2a96c]/10 px-2 py-0.5 text-[10px] font-bold text-[#f3c982]">
                                         {t('profile.addresses.defaultBadge', {}, 'DEFAULT')}
                                     </span>
                                 ) : null}
                                 <div className="mb-3 flex items-center gap-2">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
-                                        <TypeIcon className="h-4 w-4 text-indigo-600" />
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05] text-[#d2a96c]">
+                                        <TypeIcon className="h-4 w-4" aria-hidden="true" />
                                     </div>
-                                    <span className="font-bold capitalize text-gray-900">{typeOption?.label || address.type}</span>
+                                    <span className="font-bold capitalize text-white">{typeOption?.label || address.type}</span>
                                 </div>
-                                <p className="font-semibold text-gray-900">{address.name}</p>
-                                <p className="mt-1 text-sm text-gray-600">{address.address}</p>
-                                <p className="text-sm text-gray-600">{address.city}, {address.state} - {address.pincode}</p>
-                                <p className="mt-1 flex items-center gap-1 text-sm text-gray-500"><Phone className="h-3 w-3" /> {address.phone}</p>
-                                <div className="mt-3 flex gap-2 border-t pt-3">
+                                <p className="font-semibold text-white">{address.name}</p>
+                                <p className="mt-1 text-sm text-slate-300">{address.address}</p>
+                                <p className="text-sm text-slate-300">{address.city}, {address.state} - {address.pincode}</p>
+                                <p className="mt-1 flex items-center gap-1 text-sm text-slate-400"><Phone className="h-3 w-3" aria-hidden="true" /> {address.phone}</p>
+                                <div className="mt-3 flex gap-2 border-t border-white/10 pt-3">
                                     <button
                                         type="button"
                                         onClick={() => startEditAddress(address)}
-                                        className="flex items-center gap-1 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50"
+                                        className="flex items-center gap-1 rounded-xl border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20"
                                     >
-                                        <Edit3 className="h-3 w-3" /> {t('profile.personal.edit', {}, 'Edit')}
+                                        <Edit3 className="h-3 w-3" aria-hidden="true" /> {t('profile.personal.edit', {}, 'Edit')}
                                     </button>
                                     {!address.isDefault ? (
                                         <button
                                             type="button"
                                             onClick={() => handleSetDefaultAddress(address)}
-                                            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                                            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-white/[0.08]"
                                         >
                                             {t('profile.addresses.makeDefault', {}, 'Make default')}
                                         </button>
@@ -316,9 +316,9 @@ export default function AddressesSection({
                                             deleteTriggerRef.current = event.currentTarget;
                                             setDeleteCandidate(address);
                                         }}
-                                        className="flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50"
+                                        className="flex items-center gap-1 rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-200 hover:bg-rose-500/20"
                                     >
-                                        <Trash2 className="h-3 w-3" /> {t('profile.addresses.delete', {}, 'Delete')}
+                                        <Trash2 className="h-3 w-3" aria-hidden="true" /> {t('profile.addresses.delete', {}, 'Delete')}
                                     </button>
                                 </div>
                             </div>
