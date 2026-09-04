@@ -22,6 +22,7 @@ const SAFE_EVENT_TYPES = Object.freeze({
     'auth.session.revoked_by_user': 'session_revoked',
     'auth.sessions.other_revoked_by_user': 'sessions_revoked',
     'auth.sessions.all_revoked_by_user': 'global_logout',
+    'auth.session.new_device': 'new_device_sign_in',
     'trusted_device.revoked': 'remembered_browser_revoked',
     'trusted_device.others_revoked': 'remembered_browsers_revoked',
 });

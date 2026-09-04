@@ -11,6 +11,10 @@ const getActivityCopy = (type, t) => {
             t('profile.securityActivity.risk.title', {}, 'Sign-in reviewed'),
             t('profile.securityActivity.risk.body', {}, 'Aura evaluated a sign-in security signal.'),
         ],
+        new_device_sign_in: [
+            t('profile.securityActivity.newDevice.title', {}, 'New device signed in'),
+            t('profile.securityActivity.newDevice.body', {}, 'A browser session signed in from a device we had not seen. Revoke any session you do not recognize.'),
+        ],
         password_changed: [
             t('profile.securityActivity.password.title', {}, 'Password changed'),
             t('profile.securityActivity.password.body', {}, 'Your password recovery flow completed.'),

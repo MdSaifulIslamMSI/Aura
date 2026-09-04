@@ -76,6 +76,7 @@ const {
 } = require('../services/authBehaviorBaselineService');
 const { extractTrustedLoginRiskSignals } = require('../services/authRiskSignalService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { notifyNewDeviceSignIn } = require('../services/authNewDeviceAlertService');
 const {
     startTrafficBudgetCommit,
 } = require('../middleware/requestTimeouts');
@@ -550,6 +551,9 @@ const persistBrowserSessionForUser = async ({
     });
 
     req.authSession = nextSession;
+    // New-device alert (A3): fire-and-forget. The notifier never throws and
+    // never delays the login response; alerting failures stay local to it.
+    void notifyNewDeviceSignIn({ req, user }).catch(() => undefined);
     if (
         resetAssurance
         && previousSession?.sessionId

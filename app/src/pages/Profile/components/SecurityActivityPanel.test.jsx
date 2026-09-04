@@ -4,7 +4,7 @@ import SecurityActivityPanel from './SecurityActivityPanel';
 
 describe('SecurityActivityPanel', () => {
     it('renders only customer-safe activity fields and retention copy', () => {
-        render(
+        const { rerender } = render(
             <SecurityActivityPanel
                 loaded
                 retentionDays={180}
@@ -19,6 +19,20 @@ describe('SecurityActivityPanel', () => {
         expect(screen.getByRole('heading', { name: 'Security activity' })).toBeInTheDocument();
         expect(screen.getByText(/available for up to 180 days/i)).toBeInTheDocument();
         expect(screen.getByText('Passkey added')).toBeInTheDocument();
+
+        rerender(
+            <SecurityActivityPanel
+                loaded
+                retentionDays={180}
+                activity={[{
+                    type: 'new_device_sign_in',
+                    outcome: 'success',
+                    occurredAt: '2026-07-26T10:00:00.000Z',
+                }]}
+            />
+        );
+
+        expect(screen.getByText('New device signed in')).toBeInTheDocument();
         expect(screen.queryByText('must-not-leak')).toBeNull();
     });
 
