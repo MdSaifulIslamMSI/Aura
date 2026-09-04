@@ -91,11 +91,21 @@ const resolveNpmInvocation = () => {
 };
 
 const npmInvocation = resolveNpmInvocation();
+// The registry bulk-advisories endpoint intermittently answers slowly for
+// large trees; widen the fetch window so transient slowness does not fail the
+// gate. Real findings and persistent network errors still fail closed.
+const npmAuditFetchArgs = [
+  '--fetch-timeout=600000',
+  '--fetch-retries=5',
+  '--fetch-retry-mintimeout=20000',
+  '--fetch-retry-maxtimeout=120000',
+];
 const npmAuditArgs = [
   ...npmInvocation.argsPrefix,
   'audit',
   auditLevelArg,
   ...(omitArg ? [omitArg] : []),
+  ...npmAuditFetchArgs,
   '--json',
 ];
 
@@ -148,7 +158,7 @@ const failedAudits = audits.filter((audit) => audit.error || (audit.exitCode !==
 
 const report = {
   generatedAt: new Date().toISOString(),
-  command: `npm audit ${omitArg ? `${omitArg} ` : ''}${auditLevelArg} --json`,
+  command: `npm audit ${omitArg ? `${omitArg} ` : ''}${auditLevelArg} ${npmAuditFetchArgs.join(' ')} --json`,
   exceptionFile: existsSync(exceptionPath) ? 'security-audit-exceptions.json' : null,
   audits,
   auditLevel,
