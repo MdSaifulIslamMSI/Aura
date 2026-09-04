@@ -10633,6 +10633,21 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Hotspot telemetry is unavailable right now.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "marketplace.error.listings": {
+        id: "marketplace.error.listings",
+        defaultMessage: "Live listings are unavailable right now. Please retry.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.error.retry": {
+        id: "marketplace.error.retry",
+        defaultMessage: "Retry now",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.error.title": {
+        id: "marketplace.error.title",
+        defaultMessage: "The market view hit a snag.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "marketplace.filter.cityValue": {
         id: "marketplace.filter.cityValue",
         defaultMessage: "City: {city}",

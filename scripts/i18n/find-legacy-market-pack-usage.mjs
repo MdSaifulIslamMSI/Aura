@@ -32,6 +32,14 @@ const MEDIUM_RISK_PREFIXES = [
 const ICU_DELEGATED_TRANSLATOR_FILES = new Set([
     'app/src/pages/Login/LoginView.jsx',
     'app/src/pages/Login/loginFlowHelpers.js',
+    'app/src/pages/Profile/components/TicketInbox.jsx',
+    'app/src/pages/Profile/components/supportBadges.jsx',
+    'app/src/pages/Profile/components/supportHelpers.js',
+    'app/src/pages/Profile/hooks/profileUtils.js',
+    'app/src/pages/Profile/hooks/useAddresses.js',
+    'app/src/pages/Profile/hooks/usePaymentHub.js',
+    'app/src/pages/Profile/hooks/useProfileDeck.js',
+    'app/src/pages/Profile/hooks/useSecurityCenter.js',
 ]);
 const TEST_FILE_PATTERN = /\.(test|spec)\.[jt]sx?$/i;
 const RUNTIME_ENUM_COMPATIBILITY_FILES = new Set([

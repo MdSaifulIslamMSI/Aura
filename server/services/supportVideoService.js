@@ -116,6 +116,30 @@ const markSupportTicketLiveCallStarted = async ({
     contextLabel = 'Live support call started',
     mediaMode = 'video',
 }) => {
+    // Atomically claim ownership so two concurrent "start" calls can't both win:
+    // only transition when the call is not actively owned by a different agent.
+    const claim = await SupportTicket.findOneAndUpdate(
+        {
+            _id: ticketId,
+            $or: [
+                { liveCallLastStatus: { $nin: ['ringing', 'connected'] } },
+                { liveCallStartedBy: null },
+                { liveCallStartedBy: startedByUserId },
+            ],
+        },
+        {
+            $set: {
+                liveCallStartedAt: new Date(),
+                liveCallStartedBy: startedByUserId || null,
+                liveCallLastStatus: 'ringing',
+            },
+        },
+        { returnDocument: 'after' }
+    );
+    if (!claim) {
+        throw new AppError('Another support agent already owns this live call', 409);
+    }
+
     const ticket = await loadSupportTicketForVideo(ticketId);
     const now = new Date();
     const normalizedRole = normalizeRole(startedByRole);
