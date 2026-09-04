@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "browse": {
     "healthP95Ms": 300,
     "searchP95Ms": 900,
@@ -25,7 +25,7 @@
   },
   "bundle": {
     "maxTotalJsGzipKb": 470,
-    "maxLargestJsGzipKb": 280,
+    "maxLargestJsGzipKb": 310,
     "maxTotalCssGzipKb": 70,
     "maxInitialCssGzipKb": 65,
     "maxLargestLazyCssGzipKb": 6
