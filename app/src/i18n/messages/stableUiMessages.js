@@ -4400,7 +4400,7 @@ export const stableUiMessages = defineMessages({
     },
     "cart.summary.discount": {
         id: "cart.summary.discount",
-        defaultMessage: "Delta Offset",
+        defaultMessage: "Discount",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "cart.summary.free": {

@@ -17,6 +17,7 @@ const DELIVERY_OPTIONS = ['standard', 'express'];
 const SLOT_WINDOWS = ['09:00-12:00', '12:00-15:00', '15:00-18:00', '18:00-21:00'];
 const PRICING_VERSION = 'v2';
 
+const DISTANCE_CACHE_MAX_ENTRIES = 5000;
 const distanceCache = new Map();
 
 const haversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -35,6 +36,11 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const d = R * c;
     
+    // Map keeps insertion order, so evict the oldest entry once the cap is hit
+    if (distanceCache.size >= DISTANCE_CACHE_MAX_ENTRIES) {
+        const oldestKey = distanceCache.keys().next().value;
+        distanceCache.delete(oldestKey);
+    }
     distanceCache.set(key, d);
     return d;
 };
@@ -346,7 +352,11 @@ const calculatePricing = async ({
     paymentMethod,
     couponCode = '',
 }) => {
-    const itemsPrice = resolvedItems.reduce((sum, item) => sum + (item.lineTotal || 0), 0);
+    // Accumulate with Decimal to match resolveProductsForItems and avoid float drift
+    const itemsPrice = resolvedItems
+        .reduce((sum, item) => sum.plus(item.lineTotal || 0), new Decimal(0))
+        .toDecimalPlaces(2)
+        .toNumber();
     
     // Solve NP-Hard Logistics optimization
     const logistics = await calculateOptimalLogisticsCost(resolvedItems);
