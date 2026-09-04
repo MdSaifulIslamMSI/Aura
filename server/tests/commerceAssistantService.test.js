@@ -172,7 +172,7 @@ describe('commerceAssistantService helpers', () => {
         })).toBe(false);
     });
 
-    test('inferConfirmationFromMessage turns yes into a pending action approval', () => {
+    test('inferConfirmationFromMessage requires explicit confirmation and ignores free-text yes', () => {
         const result = __testables.inferConfirmationFromMessage({
             message: 'yes, continue',
             assistantSession: {
@@ -183,7 +183,20 @@ describe('commerceAssistantService helpers', () => {
             },
         });
 
-        expect(result).toEqual({
+        expect(result).toBeNull();
+
+        const explicit = __testables.inferConfirmationFromMessage({
+            message: 'yes, continue',
+            confirmation: { actionId: 'token-123', approved: true, contextVersion: 2 },
+            assistantSession: {
+                pendingAction: {
+                    actionId: 'token-123',
+                    contextVersion: 2,
+                },
+            },
+        });
+
+        expect(explicit).toEqual({
             actionId: 'token-123',
             approved: true,
             contextVersion: 2,

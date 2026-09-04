@@ -21,9 +21,19 @@ describe('findAssistantCategory', () => {
         expect(findAssistantCategory('gaming console deals')?.value).toBe('gaming');
     });
 
+    it('covers fashion, footwear, and home-kitchen catalog categories', () => {
+        expect(findAssistantCategory('go to shoes category')?.value).toBe('footwear');
+        expect(findAssistantCategory('show fashion deals')?.value).toBe('mens-fashion');
+        expect(findAssistantCategory('home appliances deals')?.value).toBe('home-kitchen');
+    });
+
     it('returns null when no category alias is present', () => {
         expect(findAssistantCategory('hello there')).toBeNull();
         expect(findAssistantCategory('')).toBeNull();
+    });
+
+    it('does not match substrings inside longer words', () => {
+        expect(findAssistantCategory('telephone exchange')?.value ?? null).not.toBe('mobiles');
     });
 });
 
@@ -66,6 +76,28 @@ describe('parseClientAssistantIntent', () => {
     it('routes checkout and support phrasing', () => {
         expect(parseClientAssistantIntent('pay now').intent).toBe('checkout');
         expect(parseClientAssistantIntent('where is my refund?').intent).toBe('support');
+        expect(parseClientAssistantIntent('cancel my order').intent).toBe('support');
+        expect(parseClientAssistantIntent('help with delayed order').intent).toBe('support');
+    });
+
+    it('does not hijack nav substrings inside commerce searches', () => {
+        expect(parseClientAssistantIntent('show me garbage bags under 500').intent).toBe('product_search');
+        expect(parseClientAssistantIntent('compare iphones under 50000').intent).toBe('product_search');
+    });
+
+    it('does not invent product ids from ordinary words', () => {
+        expect(parseClientAssistantIntent('show product recommendations').intent).not.toBe('product_selection');
+    });
+
+    it('parses star-rating phrasing variants', () => {
+        expect(parseClientAssistantIntent('phones with 4 stars and up').entities.rating).toBe(4);
+        expect(parseClientAssistantIntent('laptops rated 4.5').entities.rating).toBe(4.5);
+        expect(parseClientAssistantIntent('mobiles 4+ stars').entities.rating).toBe(4);
+    });
+
+    it('strips full budget expressions from the search query', () => {
+        expect(parseClientAssistantIntent('find phones under 50000').entities.query).not.toMatch(/50000/);
+        expect(parseClientAssistantIntent('phones under rs 15,000').entities.query).not.toMatch(/15,?000/);
     });
 
     it('navigates to pages via open/show phrasing', () => {
@@ -137,8 +169,8 @@ describe('buildLocalVoiceCommand', () => {
         expect(buildLocalVoiceCommand('search gaming laptops')).toMatchObject({ type: 'search' });
         // Non-actionable chatter is treated as a help opportunity...
         expect(buildLocalVoiceCommand('mm hmm').type).toBe('help');
-        // ...while any concrete non-voiceable intent (e.g. checkout) reads as unknown.
-        expect(buildLocalVoiceCommand('pay now').type).toBe('unknown');
+        // ...while checkout/support now resolve to safe navigation targets.
+        expect(buildLocalVoiceCommand('pay now')).toMatchObject({ type: 'navigate', path: '/checkout' });
     });
 
     it('prefers a provided formatMessage for user-facing strings', () => {

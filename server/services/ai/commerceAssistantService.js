@@ -1,9 +1,15 @@
 const crypto = require('crypto');
 const Order = require('../../models/Order');
 const Product = require('../../models/Product');
-const { buildAssistantTurn, buildConfirmationToken, safeString: contractSafeString } = require('./assistantContract');
-const { ASSISTANT_NAVIGATION_PATHS, validateAssistantAction } = require('./assistantToolRegistry');
+const assistantContract = require('./assistantContract');
+const { buildAssistantTurn, safeString: contractSafeString } = assistantContract;
+const buildConfirmationToken = assistantContract.buildConfirmationToken;
+const verifyConfirmationToken = assistantContract.verifyConfirmationToken
+    || ((action = {}, token = '') => buildConfirmationToken(action) === String(token || ''));
+const { ASSISTANT_NAVIGATION_PATHS, getToolDefinition, validateAssistantAction } = require('./assistantToolRegistry');
 const {
+    recordConfirmationMetric,
+    recordCostMetric,
     recordFallbackMetric,
     recordLatencyMetric,
     recordRetrievalMetric,
@@ -22,6 +28,10 @@ const {
     upsertAssistantThread,
 } = require('./assistantThreadPersistenceService');
 const { checkModelGatewayHealth, generateStructuredJson, getModelGatewayHealth } = require('./modelGatewayService');
+const { inspectAssistantOutput } = require('./promptGuardService');
+const { hasReferringExpression, resolveReferringExpression } = require('./assistantMemoryService');
+const { advanceTask } = require('./assistantTaskService');
+const { isAgentLoopEnabled, runAgentLoop } = require('./agentLoopService');
 const { getLocalVectorIndexHealth, searchProductVectorIndex } = require('./localProductVectorIndexService');
 const { buildKnowledgeAnswerText, resolveAppCapabilityAnswer, retrieveCommerceKnowledge } = require('./commerceKnowledgeRagService');
 const { getRecommendationsForAssistant: getHybridRecommendationsForAssistant } = require('../recommendationService');
@@ -128,8 +138,6 @@ const throwIfAssistantAborted = (abortSignal = null) => {
 };
 const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
 const SCHEMA_PLACEHOLDER_VALUES = new Set(['string', 'number', 'boolean', 'array', 'object', 'null']);
-const APPROVE_CONFIRMATION_PATTERN = /^\s*(yes|y|ok|okay|confirm|continue|proceed|go ahead|do it|sure)\b/i;
-const DECLINE_CONFIRMATION_PATTERN = /^\s*(no|n|cancel|stop|do not|don't|nope|not now)\b/i;
 const hasAudioAttachments = (audio = []) => Array.isArray(audio) && audio.length > 0;
 const isHostedGemmaAudioUnsupported = (gatewayHealth = {}, audio = []) => (
     hasAudioAttachments(audio)
@@ -857,6 +865,20 @@ const normalizeAssistantSession = (session = {}, sessionId = '') => ({
     },
     contextPath: safeString(session?.contextPath || ''),
     pendingAction: session?.pendingAction && typeof session.pendingAction === 'object' ? session.pendingAction : null,
+    // Multi-turn task state survives the same round-trip as pendingAction.
+    // Shape is allowlisted so forged fields cannot smuggle behavior.
+    pendingTask: session?.pendingTask && typeof session.pendingTask === 'object' && ['add_to_cart', 'cancel_order', 'create_return_request'].includes(safeString(session.pendingTask.taskType))
+        ? {
+            taskType: safeString(session.pendingTask.taskType),
+            slots: Object.fromEntries(
+                Object.entries(session.pendingTask.slots && typeof session.pendingTask.slots === 'object' ? session.pendingTask.slots : {})
+                    .map(([key, value]) => [safeString(key).slice(0, 32), typeof value === 'number' ? value : safeString(value).slice(0, 160)])
+                    .filter(([key]) => key)
+            ),
+            asked: (Array.isArray(session.pendingTask.asked) ? session.pendingTask.asked : []).map((entry) => safeString(entry).slice(0, 32)).filter(Boolean).slice(0, 4),
+            createdAt: Math.max(0, Number(session.pendingTask.createdAt || 0)),
+        }
+        : null,
     clarificationState: session?.clarificationState && typeof session.clarificationState === 'object'
         ? session.clarificationState
         : { fingerprint: '', count: 0, lastQuestion: '' },
@@ -874,6 +896,9 @@ const canRoundTripGuestPendingAction = (pendingAction = {}) => {
     const action = pendingAction?.action || null;
     const type = safeString(action?.type || '');
     if (!GUEST_CLIENT_CONFIRMATION_ACTION_TYPES.has(type) || !isPendingActionFresh(pendingAction)) {
+        return false;
+    }
+    if (!verifyConfirmationToken(action, pendingAction?.actionId)) {
         return false;
     }
     return validateAssistantAction(action).ok;
@@ -980,10 +1005,12 @@ const buildResponseEnvelope = ({
     retrievalHitCount = 0,
     validator = {},
     messageId = '',
+    auditActions = [],
 } = {}) => ({
     answer: safeString(assistantTurn?.response || ''),
     products,
     actions: Array.isArray(assistantTurn?.actions) ? assistantTurn.actions : [],
+    auditActions: Array.isArray(auditActions) ? auditActions : [],
     followUps,
     assistantTurn,
     grounding: buildGrounding({
@@ -1127,6 +1154,11 @@ const detectRoute = ({
     audio = [],
 } = {}) => {
     if (confirmation?.actionId || actionRequest?.type) return { route: ROUTE_ACTION, reason: 'action' };
+    // An unfinished multi-turn task owns the next turn regardless of wording
+    // ("the second one", "never mind") — never let it fall into search.
+    if (assistantSession?.pendingTask && typeof assistantSession.pendingTask === 'object') {
+        return { route: ROUTE_ACTION, reason: 'pending_task' };
+    }
     if ((Array.isArray(images) && images.length > 0) || (Array.isArray(audio) && audio.length > 0)) {
         return { route: ROUTE_ECOMMERCE, reason: 'multimodal_input' };
     }
@@ -1171,28 +1203,6 @@ const detectRoute = ({
 
 const inferConfirmationFromMessage = ({ message = '', confirmation = null, assistantSession = {} } = {}) => {
     if (confirmation?.actionId) return confirmation;
-
-    const pendingAction = assistantSession?.pendingAction || null;
-    if (!pendingAction?.actionId) return confirmation;
-
-    const normalized = safeString(message);
-    if (!normalized) return confirmation;
-
-    if (APPROVE_CONFIRMATION_PATTERN.test(normalized)) {
-        return {
-            actionId: safeString(pendingAction.actionId),
-            approved: true,
-            contextVersion: Number(pendingAction.contextVersion || 0),
-        };
-    }
-
-    if (DECLINE_CONFIRMATION_PATTERN.test(normalized)) {
-        return {
-            actionId: safeString(pendingAction.actionId),
-            approved: false,
-            contextVersion: Number(pendingAction.contextVersion || 0),
-        };
-    }
 
     return confirmation;
 };
@@ -2147,9 +2157,11 @@ const buildAssistantRecommendationEnvelope = async ({
         assistantReason: safeString(recommendations[index]?.reason || product.assistantReason),
     }));
     const focusProduct = decoratedProducts[0] || null;
+    const allFallback = decoratedProducts.length > 0
+        && recommendations.every((item) => safeString(item.source || '') === 'fallback');
     const assistantTurn = buildAssistantTurn({
         intent: 'product_search',
-        confidence: recommendations.length > 0 ? 0.94 : 0.66,
+        confidence: recommendations.length === 0 ? 0.3 : (allFallback ? 0.8 : 0.94),
         decision: 'respond',
         response: buildAssistantRecommendationText({ message, recommendations }),
         followUps: recommendations.length > 0
@@ -2162,11 +2174,13 @@ const buildAssistantRecommendationEnvelope = async ({
             product: decoratedProducts.length === 1 ? focusProduct : null,
         },
         verification: {
-            label: 'app_grounded',
-            confidence: recommendations.length > 0 ? 1 : 0.7,
-            summary: recommendations.length > 0
-                ? 'Recommendations came from the hybrid recommendation engine using catalog, behavior, popularity, stock, and rating signals.'
-                : 'The recommendation engine returned no confident product candidates.',
+            label: recommendations.length > 0 ? 'app_grounded' : 'cannot_verify',
+            confidence: recommendations.length === 0 ? 0.3 : (allFallback ? 0.8 : 1),
+            summary: recommendations.length === 0
+                ? 'The recommendation engine returned no product candidates, so nothing is claimed as grounded.'
+                : (allFallback
+                    ? 'Generic catalog fallback picks (trending/top-rated), not personalized to this shopper.'
+                    : 'Recommendations came from the hybrid recommendation engine using catalog, behavior, popularity, stock, and rating signals.'),
             evidenceCount: recommendations.length,
         },
         toolRuns: [{
@@ -2218,6 +2232,168 @@ const buildAssistantRecommendationEnvelope = async ({
         retrievalHitCount: recommendations.length,
         validator: { ok: recommendations.length > 0, reason: 'hybrid_recommendation_engine' },
         messageId: createMessageId(),
+    });
+};
+
+const needsAgentReasoning = ({ message = '', assistantSession = {}, context = {} } = {}) => {
+    if (!isAgentLoopEnabled()) return false;
+    const normalized = safeString(message);
+    if (!normalized) return false;
+    // Referring expressions need session-grounded resolution + verification.
+    if (hasReferringExpression({ message: normalized, assistantSession })) return true;
+    // Single-result session reuse is already optimal on the legacy path
+    // (no re-search, model summarizes) — the loop would only redo it.
+    // Multi-candidate comparisons genuinely benefit from verified tool calls.
+    const multiComparand = (Array.isArray(assistantSession?.lastResults) && assistantSession.lastResults.length >= 2)
+        || (Array.isArray(context?.candidateProductIds) && context.candidateProductIds.length >= 2);
+    if (!multiComparand && shouldReuseSessionResultsForCommerce({ message: normalized, assistantSession })) return false;
+    const hasComparands = (Array.isArray(context?.candidateProductIds) && context.candidateProductIds.length >= 2)
+        || (Array.isArray(assistantSession?.lastResults) && assistantSession.lastResults.length >= 2);
+    if (COMMERCE_COMPARISON_PATTERN.test(normalized.toLowerCase()) && (hasComparands || /\b(best|better|compare|versus|vs|difference)\b/i.test(normalized))) return true;
+    if (FOLLOW_UP_REFINEMENT_PATTERN.test(normalized) && hasRecentCommerceContext(assistantSession)) return true;
+    return false;
+};
+
+const buildAgentLoopEnvelope = async ({
+    loopResult,
+    message = '',
+    sessionId = '',
+    traceId = '',
+    assistantMode = 'chat',
+    assistantSession = {},
+    gatewayHealth = {},
+    vectorStoreHealth = null,
+    filters = {},
+}) => {
+    const cards = loopResult.observedProducts.map((entry) => normalizeProductCard({
+        id: entry.id,
+        title: entry.title,
+        brand: entry.brand,
+        category: entry.category,
+        price: entry.price,
+        stock: entry.stock,
+        rating: entry.rating,
+        ratingCount: entry.ratingCount,
+    })).filter((entry) => entry.id);
+    const focusProduct = cards[0] || null;
+    const assistantTurn = buildAssistantTurn({
+        intent: 'product_search',
+        confidence: cards.length > 0 ? 0.93 : 0.4,
+        decision: 'respond',
+        response: loopResult.answer,
+        followUps: loopResult.followUps,
+        ui: {
+            surface: cards.length === 1 ? 'product_focus' : (cards.length > 1 ? 'product_results' : 'plain_answer'),
+            title: 'Verified matches',
+            products: cards,
+            product: cards.length === 1 ? focusProduct : null,
+        },
+        verification: {
+            label: cards.length > 0 ? 'app_grounded' : 'cannot_verify',
+            confidence: cards.length > 0 ? 1 : 0.3,
+            summary: cards.length > 0
+                ? `Answer composed from ${loopResult.iterations} agent loop iteration(s) with live catalog tool observations.`
+                : 'The agent loop verified no catalog match, so nothing is claimed as grounded.',
+            evidenceCount: cards.length,
+        },
+        toolRuns: loopResult.toolRuns,
+        answerMode: 'commerce',
+    });
+    return buildResponseEnvelope({
+        assistantTurn,
+        route: ROUTE_ECOMMERCE,
+        provider: safeString(loopResult.provider || 'agent_loop'),
+        providerModel: safeString(loopResult.providerModel || ''),
+        products: cards,
+        followUps: assistantTurn.followUps,
+        sessionId,
+        traceId,
+        assistantMode,
+        assistantSession: {
+            ...assistantSession,
+            lastIntent: 'product_search',
+            lastEntities: {
+                ...assistantSession.lastEntities,
+                query: safeString(message),
+                productId: safeString(focusProduct?.id || ''),
+                category: safeString(filters?.category || focusProduct?.category || ''),
+            },
+            lastResults: cards,
+            activeProduct: focusProduct || assistantSession.activeProduct,
+            pendingAction: null,
+            pendingTask: null,
+        },
+        health: { gateway: gatewayHealth, vectorStore: vectorStoreHealth },
+        providerCapabilities: gatewayHealth?.capabilities || null,
+        retrievalHitCount: cards.length,
+        validator: { ok: cards.length > 0, reason: 'agent_loop_grounded' },
+        messageId: createMessageId(),
+    });
+};
+
+const runAgentCommerceTurn = async ({
+    message = '',
+    user = null,
+    sessionId = '',
+    traceId = '',
+    assistantMode = 'chat',
+    assistantSession = {},
+    context = {},
+    gatewayHealth = {},
+    vectorStoreHealth = null,
+    mediaHints = {},
+    abortSignal = null,
+}) => {
+    const filters = inferStructuredRetrievalFilters({ message, assistantSession });
+    const visualContext = [
+        ...(Array.isArray(mediaHints?.queryCandidates) ? mediaHints.queryCandidates : []),
+        ...(Array.isArray(mediaHints?.titleCandidates) ? mediaHints.titleCandidates : []),
+    ].map((entry) => safeString(entry)).filter(Boolean).slice(0, 4).join('; ');
+    const loopResult = await runAgentLoop({
+        message,
+        filters,
+        assistantSession,
+        abortSignal,
+        visualContext,
+        onEvent: typeof context?.onProgress === 'function' ? context.onProgress : null,
+    });
+    throwIfAssistantAborted(abortSignal);
+
+    if (loopResult.proposedAction && safeString(loopResult.proposedAction.type)) {
+        const proposed = { ...loopResult.proposedAction, type: safeString(loopResult.proposedAction.type) };
+        const validation = validateAssistantAction(proposed);
+        recordToolValidationMetric({ tool: proposed.type, ok: validation.ok });
+        const definition = validation.definition || getToolDefinition(proposed.type);
+        if (validation.ok && definition?.requires_confirmation) {
+            return buildConfirmationEnvelope({
+                action: proposed,
+                assistantSession: { ...assistantSession, lastResults: loopResult.observedProducts, pendingTask: null },
+                sessionId,
+                traceId,
+                assistantMode,
+                responseText: getActionConfirmationText(proposed),
+                intent: getActionIntent(proposed),
+                entities: {
+                    query: safeString(message),
+                    productId: safeString(proposed.productId || ''),
+                    quantity: Number(proposed.quantity || 1),
+                    orderId: safeString(proposed.orderId || ''),
+                    operation: safeString(proposed.type || ''),
+                },
+            });
+        }
+    }
+
+    return buildAgentLoopEnvelope({
+        loopResult,
+        message,
+        sessionId,
+        traceId,
+        assistantMode,
+        assistantSession,
+        gatewayHealth,
+        vectorStoreHealth,
+        filters,
     });
 };
 
@@ -2400,6 +2576,37 @@ const performCommerceTurn = async ({
             gatewayHealth,
             vectorStoreHealth,
         });
+    }
+
+    // Agentic path: multi-constraint, comparative, or reference-heavy
+    // requests get an iterative tool loop when a model gateway is usable.
+    // Any failure falls through to the legacy single-shot path below.
+    if (needsAgentReasoning({ message, assistantSession, context })) {
+        try {
+            throwIfAssistantAborted(abortSignal);
+            const liveGateway = await checkModelGatewayHealth({}).catch(() => getModelGatewayHealth());
+            throwIfAssistantAborted(abortSignal);
+            if (canUseModelGateway(liveGateway)) {
+                const vectorStoreHealth = await vectorStoreHealthPromise.catch(() => null);
+                throwIfAssistantAborted(abortSignal);
+                return await runAgentCommerceTurn({
+                    message,
+                    user,
+                    sessionId,
+                    traceId,
+                    assistantMode,
+                    assistantSession,
+                    context,
+                    gatewayHealth: liveGateway,
+                    vectorStoreHealth,
+                    mediaHints,
+                    abortSignal,
+                });
+            }
+        } catch (error) {
+            if (error?.code === 'ASSISTANT_REQUEST_ABORTED') throw error;
+            logger.warn('assistant.agent_loop.fallback', { error: error.message, traceId });
+        }
     }
 
     if (requireHostedGemma && !isHostedGemmaGatewayHealthy(gatewayHealth)) {
@@ -3039,13 +3246,33 @@ const buildActionContext = ({ context = {}, assistantSession = {} } = {}) => ({
         || assistantSession?.lastEntities?.productId
         || ''
     ),
+    // Client-supplied ids are hints only: keep numeric ids, cap length so a
+    // forged 5KB list can't steer planning or fan out downstream lookups.
     candidateProductIds: uniq([
         ...(Array.isArray(context?.candidateProductIds) ? context.candidateProductIds : []),
         ...(Array.isArray(assistantSession?.lastResults)
             ? assistantSession.lastResults.map((product) => safeString(product?.id || ''))
             : []),
-    ]),
+    ]).filter((entry) => /^[1-9]\d*$/.test(entry)).slice(0, 20),
 });
+
+const resolveServerCartItems = async ({ user = null } = {}) => {
+    if (!user?._id) return null;
+    try {
+        const { getCartSnapshot } = require('../cartService');
+        const snapshot = await getCartSnapshot({ userId: user._id, user });
+        const items = Array.isArray(snapshot?.items) ? snapshot.items : [];
+        return items.map((entry = {}) => ({
+            id: Number(entry?.productId ?? entry?.id ?? entry?.product?.id ?? 0),
+            title: safeString(entry?.title ?? entry?.product?.title ?? entry?.product?.displayTitle ?? ''),
+            brand: safeString(entry?.brand ?? entry?.product?.brand ?? ''),
+            price: Math.max(0, Number(entry?.price ?? entry?.product?.price ?? 0)),
+            quantity: Math.min(99, Math.max(1, Number(entry?.quantity ?? entry?.qty ?? 1) || 1)),
+        })).filter((item) => item.id > 0);
+    } catch {
+        return null;
+    }
+};
 
 const resolveProductForAction = async ({ message = '', context = {} } = {}) => {
     const explicitProductId = safeString(context?.currentProductId || '');
@@ -3150,6 +3377,8 @@ const buildConfirmationEnvelope = ({
         lastIntent: intent,
         lastEntities: { ...assistantSession.lastEntities, ...entities },
         pendingAction,
+        // A fresh confirmation supersedes any in-flight slot task.
+        pendingTask: null,
     };
     const assistantTurn = buildAssistantTurn({
         intent,
@@ -3224,7 +3453,14 @@ const getActionIntent = (action = {}) => {
 
 const respondToConfirmation = ({ confirmation = null, assistantSession = {}, sessionId = '', traceId = '', assistantMode = 'chat' } = {}) => {
     const pendingAction = assistantSession?.pendingAction || null;
-    if (!pendingAction || !isPendingActionFresh(pendingAction) || safeString(confirmation?.actionId || '') !== safeString(pendingAction?.actionId || '')) {
+    const pendingActionObj = pendingAction?.action || null;
+    const tokenMatches = pendingAction
+        && isPendingActionFresh(pendingAction)
+        && safeString(confirmation?.actionId || '') === safeString(pendingAction?.actionId || '')
+        && verifyConfirmationToken(pendingActionObj, confirmation?.actionId)
+        && verifyConfirmationToken(pendingActionObj, pendingAction?.actionId);
+    if (!tokenMatches) {
+        recordConfirmationMetric('invalid_or_expired');
         const assistantTurn = buildAssistantTurn({
             intent: 'navigation',
             confidence: 1,
@@ -3243,7 +3479,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
             sessionId,
             traceId,
             assistantMode,
-            assistantSession: { ...assistantSession, pendingAction: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
+            assistantSession: { ...assistantSession, pendingAction: null, pendingTask: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: 0,
             validator: { ok: false, reason: 'missing_pending_action' },
@@ -3254,6 +3490,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
     const pendingContextVersion = Number(pendingAction.contextVersion || 0);
     const confirmationContextVersion = Number(confirmation?.contextVersion || 0);
     if (pendingContextVersion <= 0 || confirmationContextVersion !== pendingContextVersion) {
+        recordConfirmationMetric('context_mismatch');
         const assistantTurn = buildAssistantTurn({
             intent: safeString(pendingAction?.intent || 'navigation'),
             confidence: 1,
@@ -3272,7 +3509,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
             sessionId,
             traceId,
             assistantMode,
-            assistantSession: { ...assistantSession, pendingAction: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
+            assistantSession: { ...assistantSession, pendingAction: null, pendingTask: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: 0,
             validator: { ok: false, reason: 'context_version_mismatch' },
@@ -3281,6 +3518,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
     }
 
     if (!confirmation?.approved) {
+        recordConfirmationMetric('declined');
         const assistantTurn = buildAssistantTurn({
             intent: safeString(pendingAction?.intent || 'navigation'),
             confidence: 1,
@@ -3299,7 +3537,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
             sessionId,
             traceId,
             assistantMode,
-            assistantSession: { ...assistantSession, pendingAction: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
+            assistantSession: { ...assistantSession, pendingAction: null, pendingTask: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: 0,
             validator: { ok: true, reason: 'confirmation_declined' },
@@ -3311,6 +3549,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
     const validation = validateAssistantAction(action);
     recordToolValidationMetric({ tool: safeString(action?.type || 'unknown'), ok: validation.ok });
     if (!validation.ok) {
+        recordConfirmationMetric('validation_failed');
         const assistantTurn = buildAssistantTurn({
             intent: safeString(pendingAction?.intent || 'navigation'),
             confidence: 1,
@@ -3330,7 +3569,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
             sessionId,
             traceId,
             assistantMode,
-            assistantSession: { ...assistantSession, pendingAction: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
+            assistantSession: { ...assistantSession, pendingAction: null, pendingTask: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: 0,
             validator: { ok: false, reason: validation.reason },
@@ -3351,6 +3590,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
         verification: { label: 'app_grounded', confidence: 1, summary: 'Action confirmed and validated.' },
         answerMode: 'commerce',
     });
+    recordConfirmationMetric('confirmed');
     return buildResponseEnvelope({
         assistantTurn,
         route: ROUTE_ACTION,
@@ -3361,7 +3601,7 @@ const respondToConfirmation = ({ confirmation = null, assistantSession = {}, ses
         sessionId,
         traceId,
         assistantMode,
-        assistantSession: { ...assistantSession, pendingAction: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
+        assistantSession: { ...assistantSession, pendingAction: null, pendingTask: null, contextVersion: Math.max(1, Number(assistantSession?.contextVersion || 0) + 1) },
         health: { gateway: getModelGatewayHealth() },
         retrievalHitCount: 0,
         validator: { ok: true, reason: 'confirmed' },
@@ -3573,7 +3813,16 @@ const resolveActionPlan = async ({ message = '', actionRequest = null, user = nu
         };
     }
     if (/\bremove\b/i.test(normalized) && (/\bcart\b/i.test(normalized) || /\b(?:item|product)\b/i.test(normalized))) {
-        const product = resolveCartProductForRemoval({ message, context });
+        // Prefer the server cart for signed-in users so forged client cartItems
+        // can't steer which product gets removed.
+        let removalContext = context;
+        if (user?._id) {
+            const serverItems = await resolveServerCartItems({ user });
+            if (serverItems) {
+                removalContext = { ...context, cartItems: serverItems };
+            }
+        }
+        const product = resolveCartProductForRemoval({ message, context: removalContext });
         return product
             ? { type: 'remove_from_cart', productId: String(product.id), quantity: 1, product, requiresConfirmation: true }
             : { type: 'remove_from_cart', unresolved: true, unresolvedReason: 'cart_product_not_resolved', requiresConfirmation: true };
@@ -3586,6 +3835,200 @@ const resolveActionPlan = async ({ message = '', actionRequest = null, user = nu
             : { type: 'add_to_cart', unresolved: true, unresolvedReason: product ? 'out_of_stock' : 'product_not_resolved', requiresConfirmation: true };
     }
     return null;
+};
+
+const TASK_ELIGIBLE_TYPES = new Set(['add_to_cart', 'cancel_order', 'create_return_request']);
+
+const buildTaskSlotQuestion = ({ slot = '', assistantSession = {} } = {}) => {
+    const results = (Array.isArray(assistantSession?.lastResults) ? assistantSession.lastResults : []).slice(0, 3);
+    if (slot === 'productId') {
+        const lines = results.map((entry, index) => `${index + 1}) ${safeString(entry?.title || 'Product')} — Rs.${Number(entry?.price || 0)}`);
+        return {
+            text: `Which one do you mean?${lines.length > 0 ? `\n${lines.join('\n')}` : ''}\nReply with the number or name, or "never mind" to stop.`,
+            options: results,
+        };
+    }
+    if (slot === 'quantity') {
+        return { text: 'How many should I add?', options: [] };
+    }
+    if (slot === 'orderId') {
+        return { text: 'Which order? Reply with the order reference, or "never mind" to stop.', options: [] };
+    }
+    if (slot === 'requestType') {
+        return { text: 'Should this be a refund or a replacement?', options: [] };
+    }
+    return { text: 'What should I use for that?', options: [] };
+};
+
+const maybeAdvanceAssistantTask = async ({ message = '', action = null, assistantSession = {}, user = null, context = {} } = {}) => {
+    const pendingTask = assistantSession?.pendingTask;
+    const unresolvedEligible = Boolean(action?.unresolved) && TASK_ELIGIBLE_TYPES.has(safeString(action?.type || ''));
+    if (!pendingTask && !unresolvedEligible) return null;
+    // Order slots need a signed-in owner; guests keep the existing honest refusal.
+    if (!pendingTask && !user?._id && safeString(action?.type || '') !== 'add_to_cart') return null;
+
+    const outcome = await advanceTask({
+        message,
+        taskType: pendingTask?.taskType || safeString(action?.type || ''),
+        assistantSession,
+        user,
+        context,
+        deps: {
+            parseQuantity: (text) => parseActionQuantity(text),
+            resolveReference: ({ message: text }) => (
+                resolveReferringExpression({ message: text, assistantSession })
+                || (safeString(context?.currentProductId) ? { productId: safeString(context.currentProductId), how: 'context' } : null)
+            ),
+            resolveOrder: async ({ message: text }) => {
+                if (!user?._id) return { blocked: 'Sign in before I look up or change an order.' };
+                const resolution = await resolveOrderForAction({ message: text, user, allowLatest: true });
+                if (safeString(resolution?.orderId)) return { orderId: safeString(resolution.orderId) };
+                if (safeString(resolution?.resolutionReason) === 'ambiguous_order_reference') {
+                    return { blocked: 'I could not match that order reference to exactly one order owned by this account. I did not substitute a different or latest order.' };
+                }
+                return null;
+            },
+        },
+    });
+    // Topic change mid-task ("show me shoes" while choosing): filling nothing
+    // and asking again would trap the shopper — set the task aside instead.
+    if (pendingTask && !outcome.complete && !outcome.cancelled && outcome.taskState
+        && JSON.stringify(outcome.taskState.slots || {}) === JSON.stringify(pendingTask.slots || {})
+        && /\b(search|find|show|compare|best|cheapest|under|budget|trending|deals)\b/i.test(safeString(message))) {
+        return { abandoned: true };
+    }
+    return outcome;
+};
+
+const buildTaskOutcomeEnvelope = async ({
+    outcome,
+    assistantSession = {},
+    sessionId = '',
+    traceId = '',
+    assistantMode = 'chat',
+}) => {
+    if (outcome.cancelled) {
+        const assistantTurn = buildAssistantTurn({
+            intent: 'general_knowledge',
+            confidence: 1,
+            decision: 'respond',
+            response: 'Okay, I dropped that task. What would you like to do next?',
+            ui: { surface: 'plain_answer' },
+            followUps: ['Show my cart', 'Track my last order'],
+            verification: { label: 'app_grounded', confidence: 1, summary: 'Pending task cancelled by the shopper.' },
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: { ...assistantSession, pendingAction: null, pendingTask: null },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: 0,
+            validator: { ok: true, reason: 'task_cancelled' },
+            messageId: createMessageId(),
+        });
+    }
+
+    if (outcome.complete && outcome.action) {
+        return { action: outcome.action };
+    }
+
+    if (outcome.abandoned) {
+        const assistantTurn = buildAssistantTurn({
+            intent: 'general_knowledge',
+            confidence: 0.9,
+            decision: 'respond',
+            response: 'Okay — I set that task aside. Tell me what to look for and I will search the catalog.',
+            ui: { surface: 'plain_answer' },
+            followUps: ['Show trending products', 'Show my cart'],
+            verification: { label: 'app_grounded', confidence: 1, summary: 'Pending task abandoned on topic change.' },
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: [],
+            followUps: assistantTurn.followUps,
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: { ...assistantSession, pendingAction: null, pendingTask: null },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: 0,
+            validator: { ok: true, reason: 'task_abandoned' },
+            messageId: createMessageId(),
+        });
+    }
+
+    if (outcome.question && outcome.taskState) {
+        const slotQuestion = buildTaskSlotQuestion({ slot: outcome.question, assistantSession });
+        const orderTask = safeString(outcome.taskState.taskType) !== 'add_to_cart';
+        const assistantTurn = buildAssistantTurn({
+            intent: orderTask ? 'support' : 'cart_action',
+            confidence: 0.9,
+            decision: 'clarify',
+            response: slotQuestion.text,
+            followUps: [],
+            ui: {
+                surface: slotQuestion.options.length > 0 ? 'product_results' : 'plain_answer',
+                title: slotQuestion.options.length > 0 ? 'Which one?' : '',
+                products: slotQuestion.options,
+                product: slotQuestion.options.length === 1 ? slotQuestion.options[0] : null,
+            },
+            verification: { label: 'app_grounded', confidence: 1, summary: 'Collecting one missing slot before proposing a confirmation.' },
+            answerMode: 'commerce',
+        });
+        return buildResponseEnvelope({
+            assistantTurn,
+            route: ROUTE_ACTION,
+            provider: 'rule',
+            providerModel: '',
+            products: slotQuestion.options,
+            followUps: [],
+            sessionId,
+            traceId,
+            assistantMode,
+            assistantSession: { ...assistantSession, pendingAction: null, pendingTask: outcome.taskState },
+            health: { gateway: getModelGatewayHealth() },
+            retrievalHitCount: slotQuestion.options.length,
+            validator: { ok: false, reason: 'task_slot_needed' },
+            messageId: createMessageId(),
+        });
+    }
+
+    // Blocked (e.g. sign-in wall): honest refusal, no lingering task.
+    const assistantTurn = buildAssistantTurn({
+        intent: 'support',
+        confidence: 1,
+        decision: 'respond',
+        response: safeString(outcome.question || 'I could not continue that task.'),
+        ui: { surface: 'plain_answer' },
+        followUps: ['Open support'],
+        verification: { label: 'app_grounded', confidence: 1, summary: 'Task stopped before any state change.' },
+    });
+    return buildResponseEnvelope({
+        assistantTurn,
+        route: ROUTE_ACTION,
+        provider: 'rule',
+        providerModel: '',
+        products: [],
+        followUps: assistantTurn.followUps,
+        sessionId,
+        traceId,
+        assistantMode,
+        assistantSession: { ...assistantSession, pendingAction: null, pendingTask: null },
+        health: { gateway: getModelGatewayHealth() },
+        retrievalHitCount: 0,
+        validator: { ok: false, reason: 'task_blocked' },
+        messageId: createMessageId(),
+    });
 };
 
 const performActionTurn = async ({
@@ -3607,8 +4050,58 @@ const performActionTurn = async ({
 
     const actionContext = buildActionContext({ context, assistantSession });
     throwIfAssistantAborted(abortSignal);
-    const action = await resolveActionPlan({ message, actionRequest, user, context: actionContext });
+    // Server-owned memory wins over client hints: a referring expression
+    // resolved against our own session results overrides the supplied id.
+    const memoryResolution = resolveReferringExpression({ message, assistantSession });
+    if (memoryResolution && !memoryResolution.ambiguous && safeString(memoryResolution.productId)) {
+        actionContext.currentProductId = safeString(memoryResolution.productId);
+    }
     throwIfAssistantAborted(abortSignal);
+    let action = await resolveActionPlan({ message, actionRequest, user, context: actionContext });
+    throwIfAssistantAborted(abortSignal);
+    // Multi-turn tasks run before action resolution branches: a pending task
+    // owns follow-ups like "the second one" that resolve to no action alone,
+    // and unresolved eligible actions gather slots instead of dead-ending.
+    if (assistantSession?.pendingTask || action?.unresolved) {
+        const taskOutcome = await maybeAdvanceAssistantTask({ message, action, assistantSession, user, context: actionContext });
+        if (taskOutcome) {
+            const taskEnvelope = await buildTaskOutcomeEnvelope({
+                outcome: taskOutcome,
+                assistantSession,
+                sessionId,
+                traceId,
+                assistantMode,
+            });
+            if (taskEnvelope?.action) {
+                action = taskEnvelope.action;
+                // Verify task-resolved products against the catalog before
+                // proposing a confirmation, mirroring the direct add path.
+                if (safeString(action.type) === 'add_to_cart') {
+                    const numericId = Number(safeString(action.productId || ''));
+                    const canonical = Number.isInteger(numericId) && numericId > 0
+                        ? await Product.findOne({ id: numericId, isPublished: true }).select(PRODUCT_CARD_SELECT).lean().catch(() => null)
+                        : null;
+                    const stock = Math.max(0, Number(canonical?.stock || 0));
+                    if (!canonical || stock <= 0) {
+                        action = {
+                            type: 'add_to_cart',
+                            unresolved: true,
+                            unresolvedReason: canonical ? 'out_of_stock' : 'product_not_resolved',
+                            requiresConfirmation: true,
+                        };
+                    } else {
+                        action = {
+                            ...action,
+                            quantity: Math.min(stock, Math.max(1, Number(action.quantity || 1) || 1)),
+                            product: normalizeProductCard(canonical),
+                        };
+                    }
+                }
+            } else {
+                return taskEnvelope;
+            }
+        }
+    }
     if (!action) {
         const assistantTurn = buildAssistantTurn({
             intent: 'navigation',
@@ -3717,7 +4210,18 @@ const performActionTurn = async ({
     }
 
     if (action.type === 'get_cart_summary') {
-        const cartSummary = buildCartSummary(actionContext?.cartItems || []);
+        // Signed-in users get the server cart; client cartItems are a hint for
+        // guests only and are labelled as unverified.
+        let cartSourceItems = actionContext?.cartItems || [];
+        let cartAuthoritative = false;
+        if (user?._id) {
+            const serverItems = await resolveServerCartItems({ user });
+            if (serverItems) {
+                cartSourceItems = serverItems;
+                cartAuthoritative = true;
+            }
+        }
+        const cartSummary = buildCartSummary(cartSourceItems);
         const hasItems = cartSummary.lineCount > 0;
         const itemLines = cartSummary.items.slice(0, 5).map((item) => (
             `- ${item.title}: ${item.quantity} x ${formatCommercePrice(item.price)} = ${formatCommercePrice(item.lineTotal)}`
@@ -3739,7 +4243,9 @@ const performActionTurn = async ({
                 label: 'app_grounded',
                 confidence: 1,
                 summary: hasItems
-                    ? 'Calculated from the current application cart context; checkout remains authoritative for the final quote.'
+                    ? (cartAuthoritative
+                        ? 'Calculated from the server cart; checkout remains authoritative for the final quote.'
+                        : 'Calculated from client-supplied cart context, not verified against the server cart.')
                     : 'No cart context was supplied, so no subtotal was guessed.',
             },
             answerMode: 'commerce',
@@ -3760,6 +4266,7 @@ const performActionTurn = async ({
                 lastEntities: { ...assistantSession.lastEntities, operation: 'get_cart_summary' },
                 pendingAction: null,
             },
+            auditActions: [{ type: 'get_cart_summary' }],
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: cartSummary.lineCount,
             validator: { ok: hasItems, reason: hasItems ? 'cart_context_summary' : 'cart_context_missing' },
@@ -3945,6 +4452,7 @@ const performActionTurn = async ({
             traceId,
             assistantMode,
             assistantSession: { ...assistantSession, lastIntent: 'support', lastEntities: { ...assistantSession.lastEntities, orderId: safeString(order?._id || '') }, pendingAction: null },
+            auditActions: order ? [{ type: 'get_payment_status', orderId: String(order._id) }] : [],
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: order ? 1 : 0,
             validator: { ok: Boolean(order), reason: order ? 'payment_status_lookup' : 'order_not_found' },
@@ -3977,6 +4485,7 @@ const performActionTurn = async ({
             traceId,
             assistantMode,
             assistantSession: { ...assistantSession, lastIntent: 'navigation', lastEntities: { ...assistantSession.lastEntities, orderId: safeString(order?._id || '') }, pendingAction: null },
+            auditActions: order ? [{ type: 'track_order', orderId: String(order._id) }] : [],
             health: { gateway: getModelGatewayHealth() },
             retrievalHitCount: 0,
             validator: { ok: Boolean(order), reason: order ? 'order_lookup' : safeString(action.resolutionReason || 'order_not_found') },
@@ -4086,6 +4595,7 @@ const persistSignedInTurn = async ({ response, user, sessionId, assistantMode, c
         retrievalHitCount: Number(response?.grounding?.retrievalHitCount || 0),
         grounding: response.grounding,
         assistantSession: response.assistantSession,
+        auditActions: Array.isArray(response.auditActions) ? response.auditActions : [],
         actionAuditStatus: response?.assistantTurn?.ui?.confirmation?.action
             ? 'proposed'
             : (safeString(response?.grounding?.validator?.reason) === 'confirmed' ? 'confirmed' : 'proposed'),
@@ -4168,12 +4678,30 @@ const processAssistantTurn = async ({
     }
 
     throwIfAssistantAborted(abortSignal);
+    const outputGuard = inspectAssistantOutput(response?.assistantTurn?.response || '');
+    if (outputGuard.blocked) {
+        response.answer = 'I blocked that assistant answer because it failed a safety check. Please try a different request.';
+        response.assistantTurn = {
+            ...response.assistantTurn,
+            decision: 'respond',
+            actions: [],
+            actionRequest: null,
+            response: response.answer,
+            ui: { ...(response?.assistantTurn?.ui || {}), surface: 'plain_answer' },
+            safetyFlags: [...(response?.assistantTurn?.safetyFlags || []), ...outputGuard.reasons].slice(0, 6),
+        };
+    }
     response.latencyMs = Date.now() - startedAt;
     response.grounding = { ...(response.grounding || {}), routeReason: routeDecision.reason, latencyMs: response.latencyMs };
     throwIfAssistantAborted(abortSignal);
     await persistSignedInTurn({ response, user, sessionId: resolvedSessionId, assistantMode, context, message, abortSignal });
     throwIfAssistantAborted(abortSignal);
     recordLatencyMetric({ route: routeDecision.route, provisional: false, latencyMs: response.latencyMs });
+    recordCostMetric({
+        route: routeDecision.route,
+        costEstimate: Math.max(0, Number(response?.grounding?.retrievalHitCount || 0)) * 0.002
+            + (safeString(response?.provider || 'rule') === 'rule' ? 0 : 0.01),
+    });
     return response;
 };
 
@@ -4202,6 +4730,23 @@ const streamAssistantTurn = async ({
         throw new Error('writeEvent callback is required for streaming');
     }
 
+    // Agent-loop iterations stream their own tool_start/tool_end events as
+    // they run; replay below skips those ids so they are not emitted twice.
+    const liveStreamedToolKeys = new Set();
+    let liveToolEvents = false;
+    const streamingContext = {
+        ...(context && typeof context === 'object' ? context : {}),
+        onProgress: (event = {}) => {
+            liveToolEvents = true;
+            const key = safeString(event?.id || `${safeString(event?.toolName)}:${Number(event?.iteration || 0)}`);
+            if (key) liveStreamedToolKeys.add(key);
+            const name = safeString(event?.type) === 'tool_start' ? 'tool_start' : 'tool_end';
+            try {
+                writeEvent(name, { ...event });
+            } catch { /* a failed progress write must not kill the turn */ }
+        },
+    };
+
     const response = await processAssistantTurn({
         user,
         message,
@@ -4210,7 +4755,7 @@ const streamAssistantTurn = async ({
         sessionId,
         confirmation,
         actionRequest,
-        context,
+        context: streamingContext,
         images,
         audio,
         abortSignal,
@@ -4228,6 +4773,11 @@ const streamAssistantTurn = async ({
         traceId: response.traceId,
     });
     (Array.isArray(response?.assistantTurn?.toolRuns) ? response.assistantTurn.toolRuns : []).forEach((toolRun) => {
+        if (liveToolEvents) {
+            const key = safeString(toolRun?.id)
+                || `${safeString(toolRun?.toolName)}:${Number(toolRun?.inputPreview?.iteration || 0)}`;
+            if (key && liveStreamedToolKeys.has(key)) return;
+        }
         writeEvent('tool_end', { sessionId: resolvedSessionId, messageId: resolvedMessageId, ...toolRun });
     });
     (Array.isArray(response?.assistantTurn?.citations) ? response.assistantTurn.citations : []).forEach((citation) => {
@@ -4309,6 +4859,8 @@ module.exports = {
         buildHeuristicRetrievalQueryText,
         inferStructuredRetrievalFilters,
         inferConfirmationFromMessage,
+        maybeAdvanceAssistantTask,
+        needsAgentReasoning,
         parseOrderReference,
         buildCommerceModelProviderOptions,
         isCommerceModelSummaryEnabled,

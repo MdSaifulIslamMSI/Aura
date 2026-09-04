@@ -3,6 +3,8 @@ const validate = require('../middleware/validate');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const { requireInternalAiAuth } = require('../middleware/internalAiAuth');
 const { requireInternalJobAuth } = require('../middleware/internalJobAuth');
+const { requireAiToolActionPolicy } = require('../middleware/routeSecurityGuards');
+const { requireTrustDecision } = require('../trust/middleware/requireTrustDecision');
 const {
     handleAiChat,
     handleAiChatStream,
@@ -38,7 +40,7 @@ router.get('/cron/catalog-sync', requireInternalJobAuth, runCatalogSyncMaintenan
 router.get('/cron/admin-analytics', requireInternalJobAuth, runAdminAnalyticsMaintenance);
 router.get('/cron/daily-maintenance', requireInternalJobAuth, runDailyMaintenance);
 router.get('/cron/fx-rates', requireInternalJobAuth, runFxRateRefresh);
-router.post('/ai/chat', requireInternalAiAuth, internalAiChatLimiter, validate(aiChatSchema), handleAiChat);
-router.post('/ai/chat/stream', requireInternalAiAuth, internalAiChatLimiter, validate(aiChatSchema), handleAiChatStream);
+router.post('/ai/chat', requireInternalAiAuth, internalAiChatLimiter, validate(aiChatSchema), requireTrustDecision('ai.chat.invoke'), requireAiToolActionPolicy, handleAiChat);
+router.post('/ai/chat/stream', requireInternalAiAuth, internalAiChatLimiter, validate(aiChatSchema), requireTrustDecision('ai.chat.invoke'), requireAiToolActionPolicy, handleAiChatStream);
 
 module.exports = router;

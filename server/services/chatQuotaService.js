@@ -3,7 +3,24 @@ const { flags: redisFlags, getRedisClient } = require('../config/redis');
 
 const CHAT_WINDOW_MS = Number(process.env.CHAT_USER_WINDOW_MS || (15 * 60 * 1000));
 const CHAT_MAX_REQUESTS_PER_WINDOW = Number(process.env.CHAT_USER_MAX_REQUESTS || 60);
+const MAX_LOCAL_QUOTA_BUCKETS = Number(process.env.CHAT_LOCAL_QUOTA_MAX_KEYS || 5000);
 const localQuotaBuckets = new Map();
+
+const sweepExpiredLocalQuotas = (now = Date.now()) => {
+    if (localQuotaBuckets.size < MAX_LOCAL_QUOTA_BUCKETS) return;
+    for (const [key, bucket] of localQuotaBuckets) {
+        if (!bucket || Number(bucket.expiresAt || 0) <= now) {
+            localQuotaBuckets.delete(key);
+        }
+        if (localQuotaBuckets.size < MAX_LOCAL_QUOTA_BUCKETS) break;
+    }
+    // Still over cap (all unexpired): drop oldest inserts first (Map preserves order).
+    while (localQuotaBuckets.size >= MAX_LOCAL_QUOTA_BUCKETS) {
+        const oldest = localQuotaBuckets.keys().next().value;
+        if (oldest === undefined) break;
+        localQuotaBuckets.delete(oldest);
+    }
+};
 
 const chatQuotaHealth = {
     mode: 'local',
@@ -24,6 +41,7 @@ const assertLocalQuota = (userId) => {
     const now = Date.now();
     const current = localQuotaBuckets.get(key);
     if (!current || current.expiresAt <= now) {
+        sweepExpiredLocalQuotas(now);
         localQuotaBuckets.set(key, { count: 1, expiresAt: now + CHAT_WINDOW_MS });
         updateChatQuotaHealth({
             mode: 'local',

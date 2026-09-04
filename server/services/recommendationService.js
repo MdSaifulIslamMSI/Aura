@@ -431,11 +431,15 @@ const getAssistantRecommendations = async ({
             maxPerCategory: 4,
         });
 
-        recommendations = filterByAssistantIntent(recommendations, intent, safeLimit).map((item) => ({
-            ...item,
-            source: item.source === SOURCE_LABELS.fallback ? SOURCE_LABELS.assistant : item.source,
-            reason: item.reason || RECOMMENDATION_REASONS.recentInterest,
-        }));
+        recommendations = filterByAssistantIntent(recommendations, intent, safeLimit).map((item) => {
+            // Keep fallback provenance honest: a generic catalog fallback must
+            // never be relabeled as a personalized assistant pick.
+            if (item.source === SOURCE_LABELS.fallback) return item;
+            return {
+                ...item,
+                reason: item.reason || RECOMMENDATION_REASONS.recentInterest,
+            };
+        });
 
         if (recommendations.length === 0 && currentProductId) {
             const product = await resolveProductByIdentifier(currentProductId);

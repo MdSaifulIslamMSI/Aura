@@ -161,7 +161,15 @@ const upsertAssistantThread = async ({
             upsert: true,
             lean: true,
         }
-    );
+    ).catch((error) => {
+        if (error?.code === 11000) {
+            const conflict = new Error('Assistant session id is already in use. Retry with a new session id.');
+            conflict.code = 'ASSISTANT_SESSION_CONFLICT';
+            conflict.statusCode = 409;
+            throw conflict;
+        }
+        throw error;
+    });
 };
 
 const rollbackAbortedExchange = async ({
@@ -275,6 +283,7 @@ const persistAssistantExchange = async ({
     grounding = {},
     assistantSession = {},
     actionAuditStatus = 'proposed',
+    auditActions = [],
     abortSignal = null,
 } = {}) => {
     const userId = user?._id;
@@ -382,8 +391,27 @@ const persistAssistantExchange = async ({
             throwIfPersistenceAborted(abortSignal);
         }
 
+        // Sensitive reads (order/payment/cart lookups) leave an audit trail even
+        // though they expose no executable action to the client.
+        const readAudits = (Array.isArray(auditActions) ? auditActions : [])
+            .filter((action) => action && typeof action === 'object' && safeString(action.type));
+        if (readAudits.length > 0) {
+            await AssistantActionAudit.insertMany(readAudits.map((action = {}) => ({
+                thread: thread._id,
+                message: assistantDoc._id,
+                user: userId,
+                sessionId: normalizedSessionId,
+                actionType: safeString(action?.type || ''),
+                status: 'completed',
+                requiresConfirmation: false,
+                payload: action,
+                result: {},
+            })));
+            throwIfPersistenceAborted(abortSignal);
+        }
+
         await AssistantThread.updateOne(
-            { _id: thread._id },
+            { _id: thread._id, 'metadata.lastPersistenceExchangeId': persistenceExchangeId },
             {
                 $set: {
                     preview,
@@ -394,6 +422,12 @@ const persistAssistantExchange = async ({
                     assistantSessionState: assistantSession && typeof assistantSession === 'object' ? assistantSession : {},
                     'metadata.lastPersistenceExchangeId': persistenceExchangeId,
                 },
+            }
+        );
+        throwIfPersistenceAborted(abortSignal);
+        await AssistantThread.updateOne(
+            { _id: thread._id },
+            {
                 $inc: {
                     messageCount: createdMessages.length,
                 },
@@ -440,7 +474,7 @@ const listAssistantThreads = async ({ userId, includeArchived = false, limit = 5
         ...(includeArchived ? {} : { status: 'active' }),
     })
         .sort({ lastMessageAt: -1, updatedAt: -1 })
-        .limit(Math.max(1, Number(limit || 50)))
+        .limit(Math.min(100, Math.max(1, Number(limit || 50))))
         .lean();
 
     return threads.map((thread) => mapThreadToSession(thread));
@@ -461,6 +495,7 @@ const loadAssistantThread = async ({ userId, sessionId } = {}) => {
         sessionId: safeString(sessionId),
     })
         .sort({ createdAt: 1 })
+        .limit(200)
         .lean();
 
     return {
@@ -491,6 +526,12 @@ const resetAssistantThread = async ({ userId, sessionId } = {}) => {
     thread.title = thread.title || DEFAULT_THREAD_TITLE;
     thread.assistantSessionState = {};
     thread.lastMessageAt = new Date();
+    thread.metadata = {
+        ...(thread.metadata && typeof thread.metadata === 'object' ? thread.metadata : {}),
+        activePersistenceExchangeIds: [],
+        lastPersistenceExchangeId: '',
+        creationPersistenceExchangeId: '',
+    };
     await thread.save();
 
     return mapThreadToSession(thread.toObject());

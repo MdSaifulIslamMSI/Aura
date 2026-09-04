@@ -21,6 +21,7 @@ const ASSISTANT_ACTION_TYPES = Object.freeze([
     'select_product',
     'add_to_cart',
     'remove_from_cart',
+    'get_cart_summary',
     'go_to_checkout',
     'apply_coupon',
     'track_order',
@@ -91,7 +92,7 @@ const normalizeVerificationLabel = (value, fallback = 'cannot_verify') => {
 
 const normalizeEntities = (entities = {}) => {
     const productIds = Array.isArray(entities?.productIds)
-        ? entities.productIds.map((entry) => safeString(entry)).filter(Boolean).slice(0, 8)
+        ? entities.productIds.map((entry) => safeString(entry)).filter(Boolean).slice(0, 4)
         : [];
 
     return {
@@ -120,7 +121,7 @@ const normalizeAction = (action = {}) => {
         type,
         productId: safeString(action?.productId || ''),
         productIds: Array.isArray(action?.productIds)
-            ? action.productIds.map((entry) => safeString(entry)).filter(Boolean).slice(0, 8)
+            ? action.productIds.map((entry) => safeString(entry)).filter(Boolean).slice(0, 4)
             : [],
         quantity: Math.max(0, Number(action?.quantity) || 0),
         query: safeString(action?.query || ''),
@@ -207,21 +208,89 @@ const normalizePolicy = (policy = {}) => (
         : null
 );
 
-const buildConfirmationToken = (action = {}) => crypto
-    .createHash('sha256')
-    .update(JSON.stringify({
-        type: safeString(action?.type || ''),
-        productId: safeString(action?.productId || ''),
-        productIds: Array.isArray(action?.productIds) ? action.productIds.map((entry) => safeString(entry)).filter(Boolean) : [],
-        query: safeString(action?.query || ''),
-        page: safeString(action?.page || ''),
-        orderId: safeString(action?.orderId || ''),
-        couponCode: safeString(action?.couponCode || ''),
-        requestType: safeString(action?.requestType || ''),
-        quantity: Math.max(0, Number(action?.quantity) || 0),
-    }))
-    .digest('hex')
-    .slice(0, 16);
+const getConfirmationSecrets = () => {
+    const primary = String(process.env.ASSISTANT_CONFIRMATION_SECRET || '').trim();
+    const prev = String(process.env.ASSISTANT_CONFIRMATION_SECRET_PREV || '').trim();
+    const legacy = String(process.env.AI_INTERNAL_TOOL_SECRET || '').trim();
+    return { primary, prev, legacy };
+};
+
+const getConfirmationSecret = () => {
+    const { primary, legacy } = getConfirmationSecrets();
+    return String(primary || legacy || '').trim();
+};
+
+const isProduction = () => String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+
+let missingSecretWarned = false;
+const warnMissingConfirmationSecret = () => {
+    if (missingSecretWarned || isProduction()) return;
+    missingSecretWarned = true;
+    try {
+        require('../../utils/logger').warn('assistant.confirmation_secret_missing', {
+            hint: 'Set ASSISTANT_CONFIRMATION_SECRET; falling back to legacy unsalted token (dev only).',
+        });
+    } catch { /* logger optional */ }
+};
+
+const hmacToken = (secret, payload) => crypto.createHmac('sha256', secret).update(payload).digest('hex').slice(0, 32);
+const legacyToken = (payload) => crypto.createHash('sha256').update(payload).digest('hex').slice(0, 16);
+
+const canonicalizeConfirmationPayload = (action = {}) => ({
+    type: safeString(action?.type || ''),
+    productId: safeString(action?.productId || ''),
+    productIds: Array.isArray(action?.productIds) ? action.productIds.map((entry) => safeString(entry)).filter(Boolean) : [],
+    query: safeString(action?.query || ''),
+    page: safeString(action?.page || ''),
+    orderId: safeString(action?.orderId || ''),
+    couponCode: safeString(action?.couponCode || ''),
+    requestType: safeString(action?.requestType || ''),
+    quantity: Math.max(0, Number(action?.quantity) || 0),
+    amount: Math.max(0, Number(action?.amount) || 0),
+    reason: safeString(action?.reason || ''),
+    filters: action?.filters && typeof action.filters === 'object'
+        ? {
+            category: safeString(action.filters.category || ''),
+            priceMin: Math.max(0, Number(action.filters.priceMin) || 0),
+            priceMax: Math.max(0, Number(action.filters.priceMax) || 0),
+        }
+        : {},
+    params: action?.params && typeof action.params === 'object' ? action.params : {},
+    prefill: action?.prefill && typeof action.prefill === 'object' ? action.prefill : null,
+});
+
+const buildConfirmationToken = (action = {}) => {
+    const secret = getConfirmationSecret();
+    const payload = JSON.stringify(canonicalizeConfirmationPayload(action));
+    if (secret) {
+        return hmacToken(secret, payload);
+    }
+    warnMissingConfirmationSecret();
+    return legacyToken(payload);
+};
+
+const verifyConfirmationToken = (action = {}, token = '') => {
+    const actual = safeString(token);
+    if (!actual) return false;
+    const payload = JSON.stringify(canonicalizeConfirmationPayload(action));
+    const { primary, prev, legacy } = getConfirmationSecrets();
+    const candidates = [];
+    if (primary) candidates.push(hmacToken(primary, payload));
+    if (prev && prev !== primary) candidates.push(hmacToken(prev, payload));
+    if (legacy && legacy !== primary && legacy !== prev) candidates.push(hmacToken(legacy, payload));
+    if (candidates.length === 0) {
+        // No secret configured: dev-only legacy path. Refuse legacy tokens in production.
+        if (isProduction()) return false;
+        warnMissingConfirmationSecret();
+        candidates.push(legacyToken(payload));
+    }
+    try {
+        return candidates.some((expected) => expected.length === actual.length
+            && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(actual)));
+    } catch {
+        return false;
+    }
+};
 
 const buildAssistantTurn = ({
     intent = 'general_knowledge',
@@ -298,6 +367,7 @@ module.exports = {
     VERIFICATION_LABELS,
     buildAssistantTurn,
     buildConfirmationToken,
+    verifyConfirmationToken,
     normalizeAction,
     normalizeActions,
     normalizeAnswerMode,

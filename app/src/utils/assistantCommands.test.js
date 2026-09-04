@@ -9,6 +9,7 @@ import {
     buildUnavailableAssistantResponse,
     capVisibleActions,
     deriveAssistantMode,
+    deriveResponseMode,
     normalizeProductSummary,
     normalizeBackendActions,
     parseAssistantCommand,
@@ -171,11 +172,16 @@ describe('assistantCommands', () => {
         })).toBe('chat');
     });
 
-    it('derives hidden bundle mode from budget language', () => {
+    it('derives bundle mode only from explicit bundle language, not bare budgets', () => {
+        expect(deriveAssistantMode({
+            message: 'show me a gaming bundle under Rs 50000',
+            candidateProductIds: [],
+        })).toBe('bundle');
+
         expect(deriveAssistantMode({
             message: 'show me something under Rs 50000',
             candidateProductIds: [],
-        })).toBe('bundle');
+        })).toBe('chat');
     });
 
     it('builds request payloads with normalized product ids and route context', () => {
@@ -287,5 +293,52 @@ describe('assistantCommands', () => {
                 }),
             }),
         ]);
+    });
+
+    it('maps Try again to a first-class retry action, not a search', () => {
+        expect(buildSuggestionActions(['Try again'])).toEqual([
+            expect.objectContaining({ kind: 'retry', label: 'Try again' }),
+        ]);
+    });
+
+    it('keeps requested support/checkout mode ahead of single-product count', () => {
+        expect(deriveResponseMode({
+            pathname: '/orders',
+            products: [{ id: '101' }],
+            requestedMode: 'support',
+        })).toBe('support');
+        expect(deriveResponseMode({
+            pathname: '/products',
+            products: [{ id: '101' }],
+            requestedMode: 'explore',
+        })).toBe('product');
+    });
+
+    it('offers a way back from an empty cart instead of zero actions', () => {
+        const actions = buildModeActions({ mode: 'cart', cartCount: 0, lastQuery: '' });
+        expect([...(actions.primaryAction ? [actions.primaryAction] : []), ...actions.secondaryActions].length).toBeGreaterThan(0);
+    });
+
+    it('parses natural cart, support, search, and product phrasing', () => {
+        expect(parseAssistantCommand('open my bag').type).toBe('cart');
+        expect(parseAssistantCommand('please search for phones').type).toBe('search');
+        expect(parseAssistantCommand('show laptops').type).toBe('search');
+        expect(parseAssistantCommand('my item arrived damaged').type).toBe('support');
+        expect(parseAssistantCommand('warranty claim').type).toBe('support');
+        expect(parseAssistantCommand('open product itm-42')).toMatchObject({ type: 'product', productId: 'itm-42' });
+        expect(parseAssistantCommand('show product recommendations').type).not.toBe('product');
+    });
+
+    it('drops support handoffs from non-executable turns', () => {
+        const turn = buildNonExecutableAssistantTurn({
+            response: 'stale',
+            ui: { surface: 'support_handoff', support: { orderId: '1', prefill: {} } },
+        }, 'Return to this thread and ask again.');
+        expect(turn.ui.support).toBeNull();
+    });
+
+    it('omits zero budgets from the request payload', () => {
+        const payload = buildAssistantRequestPayload({ message: 'hello there' });
+        expect(payload.context).not.toHaveProperty('budget');
     });
 });

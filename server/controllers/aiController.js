@@ -9,7 +9,7 @@ const {
     synthesizeSpeech,
 } = require('../services/ai/providerRegistry');
 const { assertPrivateChatQuota } = require('../services/chatQuotaService');
-const { inspectConversationHistory, inspectUserPrompt } = require('../services/ai/promptGuardService');
+const { inspectAssistantOutput, inspectConversationHistory, inspectUserPrompt } = require('../services/ai/promptGuardService');
 const {
     validateAssistantAudioDataUriUpload,
     validateImageDataUriUpload,
@@ -22,7 +22,45 @@ const MAX_AI_CHAT_TIMEOUT_MS = 60000;
 const ASSISTANT_IMAGE_MAX_BYTES = Number(process.env.ASSISTANT_IMAGE_MAX_BYTES || 8 * 1024 * 1024);
 const ASSISTANT_AUDIO_MAX_BYTES = Number(process.env.ASSISTANT_AUDIO_MAX_BYTES || 8 * 1024 * 1024);
 
+const BLOCKED_ATTACHMENT_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '169.254.169.254']);
+
 const safeString = (value = '', fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
+
+const assertSafeAttachmentUrl = (rawUrl = '', label = 'attachment') => {
+    const value = safeString(rawUrl);
+    if (!value) return;
+    let parsed = null;
+    try {
+        parsed = new URL(value);
+    } catch {
+        throw new AppError(`Invalid assistant ${label} URL.`, 400);
+    }
+    if (parsed.protocol !== 'https:') {
+        throw new AppError(`Assistant ${label} URL must use https.`, 400);
+    }
+    if (BLOCKED_ATTACHMENT_HOSTS.has(parsed.hostname.toLowerCase())) {
+        throw new AppError(`Assistant ${label} URL host is not allowed.`, 400);
+    }
+};
+
+const scanAssistantOutput = (result = {}) => {
+    const response = result?.assistantTurn?.response || '';
+    const decision = inspectAssistantOutput(response);
+    if (!decision.blocked) return result;
+    logger.warn('[ai] assistant output blocked by safety policy', { reasons: decision.reasons });
+    return {
+        ...result,
+        assistantTurn: {
+            ...result.assistantTurn,
+            decision: 'respond',
+            actions: [],
+            actionRequest: null,
+            response: 'I blocked that assistant answer because it failed a safety check. Please try a different request.',
+            ui: { ...(result?.assistantTurn?.ui || {}), surface: 'plain_answer' },
+            safetyFlags: [...(result?.assistantTurn?.safetyFlags || []), ...decision.reasons].slice(0, 6),
+        },
+    };
+};
 
 const resolveAiChatTimeoutMs = () => {
     const parsed = Number(process.env.AI_CHAT_TIMEOUT_MS || DEFAULT_AI_CHAT_TIMEOUT_MS);
@@ -48,6 +86,7 @@ const validateAssistantMediaPayload = async (payload = {}, req = {}) => {
     const images = [];
     for (const [index, image] of (Array.isArray(payload.images) ? payload.images : []).entries()) {
         if (!safeString(image?.dataUrl || '')) {
+            assertSafeAttachmentUrl(image?.url || '', 'image');
             images.push(image);
             continue;
         }
@@ -77,6 +116,7 @@ const validateAssistantMediaPayload = async (payload = {}, req = {}) => {
     const audio = [];
     for (const [index, item] of (Array.isArray(payload.audio) ? payload.audio : []).entries()) {
         if (!safeString(item?.dataUrl || '')) {
+            assertSafeAttachmentUrl(item?.url || '', 'audio');
             audio.push(item);
             continue;
         }
@@ -202,14 +242,20 @@ const runAssistantWithTimeout = async ({
                 sessionId: safeString(payload?.sessionId || payload?.context?.clientSessionId || ''),
                 messageLength: safeString(payload?.message || '').length,
             });
-            workPromise.catch((error) => {
-                logger.warn(`${traceLabel}.late_failure`, {
+            // Abort first so in-flight persistence checkpoints observe the
+            // timeout before writing; resolve the fallback second.
+            abortController.abort(new Error('assistant_timeout'));
+            workPromise.then(
+                () => logger.warn(`${traceLabel}.late_success_after_fallback`, {
+                    timeoutMs,
+                    sessionId: safeString(payload?.sessionId || payload?.context?.clientSessionId || ''),
+                }),
+                (error) => logger.warn(`${traceLabel}.late_failure`, {
                     error: error.message,
                     timeoutMs,
-                });
-            });
+                }),
+            );
             resolve(buildTimeoutAssistantResponse({ payload, startedAt, timeoutMs }));
-            abortController.abort(new Error('assistant_timeout'));
         }, timeoutMs);
         timeoutId.unref?.();
     });
@@ -296,7 +342,7 @@ const handleAiChat = asyncHandler(async (req, res, next) => {
 
     if (res.destroyed || res.writableEnded) return undefined;
 
-    return res.json(result);
+    return res.json(scanAssistantOutput(result));
 });
 
 const handleAiChatStream = asyncHandler(async (req, res, next) => {
@@ -338,9 +384,13 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
     res.flushHeaders?.();
 
     const writeEvent = (eventName, data) => {
-        if (res.writableEnded || res.destroyed) return;
-        res.write(`event: ${eventName}\n`);
-        res.write(`data: ${JSON.stringify(data || {})}\n\n`);
+        if (res.writableEnded || res.destroyed) return false;
+        const okMeta = res.write(`event: ${eventName}\n`);
+        const okData = res.write(`data: ${JSON.stringify(data || {})}\n\n`);
+        if (!okMeta || !okData) {
+            logger.warn('[ai] assistant stream backpressure', { event: eventName });
+        }
+        return Boolean(okMeta && okData);
     };
 
     const requestAbort = createRequestAbortContext(req, res);
@@ -375,6 +425,9 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
             writeEvent('error', {
                 message: error.message || 'Streaming assistant failed',
             });
+        }
+        // Always end a header-flushed SSE stream so sockets don't hang half-open.
+        if (!res.writableEnded && !res.destroyed) {
             res.end();
         }
     } finally {
@@ -383,6 +436,9 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
 });
 
 const createAiVoiceSession = asyncHandler(async (req, res) => {
+    if (req.user?._id) {
+        await assertPrivateChatQuota(req.user._id);
+    }
     const session = createVoiceSessionConfig({
         userId: req.user?._id || '',
         locale: req.body?.locale || '',
@@ -395,6 +451,9 @@ const synthesizeAiVoiceReply = asyncHandler(async (req, res, next) => {
     const text = req.body?.text;
     if (!text || typeof text !== 'string') {
         return next(new AppError('Text is required', 400));
+    }
+    if (req.user?._id) {
+        await assertPrivateChatQuota(req.user._id);
     }
 
     const audio = await synthesizeSpeech({

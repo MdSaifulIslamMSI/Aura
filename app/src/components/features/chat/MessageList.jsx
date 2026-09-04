@@ -40,9 +40,14 @@ const MessageList = ({
 }) => {
     const containerRef = useRef(null);
     const shouldStickToBottomRef = useRef(true);
-    const latestAssistantMessageId = [...messages]
-        .reverse()
+    const reversedMessages = [...messages].reverse();
+    const latestAssistantMessageId = reversedMessages
         .find((message) => message?.role === 'assistant')
+        ?.id || null;
+    // Keep the previous turn's product cards actionable while a follow-up
+    // streams: only the live streaming placeholder suppresses older cards.
+    const latestFinalizedAssistantMessageId = reversedMessages
+        .find((message) => message?.role === 'assistant' && !message?.isStreaming)
         ?.id || null;
     const hasStreamingAssistantMessage = Array.isArray(messages)
         && messages.some((message) => message?.role === 'assistant' && message?.isStreaming);
@@ -79,7 +84,7 @@ const MessageList = ({
                         key={message.id}
                         message={message}
                         isWhiteMode={isWhiteMode}
-                        showProductCards={message.id === latestAssistantMessageId}
+                        showProductCards={message.id === latestAssistantMessageId || message.id === latestFinalizedAssistantMessageId}
                         onSelectProduct={onSelectProduct}
                         onAddToCart={onAddToCart}
                         onViewDetails={onViewDetails}

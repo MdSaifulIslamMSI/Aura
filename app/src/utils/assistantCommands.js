@@ -18,14 +18,13 @@ const SUPPORT_CATEGORY_RULES = [
 ];
 
 const HELP_PATTERN = /^(?:help|what can (?:i|you) do(?: here)?|how does this work)\??$/i;
-const CART_PATTERN = /^(?:cart|bag|basket|open cart|view cart|show cart|take me to cart)$/i;
+const CART_PATTERN = /^(?:my\s+)?(?:cart|bag|basket|bags|baskets|carts)(?:\s+please)?$|^(?:open|view|show)\s+(?:my\s+)?(?:cart|bags?|baskets?)\s*$/i;
 const CHECKOUT_PATTERN = /\b(checkout|pay now|place order)\b/i;
-const SUPPORT_PATTERN = /\b(support|help with|track my order|where is my order|order status|delivery status|refund|return|replace|cancel order|issue|problem|payment failed|complaint)\b/i;
-const SEARCH_PATTERN = /^\s*(?:search(?:\s+for)?|find|look\s+for|show\s+me|need|want)\s+(.+)$/i;
-const PRODUCT_PATTERN = /\b(?:open|show|view)\s+(?:product|item)\s+(\d+)\b/i;
+const SUPPORT_PATTERN = /\b(support|help with|track my order|where is my order|order status|delivery status|refund|return|replace|replacement|cancel order|issue|problem|payment failed|complaint|damaged|defective|defect|warranty|broken)\b/i;
+const SEARCH_PATTERN = /^\s*(?:please\s+)?(?:can you\s+|could you\s+)?(?:search(?:\s+for)?|find|look\s+for|show(?:\s+me)?|need|want)\s+(.+)$/i;
+const PRODUCT_PATTERN = /\b(?:open|show|view)\s+(?:product|item)\s+([a-z0-9._-]*\d[a-z0-9._-]*)\b/i;
 const COMPARE_PATTERN = /\b(compare|vs|versus|better between)\b/i;
 const BUNDLE_PATTERN = /\b(bundle|setup|kit)\b/i;
-const BUDGET_PATTERN = /\b(budget|under|below|within|max)\b/i;
 
 const safeString = (value = '') => String(value ?? '').trim();
 
@@ -110,9 +109,24 @@ const toTitleCase = (value = '') => safeString(value)
     .trim()
     .replace(/^\w/, (letter) => letter.toUpperCase());
 
-const formatInr = (value = 0) => `Rs ${Number(value || 0).toLocaleString('en-IN')}`;
+export const formatInr = (value = 0, locale = 'en-IN') => {
+    let grouped = '';
+    try {
+        grouped = new Intl.NumberFormat(locale || 'en-IN').format(Number(value || 0));
+    } catch {
+        grouped = Number(value || 0).toLocaleString('en-IN');
+    }
+    return `Rs ${grouped}`;
+};
 
-const buildActionId = (kind = 'action', payload = {}) => `${kind}:${JSON.stringify(payload)}`;
+const stableStringifyPayload = (payload = {}) => JSON.stringify(
+    Object.keys(payload || {}).sort().reduce((acc, key) => {
+        acc[key] = payload[key];
+        return acc;
+    }, {})
+);
+
+const buildActionId = (kind = 'action', payload = {}) => `${kind}:${stableStringifyPayload(payload)}`;
 const QUESTION_SUGGESTION_PATTERN = /\?\s*$/;
 
 export const createChatAction = (kind, label, payload = {}, tone = 'secondary') => ({
@@ -178,10 +192,11 @@ export const getAssistantRouteLabel = (pathname = '/') => {
 };
 
 export const extractBudgetFromText = (rawText = '', fallback = 0) => {
-    const match = safeString(rawText).match(/(?:budget|under|below|max|within)\s*(?:rs|inr)?\s*([\d,]+)/i);
+    const match = safeString(rawText).match(/(?:budget|under|below|max|within)\s*(?:rs|inr)?\s*([\d,]+)\s*(k)?/i);
     if (!match?.[1]) return fallback;
     const parsed = Number(match[1].replace(/,/g, ''));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return match[2] ? parsed * 1000 : parsed;
 };
 
 export const inferBundleTheme = (rawText = '', pathname = '/') => {
@@ -195,7 +210,7 @@ export const inferBundleTheme = (rawText = '', pathname = '/') => {
 };
 
 export const buildSupportPrefill = (rawText = '', options = {}) => {
-    const safeIntent = safeString(rawText);
+    const safeIntent = safeString(rawText).slice(0, 500);
     const category = SUPPORT_CATEGORY_RULES.find((rule) => rule.pattern.test(safeIntent))?.category || 'general';
     const subjectCore = toTitleCase(safeIntent).slice(0, 72) || 'Support request';
 
@@ -279,14 +294,13 @@ export const deriveAssistantMode = ({
 } = {}) => {
     const safeMessage = safeString(message);
     if (!safeMessage) return 'chat';
-    const parsedIntent = parseClientAssistantIntent(safeMessage);
 
     const uniqueIds = [...new Set((Array.isArray(candidateProductIds) ? candidateProductIds : []).map((id) => safeString(id)).filter(Boolean))];
     if (COMPARE_PATTERN.test(safeMessage) && uniqueIds.length >= 2) {
         return 'compare';
     }
 
-    if (BUNDLE_PATTERN.test(safeMessage) || (BUDGET_PATTERN.test(safeMessage) && parsedIntent.intent === 'product_search')) {
+    if (BUNDLE_PATTERN.test(safeMessage)) {
         return 'bundle';
     }
 
@@ -315,6 +329,8 @@ export const buildAssistantRequestPayload = ({
         ].map((id) => safeString(id)).filter(Boolean)),
     ].slice(0, 4);
 
+    const budget = extractBudgetFromText(message);
+
     return {
         assistantMode: deriveAssistantMode({
             message,
@@ -325,7 +341,7 @@ export const buildAssistantRequestPayload = ({
             routeLabel: getAssistantRouteLabel(pathname),
             intentHint: parseClientAssistantIntent(message).intent,
             theme: inferBundleTheme(message, pathname),
-            budget: extractBudgetFromText(message),
+            ...(budget > 0 ? { budget } : {}),
             maxItems: 3,
             productIds: resolvedProductIds,
             recommendationSignals: {
@@ -377,6 +393,12 @@ export const buildSuggestionActions = (suggestions = []) => capVisibleActions((A
     .map((suggestion) => safeString(suggestion))
     .filter(Boolean)
     .flatMap((suggestion) => {
+        // First-class retry: resends the last user message instead of
+        // searching for the literal words "try again".
+        if (suggestion.trim().toLowerCase() === 'try again') {
+            return [createChatAction('retry', suggestion, {})];
+        }
+
         if (QUESTION_SUGGESTION_PATTERN.test(suggestion)) {
             return [];
         }
@@ -448,8 +470,12 @@ export const buildModeActions = ({
             if (cartCount > 0) {
                 primaryAction = createChatAction('prepare-checkout', 'Checkout', {}, 'primary');
                 defaultActions.push(createChatAction('edit-cart', 'Edit cart', {}));
+            } else {
+                // Empty cart is still actionable: offer a way back to shopping
+                // instead of rendering zero buttons.
+                defaultActions.push(createChatAction('continue-shopping', 'Continue shopping', { query: safeString(lastQuery) }));
             }
-            if (safeString(lastQuery)) {
+            if (safeString(lastQuery) && cartCount > 0) {
                 defaultActions.push(createChatAction('continue-shopping', 'Continue shopping', { query: safeString(lastQuery) }));
             }
             break;
@@ -499,13 +525,15 @@ export const deriveResponseMode = ({
         return 'cart';
     }
 
+    // Requested workflow wins over product count: a support turn about one
+    // defective product must stay a handoff, not become "Add to cart".
+    if (requestedMode === 'support' || requestedMode === 'checkout') {
+        return requestedMode;
+    }
+
     const safeProducts = (Array.isArray(products) ? products : []).filter((product) => safeString(product?.id || product?._id));
     if (safeProducts.length === 1) {
         return 'product';
-    }
-
-    if (requestedMode === 'support' || requestedMode === 'checkout') {
-        return requestedMode;
     }
 
     return 'explore';
@@ -658,6 +686,18 @@ export const buildUnavailableAssistantResponse = (rawText = '', options = {}) =>
         };
     }
 
+    // Plain greetings read as conversation, not an outage.
+    if (/^(hi|hello|hey|yo|good morning|good afternoon|good evening|thanks|thank you|bye)\b[!.?\s]*$/i.test(safeString(rawText))) {
+        const helpCapability = APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'help')
+            || APP_ASSISTANT_CAPABILITIES.find((entry) => entry.id === 'catalog');
+        return {
+            answer: 'Hello! I am offline right now, so I can open app features and report cart totals but cannot search live products. Try "what can you do here?" to see what works offline.',
+            mode: 'explore',
+            primaryAction: helpCapability ? buildCapabilityAction(helpCapability) : null,
+            secondaryActions: [],
+        };
+    }
+
     const localResponse = buildLocalAssistantResponse(rawText, options);
     if (localResponse?.local === true) {
         return localResponse;
@@ -699,6 +739,9 @@ export const buildNonExecutableAssistantTurn = (assistantTurn = {}, response = '
         surface: 'plain_answer',
         confirmation: null,
         navigation: null,
+        // A stale thread owns no live handoff: drop support too, or the
+        // notice renders next to a working "Open support desk" button.
+        support: null,
     },
     followUps: [],
 });

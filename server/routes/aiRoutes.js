@@ -38,6 +38,12 @@ const parseBooleanEnv = (value, fallback = false) => {
     return fallback;
 };
 
+// Guests pass through; authed suspended users are still blocked in public mode.
+const requireActiveAccountIfAuthed = (req, _res, next) => {
+    if (!req.user) return next();
+    return requireActiveAccount(req, _res, next);
+};
+
 const publicAiAccessEnabled = parseBooleanEnv(
     process.env.AI_PUBLIC_ACCESS_ENABLED,
     process.env.NODE_ENV !== 'production'
@@ -51,10 +57,10 @@ const publicAiVoiceAccessEnabled = parseBooleanEnv(
     publicAiAccessEnabled
 );
 const aiChatAccess = publicAiChatAccessEnabled
-    ? [protectOptional]
+    ? [protectOptional, requireActiveAccountIfAuthed]
     : [protect, requireActiveAccount];
 const aiVoiceAccess = publicAiVoiceAccessEnabled
-    ? [protectOptional]
+    ? [protectOptional, requireActiveAccountIfAuthed]
     : [protect, requireActiveAccount];
 const allowAiRateLimitMemoryFallback = process.env.NODE_ENV !== 'production';
 

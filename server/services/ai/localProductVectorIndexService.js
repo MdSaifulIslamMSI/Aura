@@ -11,6 +11,7 @@ const INDEX_FILE = path.join(INDEX_DIRECTORY, 'product-vector-index.json');
 const INDEX_VERSION = 1;
 const MAX_BACKFILL_BATCH = 100;
 const DEFAULT_QUERY_EMBED_CACHE_TTL_MS = 30 * 60 * 1000;
+const MAX_QUERY_EMBED_CACHE_ENTRIES = Number(process.env.ASSISTANT_QUERY_EMBED_CACHE_MAX || 500);
 const queryEmbeddingCache = new Map();
 
 let indexCache = null;
@@ -65,6 +66,13 @@ const computeProductHash = (product = {}) => crypto
         id: safeString(product?.id || ''),
         updatedAt: product?.updatedAt ? new Date(product.updatedAt).toISOString() : '',
         isPublished: Boolean(product?.isPublished),
+        price: Number(product?.price || 0),
+        originalPrice: Number(product?.originalPrice || 0),
+        discountPercentage: Number(product?.discountPercentage || 0),
+        stock: Number(product?.stock || 0),
+        rating: Number(product?.rating || 0),
+        ratingCount: Number(product?.ratingCount || 0),
+        image: safeString(product?.image || ''),
         text: buildProductIndexText(product),
     }))
     .digest('hex');
@@ -182,18 +190,19 @@ const normalizeSortBy = (value = '') => {
     return '';
 };
 
+const MAX_REQUIRED_TERM_CHARS = 40;
 const normalizeRetrievalFilters = (filters = {}) => {
     const normalized = {
-        category: safeString(filters?.category || ''),
-        brand: safeString(filters?.brand || ''),
+        category: safeString(filters?.category || '').slice(0, 60),
+        brand: safeString(filters?.brand || '').slice(0, 60),
         minPrice: toPositiveNumber(filters?.minPrice, 0),
         maxPrice: toPositiveNumber(filters?.maxPrice, 0),
         minRating: 0,
         inStock: null,
         sortBy: normalizeSortBy(filters?.sortBy || ''),
         requiredTerms: uniq((Array.isArray(filters?.requiredTerms) ? filters.requiredTerms : [])
-            .map((entry) => safeString(entry).toLowerCase())
-            .filter(Boolean)).slice(0, 8),
+            .map((entry) => safeString(entry).toLowerCase().slice(0, MAX_REQUIRED_TERM_CHARS))
+            .filter(Boolean)).slice(0, 6),
     };
 
     const rawRating = Number(filters?.minRating || 0);
@@ -361,9 +370,9 @@ const sortRetrievedResults = (results = [], filters = {}) => {
 
 const escapeRegExp = (value = '') => safeString(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const buildFlexibleTermRegex = (value = '') => {
-    const tokens = tokenize(value);
+    const tokens = tokenize(value).slice(0, 6);
     const pattern = tokens.length > 0
-        ? tokens.map((token) => escapeRegExp(token)).join('[^a-z0-9]*')
+        ? tokens.map((token) => escapeRegExp(token.slice(0, 24))).join('[^a-z0-9]{0,12}')
         : '(?!)';
     return new RegExp(pattern, 'i');
 };
@@ -502,7 +511,17 @@ const getCachedQueryEmbedding = (query = '') => {
 
 const cacheQueryEmbedding = (query = '', embedding = []) => {
     if (!Array.isArray(embedding) || embedding.length === 0) return;
-    queryEmbeddingCache.set(createQueryEmbeddingCacheKey(query), {
+    const cacheKey = createQueryEmbeddingCacheKey(query);
+    if (queryEmbeddingCache.has(cacheKey)) {
+        queryEmbeddingCache.delete(cacheKey);
+    }
+    // LRU bound: evict oldest (+ any expired) before insert.
+    while (queryEmbeddingCache.size >= Math.max(50, MAX_QUERY_EMBED_CACHE_ENTRIES)) {
+        const oldestKey = queryEmbeddingCache.keys().next().value;
+        if (oldestKey === undefined) break;
+        queryEmbeddingCache.delete(oldestKey);
+    }
+    queryEmbeddingCache.set(cacheKey, {
         embedding,
         expiresAt: Date.now() + getQueryEmbeddingCacheTtlMs(),
     });
@@ -757,6 +776,7 @@ const hydrateLexicalCandidates = async (query = '', { limit = 10, filters = {} }
     const loadCandidateLane = (queryObject, laneLimit) => Product.find(queryObject)
         .sort({ rating: -1, ratingCount: -1, id: 1 })
         .limit(laneLimit)
+        .maxTimeMS(2000)
         .select(productProjection)
         .lean();
 
@@ -772,12 +792,28 @@ const hydrateLexicalCandidates = async (query = '', { limit = 10, filters = {} }
     const candidates = [...candidatesById.values()].slice(0, totalCandidateLimit);
 
     if (!shouldSkipQueryEmbedding()) {
-        for (const candidate of candidates) {
+        // Refresh a small inline sample; schedule the rest off the request path
+        // so a cold index can't blow the 25s chat timeout with ~40 serial embeds.
+        const inlineRefresh = candidates.slice(0, 8);
+        for (const candidate of inlineRefresh) {
             try {
                 await upsertProductVectorEntry(candidate, { force: false });
             } catch {
                 // Keep lexical fallback available even when embedding refresh fails.
             }
+        }
+        const deferred = candidates.slice(8);
+        if (deferred.length > 0) {
+            const timer = setImmediate(() => {
+                (async () => {
+                    for (const candidate of deferred) {
+                        try {
+                            await upsertProductVectorEntry(candidate, { force: false });
+                        } catch { /* background refresh only */ }
+                    }
+                })();
+            });
+            timer?.unref?.();
         }
     }
 

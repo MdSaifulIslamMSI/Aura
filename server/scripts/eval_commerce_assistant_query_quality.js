@@ -99,6 +99,33 @@ const evaluateCase = async (testCase) => {
         addCheck(checks, 'query', retrieval?.query || '', expect.query);
     }
 
+    // Hallucination-stripping gate: model-invented product ids outside the
+    // retrieval allowlist must be rejected, never presented.
+    if (testCase.validatePayload) {
+        const validated = __testables.validateCommercePayload(
+            testCase.validatePayload,
+            Array.isArray(testCase.allowedIds) ? testCase.allowedIds : []
+        );
+        if (hasOwn(expect, 'rejectedIds')) {
+            addCheck(
+                checks,
+                'rejectedIds',
+                [...(validated.rejectedProductIds || [])].sort(),
+                [...expect.rejectedIds].sort(),
+                (actual, expected) => JSON.stringify(actual) === JSON.stringify(expected)
+            );
+        }
+        if (hasOwn(expect, 'keptIds')) {
+            addCheck(
+                checks,
+                'keptIds',
+                [...(validated.data?.productIds || [])].sort(),
+                [...expect.keptIds].sort(),
+                (actual, expected) => JSON.stringify(actual) === JSON.stringify(expected)
+            );
+        }
+    }
+
     const failedChecks = checks.filter((check) => !check.pass);
     return {
         id: testCase.id,

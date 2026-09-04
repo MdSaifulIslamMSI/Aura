@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { createRuntimeId } from '@/utils/runtimeId';
+import { buildSuggestionActions } from '@/utils/assistantCommands';
 
 const CHAT_STORAGE_KEY = 'aura-shopper-chat-v4';
 const LEGACY_CHAT_STORAGE_KEY = 'aura-shopper-chat-v3';
@@ -22,6 +23,18 @@ const truncateText = (value = '', max = 80) => {
 };
 
 const normalizeProductId = (product = {}) => safeString(product?.id || product?._id || '');
+const stableKey = (value = {}) => {
+    try {
+        return JSON.stringify(
+            Object.keys(value || {}).sort().reduce((acc, key) => {
+                acc[key] = value[key];
+                return acc;
+            }, {})
+        );
+    } catch {
+        return '';
+    }
+};
 const normalizeViewerScope = (value = '') => safeString(value || DEFAULT_VIEWER_SCOPE, DEFAULT_VIEWER_SCOPE).toLowerCase();
 const isGuestViewerScope = (value = '') => normalizeViewerScope(value) === DEFAULT_VIEWER_SCOPE;
 
@@ -289,7 +302,14 @@ const normalizeMessage = (message = {}) => {
 
 const normalizeActionList = (actions = [], primaryAction = null) => {
     const limit = primaryAction ? MAX_VISIBLE_ACTIONS - 1 : MAX_VISIBLE_ACTIONS;
-    return Array.isArray(actions) ? actions.slice(0, Math.max(limit, 0)) : [];
+    const seen = new Set();
+    const deduped = (Array.isArray(actions) ? actions : []).filter((action) => {
+        const key = safeString(action?.id || `${safeString(action?.kind)}:${stableKey(action?.payload)}`);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+    return deduped.slice(0, Math.max(limit, 0));
 };
 
 const buildCandidateProductIds = (products = []) => (
@@ -1088,9 +1108,13 @@ const applyAssistantTurnToConversationState = (sessionState = {}, payload = {}, 
         ? payload.activeProductId
         : resolvedMode === 'product'
             ? normalizeProductId(resolvedProduct) || candidateProductIds[0] || null
-            : resolvedMode === 'explore'
-                ? null
-                : sessionState?.context?.activeProductId;
+            : resolvedMode === 'explore' && safeProducts.length === 0
+                // Plain answers carry no product signal: keep PDP context
+                // instead of wiping it on every navigation reply.
+                ? sessionState?.context?.activeProductId ?? null
+                : resolvedMode === 'explore'
+                    ? null
+                    : sessionState?.context?.activeProductId;
     const nextPendingConfirmation = payload?.assistantTurn?.ui?.confirmation
         ? payload.assistantTurn.ui.confirmation
         : (payload?.confirmation || null);
@@ -1961,6 +1985,14 @@ export const useChatStore = create(
                         status: 'idle',
                         isLoading: false,
                         pendingUpgradeMessageIds: sessionState.pendingUpgradeMessageIds.filter((entry) => entry !== safeMessageId),
+                        // Surface a working retry action: the failed turn's
+                        // follow-ups never render per-message, so publish the
+                        // retry where the ActionBar reads it.
+                        primaryAction: sessionState.primaryAction,
+                        secondaryActions: normalizeActionList([
+                            ...buildSuggestionActions(['Try again']),
+                            ...(Array.isArray(sessionState.secondaryActions) ? sessionState.secondaryActions : []),
+                        ], sessionState.primaryAction),
                         messages: trimMessages(sessionState.messages.map((message) => (
                             message.id !== safeMessageId
                                 ? message
@@ -1974,6 +2006,7 @@ export const useChatStore = create(
                                     assistantTurn: {
                                         ...(message.assistantTurn || createStreamingAssistantTurn()),
                                         response: fallbackText,
+                                        followUps: ['Try again'],
                                     },
                                 }
                         ))),

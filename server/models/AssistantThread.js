@@ -5,7 +5,6 @@ const assistantThreadSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        unique: true,
         index: true,
     },
     user: {
@@ -78,5 +77,9 @@ const assistantThreadSchema = new mongoose.Schema({
 });
 
 assistantThreadSchema.index({ user: 1, status: 1, lastMessageAt: -1 });
+// Per-user session uniqueness. NOTE: deployments created before this change
+// may still have a legacy global `sessionId_1` unique index — drop it once:
+//   db.assistantthreads.dropIndex('sessionId_1')
+assistantThreadSchema.index({ user: 1, sessionId: 1 }, { unique: true });
 
 module.exports = mongoose.model('AssistantThread', assistantThreadSchema);
