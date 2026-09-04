@@ -2999,6 +2999,8 @@ export const MARKET_MESSAGE_PACK = {
   "profile.securityActivity.loading": "భద్రతా కార్యాచరణను లోడ్ చేస్తోంది",
   "profile.securityActivity.loadingMore": "మరింత లోడ్ అవుతోంది...",
   "profile.securityActivity.loadMore": "మరింత కార్యాచరణను లోడ్ చేయండి",
+  "profile.securityActivity.newDevice.body": "మీ ఖాతాలో తెలియని పరికరం నుండి బ్రౌజర్ సెషన్ సైన్ ఇన్ అయింది. మీరు గుర్తించని ఏ సెషన్‌నైనా రద్దు చేయండి.",
+  "profile.securityActivity.newDevice.title": "కొత్త పరికరం సైన్ ఇన్ అయింది",
   "profile.securityActivity.passkeyAdded.body": "ఖాతా MFA కోసం పాస్‌కీ నమోదు చేయబడింది.",
   "profile.securityActivity.passkeyAdded.title": "పాస్‌కీ జోడించబడింది",
   "profile.securityActivity.passkeyRemoved.body": "నమోదిత పాస్‌కీ తీసివేయబడింది.",

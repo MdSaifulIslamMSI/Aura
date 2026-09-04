@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loading": "সুৰক্ষা কাৰ্য্যকলাপ লোড কৰা হৈছে",
   "profile.securityActivity.loadingMore": "আরো লোড হচ্ছে...",
   "profile.securityActivity.loadMore": "অধিক কাৰ্য্যকলাপ লোড কৰক",
+  "profile.securityActivity.newDevice.body": "আপোনাৰ একাউণ্টত এটা অচিনাকি ডিভাইচৰ পৰা ব্ৰাউজাৰ চেচন ছাইন ইন হৈছে। আপুনি চিনি নোপোৱা যিকোনো চেচন বাতিল কৰক।",
+  "profile.securityActivity.newDevice.title": "নতুন ডিভাইচ ছাইন ইন কৰিলে",
   "profile.securityActivity.passkeyAdded.body": "একাউণ্ট এমএফএৰ বাবে এটা পাছকি পঞ্জীয়ন কৰা হৈছিল।",
   "profile.securityActivity.passkeyAdded.title": "পাছকি যোগ কৰা হ’ল",
   "profile.securityActivity.passkeyRemoved.body": "এটা পঞ্জীয়নভুক্ত পাছকি আঁতৰোৱা হ’ল।",

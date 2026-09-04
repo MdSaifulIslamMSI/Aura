@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "আরো কার্যকলাপ লোড",
   "profile.securityActivity.loading": "নিরাপত্তা কার্যকলাপ লোড হচ্ছে",
   "profile.securityActivity.loadingMore": "আরো লোড হচ্ছে...",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "অ্যাকাউন্ট MFA-এর জন্য একটি পাসকি নিবন্ধিত হয়েছে।",
   "profile.securityActivity.passkeyAdded.title": "পাসকি যোগ করা হয়েছে",
   "profile.securityActivity.passkeyRemoved.body": "একটি নিবন্ধিত পাসকি সরানো হয়েছে।",

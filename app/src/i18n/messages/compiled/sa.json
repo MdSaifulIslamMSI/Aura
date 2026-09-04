@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "अधिकं क्रियाकलापं लोडं कुर्वन्तु",
   "profile.securityActivity.loading": "सुरक्षाक्रियाकलापं लोडयति",
   "profile.securityActivity.loadingMore": "अधिकं लोड् भवति...",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "खाता एमएफए कृते पासकी पञ्जीकृता आसीत्।",
   "profile.securityActivity.passkeyAdded.title": "पासकी योजितम्",
   "profile.securityActivity.passkeyRemoved.body": "एकं पञ्जीकृतं पासकीं निष्कासितम्।",

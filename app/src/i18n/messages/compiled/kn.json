@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "ಹೆಚ್ಚಿನ ಚಟುವಟಿಕೆಯನ್ನು ಲೋಡ್ ಮಾಡಿ",
   "profile.securityActivity.loading": "ಭದ್ರತಾ ಚಟುವಟಿಕೆಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ",
   "profile.securityActivity.loadingMore": "ಇನ್ನಷ್ಟು ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "ಖಾತೆ MFA ಗಾಗಿ ಪಾಸ್‌ಕೀಯನ್ನು ನೋಂದಾಯಿಸಲಾಗಿದೆ.",
   "profile.securityActivity.passkeyAdded.title": "ಪಾಸ್‌ಕೀ ಸೇರಿಸಲಾಗಿದೆ",
   "profile.securityActivity.passkeyRemoved.body": "ನೋಂದಾಯಿತ ಪಾಸ್‌ಕೀಯನ್ನು ತೆಗೆದುಹಾಕಲಾಗಿದೆ.",

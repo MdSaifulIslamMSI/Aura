@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loading": "加载安全活动",
   "profile.securityActivity.loadingMore": "加载更多...",
   "profile.securityActivity.loadMore": "加载更多活动",
+  "profile.securityActivity.newDevice.body": "有一个浏览器会话从未知设备登录了您的帐户。请撤销任何您无法识别的会话。",
+  "profile.securityActivity.newDevice.title": "新设备已登录",
   "profile.securityActivity.passkeyAdded.body": "已为帐户 MFA 注册了密钥。",
   "profile.securityActivity.passkeyAdded.title": "添加了密钥",
   "profile.securityActivity.passkeyRemoved.body": "已注册的密钥已被删除。",

@@ -14758,6 +14758,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Loading more...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.securityActivity.newDevice.body": {
+        id: "profile.securityActivity.newDevice.body",
+        defaultMessage: "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "profile.securityActivity.newDevice.title": {
+        id: "profile.securityActivity.newDevice.title",
+        defaultMessage: "New device signed in",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.securityActivity.passkeyAdded.body": {
         id: "profile.securityActivity.passkeyAdded.body",
         defaultMessage: "A passkey was registered for account MFA.",

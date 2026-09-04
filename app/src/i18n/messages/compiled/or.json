@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "ଅଧିକ କାର୍ଯ୍ୟକଳାପ ଲୋଡ୍ କରନ୍ତୁ |",
   "profile.securityActivity.loading": "ସୁରକ୍ଷା କାର୍ଯ୍ୟକଳାପ ଲୋଡ୍ କରୁଛି |",
   "profile.securityActivity.loadingMore": "ଅଧିକ ଲୋଡ୍ କରୁଛି ...",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "ଖାତା MFA ପାଇଁ ଏକ ପାସ୍କି ପଞ୍ଜିକୃତ ହୋଇଥିଲା |",
   "profile.securityActivity.passkeyAdded.title": "ପାସ୍କି ଯୋଗ କରାଯାଇଛି |",
   "profile.securityActivity.passkeyRemoved.body": "ଏକ ପଞ୍ଜୀକୃତ ପାସ୍କି ହଟାଗଲା |",

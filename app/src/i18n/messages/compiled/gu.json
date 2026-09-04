@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "વધુ પ્રવૃત્તિ લોડ કરો",
   "profile.securityActivity.loading": "સુરક્ષા પ્રવૃત્તિ લોડ કરી રહ્યું છે",
   "profile.securityActivity.loadingMore": "વધુ લોડ કરી રહ્યું છે...",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "એકાઉન્ટ MFA માટે પાસકી રજીસ્ટર કરવામાં આવી હતી.",
   "profile.securityActivity.passkeyAdded.title": "પાસકી ઉમેરી",
   "profile.securityActivity.passkeyRemoved.body": "નોંધાયેલ પાસકી દૂર કરવામાં આવી હતી.",

@@ -2981,6 +2981,8 @@ export const MARKET_MESSAGE_PACK = {
   "profile.securityActivity.loading": "Chargement de l'activité de sécurité",
   "profile.securityActivity.loadingMore": "Chargement plus...",
   "profile.securityActivity.loadMore": "Charger plus d'activité",
+  "profile.securityActivity.newDevice.body": "Une session a été ouverte depuis un appareil inconnu. Révoquez toute session que vous ne reconnaissez pas.",
+  "profile.securityActivity.newDevice.title": "Nouvel appareil connecté",
   "profile.securityActivity.passkeyAdded.body": "Un mot de passe a été enregistré pour le compte MFA.",
   "profile.securityActivity.passkeyAdded.title": "Clé d'accès ajoutée",
   "profile.securityActivity.passkeyRemoved.body": "Un mot de passe enregistré a été supprimé.",

@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "Cargar más actividad",
   "profile.securityActivity.loading": "Cargando actividad de seguridad",
   "profile.securityActivity.loadingMore": "Cargando más...",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "Se registró una clave de acceso para la cuenta MFA.",
   "profile.securityActivity.passkeyAdded.title": "Clave de acceso agregada",
   "profile.securityActivity.passkeyRemoved.body": "Se eliminó una clave de acceso registrada.",

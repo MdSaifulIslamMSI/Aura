@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "Laden Sie mehr Aktivität",
   "profile.securityActivity.loading": "Sicherheitsaktivität wird geladen",
   "profile.securityActivity.loadingMore": "Mehr laden...",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "Für die Konto-MFA wurde ein Passkey registriert.",
   "profile.securityActivity.passkeyAdded.title": "Passkey hinzugefügt",
   "profile.securityActivity.passkeyRemoved.body": "Ein registrierter Passkey wurde entfernt.",

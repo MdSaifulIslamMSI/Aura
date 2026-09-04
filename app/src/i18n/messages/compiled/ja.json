@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "さらにアクティビティをロードする",
   "profile.securityActivity.loading": "セキュリティアクティビティを読み込み中",
   "profile.securityActivity.loadingMore": "さらに読み込み中...",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "アカウントMFAにパスキーが登録されました。",
   "profile.securityActivity.passkeyAdded.title": "パスキーが追加されました",
   "profile.securityActivity.passkeyRemoved.body": "登録されているパスキーが削除されました。",

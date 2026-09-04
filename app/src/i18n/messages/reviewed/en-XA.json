@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loading": "[Ŀøåðïïñĝ šëçüŕïŧÿ åçŧïïvïŧÿ !!!]",
   "profile.securityActivity.loadingMore": "[Ŀøåðïïñĝ møŕë... !!!]",
   "profile.securityActivity.loadMore": "[Ŀøåð møŕëë åçŧïvïŧÿ !!!]",
+  "profile.securityActivity.newDevice.body": "[Åå ƀŕøøŵšëŕ šëššïøñ šïĝñëð ïñ ƒŕøm å ðëëvïçëë ŵë ħåð ñøŧ šëëñ. Ŕëëvøķëë åñÿ šëššïøñ ÿøüü ðø ñøŧ ŕëçøøĝñïžë. !!!]",
+  "profile.securityActivity.newDevice.title": "[Ñëŵ ðëvïçë šïïĝñëð ïñ !!!]",
   "profile.securityActivity.passkeyAdded.body": "[Åå þåššķëÿ ŵåš ŕëĝïšŧëëŕëð ƒøŕ åççøøüñŧ MƑÅ. !!!]",
   "profile.securityActivity.passkeyAdded.title": "[Þåššķëÿ ååððëð !!!]",
   "profile.securityActivity.passkeyRemoved.body": "[Åå ŕëĝïšŧëëŕëð þåššķëÿ ŵåš ŕëmøøvëð. !!!]",
