@@ -766,7 +766,7 @@ export default function SupportSection({
                                             <textarea
                                                 ref={composerRef}
                                                 value={newMessage}
-                                                aria-label={t('profile.support.compose.messageLabel', {}, 'Support message')}
+                                                aria-label={t('profile.support.compose.messageAriaLabel', {}, 'Support message')}
                                                 onChange={(event) => handleSupportComposerChange(event.target.value)}
                                             onKeyDown={(event) => {
                                                 if (event.key === 'Enter' && !event.shiftKey) {

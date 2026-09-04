@@ -48,15 +48,18 @@ export default function OrdersSection({ recentOrders, stats }) {
                                     </div>
                                 </div>
                                 <div className="flex gap-2 overflow-x-auto">
-                                    {order.orderItems?.map((item, idx) => (
+                                    {order.orderItems?.map((item, idx) => {
+                                        const itemPrice = formatPrice(item.price || 0, order.presentmentCurrency || 'INR', undefined, { presentmentCurrency: order.presentmentCurrency || 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                                        return (
                                         <div key={idx} className="flex flex-shrink-0 items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.04]">
                                             <img src={item.image} alt="" loading="lazy" className="w-10 h-10 rounded-lg object-cover" />
                                             <div>
                                                 <p className="text-xs font-semibold text-slate-200 line-clamp-1 max-w-[150px]">{item.title}</p>
-                                                <p className="text-[10px] text-slate-400">{t('profile.orders.itemQty', { quantity: item.quantity, price: formatPrice(item.price || 0, order.presentmentCurrency || 'INR', undefined, { presentmentCurrency: order.presentmentCurrency || 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }) }, `Qty: ${item.quantity} · ${formatPrice(item.price || 0, 'INR', undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`)}</p>
+                                                <p className="text-[10px] text-slate-400">{t('profile.orders.itemQty', { quantity: item.quantity, price: itemPrice }, `Qty: ${item.quantity} · ${itemPrice}`)}</p>
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                                 <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/10 text-xs text-slate-400">
                                     <span className="flex items-center gap-1"><MapPin className="w-3 h-3" aria-hidden="true" /> {order.shippingAddress?.city}</span>
