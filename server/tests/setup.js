@@ -107,26 +107,55 @@ const isTransactionCapableUri = (uri) => {
         || parseBoolean(process.env.TEST_MONGO_TRANSACTION_CAPABLE, false);
 };
 
-const startInMemoryMongo = async () => {
+// Parallel Jest workers can collide on the random in-memory Mongo port
+// ("Port already in use"). Retry a few times — each attempt binds a fresh
+// port — before surfacing the error to the fallback path in beforeAll.
+const isPortCollisionError = (error) => /already in use|EADDRINUSE/i.test(String(error?.message || ''));
+
+const startInMemoryMongo = async (attempts = 3) => {
+    const startReplSet = async () => {
+        memoryReplicaSet = await MongoMemoryReplSet.create({
+            binary: { version: '7.0.11' },
+            replSet: {
+                count: 1,
+                storageEngine: 'wiredTiger',
+            },
+            instanceOpts: [{ dbName: 'aura_test', launchTimeout: 30000 }],
+        });
+    };
+
+    const startServer = async () => {
+        memoryServer = await MongoMemoryServer.create({
+            binary: { version: '7.0.11' },
+            instance: { dbName: 'aura_test', launchTimeout: 30000 },
+        });
+    };
+
     if (shouldRequireTransactionMongo()) {
         if (!memoryReplicaSet) {
-            memoryReplicaSet = await MongoMemoryReplSet.create({
-                binary: { version: '7.0.11' },
-                replSet: {
-                    count: 1,
-                    storageEngine: 'wiredTiger',
-                },
-                instanceOpts: [{ dbName: 'aura_test', launchTimeout: 30000 }],
-            });
+            for (let attempt = 1; ; attempt += 1) {
+                try {
+                    await startReplSet();
+                    break;
+                } catch (error) {
+                    memoryReplicaSet = null;
+                    if (!isPortCollisionError(error) || attempt >= attempts) throw error;
+                }
+            }
         }
         return memoryReplicaSet.getUri();
     }
 
     if (!memoryServer) {
-        memoryServer = await MongoMemoryServer.create({
-            binary: { version: '7.0.11' },
-            instance: { dbName: 'aura_test', launchTimeout: 30000 },
-        });
+        for (let attempt = 1; ; attempt += 1) {
+            try {
+                await startServer();
+                break;
+            } catch (error) {
+                memoryServer = null;
+                if (!isPortCollisionError(error) || attempt >= attempts) throw error;
+            }
+        }
     }
     return memoryServer.getUri();
 };
