@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
+    AlertTriangle,
     ArrowRight,
     BookOpen,
     Car,
@@ -17,6 +18,7 @@ import {
     LocateFixed,
     MapPin,
     Package,
+    RefreshCw,
     Search,
     Shirt,
     ShieldCheck,
@@ -528,6 +530,7 @@ export default function Marketplace() {
     const t = useStableIcuMessages(legacyT);
     const [listings, setListings] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [listingsError, setListingsError] = useState('');
     const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
     const [showFilters, setShowFilters] = useState(false);
     const [viewMode, setViewMode] = useState('grid');
@@ -553,16 +556,17 @@ export default function Marketplace() {
 
     const fetchListings = useCallback(async () => {
         setLoading(true);
+        setListingsError('');
         try {
             const data = await listingApi.getListings(filters);
             setListings(data.listings || []);
             setPagination(data.pagination || { page: 1, pages: 1, total: 0 });
         } catch (error) {
-            console.error('Failed to fetch listings:', error);
+            setListingsError(error?.message || t('marketplace.error.listings', {}, 'Live listings are unavailable right now. Please retry.'));
         } finally {
             setLoading(false);
         }
-    }, [filters]);
+    }, [filters, t]);
 
     useEffect(() => {
         fetchListings();
@@ -1294,6 +1298,34 @@ export default function Marketplace() {
                                                 </div>
                                             </div>
                                         ))}
+                                    </div>
+                                ) : listingsError ? (
+                                    <div className={cn('rounded-[1.75rem] border px-6 py-16 text-center', panelClass)} style={sectionStyle}>
+                                        <div
+                                            className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border"
+                                            style={{
+                                                borderColor: 'rgba(244, 63, 94, 0.24)',
+                                                background: isWhiteMode ? 'rgba(244, 63, 94, 0.08)' : 'rgba(244, 63, 94, 0.14)',
+                                                color: isWhiteMode ? '#e11d48' : '#fda4af',
+                                            }}
+                                        >
+                                            <AlertTriangle className="h-9 w-9" />
+                                        </div>
+                                        <h3 className={cn('mt-5 text-2xl font-black tracking-tight', isWhiteMode ? 'text-slate-950' : 'text-white')}>
+                                            {t('marketplace.error.title', {}, 'The market view hit a snag.')}
+                                        </h3>
+                                        <p className={cn('mx-auto mt-3 max-w-xl text-sm leading-6', mutedTextClass)}>
+                                            {listingsError}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={fetchListings}
+                                            className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-black uppercase tracking-[0.16em] transition-all"
+                                            style={accentFillStyle}
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                            {t('marketplace.error.retry', {}, 'Retry now')}
+                                        </button>
                                     </div>
                                 ) : listings.length === 0 ? (
                                     <div className={cn('rounded-[1.75rem] border px-6 py-16 text-center', panelClass)} style={sectionStyle}>

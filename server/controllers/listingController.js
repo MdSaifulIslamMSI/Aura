@@ -624,9 +624,17 @@ const getListings = asyncHandler(async (req, res) => {
     }
     if (condition) baseFilter.condition = condition;
     if (minPrice || maxPrice) {
+        const parsedMinPrice = minPrice === undefined || minPrice === '' ? null : Number(minPrice);
+        const parsedMaxPrice = maxPrice === undefined || maxPrice === '' ? null : Number(maxPrice);
+        if (parsedMinPrice !== null && !Number.isFinite(parsedMinPrice)) {
+            throw new AppError('minPrice must be a valid number', 400);
+        }
+        if (parsedMaxPrice !== null && !Number.isFinite(parsedMaxPrice)) {
+            throw new AppError('maxPrice must be a valid number', 400);
+        }
         baseFilter.price = {};
-        if (minPrice) baseFilter.price.$gte = Number(minPrice);
-        if (maxPrice) baseFilter.price.$lte = Number(maxPrice);
+        if (parsedMinPrice !== null) baseFilter.price.$gte = parsedMinPrice;
+        if (parsedMaxPrice !== null) baseFilter.price.$lte = parsedMaxPrice;
     }
     if (search) {
         baseFilter.$text = { $search: search };
@@ -643,14 +651,20 @@ const getListings = asyncHandler(async (req, res) => {
     };
     const sortOrder = sortMap[sort] || sortMap.newest;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    // Clamp pagination: unbounded limit or non-positive/NaN page would either
+    // allow oversized queries or produce negative/NaN skip values.
+    const parsedPage = Number.parseInt(page, 10);
+    const parsedLimit = Number.parseInt(limit, 10);
+    const safePage = Number.isFinite(parsedPage) ? Math.max(1, parsedPage) : 1;
+    const safeLimit = Number.isFinite(parsedLimit) ? Math.min(48, Math.max(1, parsedLimit)) : 12;
+    const skip = (safePage - 1) * safeLimit;
 
     const [listings, total] = await Promise.all([
         Listing.find(filter, LIST_PROJECTION)
             .populate('seller', 'name createdAt isVerified reputationScore')
             .sort(sortOrder)
             .skip(skip)
-            .limit(Number(limit))
+            .limit(safeLimit)
             .lean(),
         Listing.countDocuments(filter)
     ]);
@@ -660,10 +674,10 @@ const getListings = asyncHandler(async (req, res) => {
         // NP-Hard: Aura-Match (Stable Matching)
         listings: solveAuraMatch({ categoryWeights: { 'Electronics': 2 }, maxPrice: 50000, minTrust: 80 }, listings),
         pagination: {
-            page: Number(page),
-            limit: Number(limit),
+            page: safePage,
+            limit: safeLimit,
             total,
-            pages: Math.ceil(total / Number(limit))
+            pages: Math.ceil(total / safeLimit)
         }
     });
 });
@@ -681,8 +695,9 @@ const getListingById = asyncHandler(async (req, res, next) => {
         return next(new AppError('Listing not found', 404));
     }
 
-    // Increment view count (fire-and-forget)
-    Listing.updateOne({ _id: listing._id }, { $inc: { views: 1 } }).exec();
+    // Increment view count (fire-and-forget; swallow rejections so an unhandled
+    // rejection can't crash the process on transient DB issues)
+    Listing.updateOne({ _id: listing._id }, { $inc: { views: 1 } }).exec().catch(() => {});
 
     const trustPassport = listing?.seller?._id
         ? await buildSellerTrustPassport({ sellerId: listing.seller._id, sellerUser: listing.seller })
