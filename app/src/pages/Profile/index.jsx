@@ -175,8 +175,10 @@ export default function Profile() {
         avatarUploading,
         editMode,
         handleEditModeChange,
+        cancelEdit,
         editForm,
         handleProfileFieldChange,
+        handleProfileFieldBlur,
         handleSaveProfile,
         handleAvatarChange,
         profileDirty,
@@ -620,7 +622,17 @@ export default function Profile() {
     if (loading) {
         return (
             <div className="account-center-experience min-h-screen profile-theme profile-premium-shell">
-                <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8" role="status" aria-live="polite">
+                <div className="mx-auto grid w-full max-w-[92rem] grid-cols-1 gap-6 px-3 pb-16 pt-4 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:px-4 lg:pt-6" role="status" aria-live="polite">
+                    <div className="account-center-rail sticky top-24 hidden min-h-[40rem] max-h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-xl border p-5 lg:flex" aria-hidden="true">
+                        <span className="h-4 w-24 animate-pulse rounded bg-white/5 motion-reduce:animate-none" />
+                        <span className="mt-3 h-6 w-32 animate-pulse rounded bg-white/5 motion-reduce:animate-none" />
+                        <div className="mt-6 grid gap-2">
+                            <span className="h-11 animate-pulse rounded-lg bg-white/5 motion-reduce:animate-none" />
+                            <span className="h-11 animate-pulse rounded-lg bg-white/5 motion-reduce:animate-none" />
+                            <span className="h-11 animate-pulse rounded-lg bg-white/5 motion-reduce:animate-none" />
+                            <span className="h-11 animate-pulse rounded-lg bg-white/5 motion-reduce:animate-none" />
+                        </div>
+                    </div>
                     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6">
                         <span className="text-xs font-black uppercase tracking-[0.18em] text-[#d2a96c]">
                             {t('profile.loading.kicker', {}, 'Aura account center')}
@@ -713,11 +725,11 @@ export default function Profile() {
                                 profilePhone={profilePhone}
                                 editMode={editMode}
                                 setEditMode={handleEditModeChange}
+                                onCancelEdit={cancelEdit}
                                 editForm={editForm}
                                 handleProfileFieldChange={handleProfileFieldChange}
                                 saving={profileSaving}
                                 handleSaveProfile={handleSaveProfile}
-                                createEditForm={createEditForm}
                                 profileDirty={profileDirty}
                                 profileFieldErrors={profileFieldErrors}
                                 profileSubmitError={profileSubmitError}

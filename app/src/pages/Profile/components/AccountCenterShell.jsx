@@ -165,8 +165,10 @@ export default function AccountCenterShell({
                     </label>
                 </div>
 
-                <header className="account-center-header mb-4 flex flex-col gap-5 rounded-xl border p-5 md:flex-row md:items-start md:justify-between md:p-6">
-                    <div>
+                <header className="account-center-header relative mb-4 flex flex-col gap-5 overflow-hidden rounded-xl border p-5 md:flex-row md:items-start md:justify-between md:p-6">
+                    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#d2a96c]/70 to-transparent" />
+                    <div aria-hidden="true" className="pointer-events-none absolute -top-24 right-0 h-48 w-72 rounded-full bg-[#d2a96c]/10 blur-3xl" />
+                    <div className="relative">
                         <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#d2a96c]">
                             {t('profile.accountCenter.title', {}, 'Account center')}
                         </p>
@@ -180,7 +182,7 @@ export default function AccountCenterShell({
                         </h1>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{pageDescription}</p>
                     </div>
-                    <dl className="grid min-w-0 gap-3 text-sm md:min-w-52">
+                    <dl className="relative grid min-w-0 gap-3 text-sm md:min-w-52">
                         <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-3">
                             <dt className="text-xs font-bold uppercase tracking-wider text-slate-400">
                                 {t('profile.accountCenter.statusLabel', {}, 'Account status')}

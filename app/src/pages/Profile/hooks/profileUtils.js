@@ -2,6 +2,12 @@ export const PROFILE_FIELDS = ['name', 'phone', 'gender', 'dob', 'bio'];
 
 export const PHONE_REGEX = /^\+?\d{10,15}$/;
 
+// Native-input pattern for phone fields that accept human formatting
+// (spaces, dashes, parentheses). Values are stripped to digits via
+// normalizePhone before PHONE_REGEX validation, so both layers agree on
+// 10-15 digits.
+export const ADDRESS_PHONE_INPUT_PATTERN = '^[+0-9][0-9 ()-]{9,19}$';
+
 export const normalizePhone = (phone) => String(phone || '').replace(/[\s\-()]/g, '').trim();
 export const trimText = (value) => String(value || '').trim();
 export const isNotFoundError = (error) => Number(error?.status) === 404 || /not found/i.test(String(error?.message || ''));

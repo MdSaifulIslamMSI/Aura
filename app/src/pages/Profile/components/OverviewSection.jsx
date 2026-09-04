@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { EmptyState } from './ProfileShared';
 import {
     BadgeCheck,
     Heart,
@@ -177,14 +178,16 @@ export default function OverviewSection({
                 </div>
 
                 {recentOrders.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center">
-                        <Package className="mx-auto mb-3 h-12 w-12 text-slate-600" aria-hidden="true" />
-                        <p className="font-semibold text-white">{t('profile.overview.orders.emptyTitle', {}, 'No orders yet')}</p>
-                        <p className="mt-1 text-sm text-slate-400">{t('profile.overview.orders.emptyBody', {}, 'Start shopping to populate your command deck.')}</p>
-                        <Link to="/products" className="mt-3 inline-block min-h-11 text-sm font-semibold text-neo-cyan hover:underline">
-                            {t('profile.overview.orders.start', {}, 'Start shopping')}
-                        </Link>
-                    </div>
+                    <EmptyState
+                        icon={Package}
+                        title={t('profile.overview.orders.emptyTitle', {}, 'No orders yet')}
+                        body={t('profile.overview.orders.emptyBody', {}, 'Start shopping to populate your command deck.')}
+                        action={(
+                            <Link to="/products" className="mt-1 inline-block min-h-11 text-sm font-semibold text-neo-cyan hover:underline">
+                                {t('profile.overview.orders.start', {}, 'Start shopping')}
+                            </Link>
+                        )}
+                    />
                 ) : (
                     <div className="space-y-3">
                         {recentOrders.map((order) => (

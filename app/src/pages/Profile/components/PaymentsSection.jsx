@@ -3,6 +3,7 @@ import { AlertTriangle, Building2, CheckCircle, CreditCard, Clock, Loader2, Plus
 import { useIntl } from 'react-intl';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { EmptyState, SectionSkeleton } from './ProfileShared';
 
 const formatPaymentType = (type, t) => {
     const normalized = String(type || '').trim().toLowerCase();
@@ -217,13 +218,13 @@ export default function PaymentsSection({
                 </div>
 
                 {paymentMethodsLoading ? (
-                    <div role="status" className="py-6 text-sm text-slate-400">{t('profile.payments.loading', {}, 'Loading payment methods...')}</div>
+                    <SectionSkeleton rows={2} label={t('profile.payments.loading', {}, 'Loading payment methods...')} />
                 ) : paymentMethods.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-10 text-center">
-                        <CreditCard className="mx-auto mb-3 h-10 w-10 text-slate-600" aria-hidden="true" />
-                        <p className="font-semibold text-white">{t('profile.payments.empty.title', {}, 'No saved payment methods yet')}</p>
-                        <p className="mt-1 text-xs text-slate-400">{t('profile.payments.empty.body', {}, 'Complete a digital payment to auto-save tokenized methods.')}</p>
-                    </div>
+                    <EmptyState
+                        icon={CreditCard}
+                        title={t('profile.payments.empty.title', {}, 'No saved payment methods yet')}
+                        body={t('profile.payments.empty.body', {}, 'Complete a digital payment to auto-save tokenized methods.')}
+                    />
                 ) : (
                     <div className="space-y-3">
                         {paymentMethods.map((method) => {
@@ -291,11 +292,11 @@ export default function PaymentsSection({
                 </div>
 
                 {paymentActivity.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] py-8 text-center">
-                        <ShieldCheck className="mx-auto mb-3 h-9 w-9 text-slate-600" aria-hidden="true" />
-                        <p className="font-semibold text-white">{t('profile.payments.activity.empty.title', {}, 'No payment activity yet')}</p>
-                        <p className="mt-1 text-xs text-slate-400">{t('profile.payments.activity.empty.body', {}, 'Completed orders will show provider and payment state here.')}</p>
-                    </div>
+                    <EmptyState
+                        icon={ShieldCheck}
+                        title={t('profile.payments.activity.empty.title', {}, 'No payment activity yet')}
+                        body={t('profile.payments.activity.empty.body', {}, 'Completed orders will show provider and payment state here.')}
+                    />
                 ) : (
                     <div className="space-y-3">
                         {paymentActivity.map((order) => {

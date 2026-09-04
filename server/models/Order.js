@@ -323,6 +323,9 @@ orderSchema.index({ user: 1, createdAt: -1, _id: -1 });
 orderSchema.index({ createdAt: -1, _id: -1 });
 orderSchema.index({ orderStatus: 1, createdAt: -1, _id: -1 });
 orderSchema.index({ paymentState: 1, createdAt: -1, _id: -1 });
+// Account overview filters { user, orderStatus: $in } + sorts createdAt;
+// dashboard counts { user }. Both are per-view account reads.
+orderSchema.index({ user: 1, orderStatus: 1, createdAt: -1 });
 
 orderSchema.pre('validate', function hydrateMinorUnitMoneyFields() {
     hydrateOrderMinorUnits(this);

@@ -93,7 +93,7 @@ export default function ActiveSessionsPanel({
     return (
         <section
             aria-labelledby="active-sessions-heading"
-            className="rounded-[1.6rem] border border-cyan-300/20 bg-cyan-400/[0.07] p-4"
+            className="rounded-2xl border border-cyan-300/20 bg-cyan-400/[0.07] p-4"
         >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">

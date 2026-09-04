@@ -152,5 +152,7 @@ const supportTicketSchema = new mongoose.Schema({
 // Optimize query for active user tickets
 supportTicketSchema.index({ user: 1, lastMessageAt: -1 });
 supportTicketSchema.index({ liveCallRequested: 1, lastMessageAt: -1 });
+// Account overview filters { user, userActionRequired } + sorts lastMessageAt.
+supportTicketSchema.index({ user: 1, userActionRequired: 1, lastMessageAt: -1 });
 
 module.exports = mongoose.model('SupportTicket', supportTicketSchema);

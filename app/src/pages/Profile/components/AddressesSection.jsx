@@ -2,6 +2,8 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { MapPin, Plus, Save, Phone, Edit3, Trash2 } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { EmptyState, SectionSkeleton } from './ProfileShared';
+import { ADDRESS_PHONE_INPUT_PATTERN } from '../hooks/profileUtils';
 
 const formatAddressType = (value, fallback, t) => {
     switch (String(value || '').toLowerCase()) {
@@ -87,9 +89,7 @@ export default function AddressesSection({
             </div>
 
             {addressesLoading ? (
-                <p role="status" className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
-                    {t('profile.addresses.loading', {}, 'Loading saved addresses...')}
-                </p>
+                <SectionSkeleton rows={2} label={t('profile.addresses.loading', {}, 'Loading saved addresses...')} />
             ) : null}
 
             {addressesError ? (
@@ -163,7 +163,8 @@ export default function AddressesSection({
                             onChange={(event) => setAddressForm((previous) => ({ ...previous, phone: event.target.value }))}
                             autoComplete="tel"
                             required
-                            pattern="^\+?[0-9 ()-]{10,20}$"
+                            pattern={ADDRESS_PHONE_INPUT_PATTERN}
+                            title={t('profile.addresses.form.phoneHint', {}, '10 to 15 digits; spaces, dashes and parentheses are allowed')}
                             className="rounded-xl border-2 border-white/10 bg-white/[0.04] p-3 text-white outline-none focus:border-cyan-300"
                         />
                         </label>
@@ -265,11 +266,11 @@ export default function AddressesSection({
             ) : null}
 
             {(!profile?.addresses || profile.addresses.length === 0) && !showAddressForm ? (
-                <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center">
-                    <MapPin className="mx-auto mb-3 h-12 w-12 text-slate-600" aria-hidden="true" />
-                    <h2 className="mb-1 text-lg font-black text-white">{t('profile.addresses.empty.title', {}, 'No addresses saved')}</h2>
-                    <p className="text-sm text-slate-400">{t('profile.addresses.empty.body', {}, 'Add your delivery address for faster checkout')}</p>
-                </div>
+                <EmptyState
+                    icon={MapPin}
+                    title={t('profile.addresses.empty.title', {}, 'No addresses saved')}
+                    body={t('profile.addresses.empty.body', {}, 'Add your delivery address for faster checkout')}
+                />
             ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {profile?.addresses?.map((address) => {

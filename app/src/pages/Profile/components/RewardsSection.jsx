@@ -2,12 +2,13 @@ import { Link } from 'react-router-dom';
 import { Sparkles, Trophy, Activity } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
+import { EmptyState, SectionSkeleton } from './ProfileShared';
 
 export default function RewardsSection({
     auraTier, auraPoints, rewardSnapshot, nextMilestone, handleOptimizeRewards,
     optimizing, intelligenceLoading, intelligenceData, rewardActivity, rewardsLoading,
 }) {
-    const { t: legacyT, formatPrice } = useMarket();
+    const { t: legacyT, formatDateTime, formatNumber, formatPrice } = useMarket();
     const t = useStableIcuMessages(legacyT);
 
     return (
@@ -29,12 +30,12 @@ export default function RewardsSection({
                 <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-amber-200">{t('profile.rewards.balance.label', {}, 'Balance')}</p>
-                        <p className="mt-1 text-2xl font-black text-white">{auraPoints.toLocaleString('en-IN')}</p>
+                        <p className="mt-1 text-2xl font-black text-white">{formatNumber(auraPoints)}</p>
                         <p className="mt-1 text-xs text-amber-200/70">{t('profile.rewards.balance.body', {}, 'Aura Points available')}</p>
                     </div>
                     <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-200">{t('profile.rewards.lifetime.label', {}, 'Lifetime Earned')}</p>
-                        <p className="mt-1 text-2xl font-black text-white">{Number(rewardSnapshot.lifetimeEarned || 0).toLocaleString('en-IN')}</p>
+                        <p className="mt-1 text-2xl font-black text-white">{formatNumber(Number(rewardSnapshot.lifetimeEarned || 0))}</p>
                         <p className="mt-1 text-xs text-cyan-200/70">{t('profile.rewards.lifetime.body', {}, 'Total reward accumulation')}</p>
                     </div>
                     <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
@@ -47,7 +48,7 @@ export default function RewardsSection({
                 {nextMilestone !== null && Number.isFinite(nextMilestone) ? (
                     <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
                         <p className="text-xs text-slate-400">
-                            {t('profile.rewards.nextTier', { points: nextMilestone.toLocaleString('en-IN') }, `Next tier unlock at ${nextMilestone.toLocaleString('en-IN')} lifetime points.`)}
+                            {t('profile.rewards.nextTier', { points: formatNumber(nextMilestone) }, `Next tier unlock at ${formatNumber(nextMilestone)} lifetime points.`)}
                         </p>
                     </div>
                 ) : null}
@@ -82,9 +83,7 @@ export default function RewardsSection({
                 </div>
 
                 {intelligenceLoading ? (
-                    <div className="animate-pulse space-y-3">
-                        <div className="h-20 rounded-xl bg-gray-50" />
-                    </div>
+                    <SectionSkeleton rows={1} label={t('profile.rewards.insights.loading', {}, 'Loading smart insights...')} />
                 ) : intelligenceData?.insights ? (
                     <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 p-5 text-white">
                         <div className="pointer-events-none absolute right-0 top-0 p-8 opacity-10">
@@ -122,13 +121,11 @@ export default function RewardsSection({
                         </div>
                     </div>
                 ) : (
-                    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
-                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
-                            <Sparkles className="h-6 w-6 text-slate-600" aria-hidden="true" />
-                        </div>
-                        <p className="text-sm font-bold text-white">{t('profile.rewards.insights.emptyTitle', {}, 'No Intelligence Insights Yet')}</p>
-                        <p className="mx-auto mt-1 max-w-[240px] text-xs text-slate-400">{t('profile.rewards.insights.emptyBody', {}, "Click 'Re-calc Rewards' to run our optimization engine over your historical data.")}</p>
-                    </div>
+                    <EmptyState
+                        icon={Sparkles}
+                        title={t('profile.rewards.insights.emptyTitle', {}, 'No Intelligence Insights Yet')}
+                        body={t('profile.rewards.insights.emptyBody', {}, "Click 'Re-calc Rewards' to run our optimization engine over your historical data.")}
+                    />
                 )}
             </div>
 
@@ -138,10 +135,10 @@ export default function RewardsSection({
                     {rewardsLoading ? <span role="status" className="text-xs text-slate-400">{t('profile.rewards.activity.syncing', {}, 'Syncing...')}</span> : null}
                 </div>
                 {rewardActivity.length === 0 ? (
-                    <div className="py-8 text-center">
-                        <Sparkles className="mx-auto mb-2 h-10 w-10 text-slate-600" aria-hidden="true" />
-                        <p className="text-sm text-slate-400">{t('profile.rewards.activity.empty', {}, 'No rewards activity yet.')}</p>
-                    </div>
+                    <EmptyState
+                        icon={Sparkles}
+                        title={t('profile.rewards.activity.empty', {}, 'No rewards activity yet.')}
+                    />
                 ) : (
                     <div className="space-y-3">
                         {rewardActivity.slice(0, 12).map((entry, index) => (
@@ -151,11 +148,11 @@ export default function RewardsSection({
                                         {entry.reason || String(entry.eventType || t('profile.rewards.activity.rewardFallback', {}, 'Reward')).replace(/_/g, ' ')}
                                     </p>
                                     <p className="mt-0.5 text-xs text-slate-400">
-                                        {entry.createdAt ? new Date(entry.createdAt).toLocaleString('en-IN') : t('profile.rewards.activity.recently', {}, 'Recently')}
+                                        {entry.createdAt ? formatDateTime(entry.createdAt) : t('profile.rewards.activity.recently', {}, 'Recently')}
                                     </p>
                                 </div>
                                 <span className="whitespace-nowrap text-sm font-black text-emerald-200">
-                                    {t('profile.rewards.activity.points', { points: Number(entry.points || 0).toLocaleString('en-IN') }, `+${Number(entry.points || 0).toLocaleString('en-IN')} AP`)}
+                                    {t('profile.rewards.activity.points', { points: formatNumber(Number(entry.points || 0)) }, `+${formatNumber(Number(entry.points || 0))} AP`)}
                                 </span>
                             </div>
                         ))}

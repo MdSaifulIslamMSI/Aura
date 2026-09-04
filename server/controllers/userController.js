@@ -20,10 +20,16 @@ const {
     AVATAR_UPLOAD_ALLOWED_MIME,
 } = require('../utils/avatarValidation');
 const { validateImageDataUriUpload } = require('../services/uploadSecurityPipeline');
+const { normalizeAvatarImage } = require('../services/avatarImageService');
+const {
+    deleteAvatarMedia,
+    promoteAvatarMedia,
+    quarantineAvatarMedia,
+} = require('../services/avatarMediaStorageService');
 const { normalizePhoneE164 } = require('../services/sms');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
 
-const PROFILE_PROJECTION = 'name email phone avatar gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt updatedAt __v';
+const PROFILE_PROJECTION = 'name email phone avatar avatarMedia gender dob bio isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation addresses wishlist wishlistRevision wishlistSyncedAt loyalty createdAt updatedAt __v';
 const AUTH_ONLY_PROJECTION = 'name email phone isAdmin adminRoles isVerified isSeller sellerActivatedAt accountState moderation loyalty';
 
 const PHONE_REGEX = /^\+?\d{10,15}$/;
@@ -192,6 +198,24 @@ const parseExpectedRevision = (value) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed < 0) return Number.NaN;
     return parsed;
+};
+
+// DELETE bodies are stripped by some proxies and fetch defaults, so the
+// wishlist remove endpoint accepts the optimistic-concurrency revision via
+// query string (preferred) or If-Match, keeping the body field as a
+// deprecated fallback.
+const parseDeleteExpectedRevision = (req) => {
+    if (req.query?.expectedRevision !== undefined) {
+        return parseExpectedRevision(req.query.expectedRevision);
+    }
+    const ifMatch = String(req.headers?.['if-match'] || '')
+        .trim()
+        .replace(/^W\//, '')
+        .replace(/^"|"$/g, '');
+    if (ifMatch !== '') {
+        return parseExpectedRevision(ifMatch);
+    }
+    return parseExpectedRevision(req.body?.expectedRevision);
 };
 
 const sendWishlistConflict = async (res, userLike, market = null) => (
@@ -572,8 +596,8 @@ const loginUser = asyncHandler(async (req, res, next) => {
     }
 
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
 
     res.json({
         _id: user._id,
@@ -733,15 +757,26 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
         }
     }
 
-    // Handle avatar updates with security validation
+    // Handle avatar updates through the shared normalize -> store pipeline so the
+    // legacy PUT /profile path produces the same 512px webp media as the
+    // token-based avatar flow instead of persisting raw data URIs in Mongo.
+    let promotedAvatar = null;
+    let previousAvatarStorageKey = '';
     if (updates.avatar !== undefined) {
         if (typeof updates.avatar !== 'string') {
             return next(new AppError('Avatar must be a string', 400));
         }
 
+        const previousAvatar = await User.findOne(
+            { email: req.user.email },
+            'avatarMedia'
+        ).lean();
+        previousAvatarStorageKey = String(previousAvatar?.avatarMedia?.storageKey || '').trim();
+
         // Empty string is allowed (clears avatar)
         if (updates.avatar === '') {
             updates.avatar = '';
+            updates.avatarMedia = null;
         } else {
             const validatedAvatar = await validateImageDataUriUpload({
                 dataUrl: updates.avatar,
@@ -759,7 +794,28 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
                 infectedMessage: 'Avatar failed malware scan',
                 scanFailedMessage: 'Avatar malware scan unavailable. Please try again later.',
             });
-            updates.avatar = validatedAvatar.dataUrl;
+            const normalized = await normalizeAvatarImage(validatedAvatar.fileBuffer);
+            const ownerId = String(req.user?._id || req.authUid || '');
+            const pending = await quarantineAvatarMedia({
+                fileBuffer: normalized.fileBuffer,
+                ownerId,
+            });
+            try {
+                promotedAvatar = await promoteAvatarMedia({ storageKey: pending.storageKey });
+            } catch (error) {
+                await deleteAvatarMedia({ storageKey: pending.storageKey, quarantine: true }).catch(() => {});
+                throw error;
+            }
+            updates.avatar = promotedAvatar.url;
+            updates.avatarMedia = {
+                storageKey: promotedAvatar.storageKey,
+                storageDriver: promotedAvatar.storageDriver,
+                mimeType: 'image/webp',
+                sizeBytes: normalized.sizeBytes,
+                width: normalized.width,
+                height: normalized.height,
+                updatedAt: new Date(),
+            };
         }
     }
 
@@ -782,13 +838,19 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
             { returnDocument: 'after', projection: PROFILE_PROJECTION, lean: true }
         );
     } catch (error) {
+        if (promotedAvatar) {
+            await deleteAvatarMedia({ storageKey: promotedAvatar.storageKey }).catch(() => {});
+        }
         if (getDuplicateField(error) === 'phone') {
-            return next(new AppError('Phone number is already linked to another account', 409));
+            return next(new AppError('This phone number cannot be used', 409));
         }
         throw error;
     }
 
     if (!user) {
+        if (promotedAvatar) {
+            await deleteAvatarMedia({ storageKey: promotedAvatar.storageKey }).catch(() => {});
+        }
         if (expectedVersion !== undefined && await User.exists({ email: req.user.email })) {
             const conflict = new AppError('Profile changed in another session. Refresh and try again.', 409);
             conflict.code = 'ACCOUNT_PROFILE_VERSION_CONFLICT';
@@ -803,6 +865,11 @@ const updateUserProfile = asyncHandler(async (req, res, next) => {
             return next(conflict);
         }
         return next(new AppError('User not found', 404));
+    }
+
+    if (previousAvatarStorageKey
+        && previousAvatarStorageKey !== String(user.avatarMedia?.storageKey || '').trim()) {
+        await deleteAvatarMedia({ storageKey: previousAvatarStorageKey }).catch(() => {});
     }
 
     await persistAuthSnapshot(user);
@@ -884,7 +951,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
     const user = await ensureUserLean({
         email,
         authUser: req.user,
-        projection: '_id loyalty wishlist',
+        projection: '_id loyalty wishlist lifetimeSpent',
     });
     if (!user) return next(new AppError('Unable to recover user profile', 500));
 
@@ -905,12 +972,10 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
     ]);
 
     const totalOrders = await Order.countDocuments({ user: user._id });
-    const totalSpent = orders.length > 0
-        ? (await Order.aggregate([
-            { $match: { user: user._id } },
-            { $group: { _id: null, total: { $sum: '$totalPrice' } } }
-        ]))[0]?.total || 0
-        : 0;
+    // Gross lifetime spend maintained incrementally at order placement
+    // (User.lifetimeSpent); the legacy full-collection $sum aggregate this
+    // replaces scanned every order on every dashboard view.
+    const totalSpent = Number(user.lifetimeSpent || 0);
 
     const listings = { active: 0, sold: 0, totalViews: 0 };
     listingStats.forEach((s) => {
@@ -925,6 +990,13 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
 
     res.set('Cache-Control', 'private, no-store');
     res.set('Vary', 'Authorization, Cookie');
+    recordAuthSecurityEvent({
+        event: 'account.dashboard.viewed',
+        outcome: 'success',
+        reason: 'user_requested',
+        surface: 'account_profile',
+        req,
+    });
     res.json({
         success: true,
         stats: {
@@ -1023,8 +1095,8 @@ const addAddress = asyncHandler(async (req, res, next) => {
 
     await user.save();
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
     recordAuthSecurityEvent({
         event: 'account.address.added',
         outcome: 'success',
@@ -1097,8 +1169,8 @@ const updateAddress = asyncHandler(async (req, res, next) => {
     Object.assign(addr, fieldsToUpdate);
     await user.save();
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
     recordAuthSecurityEvent({
         event: 'account.address.updated',
         outcome: 'success',
@@ -1137,8 +1209,8 @@ const deleteAddress = asyncHandler(async (req, res, next) => {
 
     await user.save();
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
     recordAuthSecurityEvent({
         event: 'account.address.deleted',
         outcome: 'success',
@@ -1281,7 +1353,7 @@ const addWishlistItem = asyncHandler(async (req, res, next) => {
 // @access  Private
 const removeWishlistItem = asyncHandler(async (req, res, next) => {
     const productId = Number(req.params.productId);
-    const expectedRevision = parseExpectedRevision(req.body?.expectedRevision);
+    const expectedRevision = parseDeleteExpectedRevision(req);
 
     if (!Number.isFinite(productId) || productId <= 0) {
         return next(new AppError('productId must be a valid product identifier', 400));
@@ -1417,8 +1489,8 @@ const activateSellerAccount = asyncHandler(async (req, res, next) => {
     }
 
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
 
     return res.json({
         success: true,
@@ -1489,7 +1561,7 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
 
     if (activeListingCount > 0) {
         return next(new AppError(
-            `Cannot deactivate seller mode while ${activeListingCount} active listing(s) exist. Mark them sold or delete them first.`,
+            'Cannot deactivate seller mode while active listings exist. Mark them sold or delete them first.',
             409
         ));
     }
@@ -1499,8 +1571,8 @@ const deactivateSellerAccount = asyncHandler(async (req, res, next) => {
     await user.save();
 
     await persistAuthSnapshot(user);
-    invalidateUserCache(req.authUid);
-    invalidateUserCacheByEmail(user.email);
+    await invalidateUserCache(req.authUid);
+    await invalidateUserCacheByEmail(user.email);
 
     return res.json({
         success: true,

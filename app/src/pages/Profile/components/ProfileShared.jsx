@@ -64,6 +64,37 @@ export function InfoRow({ icon: Icon, label, value, badge }) {
     );
 }
 
+export function EmptyState({ icon: Icon, title, body, action }) {
+    return (
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-12 text-center">
+            {Icon ? (
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#d2a96c]/25 bg-[#d2a96c]/10">
+                    <Icon className="h-7 w-7 text-[#d2a96c]" aria-hidden="true" />
+                </div>
+            ) : null}
+            <p className="text-lg font-black text-white">{title}</p>
+            {body ? <p className="mx-auto mt-1 max-w-xs text-sm text-slate-400">{body}</p> : null}
+            {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
+        </div>
+    );
+}
+
+export function SectionSkeleton({ rows = 3, label }) {
+    return (
+        <div role="status" aria-live="polite" className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+            {label ? <p className="mb-4 text-sm text-slate-400">{label}</p> : null}
+            <div className="grid gap-3" aria-hidden="true">
+                {Array.from({ length: rows }).map((_, index) => (
+                    <span
+                        key={index}
+                        className="h-14 animate-pulse rounded-xl border border-white/10 bg-white/5 motion-reduce:animate-none"
+                    />
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export function TogglePref({ label, desc, on, setOn }) {
     return (
         <div className="profile-premium-toggle-row">

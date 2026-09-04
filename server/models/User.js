@@ -241,6 +241,12 @@ const userSchema = mongoose.Schema({
     wishlist: [wishlistItemSchema],
     wishlistRevision: { type: Number, default: 0, min: 0 },
     wishlistSyncedAt: { type: Date, default: null },
+    // Gross lifetime order spend, maintained incrementally on order placement.
+    // Matches the legacy dashboard aggregate semantics: sum of totalPrice over
+    // ALL orders (including cancelled), in base currency units. Recomputed
+    // absolutely by scripts/backfill-lifetime-spent.js — never adjusted by
+    // refunds, which have their own refundSummary trail on each order.
+    lifetimeSpent: { type: Number, default: 0, min: 0 },
     loyalty: { type: loyaltySchema, default: () => ({}) }
 }, {
     timestamps: true

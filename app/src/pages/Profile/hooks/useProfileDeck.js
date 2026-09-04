@@ -116,6 +116,14 @@ export function useProfileDeck({
         }
     }, []);
 
+    const cancelEdit = useCallback(() => {
+        setEditMode(false);
+        setEditForm(createEditForm(profile));
+        setProfileFieldErrors({});
+        setProfileSubmitError('');
+        setProfileRequiresReauth(false);
+    }, [profile]);
+
     const handleProfileFieldChange = useCallback((field, value) => {
         if (!PROFILE_FIELDS.includes(field)) return;
         setEditForm((previous) => ({ ...previous, [field]: value }));
@@ -128,6 +136,20 @@ export function useProfileDeck({
         setProfileSubmitError('');
         setProfileRequiresReauth(false);
     }, []);
+
+    const handleProfileFieldBlur = useCallback((field) => {
+        if (!PROFILE_FIELDS.includes(field)) return;
+        const errors = validateProfileForm(editForm, t);
+        setProfileFieldErrors((previous) => {
+            const next = { ...previous };
+            if (errors[field]) {
+                next[field] = errors[field];
+            } else {
+                delete next[field];
+            }
+            return next;
+        });
+    }, [editForm, t]);
 
     const profileDirty = useMemo(() => (
         !areProfileFormsEqual(editForm, createEditForm(profile))
@@ -258,8 +280,10 @@ export function useProfileDeck({
         avatarUploading,
         editMode,
         handleEditModeChange,
+        cancelEdit,
         editForm,
         handleProfileFieldChange,
+        handleProfileFieldBlur,
         handleSaveProfile,
         handleAvatarChange,
         profileDirty,

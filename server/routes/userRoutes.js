@@ -67,6 +67,10 @@ router.get('/rewards', protect, profileReadLimiter, getRewards); // Protected
 // Seller account CRUD — canonical routes only.
 // Backward-compat aliases (/activate-seller, /seller/enable, etc.) were
 // removed. Clients should use /seller/activate and /seller/deactivate.
+// NOTE: POST (not PUT) is intentional here — activate is idempotent
+// (re-activating an active seller is a 200 no-op) and deactivate returns
+// 409 while listings are active, so neither maps cleanly onto PUT
+// replace semantics. Do not add PUT aliases without a client migration.
 router.post('/seller/activate', protect, csrfTokenValidatorUnlessBearerAuth, validate(activateSellerSchema), activateSellerAccount);
 router.post('/seller/deactivate', protect, csrfTokenValidatorUnlessBearerAuth, validate(deactivateSellerSchema), deactivateSellerAccount);
 
