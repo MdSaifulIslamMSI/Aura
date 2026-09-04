@@ -21,6 +21,18 @@ export const assistantIntentMessages = defineMessages({
         id: 'assistant.intent.category.books',
         defaultMessage: 'Books',
     },
+    categoryFashion: {
+        id: 'assistant.intent.category.fashion',
+        defaultMessage: 'Fashion',
+    },
+    categoryFootwear: {
+        id: 'assistant.intent.category.footwear',
+        defaultMessage: 'Footwear',
+    },
+    categoryHomeKitchen: {
+        id: 'assistant.intent.category.homeKitchen',
+        defaultMessage: 'Home & Kitchen',
+    },
     navHome: {
         id: 'assistant.intent.navigation.home',
         defaultMessage: 'Home',
@@ -117,6 +129,9 @@ const CATEGORY_ALIASES = [
     { aliases: ['electronics', 'electronic', 'gadgets', 'gadget'], value: 'electronics', message: assistantIntentMessages.categoryElectronics },
     { aliases: ['gaming', 'games', 'console'], value: 'gaming', message: assistantIntentMessages.categoryGaming },
     { aliases: ['books', 'book'], value: 'books', message: assistantIntentMessages.categoryBooks },
+    { aliases: ['fashion', 'clothing', 'apparel', 'mens fashion', 'womens fashion', 'men fashion', 'women fashion'], value: 'mens-fashion', message: assistantIntentMessages.categoryFashion },
+    { aliases: ['footwear', 'shoes', 'shoe', 'sneakers', 'sandals'], value: 'footwear', message: assistantIntentMessages.categoryFootwear },
+    { aliases: ['home kitchen', 'home-kitchen', 'kitchen', 'home appliances', 'home-appliances', 'furniture'], value: 'home-kitchen', message: assistantIntentMessages.categoryHomeKitchen },
 ];
 
 const NAVIGATION_TARGETS = [
@@ -163,13 +178,13 @@ export const normalizeAssistantText = (value = '') => safeString(value)
     .trim();
 
 export const findAssistantCategory = (value = '') => {
-    const normalized = normalizeAssistantText(value);
-    return CATEGORY_ALIASES.find((entry) => entry.aliases.some((alias) => normalized.includes(alias))) || null;
+    const normalized = ` ${normalizeAssistantText(value)} `;
+    return CATEGORY_ALIASES.find((entry) => entry.aliases.some((alias) => normalized.includes(` ${alias} `))) || null;
 };
 
 export const findAssistantNavigationTarget = (value = '') => {
-    const normalized = normalizeAssistantText(value);
-    return NAVIGATION_TARGETS.find((entry) => entry.aliases.some((alias) => normalized.includes(alias))) || null;
+    const normalized = ` ${normalizeAssistantText(value)} `;
+    return NAVIGATION_TARGETS.find((entry) => entry.aliases.some((alias) => normalized.includes(` ${alias} `))) || null;
 };
 
 export const extractAssistantBudget = (value = '') => {
@@ -207,11 +222,17 @@ export const parseClientAssistantIntent = (value = '', options = {}) => {
     const category = findAssistantCategory(raw);
     const pageTarget = findAssistantNavigationTarget(raw);
     const maxPrice = extractAssistantBudget(raw);
-    const ratingMatch = normalized.match(/\brating\s*([1-5](?:\.\d)?)\+?\b/);
+    // Match against raw text: normalization strips decimal points ("4.5" -> "4 5").
+    const ratingMatch = raw.match(/\brating\s*([1-5](?:\.\d)?)\+?\b/i)
+        || raw.match(/\brated\s*([1-5](?:\.\d)?)\b/i)
+        || raw.match(/\b([1-5](?:\.\d)?)\s*\+\s*stars?\b/i)
+        || raw.match(/\b([1-5](?:\.\d)?)\s*stars?(?:\s*(?:and\s+up|or\s+above|\+))?\b/i);
     const rating = ratingMatch ? Number(ratingMatch[1]) : undefined;
     const inStock = /\bin stock|available now|ready stock\b/.test(normalized);
     const deliveryTime = /\bfast delivery|quick delivery|same day|one day\b/.test(normalized) ? '1-2 days' : undefined;
-    const productId = raw.match(/\b(?:product|item)\s+([a-z0-9._-]{3,})\b/i)?.[1] || '';
+    const rawProductId = raw.match(/\b(?:product|item)\s+([a-z0-9._-]{3,})\b/i)?.[1] || '';
+    // Require a digit so ordinary words ("recommendations", "stock") don't become phantom ids.
+    const productId = /[0-9]/.test(rawProductId) ? rawProductId : '';
     const browseCategory = Boolean(category)
         && /\b(open|browse|go to|take me to)\b/.test(normalized)
         && !/\b(search|find|show me|best|cheap|affordable|under|below|within|price)\b/.test(normalized);
@@ -224,11 +245,24 @@ export const parseClientAssistantIntent = (value = '', options = {}) => {
                 : '';
 
     const cleanedQuery = raw
-        .replace(/\b(?:under|below|less than|max|within)\s+\d{1,3}k?\b/gi, ' ')
+        .replace(/\b(?:under|below|less than|max|within)\s+(?:(?:rs\.?|inr)\s+)?[\d,]+(?:\.\d+)?\s*k?\b/gi, ' ')
+        .replace(/\b(?:rs\.?|inr)\s*[\d,]+(?:\.\d+)?\s*k?\b/gi, ' ')
         .replace(/\brating\s*[1-5](?:\.\d)?\+?\b/gi, ' ')
+        .replace(/\brated\s*[1-5](?:\.\d)?\b/gi, ' ')
+        .replace(/\b[1-5](?:\.\d)?\s*\+?\s*stars?(?:\s*(?:and\s+up|or\s+above))?\b/gi, ' ')
         .replace(/\bfast delivery|quick delivery|same day|one day|in stock|available now|ready stock\b/gi, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
+
+    // Support first: "cancel my order" / "help with delayed order" must not
+    // be swallowed by the generic help/close matchers below.
+    if (/\b(track|refund|return|replace|replacement|support|issue|problem|complaint|warranty|order)\b/.test(normalized)) {
+        return {
+            intent: 'support',
+            confidence: 0.88,
+            entities: {},
+        };
+    }
 
     if (/\b(help|commands|what can you do)\b/.test(normalized)) {
         return {
@@ -241,7 +275,8 @@ export const parseClientAssistantIntent = (value = '', options = {}) => {
         };
     }
 
-    if (/\b(close|exit|cancel|stop)\b/.test(normalized)) {
+    if (/\b(close|exit|cancel|stop)\b/.test(normalized)
+        && !/\b(order|refund|return|payment|delivery|shipment|support)\b/.test(normalized)) {
         return {
             intent: 'navigation',
             confidence: 0.95,
@@ -261,14 +296,6 @@ export const parseClientAssistantIntent = (value = '', options = {}) => {
             entities: {
                 page: 'checkout',
             },
-        };
-    }
-
-    if (/\b(track|refund|return|replace|replacement|support|issue|problem|complaint|warranty)\b/.test(normalized)) {
-        return {
-            intent: 'support',
-            confidence: 0.88,
-            entities: {},
         };
     }
 
@@ -300,21 +327,6 @@ export const parseClientAssistantIntent = (value = '', options = {}) => {
                 params: {
                     category: category.value,
                 },
-            },
-        };
-    }
-
-    if (pageTarget) {
-        return {
-            intent: 'navigation',
-            confidence: 0.9,
-            entities: {
-                page: pageTarget.page,
-            },
-            action: {
-                type: 'navigate',
-                path: pageTarget.path,
-                label: formatAssistantIntentMessage(formatMessage, pageTarget.message),
             },
         };
     }
@@ -357,6 +369,23 @@ export const parseClientAssistantIntent = (value = '', options = {}) => {
             action: {
                 type: 'search',
                 query: cleanedQuery || raw,
+            },
+        };
+    }
+
+    // Generic navigation last so commerce searches win over nav-substring
+    // matches (e.g. "garbage bags" must not route to /cart via "bag").
+    if (pageTarget) {
+        return {
+            intent: 'navigation',
+            confidence: 0.9,
+            entities: {
+                page: pageTarget.page,
+            },
+            action: {
+                type: 'navigate',
+                path: pageTarget.path,
+                label: formatAssistantIntentMessage(formatMessage, pageTarget.message),
             },
         };
     }
@@ -414,6 +443,26 @@ export const buildLocalVoiceCommand = (value = '', options = {}) => {
             path: parsed.action.path,
             message: formatAssistantIntentMessage(formatMessage, assistantIntentMessages.openingPage, {
                 page: parsed.action.label || formatAssistantIntentMessage(formatMessage, assistantIntentMessages.fallbackPage),
+            }),
+        };
+    }
+
+    if (parsed.intent === 'checkout') {
+        return {
+            type: 'navigate',
+            path: '/checkout',
+            message: formatAssistantIntentMessage(formatMessage, assistantIntentMessages.openingPage, {
+                page: 'checkout',
+            }),
+        };
+    }
+
+    if (parsed.intent === 'support') {
+        return {
+            type: 'navigate',
+            path: '/support',
+            message: formatAssistantIntentMessage(formatMessage, assistantIntentMessages.openingPage, {
+                page: 'support',
             }),
         };
     }

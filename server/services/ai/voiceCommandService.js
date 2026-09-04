@@ -27,6 +27,8 @@ const ROUTE_COMMANDS = [
     { aliases: ['checkout'], path: '/checkout', label: 'Checkout' },
 ];
 
+const { inspectUserPrompt } = require('./promptGuardService');
+
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 const normalizeText = (value = '') => safeString(value)
     .toLowerCase()
@@ -35,8 +37,9 @@ const normalizeText = (value = '') => safeString(value)
     .trim();
 
 const findCategoryCommand = (normalized) => {
+    const padded = ` ${normalized} `;
     for (const category of CATEGORY_ROUTES) {
-        if (category.aliases.some((alias) => normalized.includes(alias))) {
+        if (category.aliases.some((alias) => padded.includes(` ${alias} `))) {
             return category;
         }
     }
@@ -44,8 +47,9 @@ const findCategoryCommand = (normalized) => {
 };
 
 const findRouteCommand = (normalized) => {
+    const padded = ` ${normalized} `;
     for (const route of ROUTE_COMMANDS) {
-        if (route.aliases.some((alias) => normalized.includes(alias))) {
+        if (route.aliases.some((alias) => padded.includes(` ${alias} `))) {
             return route;
         }
     }
@@ -59,6 +63,14 @@ const interpretVoiceCommand = (rawText = '') => {
             answer: 'Say a command like search for iPhone 15, open cart, or show laptops.',
             actions: [],
             followUps: ['Search for phones', 'Open marketplace', 'Show bundles'],
+        };
+    }
+
+    if (inspectUserPrompt(raw).blocked) {
+        return {
+            answer: 'I blocked that voice command because it failed a safety check.',
+            actions: [],
+            followUps: ['Search for mobiles', 'Open cart', 'Show deals'],
         };
     }
 

@@ -4013,6 +4013,16 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Image {value}",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "assistant.attachment.moreAudio": {
+        id: "assistant.attachment.moreAudio",
+        defaultMessage: "+{value} more",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.attachment.moreImages": {
+        id: "assistant.attachment.moreImages",
+        defaultMessage: "+{value} more",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "assistant.attachment.number": {
         id: "assistant.attachment.number",
         defaultMessage: "Attachment {value}",
@@ -4056,6 +4066,11 @@ export const stableUiMessages = defineMessages({
     "assistant.grounding.whyThisAnswer": {
         id: "assistant.grounding.whyThisAnswer",
         defaultMessage: "Why this answer",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "assistant.message.empty": {
+        id: "assistant.message.empty",
+        defaultMessage: "No reply was returned. Try again.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "assistant.product.confirmMissingDetails": {
@@ -16521,16 +16536,6 @@ export const stableUiMessages = defineMessages({
     "search.jsx.expression.scanning.catalog.f1f44d07": {
         id: "search.jsx.expression.scanning.catalog.f1f44d07",
         defaultMessage: "Scanning Catalog...",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "search.jsx.expression.start.listening.5d73b372": {
-        id: "search.jsx.expression.start.listening.5d73b372",
-        defaultMessage: "Start listening",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "search.jsx.expression.stop.listening.5f3b2910": {
-        id: "search.jsx.expression.stop.listening.5f3b2910",
-        defaultMessage: "Stop listening",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "search.jsx.text.choose.image.15fa1bac": {

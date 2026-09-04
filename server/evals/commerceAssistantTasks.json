@@ -1,0 +1,96 @@
+{
+  "name": "commerce-assistant-tasks",
+  "version": 1,
+  "description": "Deterministic multi-turn task eval: reference resolution, slot filling, confirmation integrity. No database; pure services only.",
+  "cases": [
+    {
+      "id": "ordinal-add-to-cart",
+      "turns": [
+        { "message": "add the second one to cart", "taskType": "add_to_cart" }
+      ],
+      "session": {
+        "lastResults": [
+          { "id": "101", "title": "Aura Phone Pro", "brand": "Aura", "category": "Mobiles", "price": 45000, "stock": 3, "rating": 4.2 },
+          { "id": "202", "title": "Prime Phone Lite", "brand": "Prime", "category": "Mobiles", "price": 22000, "stock": 9, "rating": 4.6 }
+        ]
+      },
+      "stubs": { "quantity": 1 },
+      "expect": { "complete": true, "actionType": "add_to_cart", "productId": "202" }
+    },
+    {
+      "id": "ambiguous-reference-asks",
+      "turns": [
+        { "message": "add it to cart", "taskType": "add_to_cart" }
+      ],
+      "session": {
+        "lastResults": [
+          { "id": "101", "title": "Aura Phone Pro", "brand": "Aura", "category": "Mobiles", "price": 45000, "stock": 3, "rating": 4.2 },
+          { "id": "202", "title": "Prime Phone Lite", "brand": "Prime", "category": "Mobiles", "price": 22000, "stock": 9, "rating": 4.6 }
+        ]
+      },
+      "stubs": { "quantity": 1 },
+      "expect": { "complete": false, "question": "productId" }
+    },
+    {
+      "id": "cheaper-one-resolves",
+      "turns": [
+        { "message": "get the cheaper one", "taskType": "add_to_cart" }
+      ],
+      "session": {
+        "lastResults": [
+          { "id": "101", "title": "Aura Phone Pro", "brand": "Aura", "category": "Mobiles", "price": 45000, "stock": 3, "rating": 4.2 },
+          { "id": "202", "title": "Prime Phone Lite", "brand": "Prime", "category": "Mobiles", "price": 22000, "stock": 9, "rating": 4.6 }
+        ]
+      },
+      "stubs": { "quantity": 1 },
+      "expect": { "complete": true, "actionType": "add_to_cart", "productId": "202" }
+    },
+    {
+      "id": "two-turn-cancel-order",
+      "turns": [
+        { "message": "cancel my order", "taskType": "cancel_order" },
+        { "message": "the latest one", "stubs": { "orderId": "507f1f77bcf86cd799439011" } }
+      ],
+      "session": {},
+      "stubs": {},
+      "expect": { "complete": true, "actionType": "cancel_order", "orderId": "507f1f77bcf86cd799439011" }
+    },
+    {
+      "id": "guest-order-blocked",
+      "turns": [
+        { "message": "cancel my order", "taskType": "cancel_order" }
+      ],
+      "session": {},
+      "stubs": { "blocked": "Sign in before I look up or change an order." },
+      "expect": { "complete": false, "blocked": true }
+    },
+    {
+      "id": "abandon-task",
+      "turns": [
+        { "message": "add it to cart", "taskType": "add_to_cart" },
+        { "message": "never mind", "carryTask": true }
+      ],
+      "session": {
+        "lastResults": [
+          { "id": "101", "title": "Aura Phone Pro", "brand": "Aura", "category": "Mobiles", "price": 45000, "stock": 3, "rating": 4.2 },
+          { "id": "202", "title": "Prime Phone Lite", "brand": "Prime", "category": "Mobiles", "price": 22000, "stock": 9, "rating": 4.6 }
+        ]
+      },
+      "stubs": { "quantity": 1 },
+      "expect": { "cancelled": true }
+    },
+    {
+      "id": "tampered-token-rejected",
+      "tokenCheck": {
+        "action": { "type": "add_to_cart", "productId": "101", "quantity": 1, "amount": 0 },
+        "tamperedAction": { "type": "add_to_cart", "productId": "101", "quantity": 20, "amount": 99999 }
+      },
+      "expect": { "tokenValid": true, "tamperedRejected": true }
+    },
+    {
+      "id": "free-text-yes-never-confirms",
+      "confirmationCheck": { "message": "yes please, continue" },
+      "expect": { "inferred": false }
+    }
+  ]
+}

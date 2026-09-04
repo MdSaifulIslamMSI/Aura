@@ -3,6 +3,9 @@ const { describeVisualInput, embedTexts, cosineSimilarity, rerankDocuments } = r
 
 const MAX_CANDIDATES = 36;
 const MAX_MATCHES = 24;
+// Below this blended score a "match" is noise, not evidence. There is
+// deliberately no floor: weak signals must score near zero, not 0.15.
+const MIN_VISUAL_CONFIDENCE = Number(process.env.VISUAL_SEARCH_MIN_CONFIDENCE || 0.35);
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim();
 
@@ -138,7 +141,7 @@ const enrichRankedMatches = ({ rankedDocuments = [], heuristicTokens = [], query
         const lexicalScore = tokens.length > 0 ? (lexicalHits / tokens.length) : 0;
         const rerankScore = Number(entry?.score || 0);
         const semanticScore = Number(product?.__semanticScore || 0);
-        const blended = Math.min(0.99, Math.max(0.15, Number(((rerankScore * 0.55) + (semanticScore * 0.3) + (lexicalScore * 0.15)).toFixed(3))));
+        const blended = Math.min(0.99, Math.max(0, Number(((rerankScore * 0.55) + (semanticScore * 0.3) + (lexicalScore * 0.15)).toFixed(3))));
 
         return {
             ...product,
@@ -150,7 +153,8 @@ const enrichRankedMatches = ({ rankedDocuments = [], heuristicTokens = [], query
                 lexicalScore: Number(lexicalScore.toFixed(3)),
             },
         };
-    });
+    }).filter((product) => Number(product?.visualConfidence || 0) >= MIN_VISUAL_CONFIDENCE)
+        .map((product, index) => ({ ...product, visualRank: index + 1 }));
 };
 
 const runMultimodalVisualSearch = async (payload = {}) => {
@@ -210,6 +214,8 @@ const runMultimodalVisualSearch = async (payload = {}) => {
         queryText: primaryQuery,
     }).slice(0, MAX_MATCHES);
 
+    // Never reflect raw attacker-controlled imageMeta back to clients.
+    const rawMeta = payload.imageMeta && typeof payload.imageMeta === 'object' ? payload.imageMeta : null;
     return {
         querySignals: {
             tokens: uniqueStrings([
@@ -218,10 +224,13 @@ const runMultimodalVisualSearch = async (payload = {}) => {
                 ...(description.attributes || []),
             ], 12),
             derivedKeyword: primaryQuery || null,
-            caption: description.caption || '',
-            categoryHints: description.categoryHints || [],
+            caption: safeString(description.caption || '').slice(0, 280),
+            categoryHints: (Array.isArray(description.categoryHints) ? description.categoryHints : []).map((entry) => safeString(entry).slice(0, 60)).filter(Boolean).slice(0, 6),
             visionProvider: description.provider || 'heuristic',
-            imageMeta: payload.imageMeta || null,
+            imageMeta: rawMeta ? {
+                mimeType: safeString(rawMeta.mimeType || '').slice(0, 64),
+                source: safeString(rawMeta.source || '').slice(0, 64),
+            } : null,
         },
         matches,
         total: matches.length,

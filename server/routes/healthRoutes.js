@@ -12,6 +12,12 @@ const router = express.Router();
 
 const CHECK_TIMEOUT_MS = Math.max(Number(process.env.HEALTH_CHECK_TIMEOUT_MS || 2500), 500);
 
+// Allowlist health reasons so upstream error text can't leak internals.
+const safeReason = (value = '', fallback = 'assistant_unhealthy') => {
+    const normalized = String(value || '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 64);
+    return /^[a-z][a-z0-9_]*$/.test(normalized) ? normalized : fallback;
+};
+
 const withTimeout = async (name, task, timeoutMs = CHECK_TIMEOUT_MS) => {
     const startedAt = Date.now();
     try {
@@ -116,7 +122,13 @@ const checkAi = () => withTimeout('ai', async () => {
     const snapshot = await getCachedHealthSnapshot();
     const ai = snapshot?.services?.ai || {};
     const assistant = ai.commerceAssistant || {};
-    if (assistant.healthy === false) return { status: 'degraded', reason: 'provider_timeout' };
+    if (assistant.healthy === false) {
+        return { status: 'degraded', reason: safeReason(assistant.reason || assistant.error) };
+    }
+    // No data is not healthy: a cold/failed snapshot must not report healthy.
+    if (typeof assistant.healthy !== 'boolean') {
+        return { status: 'degraded', reason: 'assistant_health_unknown' };
+    }
     return { status: 'healthy' };
 });
 

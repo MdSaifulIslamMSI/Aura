@@ -78,12 +78,12 @@ describe('assistantActionRegistry', () => {
             type: 'add_to_cart',
             productId: '101',
             quantity: 1,
-        });
+        }, { confirmed: true });
         const second = await registry.executeAssistantAction({
             type: 'add_to_cart',
             productId: '101',
             quantity: 1,
-        });
+        }, { confirmed: true });
 
         expect(first.suppressedDuplicate).toBe(false);
         expect(second.suppressedDuplicate).toBe(true);
@@ -107,10 +107,26 @@ describe('assistantActionRegistry', () => {
             type: 'add_to_cart',
             productId: '101',
             quantity: 1,
-        });
+        }, { confirmed: true });
 
         expect(result.success).toBe(false);
         expect(result.message).toMatch(/unavailable|out of stock/i);
+        expect(selectCartSummary(useCommerceStore.getState()).totalItems).toBe(0);
+    });
+
+    it('requires explicit confirmation for state-changing actions', async () => {
+        const registry = createAssistantActionRegistry({
+            navigate: vi.fn(),
+            candidates: [{ id: '101', title: 'Aura Phone', stock: 10 }],
+        });
+
+        const result = await registry.executeAssistantAction({
+            type: 'add_to_cart',
+            productId: '101',
+            quantity: 1,
+        });
+
+        expect(result).toMatchObject({ success: false, requiresConfirmation: true });
         expect(selectCartSummary(useCommerceStore.getState()).totalItems).toBe(0);
     });
 
@@ -130,12 +146,12 @@ describe('assistantActionRegistry', () => {
             type: 'add_to_cart',
             productId: '101',
             quantity: 1,
-        });
+        }, { confirmed: true });
         await registry.executeAssistantAction({
             type: 'add_to_cart',
             productId: '101',
             quantity: 10,
-        });
+        }, { confirmed: true });
 
         expect(selectCartSummary(useCommerceStore.getState()).totalItems).toBe(2);
     });
@@ -169,6 +185,7 @@ describe('assistantActionRegistry', () => {
             quantity: 1,
         }, {
             canExecute: () => ownsAction,
+            confirmed: true,
         });
         await addStarted;
         ownsAction = false;

@@ -239,7 +239,19 @@ const generateStructuredJson = async ({
     prompt = '',
     route = 'GENERAL',
     temperature = 0.2,
+    images = [],
+    audio = [],
 } = {}) => {
+    if ((Array.isArray(images) && images.length > 0) || (Array.isArray(audio) && audio.length > 0)) {
+        // Never answer a multimodal turn from text alone without saying so:
+        // fail loud so the commerce layer falls back instead of hallucinating.
+        logger.warn('ollama.media_unsupported', {
+            route,
+            images: Array.isArray(images) ? images.length : 0,
+            audio: Array.isArray(audio) ? audio.length : 0,
+        });
+        throw new Error('ollama_media_unsupported');
+    }
     const config = getGatewayConfig();
     const health = await checkOllamaHealth();
     if (!health.healthy) {

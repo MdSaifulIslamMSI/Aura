@@ -31,7 +31,8 @@ const STATUS_BADGES = {
         lightClassName: 'border-emerald-200 bg-emerald-50 text-emerald-800',
     },
     error: {
-        label: 'Error',
+        labelId: 'assistant.message.status.error',
+        labelDefault: 'Error',
         darkClassName: 'border-rose-400/20 bg-rose-500/10 text-rose-100',
         lightClassName: 'border-rose-200 bg-rose-50 text-rose-800',
     },
@@ -86,9 +87,14 @@ const renderMarkdown = (text = '', isWhiteMode = false) => {
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                    a: ({ node: _node, ...props }) => (
-                        <a {...props} target="_blank" rel="noreferrer" />
-                    ),
+                    a: ({ node: _node, href, ...props }) => {
+                        const target = String(href || '');
+                        const allowed = /^(https?:\/\/|\/|#|mailto:)/i.test(target);
+                        if (!allowed) {
+                            return <span {...props} />;
+                        }
+                        return <a {...props} href={target} target="_blank" rel="noopener noreferrer" />;
+                    },
                 }}
             >
                 {String(text || '')}
@@ -397,6 +403,11 @@ const renderUserMediaAttachments = (message = {}, isWhiteMode = false, t) => {
                             />
                         </div>
                     ))}
+                    {images.length > 3 ? (
+                        <p className={cn('text-[11px] font-semibold', subtleTextClass)}>
+                            <StableText id="assistant.attachment.moreImages" defaultMessage="+{value} more" values={{ value: images.length - 3 }} />
+                        </p>
+                    ) : null}
                 </div>
             ) : null}
 
@@ -413,9 +424,17 @@ const renderUserMediaAttachments = (message = {}, isWhiteMode = false, t) => {
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-semibold">{entry.fileName || t('assistant.attachment.audioNote', {}, 'Audio note')}</p>
                                 <p className={cn('text-[11px]', subtleTextClass)}>{entry.mimeType || t('assistant.attachment.audioUpload', {}, 'audio upload')}</p>
+                                {String(entry.dataUrl || entry.url || '').trim() ? (
+                                    <audio className="mt-1 w-full" controls preload="metadata" src={entry.dataUrl || entry.url} />
+                                ) : null}
                             </div>
                         </div>
                     ))}
+                    {audio.length > 3 ? (
+                        <p className={cn('text-[11px] font-semibold', subtleTextClass)}>
+                            <StableText id="assistant.attachment.moreAudio" defaultMessage="+{value} more" values={{ value: audio.length - 3 }} />
+                        </p>
+                    ) : null}
                 </div>
             ) : null}
         </div>
@@ -494,10 +513,14 @@ const MessageItem = ({
 
                                 {displayText ? (
                                     renderMarkdown(displayText, isWhiteMode)
-                                ) : (
+                                ) : message?.isStreaming ? (
                                     <div className="flex items-center gap-2 text-sm text-slate-400">
                                         <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
                                         <span><StableText id={"common.jsx.text.working.through.live.evidence.856c66cc"} defaultMessage={"Working through live evidence..."} /></span>
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-slate-400">
+                                        <span><StableText id="assistant.message.empty" defaultMessage="No reply was returned. Try again." /></span>
                                     </div>
                                 )}
                             </div>

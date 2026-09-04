@@ -102,7 +102,7 @@ const buildSurfaceActions = ({
     if (assistantTurn?.intent === 'general_knowledge') {
         return {
             primaryAction: null,
-            secondaryActions: [],
+            secondaryActions: followUpActions,
         };
     }
 
@@ -370,6 +370,8 @@ export const useAssistantController = () => {
         }
 
         const handleAssistantUpgrade = (payload = {}) => {
+            // Ignore replays/stale lanes: only the active session may patch the transcript.
+            if (safeString(payload?.sessionId || '') !== safeString(activeSessionIdRef.current || '')) return;
             mergeAssistantUpgrade({
                 sessionId: payload?.sessionId || '',
                 messageId: payload?.messageId || '',
@@ -393,6 +395,7 @@ export const useAssistantController = () => {
     const executePlannedActions = useCallback(async (assistantTurn, {
         sessionId = '',
         canExecute = () => true,
+        confirmed = false,
     } = {}) => {
         const uiProducts = normalizeUiProducts(assistantTurn, {});
         const results = [];
@@ -402,6 +405,7 @@ export const useAssistantController = () => {
 
         for (const action of plannedActions) {
             if (!canExecute()) {
+                setPendingAction(null, sessionId);
                 return {
                     ...mergeExecutionResults(results),
                     success: false,
@@ -412,9 +416,11 @@ export const useAssistantController = () => {
             const result = await registry.executeAssistantAction(action, {
                 uiProducts,
                 canExecute,
+                confirmed,
             });
             results.push(result);
             if (result?.ownershipLost) {
+                setPendingAction(null, sessionId);
                 return {
                     ...mergeExecutionResults(results),
                     success: false,
@@ -466,7 +472,7 @@ export const useAssistantController = () => {
                 model: safeString(response?.providerModel || ''),
             },
             providerCapabilities: response?.providerCapabilities || null,
-            activeProductId: safeString(execution?.activeProductId || product?.id || ''),
+            activeProductId: safeString(execution?.activeProductId || product?.id || '') || undefined,
             provisional: Boolean(response?.provisional),
             upgradeEligible: Boolean(response?.upgradeEligible),
             traceId: safeString(response?.traceId || response?.grounding?.traceId || ''),
@@ -557,6 +563,7 @@ export const useAssistantController = () => {
                 const execution = await executePlannedActions(assistantTurn, {
                     sessionId: initiatingSessionId,
                     canExecute,
+                    confirmed: true,
                 });
                 if (execution?.ownershipLost) {
                     presentAssistantTurn(buildNonExecutableAssistantTurn(
@@ -823,9 +830,16 @@ export const useAssistantController = () => {
                 }
 
                 if (eventName === 'token') {
+                    const rawToken = data?.text ?? data?.delta ?? data?.raw ?? '';
+                    const tokenText = typeof rawToken === 'string'
+                        ? rawToken
+                        : typeof rawToken?.text === 'string'
+                            ? rawToken.text
+                            : '';
+                    if (!tokenText) return;
                     appendAssistantStreamToken(
                         streamMessageId,
-                        String(data?.text ?? data?.delta ?? data?.raw ?? ''),
+                        tokenText,
                         initiatingSessionId,
                     );
                     return;
@@ -954,10 +968,17 @@ export const useAssistantController = () => {
                 isAuthenticated,
                 pathname: assistantContextPath,
             });
+            // Quota rejections are transient and retryable: say so with the
+            // server-provided wait, and offer a working retry action.
+            const retryAfterSeconds = Number(error?.retryAfterSeconds || 0);
+            const isQuotaError = Number(error?.status) === 429;
+            const fallbackAnswer = isQuotaError
+                ? `You've hit the assistant request limit${Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0 ? ` — try again in about ${Math.max(1, Math.round(retryAfterSeconds))} seconds` : ', please wait a moment and try again'}. Your last message is kept, so retry when ready.`
+                : fallback.answer;
             const fallbackTurn = {
                 intent: 'local_fallback',
                 decision: 'respond',
-                response: fallback.answer,
+                response: fallbackAnswer,
                 actions: [],
                 ui: {
                     surface: fallback.mode === 'cart'
@@ -970,11 +991,11 @@ export const useAssistantController = () => {
                                     ? 'support_handoff'
                                     : 'plain_answer',
                 },
-                followUps: [],
+                followUps: ['Try again'],
             };
 
             finalizeAssistantStream(streamMessageId, {
-                text: fallback.answer,
+                text: fallbackAnswer,
                 mode: fallback.mode,
                 cartSummary: fallback.cartSummary || null,
                 supportPrefill: fallback.supportPrefill || null,
@@ -1044,6 +1065,16 @@ export const useAssistantController = () => {
     const handleAction = useCallback((action) => {
         if (!action?.kind) return;
 
+        if (action.kind === 'retry') {
+            const lastUserMessage = [...(Array.isArray(conversationHistory) ? conversationHistory : [])]
+                .reverse()
+                .find((entry) => safeString(entry?.role) === 'user' && safeString(entry?.content).trim());
+            if (safeString(lastUserMessage?.content).trim()) {
+                void handleUserInput(safeString(lastUserMessage.content));
+            }
+            return;
+        }
+
         if (action.kind === 'search' && action.payload?.query) {
             void handleUserInput(action.payload.query);
             return;
@@ -1063,7 +1094,7 @@ export const useAssistantController = () => {
                 type: 'add_to_cart',
                 productId: action.payload.id,
                 quantity: action.payload.quantity || 1,
-            }).then((result) => {
+            }, { confirmed: true }).then((result) => {
                 if (result?.suppressedDuplicate) {
                     return;
                 }
@@ -1234,7 +1265,7 @@ export const useAssistantController = () => {
             type: 'add_to_cart',
             productId,
             quantity,
-        }).then((result) => {
+        }, { confirmed: true }).then((result) => {
             if (result?.suppressedDuplicate) {
                 return result;
             }

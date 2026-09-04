@@ -22,6 +22,7 @@ const AMBIENT_CHROME_PREFIXES = [
 ];
 
 const CHATBOT_ROUTE_PREFIXES = [
+    '/',
     '/products',
     '/category/',
     '/search',
@@ -32,6 +33,13 @@ const CHATBOT_ROUTE_PREFIXES = [
     '/product/',
     '/listing/',
     '/cart',
+    '/checkout',
+    '/orders',
+    '/support',
+    '/contact',
+    '/compare',
+    '/bundles',
+    '/visual-search',
 ];
 
 const BACKEND_STATUS_ROUTE_PREFIXES = [

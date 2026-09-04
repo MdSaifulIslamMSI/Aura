@@ -23,6 +23,7 @@ jest.mock('../services/ai/assistantContract', () => ({
         ...payload,
     })),
     buildConfirmationToken: jest.fn(() => 'confirmation-token'),
+    verifyConfirmationToken: jest.fn(() => true),
     safeString: jest.fn((value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim()),
 }));
 
@@ -34,6 +35,8 @@ jest.mock('../services/ai/assistantToolRegistry', () => ({
 }));
 
 jest.mock('../services/ai/assistantObservabilityService', () => ({
+    recordConfirmationMetric: jest.fn(),
+    recordCostMetric: jest.fn(),
     recordFallbackMetric: jest.fn(),
     recordLatencyMetric: jest.fn(),
     recordRetrievalMetric: jest.fn(),

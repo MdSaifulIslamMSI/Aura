@@ -206,9 +206,9 @@ const TOOL_REGISTRY = Object.freeze({
     apply_coupon: {
         name: 'apply_coupon',
         timeout_ms: 2200,
-        idempotent: true,
-        mutation: false,
-        requires_confirmation: false,
+        idempotent: false,
+        mutation: true,
+        requires_confirmation: true,
         input_schema: {
             required: [],
             properties: {
@@ -372,11 +372,11 @@ const TOOL_REGISTRY = Object.freeze({
 const validatePrimitive = (value, expectedType) => {
     if (expectedType === 'array') return Array.isArray(value);
     if (expectedType === 'object') return value && typeof value === 'object' && !Array.isArray(value);
-    if (expectedType === 'number') return Number.isFinite(Number(value));
+    if (expectedType === 'number') return typeof value === 'number' && Number.isFinite(value);
     return typeof value === expectedType;
 };
 
-const isPositiveProductId = (value) => /^\d+$/.test(safeString(value));
+const isPositiveProductId = (value) => /^[1-9]\d*$/.test(safeString(value));
 const isFullOrderId = (value) => /^[a-f0-9]{24}$/i.test(safeString(value));
 
 const validateSemanticToolInput = ({ toolName = '', payload = {} } = {}) => {

@@ -121,9 +121,7 @@ describe('assistantThreadPersistenceService cancellation', () => {
         });
         expect(AssistantThread.updateOne).toHaveBeenNthCalledWith(2, {
             _id: 'thread-1',
-            messageCount: { $gte: 2 },
         }, {
-            $inc: { messageCount: -2 },
             $pull: {
                 'metadata.activePersistenceExchangeIds': expect.any(String),
             },

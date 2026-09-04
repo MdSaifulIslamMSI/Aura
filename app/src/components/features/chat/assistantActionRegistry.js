@@ -10,6 +10,14 @@ import {
 
 const safeString = (value = '') => String(value ?? '').trim();
 const ACTION_DEDUPE_WINDOW_MS = 2000;
+const CONFIRMATION_REQUIRED_ACTIONS = new Set([
+    'add_to_cart',
+    'remove_from_cart',
+    'cancel_order',
+    'create_return_request',
+    'apply_coupon',
+    'go_to_checkout',
+]);
 
 const assistantActionMessages = defineMessages({
     takingToCheckout: { id: 'assistant.action.checkout.navigation', defaultMessage: 'Taking you to checkout.' },
@@ -96,10 +104,19 @@ const buildPathFromNavigation = (page = '', params = {}) => {
     if (!basePath || missingRouteParam) return '';
     const searchParams = new URLSearchParams();
 
+    // Allowlist: backend-driven params must not smuggle arbitrary keys
+    // (e.g. admin/redirect) into app navigation.
+    const ALLOWED_NAV_QUERY_KEYS = new Set([
+        'q', 'tab', 'focus', 'expand', 'support', 'coupon', 'category',
+        'productId', 'listingId', 'sellerId', 'compose',
+    ]);
     Object.entries(params || {}).forEach(([key, value]) => {
         if (consumedParams.has(key)) return;
+        if (!ALLOWED_NAV_QUERY_KEYS.has(key)) return;
         if (value === undefined || value === null || value === '') return;
-        searchParams.set(key, String(value));
+        const safeKey = String(key).slice(0, 64);
+        const safeValue = String(value).slice(0, 256);
+        searchParams.set(safeKey, safeValue);
     });
 
     const query = searchParams.toString();
@@ -590,6 +607,15 @@ export const createAssistantActionRegistry = ({
         const type = safeString(action?.type || '');
         const uiProducts = Array.isArray(options?.uiProducts) ? options.uiProducts : [];
         const canExecute = typeof options?.canExecute === 'function' ? options.canExecute : () => true;
+        if (CONFIRMATION_REQUIRED_ACTIONS.has(type) && options?.confirmed !== true) {
+            return {
+                success: false,
+                requiresConfirmation: true,
+                message: '',
+                actionFingerprint: '',
+                actionAt: Date.now(),
+            };
+        }
         const fingerprint = buildActionFingerprint(action);
         const now = Date.now();
 

@@ -16,9 +16,18 @@ describe('assistantUiConfig', () => {
     it('shows the assistant launcher only on supported shopping routes', () => {
         expect(shouldShowAssistantLauncher({
             pathname: '/',
-        })).toBe(false);
+        })).toBe(true);
         expect(shouldShowAssistantLauncher({
             pathname: '/product/101',
+        })).toBe(true);
+        expect(shouldShowAssistantLauncher({
+            pathname: '/checkout',
+        })).toBe(true);
+        expect(shouldShowAssistantLauncher({
+            pathname: '/orders',
+        })).toBe(true);
+        expect(shouldShowAssistantLauncher({
+            pathname: '/support',
         })).toBe(true);
         expect(shouldShowAssistantLauncher({
             pathname: '/assistant',

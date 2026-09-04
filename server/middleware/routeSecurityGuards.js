@@ -278,7 +278,7 @@ const authorizeListingOwner = (action = 'listing.write') => authorizeResource({
 });
 
 const normalizeActionType = (value = '') => String(value || '').trim().toLowerCase();
-const SENSITIVE_AI_ACTION_PATTERN = /\b(admin|refund|payment|payout|delete|recover|recovery|password|factor|webauthn|upload|moderation|cancel_order|create_return_request|add_to_cart|remove_from_cart)\b/i;
+const SENSITIVE_AI_ACTION_PATTERN = /\b(admin|refund|payment|payout|delete|recover|recovery|password|factor|webauthn|upload|moderation|cancel_order|create_return_request|add_to_cart|remove_from_cart|apply_coupon|go_to_checkout)\b/i;
 
 const hasSensitiveAiToolAction = (req = {}) => {
     const actionType = normalizeActionType(req.body?.actionRequest?.type);

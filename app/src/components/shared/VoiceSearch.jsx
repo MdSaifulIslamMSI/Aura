@@ -75,6 +75,7 @@ const VoiceSearch = ({
   const voiceSessionRef = useRef(null);
   const audioRef = useRef(null);
   const audioUrlRef = useRef('');
+  const inputRef = useRef(null);
   const navigate = useNavigate();
   const intl = useIntl();
   const { t: legacyT, voiceLocale } = useMarket();
@@ -141,6 +142,13 @@ const VoiceSearch = ({
     },
     [playServerSpeech, speechEnabled, voiceLocale, voiceSession?.locale]
   );
+
+  const stopAllSpeech = useCallback(() => {
+    audioRef.current?.pause();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
@@ -218,6 +226,7 @@ const VoiceSearch = ({
           context: {
             locale: voiceSessionRef.current?.locale || voiceLocale,
             voiceSessionId: voiceSessionRef.current?.sessionId || '',
+            route: typeof window !== 'undefined' ? window.location.pathname : '/',
           },
         });
 
@@ -315,6 +324,21 @@ const VoiceSearch = ({
   }, [browserSupportsSpeechRecognition, executeCommand, intl, voiceLocale]);
 
   useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        onClose?.();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
     let active = true;
 
     aiApi.createVoiceSession({ locale: voiceLocale })
@@ -351,6 +375,9 @@ const VoiceSearch = ({
     <div
       className="fixed inset-0 z-[75] bg-black/70 flex items-center justify-center p-4"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={intl.formatMessage({ id: 'voice.dialog.ariaLabel', defaultMessage: 'Voice assistant' })}
     >
       <div
         className="w-full max-w-2xl rounded-3xl border border-white/10 bg-zinc-950/95 shadow-[0_30px_90px_rgba(2,6,23,0.8)] overflow-hidden"
@@ -370,9 +397,15 @@ const VoiceSearch = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setSpeechEnabled((value) => !value)}
+                onClick={() => {
+                  setSpeechEnabled((value) => {
+                    if (value) stopAllSpeech();
+                    return !value;
+                  });
+                }}
                 className="rounded-lg border border-white/15 bg-white/5 p-2 text-slate-300 hover:text-white hover:border-white/25"
                 title={speechEnabled ? t('voice.mute', {}, 'Mute assistant voice') : t('voice.enable', {}, 'Enable assistant voice')}
+                aria-pressed={!speechEnabled}
               >
                 {speechEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </button>
@@ -452,7 +485,8 @@ const VoiceSearch = ({
                       ? 'bg-gradient-to-br from-cyan-500 to-emerald-500 text-white border-cyan-300/50 scale-105'
                       : 'bg-white/[0.06] text-slate-200 border-white/15 hover:bg-white/[0.1]'
                   }`}
-                  title={isListening ? <StableText id={"search.jsx.expression.stop.listening.5f3b2910"} defaultMessage={"Stop listening"} /> : <StableText id={"search.jsx.expression.start.listening.5d73b372"} defaultMessage={"Start listening"} />}
+                  title={isListening ? intl.formatMessage({ id: 'voice.stopListening', defaultMessage: 'Stop listening' }) : intl.formatMessage({ id: 'voice.startListening', defaultMessage: 'Start listening' })}
+                  aria-label={isListening ? intl.formatMessage({ id: 'voice.stopListening', defaultMessage: 'Stop listening' }) : intl.formatMessage({ id: 'voice.startListening', defaultMessage: 'Start listening' })}
                 >
                   {isListening ? <Mic className="w-8 h-8 animate-pulse" /> : <MicOff className="w-7 h-7" />}
                 </button>
@@ -469,7 +503,7 @@ const VoiceSearch = ({
             </div>
 
             <div className="space-y-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 min-h-[8.5rem]">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 min-h-[8.5rem]" aria-live="polite">
                 <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">{t('voice.heard', {}, 'I Heard')}</div>
                 <p className="text-slate-100 text-base sm:text-lg font-semibold break-words">
                   {transcript ? `"${transcript}"` : t('voice.waiting', {}, 'Waiting for your command...')}
@@ -496,7 +530,7 @@ const VoiceSearch = ({
                 )}
 
                 {error && (
-                  <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                  <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-100" role="alert">
                     {error}
                   </div>
                 )}
@@ -506,6 +540,7 @@ const VoiceSearch = ({
                 <div className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">{t('voice.typeCommand', {}, 'Type Command')}</div>
                 <div className="flex items-center gap-2">
                   <input
+                    ref={inputRef}
                     value={manualCommand}
                     onChange={(event) => setManualCommand(event.target.value)}
                     onKeyDown={(event) => {

@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { ArrowUpRight, ShieldCheck, ShoppingCart, Star, Truck } from 'lucide-react';
+import { ArrowUpRight, ImageOff, ShieldCheck, ShoppingCart, Star, Truck } from 'lucide-react';
 import { useMarket } from '@/context/MarketContext';
 import { useDynamicTranslations } from '@/hooks/useDynamicTranslations';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
@@ -44,6 +44,7 @@ const ProductCardInline = ({
     const ratingCount = Math.max(0, Number(product?.ratingCount || 0));
     const deliveryTime = String(product?.deliveryTime || '').trim();
     const warranty = String(product?.warranty || '').trim();
+    const [imageFailed, setImageFailed] = useState(false);
     const missingCommerceDetailLabels = [
         !deliveryTime ? t('assistant.product.delivery', {}, 'delivery') : '',
         !warranty ? t('assistant.product.warranty', {}, 'warranty') : '',
@@ -60,15 +61,18 @@ const ProductCardInline = ({
         <article className={cn('rounded-[1.35rem] border p-3 shadow-[0_18px_55px_rgba(0,0,0,0.12)]', cardClassName)}>
             <div className="flex gap-3">
                 <div className={cn('flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-[1.4rem] border p-2', outlineButtonClass)}>
-                    {product?.image ? (
+                    {product?.image && !imageFailed ? (
                         <img
                             src={product.image}
                             alt={translatedProductTitle}
                             className="h-full w-full object-contain"
                             loading="lazy"
                             decoding="async"
+                            onError={() => setImageFailed(true)}
                         />
-                    ) : null}
+                    ) : (
+                        <ImageOff className="h-6 w-6 opacity-40" aria-hidden="true" />
+                    )}
                 </div>
 
                 <div className="min-w-0 flex-1">
