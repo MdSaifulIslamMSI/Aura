@@ -4,11 +4,11 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Machine Certification
 
-- Stable UI candidates discovered: 417
+- Stable UI candidates discovered: 418
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (103173/103173 required locale/message pairs)
+- Locale key coverage: 100% (103236/103236 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4913
+- Source message keys: 4916
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,10 +16,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 92575
-- Unique review locale/id pairs: 92575
-- Actionable grouped queue entries: 1730
-- Actionable affected locale/message pairs: 28896
+- Total tracked review pairs preserved: 92632
+- Unique review locale/id pairs: 92632
+- Actionable grouped queue entries: 1733
+- Actionable affected locale/message pairs: 28953
 - Native-review audit grouped entries: 3045
 - Native-review audit affected locale/message pairs: 63679
 
@@ -29,7 +29,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 876 | 15798 | bn 779, hi 763, te 841, mr 842, ur 826, gu 855, pa 846, ml 840, kn 841, or 853, as 838, sa 845, es 840, fr 861, de 859, ar 777, ja 826, pt 845, zh 821 |
+| critical | 879 | 15855 | bn 782, hi 766, te 844, mr 845, ur 829, gu 858, pa 849, ml 843, kn 844, or 856, as 841, sa 848, es 843, fr 864, de 862, ar 780, ja 829, pt 848, zh 824 |
 | high | 46 | 217 | bn 9, hi 20, te 19, mr 14, ur 20, gu 13, pa 18, ml 25, kn 19, or 30, as 4, sa 9, es 1, fr 6, de 6, ar 1, ja 1, pt 2 |
 | medium | 762 | 12765 | bn 673, hi 625, te 677, mr 679, ur 677, gu 701, pa 692, ml 679, kn 674, or 692, as 678, sa 694, es 681, fr 665, de 670, ar 666, ja 635, pt 671, zh 636 |
 | low | 46 | 116 | bn 3, hi 2, te 7, mr 3, ur 4, gu 4, pa 3, ml 3, kn 7, or 8, as 6, sa 8, es 10, fr 19, de 17, ar 1, ja 2, pt 8, zh 1 |

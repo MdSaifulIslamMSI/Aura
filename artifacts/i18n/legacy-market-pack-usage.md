@@ -1,6 +1,6 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-09-04T18:27:49.818Z
+Generated: 2026-09-05T08:02:50.490Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
@@ -9,7 +9,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 - Tracked files: 145
 - Stable ICU hook files: 84
 - Delegated stable ICU translator files: 10
-- Migrated stable ICU message IDs observed across files: 3435
+- Migrated stable ICU message IDs observed across files: 3437
 - Residual production legacy literal message IDs: 0
 - Test-harness legacy literal message IDs: 4
 - Production files with direct residual stable literals: 0
@@ -67,8 +67,8 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Admin/RefundLedger.jsx` | 46 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Cart/index.jsx` | 44 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/OrderSummary.jsx` | 43 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Profile/components/SecurityActivityPanel.jsx` | 41 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/components/PaymentsSection.jsx` | 40 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Profile/components/SecurityActivityPanel.jsx` | 39 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Admin/ClientDiagnosticsPanel.jsx` | 38 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Profile/hooks/useSecurityCenter.js` | 35 | 0 | delegated-stable-icu, computed-key-compatibility |
 | low | `app/src/components/features/product/Filters/index.jsx` | 34 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
