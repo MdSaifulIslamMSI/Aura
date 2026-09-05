@@ -15,11 +15,13 @@ export default function StatusSubscribePage() {
   const intl = useIntl();
   const [searchParams] = useSearchParams();
   const unsubscribeToken = searchParams.get('unsubscribe') || '';
+  const verifyToken = searchParams.get('token') || '';
   const [payload, setPayload] = useState(null);
   const [email, setEmail] = useState('');
   const [notificationLevel, setNotificationLevel] = useState('all');
   const [selectedGroupIds, setSelectedGroupIds] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [verifying, setVerifying] = useState(Boolean(verifyToken));
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -36,6 +38,25 @@ export default function StatusSubscribePage() {
   useEffect(() => {
     loadStatus();
   }, [loadStatus]);
+
+  useEffect(() => {
+    if (!verifyToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setVerifying(true);
+        setError('');
+        setMessage('');
+        await statusApi.verify(verifyToken);
+        if (!cancelled) setMessage('Subscription verified. You will receive status updates.');
+      } catch (err) {
+        if (!cancelled) setError(err.message || 'Subscription verification failed');
+      } finally {
+        if (!cancelled) setVerifying(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [verifyToken]);
 
   const groups = useMemo(() => payload?.groups || [], [payload]);
 
@@ -86,7 +107,24 @@ export default function StatusSubscribePage() {
             </div>
           </div>
 
-          {unsubscribeToken ? (
+          {verifyToken ? (
+            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4" aria-live="polite">
+              {verifying ? (
+                <p className="text-sm font-semibold text-slate-700">Verifying subscription…</p>
+              ) : null}
+              {!verifying && message ? (
+                <p className="text-sm font-semibold text-slate-700">{message}</p>
+              ) : null}
+              {!verifying && error ? (
+                <p className="text-sm font-semibold text-rose-800">{error}</p>
+              ) : null}
+              {!verifying ? (
+                <Link to="/status" className="mt-4 inline-block text-sm font-bold text-slate-700 underline">
+                  Back to status
+                </Link>
+              ) : null}
+            </div>
+          ) : unsubscribeToken ? (
             <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-semibold text-slate-700"><StableText id={"common.jsx.text.this.link.can.remove.the.matching.subscription.0dd2716d"} defaultMessage={"This link can remove the matching subscription."} /></p>
               <button
@@ -129,6 +167,9 @@ export default function StatusSubscribePage() {
               </fieldset>
               <fieldset>
                 <legend className="text-sm font-bold text-slate-700"><StableText id={"common.jsx.text.components.dcf72b86"} defaultMessage={"Components"} /></legend>
+                {groups.length === 0 ? (
+                  <p className="mt-2 text-sm text-slate-500">No component groups are available right now. Your subscription will cover all systems.</p>
+                ) : (
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {groups.map((group) => (
                     <label key={group.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold text-slate-700">
@@ -145,6 +186,7 @@ export default function StatusSubscribePage() {
                     </label>
                   ))}
                 </div>
+                )}
               </fieldset>
               <button type="submit" disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:opacity-60">
                 <CheckCircle2 className="h-4 w-4" />
@@ -153,8 +195,8 @@ export default function StatusSubscribePage() {
             </form>
           )}
 
-          {message ? <p className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">{message}</p> : null}
-          {error ? <p className="mt-5 rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-700">{error}</p> : null}
+          {!verifyToken && message ? <p className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">{message}</p> : null}
+          {!verifyToken && error ? <p className="mt-5 rounded-lg border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-700">{error}</p> : null}
         </section>
       </div>
     </div>

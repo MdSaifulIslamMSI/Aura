@@ -74,25 +74,43 @@ function IncidentStrip({ title, items = [] }) {
       <h2 className="text-lg font-extrabold tracking-normal text-slate-950">{title}</h2>
       <div className="mt-3 space-y-3">
         {items.map((incident) => {
-          const target = incident.type === 'maintenance' && !incident.latestUpdate
-            ? '/status'
-            : `/status/incidents/${incident.slug}`;
+          // Maintenance windows have no incident-detail route (the detail API only
+          // resolves StatusIncident slugs), so a self-link to /status looks broken.
+          // Render them as static cards instead of dead links. They are the only
+          // strip items without a `latestUpdate` field.
+          const isMaintenanceWindow = incident.type === 'maintenance' && !('latestUpdate' in incident);
+          const hasDetailRoute = Boolean(incident.slug) && !isMaintenanceWindow;
+          const cardBody = (
+            <>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-bold text-slate-950">{incident.title}</p>
+                  <p className="mt-1 text-sm text-slate-600">{incident.latestUpdate?.message || incident.description}</p>
+                </div>
+                <StatusBadge status={incident.impact === 'maintenance' ? 'maintenance' : incident.impact === 'critical' ? 'major_outage' : 'degraded_performance'} />
+              </div>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                <StableText id={"common.jsx.text.started.e10f130f"} defaultMessage={"Started"} /> {formatDate(incident.startedAt, { year: true, time: true })}
+              </p>
+            </>
+          );
+          if (!hasDetailRoute) {
+            return (
+              <article
+                key={incident.id}
+                className="block rounded-lg border border-slate-200 p-4"
+              >
+                {cardBody}
+              </article>
+            );
+          }
           return (
           <Link
             key={incident.id}
-            to={target}
+            to={`/status/incidents/${incident.slug}`}
             className="block rounded-lg border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50"
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="font-bold text-slate-950">{incident.title}</p>
-                <p className="mt-1 text-sm text-slate-600">{incident.latestUpdate?.message || incident.description}</p>
-              </div>
-              <StatusBadge status={incident.impact === 'maintenance' ? 'maintenance' : incident.impact === 'critical' ? 'major_outage' : 'degraded_performance'} />
-            </div>
-            <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-500">
-              <StableText id={"common.jsx.text.started.e10f130f"} defaultMessage={"Started"} /> {formatDate(incident.startedAt, { year: true, time: true })}
-            </p>
+            {cardBody}
           </Link>
           );
         })}
@@ -672,6 +690,14 @@ export default function StatusPage() {
           <section className="rounded-xl border border-slate-200 bg-white p-5 text-slate-700">
             <h1 className="text-lg font-extrabold tracking-normal"><StableText id={"common.jsx.text.status.unavailable.22bb4dd1"} defaultMessage={"Status unavailable"} /></h1>
             <p className="mt-2 text-sm">{error}</p>
+            <button
+              type="button"
+              onClick={() => loadStatus()}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </button>
           </section>
         ) : null}
         {!loading && payload ? (

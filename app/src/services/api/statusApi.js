@@ -27,6 +27,30 @@ const readLastKnownStatus = () => {
   }
 };
 
+const isUsableStatusPayload = (payload) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const groups = Array.isArray(payload.groups) ? payload.groups : [];
+  const activeIncidents = Array.isArray(payload.activeIncidents) ? payload.activeIncidents : [];
+  const activeMaintenance = Array.isArray(payload.activeMaintenance) ? payload.activeMaintenance : [];
+  if (groups.length > 0 || activeIncidents.length > 0 || activeMaintenance.length > 0) return true;
+  if (payload.lastUpdatedAt && payload.overallStatus && payload.overallStatus !== 'unknown') return true;
+  return false;
+};
+
+const pickFreshestUsablePayload = (candidates = []) => {
+  const usable = candidates.filter(isUsableStatusPayload);
+  if (!usable.length) return null;
+  return usable.sort((a, b) => {
+    const aTime = Number.isFinite(new Date(a.lastUpdatedAt || a.fallbackSavedAt || 0).getTime())
+      ? new Date(a.lastUpdatedAt || a.fallbackSavedAt || 0).getTime()
+      : 0;
+    const bTime = Number.isFinite(new Date(b.lastUpdatedAt || b.fallbackSavedAt || 0).getTime())
+      ? new Date(b.lastUpdatedAt || b.fallbackSavedAt || 0).getTime()
+      : 0;
+    return bTime - aTime;
+  })[0];
+};
+
 const loadSnapshotStatus = async () => {
   if (typeof fetch === 'undefined') return null;
   const response = await fetch('/status-snapshot.json', {
@@ -43,16 +67,16 @@ export const statusApi = {
   getPublicStatus: async () => {
     try {
       const { data } = await apiFetch('/status/public', { timeoutMs: 8000 });
-      persistLastKnownStatus(data);
+      if (isUsableStatusPayload(data)) persistLastKnownStatus(data);
       return { ...data, fallbackSource: 'live' };
     } catch (liveError) {
       const snapshot = await loadSnapshotStatus().catch(() => null);
-      if (snapshot) {
-        persistLastKnownStatus(snapshot);
-        return snapshot;
-      }
       const cached = readLastKnownStatus();
-      if (cached) return cached;
+      const fallback = pickFreshestUsablePayload([cached, snapshot]);
+      if (fallback) {
+        persistLastKnownStatus(fallback);
+        return fallback;
+      }
       throw liveError;
     }
   },
