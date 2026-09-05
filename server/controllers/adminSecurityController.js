@@ -37,6 +37,7 @@ const {
     revokeRecoveryGrant,
 } = require('../services/adminRecoveryGrantService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { resolveUserAssuranceOverview } = require('../services/adminAssuranceOverviewService');
 const {
     cacheUserAuthTokensRevokedAfter,
     invalidateUserCache,
@@ -131,6 +132,16 @@ const buildPublicChallenge = (challenge, purpose) => ({
     requiredAssurance: 'admin_passkey',
     blocking: true,
     exitMode: 'sign_out',
+});
+
+const getUserAssuranceOverview = asyncHandler(async (req, res) => {
+    const overview = await resolveUserAssuranceOverview({ userId: req.params?.userId || '' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+        success: true,
+        requestId: req.requestId || '',
+        ...overview,
+    });
 });
 
 const getAdminSecurityStatus = asyncHandler(async (req, res) => {
@@ -452,6 +463,7 @@ module.exports = {
     completeAdminPasskeyEnrollment,
     exchangeRecoveryGrant,
     getAdminSecurityStatus,
+    getUserAssuranceOverview,
     startAdminPasskeyChallenge,
     startAdminPasskeyEnrollment,
 };

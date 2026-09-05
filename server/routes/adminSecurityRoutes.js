@@ -8,7 +8,8 @@ const {
     startAdminPasskeyChallenge,
     startAdminPasskeyEnrollment,
 } = require('../controllers/adminSecurityController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, admin } = require('../middleware/authMiddleware');
+const { getUserAssuranceOverview } = require('../controllers/adminSecurityController');
 const { csrfTokenGenerator } = require('../middleware/csrfMiddleware');
 const { createDistributedRateLimit } = require('../middleware/distributedRateLimit');
 const { startTrafficBudgetCommit } = require('../middleware/requestTimeouts');
@@ -50,6 +51,14 @@ const passkeyOptionsLimiter = createDistributedRateLimit({
     keyGenerator: (req) => buildRateLimitKey('passkey_options', req),
 });
 
+const assuranceLimiter = createDistributedRateLimit({
+    name: 'admin_security_assurance',
+    windowMs: 60 * 1000,
+    max: 30,
+    securityCritical: true,
+    keyGenerator: (req) => buildRateLimitKey('assurance', req),
+});
+
 const passkeyVerifyLimiter = createDistributedRateLimit({
     name: 'admin_security_passkey_verify',
     windowMs: 15 * 60 * 1000,
@@ -59,6 +68,7 @@ const passkeyVerifyLimiter = createDistributedRateLimit({
 });
 
 router.get('/status', protect, statusLimiter, beginAtomicAuthResponse, establishSessionCookie, csrfTokenGenerator, getAdminSecurityStatus);
+router.get('/assurance/:userId', protect, admin, assuranceLimiter, beginAtomicAuthResponse, getUserAssuranceOverview);
 router.post('/recovery/exchange', protect, recoveryExchangeLimiter, beginAtomicAuthResponse, establishSessionCookie, exchangeRecoveryGrant);
 router.post('/passkeys/enrollment/options', protect, passkeyOptionsLimiter, beginAtomicAuthResponse, establishSessionCookie, startAdminPasskeyEnrollment);
 router.post('/passkeys/enrollment/verify', protect, passkeyVerifyLimiter, beginAtomicAuthResponse, establishSessionCookie, completeAdminPasskeyEnrollment);
