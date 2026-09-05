@@ -99,6 +99,12 @@ const Cart = () => {
     removeFromCart(productId);
   };
 
+  const handleRemoveUnavailableItems = () => {
+    cartItems
+      .filter((item) => getItemStock(item) === 0)
+      .forEach((item) => removeFromCart(getCartItemId(item)));
+  };
+
   const handleProceedToCheckout = () => {
     if (checkoutDisabled) return;
     clearDirectBuy();
@@ -387,7 +393,15 @@ const Cart = () => {
 
                 {unavailableCount > 0 ? (
                   <div className="rounded-[1.1rem] border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-100">
-                    {t('cart.summary.unavailableWarning', { count: unavailableCount }, `${unavailableCount} item needs review before checkout.`)}
+                    <p>{t('cart.summary.unavailableWarning', { count: unavailableCount }, `${unavailableCount} item needs review before checkout.`)}</p>
+                    <button
+                      type="button"
+                      onClick={handleRemoveUnavailableItems}
+                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-rose-100 underline decoration-rose-300/50 underline-offset-4 transition-colors hover:text-white"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t('cart.summary.removeUnavailable', {}, 'Remove unavailable items')}
+                    </button>
                   </div>
                 ) : null}
 

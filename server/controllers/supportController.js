@@ -818,12 +818,20 @@ const addSystemLogToTicket = async (ticketId, text) => {
         isAdmin: true,
         isSystem: true,
     });
-    
-    ticket.lastMessageAt = Date.now();
-    ticket.lastMessagePreview = `[System] ${text.substring(0, 50)}...`;
-    ticket.lastActorRole = 'system';
-    ticket.unreadByUser += 1;
-    await ticket.save();
+
+    // Update ticket state atomically: a concurrent customer reply must not lose
+    // its unread increment through a read-modify-write save.
+    await SupportTicket.findByIdAndUpdate(
+        ticket._id,
+        {
+            $set: {
+                lastMessageAt: new Date(),
+                lastMessagePreview: `[System] ${text.substring(0, 50)}...`,
+                lastActorRole: 'system',
+            },
+            $inc: { unreadByUser: 1 },
+        },
+    );
 
     try {
         sendMessageToUser(ticket.user, 'support:message:new', {

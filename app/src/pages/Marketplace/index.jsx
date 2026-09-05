@@ -286,6 +286,28 @@ const getConditionTone = (condition = '') => {
     }
 };
 
+const buildPaginationWindow = (current, totalPages, windowSize = 1) => {
+    const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+    if (totalPages <= windowSize * 2 + 5) return pages;
+
+    const windowStart = Math.max(1, Math.min(current - windowSize, totalPages - windowSize * 2 - 1));
+    const windowEnd = Math.min(totalPages, windowStart + windowSize * 2 + 1);
+    const windowPages = [];
+    for (let page = windowStart; page <= windowEnd; page += 1) windowPages.push(page);
+
+    const entries = [];
+    if (windowStart > 1) {
+        entries.push(1);
+        if (windowStart > 2) entries.push('ellipsis-left');
+    }
+    entries.push(...windowPages);
+    if (windowEnd < totalPages) {
+        if (windowEnd < totalPages - 1) entries.push('ellipsis-right');
+        entries.push(totalPages);
+    }
+    return entries;
+};
+
 const StatCard = ({ label, value, detail, isWhiteMode, style }) => (
     <div
         className={cn(
@@ -1389,22 +1411,60 @@ export default function Marketplace() {
                             </div>
 
                             {pagination.pages > 1 ? (
-                                <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-                                    {[...Array(pagination.pages)].map((_, index) => (
-                                        <button
-                                            key={index}
-                                            type="button"
-                                            onClick={() => setFilters((prev) => ({ ...prev, page: index + 1 }))}
-                                            className={cn(
-                                                'h-10 min-w-10 rounded-full border px-3 text-sm font-black transition-all',
-                                                pagination.page === index + 1 ? '' : chipClass
-                                            )}
-                                            style={pagination.page === index + 1 ? accentOutlineStyle : sectionStyle}
-                                        >
-                                            {index + 1}
-                                        </button>
+                                <nav
+                                    className="mt-8 flex flex-wrap items-center justify-center gap-2"
+                                    aria-label={t('marketplace.pagination.ariaLabel', {}, 'Marketplace pagination')}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilters((prev) => ({ ...prev, page: Math.max(1, (Number(prev.page) || 1) - 1) }))}
+                                        disabled={(pagination.page || 1) <= 1}
+                                        className={cn(
+                                            'inline-flex h-10 items-center gap-1 rounded-full border px-4 text-sm font-black transition-all disabled:cursor-not-allowed disabled:opacity-45',
+                                            chipClass
+                                        )}
+                                        style={sectionStyle}
+                                    >
+                                        {t('marketplace.pagination.prev', {}, 'Prev')}
+                                    </button>
+                                    {buildPaginationWindow(Number(pagination.page) || 1, Number(pagination.pages) || 1).map((entry) => (
+                                        typeof entry === 'string' ? (
+                                            <span
+                                                key={entry}
+                                                className="inline-flex h-10 min-w-10 items-center justify-center text-sm font-black text-slate-500"
+                                                aria-hidden="true"
+                                            >
+                                                …
+                                            </span>
+                                        ) : (
+                                            <button
+                                                key={entry}
+                                                type="button"
+                                                onClick={() => setFilters((prev) => ({ ...prev, page: entry }))}
+                                                aria-current={pagination.page === entry ? 'page' : undefined}
+                                                className={cn(
+                                                    'h-10 min-w-10 rounded-full border px-3 text-sm font-black transition-all',
+                                                    pagination.page === entry ? '' : chipClass
+                                                )}
+                                                style={pagination.page === entry ? accentOutlineStyle : sectionStyle}
+                                            >
+                                                {entry}
+                                            </button>
+                                        )
                                     ))}
-                                </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilters((prev) => ({ ...prev, page: Math.min(Number(pagination.pages) || 1, (Number(prev.page) || 1) + 1) }))}
+                                        disabled={(pagination.page || 1) >= (Number(pagination.pages) || 1)}
+                                        className={cn(
+                                            'inline-flex h-10 items-center gap-1 rounded-full border px-4 text-sm font-black transition-all disabled:cursor-not-allowed disabled:opacity-45',
+                                            chipClass
+                                        )}
+                                        style={sectionStyle}
+                                    >
+                                        {t('marketplace.pagination.next', {}, 'Next')}
+                                    </button>
+                                </nav>
                             ) : null}
                         </section>
                     </div>

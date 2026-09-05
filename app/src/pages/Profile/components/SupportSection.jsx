@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import {
     AlertCircle,
+    CheckCircle2,
     MessageSquare,
     PhoneCall,
     RefreshCw,
