@@ -38,7 +38,7 @@ const hasFreshStepUp = ({
     now = Date.now(),
 } = {}) => {
     if (!requiredStepUp) return true;
-    const required = String(requiredStepUp || '').trim().toUpperCase();
+    const required = String(requiredStepUp).trim().toUpperCase();
     const windowMs = STEP_UP_WINDOWS_MS[required] || STEP_UP_WINDOWS_MS.MFA;
     const stepUpUntil = getSessionStepUpUntil(session);
     const activeSessionStepUp = stepUpUntil > now;

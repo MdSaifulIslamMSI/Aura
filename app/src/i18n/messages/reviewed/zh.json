@@ -2777,7 +2777,6 @@
   "login.country.resultsLabel": "国家代码结果",
   "login.country.searchLabel": "搜索国家或拨号代码",
   "login.country.searchPlaceholder": "搜索国家/地区、代码或 +91",
-  "login.desktopBrowser.button": "在浏览器中继续",
   "login.desktopBrowser.cancel": "Cancel Browser Sign-In",
   "login.desktopBrowser.completingDetail": "Aura 会将此浏览器登录安全地返回到桌面应用程序。",
   "login.desktopBrowser.completingTitle": "完成桌面登录",

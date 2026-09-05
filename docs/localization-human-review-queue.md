@@ -4,12 +4,12 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 
 ## Summary
 
-- Stable ICU message IDs: 3684
-- Former raw review rows: 92632
+- Stable ICU message IDs: 3683
+- Former raw review rows: 92613
 - Actionable grouped queue entries: 1733
 - Actionable affected locale-message pairs: 28953
-- Native-review audit grouped entries: 3045
-- Native-review audit affected locale-message pairs: 63679
+- Native-review audit grouped entries: 3044
+- Native-review audit affected locale-message pairs: 63660
 - High-risk actionable entries: 925 (16072 affected pairs)
 - Medium-risk actionable entries: 308 (4771 affected pairs)
 - Low-risk actionable entries: 500 (8110 affected pairs)
@@ -51,25 +51,25 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 
 Structurally valid legacy/foundation promotions are tracked separately because they need native linguistic signoff but do not block catalog integrity or English-leakage QA by themselves.
 
-- `bn`: 2903 grouped entries / 3245 affected pairs
-- `hi`: 2956 grouped entries / 3299 affected pairs
-- `te`: 2994 grouped entries / 3369 affected pairs
-- `mr`: 2997 grouped entries / 3375 affected pairs
-- `ur`: 2887 grouped entries / 3226 affected pairs
-- `gu`: 2966 grouped entries / 3340 affected pairs
-- `pa`: 2979 grouped entries / 3354 affected pairs
-- `ml`: 2984 grouped entries / 3366 affected pairs
-- `kn`: 2998 grouped entries / 3372 affected pairs
-- `or`: 2961 grouped entries / 3330 affected pairs
-- `as`: 3017 grouped entries / 3387 affected pairs
-- `sa`: 2991 grouped entries / 3357 affected pairs
-- `es`: 3001 grouped entries / 3381 affected pairs
-- `fr`: 2987 grouped entries / 3362 affected pairs
-- `de`: 2976 grouped entries / 3361 affected pairs
-- `ar`: 3022 grouped entries / 3264 affected pairs
-- `ja`: 3155 grouped entries / 3449 affected pairs
-- `pt`: 2991 grouped entries / 3387 affected pairs
-- `zh`: 3161 grouped entries / 3455 affected pairs
+- `bn`: 2902 grouped entries / 3244 affected pairs
+- `hi`: 2955 grouped entries / 3298 affected pairs
+- `te`: 2993 grouped entries / 3368 affected pairs
+- `mr`: 2996 grouped entries / 3374 affected pairs
+- `ur`: 2886 grouped entries / 3225 affected pairs
+- `gu`: 2965 grouped entries / 3339 affected pairs
+- `pa`: 2978 grouped entries / 3353 affected pairs
+- `ml`: 2983 grouped entries / 3365 affected pairs
+- `kn`: 2997 grouped entries / 3371 affected pairs
+- `or`: 2960 grouped entries / 3329 affected pairs
+- `as`: 3016 grouped entries / 3386 affected pairs
+- `sa`: 2990 grouped entries / 3356 affected pairs
+- `es`: 3000 grouped entries / 3380 affected pairs
+- `fr`: 2986 grouped entries / 3361 affected pairs
+- `de`: 2975 grouped entries / 3360 affected pairs
+- `ar`: 3021 grouped entries / 3263 affected pairs
+- `ja`: 3154 grouped entries / 3448 affected pairs
+- `pt`: 2990 grouped entries / 3386 affected pairs
+- `zh`: 3160 grouped entries / 3454 affected pairs
 
 ## Review Order
 

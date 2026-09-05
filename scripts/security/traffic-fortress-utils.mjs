@@ -1,11 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
+import { existsSync } from 'node:fs';
 import {
   check,
   defaultRepoRoot,
   markdownTable,
   parseReadinessArgs,
-  readJsonIfExists,
   readTextIfExists,
   renderChecksMarkdown,
   repoPath,

@@ -538,8 +538,6 @@ export const useLoginController = () => {
     reopenDesktopBrowserSignIn,
     signInWithDesktopOwnerAccess,
     logout,
-    roles,
-    session,
   } = useContext(AuthContext);
 
   const [mode, setMode] = useState(launchMode);

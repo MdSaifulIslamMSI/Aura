@@ -9293,11 +9293,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Search country, code, or +91",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "login.desktopBrowser.button": {
-        id: "login.desktopBrowser.button",
-        defaultMessage: "Continue in Browser",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "login.desktopBrowser.cancel": {
         id: "login.desktopBrowser.cancel",
         defaultMessage: "Cancel browser sign-in",

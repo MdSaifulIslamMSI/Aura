@@ -2777,7 +2777,6 @@
   "login.country.resultsLabel": "രാജ്യ കോഡ് ഫലങ്ങൾ",
   "login.country.searchLabel": "രാജ്യങ്ങൾ തിരയുക അല്ലെങ്കിൽ ഡയൽ കോഡുകൾ",
   "login.country.searchPlaceholder": "രാജ്യം, കോഡ് അല്ലെങ്കിൽ +91 എന്നിവ തിരയുക",
-  "login.desktopBrowser.button": "ബ്രൗസറിൽ തുടരുക",
   "login.desktopBrowser.cancel": "Cancel Browser Sign-In",
   "login.desktopBrowser.completingDetail": "Aura is securely returning this browser sign-in to the desktop app.",
   "login.desktopBrowser.completingTitle": "ഡെസ്ക്ടോപ്പ് സൈൻ-ഇൻ പൂർത്തിയാക്കുന്നു",

@@ -4,7 +4,6 @@ import path from 'node:path';
 import { URL } from 'node:url';
 import {
   check,
-  defaultRepoRoot,
   isMainModule,
   parseReadinessArgs,
   renderChecksMarkdown,

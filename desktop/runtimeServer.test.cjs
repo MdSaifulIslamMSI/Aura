@@ -45,7 +45,6 @@ const {
     DESKTOP_AUTH_REQUEST_TTL_MS,
     DESKTOP_AUTH_CANCEL_PATH,
     DESKTOP_AUTH_COMPLETE_PATH,
-    RUNTIME_CALLBACK_HOST,
     buildRuntimePortCandidates,
     isLoopbackBackendOrigin,
     isOpaqueDesktopAuthNavigation,

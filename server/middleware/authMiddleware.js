@@ -963,25 +963,6 @@ const hasPasskeySecondFactor = (req = {}) => {
         );
 };
 
-const hasRegisteredWebAuthnCredential = (user = {}) => (
-    Array.isArray(user?.trustedDevices)
-    && user.trustedDevices.some((entry) => (
-        !entry?.revokedAt
-        && (!entry?.expiresAt || new Date(entry.expiresAt).getTime() > Date.now())
-        && (
-            String(entry?.method || '').trim().toLowerCase() === 'webauthn'
-            || Boolean(String(entry?.webauthnCredentialIdBase64Url || '').trim())
-        )
-        && (
-            !isAdminSubject(user)
-            || (
-                String(entry?.adminEligibility || '').trim().toLowerCase() === 'verified'
-                && hasObservedWebAuthnUserVerification(entry)
-            )
-        )
-    ))
-);
-
 const hasFreshWebAuthnSessionStepUp = (req = {}) => {
     if (!hasActiveSessionStepUp(req)) {
         return false;
