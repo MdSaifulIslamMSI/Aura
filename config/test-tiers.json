@@ -295,6 +295,7 @@
       "tests/backfillLifetimeSpent.test.js",
       "tests/browserSessionCap.test.js",
       "tests/browserSessionStepDown.test.js",
+      "tests/rateLimitHitTelemetry.test.js",
       "tests/cartController.test.js",
       "tests/catalogNormalizer.test.js",
       "tests/commerceAssistantService.test.js",
@@ -378,6 +379,7 @@
     "noDbFiles": [
       "browserSessionCap.test.js",
       "browserSessionStepDown.test.js",
+      "rateLimitHitTelemetry.test.js",
       "cartController.test.js",
       "catalogNormalizer.test.js",
       "emergencyControlController.test.js",

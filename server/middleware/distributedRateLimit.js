@@ -1,6 +1,7 @@
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const { isRequestExecutionClosed } = require('./requestTimeouts');
 const logger = require('../utils/logger');
+const { writeSecurityEvent } = require('../security/securityEventLogger');
 
 const memoryStore = new Map();
 let memoryCleanupEvery = 0;
@@ -77,6 +78,29 @@ const computeRedisWindow = async (storeKey, windowMs) => {
         count,
         ttlMs: Math.max(ttlMs, 0),
     };
+};
+
+// Phase 2 calibration feed: every 429 carries a structured hit event so
+// per-limiter throttle rates become measurable (SLO burn input, tuning
+// evidence). Level info by design — floods must not page. The guarded writer
+// never throws; identity stays hashed inside buildSecurityEvent.
+const emitRateLimitHit = ({ req = {}, limiterName = '', count = 0, max = 0, retryAfterSeconds = 0 } = {}) => {
+    writeSecurityEvent({
+        event: 'rate_limit.hit',
+        req,
+        action: limiterName,
+        riskScore: 25,
+        decision: 'THROTTLE',
+        reasonCode: 'rate_limit_exceeded',
+        metadata: {
+            limiter: limiterName,
+            count,
+            max,
+            route: String(req.path || req.originalUrl || '').split('?')[0],
+            method: String(req.method || ''),
+            retryAfterSeconds,
+        },
+    }, { level: 'info' });
 };
 
 const setHeaders = (res, max, count, ttlMs) => {
@@ -184,6 +208,7 @@ const createDistributedRateLimit = ({
             if (state.count > max) {
                 const retryAfterSeconds = Math.max(Math.ceil(state.ttlMs / 1000), 1);
                 res.setHeader('Retry-After', String(retryAfterSeconds));
+                emitRateLimitHit({ req, limiterName, count: state.count, max, retryAfterSeconds });
                 return res.status(429).json(buildResponsePayload(req, { retryAfterSeconds }));
             }
             return next();
@@ -207,6 +232,7 @@ const createDistributedRateLimit = ({
             if (state.count > max && !res.headersSent) {
                 const retryAfterSeconds = Math.max(Math.ceil(state.ttlMs / 1000), 1);
                 res.setHeader('Retry-After', String(retryAfterSeconds));
+                emitRateLimitHit({ req, limiterName, count: state.count, max, retryAfterSeconds });
                 return res.status(429).json(buildResponsePayload(req, { retryAfterSeconds }));
             }
             return next();
