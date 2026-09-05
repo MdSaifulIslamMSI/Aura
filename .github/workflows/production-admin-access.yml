@@ -30,9 +30,7 @@ on:
         type: string
 
 permissions:
-  actions: write
   contents: read
-  id-token: write
 
 concurrency:
   group: production-admin-access
@@ -51,6 +49,10 @@ jobs:
     name: Update production admin allowlist
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      actions: write
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout

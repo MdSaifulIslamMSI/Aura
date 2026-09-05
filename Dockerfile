@@ -1,10 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:26-alpine AS deps
+FROM node:26-alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3 AS deps
 
 WORKDIR /app/server
-
-RUN npm install -g npm@11.6.2
 
 COPY server/package*.json ./
 COPY server/vendor ./vendor
@@ -12,7 +10,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev --no-audit --no-fund \
     && npm cache clean --force
 
-FROM node:26-alpine AS runtime
+FROM node:26-alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3 AS runtime
 
 WORKDIR /app/server
 

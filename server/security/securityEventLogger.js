@@ -71,10 +71,7 @@ const writeSecurityEvent = (payload = {}, options = {}) => {
 
     // Phase 5B: durable tamper-evident copy (flag-gated, fire-and-forget).
     try {
-        const pending = appendSecurityEventToLedger(event);
-        if (pending && typeof pending.catch === 'function') {
-            pending.catch(() => undefined);
-        }
+        Promise.resolve(appendSecurityEventToLedger(event)).catch(() => undefined);
     } catch {
         // Never change the request outcome because of the ledger.
     }

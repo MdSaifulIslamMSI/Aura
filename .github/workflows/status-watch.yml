@@ -1,7 +1,7 @@
 name: Status Watch
 
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] — metadata-only webhook job, no code checkout
     workflows:
       - Production Release Gate On Main Push
       - CI
@@ -38,11 +38,15 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "source": "github_actions",
-              "workflow": "${{ github.event.workflow_run.name }}",
-              "conclusion": "${{ github.event.workflow_run.conclusion }}",
-              "sha": "${{ github.event.workflow_run.head_sha }}",
-              "url": "${{ github.event.workflow_run.html_url }}"
+              "workflow": "${WORKFLOW_NAME}",
+              "conclusion": "${WORKFLOW_CONCLUSION}",
+              "sha": "${WORKFLOW_SHA}",
+              "url": "${WORKFLOW_URL}"
             }'
         env:
           STATUS_WEBHOOK_URL: ${{ secrets.STATUS_WEBHOOK_URL }}
           STATUS_WEBHOOK_TOKEN: ${{ secrets.STATUS_WEBHOOK_TOKEN }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+          WORKFLOW_URL: ${{ github.event.workflow_run.html_url }}

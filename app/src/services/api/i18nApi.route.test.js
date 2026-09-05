@@ -24,17 +24,6 @@ vi.mock('./apiUtils', () => ({
 import { apiFetch } from '../apiBase';
 import { i18nApi } from './i18nApi';
 
-// Symbol-safe passthrough args: template-literal conversion, property
-// access, and calls all degrade to deterministic placeholder strings.
-const anyArgs = new Proxy(function placeholder() {}, {
-    get: (target, key) => {
-        if (typeof key === 'symbol') return () => String(key.description || '');
-        if (key === 'toString' || key === 'valueOf') return () => key;
-        return String(key);
-    },
-    apply: () => 'arg',
-});
-
 beforeEach(() => {
     apiFetch.mockClear();
 });

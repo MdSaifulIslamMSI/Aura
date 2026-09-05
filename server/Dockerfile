@@ -1,18 +1,17 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:26-alpine AS deps
+FROM node:26-alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3 AS deps
 
 WORKDIR /app
 
-RUN apk upgrade --no-cache \
-    && npm install -g npm@11.6.2
+RUN apk upgrade --no-cache
 
 COPY server/package*.json ./
 COPY server/vendor ./vendor
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
-FROM node:26-alpine
+FROM node:26-alpine@sha256:2d984a15c9b54fd0aeb608b8e0d0d83529eb34d2966db27a1fb4f1edc3d298a3
 
 WORKDIR /app
 
