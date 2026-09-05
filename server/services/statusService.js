@@ -237,6 +237,10 @@ const calculateOverallStatus = ({ components = [], activeIncidents = [], activeM
     }
     if (components.some((component) => component.currentStatus === 'major_outage')) return 'major_outage';
     if (components.some((component) => component.currentStatus === 'partial_outage')) return 'partial_outage';
+    const degradingActiveIncidents = publicActiveIncidents.filter(
+        (incident) => !['maintenance'].includes(String(incident?.impact || ''))
+    );
+    if (degradingActiveIncidents.length > 0) return 'degraded_performance';
     if (components.some((component) => ['degraded', 'degraded_performance'].includes(component.currentStatus))) return 'degraded_performance';
     if (activeMaintenance.length > 0 || components.some((component) => component.currentStatus === 'maintenance')) return 'maintenance';
     return 'operational';
@@ -1141,7 +1145,13 @@ const buildPublicStatusPayload = async () => {
         };
     });
 
-    const overallStatus = calculateOverallStatus({ components, activeIncidents, activeMaintenance });
+    const overallStatus = calculateOverallStatus({
+        components: components.map((component) => ({
+            currentStatus: normalizeComponentStatus(component.manualStatusOverride || component.currentStatus || 'operational'),
+        })),
+        activeIncidents,
+        activeMaintenance,
+    });
     const measuredGroups = publicGroups.filter((group) => group.monitoringStartedAt && group.uptimeSinceMonitoringBegan !== null);
     const monitoringStartedAt = measuredGroups.length
         ? measuredGroups
