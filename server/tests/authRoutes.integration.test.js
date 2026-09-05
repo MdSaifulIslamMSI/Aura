@@ -2,6 +2,7 @@ const request = require('supertest');
 const app = require('../index');
 const User = require('../models/User');
 const { generateRecoveryCodesForUser } = require('../services/authRecoveryCodeService');
+const { createBrowserSession, loadSessionRecord } = require('../services/browserSessionService');
 const { signLoginRiskSignals } = require('../services/authRiskSignalService');
 const { DesktopHandoffAssuranceError } = require('../services/desktopHandoffAssuranceService');
 const {
@@ -141,6 +142,43 @@ describe('Auth backup recovery codes', () => {
 
         expect(replay.statusCode).toBe(401);
         expect(replay.body.message).toContain('invalid or already used');
+    });
+
+    test('POST /api/auth/recovery-codes/verify steps down sibling step-up assurance', async () => {
+        const deviceId = 'device-recovery-stepdown';
+        const user = await User.create({
+            name: 'Recovery Stepdown User',
+            email: `${buildRuntimeSecret('recovery-stepdown')}@test.com`,
+            phone: '+919876543210',
+            isVerified: true,
+            trustedDevices: [{
+                deviceId,
+                label: 'Passkey',
+                method: 'webauthn',
+                publicKeySpkiBase64: Buffer.from(buildRuntimeSecret('spki')).toString('base64'),
+                webauthnCredentialIdBase64Url: buildRuntimeSecret('credential'),
+            }],
+        });
+        const { codes } = await generateRecoveryCodesForUser({ userId: user._id });
+        const first = await createBrowserSession({
+            req: { headers: {}, ip: '127.0.0.1' },
+            user,
+            stepUpUntil: new Date(Date.now() + 10 * 60 * 1000),
+        });
+        const second = await createBrowserSession({
+            req: { headers: {}, ip: '127.0.0.1' },
+            user,
+            stepUpUntil: new Date(Date.now() + 10 * 60 * 1000),
+        });
+
+        const res = await request(app)
+            .post('/api/auth/recovery-codes/verify')
+            .set('X-Aura-Device-Id', deviceId)
+            .send({ email: user.email, code: codes[0] });
+
+        expect(res.statusCode).toBe(200);
+        expect((await loadSessionRecord(first.sessionId)).stepUpUntil).toBeNull();
+        expect((await loadSessionRecord(second.sessionId)).stepUpUntil).toBeNull();
     });
 
     test('POST /api/auth/recovery-codes/verify accepts a valid code without an old device session', async () => {
