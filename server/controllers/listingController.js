@@ -49,7 +49,7 @@ const {
     registerListingVideoSession,
     sendMessageToUser,
 } = require('../services/socketService');
-const { solveAuraMatch, solveAuraCluster } = require('../services/marketplaceOptimizers');
+const { solveAuraCluster } = require('../services/marketplaceOptimizers');
 const {
     buildListingRoomName,
     createSupportParticipantSession,
@@ -671,8 +671,7 @@ const getListings = asyncHandler(async (req, res) => {
 
     res.json({
         success: true,
-        // NP-Hard: Aura-Match (Stable Matching)
-        listings: solveAuraMatch({ categoryWeights: { 'Electronics': 2 }, maxPrice: 50000, minTrust: 80 }, listings),
+        listings,
         pagination: {
             page: safePage,
             limit: safeLimit,

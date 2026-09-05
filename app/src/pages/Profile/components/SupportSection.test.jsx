@@ -131,6 +131,29 @@ describe('SupportSection conversation shell', () => {
         expect(await screen.findByRole('textbox', { name: 'Support message' })).toBeInTheDocument();
     });
 
+    it('renders the resolution summary without crashing', async () => {
+        apiMocks.getTickets.mockResolvedValue({
+            data: [{
+                _id: 'ticket-1',
+                subject: 'Where is my order',
+                category: 'order_issue',
+                status: 'resolved',
+                priority: 'normal',
+                unreadByUser: 0,
+                resolutionSummary: 'Refund issued to original payment method',
+                lastMessageAt: new Date().toISOString(),
+            }],
+        });
+        apiMocks.getMessages.mockResolvedValue({ data: [] });
+
+        renderSection();
+
+        fireEvent.click(await screen.findByRole('button', { name: /where is my order/i }));
+
+        expect(await screen.findByText('Resolution summary')).toBeInTheDocument();
+        expect(await screen.findByText(/Refund issued to original payment method/)).toBeInTheDocument();
+    });
+
     it('opens the compose form from the New chat button', async () => {
         apiMocks.getTickets.mockResolvedValue({ data: [] });
         apiMocks.getMessages.mockResolvedValue({ data: [] });
