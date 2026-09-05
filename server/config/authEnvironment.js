@@ -210,6 +210,14 @@ const validateAuthEnvironment = ({
         warnings.push('AUTH_PROVIDER is not set; production will remain on the legacy Firebase provider');
     }
 
+    // DPoP sender-constraint is verify-if-bound only: the shipped clients do
+    // not present proofs yet, so enforcement would outage production. Warn so
+    // the rollout sequence (docs/adr/0005-dpop-rollout-sequence.md) stays
+    // visible until clients bind.
+    if (production && safeString(env.AUTH_DPOP_REQUIRED).toLowerCase() !== 'true') {
+        warnings.push('AUTH_DPOP_REQUIRED is not enabled; bound sessions verify proofs but unbound tokens remain bearer tokens');
+    }
+
     const mfaValidation = validateMfaEnvironment({
         env,
         runtimeEnv,

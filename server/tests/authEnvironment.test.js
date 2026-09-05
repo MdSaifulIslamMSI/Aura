@@ -116,6 +116,38 @@ describe('authEnvironment', () => {
         expect(result.failures.join('\n')).toMatch(/MFA_SECRET_ENCRYPTION_KEY/);
     });
 
+    test('warns when production does not require DPoP sender constraint', () => {
+        const base = {
+            NODE_ENV: 'production',
+            AUTH_PROVIDER: 'keycloak',
+            AUTH_ISSUER_URL: 'https://idp.company.test/realms/aura',
+            AUTH_CLIENT_ID: 'aura-web',
+            AUTH_CLIENT_TYPE: 'public',
+            AUTH_OIDC_STATE_SECRET: 'prod-state-secret-with-more-than-32-characters',
+            AUTH_AUDIENCE: 'aura-web',
+            AUTH_REDIRECT_URI: 'https://app.company.test/auth/callback',
+            AUTH_POST_LOGOUT_REDIRECT_URI: 'https://app.company.test/login',
+            AUTH_REQUIRE_MFA_FOR_ADMIN: 'true',
+            MFA_ENABLED: 'true',
+            MFA_PASSKEY_ENABLED: 'true',
+            MFA_REQUIRED_FOR_ADMINS: 'true',
+            AUTH_LOCKOUT_MODE: 'monitor',
+        };
+
+        const warned = validateAuthEnvironment({ env: base, runtimeEnv: 'production' });
+        expect(warned.warnings).toEqual(expect.arrayContaining([
+            'AUTH_DPOP_REQUIRED is not enabled; bound sessions verify proofs but unbound tokens remain bearer tokens',
+        ]));
+
+        const enforced = validateAuthEnvironment({
+            env: { ...base, AUTH_DPOP_REQUIRED: 'true' },
+            runtimeEnv: 'production',
+        });
+        expect(enforced.warnings).not.toEqual(expect.arrayContaining([
+            'AUTH_DPOP_REQUIRED is not enabled; bound sessions verify proofs but unbound tokens remain bearer tokens',
+        ]));
+    });
+
     test('exposes rollback-safe MFA defaults', () => {
         const result = resolveAuthEnvironment({});
 
