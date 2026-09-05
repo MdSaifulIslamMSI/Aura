@@ -274,7 +274,7 @@
     "http-proxy-middleware": "^4.1.1"
   },
   "devDependencies": {
-    "electron": "^44.1.1",
+    "electron": "^44.2.0",
     "electron-builder": "^26.15.3",
     "knip": "^6.29.0"
   },
@@ -319,6 +319,8 @@
     ],
     "files": [
       "desktop/**/*",
+      "!desktop/**/*.test.cjs",
+      "!desktop/assets/**",
       "package.json",
       "!app/**/*",
       "!docs/**/*",

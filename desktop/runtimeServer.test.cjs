@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
+const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
@@ -868,6 +869,113 @@ test('hostile callback origins cannot exhaust the trusted callback rate limiter'
         );
     } finally {
         await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
+});
+
+test('desktop runtime rejects requests carrying non-loopback Host headers', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-host-guard-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 6,
+    });
+    try {
+        const probeWithHost = (host) => new Promise((resolve, reject) => {
+            const request = http.request(`http://127.0.0.1:${runtime.port}/login`, {
+                headers: { Host: host },
+            }, (response) => {
+                response.resume();
+                response.on('end', () => resolve(response.statusCode));
+            });
+            request.on('error', reject);
+            request.end();
+        });
+
+        assert.equal(await probeWithHost(`localhost:${runtime.port}`), 200);
+        assert.equal(await probeWithHost(`127.0.0.1:${runtime.port}`), 200);
+        assert.equal(await probeWithHost(`[::1]:${runtime.port}`), 200);
+        assert.equal(await probeWithHost('rebound.attacker.example'), 421);
+        assert.equal(await probeWithHost(`localhost.attacker.example:${runtime.port}`), 421);
+        assert.equal(await probeWithHost('127.0.0.1.attacker.example'), 421);
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
+});
+
+test('desktop runtime destroys websocket upgrades with foreign Host headers', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-host-guard-ws-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 7,
+    });
+    try {
+        const outcome = await new Promise((resolve, reject) => {
+            const socket = net.connect(runtime.port, '127.0.0.1');
+            let sawData = false;
+            const finish = (result) => {
+                socket.destroy();
+                resolve(result);
+            };
+            socket.on('data', (chunk) => {
+                sawData = true;
+                if (chunk.toString('utf8').startsWith('HTTP/1.1 101')) {
+                    finish('upgraded');
+                }
+            });
+            socket.on('close', () => finish(sawData ? 'responded' : 'destroyed'));
+            socket.on('error', reject);
+            socket.write(
+                'GET /socket.io/?EIO=4&transport=websocket HTTP/1.1\r\n'
+                + 'Host: rebound.attacker.example\r\n'
+                + 'Upgrade: websocket\r\n'
+                + 'Connection: Upgrade\r\n'
+                + 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n'
+                + 'Sec-WebSocket-Version: 13\r\n'
+                + '\r\n'
+            );
+            setTimeout(() => finish('timeout'), 2000);
+        });
+
+        assert.equal(outcome, 'destroyed');
+    } finally {
+        await runtime.close();
+        fs.rmSync(distDir, { force: true, recursive: true });
+    }
+});
+
+test('desktop runtime close completes while keep-alive connections remain open', async () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-desktop-close-keepalive-'));
+    fs.writeFileSync(path.join(distDir, 'index.html'), '<!doctype html><title>Aura</title>');
+
+    const runtime = await startRuntimeServer({
+        distDir,
+        port: DEFAULT_RUNTIME_PORT + 8,
+    });
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+    try {
+        await new Promise((resolve, reject) => {
+            const request = http.request(`http://127.0.0.1:${runtime.port}/login`, { agent }, (response) => {
+                response.resume();
+                response.on('end', resolve);
+            });
+            request.on('error', reject);
+            request.end();
+        });
+
+        const startedAt = Date.now();
+        await runtime.close();
+        const elapsedMs = Date.now() - startedAt;
+        assert.ok(
+            elapsedMs < 2000,
+            `runtime.close() stalled for ${elapsedMs}ms while keep-alive sockets were open`
+        );
+    } finally {
+        agent.destroy();
         fs.rmSync(distDir, { force: true, recursive: true });
     }
 });
