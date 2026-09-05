@@ -400,6 +400,37 @@ describe('statusService', () => {
             activeIncidents: [],
             activeMaintenance: [{ id: 'maintenance' }],
         })).toBe('maintenance');
+        expect(calculateOverallStatus({
+            components: [{ currentStatus: 'operational' }],
+            activeIncidents: [{ impact: 'minor', isPublic: true }],
+            activeMaintenance: [],
+        })).toBe('degraded_performance');
+        expect(calculateOverallStatus({
+            components: [{ currentStatus: 'operational' }],
+            activeIncidents: [{ impact: 'minor', isPublic: false }],
+            activeMaintenance: [],
+        })).toBe('operational');
+    });
+
+    test('public payload reflects minor incidents and manual component overrides', async () => {
+        await seedDefaultStatusCatalog({ includeDemoMetrics: false });
+        const component = await StatusComponent.findOne({ slug: 'public-api' });
+
+        await createStatusIncident({
+            title: 'API latency wobble',
+            description: 'Slightly elevated latency on one route.',
+            impact: 'minor',
+            affectedComponentIds: [String(component._id)],
+            updateMessage: 'Investigating slight latency.',
+        });
+
+        const withMinorIncident = await getPublicStatus({ force: true });
+        expect(withMinorIncident.overallStatus).toBe('degraded_performance');
+        expect(withMinorIncident.activeIncidents.length).toBeGreaterThan(0);
+
+        await StatusComponent.findByIdAndUpdate(component._id, { manualStatusOverride: 'partial_outage' });
+        const withOverride = await getPublicStatus({ force: true });
+        expect(withOverride.overallStatus).toBe('partial_outage');
     });
 
     test('public payload sanitizes monitor internals', async () => {
