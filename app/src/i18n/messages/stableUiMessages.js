@@ -2023,6 +2023,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Create Product",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.productEdit.actions.removeSpecification": {
+        id: "admin.productEdit.actions.removeSpecification",
+        defaultMessage: "Remove specification",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.productEdit.actions.saveChanges": {
         id: "admin.productEdit.actions.saveChanges",
         defaultMessage: "Save Changes",
@@ -2326,6 +2331,11 @@ export const stableUiMessages = defineMessages({
     "admin.products.confirmDelete": {
         id: "admin.products.confirmDelete",
         defaultMessage: "Delete product \"{title}\"? This cannot be undone.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.products.confirmDeleteTitle": {
+        id: "admin.products.confirmDeleteTitle",
+        defaultMessage: "Delete this product?",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "admin.products.deleteReasonDefault": {
@@ -3008,6 +3018,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "...",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "admin.shared.cancel": {
+        id: "admin.shared.cancel",
+        defaultMessage: "Cancel",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "admin.shared.loadingWord": {
         id: "admin.shared.loadingWord",
         defaultMessage: "loading",
@@ -3633,9 +3648,14 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Issue a formal warning and open an appeal case",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "admin.users.confirmDelete": {
-        id: "admin.users.confirmDelete",
-        defaultMessage: "Soft-delete this user account?",
+    "admin.users.confirmDeleteDetail": {
+        id: "admin.users.confirmDeleteDetail",
+        defaultMessage: "Soft-delete the account {selectedEmail}? A recovery trail is created and the final recovery path is support-led.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "admin.users.confirmDeleteTitle": {
+        id: "admin.users.confirmDeleteTitle",
+        defaultMessage: "Soft-delete this account?",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "admin.users.copy.appealCase": {

@@ -62,6 +62,9 @@ export default function AdminUsers() {
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
     const selectedUser = detail?.user || null;
+    // Keep the values key aligned with the fallback template expression so the
+    // stable ICU extractor names the placeholder {selectedEmail} instead of positional value1.
+    const selectedEmail = selectedUser?.email || t('admin.shared.unknown', {}, 'unknown');
     const selectedState = selectedUser?.accountState || '';
     const isDeleted = selectedState === 'deleted' || Boolean(selectedUser?.softDeleted);
     const isSuspended = selectedState === 'suspended' || Boolean(selectedUser?.moderation?.suspensionActive);
@@ -529,8 +532,8 @@ export default function AdminUsers() {
                 title={t('admin.users.confirmDeleteTitle', {}, 'Soft-delete this account?')}
                 description={t(
                     'admin.users.confirmDeleteDetail',
-                    { email: selectedUser?.email || t('admin.shared.unknown', {}, 'unknown') },
-                    `Soft-delete the account ${selectedUser?.email || 'unknown'}? A recovery trail is created and the final recovery path is support-led.`
+                    { selectedEmail },
+                    `Soft-delete the account ${selectedEmail}? A recovery trail is created and the final recovery path is support-led.`
                 )}
                 confirmLabel={t('admin.users.actions.delete', {}, 'Delete')}
                 cancelLabel={t('admin.shared.cancel', {}, 'Cancel')}

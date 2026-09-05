@@ -48,4 +48,29 @@ describe('AdminConfirmDialog', () => {
         fireEvent.keyDown(document, { key: 'Escape' });
         expect(onCancel).not.toHaveBeenCalled();
     });
+
+    it('traps Tab focus inside the dialog', () => {
+        render(
+            <div>
+                <button type="button">Outside</button>
+                <AdminConfirmDialog open title="Sure?" confirmLabel="Confirm" cancelLabel="Cancel" onConfirm={() => {}} onCancel={() => {}} />
+            </div>
+        );
+        const dialog = screen.getByRole('alertdialog');
+        const confirmButton = screen.getByRole('button', { name: 'Confirm' });
+        const cancelButton = screen.getByRole('button', { name: 'Cancel' });
+
+        // Confirm gets initial focus; Tab from the last control wraps to the first.
+        expect(confirmButton).toHaveFocus();
+        fireEvent.keyDown(document, { key: 'Tab' });
+        expect(cancelButton).toHaveFocus();
+
+        // Shift+Tab from the first control wraps back to the last.
+        fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+        expect(confirmButton).toHaveFocus();
+
+        // Focus never reaches the element outside the dialog.
+        expect(screen.getByRole('button', { name: 'Outside' })).not.toHaveFocus();
+        expect(dialog.contains(document.activeElement)).toBe(true);
+    });
 });

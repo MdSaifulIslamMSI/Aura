@@ -19,12 +19,37 @@ export default function AdminConfirmDialog({
     onReasonChange,
 }) {
     const confirmRef = useRef(null);
+    const dialogRef = useRef(null);
 
     useEffect(() => {
         if (!open) return undefined;
         confirmRef.current?.focus();
+        const getFocusableElements = () => (
+            [...(dialogRef.current?.querySelectorAll('button, input, textarea, select') || [])]
+                .filter((element) => !element.disabled)
+        );
         const onKeyDown = (event) => {
-            if (event.key === 'Escape' && !busy) onCancel();
+            if (event.key === 'Escape' && !busy) {
+                onCancel();
+                return;
+            }
+            if (event.key === 'Tab') {
+                // Keep keyboard focus cycling inside the dialog while it is open.
+                const focusable = getFocusableElements();
+                if (focusable.length === 0) {
+                    event.preventDefault();
+                    return;
+                }
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current?.contains(document.activeElement))) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
         };
         document.addEventListener('keydown', onKeyDown);
         return () => document.removeEventListener('keydown', onKeyDown);
@@ -43,8 +68,10 @@ export default function AdminConfirmDialog({
             }}
         >
             <div
+                ref={dialogRef}
                 role="alertdialog"
                 aria-modal="true"
+                aria-busy={busy || undefined}
                 aria-label={title}
                 className="admin-premium-subpanel w-full max-w-md border-white/12 p-5 shadow-2xl"
             >

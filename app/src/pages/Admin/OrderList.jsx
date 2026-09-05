@@ -317,7 +317,7 @@ const OrderList = () => {
                                                                 type="button"
                                                                 onClick={() => processRefundRequest(order._id, latestRefund.requestId, 'processed')}
                                                                 disabled={isRefundBusy}
-                                                                className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                                                                className="admin-premium-button admin-premium-button-success px-2 py-1 text-[10px] font-bold disabled:opacity-60"
                                                             >
                                                                 {isRefundBusy ? t('admin.shared.busy', {}, '...') : t('admin.orders.actions.process', {}, 'Process')}
                                                             </button>
@@ -325,7 +325,7 @@ const OrderList = () => {
                                                                 type="button"
                                                                 onClick={() => processRefundRequest(order._id, latestRefund.requestId, 'rejected')}
                                                                 disabled={isRefundBusy}
-                                                                className="rounded bg-rose-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                                                                className="admin-premium-button admin-premium-button-danger px-2 py-1 text-[10px] font-bold disabled:opacity-60"
                                                             >
                                                                 {t('admin.orders.actions.reject', {}, 'Reject')}
                                                             </button>
@@ -366,7 +366,7 @@ const OrderList = () => {
                                                                     type="button"
                                                                     onClick={() => processReplacementRequest(order._id, latestReplacement.requestId, 'shipped')}
                                                                     disabled={isReplacementBusy}
-                                                                    className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                                                                    className="admin-premium-button admin-premium-button-success px-2 py-1 text-[10px] font-bold disabled:opacity-60"
                                                                 >
                                                                     {isReplacementBusy ? t('admin.shared.busy', {}, '...') : t('admin.orders.actions.ship', {}, 'Ship')}
                                                                 </button>
@@ -374,7 +374,7 @@ const OrderList = () => {
                                                                     type="button"
                                                                     onClick={() => processReplacementRequest(order._id, latestReplacement.requestId, 'rejected')}
                                                                     disabled={isReplacementBusy}
-                                                                    className="rounded bg-rose-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                                                                    className="admin-premium-button admin-premium-button-danger px-2 py-1 text-[10px] font-bold disabled:opacity-60"
                                                                 >
                                                                     {t('admin.orders.actions.reject', {}, 'Reject')}
                                                                 </button>
@@ -457,7 +457,7 @@ const OrderList = () => {
                                                                         type="button"
                                                                         onClick={() => processWarrantyClaim(order._id, latestWarranty.claimId, 'approved')}
                                                                     disabled={isWarrantyBusy}
-                                                                    className="rounded bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                                                                    className="admin-premium-button admin-premium-button-success px-2 py-1 text-[10px] font-bold disabled:opacity-60"
                                                                     >
                                                                         {isWarrantyBusy ? t('admin.shared.busy', {}, '...') : t('admin.orders.actions.approve', {}, 'Approve')}
                                                                     </button>
@@ -465,7 +465,7 @@ const OrderList = () => {
                                                                         type="button"
                                                                         onClick={() => processWarrantyClaim(order._id, latestWarranty.claimId, 'rejected')}
                                                                     disabled={isWarrantyBusy}
-                                                                    className="rounded bg-rose-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                                                                    className="admin-premium-button admin-premium-button-danger px-2 py-1 text-[10px] font-bold disabled:opacity-60"
                                                                 >
                                                                         {t('admin.orders.actions.reject', {}, 'Reject')}
                                                                     </button>

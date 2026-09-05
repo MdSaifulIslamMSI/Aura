@@ -463,8 +463,9 @@ const ProductEdit = () => {
                                     />
                                     <button
                                         type="button"
-                                        className="rounded-lg border border-rose-200 px-2 py-2 text-rose-700 hover:bg-rose-50 md:col-span-1"
+                                        className="admin-premium-button admin-premium-button-danger px-2 py-2 md:col-span-1"
                                         onClick={() => removeSpecification(index)}
+                                        title={t('admin.productEdit.actions.removeSpecification', {}, 'Remove specification')}
                                     >
                                         <Trash2 className="h-4 w-4 mx-auto" />
                                     </button>

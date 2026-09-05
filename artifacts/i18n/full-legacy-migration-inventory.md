@@ -1,16 +1,16 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-09-05T13:44:08.625Z
+Generated: 2026-09-05T15:28:38.897Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 472
+- Source files scanned: 474
 - Tracked files: 151
 - Production files with stable literal UI copy: 98
-- Production stable literal references: 4078
-- Unique production stable IDs: 3684
+- Production stable literal references: 4086
+- Unique production stable IDs: 3688
 - Dynamic lookup references requiring manual review: 14
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
@@ -81,11 +81,11 @@ These production references are eligible for reviewed ICU catalog migration.
 | medium | `app/src/context/NotificationContext.jsx` | 1 | 1 | 0 | runtime-content-nearby |
 | low | `app/src/pages/Sell/index.jsx` | 140 | 140 | 0 | stable-ui |
 | low | `app/src/pages/Admin/Payments.jsx` | 102 | 99 | 0 | stable-ui |
-| low | `app/src/pages/Admin/Users.jsx` | 116 | 96 | 0 | stable-ui |
+| low | `app/src/pages/Admin/Users.jsx` | 120 | 99 | 0 | stable-ui |
 | low | `app/src/pages/Admin/EmailOps.jsx` | 116 | 93 | 0 | stable-ui |
 | low | `app/src/pages/Admin/OrderList.jsx` | 72 | 64 | 0 | stable-ui |
-| low | `app/src/pages/Admin/ProductEdit.jsx` | 62 | 59 | 0 | stable-ui |
-| low | `app/src/pages/Admin/ProductList.jsx` | 58 | 55 | 0 | stable-ui |
+| low | `app/src/pages/Admin/ProductEdit.jsx` | 63 | 60 | 0 | stable-ui |
+| low | `app/src/pages/Admin/ProductList.jsx` | 61 | 57 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/OverviewSection.jsx` | 50 | 50 | 0 | stable-ui |
 | low | `app/src/components/auth/AdminSecurityCheckpoint.jsx` | 49 | 48 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/PersonalInfoSection.jsx` | 57 | 47 | 0 | stable-ui |

@@ -2203,6 +2203,10 @@
     "defaultMessage": "Create Product",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "admin.productEdit.actions.removeSpecification": {
+    "defaultMessage": "Remove specification",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "admin.productEdit.actions.saveChanges": {
     "defaultMessage": "Save Changes",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -2445,6 +2449,10 @@
   },
   "admin.products.confirmDelete": {
     "defaultMessage": "Delete product \"{title}\"? This cannot be undone.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.products.confirmDeleteTitle": {
+    "defaultMessage": "Delete this product?",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "admin.products.deleteReasonDefault": {
@@ -2989,6 +2997,10 @@
   },
   "admin.shared.busy": {
     "defaultMessage": "...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.shared.cancel": {
+    "defaultMessage": "Cancel",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "admin.shared.loadingWord": {
@@ -3563,8 +3575,12 @@
     "defaultMessage": "Issue a formal warning and open an appeal case",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
-  "admin.users.confirmDelete": {
-    "defaultMessage": "Soft-delete this user account?",
+  "admin.users.confirmDeleteDetail": {
+    "defaultMessage": "Soft-delete the account {selectedEmail}? A recovery trail is created and the final recovery path is support-led.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "admin.users.confirmDeleteTitle": {
+    "defaultMessage": "Soft-delete this account?",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "admin.users.copy.appealCase": {

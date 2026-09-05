@@ -3614,13 +3614,15 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 96,
+      "messageIdCount": 99,
       "messageIds": [
         "admin.shared.busy",
+        "admin.shared.cancel",
         "admin.shared.next",
         "admin.shared.no",
         "admin.shared.pageFraction",
         "admin.shared.previous",
+        "admin.shared.unknown",
         "admin.shared.yes",
         "admin.users.action.completed",
         "admin.users.actions.delete",
@@ -3639,7 +3641,8 @@
         "admin.users.actions.warn",
         "admin.users.actions.warnDisabledTitle",
         "admin.users.actions.warnTitle",
-        "admin.users.confirmDelete",
+        "admin.users.confirmDeleteDetail",
+        "admin.users.confirmDeleteTitle",
         "admin.users.copy.appealCase",
         "admin.users.copy.auditLog",
         "admin.users.copy.currentState",
@@ -3714,7 +3717,7 @@
         "admin.users.userFallback"
       ],
       "risk": "low",
-      "stableLiteralCount": 116,
+      "stableLiteralCount": 120,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -3909,9 +3912,10 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 59,
+      "messageIdCount": 60,
       "messageIds": [
         "admin.productEdit.actions.createProduct",
+        "admin.productEdit.actions.removeSpecification",
         "admin.productEdit.actions.saveChanges",
         "admin.productEdit.addSpec",
         "admin.productEdit.backToProducts",
@@ -3972,7 +3976,7 @@
         "admin.shared.adminActor"
       ],
       "risk": "low",
-      "stableLiteralCount": 62,
+      "stableLiteralCount": 63,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -3982,12 +3986,13 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 55,
+      "messageIdCount": 57,
       "messageIds": [
         "admin.products.actions.delete",
         "admin.products.actions.edit",
         "admin.products.addRealProduct",
         "admin.products.confirmDelete",
+        "admin.products.confirmDeleteTitle",
         "admin.products.deleteReasonDefault",
         "admin.products.deleteReasonPrompt",
         "admin.products.description",
@@ -4033,6 +4038,7 @@
         "admin.products.title",
         "admin.shared.actions",
         "admin.shared.all",
+        "admin.shared.cancel",
         "admin.shared.next",
         "admin.shared.previous",
         "admin.shared.sort.newest",
@@ -4041,7 +4047,7 @@
         "admin.shared.sort.priceDesc"
       ],
       "risk": "low",
-      "stableLiteralCount": 58,
+      "stableLiteralCount": 61,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -6045,7 +6051,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-09-05T13:44:08.625Z",
+  "generatedAt": "2026-09-05T15:28:38.897Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -19597,6 +19603,19 @@
       "reason": ""
     },
     {
+      "column": 48,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Remove specification",
+      "file": "app/src/pages/Admin/ProductEdit.jsx",
+      "icuDefaultMessage": "Remove specification",
+      "id": "admin.productEdit.actions.removeSpecification",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Remove specification",
+      "line": 468,
+      "reason": ""
+    },
+    {
       "column": 39,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Core Update Reason (Audit)",
@@ -19606,7 +19625,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Core Update Reason (Audit)",
-      "line": 477,
+      "line": 478,
       "reason": ""
     },
     {
@@ -19619,7 +19638,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Why core fields changed",
-      "line": 483,
+      "line": 484,
       "reason": ""
     },
     {
@@ -19632,7 +19651,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pricing Change Reason (Audit)",
-      "line": 486,
+      "line": 487,
       "reason": ""
     },
     {
@@ -19645,7 +19664,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Why pricing changed",
-      "line": 492,
+      "line": 493,
       "reason": ""
     },
     {
@@ -19658,7 +19677,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saving...",
-      "line": 500,
+      "line": 501,
       "reason": ""
     },
     {
@@ -19671,7 +19690,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Create Product",
-      "line": 500,
+      "line": 501,
       "reason": ""
     },
     {
@@ -19684,7 +19703,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Save Changes",
-      "line": 500,
+      "line": 501,
       "reason": ""
     },
     {
@@ -19697,7 +19716,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Governance Timeline",
-      "line": 506,
+      "line": 507,
       "reason": ""
     },
     {
@@ -19710,7 +19729,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Every admin change is tracked for audit and rollback analysis.",
-      "line": 507,
+      "line": 508,
       "reason": ""
     },
     {
@@ -19723,7 +19742,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Logs appear after first save.",
-      "line": 509,
+      "line": 510,
       "reason": ""
     },
     {
@@ -19736,7 +19755,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading logs...",
-      "line": 511,
+      "line": 512,
       "reason": ""
     },
     {
@@ -19749,7 +19768,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No admin changes recorded yet.",
-      "line": 513,
+      "line": 514,
       "reason": ""
     },
     {
@@ -19764,7 +19783,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "By: {{actor}}",
-      "line": 524,
+      "line": 525,
       "reason": ""
     },
     {
@@ -19777,7 +19796,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "admin",
-      "line": 524,
+      "line": 525,
       "reason": ""
     },
     {
@@ -19790,7 +19809,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No reason provided",
-      "line": 525,
+      "line": 526,
       "reason": ""
     },
     {
@@ -19805,7 +19824,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fields changed: {{count}}",
-      "line": 527,
+      "line": 528,
       "reason": ""
     },
     {
@@ -19818,39 +19837,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to load products",
-      "line": 43,
+      "line": 46,
       "reason": ""
     },
     {
-      "column": 13,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Delete product \"{{title}}\"? This cannot be undone.",
-      "file": "app/src/pages/Admin/ProductList.jsx",
-      "icuDefaultMessage": "Delete product \"{title}\"? This cannot be undone.",
-      "id": "admin.products.confirmDelete",
-      "interpolationTokens": [
-        "title"
-      ],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Delete product \"{{title}}\"? This cannot be undone.",
-      "line": 73,
-      "reason": ""
-    },
-    {
-      "column": 13,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Delete reason (admin audit):",
-      "file": "app/src/pages/Admin/ProductList.jsx",
-      "icuDefaultMessage": "Delete reason (admin audit):",
-      "id": "admin.products.deleteReasonPrompt",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Delete reason (admin audit):",
-      "line": 82,
-      "reason": ""
-    },
-    {
-      "column": 13,
+      "column": 25,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Duplicate/invalid product cleanup",
       "file": "app/src/pages/Admin/ProductList.jsx",
@@ -19859,7 +19850,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Duplicate/invalid product cleanup",
-      "line": 83,
+      "line": 75,
       "reason": ""
     },
     {
@@ -19872,7 +19863,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delete reason is required for audit trail",
-      "line": 86,
+      "line": 82,
       "reason": ""
     },
     {
@@ -19885,7 +19876,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Product deleted",
-      "line": 93,
+      "line": 88,
       "reason": ""
     },
     {
@@ -19898,7 +19889,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to delete product",
-      "line": 96,
+      "line": 92,
       "reason": ""
     },
     {
@@ -19911,7 +19902,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Catalog command",
-      "line": 112,
+      "line": 108,
       "reason": ""
     },
     {
@@ -19924,7 +19915,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Product control studio",
-      "line": 113,
+      "line": 109,
       "reason": ""
     },
     {
@@ -19937,7 +19928,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Create, update, and retire catalog inventory with a more polished premium command surface for pricing, source quality, and product governance.",
-      "line": 114,
+      "line": 110,
       "reason": ""
     },
     {
@@ -19950,7 +19941,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Add Real Product",
-      "line": 118,
+      "line": 114,
       "reason": ""
     },
     {
@@ -19963,7 +19954,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Visible products",
-      "line": 124,
+      "line": 120,
       "reason": ""
     },
     {
@@ -19976,7 +19967,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Items in the current result set",
-      "line": 126,
+      "line": 122,
       "reason": ""
     },
     {
@@ -19989,7 +19980,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pagination",
-      "line": 131,
+      "line": 127,
       "reason": ""
     },
     {
@@ -20005,7 +19996,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Page {{page}} of {{total}}",
-      "line": 133,
+      "line": 129,
       "reason": ""
     },
     {
@@ -20018,7 +20009,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search state",
-      "line": 138,
+      "line": 134,
       "reason": ""
     },
     {
@@ -20031,7 +20022,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Focused",
-      "line": 139,
+      "line": 135,
       "reason": ""
     },
     {
@@ -20044,7 +20035,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open",
-      "line": 139,
+      "line": 135,
       "reason": ""
     },
     {
@@ -20057,7 +20048,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Full catalog scope",
-      "line": 140,
+      "line": 136,
       "reason": ""
     },
     {
@@ -20070,7 +20061,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search",
-      "line": 148,
+      "line": 144,
       "reason": ""
     },
     {
@@ -20083,7 +20074,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Title, brand, category, id",
-      "line": 154,
+      "line": 150,
       "reason": ""
     },
     {
@@ -20096,7 +20087,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Source",
-      "line": 161,
+      "line": 157,
       "reason": ""
     },
     {
@@ -20109,7 +20100,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All",
-      "line": 163,
+      "line": 159,
       "reason": ""
     },
     {
@@ -20122,7 +20113,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "manual",
-      "line": 164,
+      "line": 160,
       "reason": ""
     },
     {
@@ -20135,7 +20126,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Batch",
-      "line": 165,
+      "line": 161,
       "reason": ""
     },
     {
@@ -20148,7 +20139,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Provider",
-      "line": 166,
+      "line": 162,
       "reason": ""
     },
     {
@@ -20161,7 +20152,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Category",
-      "line": 171,
+      "line": 167,
       "reason": ""
     },
     {
@@ -20174,7 +20165,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All",
-      "line": 173,
+      "line": 169,
       "reason": ""
     },
     {
@@ -20187,7 +20178,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Brand",
-      "line": 181,
+      "line": 177,
       "reason": ""
     },
     {
@@ -20200,7 +20191,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All",
-      "line": 183,
+      "line": 179,
       "reason": ""
     },
     {
@@ -20213,7 +20204,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sort",
-      "line": 191,
+      "line": 187,
       "reason": ""
     },
     {
@@ -20226,7 +20217,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Newest",
-      "line": 193,
+      "line": 189,
       "reason": ""
     },
     {
@@ -20239,7 +20230,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Oldest",
-      "line": 194,
+      "line": 190,
       "reason": ""
     },
     {
@@ -20252,7 +20243,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Price Low to High",
-      "line": 195,
+      "line": 191,
       "reason": ""
     },
     {
@@ -20265,7 +20256,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Price High to Low",
-      "line": 196,
+      "line": 192,
       "reason": ""
     },
     {
@@ -20278,7 +20269,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stock Low to High",
-      "line": 197,
+      "line": 193,
       "reason": ""
     },
     {
@@ -20291,7 +20282,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stock High to Low",
-      "line": 198,
+      "line": 194,
       "reason": ""
     },
     {
@@ -20304,7 +20295,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Product",
-      "line": 209,
+      "line": 205,
       "reason": ""
     },
     {
@@ -20317,7 +20308,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pricing",
-      "line": 210,
+      "line": 206,
       "reason": ""
     },
     {
@@ -20330,7 +20321,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Inventory",
-      "line": 211,
+      "line": 207,
       "reason": ""
     },
     {
@@ -20343,7 +20334,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Specs",
-      "line": 212,
+      "line": 208,
       "reason": ""
     },
     {
@@ -20356,7 +20347,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Catalog",
-      "line": 213,
+      "line": 209,
       "reason": ""
     },
     {
@@ -20369,7 +20360,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Actions",
-      "line": 214,
+      "line": 210,
       "reason": ""
     },
     {
@@ -20382,7 +20373,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading products...",
-      "line": 220,
+      "line": 216,
       "reason": ""
     },
     {
@@ -20395,7 +20386,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No products found for current filters.",
-      "line": 224,
+      "line": 220,
       "reason": ""
     },
     {
@@ -20411,7 +20402,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{brand}} | {{category}}",
-      "line": 237,
+      "line": 233,
       "reason": ""
     },
     {
@@ -20427,7 +20418,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "ID: {{id}} | {{externalId}}",
-      "line": 240,
+      "line": 236,
       "reason": ""
     },
     {
@@ -20443,7 +20434,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "MRP: {{mrp}} | Discount: {{discount}}%",
-      "line": 248,
+      "line": 244,
       "reason": ""
     },
     {
@@ -20458,7 +20449,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} units",
-      "line": 260,
+      "line": 256,
       "reason": ""
     },
     {
@@ -20473,7 +20464,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Updated: {{time}}",
-      "line": 263,
+      "line": 259,
       "reason": ""
     },
     {
@@ -20488,7 +20479,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} specs",
-      "line": 268,
+      "line": 264,
       "reason": ""
     },
     {
@@ -20503,7 +20494,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} highlights",
-      "line": 271,
+      "line": 267,
       "reason": ""
     },
     {
@@ -20516,7 +20507,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "manual",
-      "line": 275,
+      "line": 271,
       "reason": ""
     },
     {
@@ -20529,7 +20520,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Edit product",
-      "line": 284,
+      "line": 280,
       "reason": ""
     },
     {
@@ -20542,7 +20533,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delete product",
-      "line": 293,
+      "line": 289,
       "reason": ""
     },
     {
@@ -20559,7 +20550,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Total {{total}} products | Page {{page}} of {{pages}}",
-      "line": 309,
+      "line": 305,
       "reason": ""
     },
     {
@@ -20572,7 +20563,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Previous",
-      "line": 313,
+      "line": 309,
       "reason": ""
     },
     {
@@ -20585,7 +20576,74 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next",
-      "line": 316,
+      "line": 312,
+      "reason": ""
+    },
+    {
+      "column": 24,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delete this product?",
+      "file": "app/src/pages/Admin/ProductList.jsx",
+      "icuDefaultMessage": "Delete this product?",
+      "id": "admin.products.confirmDeleteTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delete this product?",
+      "line": 320,
+      "reason": ""
+    },
+    {
+      "column": 27,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delete product \"{{title}}\"? This cannot be undone.",
+      "file": "app/src/pages/Admin/ProductList.jsx",
+      "icuDefaultMessage": "Delete product \"{title}\"? This cannot be undone.",
+      "id": "admin.products.confirmDelete",
+      "interpolationTokens": [
+        "title"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delete product \"{{title}}\"? This cannot be undone.",
+      "line": 323,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delete reason (admin audit):",
+      "file": "app/src/pages/Admin/ProductList.jsx",
+      "icuDefaultMessage": "Delete reason (admin audit):",
+      "id": "admin.products.deleteReasonPrompt",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delete reason (admin audit):",
+      "line": 330,
+      "reason": ""
+    },
+    {
+      "column": 31,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delete product",
+      "file": "app/src/pages/Admin/ProductList.jsx",
+      "icuDefaultMessage": "Delete product",
+      "id": "admin.products.actions.delete",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delete product",
+      "line": 333,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Cancel",
+      "file": "app/src/pages/Admin/ProductList.jsx",
+      "icuDefaultMessage": "Cancel",
+      "id": "admin.shared.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Cancel",
+      "line": 334,
       "reason": ""
     },
     {
@@ -22925,7 +22983,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active",
-      "line": 24,
+      "line": 25,
       "reason": ""
     },
     {
@@ -22938,7 +22996,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warned",
-      "line": 26,
+      "line": 27,
       "reason": ""
     },
     {
@@ -22951,7 +23009,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspended",
-      "line": 28,
+      "line": 29,
       "reason": ""
     },
     {
@@ -22964,7 +23022,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deleted",
-      "line": 30,
+      "line": 31,
       "reason": ""
     },
     {
@@ -22977,7 +23035,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown",
-      "line": 33,
+      "line": 34,
+      "reason": ""
+    },
+    {
+      "column": 50,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "unknown",
+      "file": "app/src/pages/Admin/Users.jsx",
+      "icuDefaultMessage": "unknown",
+      "id": "admin.shared.unknown",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "unknown",
+      "line": 67,
       "reason": ""
     },
     {
@@ -22990,7 +23061,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to load users",
-      "line": 91,
+      "line": 96,
       "reason": ""
     },
     {
@@ -23003,7 +23074,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to load user details",
-      "line": 108,
+      "line": 113,
       "reason": ""
     },
     {
@@ -23016,7 +23087,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Select a user first",
-      "line": 124,
+      "line": 129,
       "reason": ""
     },
     {
@@ -23029,7 +23100,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Action completed",
-      "line": 130,
+      "line": 135,
       "reason": ""
     },
     {
@@ -23042,7 +23113,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Action failed",
-      "line": 133,
+      "line": 138,
       "reason": ""
     },
     {
@@ -23055,7 +23126,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warn",
-      "line": 150,
+      "line": 155,
       "reason": ""
     },
     {
@@ -23068,7 +23139,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Records a formal policy warning, notifies the user, and opens a moderation appeal case.",
-      "line": 152,
+      "line": 157,
       "reason": ""
     },
     {
@@ -23081,7 +23152,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The user keeps access, but clearly sees that trust & safety is watching the account.",
-      "line": 153,
+      "line": 158,
       "reason": ""
     },
     {
@@ -23094,7 +23165,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin or support can review the appeal in Support, then dismiss the warning if justified.",
-      "line": 154,
+      "line": 159,
       "reason": ""
     },
     {
@@ -23107,7 +23178,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspend",
-      "line": 158,
+      "line": 163,
       "reason": ""
     },
     {
@@ -23120,7 +23191,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Temporarily blocks the account, disables seller mode, expires active listings, and opens an urgent appeal case.",
-      "line": 160,
+      "line": 165,
       "reason": ""
     },
     {
@@ -23133,7 +23204,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The user immediately feels the restriction because access-sensitive actions stop working and the case becomes urgent.",
-      "line": 161,
+      "line": 166,
       "reason": ""
     },
     {
@@ -23146,7 +23217,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin reactivates the account after review, which closes the suspension case with a recorded outcome.",
-      "line": 162,
+      "line": 167,
       "reason": ""
     },
     {
@@ -23159,7 +23230,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Dismiss Warning",
-      "line": 166,
+      "line": 171,
       "reason": ""
     },
     {
@@ -23172,7 +23243,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Clears a warning and restores the account to active without suspension.",
-      "line": 168,
+      "line": 173,
       "reason": ""
     },
     {
@@ -23185,7 +23256,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The user sees that the warning was reviewed fairly and removed.",
-      "line": 169,
+      "line": 174,
       "reason": ""
     },
     {
@@ -23198,7 +23269,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The moderation case is marked resolved and stays in the audit timeline.",
-      "line": 170,
+      "line": 175,
       "reason": ""
     },
     {
@@ -23211,7 +23282,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reactivate",
-      "line": 174,
+      "line": 179,
       "reason": ""
     },
     {
@@ -23224,7 +23295,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Ends an active suspension and restores the account to working state.",
-      "line": 176,
+      "line": 181,
       "reason": ""
     },
     {
@@ -23237,7 +23308,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The user gets a clear recovery moment and can resume normal account usage.",
-      "line": 177,
+      "line": 182,
       "reason": ""
     },
     {
@@ -23250,7 +23321,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The open suspension appeal is resolved and the outcome is attached to the same case.",
-      "line": 178,
+      "line": 183,
       "reason": ""
     },
     {
@@ -23263,7 +23334,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delete",
-      "line": 182,
+      "line": 187,
       "reason": ""
     },
     {
@@ -23276,7 +23347,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Soft-deletes the account, disables seller activity, optionally scrubs PII, and records a recovery trail.",
-      "line": 184,
+      "line": 189,
       "reason": ""
     },
     {
@@ -23289,7 +23360,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The user loses normal app access and must go through recovery support if this was a mistake.",
-      "line": 185,
+      "line": 190,
       "reason": ""
     },
     {
@@ -23302,7 +23373,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery is handled through support email and the internal moderation case, not casual in-app reversal.",
-      "line": 186,
+      "line": 191,
       "reason": ""
     },
     {
@@ -23315,7 +23386,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active",
-      "line": 191,
+      "line": 196,
       "reason": ""
     },
     {
@@ -23328,7 +23399,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warned",
-      "line": 192,
+      "line": 197,
       "reason": ""
     },
     {
@@ -23341,7 +23412,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspended",
-      "line": 193,
+      "line": 198,
       "reason": ""
     },
     {
@@ -23354,7 +23425,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deleted",
-      "line": 194,
+      "line": 199,
       "reason": ""
     },
     {
@@ -23367,7 +23438,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust governance",
-      "line": 199,
+      "line": 204,
       "reason": ""
     },
     {
@@ -23380,7 +23451,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "User governance center",
-      "line": 200,
+      "line": 205,
       "reason": ""
     },
     {
@@ -23393,7 +23464,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warn, suspend, reactivate, and soft-delete users from a premium moderation surface with strong audit visibility.",
-      "line": 201,
+      "line": 206,
       "reason": ""
     },
     {
@@ -23406,7 +23477,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Total users in filter",
-      "line": 204,
+      "line": 209,
       "reason": ""
     },
     {
@@ -23419,7 +23490,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current filtered cohort",
-      "line": 208,
+      "line": 213,
       "reason": ""
     },
     {
@@ -23432,7 +23503,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search name/email/phone",
-      "line": 221,
+      "line": 226,
       "reason": ""
     },
     {
@@ -23445,7 +23516,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All states",
-      "line": 231,
+      "line": 236,
       "reason": ""
     },
     {
@@ -23458,7 +23529,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active",
-      "line": 232,
+      "line": 237,
       "reason": ""
     },
     {
@@ -23471,7 +23542,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warned",
-      "line": 233,
+      "line": 238,
       "reason": ""
     },
     {
@@ -23484,7 +23555,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspended",
-      "line": 234,
+      "line": 239,
       "reason": ""
     },
     {
@@ -23497,7 +23568,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deleted",
-      "line": 235,
+      "line": 240,
       "reason": ""
     },
     {
@@ -23510,7 +23581,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All verification",
-      "line": 245,
+      "line": 250,
       "reason": ""
     },
     {
@@ -23523,7 +23594,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified",
-      "line": 246,
+      "line": 251,
       "reason": ""
     },
     {
@@ -23536,7 +23607,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unverified",
-      "line": 247,
+      "line": 252,
       "reason": ""
     },
     {
@@ -23549,7 +23620,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All seller states",
-      "line": 257,
+      "line": 262,
       "reason": ""
     },
     {
@@ -23562,7 +23633,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Seller",
-      "line": 258,
+      "line": 263,
       "reason": ""
     },
     {
@@ -23575,7 +23646,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Non-seller",
-      "line": 259,
+      "line": 264,
       "reason": ""
     },
     {
@@ -23588,7 +23659,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "User",
-      "line": 267,
+      "line": 272,
       "reason": ""
     },
     {
@@ -23601,7 +23672,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "State",
-      "line": 268,
+      "line": 273,
       "reason": ""
     },
     {
@@ -23614,7 +23685,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified",
-      "line": 269,
+      "line": 274,
       "reason": ""
     },
     {
@@ -23627,7 +23698,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Seller",
-      "line": 270,
+      "line": 275,
       "reason": ""
     },
     {
@@ -23640,7 +23711,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading users...",
-      "line": 279,
+      "line": 284,
       "reason": ""
     },
     {
@@ -23653,7 +23724,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No users found",
-      "line": 285,
+      "line": 290,
       "reason": ""
     },
     {
@@ -23666,7 +23737,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unnamed User",
-      "line": 295,
+      "line": 300,
       "reason": ""
     },
     {
@@ -23679,7 +23750,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Yes",
-      "line": 303,
+      "line": 308,
       "reason": ""
     },
     {
@@ -23692,7 +23763,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No",
-      "line": 303,
+      "line": 308,
       "reason": ""
     },
     {
@@ -23705,7 +23776,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Yes",
-      "line": 304,
+      "line": 309,
       "reason": ""
     },
     {
@@ -23718,7 +23789,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No",
-      "line": 304,
+      "line": 309,
       "reason": ""
     },
     {
@@ -23731,7 +23802,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Previous",
-      "line": 319,
+      "line": 324,
       "reason": ""
     },
     {
@@ -23747,7 +23818,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Page {{page}} / {{pages}}",
-      "line": 321,
+      "line": 326,
       "reason": ""
     },
     {
@@ -23760,7 +23831,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next",
-      "line": 328,
+      "line": 333,
       "reason": ""
     },
     {
@@ -23773,7 +23844,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Select a user to view governance controls",
-      "line": 336,
+      "line": 341,
       "reason": ""
     },
     {
@@ -23786,7 +23857,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading user details...",
-      "line": 342,
+      "line": 347,
       "reason": ""
     },
     {
@@ -23799,7 +23870,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unnamed User",
-      "line": 350,
+      "line": 355,
       "reason": ""
     },
     {
@@ -23812,7 +23883,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No phone on file",
-      "line": 352,
+      "line": 357,
       "reason": ""
     },
     {
@@ -23825,7 +23896,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 359,
+      "line": 364,
       "reason": ""
     },
     {
@@ -23838,7 +23909,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Listings",
-      "line": 360,
+      "line": 365,
       "reason": ""
     },
     {
@@ -23851,7 +23922,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active listings",
-      "line": 361,
+      "line": 366,
       "reason": ""
     },
     {
@@ -23864,7 +23935,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payments",
-      "line": 362,
+      "line": 367,
       "reason": ""
     },
     {
@@ -23877,7 +23948,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reason",
-      "line": 368,
+      "line": 373,
       "reason": ""
     },
     {
@@ -23890,7 +23961,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Required for warning/suspend/delete",
-      "line": 374,
+      "line": 379,
       "reason": ""
     },
     {
@@ -23903,7 +23974,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspension Duration (hours)",
-      "line": 378,
+      "line": 383,
       "reason": ""
     },
     {
@@ -23916,7 +23987,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Scrub PII on delete",
-      "line": 393,
+      "line": 398,
       "reason": ""
     },
     {
@@ -23929,7 +24000,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Issue a formal warning and open an appeal case",
-      "line": 404,
+      "line": 409,
       "reason": ""
     },
     {
@@ -23942,7 +24013,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warn is only available for active or warned users",
-      "line": 404,
+      "line": 409,
       "reason": ""
     },
     {
@@ -23955,7 +24026,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 406,
+      "line": 411,
       "reason": ""
     },
     {
@@ -23968,7 +24039,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Warn",
-      "line": 406,
+      "line": 411,
       "reason": ""
     },
     {
@@ -23981,7 +24052,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspend access and open an urgent appeal case",
-      "line": 413,
+      "line": 418,
       "reason": ""
     },
     {
@@ -23994,7 +24065,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspend is only available for non-deleted users who are not already suspended",
-      "line": 413,
+      "line": 418,
       "reason": ""
     },
     {
@@ -24007,7 +24078,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 415,
+      "line": 420,
       "reason": ""
     },
     {
@@ -24020,7 +24091,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspend",
-      "line": 415,
+      "line": 420,
       "reason": ""
     },
     {
@@ -24033,7 +24104,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Dismiss an active warning and resolve the warning case",
-      "line": 422,
+      "line": 427,
       "reason": ""
     },
     {
@@ -24046,7 +24117,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Dismiss Warning is only available while the user is in warned state",
-      "line": 422,
+      "line": 427,
       "reason": ""
     },
     {
@@ -24059,7 +24130,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 424,
+      "line": 429,
       "reason": ""
     },
     {
@@ -24072,7 +24143,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Dismiss Warning",
-      "line": 424,
+      "line": 429,
       "reason": ""
     },
     {
@@ -24085,7 +24156,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Lift an active suspension and resolve the case",
-      "line": 431,
+      "line": 436,
       "reason": ""
     },
     {
@@ -24098,7 +24169,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reactivate is only available for suspended users",
-      "line": 431,
+      "line": 436,
       "reason": ""
     },
     {
@@ -24111,7 +24182,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 433,
+      "line": 438,
       "reason": ""
     },
     {
@@ -24124,19 +24195,6 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reactivate",
-      "line": 433,
-      "reason": ""
-    },
-    {
-      "column": 61,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Soft-delete this user account?",
-      "file": "app/src/pages/Admin/Users.jsx",
-      "icuDefaultMessage": "Soft-delete this user account?",
-      "id": "admin.users.confirmDelete",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Soft-delete this user account?",
       "line": 438,
       "reason": ""
     },
@@ -24150,7 +24208,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Soft-delete the account and start the recovery trail",
-      "line": 443,
+      "line": 445,
       "reason": ""
     },
     {
@@ -24163,7 +24221,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delete is not available for already deleted accounts",
-      "line": 443,
+      "line": 445,
       "reason": ""
     },
     {
@@ -24176,7 +24234,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "...",
-      "line": 445,
+      "line": 447,
       "reason": ""
     },
     {
@@ -24189,7 +24247,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delete",
-      "line": 445,
+      "line": 447,
       "reason": ""
     },
     {
@@ -24202,7 +24260,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "What Happens Next",
-      "line": 451,
+      "line": 453,
       "reason": ""
     },
     {
@@ -24217,7 +24275,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The selected user is currently in {{state}} state.",
-      "line": 454,
+      "line": 456,
       "reason": ""
     },
     {
@@ -24230,7 +24288,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Every governance action writes an audit log, creates a user-facing signal, and records who acted.",
-      "line": 455,
+      "line": 457,
       "reason": ""
     },
     {
@@ -24243,7 +24301,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "For warnings and suspensions, Aura now opens a real moderation support case so the user can appeal and the admin team can resolve it in one thread.",
-      "line": 458,
+      "line": 460,
       "reason": ""
     },
     {
@@ -24256,7 +24314,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reactivation and warning dismissal close the matching moderation case with a clear resolution message. Deletion creates a recovery trail, but the final user recovery path is support-led because deleted users cannot keep normal app access.",
-      "line": 461,
+      "line": 463,
       "reason": ""
     },
     {
@@ -24269,7 +24327,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Action Power Map",
-      "line": 467,
+      "line": 469,
       "reason": ""
     },
     {
@@ -24282,7 +24340,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Available now",
-      "line": 474,
+      "line": 476,
       "reason": ""
     },
     {
@@ -24295,7 +24353,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Blocked now",
-      "line": 474,
+      "line": 476,
       "reason": ""
     },
     {
@@ -24308,7 +24366,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin power",
-      "line": 477,
+      "line": 479,
       "reason": ""
     },
     {
@@ -24321,7 +24379,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "User impact",
-      "line": 478,
+      "line": 480,
       "reason": ""
     },
     {
@@ -24334,7 +24392,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resolution path",
-      "line": 479,
+      "line": 481,
       "reason": ""
     },
     {
@@ -24347,7 +24405,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Governance Timeline",
-      "line": 487,
+      "line": 489,
       "reason": ""
     },
     {
@@ -24360,7 +24418,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Action",
-      "line": 492,
+      "line": 494,
       "reason": ""
     },
     {
@@ -24373,7 +24431,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reason",
-      "line": 493,
+      "line": 495,
       "reason": ""
     },
     {
@@ -24386,7 +24444,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Actor",
-      "line": 494,
+      "line": 496,
       "reason": ""
     },
     {
@@ -24399,7 +24457,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Time",
-      "line": 495,
+      "line": 497,
       "reason": ""
     },
     {
@@ -24412,7 +24470,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No governance actions yet",
-      "line": 510,
+      "line": 512,
       "reason": ""
     },
     {
@@ -24425,7 +24483,61 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin controls are enforced server-side with strict audit logging.",
-      "line": 524,
+      "line": 526,
+      "reason": ""
+    },
+    {
+      "column": 24,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Soft-delete this account?",
+      "file": "app/src/pages/Admin/Users.jsx",
+      "icuDefaultMessage": "Soft-delete this account?",
+      "id": "admin.users.confirmDeleteTitle",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Soft-delete this account?",
+      "line": 532,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Soft-delete the account {{selectedEmail}}? A recovery trail is created and the final recovery path is support-led.",
+      "file": "app/src/pages/Admin/Users.jsx",
+      "icuDefaultMessage": "Soft-delete the account {selectedEmail}? A recovery trail is created and the final recovery path is support-led.",
+      "id": "admin.users.confirmDeleteDetail",
+      "interpolationTokens": [
+        "selectedEmail"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Soft-delete the account {{selectedEmail}}? A recovery trail is created and the final recovery path is support-led.",
+      "line": 533,
+      "reason": ""
+    },
+    {
+      "column": 31,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Delete",
+      "file": "app/src/pages/Admin/Users.jsx",
+      "icuDefaultMessage": "Delete",
+      "id": "admin.users.actions.delete",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Delete",
+      "line": 538,
+      "reason": ""
+    },
+    {
+      "column": 30,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Cancel",
+      "file": "app/src/pages/Admin/Users.jsx",
+      "icuDefaultMessage": "Cancel",
+      "id": "admin.shared.cancel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Cancel",
+      "line": 539,
       "reason": ""
     },
     {
@@ -53877,14 +53989,14 @@
     },
     {
       "column": 84,
-      "defaultMessageSource": "call-site-fallback",
+      "defaultMessageSource": "legacy-english-pack",
       "fallback": "Sending…",
       "file": "app/src/pages/Profile/components/SupportSection.jsx",
       "icuDefaultMessage": "Sending…",
       "id": "profile.support.sending",
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
+      "legacyEnglishTemplate": "Sending…",
       "line": 746,
       "reason": ""
     },
@@ -59905,14 +60017,14 @@
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
     "productionFiles": 98,
-    "productionStableReferences": 4078,
+    "productionStableReferences": 4086,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 472,
+    "sourceFilesScanned": 474,
     "testHarnessReferences": 16,
     "totalTrackedFiles": 151,
-    "uniqueProductionStableIds": 3684,
+    "uniqueProductionStableIds": 3688,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -60532,6 +60644,7 @@
     "admin.payments.timeline.refunds",
     "admin.payments.title",
     "admin.productEdit.actions.createProduct",
+    "admin.productEdit.actions.removeSpecification",
     "admin.productEdit.actions.saveChanges",
     "admin.productEdit.addSpec",
     "admin.productEdit.backToProducts",
@@ -60593,6 +60706,7 @@
     "admin.products.actions.edit",
     "admin.products.addRealProduct",
     "admin.products.confirmDelete",
+    "admin.products.confirmDeleteTitle",
     "admin.products.deleteReasonDefault",
     "admin.products.deleteReasonPrompt",
     "admin.products.description",
@@ -60729,6 +60843,7 @@
     "admin.shared.adminActor",
     "admin.shared.all",
     "admin.shared.busy",
+    "admin.shared.cancel",
     "admin.shared.loadingWord",
     "admin.shared.next",
     "admin.shared.no",
@@ -60854,7 +60969,8 @@
     "admin.users.actions.warn",
     "admin.users.actions.warnDisabledTitle",
     "admin.users.actions.warnTitle",
-    "admin.users.confirmDelete",
+    "admin.users.confirmDeleteDetail",
+    "admin.users.confirmDeleteTitle",
     "admin.users.copy.appealCase",
     "admin.users.copy.auditLog",
     "admin.users.copy.currentState",
