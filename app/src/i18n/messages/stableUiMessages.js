@@ -16343,6 +16343,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Resolution summary",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "profile.support.sending": {
+        id: "profile.support.sending",
+        defaultMessage: "Sending…",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "profile.support.socket.live": {
         id: "profile.support.socket.live",
         defaultMessage: "Live",

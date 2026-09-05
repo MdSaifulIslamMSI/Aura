@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 418
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (103215/103215 required locale/message pairs)
+- Locale key coverage: 100% (103236/103236 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4915
+- Source message keys: 4916
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,10 +16,10 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 92613
-- Unique review locale/id pairs: 92613
-- Actionable grouped queue entries: 1733
-- Actionable affected locale/message pairs: 28953
+- Total tracked review pairs preserved: 92632
+- Unique review locale/id pairs: 92632
+- Actionable grouped queue entries: 1734
+- Actionable affected locale/message pairs: 28972
 - Native-review audit grouped entries: 3044
 - Native-review audit affected locale/message pairs: 63660
 
@@ -29,7 +29,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 879 | 15855 | bn 782, hi 766, te 844, mr 845, ur 829, gu 858, pa 849, ml 843, kn 844, or 856, as 841, sa 848, es 843, fr 864, de 862, ar 780, ja 829, pt 848, zh 824 |
+| critical | 880 | 15874 | bn 783, hi 767, te 845, mr 846, ur 830, gu 859, pa 850, ml 844, kn 845, or 857, as 842, sa 849, es 844, fr 865, de 863, ar 781, ja 830, pt 849, zh 825 |
 | high | 46 | 217 | bn 9, hi 20, te 19, mr 14, ur 20, gu 13, pa 18, ml 25, kn 19, or 30, as 4, sa 9, es 1, fr 6, de 6, ar 1, ja 1, pt 2 |
 | medium | 762 | 12765 | bn 673, hi 625, te 677, mr 679, ur 677, gu 701, pa 692, ml 679, kn 674, or 692, as 678, sa 694, es 681, fr 665, de 670, ar 666, ja 635, pt 671, zh 636 |
 | low | 46 | 116 | bn 3, hi 2, te 7, mr 3, ur 4, gu 4, pa 3, ml 3, kn 7, or 8, as 6, sa 8, es 10, fr 19, de 17, ar 1, ja 2, pt 8, zh 1 |

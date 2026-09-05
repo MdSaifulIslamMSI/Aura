@@ -342,7 +342,24 @@ export function useSupportConversation({
         }
 
         const tempText = newMessage;
+        const pendingId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         setNewMessage('');
+        // Optimistic echo: the bubble appears instantly with a sending state
+        // and is replaced by the server-confirmed message when the round trip
+        // completes (or removed, restoring the draft, if the send fails).
+        setMessages((previous) => [
+            ...previous,
+            {
+                _id: pendingId,
+                text: tempText,
+                isAdmin: false,
+                isSystem: false,
+                isPending: true,
+                sentAt: new Date().toISOString(),
+            },
+        ]);
+        shouldStickToBottomRef.current = true;
+        pendingScrollBehaviorRef.current = 'smooth';
 
         try {
             setSending(true);
@@ -350,7 +367,10 @@ export function useSupportConversation({
             const nextMessage = res?.data;
             shouldStickToBottomRef.current = true;
             pendingScrollBehaviorRef.current = 'smooth';
-            setMessages((previous) => appendUniqueMessage(previous, nextMessage));
+            setMessages((previous) => appendUniqueMessage(
+                previous.filter((message) => message?._id !== pendingId),
+                nextMessage,
+            ));
             setTickets((previous) => previous.map((ticket) => (
                 String(ticket._id) === String(activeTicketId)
                     ? {
@@ -365,6 +385,9 @@ export function useSupportConversation({
             )));
             setError('');
         } catch (err) {
+            setMessages((previous) => previous.filter((message) => message?._id !== pendingId));
+            shouldStickToBottomRef.current = true;
+            pendingScrollBehaviorRef.current = 'smooth';
             setError(err.message || t('profile.support.error.sendReply', {}, 'Failed to send support reply'));
             setNewMessage(tempText);
         } finally {

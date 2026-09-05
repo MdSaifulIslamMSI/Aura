@@ -713,11 +713,12 @@ export default function SupportSection({
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className={cn('flex', isAdmin ? 'justify-start' : 'justify-end')}>
+                                                    <div className={cn('flex', isAdmin ? 'justify-start' : 'justify-end', message.isPending && 'animate-slide-up-fade motion-reduce:animate-none')}>
                                                         <div className="max-w-[min(92%,34rem)]">
                                                             <div className={cn(
                                                                 'support-chat-bubble',
-                                                                isAdmin ? 'support-chat-bubble-peer' : 'support-chat-bubble-self'
+                                                                isAdmin ? 'support-chat-bubble-peer' : 'support-chat-bubble-self',
+                                                                message.isPending && 'support-chat-bubble-pending'
                                                             )}>
                                                                 <div className={cn(
                                                                     'mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em]',
@@ -737,10 +738,15 @@ export default function SupportSection({
                                                                 </div>
                                                                     <div className="whitespace-pre-wrap text-sm leading-7 text-inherit">{translateSupportText(message.text)}</div>
                                                                 <div className={cn(
-                                                                    'mt-3 text-right text-[11px] font-medium',
+                                                                    'mt-3 flex items-center justify-end gap-1.5 text-right text-[11px] font-medium',
                                                                     isAdmin ? 'text-slate-400' : 'text-emerald-50/75'
                                                                 )}>
-                                                                    {formatMessageTime(sentAt)}
+                                                                    {message.isPending ? (
+                                                                        <>
+                                                                            <span>{t('profile.support.sending', {}, 'Sending…')}</span>
+                                                                            <RefreshCw className="h-3 w-3 animate-spin" />
+                                                                        </>
+                                                                    ) : formatMessageTime(sentAt)}
                                                                 </div>
                                                             </div>
                                                         </div>
