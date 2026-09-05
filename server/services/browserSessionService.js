@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const logger = require('../utils/logger');
+const { writeSecurityEvent } = require('../security/securityEventLogger');
 const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const {
     normalizeEmail,
@@ -590,6 +591,51 @@ const enforceSessionCapForUser = async (userId = '', { keepSessionId = '' } = {}
     } catch (error) {
         logger.warn('browser_session.cap_enforce_failed', { error: error?.message || 'unknown' });
         return { evicted: [], error: error?.message || 'unknown' };
+    }
+};
+
+// Step-down on signal (A5): clears step-up assurance on a user's OTHER
+// sessions when a step-up verification fails. A wrong TOTP code (or similar)
+// may be active guessing against the account; sibling sessions must not keep
+// riding previously granted step-up. Never throws. Does not touch the
+// triggering session itself.
+const downgradeSiblingStepUp = async ({ userId = '', exceptSessionId = '', reason = '' } = {}) => {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedExcept = String(exceptSessionId || '').trim();
+    if (!normalizedUserId) return { downgraded: [] };
+
+    try {
+        const trackedIds = await getAllTrackedSessionIdsForUser(normalizedUserId);
+        const downgraded = [];
+        for (const sessionId of trackedIds) {
+            if (!sessionId || sessionId === normalizedExcept) continue;
+            // eslint-disable-next-line no-await-in-loop
+            const record = await loadSessionRecord(sessionId);
+            const stepUpMs = record?.stepUpUntil ? new Date(record.stepUpUntil).getTime() : 0;
+            const webAuthnMs = record?.webAuthnStepUpUntil ? new Date(record.webAuthnStepUpUntil).getTime() : 0;
+            if (!record || (stepUpMs <= Date.now() && webAuthnMs <= Date.now())) continue;
+            // eslint-disable-next-line no-await-in-loop
+            await storeSessionRecord({ ...record, stepUpUntil: null, webAuthnStepUpUntil: null });
+            downgraded.push(sessionId);
+        }
+
+        if (downgraded.length > 0) {
+            writeSecurityEvent({
+                event: 'auth.session.step_down',
+                outcome: 'success',
+                reason: reason || 'step_up_verification_failed',
+                surface: 'auth',
+                userId: normalizedUserId,
+                riskScore: 55,
+                decision: 'DEGRADE',
+                reasonCode: 'sibling_step_up_cleared',
+                metadata: { downgraded: downgraded.length },
+            }, { level: 'warn' });
+        }
+        return { downgraded };
+    } catch (error) {
+        logger.warn('browser_session.step_down_failed', { error: error?.message || 'unknown' });
+        return { downgraded: [], error: error?.message || 'unknown' };
     }
 };
 
@@ -1575,6 +1621,7 @@ module.exports = {
     resolveSessionIdFromCookieHeader,
     resolveSessionIdFromRequest,
     revokeAllBrowserSessions,
+    downgradeSiblingStepUp,
     revokeBrowserSession,
     revokeBrowserSessionForUserByPublicId,
     revokeOtherBrowserSessionsForUser,

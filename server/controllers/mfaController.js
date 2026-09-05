@@ -5,6 +5,7 @@ const { buildSessionPayload } = require('../services/authSessionService');
 const {
     SESSION_STEP_UP_TTL_MS,
     clearBrowserSessionCookie,
+    downgradeSiblingStepUp,
     refreshBrowserSession,
 } = require('../services/browserSessionService');
 const {
@@ -437,6 +438,14 @@ const verifyTotpLogin = asyncHandler(async (req, res) => {
             req,
             meta: { statusCode: error?.statusCode || 401 },
         });
+        // A wrong TOTP code may be active guessing: step down sibling
+        // sessions so they cannot keep riding prior step-up assurance.
+        // Fire-and-forget; downgrade never throws.
+        void downgradeSiblingStepUp({
+            userId: req.user?._id || '',
+            exceptSessionId: req.authSession?.sessionId || '',
+            reason: 'totp_verify_failed',
+        }).catch(() => undefined);
         throw error;
     }
 
