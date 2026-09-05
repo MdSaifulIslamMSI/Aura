@@ -78,7 +78,7 @@ function IncidentStrip({ title, items = [] }) {
           // resolves StatusIncident slugs), so a self-link to /status looks broken.
           // Render them as static cards instead of dead links. They are the only
           // strip items without a `latestUpdate` field.
-          const isMaintenanceWindow = incident.type === 'maintenance' && !('latestUpdate' in incident);
+          const isMaintenanceWindow = incident.type === 'maintenance' && incident.latestUpdate === undefined;
           const hasDetailRoute = Boolean(incident.slug) && !isMaintenanceWindow;
           const cardBody = (
             <>

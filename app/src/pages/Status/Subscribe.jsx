@@ -110,7 +110,7 @@ export default function StatusSubscribePage() {
           {verifyToken ? (
             <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4" aria-live="polite">
               {verifying ? (
-                <p className="text-sm font-semibold text-slate-700">Verifying subscription…</p>
+                <p className="text-sm font-semibold text-slate-700"><StableText id={"common.jsx.text.verifying.subscription.37c14b7f"} defaultMessage={"Verifying subscription…"} /></p>
               ) : null}
               {!verifying && message ? (
                 <p className="text-sm font-semibold text-slate-700">{message}</p>
@@ -120,7 +120,7 @@ export default function StatusSubscribePage() {
               ) : null}
               {!verifying ? (
                 <Link to="/status" className="mt-4 inline-block text-sm font-bold text-slate-700 underline">
-                  Back to status
+                  <StableText id={"common.jsx.text.back.to.status.a3682887"} defaultMessage={"Back to status"} />
                 </Link>
               ) : null}
             </div>
@@ -168,7 +168,7 @@ export default function StatusSubscribePage() {
               <fieldset>
                 <legend className="text-sm font-bold text-slate-700"><StableText id={"common.jsx.text.components.dcf72b86"} defaultMessage={"Components"} /></legend>
                 {groups.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-500">No component groups are available right now. Your subscription will cover all systems.</p>
+                  <p className="mt-2 text-sm text-slate-500"><StableText id={"common.jsx.text.no.component.groups.are.available.right.now.60c94d7d"} defaultMessage={"No component groups are available right now. Your subscription will cover all systems."} /></p>
                 ) : (
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {groups.map((group) => (
