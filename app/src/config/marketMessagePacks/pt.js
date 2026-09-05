@@ -3305,6 +3305,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.support.priority.normal": "Normal",
   "profile.support.priority.urgent": "Urgente",
   "profile.support.resolutionSummary": "Resumo da resolucao",
+  "profile.support.sending": "Sending…",
   "profile.support.socket.live": "Ao vivo",
   "profile.support.socket.polling": "Votacao",
   "profile.support.socket.reconnecting": "Reconectando...",

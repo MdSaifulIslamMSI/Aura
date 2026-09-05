@@ -5823,6 +5823,11 @@ html[data-color-mode] .hover\:shadow-neon-cyan:hover {
     border-color: rgb(134 239 172 / 0.18);
   }
 
+  .support-chat-bubble-pending {
+    opacity: 0.72;
+    border-style: dashed;
+  }
+
   .support-chat-bubble-peer::before,
   .support-chat-bubble-self::after {
     content: '';

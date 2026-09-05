@@ -718,7 +718,7 @@ const getSupportTicketMessages = asyncHandler(async (req, res, next) => {
 // @route   POST /api/support/:id/messages
 // @access  Protected (Active + Suspended + Admins)
 const sendSupportMessage = asyncHandler(async (req, res, next) => {
-    const ticket = await SupportTicket.findById(req.params.id);
+    let ticket = await SupportTicket.findById(req.params.id);
 
     if (!ticket) {
         return next(new AppError('Support ticket not found', 404));
@@ -743,21 +743,26 @@ const sendSupportMessage = asyncHandler(async (req, res, next) => {
         isSystem: false,
     });
 
-    // Update ticket state
-    ticket.lastMessageAt = Date.now();
-    ticket.lastMessagePreview = text.substring(0, 150);
-    ticket.lastActorRole = isAdmin ? 'admin' : 'user';
-    if (isAdmin) {
-        ticket.unreadByUser += 1;
-        ticket.userActionRequired = true;
-        if (ticket.status === 'resolved') {
-            ticket.status = 'open'; // Reopen on new message
-        }
-    } else {
-        ticket.unreadByAdmin += 1;
-        ticket.userActionRequired = false;
-    }
-    await ticket.save();
+    // Update ticket state atomically: concurrent admin and customer messages
+    // must not lose unread increments through read-modify-write saves.
+    ticket = await SupportTicket.findByIdAndUpdate(
+        ticket._id,
+        {
+            $set: {
+                lastMessageAt: new Date(),
+                lastMessagePreview: text.substring(0, 150),
+                lastActorRole: isAdmin ? 'admin' : 'user',
+                ...(isAdmin
+                    ? {
+                        userActionRequired: true,
+                        ...(ticket.status === 'resolved' ? { status: 'open' } : {}),
+                    }
+                    : { userActionRequired: false }),
+            },
+            $inc: isAdmin ? { unreadByUser: 1 } : { unreadByAdmin: 1 },
+        },
+        { new: true },
+    );
 
     // Populate sender name for the response + websocket
     await message.populate('sender', 'name avatar');
@@ -770,7 +775,12 @@ const sendSupportMessage = asyncHandler(async (req, res, next) => {
                 ticketId: ticket._id,
                 message: message,
             });
-        } catch(e) {}
+        } catch (socketError) {
+            logger.warn('support.realtime_message_delivery_failed', {
+                ticketId: String(ticket._id || ''),
+                message: socketError?.message || String(socketError),
+            });
+        }
 
         await notifyUserAboutSupportEvent(ticket.user, buildSupportNotificationPayload({
             ticket,

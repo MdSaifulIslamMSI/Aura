@@ -3305,6 +3305,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.support.priority.normal": "普通",
   "profile.support.priority.urgent": "緊急",
   "profile.support.resolutionSummary": "解決策の概要",
+  "profile.support.sending": "Sending…",
   "profile.support.socket.live": "ライブ",
   "profile.support.socket.polling": "ポーリング",
   "profile.support.socket.reconnecting": "再接続中...",

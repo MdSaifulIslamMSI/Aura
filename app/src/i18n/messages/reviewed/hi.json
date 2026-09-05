@@ -4242,6 +4242,7 @@
   "profile.support.priority.normal": "normal",
   "profile.support.priority.urgent": "अति आवश्यक",
   "profile.support.resolutionSummary": "संकल्प सारांश",
+  "profile.support.sending": "Sending…",
   "profile.support.socket.live": "रहना",
   "profile.support.socket.polling": "मतदान",
   "profile.support.socket.reconnecting": "Dobara connect ho raha hai...",

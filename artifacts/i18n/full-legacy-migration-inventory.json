@@ -1026,7 +1026,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 73,
+      "messageIdCount": 74,
       "messageIds": [
         "profile.support.arch.defaultBody",
         "profile.support.arch.defaultTitle",
@@ -1089,6 +1089,7 @@
         "profile.support.justOpened",
         "profile.support.lastActivity",
         "profile.support.resolutionSummary",
+        "profile.support.sending",
         "profile.support.thread.activeBody",
         "profile.support.thread.activeTitle",
         "profile.support.thread.body",
@@ -1103,88 +1104,9 @@
         "support.timeline.voice.label"
       ],
       "risk": "high",
-      "stableLiteralCount": 83,
+      "stableLiteralCount": 84,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": true
-    },
-    {
-      "dynamicLookupCount": 0,
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 65,
-      "messageIds": [
-        "login.action.backToRecoveryDetails",
-        "login.action.backToSignInDetails",
-        "login.action.forgotPassword",
-        "login.actionTemporarilyUnavailable",
-        "login.checkpoint.body",
-        "login.checkpoint.deviceTitle",
-        "login.checkpoint.mfaTitle",
-        "login.checkpoint.stayHere",
-        "login.desktopBrowser.button",
-        "login.desktopBrowser.cancel",
-        "login.desktopBrowser.startedDetail",
-        "login.desktopBrowser.startedTitle",
-        "login.desktopOwnerAccess.button",
-        "login.field.confirmPassword",
-        "login.field.email",
-        "login.field.fullName",
-        "login.field.newPassword",
-        "login.field.password",
-        "login.field.phone",
-        "login.field.registeredEmail",
-        "login.journey.access",
-        "login.journey.account",
-        "login.journey.details",
-        "login.journey.join",
-        "login.journey.label",
-        "login.journey.profile",
-        "login.journey.reset",
-        "login.journey.verify",
-        "login.memberAccess",
-        "login.modeToggle.haveAccount",
-        "login.modeToggle.noAccount",
-        "login.modeToggle.rememberPassword",
-        "login.offlineAction",
-        "login.offlineBody",
-        "login.otherOptions",
-        "login.otp.codeLabel",
-        "login.otp.compactDefault",
-        "login.otp.compactEmail",
-        "login.otp.compactPhone",
-        "login.otp.digitLabel",
-        "login.otp.resend",
-        "login.otp.resendIn",
-        "login.otp.title",
-        "login.password.placeholder",
-        "login.phone.inputLabel",
-        "login.phoneHint.compact",
-        "login.phoneHint.default",
-        "login.phoneHint.fallback",
-        "login.placeholder.email",
-        "login.placeholder.fullName",
-        "login.placeholder.phoneLocal",
-        "login.processing",
-        "login.reset.compactBody",
-        "login.reset.placeholder.confirmNewPassword",
-        "login.reset.placeholder.newPassword",
-        "login.secureSignIn",
-        "login.securityWarning",
-        "login.signup.placeholder.confirmPassword",
-        "login.social.duo",
-        "login.social.unavailableBody",
-        "login.social.useStandard",
-        "login.terms.middle",
-        "login.terms.prefix",
-        "login.terms.privacy",
-        "login.terms.use"
-      ],
-      "risk": "high",
-      "stableLiteralCount": 69,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
     },
     {
       "dynamicLookupCount": 0,
@@ -1260,6 +1182,80 @@
       ],
       "risk": "high",
       "stableLiteralCount": 67,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
+      "file": "app/src/pages/Login/LoginView.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 60,
+      "messageIds": [
+        "login.action.backToRecoveryDetails",
+        "login.action.backToSignInDetails",
+        "login.action.forgotPassword",
+        "login.actionTemporarilyUnavailable",
+        "login.checkpoint.body",
+        "login.checkpoint.deviceTitle",
+        "login.checkpoint.mfaTitle",
+        "login.checkpoint.stayHere",
+        "login.field.confirmPassword",
+        "login.field.email",
+        "login.field.fullName",
+        "login.field.newPassword",
+        "login.field.password",
+        "login.field.phone",
+        "login.field.registeredEmail",
+        "login.journey.access",
+        "login.journey.account",
+        "login.journey.details",
+        "login.journey.join",
+        "login.journey.label",
+        "login.journey.profile",
+        "login.journey.reset",
+        "login.journey.verify",
+        "login.memberAccess",
+        "login.modeToggle.haveAccount",
+        "login.modeToggle.noAccount",
+        "login.modeToggle.rememberPassword",
+        "login.offlineAction",
+        "login.offlineBody",
+        "login.otherOptions",
+        "login.otp.codeLabel",
+        "login.otp.compactDefault",
+        "login.otp.compactEmail",
+        "login.otp.compactPhone",
+        "login.otp.digitLabel",
+        "login.otp.resend",
+        "login.otp.resendIn",
+        "login.otp.title",
+        "login.password.placeholder",
+        "login.phone.inputLabel",
+        "login.phoneHint.compact",
+        "login.phoneHint.default",
+        "login.phoneHint.fallback",
+        "login.placeholder.email",
+        "login.placeholder.fullName",
+        "login.placeholder.phoneLocal",
+        "login.processing",
+        "login.reset.compactBody",
+        "login.reset.placeholder.confirmNewPassword",
+        "login.reset.placeholder.newPassword",
+        "login.secureSignIn",
+        "login.securityWarning",
+        "login.signup.placeholder.confirmPassword",
+        "login.social.duo",
+        "login.social.unavailableBody",
+        "login.social.useStandard",
+        "login.terms.middle",
+        "login.terms.prefix",
+        "login.terms.privacy",
+        "login.terms.use"
+      ],
+      "risk": "high",
+      "stableLiteralCount": 64,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -6049,7 +6045,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-09-05T08:02:23.745Z",
+  "generatedAt": "2026-09-05T13:44:08.625Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -35480,7 +35476,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account",
-      "line": 48,
+      "line": 47,
       "reason": ""
     },
     {
@@ -35493,7 +35489,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify",
-      "line": 49,
+      "line": 48,
       "reason": ""
     },
     {
@@ -35506,7 +35502,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset",
-      "line": 50,
+      "line": 49,
       "reason": ""
     },
     {
@@ -35519,7 +35515,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Profile",
-      "line": 54,
+      "line": 53,
       "reason": ""
     },
     {
@@ -35532,7 +35528,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify",
-      "line": 55,
+      "line": 54,
       "reason": ""
     },
     {
@@ -35545,7 +35541,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Join",
-      "line": 56,
+      "line": 55,
       "reason": ""
     },
     {
@@ -35558,7 +35554,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Details",
-      "line": 59,
+      "line": 58,
       "reason": ""
     },
     {
@@ -35571,7 +35567,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify",
-      "line": 60,
+      "line": 59,
       "reason": ""
     },
     {
@@ -35584,7 +35580,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Access",
-      "line": 61,
+      "line": 60,
       "reason": ""
     },
     {
@@ -35597,7 +35593,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure access progress",
-      "line": 65,
+      "line": 64,
       "reason": ""
     },
     {
@@ -35610,7 +35606,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Processing",
-      "line": 170,
+      "line": 169,
       "reason": ""
     },
     {
@@ -35623,7 +35619,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Temporarily Unavailable",
-      "line": 171,
+      "line": 170,
       "reason": ""
     },
     {
@@ -35636,7 +35632,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reconnect to continue",
-      "line": 173,
+      "line": 172,
       "reason": ""
     },
     {
@@ -35649,7 +35645,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure sign-in",
-      "line": 218,
+      "line": 217,
       "reason": ""
     },
     {
@@ -35662,7 +35658,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura member access",
-      "line": 224,
+      "line": 223,
       "reason": ""
     },
     {
@@ -35675,7 +35671,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You are offline. Your details stay here; reconnect to continue securely.",
-      "line": 268,
+      "line": 267,
       "reason": ""
     },
     {
@@ -35688,7 +35684,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Complete multi-factor verification",
-      "line": 285,
+      "line": 284,
       "reason": ""
     },
     {
@@ -35701,7 +35697,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verify this device",
-      "line": 286,
+      "line": 285,
       "reason": ""
     },
     {
@@ -35714,7 +35710,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Finish the security checkpoint shown on this page. You will continue automatically only after the session is fully verified.",
-      "line": 289,
+      "line": 288,
       "reason": ""
     },
     {
@@ -35727,72 +35723,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep this page open. Do not submit your sign-in details again.",
-      "line": 296,
-      "reason": ""
-    },
-    {
-      "column": 18,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Continue in Your Browser",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Continue in Your Browser",
-      "id": "login.desktopBrowser.startedTitle",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Continue in Your Browser",
-      "line": 304,
-      "reason": ""
-    },
-    {
-      "column": 18,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "id": "login.desktopBrowser.startedDetail",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "line": 307,
-      "reason": ""
-    },
-    {
-      "column": 16,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Continue in Browser",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Continue in Browser",
-      "id": "login.desktopBrowser.button",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Continue in Browser",
-      "line": 322,
-      "reason": ""
-    },
-    {
-      "column": 18,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Cancel browser sign-in",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Cancel browser sign-in",
-      "id": "login.desktopBrowser.cancel",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Cancel browser sign-in",
-      "line": 331,
-      "reason": ""
-    },
-    {
-      "column": 18,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Owner Access",
-      "file": "app/src/pages/Login/LoginView.jsx",
-      "icuDefaultMessage": "Owner Access",
-      "id": "login.desktopOwnerAccess.button",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Owner Access",
-      "line": 343,
+      "line": 295,
       "reason": ""
     },
     {
@@ -35805,7 +35736,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Full name",
-      "line": 363,
+      "line": 314,
       "reason": ""
     },
     {
@@ -35818,7 +35749,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your full name",
-      "line": 373,
+      "line": 324,
       "reason": ""
     },
     {
@@ -35831,7 +35762,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Registered email",
-      "line": 384,
+      "line": 335,
       "reason": ""
     },
     {
@@ -35844,7 +35775,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email address",
-      "line": 385,
+      "line": 336,
       "reason": ""
     },
     {
@@ -35857,7 +35788,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "you@example.com",
-      "line": 395,
+      "line": 346,
       "reason": ""
     },
     {
@@ -35870,7 +35801,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number",
-      "line": 404,
+      "line": 355,
       "reason": ""
     },
     {
@@ -35883,7 +35814,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number",
-      "line": 417,
+      "line": 368,
       "reason": ""
     },
     {
@@ -35896,7 +35827,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number",
-      "line": 425,
+      "line": 376,
       "reason": ""
     },
     {
@@ -35909,7 +35840,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number {dialCode}",
-      "line": 429,
+      "line": 380,
       "reason": ""
     },
     {
@@ -35922,7 +35853,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SMS delivery is unavailable here, so the available secure backup verification channel will be used.",
-      "line": 440,
+      "line": 391,
       "reason": ""
     },
     {
@@ -35935,7 +35866,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "We will verify this sign-in with email and phone codes.",
-      "line": 442,
+      "line": 393,
       "reason": ""
     },
     {
@@ -35948,7 +35879,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "We will send a verification code to your email and phone.",
-      "line": 443,
+      "line": 394,
       "reason": ""
     },
     {
@@ -35961,7 +35892,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password",
-      "line": 451,
+      "line": 402,
       "reason": ""
     },
     {
@@ -35974,7 +35905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Forgot password?",
-      "line": 460,
+      "line": 411,
       "reason": ""
     },
     {
@@ -35987,7 +35918,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your password",
-      "line": 472,
+      "line": 423,
       "reason": ""
     },
     {
@@ -36000,7 +35931,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm password",
-      "line": 492,
+      "line": 443,
       "reason": ""
     },
     {
@@ -36013,7 +35944,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Re-enter your password",
-      "line": 502,
+      "line": 453,
       "reason": ""
     },
     {
@@ -36026,7 +35957,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Back to sign-in details",
-      "line": 516,
+      "line": 467,
       "reason": ""
     },
     {
@@ -36039,7 +35970,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter verification code",
-      "line": 520,
+      "line": 471,
       "reason": ""
     },
     {
@@ -36054,7 +35985,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit code sent to {{email}}. Phone verification follows.",
-      "line": 523,
+      "line": 474,
       "reason": ""
     },
     {
@@ -36069,7 +36000,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit code sent to {{phone}}.",
-      "line": 525,
+      "line": 476,
       "reason": ""
     },
     {
@@ -36082,7 +36013,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit verification code we sent you.",
-      "line": 526,
+      "line": 477,
       "reason": ""
     },
     {
@@ -36095,7 +36026,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Six-digit verification code",
-      "line": 531,
+      "line": 482,
       "reason": ""
     },
     {
@@ -36110,7 +36041,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verification code digit {{position}}",
-      "line": 546,
+      "line": 497,
       "reason": ""
     },
     {
@@ -36125,7 +36056,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resend in {{seconds}}s",
-      "line": 561,
+      "line": 512,
       "reason": ""
     },
     {
@@ -36138,7 +36069,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resend code",
-      "line": 570,
+      "line": 521,
       "reason": ""
     },
     {
@@ -36151,7 +36082,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Back to recovery details",
-      "line": 581,
+      "line": 532,
       "reason": ""
     },
     {
@@ -36164,7 +36095,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery is verified. Set a strong new password for this account.",
-      "line": 584,
+      "line": 535,
       "reason": ""
     },
     {
@@ -36177,7 +36108,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New password",
-      "line": 589,
+      "line": 540,
       "reason": ""
     },
     {
@@ -36190,7 +36121,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter a new password",
-      "line": 599,
+      "line": 550,
       "reason": ""
     },
     {
@@ -36203,7 +36134,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Confirm password",
-      "line": 617,
+      "line": 568,
       "reason": ""
     },
     {
@@ -36216,7 +36147,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Re-enter the new password",
-      "line": 627,
+      "line": 578,
       "reason": ""
     },
     {
@@ -36229,7 +36160,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Remember your password?",
-      "line": 664,
+      "line": 615,
       "reason": ""
     },
     {
@@ -36242,7 +36173,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Don't have an account?",
-      "line": 677,
+      "line": 628,
       "reason": ""
     },
     {
@@ -36255,7 +36186,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Already have an account?",
-      "line": 678,
+      "line": 629,
       "reason": ""
     },
     {
@@ -36268,7 +36199,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Other secure sign-in options",
-      "line": 695,
+      "line": 646,
       "reason": ""
     },
     {
@@ -36281,7 +36212,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue with Duo",
-      "line": 707,
+      "line": 658,
       "reason": ""
     },
     {
@@ -36294,7 +36225,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Social sign-in is unavailable here. Use email, phone, and password instead.",
-      "line": 748,
+      "line": 699,
       "reason": ""
     },
     {
@@ -36307,7 +36238,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Social sign-in could not initialize. Email, phone, and password sign-in remain available.",
-      "line": 749,
+      "line": 700,
       "reason": ""
     },
     {
@@ -36320,7 +36251,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep passwords and verification codes private. Aura support will never ask you to share a code.",
-      "line": 758,
+      "line": 709,
       "reason": ""
     },
     {
@@ -36333,7 +36264,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "By continuing, you accept our",
-      "line": 764,
+      "line": 715,
       "reason": ""
     },
     {
@@ -36346,7 +36277,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Terms of Use",
-      "line": 766,
+      "line": 717,
       "reason": ""
     },
     {
@@ -36359,7 +36290,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "and",
-      "line": 768,
+      "line": 719,
       "reason": ""
     },
     {
@@ -36372,7 +36303,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Privacy Policy",
-      "line": 770,
+      "line": 721,
       "reason": ""
     },
     {
@@ -36385,7 +36316,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue",
-      "line": 672,
+      "line": 664,
       "reason": ""
     },
     {
@@ -36398,7 +36329,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checking this browser",
-      "line": 674,
+      "line": 666,
       "reason": ""
     },
     {
@@ -36411,7 +36342,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Opening Aura Desktop",
-      "line": 675,
+      "line": 667,
       "reason": ""
     },
     {
@@ -36424,7 +36355,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified Aura account",
-      "line": 683,
+      "line": 675,
       "reason": ""
     },
     {
@@ -36437,7 +36368,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Finishing Desktop Sign-In",
-      "line": 835,
+      "line": 827,
       "reason": ""
     },
     {
@@ -36450,7 +36381,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura is securely returning this browser sign-in to the desktop app.",
-      "line": 836,
+      "line": 828,
       "reason": ""
     },
     {
@@ -36463,7 +36394,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Security check is still loading. Please try again.",
-      "line": 924,
+      "line": 916,
       "reason": ""
     },
     {
@@ -36476,7 +36407,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery Verified",
-      "line": 982,
+      "line": 974,
       "reason": ""
     },
     {
@@ -36489,7 +36420,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "account setup",
-      "line": 1428,
+      "line": 1420,
       "reason": ""
     },
     {
@@ -36502,7 +36433,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "password recovery",
-      "line": 1430,
+      "line": 1422,
       "reason": ""
     },
     {
@@ -36515,7 +36446,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "sign-in",
-      "line": 1431,
+      "line": 1423,
       "reason": ""
     },
     {
@@ -36528,7 +36459,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "finish activating your account",
-      "line": 1433,
+      "line": 1425,
       "reason": ""
     },
     {
@@ -36541,7 +36472,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "unlock password reset",
-      "line": 1435,
+      "line": 1427,
       "reason": ""
     },
     {
@@ -36554,7 +36485,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "finish signing in",
-      "line": 1436,
+      "line": 1428,
       "reason": ""
     },
     {
@@ -36567,7 +36498,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Codes Re-Sent",
-      "line": 1445,
+      "line": 1437,
       "reason": ""
     },
     {
@@ -36580,7 +36511,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email Code Sent",
-      "line": 1446,
+      "line": 1438,
       "reason": ""
     },
     {
@@ -36595,7 +36526,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fresh {{mode}} codes were sent. Enter the email code first, then confirm the same flow with Firebase SMS.",
-      "line": 1448,
+      "line": 1440,
       "reason": ""
     },
     {
@@ -36610,7 +36541,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email code is ready. After that, you will confirm the same {{mode}} with Firebase SMS on your phone.",
-      "line": 1449,
+      "line": 1441,
       "reason": ""
     },
     {
@@ -36623,7 +36554,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email Verified",
-      "line": 1455,
+      "line": 1447,
       "reason": ""
     },
     {
@@ -36638,7 +36569,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 is complete. Enter the Firebase SMS code sent to your phone to {{outcome}}.",
-      "line": 1456,
+      "line": 1448,
       "reason": ""
     },
     {
@@ -36651,7 +36582,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase Code Re-Sent",
-      "line": 1463,
+      "line": 1455,
       "reason": ""
     },
     {
@@ -36664,7 +36595,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase SMS Sent",
-      "line": 1464,
+      "line": 1456,
       "reason": ""
     },
     {
@@ -36677,7 +36608,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A fresh 6-digit Firebase verification code is on its way to your phone.",
-      "line": 1466,
+      "line": 1458,
       "reason": ""
     },
     {
@@ -36690,7 +36621,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A 6-digit Firebase verification code has been sent to your phone.",
-      "line": 1467,
+      "line": 1459,
       "reason": ""
     },
     {
@@ -36703,7 +36634,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Check for a Code",
-      "line": 1472,
+      "line": 1464,
       "reason": ""
     },
     {
@@ -36716,7 +36647,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the account details are valid, a fresh verification code has been sent.",
-      "line": 1474,
+      "line": 1466,
       "reason": ""
     },
     {
@@ -36729,7 +36660,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the account details are valid, a 6-digit verification code has been sent.",
-      "line": 1475,
+      "line": 1467,
       "reason": ""
     },
     {
@@ -36742,7 +36673,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password is required",
-      "line": 1595,
+      "line": 1587,
       "reason": ""
     },
     {
@@ -36755,7 +36686,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must be at least 12 characters",
-      "line": 1596,
+      "line": 1588,
       "reason": ""
     },
     {
@@ -36768,7 +36699,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain an uppercase letter",
-      "line": 1597,
+      "line": 1589,
       "reason": ""
     },
     {
@@ -36781,7 +36712,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a lowercase letter",
-      "line": 1598,
+      "line": 1590,
       "reason": ""
     },
     {
@@ -36794,7 +36725,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a digit",
-      "line": 1599,
+      "line": 1591,
       "reason": ""
     },
     {
@@ -36807,7 +36738,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password must contain a special character (!@#$%^&*)",
-      "line": 1600,
+      "line": 1592,
       "reason": ""
     },
     {
@@ -36820,7 +36751,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Passwords do not match",
-      "line": 1601,
+      "line": 1593,
       "reason": ""
     },
     {
@@ -36833,7 +36764,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone number is required",
-      "line": 1607,
+      "line": 1599,
       "reason": ""
     },
     {
@@ -36846,7 +36777,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use international phone format with country code, for example +1 202 555 0142",
-      "line": 1611,
+      "line": 1603,
       "reason": ""
     },
     {
@@ -36859,7 +36790,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Full name is required",
-      "line": 1615,
+      "line": 1607,
       "reason": ""
     },
     {
@@ -36872,7 +36803,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email address is required",
-      "line": 1616,
+      "line": 1608,
       "reason": ""
     },
     {
@@ -36885,7 +36816,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Valid email address is required",
-      "line": 1617,
+      "line": 1609,
       "reason": ""
     },
     {
@@ -36898,7 +36829,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email address is required",
-      "line": 1626,
+      "line": 1618,
       "reason": ""
     },
     {
@@ -36911,7 +36842,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Valid email address is required",
-      "line": 1627,
+      "line": 1619,
       "reason": ""
     },
     {
@@ -36924,7 +36855,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password is required",
-      "line": 1628,
+      "line": 1620,
       "reason": ""
     },
     {
@@ -36937,7 +36868,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email address is required",
-      "line": 1631,
+      "line": 1623,
       "reason": ""
     },
     {
@@ -36950,7 +36881,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Valid email address is required",
-      "line": 1632,
+      "line": 1624,
       "reason": ""
     },
     {
@@ -36963,7 +36894,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You are already signed in. Please log out before creating another account.",
-      "line": 1640,
+      "line": 1632,
       "reason": ""
     },
     {
@@ -36976,7 +36907,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter complete 6-digit OTP",
-      "line": 1703,
+      "line": 1695,
       "reason": ""
     },
     {
@@ -36989,7 +36920,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure phone challenge expired. Please request a new code.",
-      "line": 1742,
+      "line": 1734,
       "reason": ""
     },
     {
@@ -37002,7 +36933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email OTP and Firebase phone verification are complete. Set a new password for this account now.",
-      "line": 1779,
+      "line": 1771,
       "reason": ""
     },
     {
@@ -37015,7 +36946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email and phone are verified. Set a new password for this account now.",
-      "line": 1813,
+      "line": 1805,
       "reason": ""
     },
     {
@@ -37028,7 +36959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure sign-in proof expired. Please re-enter credentials.",
-      "line": 1874,
+      "line": 1866,
       "reason": ""
     },
     {
@@ -37041,7 +36972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SET NEW PASSWORD",
-      "line": 2008,
+      "line": 2000,
       "reason": ""
     },
     {
@@ -37054,7 +36985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your recovery verification is complete for the registered email and phone. Choose a fresh password to regain access securely.",
-      "line": 2009,
+      "line": 2001,
       "reason": ""
     },
     {
@@ -37067,7 +36998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY EMAIL",
-      "line": 2016,
+      "line": 2008,
       "reason": ""
     },
     {
@@ -37080,7 +37011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish account activation with Firebase SMS on your phone.",
-      "line": 2018,
+      "line": 2010,
       "reason": ""
     },
     {
@@ -37093,7 +37024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish recovery with Firebase SMS on your phone.",
-      "line": 2020,
+      "line": 2012,
       "reason": ""
     },
     {
@@ -37106,7 +37037,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 of 2. Enter the 6-digit code sent to your email, then finish the same sign-in with Firebase SMS on your phone.",
-      "line": 2021,
+      "line": 2013,
       "reason": ""
     },
     {
@@ -37119,7 +37050,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE",
-      "line": 2027,
+      "line": 2019,
       "reason": ""
     },
     {
@@ -37132,7 +37063,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to activate your account securely.",
-      "line": 2029,
+      "line": 2021,
       "reason": ""
     },
     {
@@ -37145,7 +37076,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to unlock secure password recovery.",
-      "line": 2031,
+      "line": 2023,
       "reason": ""
     },
     {
@@ -37158,7 +37089,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 of 2. Enter the Firebase SMS code sent to your phone to complete secure sign-in.",
-      "line": 2032,
+      "line": 2024,
       "reason": ""
     },
     {
@@ -37171,7 +37102,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP",
-      "line": 2037,
+      "line": 2029,
       "reason": ""
     },
     {
@@ -37184,7 +37115,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit Firebase SMS code sent to your phone to complete the login.",
-      "line": 2039,
+      "line": 2031,
       "reason": ""
     },
     {
@@ -37199,7 +37130,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter the 6-digit code sent to your email{{extra}}.",
-      "line": 2040,
+      "line": 2032,
       "reason": ""
     },
     {
@@ -37212,7 +37143,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "and phone",
-      "line": 2040,
+      "line": 2032,
       "reason": ""
     },
     {
@@ -37225,7 +37156,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "CREATE ACCOUNT",
-      "line": 2047,
+      "line": 2039,
       "reason": ""
     },
     {
@@ -37238,7 +37169,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel before account creation.",
-      "line": 2049,
+      "line": 2041,
       "reason": ""
     },
     {
@@ -37251,7 +37182,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign up with your details, then verify the account with one code to email and one Firebase SMS code to your phone.",
-      "line": 2051,
+      "line": 2043,
       "reason": ""
     },
     {
@@ -37264,7 +37195,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign up with your phone number. We'll verify it with an OTP sent to your email and phone.",
-      "line": 2052,
+      "line": 2044,
       "reason": ""
     },
     {
@@ -37277,7 +37208,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "RESET PASSWORD",
-      "line": 2056,
+      "line": 2048,
       "reason": ""
     },
     {
@@ -37290,7 +37221,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel before password reset.",
-      "line": 2058,
+      "line": 2050,
       "reason": ""
     },
     {
@@ -37303,7 +37234,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your registered email and phone number, then verify recovery with one code to email and one Firebase SMS code to your phone.",
-      "line": 2060,
+      "line": 2052,
       "reason": ""
     },
     {
@@ -37316,7 +37247,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter your registered email and phone number. We'll verify both before allowing a new password.",
-      "line": 2061,
+      "line": 2053,
       "reason": ""
     },
     {
@@ -37329,7 +37260,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "WELCOME BACK",
-      "line": 2065,
+      "line": 2057,
       "reason": ""
     },
     {
@@ -37342,7 +37273,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable on this deployment, so secure backup OTP codes will be sent through the available secure verification channel after your password is checked.",
-      "line": 2067,
+      "line": 2059,
       "reason": ""
     },
     {
@@ -37355,7 +37286,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in with your password, then verify the login with one code to email and one Firebase SMS code to your phone.",
-      "line": 2069,
+      "line": 2061,
       "reason": ""
     },
     {
@@ -37368,7 +37299,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sign in with your credentials. We'll verify your identity with an OTP.",
-      "line": 2070,
+      "line": 2062,
       "reason": ""
     },
     {
@@ -37381,7 +37312,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This password change is allowed only after verified recovery for the same email and phone.",
-      "line": 2078,
+      "line": 2070,
       "reason": ""
     },
     {
@@ -37394,7 +37325,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your new password must meet the full strength policy before it is saved.",
-      "line": 2079,
+      "line": 2071,
       "reason": ""
     },
     {
@@ -37407,7 +37338,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Existing Firebase sessions are revoked after the reset so the new password takes effect cleanly.",
-      "line": 2080,
+      "line": 2072,
       "reason": ""
     },
     {
@@ -37420,7 +37351,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 verifies the email address that will own the new account.",
-      "line": 2088,
+      "line": 2080,
       "reason": ""
     },
     {
@@ -37433,7 +37364,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 verifies the registered recovery email for this account.",
-      "line": 2090,
+      "line": 2082,
       "reason": ""
     },
     {
@@ -37446,7 +37377,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 1 checks the email address tied to your password and registered phone number.",
-      "line": 2091,
+      "line": 2083,
       "reason": ""
     },
     {
@@ -37459,7 +37390,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Step 2 will still require the Firebase phone code before this flow is finalized.",
-      "line": 2092,
+      "line": 2084,
       "reason": ""
     },
     {
@@ -37472,7 +37403,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Both codes expire quickly and each resend refreshes the full secure verification chain.",
-      "line": 2093,
+      "line": 2085,
       "reason": ""
     },
     {
@@ -37485,7 +37416,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email step is already verified for this new account.",
-      "line": 2100,
+      "line": 2092,
       "reason": ""
     },
     {
@@ -37498,7 +37429,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your recovery email step is already verified for this account.",
-      "line": 2102,
+      "line": 2094,
       "reason": ""
     },
     {
@@ -37511,7 +37442,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your email step is already verified for this login attempt.",
-      "line": 2103,
+      "line": 2095,
       "reason": ""
     },
     {
@@ -37524,7 +37455,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The final Firebase SMS confirmation binds this flow to your registered phone.",
-      "line": 2104,
+      "line": 2096,
       "reason": ""
     },
     {
@@ -37537,7 +37468,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "If the phone code expires, resend refreshes both email and phone factors together.",
-      "line": 2105,
+      "line": 2097,
       "reason": ""
     },
     {
@@ -37550,7 +37481,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Codes expire in 5 minutes and can be used only once.",
-      "line": 2110,
+      "line": 2102,
       "reason": ""
     },
     {
@@ -37563,7 +37494,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura never asks for your OTP outside this secure verification step.",
-      "line": 2111,
+      "line": 2103,
       "reason": ""
     },
     {
@@ -37576,7 +37507,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry and resend controls stay available if delivery is delayed.",
-      "line": 2112,
+      "line": 2104,
       "reason": ""
     },
     {
@@ -37589,7 +37520,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable here, so Aura is using secure backup delivery through the available verification channel before account creation.",
-      "line": 2119,
+      "line": 2111,
       "reason": ""
     },
     {
@@ -37602,7 +37533,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email is checked first, then Firebase phone verification finishes the new account securely.",
-      "line": 2121,
+      "line": 2113,
       "reason": ""
     },
     {
@@ -37615,7 +37546,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email and phone are verified before a new account becomes active.",
-      "line": 2122,
+      "line": 2114,
       "reason": ""
     },
     {
@@ -37628,7 +37559,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Seller, payment, and order access stay locked behind verified identity.",
-      "line": 2123,
+      "line": 2115,
       "reason": ""
     },
     {
@@ -37641,7 +37572,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fraud checks and duplicate-account controls run before activation.",
-      "line": 2124,
+      "line": 2116,
       "reason": ""
     },
     {
@@ -37654,7 +37585,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone delivery is unavailable here, so Aura is using secure backup delivery through the available verification channel before recovery continues.",
-      "line": 2131,
+      "line": 2123,
       "reason": ""
     },
     {
@@ -37667,7 +37598,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery checks your email first, then requires Firebase phone verification before password reset.",
-      "line": 2133,
+      "line": 2125,
       "reason": ""
     },
     {
@@ -37680,7 +37611,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset requests stay tied to your registered email and phone.",
-      "line": 2134,
+      "line": 2126,
       "reason": ""
     },
     {
@@ -37693,7 +37624,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A fresh verification chain is required before any password recovery step.",
-      "line": 2135,
+      "line": 2127,
       "reason": ""
     },
     {
@@ -37706,7 +37637,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Suspicious recovery attempts are rate-limited automatically.",
-      "line": 2136,
+      "line": 2128,
       "reason": ""
     },
     {
@@ -37719,7 +37650,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Firebase phone verification is unavailable here, so Aura is using secure backup delivery through the available verification channel.",
-      "line": 2142,
+      "line": 2134,
       "reason": ""
     },
     {
@@ -37732,7 +37663,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password is verified first, then login codes are sent to both your email and Firebase phone channel.",
-      "line": 2144,
+      "line": 2136,
       "reason": ""
     },
     {
@@ -37745,7 +37676,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password validity is checked before an OTP is issued.",
-      "line": 2145,
+      "line": 2137,
       "reason": ""
     },
     {
@@ -37758,7 +37689,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Phone confirmation reduces account-takeover risk before the session is finalized.",
-      "line": 2146,
+      "line": 2138,
       "reason": ""
     },
     {
@@ -37771,7 +37702,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rate limits, device checks, and audit logs guard repeated attempts.",
-      "line": 2147,
+      "line": 2139,
       "reason": ""
     },
     {
@@ -37784,7 +37715,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP window",
-      "line": 2159,
+      "line": 2151,
       "reason": ""
     },
     {
@@ -37797,7 +37728,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset window",
-      "line": 2159,
+      "line": 2151,
       "reason": ""
     },
     {
@@ -37810,7 +37741,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Identity gate",
-      "line": 2159,
+      "line": 2151,
       "reason": ""
     },
     {
@@ -37823,7 +37754,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "5-minute secure verify",
-      "line": 2161,
+      "line": 2153,
       "reason": ""
     },
     {
@@ -37836,7 +37767,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP verified, new password pending",
-      "line": 2163,
+      "line": 2155,
       "reason": ""
     },
     {
@@ -37849,7 +37780,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Credentials checked before send",
-      "line": 2164,
+      "line": 2156,
       "reason": ""
     },
     {
@@ -37862,7 +37793,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery",
-      "line": 2167,
+      "line": 2159,
       "reason": ""
     },
     {
@@ -37875,7 +37806,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email OTP live, Firebase phone pending",
-      "line": 2169,
+      "line": 2161,
       "reason": ""
     },
     {
@@ -37888,7 +37819,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email verified, Firebase SMS active",
-      "line": 2171,
+      "line": 2163,
       "reason": ""
     },
     {
@@ -37901,7 +37832,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Backup OTP fallback active",
-      "line": 2173,
+      "line": 2165,
       "reason": ""
     },
     {
@@ -37914,7 +37845,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email + Firebase SMS",
-      "line": 2175,
+      "line": 2167,
       "reason": ""
     },
     {
@@ -37927,7 +37858,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email + phone active",
-      "line": 2176,
+      "line": 2168,
       "reason": ""
     },
     {
@@ -37940,7 +37871,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email first, phone required",
-      "line": 2176,
+      "line": 2168,
       "reason": ""
     },
     {
@@ -37953,7 +37884,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Flow",
-      "line": 2179,
+      "line": 2171,
       "reason": ""
     },
     {
@@ -37966,7 +37897,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New account activation",
-      "line": 2181,
+      "line": 2173,
       "reason": ""
     },
     {
@@ -37979,7 +37910,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recovery unlocked",
-      "line": 2184,
+      "line": 2176,
       "reason": ""
     },
     {
@@ -37992,7 +37923,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Password recovery",
-      "line": 2185,
+      "line": 2177,
       "reason": ""
     },
     {
@@ -38005,7 +37936,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure sign-in",
-      "line": 2186,
+      "line": 2178,
       "reason": ""
     },
     {
@@ -38018,7 +37949,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Social access",
-      "line": 2189,
+      "line": 2181,
       "reason": ""
     },
     {
@@ -38033,7 +37964,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{providers}} ready",
-      "line": 2192,
+      "line": 2184,
       "reason": ""
     },
     {
@@ -38046,7 +37977,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Google, Facebook, GitHub, and X available",
-      "line": 2193,
+      "line": 2185,
       "reason": ""
     },
     {
@@ -38059,7 +37990,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Email OTP active in app",
-      "line": 2195,
+      "line": 2187,
       "reason": ""
     },
     {
@@ -38072,7 +38003,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP-only until this tab is refreshed",
-      "line": 2197,
+      "line": 2189,
       "reason": ""
     },
     {
@@ -38087,7 +38018,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "OTP-only on {{host}}",
-      "line": 2198,
+      "line": 2190,
       "reason": ""
     },
     {
@@ -38100,7 +38031,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "this host",
-      "line": 2198,
+      "line": 2190,
       "reason": ""
     },
     {
@@ -38113,7 +38044,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resumable flow",
-      "line": 2225,
+      "line": 2217,
       "reason": ""
     },
     {
@@ -38126,7 +38057,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fast recovery ready",
-      "line": 2226,
+      "line": 2218,
       "reason": ""
     },
     {
@@ -38139,7 +38070,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your previous secure auth attempt can be restarted with the saved identity details.",
-      "line": 2227,
+      "line": 2219,
       "reason": ""
     },
     {
@@ -38154,7 +38085,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saved {{age}}",
-      "line": 2229,
+      "line": 2221,
       "reason": ""
     },
     {
@@ -38167,7 +38098,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Known identity",
-      "line": 2235,
+      "line": 2227,
       "reason": ""
     },
     {
@@ -38184,7 +38115,36 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last secure session used {{assurance}} via {{provider}} {{age}}.",
-      "line": 2237,
+      "line": 2229,
+      "reason": ""
+    },
+    {
+      "column": 49,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "just now",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "just now",
+      "id": "login.acceleration.justNow",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "just now",
+      "line": 2234,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Last secure session used {{provider}} {{age}}.",
+      "file": "app/src/pages/Login/useLoginController.js",
+      "icuDefaultMessage": "Last secure session used {provider} {age}.",
+      "id": "login.acceleration.identityBodyFallback",
+      "interpolationTokens": [
+        "age",
+        "provider"
+      ],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Last secure session used {{provider}} {{age}}.",
+      "line": 2238,
       "reason": ""
     },
     {
@@ -38201,35 +38161,6 @@
       "reason": ""
     },
     {
-      "column": 11,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Last secure session used {{provider}} {{age}}.",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "Last secure session used {provider} {age}.",
-      "id": "login.acceleration.identityBodyFallback",
-      "interpolationTokens": [
-        "age",
-        "provider"
-      ],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Last secure session used {{provider}} {{age}}.",
-      "line": 2246,
-      "reason": ""
-    },
-    {
-      "column": 49,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "just now",
-      "file": "app/src/pages/Login/useLoginController.js",
-      "icuDefaultMessage": "just now",
-      "id": "login.acceleration.justNow",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "just now",
-      "line": 2250,
-      "reason": ""
-    },
-    {
       "column": 18,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Known identity",
@@ -38239,7 +38170,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Known identity",
-      "line": 2258,
+      "line": 2250,
       "reason": ""
     },
     {
@@ -38252,7 +38183,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use saved identity",
-      "line": 2262,
+      "line": 2254,
       "reason": ""
     },
     {
@@ -38265,7 +38196,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fastest lane",
-      "line": 2278,
+      "line": 2270,
       "reason": ""
     },
     {
@@ -38278,7 +38209,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue in Your Browser",
-      "line": 2344,
+      "line": 2336,
       "reason": ""
     },
     {
@@ -38291,7 +38222,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "line": 2345,
+      "line": 2337,
       "reason": ""
     },
     {
@@ -38304,7 +38235,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop browser sign-in is available only in the Aura desktop app.",
-      "line": 2349,
+      "line": 2341,
       "reason": ""
     },
     {
@@ -38317,7 +38248,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access",
-      "line": 2392,
+      "line": 2384,
       "reason": ""
     },
     {
@@ -38330,7 +38261,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin access accepts only verified, user-verified passkeys. A remembered browser improves recognition but never satisfies admin MFA.",
-      "line": 2393,
+      "line": 2385,
       "reason": ""
     },
     {
@@ -38343,7 +38274,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop browser sign-in is available only in the Aura desktop app.",
-      "line": 2403,
+      "line": 2395,
       "reason": ""
     },
     {
@@ -38356,7 +38287,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue in Your Browser",
-      "line": 2411,
+      "line": 2403,
       "reason": ""
     },
     {
@@ -38369,7 +38300,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.",
-      "line": 2412,
+      "line": 2404,
       "reason": ""
     },
     {
@@ -38382,7 +38313,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop owner access is not configured for this app.",
-      "line": 2574,
+      "line": 2566,
       "reason": ""
     },
     {
@@ -38395,7 +38326,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Owner Access",
-      "line": 2581,
+      "line": 2573,
       "reason": ""
     },
     {
@@ -38408,7 +38339,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Desktop is verifying the local owner access key.",
-      "line": 2582,
+      "line": 2574,
       "reason": ""
     },
     {
@@ -38421,7 +38352,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Desktop Duo sign-in could not arm the secure browser bridge. Please refresh from Aura Desktop and try again.",
-      "line": 2607,
+      "line": 2599,
       "reason": ""
     },
     {
@@ -38434,7 +38365,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "RESET PASSWORD",
-      "line": 2621,
+      "line": 2613,
       "reason": ""
     },
     {
@@ -38447,7 +38378,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY EMAIL CODE",
-      "line": 2624,
+      "line": 2616,
       "reason": ""
     },
     {
@@ -38460,7 +38391,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & CREATE ACCOUNT",
-      "line": 2626,
+      "line": 2618,
       "reason": ""
     },
     {
@@ -38473,7 +38404,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & CONTINUE",
-      "line": 2627,
+      "line": 2619,
       "reason": ""
     },
     {
@@ -38486,7 +38417,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY PHONE & SIGN IN",
-      "line": 2628,
+      "line": 2620,
       "reason": ""
     },
     {
@@ -38499,7 +38430,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP & SIGN IN",
-      "line": 2630,
+      "line": 2622,
       "reason": ""
     },
     {
@@ -38512,7 +38443,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "VERIFY OTP",
-      "line": 2630,
+      "line": 2622,
       "reason": ""
     },
     {
@@ -38525,7 +38456,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND BACKUP OTP",
-      "line": 2633,
+      "line": 2625,
       "reason": ""
     },
     {
@@ -38538,7 +38469,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2634,
+      "line": 2626,
       "reason": ""
     },
     {
@@ -38551,7 +38482,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP & SIGN UP",
-      "line": 2634,
+      "line": 2626,
       "reason": ""
     },
     {
@@ -38564,7 +38495,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2635,
+      "line": 2627,
       "reason": ""
     },
     {
@@ -38577,7 +38508,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP",
-      "line": 2635,
+      "line": 2627,
       "reason": ""
     },
     {
@@ -38590,7 +38521,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND EMAIL + PHONE OTP",
-      "line": 2636,
+      "line": 2628,
       "reason": ""
     },
     {
@@ -38603,7 +38534,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "SEND OTP & SIGN IN",
-      "line": 2636,
+      "line": 2628,
       "reason": ""
     },
     {
@@ -53011,7 +52942,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Threads",
-      "line": 121,
+      "line": 116,
       "reason": ""
     },
     {
@@ -53026,7 +52957,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{open}} conversations are still open for follow-up.",
-      "line": 123,
+      "line": 118,
       "reason": ""
     },
     {
@@ -53039,7 +52970,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply needed",
-      "line": 132,
+      "line": 127,
       "reason": ""
     },
     {
@@ -53054,7 +52985,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} threads have unread support replies for you.",
-      "line": 134,
+      "line": 129,
       "reason": ""
     },
     {
@@ -53067,7 +52998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live support",
-      "line": 143,
+      "line": 138,
       "reason": ""
     },
     {
@@ -53082,7 +53013,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{connected}} live calls are already connected across your support threads.",
-      "line": 145,
+      "line": 140,
       "reason": ""
     },
     {
@@ -53095,7 +53026,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice ready",
-      "line": 154,
+      "line": 149,
       "reason": ""
     },
     {
@@ -53110,7 +53041,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{video}} video escalations can happen without losing the chat trail.",
-      "line": 156,
+      "line": 151,
       "reason": ""
     },
     {
@@ -53123,7 +53054,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 168,
+      "line": 163,
       "reason": ""
     },
     {
@@ -53138,7 +53069,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support already opened a {{label}}",
-      "line": 169,
+      "line": 164,
       "reason": ""
     },
     {
@@ -53151,7 +53082,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Join the live lane from this thread and the chat history stays right here after the call.",
-      "line": 174,
+      "line": 169,
       "reason": ""
     },
     {
@@ -53164,7 +53095,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 186,
+      "line": 181,
       "reason": ""
     },
     {
@@ -53179,7 +53110,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your {{label}} request is queued",
-      "line": 187,
+      "line": 182,
       "reason": ""
     },
     {
@@ -53192,7 +53123,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stay in this chat while the support team prepares the call so no context gets lost.",
-      "line": 192,
+      "line": 187,
       "reason": ""
     },
     {
@@ -53205,7 +53136,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 204,
+      "line": 199,
       "reason": ""
     },
     {
@@ -53220,7 +53151,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} support threads are waiting on you",
-      "line": 205,
+      "line": 200,
       "reason": ""
     },
     {
@@ -53233,7 +53164,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply in chat first, then escalate to voice or video only if the issue still needs real-time handling.",
-      "line": 210,
+      "line": 205,
       "reason": ""
     },
     {
@@ -53246,7 +53177,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 222,
+      "line": 217,
       "reason": ""
     },
     {
@@ -53259,7 +53190,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resolution is already captured",
-      "line": 223,
+      "line": 218,
       "reason": ""
     },
     {
@@ -53272,7 +53203,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep this thread as the durable record. Open a fresh one only if the issue truly changes.",
-      "line": 224,
+      "line": 219,
       "reason": ""
     },
     {
@@ -53285,7 +53216,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 235,
+      "line": 230,
       "reason": ""
     },
     {
@@ -53298,7 +53229,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Start in chat and accelerate when needed",
-      "line": 236,
+      "line": 231,
       "reason": ""
     },
     {
@@ -53311,7 +53242,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support can move this same thread into voice or video without losing the written history or the resolution summary.",
-      "line": 237,
+      "line": 232,
       "reason": ""
     },
     {
@@ -53324,7 +53255,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Chat",
-      "line": 260,
+      "line": 255,
       "reason": ""
     },
     {
@@ -53337,7 +53268,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice",
-      "line": 269,
+      "line": 264,
       "reason": ""
     },
     {
@@ -53350,7 +53281,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Video",
-      "line": 278,
+      "line": 273,
       "reason": ""
     },
     {
@@ -53363,7 +53294,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resolution",
-      "line": 287,
+      "line": 282,
       "reason": ""
     },
     {
@@ -53376,7 +53307,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice drafting ready",
-      "line": 301,
+      "line": 296,
       "reason": ""
     },
     {
@@ -53389,7 +53320,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Text drafting only",
-      "line": 302,
+      "line": 297,
       "reason": ""
     },
     {
@@ -53402,7 +53333,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Omnichannel support",
-      "line": 311,
+      "line": 306,
       "reason": ""
     },
     {
@@ -53415,7 +53346,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Chat, voice, and video stay in one support thread",
-      "line": 312,
+      "line": 307,
       "reason": ""
     },
     {
@@ -53428,7 +53359,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Move from written support into live voice or video without losing history, status, or the eventual resolution.",
-      "line": 313,
+      "line": 308,
       "reason": ""
     },
     {
@@ -53441,7 +53372,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Conversation-first support",
-      "line": 348,
+      "line": 343,
       "reason": ""
     },
     {
@@ -53454,7 +53385,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pick a thread or start a new one",
-      "line": 349,
+      "line": 344,
       "reason": ""
     },
     {
@@ -53467,7 +53398,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Everything important lands here: text replies, resolution notes, and live support escalation.",
-      "line": 351,
+      "line": 346,
       "reason": ""
     },
     {
@@ -53480,7 +53411,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support should feel like a real conversation",
-      "line": 361,
+      "line": 356,
       "reason": ""
     },
     {
@@ -53493,7 +53424,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open a durable thread for governance appeals, orders, or account help. Aura Support keeps the full trail visible in one place.",
-      "line": 363,
+      "line": 358,
       "reason": ""
     },
     {
@@ -53506,7 +53437,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Appeal moderation action",
-      "line": 379,
+      "line": 374,
       "reason": ""
     },
     {
@@ -53519,7 +53450,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New chat",
-      "line": 400,
+      "line": 395,
       "reason": ""
     },
     {
@@ -53532,7 +53463,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Start a support conversation",
-      "line": 401,
+      "line": 396,
       "reason": ""
     },
     {
@@ -53545,7 +53476,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This thread stays visible to you and Aura Support until the issue is actually resolved.",
-      "line": 403,
+      "line": 398,
       "reason": ""
     },
     {
@@ -53558,7 +53489,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Appeal-ready path",
-      "line": 428,
+      "line": 423,
       "reason": ""
     },
     {
@@ -53571,7 +53502,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Governance-related actions route through this thread so you can contest or clarify the decision in one place.",
-      "line": 430,
+      "line": 425,
       "reason": ""
     },
     {
@@ -53584,7 +53515,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Choose a lane",
-      "line": 439,
+      "line": 434,
       "reason": ""
     },
     {
@@ -53597,7 +53528,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pick the chat type that best matches the issue.",
-      "line": 440,
+      "line": 435,
       "reason": ""
     },
     {
@@ -53610,7 +53541,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Subject",
-      "line": 466,
+      "line": 461,
       "reason": ""
     },
     {
@@ -53623,7 +53554,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Brief summary of the issue",
-      "line": 474,
+      "line": 469,
       "reason": ""
     },
     {
@@ -53636,7 +53567,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support",
-      "line": 480,
+      "line": 475,
       "reason": ""
     },
     {
@@ -53649,7 +53580,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open a thread and let Aura Support respond in the same conversation.",
-      "line": 483,
+      "line": 478,
       "reason": ""
     },
     {
@@ -53664,7 +53595,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linked action: {{id}}",
-      "line": 487,
+      "line": 482,
       "reason": ""
     },
     {
@@ -53677,7 +53608,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tell Aura Support what happened",
-      "line": 494,
+      "line": 489,
       "reason": ""
     },
     {
@@ -53690,7 +53621,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Describe the problem, what action was taken, and what kind of resolution you need.",
-      "line": 502,
+      "line": 497,
       "reason": ""
     },
     {
@@ -53703,7 +53634,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This thread is persistent. Replies, policy notes, and next steps stay together like a real chat history.",
-      "line": 508,
+      "line": 503,
       "reason": ""
     },
     {
@@ -53716,7 +53647,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice draft",
-      "line": 516,
+      "line": 511,
       "reason": ""
     },
     {
@@ -53729,7 +53660,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stop voice",
-      "line": 517,
+      "line": 512,
       "reason": ""
     },
     {
@@ -53742,7 +53673,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open support chat",
-      "line": 526,
+      "line": 521,
       "reason": ""
     },
     {
@@ -53757,7 +53688,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Ticket {{id}}",
-      "line": 562,
+      "line": 557,
       "reason": ""
     },
     {
@@ -53772,7 +53703,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last activity {{time}}",
-      "line": 565,
+      "line": 560,
       "reason": ""
     },
     {
@@ -53785,7 +53716,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Just opened",
-      "line": 566,
+      "line": 561,
       "reason": ""
     },
     {
@@ -53798,7 +53729,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Text support, policy notes, and live support escalation all stay in this single thread.",
-      "line": 570,
+      "line": 565,
       "reason": ""
     },
     {
@@ -53811,7 +53742,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support is waiting on your reply",
-      "line": 592,
+      "line": 587,
       "reason": ""
     },
     {
@@ -53824,7 +53755,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply in this chat to keep the support or governance action moving.",
-      "line": 594,
+      "line": 589,
       "reason": ""
     },
     {
@@ -53837,7 +53768,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Two-way support is active",
-      "line": 604,
+      "line": 599,
       "reason": ""
     },
     {
@@ -53850,7 +53781,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This thread is the shared record for you and Aura Support. No more disconnected alerts.",
-      "line": 606,
+      "line": 601,
       "reason": ""
     },
     {
@@ -53863,7 +53794,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live support line",
-      "line": 625,
+      "line": 620,
       "reason": ""
     },
     {
@@ -53876,7 +53807,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice Call",
-      "line": 659,
+      "line": 654,
       "reason": ""
     },
     {
@@ -53889,7 +53820,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Video Call",
-      "line": 668,
+      "line": 663,
       "reason": ""
     },
     {
@@ -53902,7 +53833,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resolution summary",
-      "line": 679,
+      "line": 674,
       "reason": ""
     },
     {
@@ -53915,7 +53846,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading conversation...",
-      "line": 693,
+      "line": 688,
       "reason": ""
     },
     {
@@ -53928,7 +53859,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support",
-      "line": 734,
+      "line": 730,
       "reason": ""
     },
     {
@@ -53941,7 +53872,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You",
-      "line": 739,
+      "line": 735,
+      "reason": ""
+    },
+    {
+      "column": 84,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Sending…",
+      "file": "app/src/pages/Profile/components/SupportSection.jsx",
+      "icuDefaultMessage": "Sending…",
+      "id": "profile.support.sending",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 746,
       "reason": ""
     },
     {
@@ -53954,7 +53898,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support message",
-      "line": 769,
+      "line": 770,
       "reason": ""
     },
     {
@@ -53967,7 +53911,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply to Aura Support and keep things moving...",
-      "line": 782,
+      "line": 783,
       "reason": ""
     },
     {
@@ -53980,7 +53924,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Type a message...",
-      "line": 783,
+      "line": 784,
       "reason": ""
     },
     {
@@ -53993,23 +53937,23 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice draft",
-      "line": 801,
-      "reason": ""
-    },
-    {
-      "column": 62,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Stop voice",
-      "file": "app/src/pages/Profile/components/SupportSection.jsx",
-      "icuDefaultMessage": "Stop voice",
-      "id": "profile.support.compose.voiceDraftStop",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Stop voice",
       "line": 802,
       "reason": ""
     },
     {
+      "column": 62,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Stop voice",
+      "file": "app/src/pages/Profile/components/SupportSection.jsx",
+      "icuDefaultMessage": "Stop voice",
+      "id": "profile.support.compose.voiceDraftStop",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Stop voice",
+      "line": 803,
+      "reason": ""
+    },
+    {
       "column": 60,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Voice draft",
@@ -54019,7 +53963,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice draft",
-      "line": 828,
+      "line": 829,
       "reason": ""
     },
     {
@@ -54032,7 +53976,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stop voice",
-      "line": 829,
+      "line": 830,
       "reason": ""
     },
     {
@@ -54045,7 +53989,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice Call",
-      "line": 839,
+      "line": 840,
       "reason": ""
     },
     {
@@ -54058,7 +54002,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Video Call",
-      "line": 848,
+      "line": 849,
       "reason": ""
     },
     {
@@ -54071,7 +54015,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter sends",
-      "line": 859,
+      "line": 860,
       "reason": ""
     },
     {
@@ -54084,7 +54028,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shift+Enter adds a new line",
-      "line": 861,
+      "line": 862,
       "reason": ""
     },
     {
@@ -54097,7 +54041,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This chat is closed. If the issue is still active, open a new thread so the next action is tracked cleanly.",
-      "line": 869,
+      "line": 870,
       "reason": ""
     },
     {
@@ -54305,7 +54249,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to send support reply",
-      "line": 368,
+      "line": 391,
       "reason": ""
     },
     {
@@ -54318,7 +54262,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to request a live support call",
-      "line": 390,
+      "line": 413,
       "reason": ""
     },
     {
@@ -54331,7 +54275,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live",
-      "line": 399,
+      "line": 422,
       "reason": ""
     },
     {
@@ -54344,7 +54288,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reconnecting...",
-      "line": 401,
+      "line": 424,
       "reason": ""
     },
     {
@@ -54357,7 +54301,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Polling",
-      "line": 402,
+      "line": 425,
       "reason": ""
     },
     {
@@ -54372,7 +54316,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support live call for \"{{subject}}\"",
-      "line": 431,
+      "line": 454,
       "reason": ""
     },
     {
@@ -54385,7 +54329,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "support ticket",
-      "line": 431,
+      "line": 454,
       "reason": ""
     },
     {
@@ -54398,7 +54342,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support",
-      "line": 433,
+      "line": 456,
       "reason": ""
     },
     {
@@ -54413,7 +54357,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to join the {{label}}",
-      "line": 437,
+      "line": 460,
       "reason": ""
     },
     {
@@ -54426,7 +54370,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live now",
-      "line": 457,
+      "line": 480,
       "reason": ""
     },
     {
@@ -54441,7 +54385,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Join {{label}}",
-      "line": 459,
+      "line": 482,
       "reason": ""
     },
     {
@@ -54454,7 +54398,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Requested",
-      "line": 461,
+      "line": 484,
       "reason": ""
     },
     {
@@ -54469,7 +54413,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Request {{label}}",
-      "line": 462,
+      "line": 485,
       "reason": ""
     },
     {
@@ -54484,7 +54428,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{title}} Active",
-      "line": 464,
+      "line": 487,
       "reason": ""
     },
     {
@@ -54499,7 +54443,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Join {{label}}",
-      "line": 466,
+      "line": 489,
       "reason": ""
     },
     {
@@ -54514,7 +54458,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{title}} queued",
-      "line": 468,
+      "line": 491,
       "reason": ""
     },
     {
@@ -54529,7 +54473,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Escalate to {{label}}",
-      "line": 469,
+      "line": 492,
       "reason": ""
     },
     {
@@ -54542,7 +54486,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Realtime is connected for this thread.",
-      "line": 471,
+      "line": 494,
       "reason": ""
     },
     {
@@ -54555,7 +54499,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Realtime is reconnecting for this thread.",
-      "line": 473,
+      "line": 496,
       "reason": ""
     },
     {
@@ -54570,7 +54514,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Realtime is on polling fallback. Aura refreshes this chat every {{seconds}} seconds.",
-      "line": 474,
+      "line": 497,
       "reason": ""
     },
     {
@@ -54585,7 +54529,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support is already ringing or connected on this {{label}}.",
-      "line": 477,
+      "line": 500,
       "reason": ""
     },
     {
@@ -54600,7 +54544,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your {{label}} request is queued for the support team.",
-      "line": 479,
+      "line": 502,
       "reason": ""
     },
     {
@@ -54615,7 +54559,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support already opened a {{label}} for this ticket. Join it from here.",
-      "line": 481,
+      "line": 504,
       "reason": ""
     },
     {
@@ -54630,7 +54574,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The last {{label}} finished. Request another one if text support is still not enough.",
-      "line": 483,
+      "line": 506,
       "reason": ""
     },
     {
@@ -54643,7 +54587,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Move this thread into a real-time voice or video call when typing is too slow.",
-      "line": 484,
+      "line": 507,
       "reason": ""
     },
     {
@@ -54658,7 +54602,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Requested {{time}}",
-      "line": 486,
+      "line": 509,
       "reason": ""
     },
     {
@@ -54673,7 +54617,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last call {{time}}",
-      "line": 488,
+      "line": 511,
       "reason": ""
     },
     {
@@ -55690,7 +55634,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Overview",
-      "line": 59,
+      "line": 58,
       "reason": ""
     },
     {
@@ -55703,7 +55647,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "See the account details and recent activity that need your attention.",
-      "line": 60,
+      "line": 59,
       "reason": ""
     },
     {
@@ -55716,7 +55660,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Personal information",
-      "line": 65,
+      "line": 64,
       "reason": ""
     },
     {
@@ -55729,7 +55673,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Manage your profile details and verified contact information.",
-      "line": 66,
+      "line": 65,
       "reason": ""
     },
     {
@@ -55742,7 +55686,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Addresses",
-      "line": 71,
+      "line": 70,
       "reason": ""
     },
     {
@@ -55755,7 +55699,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep delivery and billing addresses accurate for checkout.",
-      "line": 72,
+      "line": 71,
       "reason": ""
     },
     {
@@ -55768,7 +55712,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 77,
+      "line": 76,
       "reason": ""
     },
     {
@@ -55781,7 +55725,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review recent purchases and continue order-related tasks.",
-      "line": 78,
+      "line": 77,
       "reason": ""
     },
     {
@@ -55794,7 +55738,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura points",
-      "line": 83,
+      "line": 82,
       "reason": ""
     },
     {
@@ -55807,7 +55751,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review your balance, tier, and recent rewards activity.",
-      "line": 84,
+      "line": 83,
       "reason": ""
     },
     {
@@ -55820,7 +55764,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saved & marketplace",
-      "line": 89,
+      "line": 88,
       "reason": ""
     },
     {
@@ -55833,7 +55777,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Manage saved products, reviews, listings, trade-ins, and price alerts.",
-      "line": 90,
+      "line": 89,
       "reason": ""
     },
     {
@@ -55846,7 +55790,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Payments",
-      "line": 95,
+      "line": 94,
       "reason": ""
     },
     {
@@ -55859,7 +55803,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review saved payment methods and account payment preferences.",
-      "line": 96,
+      "line": 95,
       "reason": ""
     },
     {
@@ -55872,7 +55816,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notifications",
-      "line": 101,
+      "line": 100,
       "reason": ""
     },
     {
@@ -55885,7 +55829,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Read account, order, marketplace, and support updates.",
-      "line": 102,
+      "line": 101,
       "reason": ""
     },
     {
@@ -55898,7 +55842,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support",
-      "line": 107,
+      "line": 106,
       "reason": ""
     },
     {
@@ -55911,7 +55855,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open and follow account appeals or support requests.",
-      "line": 108,
+      "line": 107,
       "reason": ""
     },
     {
@@ -55924,7 +55868,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Privacy controls",
-      "line": 113,
+      "line": 112,
       "reason": ""
     },
     {
@@ -55937,7 +55881,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review data export and controlled account lifecycle options.",
-      "line": 114,
+      "line": 113,
       "reason": ""
     },
     {
@@ -55950,7 +55894,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Security & settings",
-      "line": 119,
+      "line": 118,
       "reason": ""
     },
     {
@@ -55963,7 +55907,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Manage sign-in protection, trusted credentials, recovery, and account preferences.",
-      "line": 120,
+      "line": 119,
       "reason": ""
     },
     {
@@ -55976,7 +55920,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure recovery requires the verified account email and registered phone number.",
-      "line": 457,
+      "line": 455,
       "reason": ""
     },
     {
@@ -55989,7 +55933,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Failed to open secure recovery.",
-      "line": 478,
+      "line": 476,
       "reason": ""
     },
     {
@@ -56002,7 +55946,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Rookie",
-      "line": 541,
+      "line": 539,
       "reason": ""
     },
     {
@@ -56015,7 +55959,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Member",
-      "line": 543,
+      "line": 541,
       "reason": ""
     },
     {
@@ -56028,7 +55972,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recently joined",
-      "line": 554,
+      "line": 552,
       "reason": ""
     },
     {
@@ -56041,7 +55985,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 594,
+      "line": 592,
       "reason": ""
     },
     {
@@ -56054,7 +55998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Currently active",
-      "line": 596,
+      "line": 594,
       "reason": ""
     },
     {
@@ -56067,7 +56011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Saved items",
-      "line": 599,
+      "line": 597,
       "reason": ""
     },
     {
@@ -56080,7 +56024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "In your wishlist",
-      "line": 601,
+      "line": 599,
       "reason": ""
     },
     {
@@ -56093,7 +56037,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Active listings",
-      "line": 604,
+      "line": 602,
       "reason": ""
     },
     {
@@ -56106,7 +56050,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Currently in the marketplace",
-      "line": 606,
+      "line": 604,
       "reason": ""
     },
     {
@@ -56119,7 +56063,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura points",
-      "line": 609,
+      "line": 607,
       "reason": ""
     },
     {
@@ -56134,7 +56078,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{tier}} tier",
-      "line": 611,
+      "line": 609,
       "reason": ""
     },
     {
@@ -56147,7 +56091,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "active",
-      "line": 616,
+      "line": 614,
       "reason": ""
     },
     {
@@ -56160,7 +56104,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "warned",
-      "line": 617,
+      "line": 615,
       "reason": ""
     },
     {
@@ -56173,7 +56117,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "suspended",
-      "line": 618,
+      "line": 616,
       "reason": ""
     },
     {
@@ -56186,7 +56130,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "deleted",
-      "line": 619,
+      "line": 617,
       "reason": ""
     },
     {
@@ -56199,7 +56143,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura account center",
-      "line": 638,
+      "line": 636,
       "reason": ""
     },
     {
@@ -56212,7 +56156,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Preparing your account",
-      "line": 640,
+      "line": 638,
       "reason": ""
     },
     {
@@ -56225,7 +56169,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading your profile and account summary. This may take a few seconds.",
-      "line": 641,
+      "line": 639,
       "reason": ""
     },
     {
@@ -56238,7 +56182,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry section",
-      "line": 700,
+      "line": 698,
       "reason": ""
     },
     {
@@ -56251,7 +56195,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading account section...",
-      "line": 720,
+      "line": 718,
       "reason": ""
     },
     {
@@ -56264,7 +56208,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading account section...",
-      "line": 750,
+      "line": 748,
       "reason": ""
     },
     {
@@ -56277,7 +56221,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading account section...",
-      "line": 774,
+      "line": 772,
       "reason": ""
     },
     {
@@ -56290,7 +56234,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading account section...",
-      "line": 780,
+      "line": 778,
       "reason": ""
     },
     {
@@ -56303,7 +56247,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading your saved items and marketplace activity...",
-      "line": 797,
+      "line": 795,
       "reason": ""
     },
     {
@@ -56316,7 +56260,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading account section...",
-      "line": 803,
+      "line": 801,
       "reason": ""
     },
     {
@@ -56329,7 +56273,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading account section...",
-      "line": 820,
+      "line": 818,
       "reason": ""
     },
     {
@@ -56342,7 +56286,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading account section...",
-      "line": 826,
+      "line": 824,
       "reason": ""
     },
     {
@@ -56355,7 +56299,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading privacy controls...",
-      "line": 837,
+      "line": 835,
       "reason": ""
     },
     {
@@ -56368,7 +56312,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading security and settings...",
-      "line": 843,
+      "line": 841,
       "reason": ""
     },
     {
@@ -59961,7 +59905,7 @@
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
     "productionFiles": 98,
-    "productionStableReferences": 4082,
+    "productionStableReferences": 4078,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
@@ -62042,7 +61986,6 @@
     "login.country.resultsLabel",
     "login.country.searchLabel",
     "login.country.searchPlaceholder",
-    "login.desktopBrowser.button",
     "login.desktopBrowser.cancel",
     "login.desktopBrowser.completingDetail",
     "login.desktopBrowser.completingTitle",
@@ -63453,6 +63396,7 @@
     "profile.support.priority.normal",
     "profile.support.priority.urgent",
     "profile.support.resolutionSummary",
+    "profile.support.sending",
     "profile.support.socket.live",
     "profile.support.socket.polling",
     "profile.support.socket.reconnecting",
