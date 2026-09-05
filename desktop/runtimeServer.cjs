@@ -100,6 +100,35 @@ const isLoopbackBackendOrigin = (backendOrigin = '') => {
     }
 };
 
+// DNS-rebinding defense: every request served by the local runtime must target
+// a loopback host name. A rebound attacker page keeps its own Host header, so
+// rejecting non-loopback hosts keeps attacker origins from reaching the static
+// app, the SPA fallback, or the backend proxy even when their DNS resolves to
+// 127.0.0.1.
+const RUNTIME_ALLOWED_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '::1']);
+
+const isAllowedRuntimeHostHeader = (hostHeader = '') => {
+    const normalized = String(hostHeader || '').trim().toLowerCase();
+    if (!normalized) return false;
+    try {
+        const hostname = new URL(`http://${normalized}`).hostname.replace(/^\[|\]$/g, '');
+        return RUNTIME_ALLOWED_HOSTNAMES.has(hostname);
+    } catch {
+        return false;
+    }
+};
+
+const rejectForeignRuntimeHost = (request, response, next) => {
+    if (isAllowedRuntimeHostHeader(request.headers.host)) {
+        next();
+        return;
+    }
+    response.status(421).json({
+        success: false,
+        message: 'Desktop runtime received a request with an unexpected Host header.',
+    });
+};
+
 const normalizeDesktopServiceOrigin = (value, {
     label,
     preservePath = false,
@@ -760,6 +789,8 @@ const startRuntimeServer = async ({
 
     app.disable('x-powered-by');
 
+    app.use(rejectForeignRuntimeHost);
+
     app.use('/socket.io', socketProxy);
     app.use('/api', apiProxy);
     app.use('/health', apiProxy);
@@ -800,8 +831,8 @@ const startRuntimeServer = async ({
     // from exhausting the rate-limit budget reserved for legitimate handoffs.
     app.use(
         [DESKTOP_AUTH_COMPLETE_PATH, DESKTOP_AUTH_CANCEL_PATH],
-        desktopAuthTransportLimiter,
         applyDesktopAuthResponseSecurityHeaders,
+        desktopAuthTransportLimiter,
         requireTrustedDesktopAuthTransport,
     );
     app.post(
@@ -857,7 +888,13 @@ const startRuntimeServer = async ({
         response.type('html').send(frontendIndexHtml);
     });
 
-    server.on('upgrade', socketProxy.upgrade);
+    server.on('upgrade', (request, socket, head) => {
+        if (!isAllowedRuntimeHostHeader(request.headers.host)) {
+            socket.destroy();
+            return;
+        }
+        socketProxy.upgrade(request, socket, head);
+    });
 
     const [runtimePort] = buildRuntimePortCandidates(port);
     try {
@@ -903,6 +940,11 @@ const startRuntimeServer = async ({
         url: runtimeUrl,
         callbackUrl: runtimeCallbackUrl,
         close: () => new Promise((resolve, reject) => {
+            // Chromium renderers keep keep-alive sockets open; without an
+            // explicit close the pending `server.close()` would stall app quit
+            // until the OS gives up on the process.
+            server.closeIdleConnections?.();
+            server.closeAllConnections?.();
             server.close((error) => {
                 if (error) {
                     reject(error);
@@ -933,6 +975,7 @@ module.exports = {
     RUNTIME_CALLBACK_HOST,
     buildProxyOptions,
     isLoopbackBackendOrigin,
+    isAllowedRuntimeHostHeader,
     isOpaqueDesktopAuthNavigation,
     applyLocalFrontendCachePolicy,
     createDesktopAuthBroker,
