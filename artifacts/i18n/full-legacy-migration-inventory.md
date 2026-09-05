@@ -1,6 +1,6 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-09-04T18:20:50.891Z
+Generated: 2026-09-05T08:02:23.745Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
@@ -9,8 +9,8 @@ Complete pre-migration inventory for legacy market-pack t() usage. Stable UI lit
 - Source files scanned: 472
 - Tracked files: 151
 - Production files with stable literal UI copy: 98
-- Production stable literal references: 4077
-- Unique production stable IDs: 3679
+- Production stable literal references: 4082
+- Unique production stable IDs: 3684
 - Dynamic lookup references requiring manual review: 14
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
@@ -57,9 +57,9 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/Checkout/components/StepReview.jsx` | 14 | 14 | 0 | stable-ui |
 | high | `app/src/pages/Login/BrandVisualPanel.jsx` | 12 | 12 | 0 | stable-ui |
 | high | `app/src/pages/Login/CountryCodePicker.jsx` | 11 | 11 | 0 | stable-ui |
+| high | `app/src/pages/Status/Subscribe.jsx` | 11 | 11 | 0 | stable-ui |
 | high | `app/src/pages/Assistant/index.jsx` | 10 | 10 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepDelivery.jsx` | 10 | 10 | 0 | stable-ui |
-| high | `app/src/pages/Status/Subscribe.jsx` | 8 | 8 | 0 | stable-ui |
 | high | `app/src/pages/Status/IncidentDetail.jsx` | 7 | 7 | 0 | stable-ui |
 | high | `app/src/App.jsx` | 4 | 4 | 0 | stable-ui |
 | high | `app/src/pages/Status/History.jsx` | 4 | 4 | 0 | stable-ui |
@@ -91,8 +91,8 @@ These production references are eligible for reviewed ICU catalog migration.
 | low | `app/src/pages/Profile/components/PersonalInfoSection.jsx` | 57 | 47 | 0 | stable-ui |
 | low | `app/src/pages/Profile/index.jsx` | 53 | 47 | 0 | stable-ui |
 | low | `app/src/pages/Admin/RefundLedger.jsx` | 46 | 46 | 0 | stable-ui |
+| low | `app/src/pages/Profile/components/SecurityActivityPanel.jsx` | 41 | 41 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/PaymentsSection.jsx` | 40 | 40 | 0 | stable-ui |
-| low | `app/src/pages/Profile/components/SecurityActivityPanel.jsx` | 39 | 39 | 0 | stable-ui |
 | low | `app/src/pages/Admin/ClientDiagnosticsPanel.jsx` | 42 | 38 | 0 | stable-ui |
 | low | `app/src/pages/Profile/hooks/useSecurityCenter.js` | 38 | 35 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/ActiveSessionsPanel.jsx` | 39 | 33 | 0 | stable-ui |

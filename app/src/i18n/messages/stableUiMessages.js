@@ -6513,6 +6513,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Aura Terminal",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "common.jsx.text.back.to.status.a3682887": {
+        id: "common.jsx.text.back.to.status.a3682887",
+        defaultMessage: "Back to status",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "common.jsx.text.bangalore.560001.india.029e9526": {
         id: "common.jsx.text.bangalore.560001.india.029e9526",
         defaultMessage: "Bangalore, 560001, India",
@@ -6923,6 +6928,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Next unlocks",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "common.jsx.text.no.component.groups.are.available.right.now.60c94d7d": {
+        id: "common.jsx.text.no.component.groups.are.available.right.now.60c94d7d",
+        defaultMessage: "No component groups are available right now. Your subscription will cover all systems.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "common.jsx.text.no.matching.history.a3f8b96c": {
         id: "common.jsx.text.no.matching.history.a3f8b96c",
         defaultMessage: "No matching history",
@@ -7191,6 +7201,11 @@ export const stableUiMessages = defineMessages({
     "common.jsx.text.vercel.netlify.f28e116f": {
         id: "common.jsx.text.vercel.netlify.f28e116f",
         defaultMessage: "Vercel + Netlify",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "common.jsx.text.verifying.subscription.37c14b7f": {
+        id: "common.jsx.text.verifying.subscription.37c14b7f",
+        defaultMessage: "Verifying subscription…",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "common.jsx.text.view.history.74a3ac4e": {
