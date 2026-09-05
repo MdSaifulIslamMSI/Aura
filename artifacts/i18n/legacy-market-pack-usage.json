@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T15:29:43.586Z",
+  "generatedAt": "2026-09-05T17:01:57.383Z",
   "note": "Compatibility report after stable UI ICU migration. Stable literals routed through useStableIcuMessages() are separated from computed-key compatibility paths, runtime content translation, legacy pack internals, and test harness calls.",
   "summary": {
     "byRisk": {
@@ -11,7 +11,7 @@
     "delegatedStableIcuFiles": 10,
     "dynamicRuntimeFiles": 18,
     "legacyPackImportFiles": 40,
-    "migratedStableIcuMessageIds": 3439,
+    "migratedStableIcuMessageIds": 3443,
     "productionLegacyStableFiles": 0,
     "residualLegacyMessageIds": 0,
     "runtimeEnumCompatibilityFiles": 0,
@@ -175,7 +175,7 @@
       "file": "app/src/pages/Marketplace/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
-      "migratedStableIcuIdCount": 129,
+      "migratedStableIcuIdCount": 132,
       "migratedStableIcuIds": [
         "marketplace.card.escrow",
         "marketplace.card.marketplace",
@@ -270,6 +270,9 @@
         "marketplace.location.accuracy",
         "marketplace.location.confidence",
         "marketplace.location.usingGpsCity",
+        "marketplace.pagination.ariaLabel",
+        "marketplace.pagination.next",
+        "marketplace.pagination.prev",
         "marketplace.proximity.local",
         "marketplace.proximity.national",
         "marketplace.proximity.regional",
@@ -3301,7 +3304,7 @@
       "file": "app/src/pages/Cart/index.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
-      "migratedStableIcuIdCount": 44,
+      "migratedStableIcuIdCount": 45,
       "migratedStableIcuIds": [
         "cart.action.save",
         "cart.allItemsReady",
@@ -3338,6 +3341,7 @@
         "cart.summary.netValue",
         "cart.summary.proceed",
         "cart.summary.ready",
+        "cart.summary.removeUnavailable",
         "cart.summary.savingPrefix",
         "cart.summary.savingSuffix",
         "cart.summary.secureCheckout",

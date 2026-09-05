@@ -1330,7 +1330,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 44,
+      "messageIdCount": 45,
       "messageIds": [
         "cart.action.save",
         "cart.allItemsReady",
@@ -1367,6 +1367,7 @@
         "cart.summary.netValue",
         "cart.summary.proceed",
         "cart.summary.ready",
+        "cart.summary.removeUnavailable",
         "cart.summary.savingPrefix",
         "cart.summary.savingSuffix",
         "cart.summary.secureCheckout",
@@ -1378,7 +1379,7 @@
         "cart.title"
       ],
       "risk": "high",
-      "stableLiteralCount": 45,
+      "stableLiteralCount": 46,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -2384,7 +2385,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 129,
+      "messageIdCount": 132,
       "messageIds": [
         "marketplace.card.escrow",
         "marketplace.card.marketplace",
@@ -2479,6 +2480,9 @@
         "marketplace.location.accuracy",
         "marketplace.location.confidence",
         "marketplace.location.usingGpsCity",
+        "marketplace.pagination.ariaLabel",
+        "marketplace.pagination.next",
+        "marketplace.pagination.prev",
         "marketplace.proximity.local",
         "marketplace.proximity.national",
         "marketplace.proximity.regional",
@@ -2517,7 +2521,7 @@
         "marketplace.trust.title"
       ],
       "risk": "medium",
-      "stableLiteralCount": 130,
+      "stableLiteralCount": 133,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": true
     },
@@ -6051,7 +6055,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-09-05T15:28:38.897Z",
+  "generatedAt": "2026-09-05T17:01:54.361Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -25810,7 +25814,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live bag sync",
-      "line": 115,
+      "line": 121,
       "reason": ""
     },
     {
@@ -25823,7 +25827,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Restoring Your Bag",
-      "line": 116,
+      "line": 122,
       "reason": ""
     },
     {
@@ -25836,7 +25840,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Syncing your latest cart state before we render the checkout view.",
-      "line": 118,
+      "line": 124,
       "reason": ""
     },
     {
@@ -25849,7 +25853,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart queue",
-      "line": 132,
+      "line": 138,
       "reason": ""
     },
     {
@@ -25862,7 +25866,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "We couldn't find any items in your bag.",
-      "line": 135,
+      "line": 141,
       "reason": ""
     },
     {
@@ -25875,7 +25879,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue Shopping",
-      "line": 139,
+      "line": 145,
       "reason": ""
     },
     {
@@ -25888,7 +25892,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shopping Bag",
-      "line": 152,
+      "line": 158,
       "reason": ""
     },
     {
@@ -25901,7 +25905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checkout command center",
-      "line": 157,
+      "line": 163,
       "reason": ""
     },
     {
@@ -25914,7 +25918,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your Bag",
-      "line": 158,
+      "line": 164,
       "reason": ""
     },
     {
@@ -25927,7 +25931,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review live inventory, delivery readiness, and final bag value before moving into the secure checkout rail.",
-      "line": 160,
+      "line": 166,
       "reason": ""
     },
     {
@@ -25940,7 +25944,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Queued",
-      "line": 166,
+      "line": 172,
       "reason": ""
     },
     {
@@ -25953,7 +25957,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Delivery",
-      "line": 171,
+      "line": 177,
       "reason": ""
     },
     {
@@ -25966,7 +25970,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stock",
-      "line": 176,
+      "line": 182,
       "reason": ""
     },
     {
@@ -25981,7 +25985,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} to review",
-      "line": 177,
+      "line": 183,
       "reason": ""
     },
     {
@@ -25994,7 +25998,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Ready",
-      "line": 177,
+      "line": 183,
       "reason": ""
     },
     {
@@ -26007,7 +26011,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live bag review",
-      "line": 186,
+      "line": 192,
       "reason": ""
     },
     {
@@ -26020,7 +26024,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Items from your AWS catalog session",
-      "line": 187,
+      "line": 193,
       "reason": ""
     },
     {
@@ -26035,7 +26039,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} low stock",
-      "line": 191,
+      "line": 197,
       "reason": ""
     },
     {
@@ -26048,7 +26052,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All items ready",
-      "line": 195,
+      "line": 201,
       "reason": ""
     },
     {
@@ -26063,7 +26067,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Line total for {{count}}",
-      "line": 242,
+      "line": 248,
       "reason": ""
     },
     {
@@ -26078,7 +26082,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}}% off",
-      "line": 259,
+      "line": 265,
       "reason": ""
     },
     {
@@ -26093,7 +26097,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Decrease quantity for {{title}}",
-      "line": 270,
+      "line": 276,
       "reason": ""
     },
     {
@@ -26108,7 +26112,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Increase quantity for {{title}}",
-      "line": 279,
+      "line": 285,
       "reason": ""
     },
     {
@@ -26121,7 +26125,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Out of stock",
-      "line": 289,
+      "line": 295,
       "reason": ""
     },
     {
@@ -26136,7 +26140,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Only {{count}} left",
-      "line": 291,
+      "line": 297,
       "reason": ""
     },
     {
@@ -26151,7 +26155,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} in stock",
-      "line": 292,
+      "line": 298,
       "reason": ""
     },
     {
@@ -26164,7 +26168,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Save",
-      "line": 314,
+      "line": 320,
       "reason": ""
     },
     {
@@ -26177,7 +26181,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue Shopping",
-      "line": 332,
+      "line": 338,
       "reason": ""
     },
     {
@@ -26190,7 +26194,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure summary",
-      "line": 339,
+      "line": 345,
       "reason": ""
     },
     {
@@ -26203,7 +26207,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Transaction Summary",
-      "line": 340,
+      "line": 346,
       "reason": ""
     },
     {
@@ -26218,7 +26222,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Subtotal ({{count}} items)",
-      "line": 346,
+      "line": 352,
       "reason": ""
     },
     {
@@ -26231,7 +26235,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Discount",
-      "line": 350,
+      "line": 356,
       "reason": ""
     },
     {
@@ -26244,7 +26248,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shipping",
-      "line": 354,
+      "line": 360,
       "reason": ""
     },
     {
@@ -26257,7 +26261,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "FREE",
-      "line": 356,
+      "line": 362,
       "reason": ""
     },
     {
@@ -26270,7 +26274,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Net Value",
-      "line": 362,
+      "line": 368,
       "reason": ""
     },
     {
@@ -26283,7 +26287,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You are saving",
-      "line": 370,
+      "line": 376,
       "reason": ""
     },
     {
@@ -26296,7 +26300,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "on this order.",
-      "line": 372,
+      "line": 378,
       "reason": ""
     },
     {
@@ -26309,7 +26313,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Secure Encrypted Checkout",
-      "line": 380,
+      "line": 386,
       "reason": ""
     },
     {
@@ -26322,11 +26326,11 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stock rechecked before payment",
-      "line": 384,
+      "line": 390,
       "reason": ""
     },
     {
-      "column": 22,
+      "column": 25,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "{{count}} item needs review before checkout.",
       "file": "app/src/pages/Cart/index.jsx",
@@ -26337,7 +26341,20 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} item needs review before checkout.",
-      "line": 390,
+      "line": 396,
+      "reason": ""
+    },
+    {
+      "column": 24,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Remove unavailable items",
+      "file": "app/src/pages/Cart/index.jsx",
+      "icuDefaultMessage": "Remove unavailable items",
+      "id": "cart.summary.removeUnavailable",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Remove unavailable items",
+      "line": 403,
       "reason": ""
     },
     {
@@ -26350,7 +26367,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Checkout Temporarily Unavailable",
-      "line": 401,
+      "line": 415,
       "reason": ""
     },
     {
@@ -26363,7 +26380,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Proceed to Checkout",
-      "line": 402,
+      "line": 416,
       "reason": ""
     },
     {
@@ -39293,7 +39310,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Heat {{score}}",
-      "line": 332,
+      "line": 354,
       "reason": ""
     },
     {
@@ -39306,7 +39323,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Demand",
-      "line": 345,
+      "line": 367,
       "reason": ""
     },
     {
@@ -39319,7 +39336,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Supply",
-      "line": 357,
+      "line": 379,
       "reason": ""
     },
     {
@@ -39332,7 +39349,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Listings",
-      "line": 369,
+      "line": 391,
       "reason": ""
     },
     {
@@ -39345,7 +39362,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sold / 21d",
-      "line": 373,
+      "line": 395,
       "reason": ""
     },
     {
@@ -39358,7 +39375,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Escrow",
-      "line": 448,
+      "line": 470,
       "reason": ""
     },
     {
@@ -39371,7 +39388,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Negotiable",
-      "line": 454,
+      "line": 476,
       "reason": ""
     },
     {
@@ -39384,7 +39401,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 464,
+      "line": 486,
       "reason": ""
     },
     {
@@ -39397,7 +39414,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified",
-      "line": 473,
+      "line": 495,
       "reason": ""
     },
     {
@@ -39412,7 +39429,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Seller: {{name}}",
-      "line": 485,
+      "line": 507,
       "reason": ""
     },
     {
@@ -39425,7 +39442,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety",
-      "line": 491,
+      "line": 513,
       "reason": ""
     },
     {
@@ -39438,7 +39455,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unknown city",
-      "line": 500,
+      "line": 522,
       "reason": ""
     },
     {
@@ -39453,7 +39470,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} views",
-      "line": 508,
+      "line": 530,
       "reason": ""
     },
     {
@@ -39466,7 +39483,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Review the listing carefully before payment.",
-      "line": 514,
+      "line": 536,
       "reason": ""
     },
     {
@@ -39479,7 +39496,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open listing",
-      "line": 519,
+      "line": 541,
       "reason": ""
     },
     {
@@ -39492,7 +39509,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live listings are unavailable right now. Please retry.",
-      "line": 565,
+      "line": 587,
       "reason": ""
     },
     {
@@ -39505,7 +39522,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Hotspot telemetry is unavailable right now.",
-      "line": 588,
+      "line": 610,
       "reason": ""
     },
     {
@@ -39518,7 +39535,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Could not detect city from your location.",
-      "line": 642,
+      "line": 664,
       "reason": ""
     },
     {
@@ -39533,7 +39550,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "confidence {{value}}%",
-      "line": 656,
+      "line": 678,
       "reason": ""
     },
     {
@@ -39548,7 +39565,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{value}}m accuracy",
-      "line": 657,
+      "line": 679,
       "reason": ""
     },
     {
@@ -39565,7 +39582,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Using GPS city: {{city}}{{state}}{{quality}}",
-      "line": 660,
+      "line": 682,
       "reason": ""
     },
     {
@@ -39578,7 +39595,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Unable to detect your city right now.",
-      "line": 671,
+      "line": 693,
       "reason": ""
     },
     {
@@ -39591,7 +39608,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All Categories",
-      "line": 699,
+      "line": 721,
       "reason": ""
     },
     {
@@ -39604,7 +39621,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fair",
-      "line": 704,
+      "line": 726,
       "reason": ""
     },
     {
@@ -39619,7 +39636,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "City: {{city}}",
-      "line": 798,
+      "line": 820,
       "reason": ""
     },
     {
@@ -39634,7 +39651,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Condition: {{condition}}",
-      "line": 799,
+      "line": 821,
       "reason": ""
     },
     {
@@ -39649,7 +39666,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Min {{price}}",
-      "line": 800,
+      "line": 822,
       "reason": ""
     },
     {
@@ -39664,7 +39681,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Max {{price}}",
-      "line": 801,
+      "line": 823,
       "reason": ""
     },
     {
@@ -39677,7 +39694,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Filter deck",
-      "line": 809,
+      "line": 831,
       "reason": ""
     },
     {
@@ -39690,7 +39707,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Refine the market view.",
-      "line": 812,
+      "line": 834,
       "reason": ""
     },
     {
@@ -39705,7 +39722,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} active",
-      "line": 816,
+      "line": 838,
       "reason": ""
     },
     {
@@ -39718,7 +39735,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Condition",
-      "line": 822,
+      "line": 844,
       "reason": ""
     },
     {
@@ -39731,7 +39748,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Min price",
-      "line": 838,
+      "line": 860,
       "reason": ""
     },
     {
@@ -39744,7 +39761,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Max price",
-      "line": 848,
+      "line": 870,
       "reason": ""
     },
     {
@@ -39757,7 +39774,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No limit",
-      "line": 853,
+      "line": 875,
       "reason": ""
     },
     {
@@ -39770,7 +39787,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "City",
-      "line": 860,
+      "line": 882,
       "reason": ""
     },
     {
@@ -39783,7 +39800,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Any city",
-      "line": 865,
+      "line": 887,
       "reason": ""
     },
     {
@@ -39796,7 +39813,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset filters",
-      "line": 893,
+      "line": 915,
       "reason": ""
     },
     {
@@ -39809,7 +39826,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace command deck",
-      "line": 924,
+      "line": 946,
       "reason": ""
     },
     {
@@ -39822,7 +39839,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Browse the local market with trust signals built in.",
-      "line": 927,
+      "line": 949,
       "reason": ""
     },
     {
@@ -39835,7 +39852,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Marketplace now behaves like a premium acquisition desk: sharper search, location-aware discovery, live demand hotspots, and seller safety cues that stay visible while you browse.",
-      "line": 930,
+      "line": 952,
       "reason": ""
     },
     {
@@ -39848,7 +39865,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search by title, category, brand, or keyword",
-      "line": 940,
+      "line": 962,
       "reason": ""
     },
     {
@@ -39861,7 +39878,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "City",
-      "line": 950,
+      "line": 972,
       "reason": ""
     },
     {
@@ -39874,7 +39891,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Detecting",
-      "line": 962,
+      "line": 984,
       "reason": ""
     },
     {
@@ -39887,7 +39904,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Near me",
-      "line": 962,
+      "line": 984,
       "reason": ""
     },
     {
@@ -39900,7 +39917,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sell now",
-      "line": 973,
+      "line": 995,
       "reason": ""
     },
     {
@@ -39913,7 +39930,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety mode on",
-      "line": 1021,
+      "line": 1043,
       "reason": ""
     },
     {
@@ -39926,7 +39943,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety mode off",
-      "line": 1022,
+      "line": 1044,
       "reason": ""
     },
     {
@@ -39941,7 +39958,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{category}} lane",
-      "line": 1025,
+      "line": 1047,
       "reason": ""
     },
     {
@@ -39956,7 +39973,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} live listings",
-      "line": 1028,
+      "line": 1050,
       "reason": ""
     },
     {
@@ -39969,7 +39986,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Average safety",
-      "line": 1035,
+      "line": 1057,
       "reason": ""
     },
     {
@@ -39982,7 +39999,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Composite marketplace trust score",
-      "line": 1037,
+      "line": 1059,
       "reason": ""
     },
     {
@@ -39995,7 +40012,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Escrow coverage",
-      "line": 1042,
+      "line": 1064,
       "reason": ""
     },
     {
@@ -40008,7 +40025,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Listings with payment protection enabled",
-      "line": 1044,
+      "line": 1066,
       "reason": ""
     },
     {
@@ -40021,7 +40038,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified sellers",
-      "line": 1049,
+      "line": 1071,
       "reason": ""
     },
     {
@@ -40034,7 +40051,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Identity-cleared sellers in the current result set",
-      "line": 1051,
+      "line": 1073,
       "reason": ""
     },
     {
@@ -40047,7 +40064,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust notes",
-      "line": 1066,
+      "line": 1088,
       "reason": ""
     },
     {
@@ -40060,7 +40077,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Buyer discipline stays premium.",
-      "line": 1069,
+      "line": 1091,
       "reason": ""
     },
     {
@@ -40073,7 +40090,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market pulse",
-      "line": 1090,
+      "line": 1112,
       "reason": ""
     },
     {
@@ -40086,7 +40103,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live demand and supply hotspots",
-      "line": 1093,
+      "line": 1115,
       "reason": ""
     },
     {
@@ -40099,7 +40116,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "All cities",
-      "line": 1097,
+      "line": 1119,
       "reason": ""
     },
     {
@@ -40112,7 +40129,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "GPS-aware hotspot signals show where listings are moving, where demand is climbing, and which categories feel hottest in the current market window.",
-      "line": 1102,
+      "line": 1124,
       "reason": ""
     },
     {
@@ -40125,7 +40142,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Not enough live marketplace signals for this filter yet. Try another city or broaden the lane.",
-      "line": 1122,
+      "line": 1144,
       "reason": ""
     },
     {
@@ -40140,7 +40157,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} listings",
-      "line": 1145,
+      "line": 1167,
       "reason": ""
     },
     {
@@ -40153,7 +40170,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Hide filters",
-      "line": 1158,
+      "line": 1180,
       "reason": ""
     },
     {
@@ -40166,7 +40183,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Show filters",
-      "line": 1159,
+      "line": 1181,
       "reason": ""
     },
     {
@@ -40179,7 +40196,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Clear all",
-      "line": 1220,
+      "line": 1242,
       "reason": ""
     },
     {
@@ -40192,7 +40209,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Local commerce safety mode",
-      "line": 1241,
+      "line": 1263,
       "reason": ""
     },
     {
@@ -40205,7 +40222,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Meetup, escrow, and seller-risk cues stay visible while browsing.",
-      "line": 1244,
+      "line": 1266,
       "reason": ""
     },
     {
@@ -40218,7 +40235,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Safety mode on",
-      "line": 1258,
+      "line": 1280,
       "reason": ""
     },
     {
@@ -40231,7 +40248,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enable safety mode",
-      "line": 1259,
+      "line": 1281,
       "reason": ""
     },
     {
@@ -40244,7 +40261,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Average safety",
-      "line": 1265,
+      "line": 1287,
       "reason": ""
     },
     {
@@ -40257,7 +40274,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Composite trust score for visible listings",
-      "line": 1267,
+      "line": 1289,
       "reason": ""
     },
     {
@@ -40270,7 +40287,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "High safety",
-      "line": 1272,
+      "line": 1294,
       "reason": ""
     },
     {
@@ -40283,7 +40300,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Listings currently above the strong-trust threshold",
-      "line": 1274,
+      "line": 1296,
       "reason": ""
     },
     {
@@ -40296,7 +40313,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Escrow",
-      "line": 1279,
+      "line": 1301,
       "reason": ""
     },
     {
@@ -40309,7 +40326,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Coverage across the current result page",
-      "line": 1281,
+      "line": 1303,
       "reason": ""
     },
     {
@@ -40322,7 +40339,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "The market view hit a snag.",
-      "line": 1315,
+      "line": 1337,
       "reason": ""
     },
     {
@@ -40335,7 +40352,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Retry now",
-      "line": 1327,
+      "line": 1349,
       "reason": ""
     },
     {
@@ -40348,7 +40365,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No listings match this market view.",
-      "line": 1343,
+      "line": 1365,
       "reason": ""
     },
     {
@@ -40361,7 +40378,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Try relaxing filters, switching to another city, or be the first seller to publish inventory in this lane.",
-      "line": 1346,
+      "line": 1368,
       "reason": ""
     },
     {
@@ -40374,7 +40391,46 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Create listing",
-      "line": 1353,
+      "line": 1375,
+      "reason": ""
+    },
+    {
+      "column": 49,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Marketplace pagination",
+      "file": "app/src/pages/Marketplace/index.jsx",
+      "icuDefaultMessage": "Marketplace pagination",
+      "id": "marketplace.pagination.ariaLabel",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Marketplace pagination",
+      "line": 1416,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Prev",
+      "file": "app/src/pages/Marketplace/index.jsx",
+      "icuDefaultMessage": "Prev",
+      "id": "marketplace.pagination.prev",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Prev",
+      "line": 1428,
+      "reason": ""
+    },
+    {
+      "column": 42,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Next",
+      "file": "app/src/pages/Marketplace/index.jsx",
+      "icuDefaultMessage": "Next",
+      "id": "marketplace.pagination.next",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Next",
+      "line": 1465,
       "reason": ""
     },
     {
@@ -53054,7 +53110,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Threads",
-      "line": 116,
+      "line": 117,
       "reason": ""
     },
     {
@@ -53069,7 +53125,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{open}} conversations are still open for follow-up.",
-      "line": 118,
+      "line": 119,
       "reason": ""
     },
     {
@@ -53082,7 +53138,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply needed",
-      "line": 127,
+      "line": 128,
       "reason": ""
     },
     {
@@ -53097,7 +53153,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} threads have unread support replies for you.",
-      "line": 129,
+      "line": 130,
       "reason": ""
     },
     {
@@ -53110,7 +53166,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live support",
-      "line": 138,
+      "line": 139,
       "reason": ""
     },
     {
@@ -53125,7 +53181,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{connected}} live calls are already connected across your support threads.",
-      "line": 140,
+      "line": 141,
       "reason": ""
     },
     {
@@ -53138,7 +53194,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice ready",
-      "line": 149,
+      "line": 150,
       "reason": ""
     },
     {
@@ -53153,7 +53209,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{video}} video escalations can happen without losing the chat trail.",
-      "line": 151,
+      "line": 152,
       "reason": ""
     },
     {
@@ -53166,7 +53222,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 163,
+      "line": 164,
       "reason": ""
     },
     {
@@ -53181,7 +53237,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support already opened a {{label}}",
-      "line": 164,
+      "line": 165,
       "reason": ""
     },
     {
@@ -53194,7 +53250,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Join the live lane from this thread and the chat history stays right here after the call.",
-      "line": 169,
+      "line": 170,
       "reason": ""
     },
     {
@@ -53207,7 +53263,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 181,
+      "line": 182,
       "reason": ""
     },
     {
@@ -53222,7 +53278,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your {{label}} request is queued",
-      "line": 182,
+      "line": 183,
       "reason": ""
     },
     {
@@ -53235,7 +53291,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stay in this chat while the support team prepares the call so no context gets lost.",
-      "line": 187,
+      "line": 188,
       "reason": ""
     },
     {
@@ -53248,7 +53304,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 199,
+      "line": 200,
       "reason": ""
     },
     {
@@ -53263,7 +53319,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} support threads are waiting on you",
-      "line": 200,
+      "line": 201,
       "reason": ""
     },
     {
@@ -53276,7 +53332,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply in chat first, then escalate to voice or video only if the issue still needs real-time handling.",
-      "line": 205,
+      "line": 206,
       "reason": ""
     },
     {
@@ -53289,7 +53345,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 217,
+      "line": 218,
       "reason": ""
     },
     {
@@ -53302,7 +53358,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resolution is already captured",
-      "line": 218,
+      "line": 219,
       "reason": ""
     },
     {
@@ -53315,7 +53371,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep this thread as the durable record. Open a fresh one only if the issue truly changes.",
-      "line": 219,
+      "line": 220,
       "reason": ""
     },
     {
@@ -53328,7 +53384,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Next step",
-      "line": 230,
+      "line": 231,
       "reason": ""
     },
     {
@@ -53341,7 +53397,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Start in chat and accelerate when needed",
-      "line": 231,
+      "line": 232,
       "reason": ""
     },
     {
@@ -53354,7 +53410,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support can move this same thread into voice or video without losing the written history or the resolution summary.",
-      "line": 232,
+      "line": 233,
       "reason": ""
     },
     {
@@ -53367,7 +53423,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Chat",
-      "line": 255,
+      "line": 256,
       "reason": ""
     },
     {
@@ -53380,7 +53436,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice",
-      "line": 264,
+      "line": 265,
       "reason": ""
     },
     {
@@ -53393,7 +53449,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Video",
-      "line": 273,
+      "line": 274,
       "reason": ""
     },
     {
@@ -53406,7 +53462,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resolution",
-      "line": 282,
+      "line": 283,
       "reason": ""
     },
     {
@@ -53419,7 +53475,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice drafting ready",
-      "line": 296,
+      "line": 297,
       "reason": ""
     },
     {
@@ -53432,7 +53488,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Text drafting only",
-      "line": 297,
+      "line": 298,
       "reason": ""
     },
     {
@@ -53445,7 +53501,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Omnichannel support",
-      "line": 306,
+      "line": 307,
       "reason": ""
     },
     {
@@ -53458,7 +53514,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Chat, voice, and video stay in one support thread",
-      "line": 307,
+      "line": 308,
       "reason": ""
     },
     {
@@ -53471,7 +53527,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Move from written support into live voice or video without losing history, status, or the eventual resolution.",
-      "line": 308,
+      "line": 309,
       "reason": ""
     },
     {
@@ -53484,7 +53540,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Conversation-first support",
-      "line": 343,
+      "line": 344,
       "reason": ""
     },
     {
@@ -53497,7 +53553,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pick a thread or start a new one",
-      "line": 344,
+      "line": 345,
       "reason": ""
     },
     {
@@ -53510,7 +53566,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Everything important lands here: text replies, resolution notes, and live support escalation.",
-      "line": 346,
+      "line": 347,
       "reason": ""
     },
     {
@@ -53523,7 +53579,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support should feel like a real conversation",
-      "line": 356,
+      "line": 357,
       "reason": ""
     },
     {
@@ -53536,7 +53592,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open a durable thread for governance appeals, orders, or account help. Aura Support keeps the full trail visible in one place.",
-      "line": 358,
+      "line": 359,
       "reason": ""
     },
     {
@@ -53549,7 +53605,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Appeal moderation action",
-      "line": 374,
+      "line": 375,
       "reason": ""
     },
     {
@@ -53562,7 +53618,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New chat",
-      "line": 395,
+      "line": 396,
       "reason": ""
     },
     {
@@ -53575,7 +53631,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Start a support conversation",
-      "line": 396,
+      "line": 397,
       "reason": ""
     },
     {
@@ -53588,7 +53644,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This thread stays visible to you and Aura Support until the issue is actually resolved.",
-      "line": 398,
+      "line": 399,
       "reason": ""
     },
     {
@@ -53601,7 +53657,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Appeal-ready path",
-      "line": 423,
+      "line": 424,
       "reason": ""
     },
     {
@@ -53614,7 +53670,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Governance-related actions route through this thread so you can contest or clarify the decision in one place.",
-      "line": 425,
+      "line": 426,
       "reason": ""
     },
     {
@@ -53627,7 +53683,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Choose a lane",
-      "line": 434,
+      "line": 435,
       "reason": ""
     },
     {
@@ -53640,7 +53696,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pick the chat type that best matches the issue.",
-      "line": 435,
+      "line": 436,
       "reason": ""
     },
     {
@@ -53653,7 +53709,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Subject",
-      "line": 461,
+      "line": 462,
       "reason": ""
     },
     {
@@ -53666,7 +53722,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Brief summary of the issue",
-      "line": 469,
+      "line": 470,
       "reason": ""
     },
     {
@@ -53679,7 +53735,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support",
-      "line": 475,
+      "line": 476,
       "reason": ""
     },
     {
@@ -53692,7 +53748,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open a thread and let Aura Support respond in the same conversation.",
-      "line": 478,
+      "line": 479,
       "reason": ""
     },
     {
@@ -53707,7 +53763,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Linked action: {{id}}",
-      "line": 482,
+      "line": 483,
       "reason": ""
     },
     {
@@ -53720,7 +53776,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tell Aura Support what happened",
-      "line": 489,
+      "line": 490,
       "reason": ""
     },
     {
@@ -53733,7 +53789,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Describe the problem, what action was taken, and what kind of resolution you need.",
-      "line": 497,
+      "line": 498,
       "reason": ""
     },
     {
@@ -53746,7 +53802,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This thread is persistent. Replies, policy notes, and next steps stay together like a real chat history.",
-      "line": 503,
+      "line": 504,
       "reason": ""
     },
     {
@@ -53759,7 +53815,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice draft",
-      "line": 511,
+      "line": 512,
       "reason": ""
     },
     {
@@ -53772,7 +53828,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stop voice",
-      "line": 512,
+      "line": 513,
       "reason": ""
     },
     {
@@ -53785,7 +53841,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open support chat",
-      "line": 521,
+      "line": 522,
       "reason": ""
     },
     {
@@ -53800,7 +53856,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Ticket {{id}}",
-      "line": 557,
+      "line": 558,
       "reason": ""
     },
     {
@@ -53815,7 +53871,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Last activity {{time}}",
-      "line": 560,
+      "line": 561,
       "reason": ""
     },
     {
@@ -53828,7 +53884,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Just opened",
-      "line": 561,
+      "line": 562,
       "reason": ""
     },
     {
@@ -53841,7 +53897,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Text support, policy notes, and live support escalation all stay in this single thread.",
-      "line": 565,
+      "line": 566,
       "reason": ""
     },
     {
@@ -53854,7 +53910,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support is waiting on your reply",
-      "line": 587,
+      "line": 588,
       "reason": ""
     },
     {
@@ -53867,7 +53923,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply in this chat to keep the support or governance action moving.",
-      "line": 589,
+      "line": 590,
       "reason": ""
     },
     {
@@ -53880,7 +53936,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Two-way support is active",
-      "line": 599,
+      "line": 600,
       "reason": ""
     },
     {
@@ -53893,7 +53949,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This thread is the shared record for you and Aura Support. No more disconnected alerts.",
-      "line": 601,
+      "line": 602,
       "reason": ""
     },
     {
@@ -53906,7 +53962,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live support line",
-      "line": 620,
+      "line": 621,
       "reason": ""
     },
     {
@@ -53919,7 +53975,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice Call",
-      "line": 654,
+      "line": 655,
       "reason": ""
     },
     {
@@ -53932,7 +53988,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Video Call",
-      "line": 663,
+      "line": 664,
       "reason": ""
     },
     {
@@ -53945,7 +54001,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resolution summary",
-      "line": 674,
+      "line": 675,
       "reason": ""
     },
     {
@@ -53958,7 +54014,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Loading conversation...",
-      "line": 688,
+      "line": 689,
       "reason": ""
     },
     {
@@ -53971,7 +54027,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Support",
-      "line": 730,
+      "line": 731,
       "reason": ""
     },
     {
@@ -53984,7 +54040,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "You",
-      "line": 735,
+      "line": 736,
       "reason": ""
     },
     {
@@ -53997,7 +54053,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sending…",
-      "line": 746,
+      "line": 747,
       "reason": ""
     },
     {
@@ -54010,7 +54066,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Support message",
-      "line": 770,
+      "line": 771,
       "reason": ""
     },
     {
@@ -54023,7 +54079,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reply to Aura Support and keep things moving...",
-      "line": 783,
+      "line": 784,
       "reason": ""
     },
     {
@@ -54036,7 +54092,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Type a message...",
-      "line": 784,
+      "line": 785,
       "reason": ""
     },
     {
@@ -54049,23 +54105,23 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice draft",
-      "line": 802,
-      "reason": ""
-    },
-    {
-      "column": 62,
-      "defaultMessageSource": "legacy-english-pack",
-      "fallback": "Stop voice",
-      "file": "app/src/pages/Profile/components/SupportSection.jsx",
-      "icuDefaultMessage": "Stop voice",
-      "id": "profile.support.compose.voiceDraftStop",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "Stop voice",
       "line": 803,
       "reason": ""
     },
     {
+      "column": 62,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Stop voice",
+      "file": "app/src/pages/Profile/components/SupportSection.jsx",
+      "icuDefaultMessage": "Stop voice",
+      "id": "profile.support.compose.voiceDraftStop",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Stop voice",
+      "line": 804,
+      "reason": ""
+    },
+    {
       "column": 60,
       "defaultMessageSource": "legacy-english-pack",
       "fallback": "Voice draft",
@@ -54075,7 +54131,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice draft",
-      "line": 829,
+      "line": 830,
       "reason": ""
     },
     {
@@ -54088,7 +54144,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Stop voice",
-      "line": 830,
+      "line": 831,
       "reason": ""
     },
     {
@@ -54101,7 +54157,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice Call",
-      "line": 840,
+      "line": 841,
       "reason": ""
     },
     {
@@ -54114,7 +54170,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Video Call",
-      "line": 849,
+      "line": 850,
       "reason": ""
     },
     {
@@ -54127,7 +54183,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Enter sends",
-      "line": 860,
+      "line": 861,
       "reason": ""
     },
     {
@@ -54140,7 +54196,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shift+Enter adds a new line",
-      "line": 862,
+      "line": 863,
       "reason": ""
     },
     {
@@ -54153,7 +54209,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This chat is closed. If the issue is still active, open a new thread so the next action is tracked cleanly.",
-      "line": 870,
+      "line": 871,
       "reason": ""
     },
     {
@@ -60017,14 +60073,14 @@
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
     "productionFiles": 98,
-    "productionStableReferences": 4086,
+    "productionStableReferences": 4090,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
     "sourceFilesScanned": 474,
     "testHarnessReferences": 16,
     "totalTrackedFiles": 151,
-    "uniqueProductionStableIds": 3688,
+    "uniqueProductionStableIds": 3692,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -61131,6 +61187,7 @@
     "cart.summary.netValue",
     "cart.summary.proceed",
     "cart.summary.ready",
+    "cart.summary.removeUnavailable",
     "cart.summary.savingPrefix",
     "cart.summary.savingSuffix",
     "cart.summary.secureCheckout",
@@ -62419,6 +62476,9 @@
     "marketplace.location.accuracy",
     "marketplace.location.confidence",
     "marketplace.location.usingGpsCity",
+    "marketplace.pagination.ariaLabel",
+    "marketplace.pagination.next",
+    "marketplace.pagination.prev",
     "marketplace.proximity.local",
     "marketplace.proximity.national",
     "marketplace.proximity.regional",

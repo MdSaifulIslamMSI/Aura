@@ -1,6 +1,6 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-09-05T15:29:43.586Z
+Generated: 2026-09-05T17:01:57.383Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
@@ -9,7 +9,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 - Tracked files: 145
 - Stable ICU hook files: 84
 - Delegated stable ICU translator files: 10
-- Migrated stable ICU message IDs observed across files: 3439
+- Migrated stable ICU message IDs observed across files: 3443
 - Residual production legacy literal message IDs: 0
 - Test-harness legacy literal message IDs: 4
 - Production files with direct residual stable literals: 0
@@ -26,7 +26,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | Risk | File | ICU IDs | Residual legacy IDs | Signals |
 | --- | --- | ---: | ---: | --- |
 | medium | `app/src/pages/Admin/Dashboard.jsx` | 132 | 0 | useMarket, stable-icu-hook, runtime-translation |
-| medium | `app/src/pages/Marketplace/index.jsx` | 129 | 0 | useMarket, stable-icu-hook, computed-key-compatibility, runtime-translation |
+| medium | `app/src/pages/Marketplace/index.jsx` | 132 | 0 | useMarket, stable-icu-hook, computed-key-compatibility, runtime-translation |
 | medium | `app/src/pages/ListingDetail/index.jsx` | 112 | 0 | useMarket, stable-icu-hook, runtime-translation |
 | medium | `app/src/pages/Admin/Support.jsx` | 106 | 0 | useMarket, stable-icu-hook, computed-key-compatibility, runtime-translation |
 | medium | `app/src/pages/ProductDetails/index.jsx` | 97 | 0 | useMarket, stable-icu-hook, runtime-translation |
@@ -65,7 +65,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Profile/components/PersonalInfoSection.jsx` | 47 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/index.jsx` | 47 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Admin/RefundLedger.jsx` | 46 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Cart/index.jsx` | 44 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Cart/index.jsx` | 45 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/OrderSummary.jsx` | 43 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Profile/components/SecurityActivityPanel.jsx` | 41 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/components/PaymentsSection.jsx` | 40 | 0 | useMarket, stable-icu-hook |
