@@ -28,6 +28,7 @@ const {
 const {
     SESSION_STEP_UP_TTL_MS,
     clearBrowserSessionCookie,
+    downgradeSiblingStepUp,
     getBrowserSessionFromRequest,
     refreshBrowserSession,
     revokeBrowserSession,
@@ -2120,6 +2121,16 @@ const verifyBackupRecoveryCode = asyncHandler(async (req, res) => {
         req,
         meta: { activeCount: recoveryCodeState?.activeCount || 0 },
     });
+
+    // Recovery verification is a high-risk moment: step down any lingering
+    // step-up assurance on sibling sessions now. The requester holds no
+    // session yet, so every session is a sibling. Password reset revokes
+    // everything later; this closes the verify-to-reset window.
+    void downgradeSiblingStepUp({
+        userId: String(user?._id || ''),
+        exceptSessionId: '',
+        reason: 'recovery_code_verified',
+    }).catch(() => undefined);
 
     res.json({
         success: true,
