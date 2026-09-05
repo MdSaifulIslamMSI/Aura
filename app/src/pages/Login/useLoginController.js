@@ -629,12 +629,6 @@ export const useLoginController = () => {
     desktopBrowserHandoff.active
     && (duoCallbackStatus === 'success' || duoCallbackStatus === 'step-up')
   );
-  const desktopBrowserResolvedRoles = desktopBrowserCookieSessionRequired
-    ? desktopBrowserCookieSession?.roles
-    : roles;
-  const desktopBrowserResolvedSession = desktopBrowserCookieSessionRequired
-    ? desktopBrowserCookieSession?.session
-    : session;
   const desktopBrowserConsentGranted = Boolean(
     desktopBrowserHandoffKey
     && desktopBrowserConsentGrantedKey === desktopBrowserHandoffKey

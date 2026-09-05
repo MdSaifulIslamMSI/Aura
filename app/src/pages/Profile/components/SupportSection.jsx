@@ -1,10 +1,8 @@
 import { useMemo } from 'react';
 import {
     AlertCircle,
-    LifeBuoy,
     MessageSquare,
     PhoneCall,
-    Plus,
     RefreshCw,
     Send,
     ShieldAlert,
@@ -32,7 +30,6 @@ import {
     formatSupportPriority,
     getDayKey,
     getInitials,
-    formatThreadPreviewTime,
     formatMessageDayLabel,
     formatMessageTime,
 } from './supportHelpers';
@@ -76,7 +73,6 @@ export default function SupportSection({
         handleSupportComposerChange,
         isVoiceDrafting,
         supportsSpeechInput,
-        stopVoiceDrafting,
         toggleVoiceDrafting,
         fetchTickets,
         handleCreateTicket,
@@ -90,7 +86,6 @@ export default function SupportSection({
         isActiveSupportCall,
         supportLiveCallMode,
         supportLiveCallLabel,
-        supportLiveCallTitle,
         canJoinSupportCall,
         liveCallActionDisabled,
         liveCallActionLabel,

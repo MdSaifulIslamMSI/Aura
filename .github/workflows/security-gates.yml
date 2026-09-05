@@ -8,10 +8,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
-  actions: read
-  id-token: write
-  attestations: write
 
 concurrency:
   group: security-gates-${{ github.workflow }}-${{ github.ref }}
@@ -118,6 +114,9 @@ jobs:
     name: Secret Scan
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -151,6 +150,9 @@ jobs:
     name: SAST
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -184,6 +186,9 @@ jobs:
     name: Trivy Filesystem Scan
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -218,6 +223,9 @@ jobs:
     name: IaC Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -270,6 +278,10 @@ jobs:
     name: SBOM
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -349,8 +361,9 @@ jobs:
           cat "$RUNNER_TEMP/aura-vite-preview.log"
           exit 1
       - name: Run ZAP baseline against staging
-        run: npm run security:zap -- "${{ steps.zap-target.outputs.target }}"
+        run: npm run security:zap -- "${ZAP_TARGET}"
         env:
+          ZAP_TARGET: ${{ steps.zap-target.outputs.target }}
           SMOKE_TARGET_ENV: ${{ env.STAGING_URL != '' && 'staging' || 'local' }}
           SMOKE_BASE_URL: ${{ env.STAGING_URL != '' && env.STAGING_URL || 'http://127.0.0.1:4173' }}
           STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL || '' }}

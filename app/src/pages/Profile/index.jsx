@@ -34,7 +34,6 @@ import {
     PHONE_REGEX,
     normalizePhone,
     trimText,
-    createEditForm,
 } from './hooks/profileUtils';
 import { useAccountNotice } from './hooks/useAccountNotice';
 import { useAddresses } from './hooks/useAddresses';
@@ -178,7 +177,6 @@ export default function Profile() {
         cancelEdit,
         editForm,
         handleProfileFieldChange,
-        handleProfileFieldBlur,
         handleSaveProfile,
         handleAvatarChange,
         profileDirty,

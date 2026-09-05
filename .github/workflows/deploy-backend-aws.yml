@@ -37,7 +37,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: aws-backend-production
@@ -58,6 +57,9 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       release_sha: ${{ steps.release.outputs.sha }}
 
@@ -136,6 +138,9 @@ jobs:
     # The failure path may consume a full deploy SSM poll followed by a full
     # rollback SSM poll. Keep enough headroom for build and artifact transfer.
     timeout-minutes: 120
+    permissions:
+      contents: read
+      id-token: write
     env:
       AURA_RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
     outputs:

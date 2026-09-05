@@ -110,7 +110,7 @@ on:
         required: false
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: desktop-release-${{ github.ref }}
@@ -306,7 +306,9 @@ jobs:
 
       - name: Stamp desktop version
         shell: bash
-        run: npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+        env:
+          DESKTOP_VERSION: ${{ needs.prepare.outputs.version }}
+        run: npm version "${DESKTOP_VERSION}" --no-git-tag-version --allow-same-version
 
       - name: Configure Windows code signing
         if: matrix.platform == 'windows'

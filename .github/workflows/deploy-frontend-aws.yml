@@ -44,7 +44,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-frontend-aws', github.run_id) || 'aura-production-mutation' }}
@@ -130,6 +129,9 @@ jobs:
     needs: build-frontend
     if: inputs.deploy == true
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     timeout-minutes: 15
     environment:
       name: aws-frontend-production
@@ -237,17 +239,20 @@ jobs:
           echo "invalidation_id=${INVALIDATION_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Verify CloudFront serves the app shell
+        env:
+          INVALIDATION_ID: ${{ steps.publish.outputs.invalidation_id }}
+          SITE_URL: ${{ steps.publish.outputs.site_url }}
         run: |
           set -euo pipefail
           if ! aws cloudfront wait invalidation-completed \
             --distribution-id "${AWS_FRONTEND_DISTRIBUTION_ID}" \
-            --id "${{ steps.publish.outputs.invalidation_id }}"; then
+            --id "${INVALIDATION_ID}"; then
             echo "CloudFront invalidation wait was unavailable; continuing with HTTP readiness polling." >&2
           fi
 
           READINESS_ATTEMPTS=30
           for attempt in $(seq 1 "${READINESS_ATTEMPTS}"); do
-            if curl --fail --show-error --silent --location --max-time 10 "${{ steps.publish.outputs.site_url }}" > /dev/null; then
+            if curl --fail --show-error --silent --location --max-time 10 "${SITE_URL}" > /dev/null; then
               exit 0
             fi
             echo "CloudFront app shell was not ready (attempt ${attempt}/${READINESS_ATTEMPTS})." >&2
@@ -260,12 +265,15 @@ jobs:
           exit 1
 
       - name: Add AWS frontend deploy to job summary
+        env:
+          SITE_URL: ${{ steps.publish.outputs.site_url }}
+          BACKEND_ORIGIN: ${{ needs.build-frontend.outputs.backend_origin }}
         run: |
           {
             echo "### AWS CloudFront Frontend"
             echo
             echo "- Bucket: ${AWS_FRONTEND_BUCKET}"
             echo "- Distribution: ${AWS_FRONTEND_DISTRIBUTION_ID}"
-            echo "- Site URL: ${{ steps.publish.outputs.site_url }}"
-            echo "- Backend origin: ${{ needs.build-frontend.outputs.backend_origin }}"
+            echo "- Site URL: ${SITE_URL}"
+            echo "- Backend origin: ${BACKEND_ORIGIN}"
           } >> "$GITHUB_STEP_SUMMARY"

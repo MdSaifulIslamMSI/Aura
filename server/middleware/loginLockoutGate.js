@@ -1,5 +1,4 @@
 const {
-    accountKeyFromRequest,
     evaluateAccountLockout,
     recordAuthFailure,
     recordAuthSuccess,

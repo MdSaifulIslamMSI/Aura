@@ -8,7 +8,6 @@ jest.mock('../config/redis', () => ({
 const {
     createBrowserSession,
     downgradeSiblingStepUp,
-    getAllTrackedSessionIdsForUser,
     loadSessionRecord,
 } = require('../services/browserSessionService');
 const { __getBufferedEvents, __resetBufferedEvents } = require('../security/securityEventLogger');

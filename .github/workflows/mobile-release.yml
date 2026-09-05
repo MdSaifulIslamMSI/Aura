@@ -95,7 +95,7 @@ on:
         required: false
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: mobile-release-${{ github.ref }}
@@ -673,6 +673,8 @@ jobs:
       (needs.publish-ios-testflight.result == 'success' || needs.publish-ios-testflight.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -813,13 +815,15 @@ jobs:
           EOF
 
       - name: Publish GitHub mobile release
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
-        with:
-          tag_name: ${{ needs.prepare.outputs.tag_name }}
-          name: Aura Marketplace Mobile ${{ needs.prepare.outputs.version }}
-          make_latest: false
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: true
-          body_path: release-notes.md
-          files: release-artifacts/*
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag_name }}
+          RELEASE_TITLE: Aura Marketplace Mobile ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release create "${RELEASE_TAG}" \
+            --title "${RELEASE_TITLE}" \
+            --notes-file release-notes.md \
+            --latest=false \
+            --draft=false \
+            --prerelease=false \
+            release-artifacts/*

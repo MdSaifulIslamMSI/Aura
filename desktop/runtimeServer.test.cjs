@@ -46,7 +46,6 @@ const {
     DESKTOP_AUTH_CANCEL_PATH,
     DESKTOP_AUTH_COMPLETE_PATH,
     RUNTIME_CALLBACK_HOST,
-    buildRuntimeCallbackUrl,
     buildRuntimePortCandidates,
     isLoopbackBackendOrigin,
     isOpaqueDesktopAuthNavigation,

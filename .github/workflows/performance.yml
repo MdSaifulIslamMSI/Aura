@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   performance-smoke:
@@ -16,6 +15,9 @@ jobs:
     if: ${{ github.event_name != 'schedule' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout
@@ -40,7 +42,7 @@ jobs:
         run: npm --prefix app ci
 
       - name: Install server dependencies
-        run: npm --prefix server install
+        run: npm --prefix server ci
 
       - name: Performance audit
         run: npm run perf:audit
@@ -140,9 +142,11 @@ jobs:
         if: ${{ always() && github.event_name == 'pull_request' }}
         continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          JOB_STATUS: ${{ job.status }}
         with:
           script: |
-            const status = '${{ job.status }}';
+            const status = process.env.JOB_STATUS;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

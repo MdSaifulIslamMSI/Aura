@@ -46,8 +46,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 concurrency:
   group: ${{ inputs.target == 'production' && inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-gateway', github.run_id) || inputs.target == 'production' && 'aura-production-mutation' || format('gateway-vercel-{0}', github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref) }}
@@ -64,6 +62,10 @@ jobs:
   deploy-preview:
     if: (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') || inputs.target == 'preview'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     timeout-minutes: 15
     outputs:
       deploy_url: ${{ steps.deploy.outputs.deploy_url }}
@@ -130,14 +132,17 @@ jobs:
           EOF
 
       - name: Add preview to job summary
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
+          INSPECT_URL: ${{ steps.deploy.outputs.inspect_url }}
         run: |
           {
             echo "### Gateway Vercel Preview"
             echo
             echo "- Project: ${VERCEL_GATEWAY_PROJECT_NAME}"
-            echo "- Preview: ${{ steps.deploy.outputs.deploy_url }}"
-            if [ -n "${{ steps.deploy.outputs.inspect_url }}" ]; then
-              echo "- Inspect: ${{ steps.deploy.outputs.inspect_url }}"
+            echo "- Preview: ${DEPLOY_URL}"
+            if [ -n "${INSPECT_URL}" ]; then
+              echo "- Inspect: ${INSPECT_URL}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -313,14 +318,17 @@ jobs:
         run: bash scripts/rollback-gateway-vercel.sh
 
       - name: Add production deploy to job summary
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deploy_url }}
+          INSPECT_URL: ${{ steps.deploy.outputs.inspect_url }}
         run: |
           {
             echo "### Gateway Vercel Production"
             echo
             echo "- Project: ${VERCEL_GATEWAY_PROJECT_NAME}"
-            echo "- Deploy URL: ${{ steps.deploy.outputs.deploy_url }}"
+            echo "- Deploy URL: ${DEPLOY_URL}"
             echo "- Public Gateway: https://${VERCEL_GATEWAY_ALIAS}"
-            if [ -n "${{ steps.deploy.outputs.inspect_url }}" ]; then
-              echo "- Inspect: ${{ steps.deploy.outputs.inspect_url }}"
+            if [ -n "${INSPECT_URL}" ]; then
+              echo "- Inspect: ${INSPECT_URL}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
