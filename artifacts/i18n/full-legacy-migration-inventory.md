@@ -1,6 +1,6 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-09-05T08:02:23.745Z
+Generated: 2026-09-05T13:44:08.625Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
@@ -9,7 +9,7 @@ Complete pre-migration inventory for legacy market-pack t() usage. Stable UI lit
 - Source files scanned: 472
 - Tracked files: 151
 - Production files with stable literal UI copy: 98
-- Production stable literal references: 4082
+- Production stable literal references: 4078
 - Unique production stable IDs: 3684
 - Dynamic lookup references requiring manual review: 14
 - Runtime enum compatibility references: 1
@@ -34,9 +34,9 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/pages/Profile/components/SettingsSection.jsx` | 129 | 126 | 0 | stable-ui |
 | high | `app/src/pages/ListingDetail/index.jsx` | 123 | 116 | 0 | runtime-content-nearby |
 | high | `app/src/pages/Checkout/index.jsx` | 103 | 92 | 0 | stable-ui |
-| high | `app/src/pages/Profile/components/SupportSection.jsx` | 83 | 73 | 0 | runtime-content-nearby |
-| high | `app/src/pages/Login/LoginView.jsx` | 69 | 65 | 0 | stable-ui |
+| high | `app/src/pages/Profile/components/SupportSection.jsx` | 84 | 74 | 0 | runtime-content-nearby |
 | high | `app/src/pages/DesktopLogin/index.jsx` | 67 | 63 | 0 | stable-ui |
+| high | `app/src/pages/Login/LoginView.jsx` | 64 | 60 | 0 | stable-ui |
 | high | `app/src/pages/ProductListing/index.jsx` | 53 | 51 | 1 | stable-ui |
 | high | `app/src/pages/Cart/index.jsx` | 45 | 44 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/OrderSummary.jsx` | 43 | 43 | 0 | stable-ui |

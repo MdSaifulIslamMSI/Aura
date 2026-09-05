@@ -3305,6 +3305,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.support.priority.normal": "普通的",
   "profile.support.priority.urgent": "紧迫的",
   "profile.support.resolutionSummary": "决议摘要",
+  "profile.support.sending": "Sending…",
   "profile.support.socket.live": "居住",
   "profile.support.socket.polling": "轮询",
   "profile.support.socket.reconnecting": "正在重新连接...",

@@ -1,6 +1,6 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-09-05T08:02:50.490Z
+Generated: 2026-09-05T13:44:11.259Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
@@ -9,7 +9,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 - Tracked files: 145
 - Stable ICU hook files: 84
 - Delegated stable ICU translator files: 10
-- Migrated stable ICU message IDs observed across files: 3437
+- Migrated stable ICU message IDs observed across files: 3433
 - Residual production legacy literal message IDs: 0
 - Test-harness legacy literal message IDs: 4
 - Production files with direct residual stable literals: 0
@@ -30,7 +30,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | medium | `app/src/pages/ListingDetail/index.jsx` | 112 | 0 | useMarket, stable-icu-hook, runtime-translation |
 | medium | `app/src/pages/Admin/Support.jsx` | 106 | 0 | useMarket, stable-icu-hook, computed-key-compatibility, runtime-translation |
 | medium | `app/src/pages/ProductDetails/index.jsx` | 97 | 0 | useMarket, stable-icu-hook, runtime-translation |
-| medium | `app/src/pages/Profile/components/SupportSection.jsx` | 73 | 0 | useMarket, stable-icu-hook, computed-key-compatibility, runtime-translation |
+| medium | `app/src/pages/Profile/components/SupportSection.jsx` | 74 | 0 | useMarket, stable-icu-hook, computed-key-compatibility, runtime-translation |
 | medium | `app/src/components/shared/GlobalSearchBar.jsx` | 53 | 0 | useMarket, stable-icu-hook, runtime-translation |
 | medium | `app/src/components/features/product/ProductCard/index.jsx` | 19 | 0 | useMarket, stable-icu-hook, runtime-translation |
 | medium | `app/src/components/features/chat/ProductCardInline.jsx` | 12 | 0 | useMarket, stable-icu-hook, computed-key-compatibility, runtime-translation |
@@ -53,9 +53,9 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Admin/EmailOps.jsx` | 93 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/index.jsx` | 92 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Home/index.jsx` | 81 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Login/LoginView.jsx` | 65 | 0 | delegated-stable-icu, computed-key-compatibility |
 | low | `app/src/pages/Admin/OrderList.jsx` | 64 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/DesktopLogin/index.jsx` | 63 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
+| low | `app/src/pages/Login/LoginView.jsx` | 60 | 0 | delegated-stable-icu, computed-key-compatibility |
 | low | `app/src/pages/Admin/ProductEdit.jsx` | 59 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Admin/ProductList.jsx` | 55 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/ProductListing/index.jsx` | 50 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |

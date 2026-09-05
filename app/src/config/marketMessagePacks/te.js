@@ -3323,6 +3323,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.support.priority.normal": "సాధారణ",
   "profile.support.priority.urgent": "అత్యవసరం",
   "profile.support.resolutionSummary": "రిజల్యూషన్ సారాంశం",
+  "profile.support.sending": "Sending…",
   "profile.support.socket.live": "జీవించు",
   "profile.support.socket.polling": "విచారణ",
   "profile.support.socket.reconnecting": "మళ్లీ కనెక్ట్ అవుతోంది...",

@@ -3305,6 +3305,7 @@ export const MARKET_MESSAGE_PACK = {
   "profile.support.priority.normal": "सामान्य",
   "profile.support.priority.urgent": "अति आवश्यक",
   "profile.support.resolutionSummary": "संकल्प सारांश",
+  "profile.support.sending": "Sending…",
   "profile.support.socket.live": "रहना",
   "profile.support.socket.polling": "मतदान",
   "profile.support.socket.reconnecting": "पुनः कनेक्ट हो रहा है...",
