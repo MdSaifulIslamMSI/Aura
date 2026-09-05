@@ -76,6 +76,7 @@ const {
 } = require('../services/authBehaviorBaselineService');
 const { extractTrustedLoginRiskSignals } = require('../services/authRiskSignalService');
 const { recordAuthSecurityEvent } = require('../services/authSecurityTelemetryService');
+const { evaluateGeoVelocity } = require('../services/authGeoVelocityService');
 const { notifyNewDeviceSignIn } = require('../services/authNewDeviceAlertService');
 const {
     startTrafficBudgetCommit,
@@ -424,8 +425,14 @@ const evaluateRuntimeLoginRisk = async ({ req = {}, user = null } = {}) => {
     const baseline = await recordAuthObservation({ uid, ip: req.ip || '' })
         .then(() => evaluateBehaviorSignals({ uid }))
         .catch(() => ({ enabled: false, distinctIpCount: 0, attempts15m: 0 }));
+    // Server-side impossible travel (A2): CloudFront viewer-country against
+    // the user's last-seen geography. OR-ed with the edge/client signal so a
+    // missing producer can never clear a real detection.
+    const geoVelocity = await evaluateGeoVelocity({ uid, req })
+        .catch(() => ({ impossibleTravel: false, previous: null }));
     const risk = evaluateLoginRisk({
         ...riskInputs,
+        impossibleTravel: Boolean(riskInputs.impossibleTravel || geoVelocity.impossibleTravel),
         distinctIpCount: baseline.distinctIpCount,
     });
     const forceStepUp = Boolean(
@@ -466,6 +473,9 @@ const evaluateRuntimeLoginRisk = async ({ req = {}, user = null } = {}) => {
                 enabled: baseline.enabled,
                 distinctIpCount: baseline.distinctIpCount,
                 attempts15m: baseline.attempts15m,
+            },
+            geoVelocity: {
+                impossibleTravel: geoVelocity.impossibleTravel,
             },
         },
     });
