@@ -813,6 +813,38 @@ const seedDefaultStatusCatalog = async ({ includeDemoMetrics = shouldSeedDemoMet
     return { groups: groups.length, components: componentIndex };
 };
 
+const backfillStatusHealthSignals = async () => {
+    const catalogSignals = new Map();
+    for (const group of getDefaultStatusCatalog()) {
+        for (const component of group.components || []) {
+            const signal = String(component?.metadata?.healthSignal || '').trim().toLowerCase();
+            if (component?.slug && signal) {
+                catalogSignals.set(String(component.slug).toLowerCase(), signal);
+            }
+        }
+    }
+    const components = await StatusComponent.find({}).select({ slug: 1, metadata: 1 }).lean();
+    let updated = 0;
+    let skipped = 0;
+    const unknownSlugs = [];
+    for (const component of components) {
+        const current = String(component?.metadata?.healthSignal || '').trim();
+        if (current) {
+            skipped += 1;
+            continue;
+        }
+        const signal = catalogSignals.get(String(component.slug || '').toLowerCase());
+        if (!signal) {
+            unknownSlugs.push(component.slug);
+            continue;
+        }
+        await StatusComponent.updateOne({ _id: component._id }, { $set: { 'metadata.healthSignal': signal } });
+        updated += 1;
+    }
+    invalidatePublicStatusCache();
+    return { checked: components.length, updated, skipped, unknownSlugs };
+};
+
 const fetchMetricMap = async (componentIds, dates) => {
     const metrics = await StatusDailyMetric.find({
         componentId: { $in: componentIds },
@@ -2739,6 +2771,7 @@ module.exports = {
     createStatusComponent,
     createStatusIncident,
     addIncidentUpdate,
+    backfillStatusHealthSignals,
     generateIncidentPostmortem,
     getIncidentBySlug,
     getDefaultStatusCatalog,
