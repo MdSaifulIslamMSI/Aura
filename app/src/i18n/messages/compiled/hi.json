@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "अधिक गतिविधि लोड करें",
   "profile.securityActivity.loading": "सुरक्षा गतिविधि लोड हो रही है",
   "profile.securityActivity.loadingMore": "और अधिक लोड हो रहा है...",
+  "profile.securityActivity.newDevice.body": "आपके खाते में किसी अनजान डिवाइस से ब्राउज़र सत्र साइन इन हुआ है। जिस सत्र को आप नहीं पहचानते उसे रद्द करें।",
+  "profile.securityActivity.newDevice.title": "नया डिवाइस साइन इन हुआ",
   "profile.securityActivity.passkeyAdded.body": "खाता एमएफए के लिए एक पासकी पंजीकृत की गई थी।",
   "profile.securityActivity.passkeyAdded.title": "पासकी ने जोड़ा",
   "profile.securityActivity.passkeyRemoved.body": "एक पंजीकृत पासकी हटा दी गई थी।",

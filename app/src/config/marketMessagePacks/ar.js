@@ -2981,6 +2981,8 @@ export const MARKET_MESSAGE_PACK = {
   "profile.securityActivity.loading": "جارٍ تحميل النشاط الأمني",
   "profile.securityActivity.loadingMore": "جارٍ تحميل المزيد...",
   "profile.securityActivity.loadMore": "تحميل المزيد من النشاط",
+  "profile.securityActivity.newDevice.body": "تم تسجيل الدخول إلى جلسة متصفح من جهاز لم نره من قبل. قم بإلغاء أي جلسة لا تتعرف عليها.",
+  "profile.securityActivity.newDevice.title": "تم تسجيل الدخول من جهاز جديد",
   "profile.securityActivity.passkeyAdded.body": "تم تسجيل مفتاح مرور لحساب MFA.",
   "profile.securityActivity.passkeyAdded.title": "تمت إضافة مفتاح المرور",
   "profile.securityActivity.passkeyRemoved.body": "تمت إزالة مفتاح المرور المسجل.",

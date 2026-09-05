@@ -276,6 +276,7 @@
       "tests/auth.duo-oidc.security.test.js",
       "tests/auth.tokens.security.test.js",
       "tests/authMiddleware.test.js",
+        "tests/authNewDeviceAlertService.test.js",
       "tests/authShield.adminRoutes.test.js",
       "tests/authShield.auditWriter.test.js",
       "tests/authShield.authRoutes.test.js",

@@ -2999,6 +2999,8 @@ export const MARKET_MESSAGE_PACK = {
   "profile.securityActivity.loading": "ਸੁਰੱਖਿਆ ਗਤੀਵਿਧੀ ਲੋਡ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ",
   "profile.securityActivity.loadingMore": "ਹੋਰ ਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
   "profile.securityActivity.loadMore": "ਹੋਰ ਗਤੀਵਿਧੀ ਲੋਡ ਕਰੋ",
+  "profile.securityActivity.newDevice.body": "ਤੁਹਾਡੇ ਖਾਤੇ ਵਿੱਚ ਕਿਸੇ ਅਣਜਾਣ ਡਿਵਾਈਸ ਤੋਂ ਬ੍ਰਾਊਜ਼ਰ ਸੈਸ਼ਨ ਸਾਈਨ ਇਨ ਹੋਇਆ ਹੈ। ਜਿਸ ਸੈਸ਼ਨ ਨੂੰ ਤੁਸੀਂ ਨਹੀਂ ਪਛਾਣਦੇ ਉਸਨੂੰ ਰੱਦ ਕਰੋ।",
+  "profile.securityActivity.newDevice.title": "ਨਵਾਂ ਡਿਵਾਈਸ ਸਾਈਨ ਇਨ ਹੋਇਆ",
   "profile.securityActivity.passkeyAdded.body": "ਖਾਤਾ MFA ਲਈ ਇੱਕ ਪਾਸਕੀ ਰਜਿਸਟਰ ਕੀਤੀ ਗਈ ਸੀ।",
   "profile.securityActivity.passkeyAdded.title": "ਪਾਸਕੀ ਸ਼ਾਮਲ ਕੀਤੀ ਗਈ",
   "profile.securityActivity.passkeyRemoved.body": "ਇੱਕ ਰਜਿਸਟਰਡ ਪਾਸਕੀ ਹਟਾ ਦਿੱਤੀ ਗਈ ਸੀ।",

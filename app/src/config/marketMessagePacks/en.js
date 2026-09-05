@@ -2744,6 +2744,8 @@ export const MARKET_MESSAGE_PACK = {
   "profile.securityActivity.loading": "Loading security activity",
   "profile.securityActivity.loadingMore": "Loading more...",
   "profile.securityActivity.loadMore": "Load more activity",
+  "profile.securityActivity.newDevice.body": "A browser session signed in from a device we had not seen. Revoke any session you do not recognize.",
+  "profile.securityActivity.newDevice.title": "New device signed in",
   "profile.securityActivity.passkeyAdded.body": "A passkey was registered for account MFA.",
   "profile.securityActivity.passkeyAdded.title": "Passkey added",
   "profile.securityActivity.passkeyRemoved.body": "A registered passkey was removed.",

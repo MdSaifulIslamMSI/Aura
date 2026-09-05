@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "વધુ પ્રવૃત્તિ લોડ કરો",
   "profile.securityActivity.loading": "સુરક્ષા પ્રવૃત્તિ લોડ કરી રહ્યું છે",
   "profile.securityActivity.loadingMore": "વધુ લોડ કરી રહ્યું છે...",
+  "profile.securityActivity.newDevice.body": "તમારા ખાતામાં અજાણ્યા ડિવાઇસથી બ્રાઉઝર સત્ર સાઇન ઇન થયું છે. તમે ન ઓળખતા હો તેવું કોઈપણ સત્ર રદ કરો.",
+  "profile.securityActivity.newDevice.title": "નવું ડિવાઇસ સાઇન ઇન થયું",
   "profile.securityActivity.passkeyAdded.body": "એકાઉન્ટ MFA માટે પાસકી રજીસ્ટર કરવામાં આવી હતી.",
   "profile.securityActivity.passkeyAdded.title": "પાસકી ઉમેરી",
   "profile.securityActivity.passkeyRemoved.body": "નોંધાયેલ પાસકી દૂર કરવામાં આવી હતી.",

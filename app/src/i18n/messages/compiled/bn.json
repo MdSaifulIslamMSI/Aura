@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loadMore": "আরো কার্যকলাপ লোড",
   "profile.securityActivity.loading": "নিরাপত্তা কার্যকলাপ লোড হচ্ছে",
   "profile.securityActivity.loadingMore": "আরো লোড হচ্ছে...",
+  "profile.securityActivity.newDevice.body": "আপনার অ্যাকাউন্টে একটি অপরিচিত ডিভাইস থেকে ব্রাউজার সেশন সাইন ইন হয়েছে। আপনি চিনতে না পারা যেকোনো সেশন বাতিল করুন।",
+  "profile.securityActivity.newDevice.title": "নতুন ডিভাইস সাইন ইন করেছে",
   "profile.securityActivity.passkeyAdded.body": "অ্যাকাউন্ট MFA-এর জন্য একটি পাসকি নিবন্ধিত হয়েছে।",
   "profile.securityActivity.passkeyAdded.title": "পাসকি যোগ করা হয়েছে",
   "profile.securityActivity.passkeyRemoved.body": "একটি নিবন্ধিত পাসকি সরানো হয়েছে।",

@@ -2999,6 +2999,8 @@ export const MARKET_MESSAGE_PACK = {
   "profile.securityActivity.loading": "ସୁରକ୍ଷା କାର୍ଯ୍ୟକଳାପ ଲୋଡ୍ କରୁଛି |",
   "profile.securityActivity.loadingMore": "ଅଧିକ ଲୋଡ୍ କରୁଛି ...",
   "profile.securityActivity.loadMore": "ଅଧିକ କାର୍ଯ୍ୟକଳାପ ଲୋଡ୍ କରନ୍ତୁ |",
+  "profile.securityActivity.newDevice.body": "ଆପଣଙ୍କ ଖାତାକୁ ଏକ ଅଜଣା ଡିଭାଇସ୍‌ରୁ ବ୍ରାଉଜର୍ ସେସନ୍ ସାଇନ୍ ଇନ୍ ହେଲା । ଆପଣ ଚିହ୍ନି ନ ପାରୁଥିବା ଯେକୌଣସି ସେସନ୍ ବାତିଲ୍ କରନ୍ତୁ ।",
+  "profile.securityActivity.newDevice.title": "ନୂଆ ଡିଭାଇସ୍ ସାଇନ୍ ଇନ୍ ହେଲା",
   "profile.securityActivity.passkeyAdded.body": "ଖାତା MFA ପାଇଁ ଏକ ପାସ୍କି ପଞ୍ଜିକୃତ ହୋଇଥିଲା |",
   "profile.securityActivity.passkeyAdded.title": "ପାସ୍କି ଯୋଗ କରାଯାଇଛି |",
   "profile.securityActivity.passkeyRemoved.body": "ଏକ ପଞ୍ଜୀକୃତ ପାସ୍କି ହଟାଗଲା |",

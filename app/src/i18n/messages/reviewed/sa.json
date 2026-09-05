@@ -3925,6 +3925,8 @@
   "profile.securityActivity.loading": "सुरक्षाक्रियाकलापं लोडयति",
   "profile.securityActivity.loadingMore": "अधिकं लोड् भवति...",
   "profile.securityActivity.loadMore": "अधिकं क्रियाकलापं लोडं कुर्वन्तु",
+  "profile.securityActivity.newDevice.body": "भवतः खाते अपरिचितयन्त्रात् जालविचरणसत्रं प्रवेशितम्। यत् सत्रं न प्रत्यभिजानीथ तद् निरस्यताम्।",
+  "profile.securityActivity.newDevice.title": "नवीनं यन्त्रं प्रवेशितम्",
   "profile.securityActivity.passkeyAdded.body": "खाता एमएफए कृते पासकी पञ्जीकृता आसीत्।",
   "profile.securityActivity.passkeyAdded.title": "पासकी योजितम्",
   "profile.securityActivity.passkeyRemoved.body": "एकं पञ्जीकृतं पासकीं निष्कासितम्।",

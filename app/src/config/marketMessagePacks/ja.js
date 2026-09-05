@@ -2981,6 +2981,8 @@ export const MARKET_MESSAGE_PACK = {
   "profile.securityActivity.loading": "セキュリティアクティビティを読み込み中",
   "profile.securityActivity.loadingMore": "さらに読み込み中...",
   "profile.securityActivity.loadMore": "さらにアクティビティをロードする",
+  "profile.securityActivity.newDevice.body": "認識されていないデバイスからブラウザセッションがサインインしました。心当たりのないセッションは取り消してください。",
+  "profile.securityActivity.newDevice.title": "新しいデバイスでサインインしました",
   "profile.securityActivity.passkeyAdded.body": "アカウントMFAにパスキーが登録されました。",
   "profile.securityActivity.passkeyAdded.title": "パスキーが追加されました",
   "profile.securityActivity.passkeyRemoved.body": "登録されているパスキーが削除されました。",
