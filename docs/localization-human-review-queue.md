@@ -39,13 +39,13 @@ The ICU migration promotes stable UI copy into reviewed catalogs without sending
 ## Actionable Queue By Reason
 
 - `brand-term-corruption-uses-english-fallback`: 74 grouped entries / 749 affected pairs
-- `exact-english-fallback-needs-human-review`: 138 grouped entries / 903 affected pairs
+- `exact-english-fallback-needs-human-review`: 139 grouped entries / 922 affected pairs
 - `forbidden-transliteration-uses-english-fallback`: 3 grouped entries / 4 affected pairs
 - `foundation-placeholder-mismatch-uses-english-fallback`: 2 grouped entries / 30 affected pairs
 - `invalid-legacy-icu-uses-english-fallback`: 1 grouped entries / 18 affected pairs
 - `legacy-placeholder-mismatch-uses-english-fallback`: 119 grouped entries / 718 affected pairs
 - `missing-foundation-locale-uses-english-fallback`: 21 grouped entries / 306 affected pairs
-- `missing-legacy-locale-uses-english-fallback`: 1376 grouped entries / 26244 affected pairs
+- `missing-legacy-locale-uses-english-fallback`: 1375 grouped entries / 26225 affected pairs
 
 ## Native Review Audit
 
