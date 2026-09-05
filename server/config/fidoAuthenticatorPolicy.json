@@ -1,0 +1,4 @@
+{
+    "$comment": "Repo-owned FIDO authenticator provenance policy (B1). Registration uses attestation:none, so there is no attestation chain to validate; AAGUID screening against this list is the enforcement point for known-bad authenticators. Process for adding entries: consult the FIDO Metadata Service (MDS) status reports for the AAGUID, record the reason + report date, and land via normal PR review. Keys are base64url (no padding) AAGUIDs as produced by verifyWebAuthnRegistration. The all-zero AAGUID (privacy-preserving platform authenticators) must never be listed.",
+    "blockedAaguids": {}
+}

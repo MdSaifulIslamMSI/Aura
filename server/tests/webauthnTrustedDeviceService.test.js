@@ -48,6 +48,7 @@ const buildRegistrationAuthData = ({
     backedUp = false,
     userVerified = true,
     credentialLengthOverride,
+    aaguid = null,
 }) => {
     const flags = 0x01
         | (userVerified ? 0x04 : 0)
@@ -60,11 +61,13 @@ const buildRegistrationAuthData = ({
         credentialLengthOverride === undefined ? credentialId.length : credentialLengthOverride,
         0
     );
+    const aaguidBytes = aaguid ? Buffer.from(aaguid) : Buffer.alloc(16);
+    if (aaguidBytes.length !== 16) throw new Error('test aaguid must be 16 bytes');
     return Buffer.concat([
         sha256(Buffer.from(rpId, 'utf8')),
         Buffer.from([flags]),
         signCount,
-        Buffer.alloc(16),
+        aaguidBytes,
         credentialLength,
         credentialId,
         buildCoseEcKey({ publicJwk, algorithm }),
@@ -87,6 +90,7 @@ const buildRegistrationCredential = ({
     userVerified = true,
     crossOrigin = false,
     credentialLengthOverride,
+    aaguid = null,
 }) => {
     const clientData = buildClientData({
         type: 'webauthn.create',
@@ -106,6 +110,7 @@ const buildRegistrationCredential = ({
             backedUp,
             userVerified,
             credentialLengthOverride,
+            aaguid,
         }),
     });
     return {
@@ -392,6 +397,89 @@ describe('webauthnTrustedDeviceService', () => {
         expect(context.origin).toBe('https://app.example.com');
         expect(context.isEnrollmentEligible).toBe(false);
         expect(context.enrollmentIneligibilityReason).toMatch(/does not match the browser origin/i);
+    });
+
+    describe('authenticator provenance (B1)', () => {
+        const ROGUE_AAGUID = Buffer.alloc(16, 9).toString('base64url');
+
+        afterEach(() => {
+            delete process.env.FIDO_BLOCKED_AAGUIDS_JSON;
+        });
+
+        test('allows absent, zero, and unknown AAGUIDs', () => {
+            const service = require('../services/webauthnTrustedDeviceService');
+            expect(service.evaluateAuthenticatorProvenance({})).toEqual({
+                allowed: true,
+                reason: 'aaguid_absent',
+            });
+            expect(service.evaluateAuthenticatorProvenance({
+                aaguid: Buffer.alloc(16).toString('base64url'),
+            })).toEqual({ allowed: true, reason: 'not_blocklisted' });
+            expect(service.evaluateAuthenticatorProvenance({
+                aaguid: ROGUE_AAGUID,
+            })).toEqual({ allowed: true, reason: 'not_blocklisted' });
+        });
+
+        test('blocks a listed AAGUID with its reason', () => {
+            process.env.FIDO_BLOCKED_AAGUIDS_JSON = JSON.stringify({
+                [ROGUE_AAGUID]: 'mds compromise 2026-01-01',
+            });
+            jest.resetModules();
+            const service = require('../services/webauthnTrustedDeviceService');
+            expect(service.evaluateAuthenticatorProvenance({ aaguid: ROGUE_AAGUID })).toEqual({
+                allowed: false,
+                reason: 'mds compromise 2026-01-01',
+            });
+        });
+
+        test('rejects registration from a blocklisted authenticator', () => {
+            process.env.FIDO_BLOCKED_AAGUIDS_JSON = JSON.stringify({ [ROGUE_AAGUID]: 'rogue batch' });
+            jest.resetModules();
+            const service = require('../services/webauthnTrustedDeviceService');
+            const keyPair = createEcKeyPair();
+            const credentialId = crypto.randomBytes(32);
+            expect(() => service.verifyWebAuthnRegistration({
+                credential: buildRegistrationCredential({
+                    challenge,
+                    origin,
+                    rpId,
+                    credentialId,
+                    publicJwk: keyPair.publicJwk,
+                    aaguid: Buffer.alloc(16, 9),
+                }),
+                expectedChallenge: challenge,
+                expectedOrigin: origin,
+                expectedRpId: rpId,
+            })).toThrow(/blocklisted/i);
+        });
+
+        test('accepts registration from an unlisted authenticator', () => {
+            const service = require('../services/webauthnTrustedDeviceService');
+            const keyPair = createEcKeyPair();
+            const credentialId = crypto.randomBytes(32);
+            const result = service.verifyWebAuthnRegistration({
+                credential: buildRegistrationCredential({
+                    challenge,
+                    origin,
+                    rpId,
+                    credentialId,
+                    publicJwk: keyPair.publicJwk,
+                    aaguid: Buffer.alloc(16, 9),
+                }),
+                expectedChallenge: challenge,
+                expectedOrigin: origin,
+                expectedRpId: rpId,
+            });
+            expect(result.aaguid).toBe(ROGUE_AAGUID);
+        });
+
+        test('fails closed on a malformed override', () => {
+            process.env.FIDO_BLOCKED_AAGUIDS_JSON = 'not-json';
+            jest.resetModules();
+            const service = require('../services/webauthnTrustedDeviceService');
+            expect(() => service.evaluateAuthenticatorProvenance({ aaguid: ROGUE_AAGUID }))
+                .toThrow(/must be a JSON object/i);
+        });
     });
 
     test('fails closed when production WebAuthn origin configuration is missing', () => {

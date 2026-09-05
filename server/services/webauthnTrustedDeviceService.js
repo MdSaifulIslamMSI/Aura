@@ -1,5 +1,9 @@
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const cbor = require('cbor');
+
+const fidoPolicyPath = path.join(__dirname, '..', 'config', 'fidoAuthenticatorPolicy.json');
 const { flags: trustedDeviceFlags } = require('../config/authTrustedDeviceFlags');
 
 const PASSKEY_METHOD = 'webauthn';
@@ -567,6 +571,53 @@ const isEmptyAttestationStatement = (attestationStatement) => {
     );
 };
 
+const loadBlockedAaguids = () => {
+    let blocked = {};
+    try {
+        const policy = JSON.parse(fs.readFileSync(fidoPolicyPath, 'utf8'));
+        if (policy && typeof policy.blockedAaguids === 'object' && policy.blockedAaguids) {
+            blocked = { ...policy.blockedAaguids };
+        }
+    } catch {
+        // Fail closed: an unreadable provenance policy must not silently
+        // allow every authenticator through enrollment.
+        throw new Error('FIDO authenticator provenance policy is unavailable');
+    }
+    // Emergency override (and test seam): merged over the file, same shape.
+    const overrideRaw = String(process.env.FIDO_BLOCKED_AAGUIDS_JSON || '').trim();
+    if (overrideRaw) {
+        let override = null;
+        try {
+            override = JSON.parse(overrideRaw);
+        } catch {
+            throw new Error('FIDO_BLOCKED_AAGUIDS_JSON must be a JSON object');
+        }
+        if (!override || typeof override !== 'object' || Array.isArray(override)) {
+            throw new Error('FIDO_BLOCKED_AAGUIDS_JSON must be a JSON object');
+        }
+        blocked = { ...blocked, ...override };
+    }
+    return blocked;
+};
+
+// Screens the attested AAGUID against the repo-owned blocklist of
+// known-bad authenticators (FIDO MDS status reports). Unknown and all-zero
+// AAGUIDs are allowed: absence from the list is not evidence of compromise,
+// and privacy-preserving platform authenticators legitimately attest zero.
+const evaluateAuthenticatorProvenance = ({ aaguid = '' } = {}) => {
+    const normalized = normalizeText(aaguid);
+    if (!normalized) return { allowed: true, reason: 'aaguid_absent' };
+    const blocked = loadBlockedAaguids();
+    const entry = blocked[normalized];
+    if (entry !== undefined) {
+        return {
+            allowed: false,
+            reason: typeof entry === 'string' && entry ? entry : 'aaguid_blocklisted',
+        };
+    }
+    return { allowed: true, reason: 'not_blocklisted' };
+};
+
 const ensureNoneAttestation = (attestationObject = {}) => {
     if (
         normalizeText(attestationObject?.fmt) !== 'none'
@@ -643,6 +694,11 @@ const verifyWebAuthnRegistration = ({
     }
 
     const { publicKeySpkiBase64, algorithmLabel } = toPublicKeySpkiBase64(authenticatorData.credentialPublicKeyBytes);
+
+    const provenance = evaluateAuthenticatorProvenance({ aaguid: normalizeText(authenticatorData.aaguid || '') });
+    if (!provenance.allowed) {
+        throw new Error(`WebAuthn authenticator is blocklisted: ${provenance.reason}`);
+    }
 
     return {
         method: PASSKEY_METHOD,
@@ -762,4 +818,5 @@ module.exports = {
     buildAssertionOptions,
     verifyWebAuthnRegistration,
     verifyWebAuthnAssertion,
+    evaluateAuthenticatorProvenance,
 };
