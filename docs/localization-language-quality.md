@@ -13,39 +13,39 @@ This report is the per-language quality gate for the reviewed ICU catalog system
 ## Summary
 
 - Required locales: 21
-- Source ICU message keys: 4911
+- Source ICU message keys: 4913
 - Stable UI scanner candidates: 417
 - Uncovered stable UI scanner candidates: 0
 - Blocking mechanical quality rows: 0
 - Final native-quality rows not ready: 19
 - Actionable review pairs tracked: 28896
-- Native signoff pairs tracked: 63641
+- Native signoff pairs tracked: 63679
 
 ## Per-Language Status
 
 | Locale | Mechanical gate | Final quality | Native status | Required messages | Exact English fallbacks | Untracked fallbacks | Actionable review pairs | Native audit pairs | Native letters, translated non-fallback text | Native letters, confirmed text |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| en | PASS | SOURCE | source | 4911 | 0 | 0 | 0 | 0 | n/a | n/a |
-| bn | PASS | NOT_FINAL | translation-repair-required | 4911 | 1462 | 0 | 1464 | 3243 | 98.0% (3245/3446) | 91.8% (57/204) |
-| hi | PASS | NOT_FINAL | translation-repair-required | 4911 | 1427 | 0 | 1410 | 3297 | 58.1% (2514/3481) | 89.5% (56/204) |
-| te | PASS | NOT_FINAL | translation-repair-required | 4911 | 1542 | 0 | 1544 | 3367 | 96.6% (3220/3366) | n/a (0 messages) |
-| mr | PASS | NOT_FINAL | translation-repair-required | 4911 | 1536 | 0 | 1538 | 3373 | 97.4% (3227/3372) | n/a (0 messages) |
-| ur | PASS | NOT_FINAL | translation-repair-required | 4911 | 1526 | 0 | 1527 | 3224 | 97.8% (3226/3382) | 61.7% (59/160) |
-| gu | PASS | NOT_FINAL | translation-repair-required | 4911 | 1571 | 0 | 1573 | 3338 | 97.0% (3192/3337) | n/a (0 messages) |
-| pa | PASS | NOT_FINAL | translation-repair-required | 4911 | 1557 | 0 | 1559 | 3352 | 97.0% (3205/3351) | n/a (0 messages) |
-| ml | PASS | NOT_FINAL | translation-repair-required | 4911 | 1545 | 0 | 1547 | 3364 | 97.8% (3217/3363) | n/a (0 messages) |
-| kn | PASS | NOT_FINAL | translation-repair-required | 4911 | 1539 | 0 | 1541 | 3370 | 96.9% (3223/3369) | n/a (0 messages) |
-| or | PASS | NOT_FINAL | translation-repair-required | 4911 | 1581 | 0 | 1583 | 3328 | 95.1% (3178/3327) | n/a (0 messages) |
-| as | PASS | NOT_FINAL | translation-repair-required | 4911 | 1525 | 0 | 1526 | 3385 | 96.9% (3234/3383) | n/a (0 messages) |
-| sa | PASS | NOT_FINAL | translation-repair-required | 4911 | 1555 | 0 | 1556 | 3355 | 95.4% (3207/3353) | n/a (0 messages) |
-| es | PASS | NOT_FINAL | translation-repair-required | 4911 | 1537 | 0 | 1532 | 3379 | n/a | n/a |
-| fr | PASS | NOT_FINAL | translation-repair-required | 4911 | 1555 | 0 | 1551 | 3360 | n/a | n/a |
-| de | PASS | NOT_FINAL | translation-repair-required | 4911 | 1562 | 0 | 1552 | 3359 | n/a | n/a |
-| ar | PASS | NOT_FINAL | translation-repair-required | 4911 | 1449 | 0 | 1445 | 3262 | 68.6% (2166/3459) | 90.5% (56/204) |
-| ja | PASS | NOT_FINAL | translation-repair-required | 4911 | 1474 | 0 | 1464 | 3447 | 47.1% (2245/3434) | n/a (0 messages) |
-| pt | PASS | NOT_FINAL | translation-repair-required | 4911 | 1532 | 0 | 1526 | 3385 | n/a | n/a |
-| zh | PASS | NOT_FINAL | translation-repair-required | 4911 | 1462 | 0 | 1458 | 3453 | 38.9% (2239/3446) | n/a (0 messages) |
-| en-XA | PASS | PSEUDO_LOCALE | pseudo-locale | 4911 | 0 | 0 | 0 | 0 | n/a | n/a |
+| en | PASS | SOURCE | source | 4913 | 0 | 0 | 0 | 0 | n/a | n/a |
+| bn | PASS | NOT_FINAL | translation-repair-required | 4913 | 1462 | 0 | 1464 | 3245 | 98.0% (3247/3448) | 91.8% (57/204) |
+| hi | PASS | NOT_FINAL | translation-repair-required | 4913 | 1427 | 0 | 1410 | 3299 | 58.1% (2516/3483) | 89.5% (56/204) |
+| te | PASS | NOT_FINAL | translation-repair-required | 4913 | 1542 | 0 | 1544 | 3369 | 96.6% (3222/3368) | n/a (0 messages) |
+| mr | PASS | NOT_FINAL | translation-repair-required | 4913 | 1536 | 0 | 1538 | 3375 | 97.4% (3229/3374) | n/a (0 messages) |
+| ur | PASS | NOT_FINAL | translation-repair-required | 4913 | 1526 | 0 | 1527 | 3226 | 97.8% (3228/3384) | 61.7% (59/160) |
+| gu | PASS | NOT_FINAL | translation-repair-required | 4913 | 1571 | 0 | 1573 | 3340 | 97.0% (3194/3339) | n/a (0 messages) |
+| pa | PASS | NOT_FINAL | translation-repair-required | 4913 | 1557 | 0 | 1559 | 3354 | 97.0% (3207/3353) | n/a (0 messages) |
+| ml | PASS | NOT_FINAL | translation-repair-required | 4913 | 1545 | 0 | 1547 | 3366 | 97.8% (3219/3365) | n/a (0 messages) |
+| kn | PASS | NOT_FINAL | translation-repair-required | 4913 | 1539 | 0 | 1541 | 3372 | 96.9% (3225/3371) | n/a (0 messages) |
+| or | PASS | NOT_FINAL | translation-repair-required | 4913 | 1581 | 0 | 1583 | 3330 | 95.1% (3180/3329) | n/a (0 messages) |
+| as | PASS | NOT_FINAL | translation-repair-required | 4913 | 1525 | 0 | 1526 | 3387 | 96.9% (3236/3385) | n/a (0 messages) |
+| sa | PASS | NOT_FINAL | translation-repair-required | 4913 | 1555 | 0 | 1556 | 3357 | 95.5% (3209/3355) | n/a (0 messages) |
+| es | PASS | NOT_FINAL | translation-repair-required | 4913 | 1537 | 0 | 1532 | 3381 | n/a | n/a |
+| fr | PASS | NOT_FINAL | translation-repair-required | 4913 | 1555 | 0 | 1551 | 3362 | n/a | n/a |
+| de | PASS | NOT_FINAL | translation-repair-required | 4913 | 1562 | 0 | 1552 | 3361 | n/a | n/a |
+| ar | PASS | NOT_FINAL | translation-repair-required | 4913 | 1449 | 0 | 1445 | 3264 | 68.6% (2168/3461) | 90.5% (56/204) |
+| ja | PASS | NOT_FINAL | translation-repair-required | 4913 | 1474 | 0 | 1464 | 3449 | 47.1% (2247/3436) | n/a (0 messages) |
+| pt | PASS | NOT_FINAL | translation-repair-required | 4913 | 1532 | 0 | 1526 | 3387 | n/a | n/a |
+| zh | PASS | NOT_FINAL | translation-repair-required | 4913 | 1462 | 0 | 1458 | 3455 | 38.9% (2241/3448) | n/a (0 messages) |
+| en-XA | PASS | PSEUDO_LOCALE | pseudo-locale | 4913 | 0 | 0 | 0 | 0 | n/a | n/a |
 
 ## Interpretation
 
