@@ -6,7 +6,6 @@ import {
   Apple as AppleIcon,
   ArrowLeft,
   ChevronDown,
-  ExternalLink,
   Eye,
   EyeOff,
   Loader2,
@@ -296,54 +295,6 @@ const LoginView = ({
               {t('login.checkpoint.stayHere', {}, 'Keep this page open. Do not submit your sign-in details again.')}
             </p>
           </section>
-        ) : canUseDesktopBrowserSignIn ? (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-neo-cyan/20 bg-neo-cyan/[0.06] p-5 text-center">
-              <ExternalLink className="mx-auto h-8 w-8 text-neo-cyan" aria-hidden="true" />
-              <h2 className="mt-3 text-lg font-bold text-white">
-                {t('login.desktopBrowser.startedTitle', {}, 'Continue in Your Browser')}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                {t('login.desktopBrowser.startedDetail', {}, 'In the browser, enter your password and complete the email and phone codes. Aura Desktop will wait for up to 10 minutes.')}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={desktopBrowserSignInPending ? handleReopenDesktopBrowserSignIn : handleDesktopBrowserSignIn}
-              disabled={emergencyAuthDisabled}
-              className={cn('btn-primary flex min-h-12 w-full items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50', focusRing)}
-            >
-              {desktopBrowserSignInPending ? (
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-              ) : (
-                <ExternalLink className="h-5 w-5" aria-hidden="true" />
-              )}
-              {t('login.desktopBrowser.button', {}, 'Continue in Browser')}
-            </button>
-
-            {desktopBrowserSignInPending && (
-              <button
-                type="button"
-                onClick={handleCancelDesktopBrowserSignIn}
-                className={cn(secondaryButtonClass, 'w-full border-rose-300/20 bg-rose-300/[0.06] text-rose-100 hover:bg-rose-300/10')}
-              >
-                {t('login.desktopBrowser.cancel', {}, 'Cancel browser sign-in')}
-              </button>
-            )}
-
-            {canUseDesktopOwnerAccessSignIn && (
-              <button
-                type="button"
-                onClick={handleDesktopOwnerAccessSignIn}
-                disabled={isLoading || emergencyAuthDisabled}
-                className={cn(secondaryButtonClass, 'w-full')}
-              >
-                <Shield className="h-4 w-4 text-emerald-200" aria-hidden="true" />
-                {t('login.desktopOwnerAccess.button', {}, 'Owner Access')}
-              </button>
-            )}
-          </div>
         ) : (
           <>
             <form

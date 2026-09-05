@@ -171,19 +171,14 @@ jobs:
       - name: Prepare report directory
         run: mkdir -p reports/security
 
-      - name: Install Semgrep CE
-        id: semgrep-install
-        continue-on-error: true
-        run: python -m pip install --user "semgrep==1.176.1"
-
       - name: Run Semgrep PQC rules
-        if: steps.semgrep-install.outcome == 'success'
+        id: semgrep-scan
         continue-on-error: true
-        run: python -m semgrep scan --config security/semgrep/pqc-crypto-policy.yml --sarif --output reports/security/semgrep-pqc.sarif .
+        run: docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep@sha256:34ab619bf1391a24bfda3f05debd0d8a6ce3093c2d5f9d39cfc00f83c1397823 semgrep scan --config security/semgrep/pqc-crypto-policy.yml --sarif --output reports/security/semgrep-pqc.sarif .
 
       - name: Note Semgrep unavailable
-        if: steps.semgrep-install.outcome != 'success'
-        run: echo "Semgrep CE was not installable in this runner; npm run security:pqc still enforces blocker policy."
+        if: steps.semgrep-scan.outcome != 'success'
+        run: echo "Semgrep CE was not runnable in this runner; npm run security:pqc still enforces blocker policy."
 
       - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4

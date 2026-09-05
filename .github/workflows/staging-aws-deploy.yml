@@ -569,7 +569,7 @@ jobs:
           set -a
           source .staging/account-center-qualification.env
           set +a
-          npm --prefix app exec -- playwright install --with-deps chromium
+          app/node_modules/.bin/playwright install --with-deps chromium
           npm --prefix app exec -- playwright test --config=app/playwright.staging.config.js
         env:
           ACCOUNT_CENTER_STAGING_E2E: "true"

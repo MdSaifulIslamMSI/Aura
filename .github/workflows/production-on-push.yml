@@ -5,7 +5,7 @@ on:
     branches: ["main"]
   workflow_dispatch:
     inputs:
-      confirm_production:
+      confirm_production: # checkov:skip=CKV_GHA_7:input is only compared in job-level if conditions to gate production deploys; it is never interpolated into build steps.
         description: Type PRODUCTION to allow production deploy/release dispatch
         required: false
         default: ""

@@ -20,10 +20,18 @@ export const readJsonIfExists = (file) => {
 };
 
 export const writeJsonAtomic = (file, data) => {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
+  const resolved = path.resolve(file);
+  const isWithinRoot = (root) => {
+    const rel = path.relative(root, resolved);
+    return rel === '' || (!rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel));
+  };
+  if (![repoRoot, os.tmpdir()].some(isWithinRoot)) {
+    throw new Error(`writeJsonAtomic refused: ${file} is outside the repository and temp directories`);
+  }
+  fs.mkdirSync(path.dirname(resolved), { recursive: true });
+  const tmp = path.join(path.dirname(resolved), `.${path.basename(resolved)}.${process.pid}.tmp`);
   fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`);
-  fs.renameSync(tmp, file);
+  fs.renameSync(tmp, resolved);
 };
 
 export const parseDotEnv = (text = '') => {
