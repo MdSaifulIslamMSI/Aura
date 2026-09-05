@@ -17,6 +17,14 @@ const NODE_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCas
 const IS_PRODUCTION = NODE_ENV === 'production';
 const SESSION_IDLE_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_IDLE_TTL_MS || (8 * 60 * 60 * 1000)), 5 * 60 * 1000);
 const SESSION_ABSOLUTE_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_ABSOLUTE_TTL_MS || (7 * 24 * 60 * 60 * 1000)), SESSION_IDLE_TTL_MS);
+
+// Concurrent-session control (A4): cap live sessions per user and evict the
+// oldest beyond the cap. Bounded below at 1 so a misconfigured zero can never
+// lock every session out.
+const MAX_ACTIVE_SESSIONS_PER_USER = Math.max(
+    Number(process.env.AUTH_MAX_ACTIVE_SESSIONS || 10),
+    1
+);
 const SESSION_TOUCH_INTERVAL_MS = Math.max(Number(process.env.AUTH_SESSION_TOUCH_INTERVAL_MS || (5 * 60 * 1000)), 30 * 1000);
 const SESSION_STEP_UP_TTL_MS = Math.max(Number(process.env.AUTH_SESSION_STEP_UP_TTL_MS || (10 * 60 * 1000)), 60 * 1000);
 const MAX_PUBLIC_SESSION_RESULTS = 20;
@@ -540,10 +548,56 @@ const createSessionStoreUnavailableError = (cause = null) => {
     return error;
 };
 
+// Enforces the per-user session cap after a successful persist. Keeps the
+// just-written session plus the newest others; evicts the oldest overflow.
+// Never throws: eviction failures must not break login. Expired sessions met
+// along the way are dropped by loadSessionRecord as a side effect.
+const enforceSessionCapForUser = async (userId = '', { keepSessionId = '' } = {}) => {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return { evicted: [] };
+
+    try {
+        const trackedIds = await getAllTrackedSessionIdsForUser(normalizedUserId);
+        if (trackedIds.length <= MAX_ACTIVE_SESSIONS_PER_USER) return { evicted: [] };
+
+        const live = [];
+        for (const sessionId of trackedIds) {
+            if (sessionId === keepSessionId) continue;
+            // eslint-disable-next-line no-await-in-loop
+            const record = await loadSessionRecord(sessionId);
+            if (record) live.push(record);
+        }
+
+        const allowance = Math.max(MAX_ACTIVE_SESSIONS_PER_USER - 1, 0);
+        const overflow = live
+            .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime())
+            .slice(0, Math.max(live.length - allowance, 0));
+
+        const evicted = [];
+        for (const record of overflow) {
+            // eslint-disable-next-line no-await-in-loop
+            await revokeBrowserSession(record.sessionId);
+            evicted.push(record.sessionId);
+        }
+
+        if (evicted.length > 0) {
+            logger.warn('browser_session.cap_evicted', {
+                evicted: evicted.length,
+                cap: MAX_ACTIVE_SESSIONS_PER_USER,
+            });
+        }
+        return { evicted };
+    } catch (error) {
+        logger.warn('browser_session.cap_enforce_failed', { error: error?.message || 'unknown' });
+        return { evicted: [], error: error?.message || 'unknown' };
+    }
+};
+
 const persistSessionRecord = async (record = {}) => {
     const storageMode = getStorageMode();
     if (storageMode === 'memory') {
         writeMemorySessionRecord(record);
+        void enforceSessionCapForUser(record.userId, { keepSessionId: record.sessionId }).catch(() => undefined);
         return record;
     }
     if (storageMode === 'unavailable') {
@@ -570,6 +624,7 @@ const persistSessionRecord = async (record = {}) => {
         }
 
         deleteMemorySessionRecord(normalizedSessionId);
+        void enforceSessionCapForUser(record.userId, { keepSessionId: normalizedSessionId }).catch(() => undefined);
         return record;
     } catch (error) {
         if (!isMemorySessionFallbackAllowed()) {
@@ -1505,12 +1560,16 @@ module.exports = {
     SESSION_COOKIE_NAME,
     SESSION_STEP_UP_TTL_MS,
     clearBrowserSessionCookie,
+    MAX_ACTIVE_SESSIONS_PER_USER,
     createBrowserSession,
+    enforceSessionCapForUser,
     getBrowserSession,
+    getAllTrackedSessionIdsForUser,
     getBrowserSessionFromRequest,
     getGlobalSessionRevokedAfter,
     getCookieOptions,
     listBrowserSessionsForUser,
+    loadSessionRecord,
     parseCookies,
     refreshBrowserSession,
     resolveSessionIdFromCookieHeader,

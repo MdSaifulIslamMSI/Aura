@@ -292,6 +292,7 @@
       "tests/authShield.riskEngine.test.js",
       "tests/authShield.stepUpService.test.js",
       "tests/backfillLifetimeSpent.test.js",
+      "tests/browserSessionCap.test.js",
       "tests/cartController.test.js",
       "tests/catalogNormalizer.test.js",
       "tests/commerceAssistantService.test.js",
@@ -373,6 +374,7 @@
       "tests/trafficResponseSmoothness.test.js"
     ],
     "noDbFiles": [
+      "browserSessionCap.test.js",
       "cartController.test.js",
       "catalogNormalizer.test.js",
       "emergencyControlController.test.js",
