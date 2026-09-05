@@ -224,6 +224,9 @@ describe('statusService', () => {
                     'commerce-assistant',
                     'media-uploads',
                     'admin-console',
+                    'database',
+                    'mongodb',
+                    'redis',
                 ],
             },
         }).lean();
@@ -260,6 +263,18 @@ describe('statusService', () => {
         expect(bySlug.get('admin-console')).toMatchObject({
             checkType: 'internal_health',
             metadata: { healthSignal: 'admin' },
+        });
+        expect(bySlug.get('database')).toMatchObject({
+            checkType: 'database',
+            metadata: { healthSignal: 'database' },
+        });
+        expect(bySlug.get('mongodb')).toMatchObject({
+            checkType: 'database',
+            metadata: { healthSignal: 'database' },
+        });
+        expect(bySlug.get('redis')).toMatchObject({
+            checkType: 'redis',
+            metadata: { healthSignal: 'cache' },
         });
     });
 

@@ -583,15 +583,15 @@ const DEFAULT_STATUS_CATALOG = [
         slug: 'database',
         description: 'MongoDB persistence layer.',
         components: [
-            { name: 'Database', slug: 'database', checkType: 'database' },
-            { name: 'MongoDB', slug: 'mongodb', checkType: 'database' },
+            { name: 'Database', slug: 'database', checkType: 'database', metadata: { healthSignal: 'database' } },
+            { name: 'MongoDB', slug: 'mongodb', checkType: 'database', metadata: { healthSignal: 'database' } },
         ],
     },
     {
         name: 'Cache / Redis',
         slug: 'cache-redis',
         description: 'Redis-backed queues, rate limits, sockets, and auth cache.',
-        components: [{ name: 'Redis', slug: 'redis', checkType: 'redis' }],
+        components: [{ name: 'Redis', slug: 'redis', checkType: 'redis', metadata: { healthSignal: 'cache' } }],
     },
     {
         name: 'Payments',
