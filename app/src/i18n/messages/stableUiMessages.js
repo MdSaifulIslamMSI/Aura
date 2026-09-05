@@ -4458,6 +4458,11 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Ready",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "cart.summary.removeUnavailable": {
+        id: "cart.summary.removeUnavailable",
+        defaultMessage: "Remove unavailable items",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "cart.summary.savingPrefix": {
         id: "cart.summary.savingPrefix",
         defaultMessage: "You are saving",
@@ -10896,6 +10901,21 @@ export const stableUiMessages = defineMessages({
     "marketplace.location.usingGpsCity": {
         id: "marketplace.location.usingGpsCity",
         defaultMessage: "Using GPS city: {city}{state}{quality}",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.pagination.ariaLabel": {
+        id: "marketplace.pagination.ariaLabel",
+        defaultMessage: "Marketplace pagination",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.pagination.next": {
+        id: "marketplace.pagination.next",
+        defaultMessage: "Next",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "marketplace.pagination.prev": {
+        id: "marketplace.pagination.prev",
+        defaultMessage: "Prev",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
     "marketplace.proximity.local": {
