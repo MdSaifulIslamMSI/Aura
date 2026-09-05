@@ -6,6 +6,7 @@ const StatusIncident = require('../models/StatusIncident');
 const StatusSubscriber = require('../models/StatusSubscriber');
 const {
     addIncidentUpdate,
+    backfillStatusHealthSignals,
     calculateDayStatus,
     calculateHistoryUptime,
     calculateOverallStatus,
@@ -400,6 +401,53 @@ describe('statusService', () => {
             activeIncidents: [],
             activeMaintenance: [{ id: 'maintenance' }],
         })).toBe('maintenance');
+    });
+
+    test('backfills missing health signals without overwriting existing metadata', async () => {
+        const group = await StatusComponentGroup.create({
+            name: 'Backfill Group',
+            slug: 'backfill-group',
+            isPublic: true,
+        });
+        await StatusComponent.deleteMany({ slug: { $in: ['web-storefront', 'website', 'mystery-box-status-test'] } });
+        const missing = await StatusComponent.create({
+            groupId: group._id,
+            name: 'Web Storefront',
+            slug: 'web-storefront',
+            checkType: 'internal_health',
+            isPublic: true,
+            isMonitored: true,
+            currentStatus: 'operational',
+        });
+        const kept = await StatusComponent.create({
+            groupId: group._id,
+            name: 'Website',
+            slug: 'website',
+            checkType: 'http',
+            checkUrl: 'https://status.example.com/health',
+            metadata: { healthSignal: 'custom-keep' },
+            isPublic: true,
+            isMonitored: true,
+            currentStatus: 'operational',
+        });
+        await StatusComponent.create({
+            groupId: group._id,
+            name: 'Mystery Box',
+            slug: 'mystery-box-status-test',
+            checkType: 'manual',
+            isPublic: true,
+            isMonitored: true,
+            currentStatus: 'operational',
+        });
+
+        const result = await backfillStatusHealthSignals();
+
+        expect(result.unknownSlugs).toContain('mystery-box-status-test');
+        expect(result.unknownSlugs).not.toContain('website');
+        const freshMissing = await StatusComponent.findById(missing._id).lean();
+        expect(freshMissing.metadata.healthSignal).toBe('web_app');
+        const freshKept = await StatusComponent.findById(kept._id).lean();
+        expect(freshKept.metadata.healthSignal).toBe('custom-keep');
     });
 
     test('public payload sanitizes monitor internals', async () => {
