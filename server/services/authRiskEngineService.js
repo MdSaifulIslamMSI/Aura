@@ -36,6 +36,7 @@ const evaluateLoginRisk = ({
     recentFailureCount = 0,
     ipReputation = '',
     impossibleTravel = false,
+    impossibleTravelDetail = 'geo_velocity_placeholder',
     emailVerified = true,
     trustedDeviceRequired = false,
     distinctIpCount = 0,
@@ -67,7 +68,7 @@ const evaluateLoginRisk = ({
     }
 
     if (impossibleTravel) {
-        addSignal(signals, { reason: 'impossible_travel', points: 40, detail: 'geo_velocity_placeholder' });
+        addSignal(signals, { reason: 'impossible_travel', points: 40, detail: impossibleTravelDetail });
     }
 
     const distinctIps = Number(distinctIpCount || 0);
