@@ -2777,7 +2777,6 @@
   "login.country.resultsLabel": "Resultados do código do país",
   "login.country.searchLabel": "Pesquise países ou códigos de discagem",
   "login.country.searchPlaceholder": "Pesquise país, código ou +91",
-  "login.desktopBrowser.button": "Continuar no navegador",
   "login.desktopBrowser.cancel": "Cancel Browser Sign-In",
   "login.desktopBrowser.completingDetail": "Aura está retornando com segurança este login do navegador para o aplicativo de desktop.",
   "login.desktopBrowser.completingTitle": "Concluindo o login na área de trabalho",

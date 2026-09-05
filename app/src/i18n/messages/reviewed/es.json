@@ -2777,7 +2777,6 @@
   "login.country.resultsLabel": "Resultados del código de país",
   "login.country.searchLabel": "Buscar países o códigos de marcación",
   "login.country.searchPlaceholder": "Buscar país, código o +91",
-  "login.desktopBrowser.button": "Continuar en el navegador",
   "login.desktopBrowser.cancel": "Cancel Browser Sign-In",
   "login.desktopBrowser.completingDetail": "Aura está devolviendo de forma segura el inicio de sesión de este navegador a la aplicación de escritorio.",
   "login.desktopBrowser.completingTitle": "Finalizar el inicio de sesión en el escritorio",

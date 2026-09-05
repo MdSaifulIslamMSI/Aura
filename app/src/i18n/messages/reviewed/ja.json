@@ -2777,7 +2777,6 @@
   "login.country.resultsLabel": "国コードの結果",
   "login.country.searchLabel": "国またはダイヤル番号を検索する",
   "login.country.searchPlaceholder": "国、コード、または +91 を検索",
-  "login.desktopBrowser.button": "ブラウザで続行",
   "login.desktopBrowser.cancel": "Cancel Browser Sign-In",
   "login.desktopBrowser.completingDetail": "Aura は、このブラウザーのサインインをデスクトップ アプリに安全に返します。",
   "login.desktopBrowser.completingTitle": "デスクトップサインインの終了",

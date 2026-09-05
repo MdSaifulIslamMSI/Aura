@@ -2777,7 +2777,6 @@
   "login.country.resultsLabel": "দেশের কোড ফলাফল",
   "login.country.searchLabel": "দেশ বা ডায়াল কোড অনুসন্ধান করুন",
   "login.country.searchPlaceholder": "দেশ, কোড বা +91 খুঁজুন",
-  "login.desktopBrowser.button": "ব্রাউজারে চালিয়ে যান",
   "login.desktopBrowser.cancel": "Cancel Browser Sign-In",
   "login.desktopBrowser.completingDetail": "Aura নিরাপদে ডেস্কটপ অ্যাপে এই ব্রাউজার সাইন-ইন ফিরিয়ে দিচ্ছে।",
   "login.desktopBrowser.completingTitle": "ডেস্কটপ সাইন-ইন শেষ করা হচ্ছে",
