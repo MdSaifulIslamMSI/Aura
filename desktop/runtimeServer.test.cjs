@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
 const net = require('node:net');
@@ -929,12 +930,13 @@ test('desktop runtime destroys websocket upgrades with foreign Host headers', as
             });
             socket.on('close', () => finish(sawData ? 'responded' : 'destroyed'));
             socket.on('error', reject);
+            const websocketKey = crypto.randomBytes(16).toString('base64');
             socket.write(
                 'GET /socket.io/?EIO=4&transport=websocket HTTP/1.1\r\n'
                 + 'Host: rebound.attacker.example\r\n'
                 + 'Upgrade: websocket\r\n'
                 + 'Connection: Upgrade\r\n'
-                + 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n'
+                + `Sec-WebSocket-Key: ${websocketKey}\r\n`
                 + 'Sec-WebSocket-Version: 13\r\n'
                 + '\r\n'
             );
