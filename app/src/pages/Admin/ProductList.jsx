@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Boxes, Edit, Layers3, Plus, Search, Trash2 } from 'lucide-react';
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel } from '@/components/shared/AdminPremiumShell';
+import AdminConfirmDialog from '@/components/shared/AdminConfirmDialog';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
@@ -30,7 +31,9 @@ const ProductList = () => {
     const [loading, setLoading] = useState(true);
     const [total, setTotal] = useState(0);
     const [pages, setPages] = useState(1);
-    const [busyProductRef, setBusyProductRef] = useState('');
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteReason, setDeleteReason] = useState('');
 
     const fetchProducts = useCallback(async () => {
         try {
@@ -69,33 +72,26 @@ const ProductList = () => {
     const handleDelete = async (product) => {
         const productRef = resolveProductRef(product);
         if (!productRef) return;
-        const confirmed = window.confirm(
-            t(
-                'admin.products.confirmDelete',
-                { title: product?.title || productRef },
-                `Delete product "${product?.title || productRef}"? This cannot be undone.`
-            )
-        );
-        if (!confirmed) return;
+        setDeleteReason(t('admin.products.deleteReasonDefault', {}, 'Duplicate/invalid product cleanup'));
+        setDeleteTarget({ ref: String(productRef), title: product?.title || String(productRef) });
+    };
 
-        const reason = window.prompt(
-            t('admin.products.deleteReasonPrompt', {}, 'Delete reason (admin audit):'),
-            t('admin.products.deleteReasonDefault', {}, 'Duplicate/invalid product cleanup')
-        );
-        if (reason !== null && !String(reason).trim()) {
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        if (!deleteReason.trim()) {
             toast.error(t('admin.products.error.deleteReasonRequired', {}, 'Delete reason is required for audit trail'));
             return;
         }
-
         try {
-            setBusyProductRef(String(productRef));
-            await adminApi.deleteProduct(productRef, { reason: String(reason || '').trim() });
+            setDeleting(true);
+            await adminApi.deleteProduct(deleteTarget.ref, { reason: deleteReason.trim() });
             toast.success(t('admin.products.success.deleted', {}, 'Product deleted'));
+            setDeleteTarget(null);
             await fetchProducts();
         } catch (error) {
             toast.error(error.message || t('admin.products.error.delete', {}, 'Failed to delete product'));
         } finally {
-            setBusyProductRef('');
+            setDeleting(false);
         }
     };
 
@@ -288,7 +284,7 @@ const ProductList = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDelete(product)}
-                                                    disabled={busyProductRef === String(productRef)}
+                                                    disabled={deleting && deleteTarget?.ref === String(productRef)}
                                                     className="admin-premium-button admin-premium-button-danger px-3 py-2"
                                                     title={t('admin.products.actions.delete', {}, 'Delete product')}
                                                 >
@@ -317,6 +313,28 @@ const ProductList = () => {
                     </button>
                 </div>
             </div>
+
+            <AdminConfirmDialog
+                open={Boolean(deleteTarget)}
+                busy={deleting}
+                title={t('admin.products.confirmDeleteTitle', {}, 'Delete this product?')}
+                description={
+                    deleteTarget
+                        ? t(
+                              'admin.products.confirmDelete',
+                              { title: deleteTarget.title },
+                              `Delete product "${deleteTarget.title}"? This cannot be undone.`
+                          )
+                        : ''
+                }
+                reasonLabel={t('admin.products.deleteReasonPrompt', {}, 'Delete reason (admin audit):')}
+                reasonValue={deleteReason}
+                onReasonChange={setDeleteReason}
+                confirmLabel={t('admin.products.actions.delete', {}, 'Delete product')}
+                cancelLabel={t('admin.shared.cancel', {}, 'Cancel')}
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
         </AdminPremiumShell>
     );
 };

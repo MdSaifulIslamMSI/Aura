@@ -154,13 +154,25 @@ const isRetryableStatus = (status) => status >= 500 || status === 429;
 
 const extractMessageFromData = (data, status, fallbackMessage = '') => {
     if (data && typeof data === 'object') {
+        const structuredErrors = Array.isArray(data.errors) ? data.errors : [];
+
         if (typeof data.message === 'string' && data.message.trim()) {
-            return data.message.trim();
+            const message = data.message.trim();
+            // The backend labels validation failures with a generic message and puts the
+            // actionable per-field details in errors[]; prefer those details when present.
+            if (structuredErrors.length === 0 || message.toLowerCase() !== 'validation error') {
+                return message;
+            }
         }
 
-        if (Array.isArray(data.errors) && data.errors.length > 0) {
-            const combinedMessages = data.errors
-                .map((issue) => String(issue?.message || '').trim())
+        if (structuredErrors.length > 0) {
+            const combinedMessages = structuredErrors
+                .map((issue) => {
+                    const detail = String(issue?.message || '').trim();
+                    const field = String(issue?.field || '').trim();
+                    if (!detail) return '';
+                    return field ? `${field}: ${detail}` : detail;
+                })
                 .filter(Boolean)
                 .join(', ');
             if (combinedMessages) {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, Loader2, ShieldAlert, ShieldCheck, UserRound, UserX } from 'lucide-react';
 import AdminPremiumShell, { AdminHeroStat, AdminPremiumPanel, AdminPremiumSubpanel } from '@/components/shared/AdminPremiumShell';
+import AdminConfirmDialog from '@/components/shared/AdminConfirmDialog';
 import PremiumSelect from '@/components/ui/premium-select';
 import { useMarket } from '@/context/MarketContext';
 import { adminApi } from '@/services/api/adminApi';
@@ -58,8 +59,12 @@ export default function AdminUsers() {
     const [reason, setReason] = useState('');
     const [durationHours, setDurationHours] = useState(72);
     const [scrubPII, setScrubPII] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
     const selectedUser = detail?.user || null;
+    // Keep the values key aligned with the fallback template expression so the
+    // stable ICU extractor names the placeholder {selectedEmail} instead of positional value1.
+    const selectedEmail = selectedUser?.email || t('admin.shared.unknown', {}, 'unknown');
     const selectedState = selectedUser?.accountState || '';
     const isDeleted = selectedState === 'deleted' || Boolean(selectedUser?.softDeleted);
     const isSuspended = selectedState === 'suspended' || Boolean(selectedUser?.moderation?.suspensionActive);
@@ -434,10 +439,7 @@ export default function AdminUsers() {
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        if (!window.confirm(t('admin.users.confirmDelete', {}, 'Soft-delete this user account?'))) return;
-                                            runAction('delete', adminApi.deleteUser, { reason, scrubPII });
-                                    }}
+                                    onClick={() => setDeleteConfirmOpen(true)}
                                     disabled={actionBusy !== '' || reason.trim().length < 5 || !actionAvailability.delete}
                                     className="admin-premium-button admin-premium-button-danger px-3 py-2 text-sm disabled:opacity-50"
                                     title={actionAvailability.delete ? t('admin.users.actions.deleteTitle', {}, 'Soft-delete the account and start the recovery trail') : t('admin.users.actions.deleteDisabledTitle', {}, 'Delete is not available for already deleted accounts')}
@@ -523,6 +525,24 @@ export default function AdminUsers() {
                 <UserRound className="h-3.5 w-3.5" />
                 {t('admin.users.footer.auditLogging', {}, 'Admin controls are enforced server-side with strict audit logging.')}
             </p>
+
+            <AdminConfirmDialog
+                open={deleteConfirmOpen}
+                busy={actionBusy === 'delete'}
+                title={t('admin.users.confirmDeleteTitle', {}, 'Soft-delete this account?')}
+                description={t(
+                    'admin.users.confirmDeleteDetail',
+                    { selectedEmail },
+                    `Soft-delete the account ${selectedEmail}? A recovery trail is created and the final recovery path is support-led.`
+                )}
+                confirmLabel={t('admin.users.actions.delete', {}, 'Delete')}
+                cancelLabel={t('admin.shared.cancel', {}, 'Cancel')}
+                onConfirm={() => {
+                    setDeleteConfirmOpen(false);
+                    runAction('delete', adminApi.deleteUser, { reason, scrubPII });
+                }}
+                onCancel={() => setDeleteConfirmOpen(false)}
+            />
         </AdminPremiumShell>
     );
 }

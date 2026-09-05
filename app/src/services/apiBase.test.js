@@ -87,6 +87,27 @@ describe('apiFetch observability', () => {
         });
     });
 
+    it('prefers structured validation details over the generic validation label', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(JSON.stringify({
+                status: 'error',
+                message: 'Validation Error',
+                code: 'VALIDATION_FAILED',
+                errors: [
+                    { field: 'body.reason', message: 'String must contain at least 5 character(s)' },
+                ],
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        );
+
+        await expect(apiFetch('/admin/products/1/pricing', { method: 'PATCH', retries: 0 })).rejects.toMatchObject({
+            status: 400,
+            message: 'body.reason: String must contain at least 5 character(s)',
+        });
+    });
+
     it('preserves bounded auth and device challenge fields on response errors', async () => {
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(
             new Response(JSON.stringify({
