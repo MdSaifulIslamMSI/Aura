@@ -1,10 +1,11 @@
 const ollamaGateway = require('./ollamaGatewayService');
 const geminiGateway = require('./geminiGatewayService');
+const zenGateway = require('./zenGatewayService');
 
 const safeString = (value, fallback = '') => String(value === undefined || value === null ? fallback : value).trim().toLowerCase();
 const uniq = (values = []) => [...new Set((Array.isArray(values) ? values : []).map((entry) => safeString(entry)).filter(Boolean))];
 const DISABLED_PROVIDER = 'disabled';
-const SUPPORTED_PROVIDERS = new Set(['gemini', 'ollama', DISABLED_PROVIDER]);
+const SUPPORTED_PROVIDERS = new Set(['gemini', 'ollama', 'zen', DISABLED_PROVIDER]);
 
 const buildDisabledHealth = () => ({
     provider: DISABLED_PROVIDER,
@@ -56,7 +57,7 @@ const getGatewayModuleByProvider = (provider = '') => {
     if (normalized === DISABLED_PROVIDER) {
         throw new Error('model_gateway_disabled');
     }
-    return normalized === 'gemini' ? geminiGateway : ollamaGateway;
+    return normalized === 'gemini' ? geminiGateway : normalized === 'zen' ? zenGateway : ollamaGateway;
 };
 const getGatewayModule = () => getGatewayModuleByProvider(resolveGatewayProvider());
 
@@ -117,7 +118,9 @@ const checkModelGatewayHealth = async (options = {}) => {
         }
         const health = provider === 'gemini'
             ? await geminiGateway.checkGeminiHealth(options)
-            : await ollamaGateway.checkOllamaHealth(options);
+            : provider === 'zen'
+                ? await zenGateway.checkZenHealth(options)
+                : await ollamaGateway.checkOllamaHealth(options);
         const normalizedHealth = {
             provider,
             ...health,
@@ -208,7 +211,9 @@ const getModelGatewayHealth = () => {
     }
     const health = provider === 'gemini'
         ? geminiGateway.getGeminiHealth()
-        : ollamaGateway.getOllamaHealth();
+        : provider === 'zen'
+            ? zenGateway.getZenHealth()
+            : ollamaGateway.getOllamaHealth();
     return {
         provider,
         providerChain: providers,

@@ -16,6 +16,15 @@ jest.mock('../services/ai/ollamaGatewayService', () => ({
     warmChatModel: jest.fn(),
 }));
 
+jest.mock('../services/ai/zenGatewayService', () => ({
+    checkZenHealth: jest.fn(),
+    embedText: jest.fn(),
+    generateStructuredJson: jest.fn(),
+    getGatewayConfig: jest.fn(() => ({ provider: 'zen', chatModel: 'muse-spark-1.3-contributor-free' })),
+    getZenHealth: jest.fn(() => ({ provider: 'zen', healthy: true })),
+    warmChatModel: jest.fn(),
+}));
+
 describe('modelGatewayService', () => {
     beforeEach(() => {
         jest.resetModules();
@@ -66,6 +75,30 @@ describe('modelGatewayService', () => {
             disableProviderFallback: true,
         })).rejects.toThrow('temporary outage');
 
+        expect(ollamaGateway.generateStructuredJson).not.toHaveBeenCalled();
+    });
+
+    test('zen provider routes generateStructuredJson to the zen gateway', async () => {
+        process.env.AI_MODEL_PROVIDER = 'zen';
+        process.env.AI_MODEL_PROVIDER_FALLBACKS = '';
+        jest.resetModules();
+        const zenGateway = require('../services/ai/zenGatewayService');
+        const ollamaGateway = require('../services/ai/ollamaGatewayService');
+        zenGateway.generateStructuredJson.mockResolvedValueOnce({
+            data: { answer: 'Zen answer' },
+            provider: 'zen',
+            providerModel: 'muse-spark-1.3-contributor-free',
+            route: 'GENERAL',
+        });
+
+        const { generateStructuredJson, resolveGatewayProviders } = require('../services/ai/modelGatewayService');
+
+        expect(resolveGatewayProviders()).toEqual(['zen']);
+        const result = await generateStructuredJson({ prompt: 'hello' });
+
+        expect(result.provider).toBe('zen');
+        expect(result.providerFallbackUsed).toBe(false);
+        expect(zenGateway.generateStructuredJson).toHaveBeenCalledTimes(1);
         expect(ollamaGateway.generateStructuredJson).not.toHaveBeenCalled();
     });
 
