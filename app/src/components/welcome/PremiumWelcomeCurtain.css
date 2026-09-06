@@ -214,7 +214,9 @@
   padding: 0;
 }
 
-/* Static fallbacks when the user or the app's motion tier opts out of animation. */
+/* Static fallbacks when the user or the app's motion tier opts out of animation.
+   The component applies .is-reduced-motion for both prefers-reduced-motion and
+   MotionModeContext's minimal tier, so no separate media-query block is needed. */
 .aura-welcome-curtain.is-reduced-motion .aura-welcome-curtain__card,
 .aura-welcome-curtain.is-reduced-motion .aura-welcome-curtain__halo,
 .aura-welcome-curtain.is-reduced-motion .aura-welcome-curtain__progress-sweep {
@@ -230,19 +232,3 @@
   transition-duration: 1ms;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .aura-welcome-curtain .aura-welcome-curtain__card,
-  .aura-welcome-curtain .aura-welcome-curtain__halo,
-  .aura-welcome-curtain .aura-welcome-curtain__progress-sweep {
-    animation: none;
-  }
-
-  .aura-welcome-curtain .aura-welcome-curtain__progress-sweep {
-    transform: none;
-    opacity: 0.6;
-  }
-
-  .aura-welcome-curtain {
-    transition-duration: 1ms;
-  }
-}
