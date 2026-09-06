@@ -359,7 +359,8 @@
       "tests/supportRoutes.security.test.js",
       "tests/totpMfaService.test.js",
       "tests/turnstileFlags.test.js",
-      "tests/userPhoneIndex.test.js"
+      "tests/userPhoneIndex.test.js",
+      "tests/zenGatewayService.test.js"
     ],
     "performance-cache": [
       "tests/performanceCache.test.js"
