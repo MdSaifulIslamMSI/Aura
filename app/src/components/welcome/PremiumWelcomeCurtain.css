@@ -1,0 +1,248 @@
+/* PremiumWelcomeCurtain — fast brand splash shown once per device.
+   Colors come from theme tokens so the splash follows the active color mode. */
+
+.aura-welcome-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  overflow: hidden;
+  color: var(--theme-fg-base, #f8fafc);
+  font-family: var(--figma-font-body, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 30%, rgb(var(--theme-primary-rgb) / 0.14), transparent 65%),
+    radial-gradient(ellipse 55% 45% at 85% 90%, rgb(var(--theme-secondary-rgb) / 0.09), transparent 70%),
+    rgb(var(--theme-surface-strong-rgb, 3 7 18));
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.aura-welcome-curtain.is-closing {
+  opacity: 0;
+  transform: scale(1.01);
+  pointer-events: none;
+}
+
+.aura-welcome-curtain__ribbon {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 2px;
+  background: var(--aura-ten-color-ribbon, rgb(var(--theme-primary-rgb)));
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.aura-welcome-curtain__halo {
+  position: absolute;
+  width: min(38rem, 82vmin);
+  aspect-ratio: 1;
+  border-radius: var(--figma-radius-pill, 9999px);
+  background: radial-gradient(circle, rgb(var(--theme-primary-rgb) / 0.16), transparent 70%);
+  animation: aura-curtain-halo 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes aura-curtain-halo {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+.aura-welcome-curtain__card {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  width: min(100%, 34rem);
+  padding: clamp(1.75rem, 5vw, 3rem);
+  border-radius: var(--figma-radius-xl, 1.25rem);
+  border: 1px solid rgb(var(--theme-primary-rgb) / 0.16);
+  background: rgb(var(--theme-surface-rgb) / 0.55);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--figma-shadow-glass, 0 20px 45px rgba(2, 8, 23, 0.38));
+  text-align: center;
+  animation: aura-curtain-enter 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes aura-curtain-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.aura-welcome-curtain__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: var(--figma-radius-pill, 9999px);
+  border: 1px solid rgb(var(--theme-primary-rgb) / 0.32);
+  background: rgb(var(--theme-primary-rgb) / 0.1);
+  color: rgb(var(--theme-primary-rgb));
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 0 28px rgb(var(--theme-primary-rgb) / 0.22);
+}
+
+.aura-welcome-curtain__kicker {
+  margin: 1.35rem 0 0;
+  color: rgb(var(--theme-primary-rgb));
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.aura-welcome-curtain__headline {
+  margin: 0.7rem 0 0;
+  max-width: 14ch;
+  font-family: var(--figma-font-heading, var(--figma-font-body, system-ui));
+  font-size: clamp(2.4rem, 7vw, 4.25rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  color: var(--theme-fg-base, #f8fafc);
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .aura-welcome-curtain__headline {
+    background: linear-gradient(
+      180deg,
+      var(--theme-fg-base, #f8fafc) 30%,
+      rgb(var(--theme-primary-rgb) / 0.92)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+.aura-welcome-curtain__subcopy {
+  margin: 1rem 0 0;
+  max-width: 30rem;
+  color: var(--theme-muted-base, #94a3b8);
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.aura-welcome-curtain__progress {
+  position: relative;
+  width: min(15rem, 70%);
+  height: 3px;
+  margin-top: 1.7rem;
+  border-radius: var(--figma-radius-pill, 9999px);
+  overflow: hidden;
+  background: rgb(var(--theme-primary-rgb) / 0.14);
+}
+
+.aura-welcome-curtain__progress-sweep {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--theme-primary-rgb) / 0.85) 45%,
+    rgb(var(--theme-secondary-rgb) / 0.85) 60%,
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: aura-curtain-sweep 1.5s ease-in-out infinite;
+}
+
+@keyframes aura-curtain-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.aura-welcome-curtain__controls {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 3;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.aura-welcome-curtain__control {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--figma-radius-md, 0.75rem);
+  border: 1px solid rgb(var(--theme-primary-rgb) / 0.26);
+  background: rgb(var(--theme-primary-rgb) / 0.08);
+  color: var(--theme-fg-base, #f8fafc);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.aura-welcome-curtain__control:hover {
+  background: rgb(var(--theme-primary-rgb) / 0.16);
+}
+
+.aura-welcome-curtain__control:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.aura-welcome-curtain__control--icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  padding: 0;
+}
+
+/* Static fallbacks when the user or the app's motion tier opts out of animation. */
+.aura-welcome-curtain.is-reduced-motion .aura-welcome-curtain__card,
+.aura-welcome-curtain.is-reduced-motion .aura-welcome-curtain__halo,
+.aura-welcome-curtain.is-reduced-motion .aura-welcome-curtain__progress-sweep {
+  animation: none;
+}
+
+.aura-welcome-curtain.is-reduced-motion .aura-welcome-curtain__progress-sweep {
+  transform: none;
+  opacity: 0.6;
+}
+
+.aura-welcome-curtain.is-reduced-motion {
+  transition-duration: 1ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-welcome-curtain .aura-welcome-curtain__card,
+  .aura-welcome-curtain .aura-welcome-curtain__halo,
+  .aura-welcome-curtain .aura-welcome-curtain__progress-sweep {
+    animation: none;
+  }
+
+  .aura-welcome-curtain .aura-welcome-curtain__progress-sweep {
+    transform: none;
+    opacity: 0.6;
+  }
+
+  .aura-welcome-curtain {
+    transition-duration: 1ms;
+  }
+}
