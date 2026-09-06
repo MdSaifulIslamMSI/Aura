@@ -161,6 +161,17 @@ describe('auth CSP allowlists', () => {
       .toContain("'unsafe-inline'");
     expect(getDirectiveSources(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, 'style-src-elem'))
       .toContain("'unsafe-inline'");
+    // Vite's dev server needs an inline react-refresh preamble plus HMR websockets.
+    expect(getDirectiveSources(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, 'script-src'))
+      .toEqual(expect.arrayContaining(["'unsafe-inline'", "'unsafe-eval'"]));
+    expect(getDirectiveSources(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, 'connect-src'))
+      .toEqual(expect.arrayContaining(['ws://localhost:*', 'ws://127.0.0.1:*']));
+    expect(getDirectiveSources(FRONTEND_CONTENT_SECURITY_POLICY, 'script-src'))
+      .not.toContain("'unsafe-inline'");
+    expect(getDirectiveSources(FRONTEND_CONTENT_SECURITY_POLICY, 'script-src'))
+      .not.toContain("'unsafe-eval'");
+    expect(getDirectiveSources(FRONTEND_CONTENT_SECURITY_POLICY, 'connect-src'))
+      .not.toContain('ws://localhost:*');
     expectDesktopLoopbackPolicy(FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY, {
       allowLocalDevelopmentSources: true,
     });
