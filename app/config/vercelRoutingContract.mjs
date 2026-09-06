@@ -60,7 +60,29 @@ export const LOCAL_DEVELOPMENT_CONNECT_SRC = [
     'http://localhost:*',
     'http://127.0.0.1:*',
     'http://host.docker.internal:*',
+    'ws://localhost:*',
+    'ws://127.0.0.1:*',
 ];
+
+// Vite's dev server requires an inline react-refresh preamble in index.html,
+// so the development policy must allow inline scripts. Production keeps them blocked.
+export const LOCAL_DEVELOPMENT_SCRIPT_SRC = [
+    "'unsafe-inline'",
+    "'unsafe-eval'",
+];
+
+const buildFrontendScriptSrc = ({ allowInlineScriptElement = false } = {}) => [
+    "'self'",
+    ...(allowInlineScriptElement ? LOCAL_DEVELOPMENT_SCRIPT_SRC : []),
+    'https://apis.google.com',
+    'https://accounts.google.com',
+    'https://checkout.razorpay.com',
+    'https://js.stripe.com',
+    'https://www.google.com',
+    'https://www.gstatic.com',
+    'https://www.recaptcha.net',
+    'https://challenges.cloudflare.com',
+].join(' ');
 
 const buildFrontendStyleSrc = ({ allowInlineStyleElement = false } = {}) => [
     "'self'",
@@ -110,7 +132,7 @@ export const buildFrontendContentSecurityPolicy = (origin = HOSTED_BACKEND_ORIGI
     "base-uri 'self'",
     "object-src 'none'",
     `form-action 'self' ${DESKTOP_AUTH_LOOPBACK_FORM_ACTION_SOURCES.join(' ')}`,
-    "script-src 'self' https://apis.google.com https://accounts.google.com https://checkout.razorpay.com https://js.stripe.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://challenges.cloudflare.com",
+    `script-src ${buildFrontendScriptSrc(options)}`,
     `style-src ${buildFrontendStyleSrc(options)}`,
     `style-src-elem ${buildFrontendStyleElementSrc()}`,
     "style-src-attr 'unsafe-inline'",
@@ -131,6 +153,7 @@ export const FRONTEND_META_CONTENT_SECURITY_POLICY = buildFrontendContentSecurit
 export const FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY = buildFrontendContentSecurityPolicy(
     HOSTED_BACKEND_ORIGIN,
     {
+        allowInlineScriptElement: true,
         allowInlineStyleElement: true,
         includeLocalDevelopmentSources: true,
     }

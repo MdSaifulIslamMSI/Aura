@@ -4,6 +4,7 @@ import PremiumWelcomeCurtain, {
   WELCOME_CURTAIN_SEEN_KEY,
   WELCOME_CURTAIN_SOUND_MUTED_KEY,
 } from './PremiumWelcomeCurtain';
+import { MotionModeProvider } from '@/context/MotionModeContext';
 import { playWelcomeCurtainChime } from './welcomeSound';
 
 vi.mock('./welcomeSound', () => ({
@@ -26,7 +27,11 @@ const mockMatchMedia = (reducedMotion = false) => {
   });
 };
 
-const renderCurtain = () => render(<PremiumWelcomeCurtain />);
+const renderCurtain = () => render(
+  <MotionModeProvider>
+    <PremiumWelcomeCurtain />
+  </MotionModeProvider>
+);
 
 const finishExitAnimation = () => {
   act(() => {
@@ -59,6 +64,14 @@ describe('PremiumWelcomeCurtain', () => {
     expect(playWelcomeCurtainChime).not.toHaveBeenCalled();
   });
 
+  it('does not play the chime from ambient gestures on the curtain', () => {
+    renderCurtain();
+
+    fireEvent.pointerDown(screen.getByTestId('premium-welcome-curtain'));
+
+    expect(playWelcomeCurtainChime).not.toHaveBeenCalled();
+  });
+
   it('does not render when disabled by feature flag', () => {
     vi.stubEnv('VITE_WELCOME_CURTAIN_ENABLED', 'false');
 
@@ -67,12 +80,12 @@ describe('PremiumWelcomeCurtain', () => {
     expect(screen.queryByTestId('premium-welcome-curtain')).not.toBeInTheDocument();
   });
 
-  it('closes after skip click and marks the session as seen', () => {
+  it('closes after skip click and marks the device as seen', () => {
     vi.useFakeTimers();
     renderCurtain();
 
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
-    expect(window.sessionStorage.getItem(WELCOME_CURTAIN_SEEN_KEY)).toBe('true');
+    expect(window.localStorage.getItem(WELCOME_CURTAIN_SEEN_KEY)).toBe('true');
 
     finishExitAnimation();
     expect(screen.queryByTestId('premium-welcome-curtain')).not.toBeInTheDocument();
@@ -86,11 +99,11 @@ describe('PremiumWelcomeCurtain', () => {
     finishExitAnimation();
 
     expect(screen.queryByTestId('premium-welcome-curtain')).not.toBeInTheDocument();
-    expect(window.sessionStorage.getItem(WELCOME_CURTAIN_SEEN_KEY)).toBe('true');
+    expect(window.localStorage.getItem(WELCOME_CURTAIN_SEEN_KEY)).toBe('true');
   });
 
-  it('does not show again in the same browser session', () => {
-    window.sessionStorage.setItem(WELCOME_CURTAIN_SEEN_KEY, 'true');
+  it('does not show again once the device has seen it', () => {
+    window.localStorage.setItem(WELCOME_CURTAIN_SEEN_KEY, 'true');
 
     renderCurtain();
 
@@ -102,11 +115,11 @@ describe('PremiumWelcomeCurtain', () => {
     renderCurtain();
 
     act(() => {
-      vi.advanceTimersByTime(3600);
+      vi.advanceTimersByTime(2200);
     });
 
     expect(screen.queryByTestId('premium-welcome-curtain')).not.toBeInTheDocument();
-    expect(window.sessionStorage.getItem(WELCOME_CURTAIN_SEEN_KEY)).toBe('true');
+    expect(window.localStorage.getItem(WELCOME_CURTAIN_SEEN_KEY)).toBe('true');
   });
 
   it('uses the reduced-motion path without crashing', () => {
@@ -120,11 +133,12 @@ describe('PremiumWelcomeCurtain', () => {
     expect(screen.queryByTestId('premium-welcome-curtain')).not.toBeInTheDocument();
   });
 
-  it('does not crash when audio playback fails after a gesture', async () => {
+  it('does not crash when audio playback fails on unmute', async () => {
+    window.localStorage.setItem(WELCOME_CURTAIN_SOUND_MUTED_KEY, 'true');
     playWelcomeCurtainChime.mockRejectedValueOnce(new Error('audio blocked'));
     renderCurtain();
 
-    fireEvent.pointerDown(screen.getByTestId('premium-welcome-curtain'));
+    fireEvent.click(screen.getByRole('button', { name: 'Sound off' }));
     await act(async () => {
       await Promise.resolve();
     });

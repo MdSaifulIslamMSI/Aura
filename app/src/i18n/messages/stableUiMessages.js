@@ -18383,16 +18383,6 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Secured. Fast. Premium.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
-    "welcomeCurtain.message.ready": {
-        id: "welcomeCurtain.message.ready",
-        defaultMessage: "Your premium experience is ready",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
-    "welcomeCurtain.message.thanks": {
-        id: "welcomeCurtain.message.thanks",
-        defaultMessage: "Thanks for visiting",
-        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
-    },
     "welcomeCurtain.message.welcome": {
         id: "welcomeCurtain.message.welcome",
         defaultMessage: "Welcome to Aura",

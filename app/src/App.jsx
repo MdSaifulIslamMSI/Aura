@@ -21,6 +21,7 @@ import ScrollProgressBar from './components/shared/ScrollProgressBar';
 import SectionAnchorRail from './components/shared/SectionAnchorRail';
 import RouteTransitionShell from './components/shared/RouteTransitionShell';
 import AppErrorBoundary from './components/shared/AppErrorBoundary';
+import SkeletonLoader from './components/shared/SkeletonLoader';
 import BackendStatusBanner from './components/shared/BackendStatusBanner';
 import EmergencyBanner from './components/shared/EmergencyBanner';
 import DesktopUpdateBanner from './components/shared/DesktopUpdateBanner';
@@ -309,8 +310,10 @@ function AppContent() {
           <Suspense
             key={routeRenderKey}
             fallback={(
-              <div className="flex h-[80vh] items-center justify-center">
-                <div className="w-12 h-12 border-4 border-flipkart-blue border-t-transparent rounded-full animate-spin" />
+              <div className="mx-auto w-full max-w-7xl px-4 py-8">
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                  <SkeletonLoader type="card" count={8} />
+                </div>
               </div>
             )}
           >
