@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import {
     browserLocalPersistence,
+    browserSessionPersistence,
     getAuth,
     GithubAuthProvider,
     GoogleAuthProvider,
@@ -242,8 +243,11 @@ if (!hasRequiredConfig) {
     try {
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
-        setPersistence(auth, browserLocalPersistence).catch((error) => {
-            console.warn('[firebase] unable to force local auth persistence:', error?.message || error);
+        // Web browsers keep Firebase tokens out of localStorage (XSS blast
+        // radius); the Capacitor WebView is OS-sandboxed and loses
+        // sessionStorage on cold start, so native keeps local persistence.
+        setPersistence(auth, isRuntimeCapacitorMobile ? browserLocalPersistence : browserSessionPersistence).catch((error) => {
+            console.warn('[firebase] unable to force auth persistence preference:', error?.message || error);
         });
 
         googleProvider = new GoogleAuthProvider();

@@ -4,6 +4,7 @@ const firebaseMocks = vi.hoisted(() => ({
   initializeAppMock: vi.fn(() => ({ name: 'firebase-app' })),
   getAnalyticsMock: vi.fn(() => ({ name: 'firebase-analytics' })),
   getAuthMock: vi.fn(() => ({ name: 'firebase-auth' })),
+  setPersistenceMock: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('firebase/app', () => ({
@@ -12,8 +13,9 @@ vi.mock('firebase/app', () => ({
 
 vi.mock('firebase/auth', () => ({
   browserLocalPersistence: { type: 'LOCAL' },
+  browserSessionPersistence: { type: 'SESSION' },
   getAuth: firebaseMocks.getAuthMock,
-  setPersistence: vi.fn(() => Promise.resolve()),
+  setPersistence: firebaseMocks.setPersistenceMock,
   GoogleAuthProvider: class GoogleAuthProvider {
     setCustomParameters() {}
   },
@@ -166,6 +168,19 @@ describe('firebase social auth host policy', () => {
       redirectPreferred: true,
       supported: true,
     });
+  });
+
+  it('keeps web Firebase auth tokens in session-scoped persistence', async () => {
+    const firebase = await loadFirebaseModule({
+      hostname: 'aurapilot.vercel.app',
+      host: 'aurapilot.vercel.app',
+    });
+
+    expect(firebase.isFirebaseReady).toBe(true);
+    expect(firebaseMocks.setPersistenceMock).toHaveBeenCalledWith(
+      expect.anything(),
+      { type: 'SESSION' }
+    );
   });
 
   it('keeps popup-first social auth on localhost when no runtime block is present', async () => {
@@ -332,6 +347,10 @@ describe('firebase social auth host policy', () => {
       mobileFirebasePhoneOtpEnabled: true,
       supported: true,
     });
+    expect(firebaseMocks.setPersistenceMock).toHaveBeenCalledWith(
+      expect.anything(),
+      { type: 'LOCAL' }
+    );
   });
 
   it('switches to redirect-first mode after a runtime host rejection without disabling social auth', async () => {

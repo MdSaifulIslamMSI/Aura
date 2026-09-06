@@ -4,6 +4,18 @@ Gitleaks detected historical secret-like material in git history. The current wo
 
 No secret values are reproduced in this report.
 
+## Working-Tree Status (verified 2026-09-06)
+
+| Surface | Status | Evidence |
+| --- | --- | --- |
+| `app/.env.production` | Removed from working tree | File no longer exists; only env example templates are tracked |
+| Android hardcoded Firebase key | Remediated — key now injected at build time | `app/android/app/build.gradle` reads `AURA_ANDROID_FIREBASE_API_KEY` via `resolveStringEnv` with placeholder default `example-firebase-api-key` |
+| Working-tree secret scan | PASS | `npm run security:secrets` — 2/2 gate tests, 0 findings across 2,786 files |
+| History scan gate | Enforced in CI (local run requires Docker Desktop running) | `.github/workflows/security.yml:69`, `security-gates.yml`, `ci.yml` run `npm run security:gitleaks` |
+| **Console-side rotation of the historically committed key** | **STILL OPEN — owner action required** | Checklist below has blank verification dates |
+
+What remains open cannot be done from this repository: the key that was committed before 2026-05-24 lives in the Firebase/GCP console. Until the owner confirms rotation or restriction below, treat that key as attacker-known.
+
 ## Findings
 
 | Finding class | Historical locations | Required action |
@@ -32,9 +44,33 @@ reference and commit this file. Do not paste keys, tokens, or secrets here.
 
 - [ ] Firebase/GCP API key from historical commits rotated or deleted
   (APIs & Services > Credentials). Old key state: ______. Date: ______
-- [ ] Replacement key (if any) restricted by application (Android package
-  name + SHA-1 / HTTP referrer / IP) and by API scope (only APIs Aura
-  calls). Restriction summary: ______. Date: ______
+  Steps:
+  1. Open https://console.cloud.google.com/apis/credentials (project
+     `billy-b674c`) or Firebase console > Project settings > General >
+     "Web API Key" > "Manage in Google Cloud".
+  2. Identify the exposed key by creation/last-used date inside the
+     commit window ending 2026-05-24. Never paste the key anywhere;
+     match by fingerprint only.
+  3. Preferred: DELETE the exposed key, then CREATE a replacement. If
+     other consumers still use it, keep it only until the replacement
+     is deployed, then delete.
+  4. Record the old key state (deleted / restricted) and date above.
+- [ ] Replacement key (if any) restricted by application and by API scope.
+  Restriction summary: ______. Date: ______
+  Steps:
+  1. On the new key: Application restrictions > Android applications >
+     add package name + SHA-1 of the release signing cert
+     (`cd app/android && ./gradlew signingReport` prints SHA-1 locally).
+  2. Add HTTP referrer restrictions for every deployed web origin
+     (Vercel/Netlify production + preview domains).
+  3. API restrictions > Restrict key > allow only the APIs the app calls
+     (Identity Toolkit, Firebase Installations/FCM, and any others in
+     actual use). Deny-by-default beats allow-all.
+  4. Set `AURA_ANDROID_FIREBASE_API_KEY` (and web `VITE_FIREBASE_API_KEY`)
+     in the build/CI environment from the new key; never commit it.
+  5. Verify the OLD key now fails: after deletion/restriction, run the
+     app once with the old key value forced in a local env to confirm
+     Firebase rejects it, then remove that local override.
 - [ ] Doc bearer/authorization examples confirmed placeholders; any live
   token rotated and old token revoked. Outcome: ______. Date: ______
 - [ ] Generated asset (market-locale JS) confirmed false positive or
