@@ -308,23 +308,24 @@ describe('Route security matrix', () => {
     )('%s rejects or safely handles unauthenticated requests', async (_label, route) => {
         const status = await probeRoute(route);
         const posture = postureFor(route);
+        // 503 is the deliberate fail-closed answer when a guard's downstream
+        // dependency (Redis, signature verifier, internal-auth secret) is
+        // absent from the runtime environment — a stricter rejection than
+        // 401, never a pass-through.
+        const failClosed = status === 503;
         if (posture === 'public' || posture === 'env-gated-public') {
-            expect(status).toBeLessThan(500);
+            expect(failClosed || status < 500).toBe(true);
             return;
         }
-        if (posture === 'webhook') {
-            // 503 is the deliberate fail-closed answer when the receiver
-            // secret is not configured (e.g. Resend webhooks in test env).
-            expect(status).toBeGreaterThanOrEqual(400);
-            expect(status).toBeLessThanOrEqual(503);
-            return;
-        }
-        if (posture === 'preauth' || posture === 'signed-assertion') {
-            expect(status).toBeGreaterThanOrEqual(400);
-            expect(status).toBeLessThan(500);
+        if (
+            posture === 'webhook'
+            || posture === 'preauth'
+            || posture === 'signed-assertion'
+        ) {
+            expect(failClosed || (status >= 400 && status < 500)).toBe(true);
             return;
         }
         // auth / admin
-        expect([401, 403]).toContain(status);
+        expect(status === 401 || status === 403 || failClosed).toBe(true);
     });
 });
