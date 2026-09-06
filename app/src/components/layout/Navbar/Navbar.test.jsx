@@ -256,4 +256,15 @@ describe('Navbar Component', () => {
         expect(runtimeMenuLinks).toHaveLength(2);
         expect(runtimeMenuLinks[1].getAttribute('href')).toMatch(/^https:\/\/aurapilot\.(vercel|netlify)\.app$/);
     });
+
+    it('renders the runtime switch panel in the mobile menu without crashing', () => {
+        renderNavbar({ currentUser: { displayName: 'John Doe', email: 'john@example.com' } });
+
+        fireEvent.click(screen.getByRole('button', { name: 'Toggle menu' }));
+
+        expect(screen.getAllByText('Live runtimes').length).toBeGreaterThan(0);
+        const mobileRuntimeLinks = screen.getAllByRole('link', { name: /Open /i });
+        expect(mobileRuntimeLinks.length).toBeGreaterThanOrEqual(2);
+        expect(screen.getByRole('link', { name: 'Open Gateway' })).toHaveAttribute('href', 'https://aura-gateway.vercel.app');
+    });
 });

@@ -80,6 +80,8 @@ const buildFrontendNavigationTargets = (currentOrigin = '', formatMessage = null
 });
 
 const RuntimeSwitchPanel = ({ targets = [], onNavigate, className }) => {
+  const t = useStableIcuMessages();
+
   if (!targets.length) {
     return null;
   }
