@@ -362,6 +362,19 @@
       "tests/totpMfaService.test.js",
       "tests/turnstileFlags.test.js",
       "tests/userPhoneIndex.test.js",
+      "tests/userPhoneIndex.test.js",
+      "tests/bundleService.test.js",
+      "tests/cartService.test.js",
+      "tests/checkoutConfigService.unit.test.js",
+      "tests/checkoutController.test.js",
+      "tests/listingService.test.js",
+      "tests/marketController.test.js",
+      "tests/orderService.test.js",
+      "tests/productValidators.test.js",
+      "tests/publicProductSerializer.test.js",
+      "tests/tradeInController.test.js",
+      "tests/uploadValidators.test.js",
+      "tests/userNotificationController.test.js",
       "tests/zenGatewayService.test.js"
     ],
     "performance-cache": [
@@ -406,7 +419,19 @@
       "trafficResiliencePolicy.test.js",
       "trafficResponseSmoothness.test.js",
       "trustedEdgeMiddleware.test.js",
-      "turnstileFlags.test.js"
+      "turnstileFlags.test.js",
+      "bundleService.test.js",
+      "cartService.test.js",
+      "checkoutConfigService.unit.test.js",
+      "checkoutController.test.js",
+      "listingService.test.js",
+      "marketController.test.js",
+      "orderService.test.js",
+      "productValidators.test.js",
+      "publicProductSerializer.test.js",
+      "tradeInController.test.js",
+      "uploadValidators.test.js",
+      "userNotificationController.test.js"
     ]
   }
 }
