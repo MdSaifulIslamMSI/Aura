@@ -72,7 +72,7 @@ describe('VoiceSearch', () => {
     await waitFor(() => expect(onTelemetryEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'command_fallback' })
     ));
-    expect(screen.getByText('Using local voice fallback.')).toBeInTheDocument();
+    expect(await screen.findByText('Using local voice fallback.')).toBeInTheDocument();
   });
 
   it('closes on Escape', () => {
