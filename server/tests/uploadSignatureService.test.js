@@ -231,4 +231,76 @@ describe('uploadSignatureService', () => {
 
         expect(redisClient.__store.size).toBe(0);
     });
+
+    test('mints two-part tokens with ISO expiries', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.UPLOAD_SIGNING_SECRET = 'test-upload-signing-secret';
+
+        const { createUploadToken } = require('../services/uploadSignatureService');
+
+        const { token, expiresAt } = createUploadToken({
+            userId: 'u123',
+            purpose: 'review-media',
+            fileName: 'demo.jpg',
+            mimeType: 'image/jpeg',
+            maxBytes: 1024,
+        });
+
+        expect(token.split('.')).toHaveLength(2);
+        expect(new Date(expiresAt).getTime()).toBeGreaterThan(Date.now());
+    });
+
+    test('rejects blank and missing token segments', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.UPLOAD_SIGNING_SECRET = 'test-upload-signing-secret';
+
+        const { verifyUploadToken } = require('../services/uploadSignatureService');
+
+        for (const bad of ['', 'abc', '.sig', 'payload.', 'a.b.c']) {
+            expect(() => verifyUploadToken(bad)).toThrow('Invalid upload token format');
+        }
+    });
+
+    test('rejects tampered payloads and forged signatures', () => {
+        process.env.NODE_ENV = 'test';
+        process.env.UPLOAD_SIGNING_SECRET = 'test-upload-signing-secret';
+
+        const { createUploadToken, verifyUploadToken } = require('../services/uploadSignatureService');
+
+        const { token } = createUploadToken({
+            userId: 'u123',
+            purpose: 'review-media',
+            fileName: 'demo.jpg',
+            mimeType: 'image/jpeg',
+            maxBytes: 1024,
+        });
+        const [encodedPayload, signature] = token.split('.');
+        const tamperedPayload = Buffer.from(JSON.stringify({ uid: 'attacker' }))
+            .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+
+        expect(() => verifyUploadToken(`${tamperedPayload}.${signature}`)).toThrow();
+        expect(() => verifyUploadToken(`${encodedPayload}.fakesignature`)).toThrow();
+    });
+
+    test('fails closed when no redis client is available', async () => {
+        process.env.NODE_ENV = 'test';
+        process.env.UPLOAD_SIGNING_SECRET = 'test-upload-signing-secret';
+
+        jest.doMock('../config/redis', () => ({
+            getRedisClient: () => null,
+            flags: {},
+        }));
+
+        const { createUploadToken, verifyAndConsumeUploadToken } = require('../services/uploadSignatureService');
+
+        const { token } = createUploadToken({
+            userId: 'u123',
+            purpose: 'review-media',
+            fileName: 'demo.jpg',
+            mimeType: 'image/jpeg',
+            maxBytes: 1024,
+        });
+
+        await expect(verifyAndConsumeUploadToken(token)).rejects.toThrow('Upload token verification unavailable');
+    });
 });
