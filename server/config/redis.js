@@ -136,9 +136,24 @@ const getRedisClient = () => {
     return redisClient;
 };
 
+// Graceful-shutdown companion to initRedis: quit cleanly so deploys do not
+// leave the socket half-open against the shared Redis instance.
+const closeRedis = async () => {
+    const client = redisClient;
+    redisClient = null;
+    if (!client?.isOpen) return;
+    try {
+        await client.quit();
+    } catch (error) {
+        client.disconnect();
+        logger.warn('redis.close_forced', { error: error?.message || 'unknown' });
+    }
+};
+
 module.exports = {
     flags,
     initRedis,
+    closeRedis,
     getRedisClient,
     getRedisHealth,
     assertProductionRedisConfig,

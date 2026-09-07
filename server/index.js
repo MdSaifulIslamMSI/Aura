@@ -99,6 +99,7 @@ const { assertAdminSecurityConfig } = require('./config/adminSecurityConfig');
 const { assertTrustedDeviceV2RolloutConfig } = require('./config/trustedDeviceV2Rollout');
 const {
     startPaymentOutboxWorker,
+    stopPaymentOutboxWorker,
     getPaymentOutboxStats,
 } = require('./services/payments/paymentService');
 const {
@@ -135,6 +136,7 @@ const { assertAuthRiskSignalConfig } = require('./services/authRiskSignalService
 const {
     getRedisHealth,
     initRedis,
+    closeRedis,
     assertProductionRedisConfig,
 } = require('./config/redis');
 const {
@@ -960,9 +962,20 @@ assertProductionRedisConfig();
             logger.info('server.shutdown_initiated', { signal, timeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS });
             httpServer.close(async () => {
                 try {
+                    stopPaymentOutboxWorker();
+                } catch (err) {
+                    logger.warn('server.outbox_worker_stop_failed', { error: err.message });
+                }
+                try {
                     stopFxRateScheduler();
                 } catch (err) {
                     logger.warn('server.fx_scheduler_stop_failed', { error: err.message });
+                }
+                try {
+                    await closeRedis();
+                    logger.info('server.redis_closed');
+                } catch (err) {
+                    logger.warn('server.redis_close_failed', { error: err.message });
                 }
                 try {
                     const mongoose = require('mongoose');

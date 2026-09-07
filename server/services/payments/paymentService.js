@@ -93,6 +93,23 @@ const appendPaymentEvent = async ({
     });
 };
 
+const isDuplicateEventKeyError = (error) => (
+    error?.code === 11000
+    || (Array.isArray(error?.writeErrors) && error.writeErrors.some((entry) => entry?.code === 11000))
+);
+
+// Webhook deliveries can race past the findOne dedupe check: the unique
+// eventId index is the authoritative dedupe, so treat the losing insert as
+// deduped instead of surfacing a 500 that triggers a pointless provider retry.
+const recordWebhookEvent = async (doc) => {
+    try {
+        return await PaymentEvent.create(doc);
+    } catch (error) {
+        if (isDuplicateEventKeyError(error)) return null;
+        throw error;
+    }
+};
+
 const ensurePaymentsEnabled = async () => {
     if (!flags.paymentsEnabled) {
         throw new AppError('Payments are currently disabled', 503);
@@ -2025,7 +2042,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
             targetStatus: mapped,
         });
 
-        await PaymentEvent.create({
+        await recordWebhookEvent({
             eventId: parsedEvent.eventId,
             intentId: intent.intentId,
             source: 'webhook',
@@ -2061,7 +2078,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
             targetStatus: mapped,
         });
 
-        await PaymentEvent.create({
+        await recordWebhookEvent({
             eventId: parsedEvent.eventId,
             intentId: intent.intentId,
             source: 'webhook',
@@ -2163,7 +2180,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     }
     await intent.save();
 
-    await PaymentEvent.create({
+    const recordedEvent = await recordWebhookEvent({
         eventId: parsedEvent.eventId,
         intentId: intent.intentId,
         source: 'webhook',
@@ -2172,6 +2189,12 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
         payload: parsed,
         receivedAt: new Date(),
     });
+
+    if (!recordedEvent) {
+        // A concurrent duplicate delivery won the eventId insert; the intent
+        // mutations above are idempotent for that same event.
+        return { received: true, deduped: true, intentId: intent.intentId };
+    }
 
     if (statusTransitionedToCaptured) {
         await applyOrderPaymentCapture(intent);
@@ -2302,6 +2325,13 @@ const startPaymentOutboxWorker = () => {
             logger.error('payment_outbox.cycle_failed', { error: error.message });
         });
     }, OUTBOX_POLL_MS);
+};
+
+const stopPaymentOutboxWorker = () => {
+    if (outboxTimer) {
+        clearInterval(outboxTimer);
+        outboxTimer = null;
+    }
 };
 
 const getPaymentOutboxStatsWithWorker = async () => {
@@ -2722,6 +2752,7 @@ module.exports = {
     createRefundForIntent,
     runOutboxCycle,
     startPaymentOutboxWorker,
+    stopPaymentOutboxWorker,
     getPaymentOutboxStats: getPaymentOutboxStatsWithWorker,
     markChallengeVerified,
     listUserPaymentMethods,

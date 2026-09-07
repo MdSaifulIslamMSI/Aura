@@ -1,17 +1,22 @@
 const { solveAuraBundle } = require('./marketplaceOptimizers');
 const Product = require('../models/Product');
 
+// Theme can be user-typed: escape regex metacharacters so it cannot throw or
+// force pathological catalog scans.
+const escapeRegExp = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
  * Aura Bundle Service
  * Generates dynamic, value-optimized bundles within a budget.
  */
 exports.generateSmartBundle = async (theme, budget) => {
     // 1. Fetch candidates from the catalog based on theme
+    const themeRegex = new RegExp(escapeRegExp(theme), 'i');
     const candidates = await Product.find({
         $or: [
-            { category: new RegExp(theme, 'i') },
-            { title: new RegExp(theme, 'i') },
-            { tags: new RegExp(theme, 'i') }
+            { category: themeRegex },
+            { title: themeRegex },
+            { tags: themeRegex }
         ],
         isPublished: true,
         stock: { $gt: 0 }
