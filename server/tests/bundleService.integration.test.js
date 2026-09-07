@@ -1,12 +1,15 @@
 const Product = require('../models/Product');
 const { generateSmartBundle } = require('../services/bundleService');
 
-const audioProduct = (overrides = {}) => ({
-  title: 'Audio Speaker', brand: 'Aura', category: 'Audio', price: 8000,
-  image: 's.png', isPublished: true, stock: 5, rating: 4.5,
-  externalId: `test-audio-${Math.random().toString(36).slice(2, 10)}`,
-  ...overrides,
-});
+const audioProduct = (overrides = {}) => {
+  const tag = Math.random().toString(36).slice(2, 10);
+  return {
+    title: 'Audio Speaker', brand: 'Aura', category: 'Audio', price: 8000,
+    image: `test-${tag}.png`, isPublished: true, stock: 5, rating: 4.5,
+    externalId: `test-audio-${tag}`,
+    ...overrides,
+  };
+};
 
 describe('bundleService integration', () => {
   test('builds a budget-respecting bundle from live catalog rows', async () => {
