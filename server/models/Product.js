@@ -84,7 +84,9 @@ const normalizeTagList = (value = [], source = {}) => {
 };
 
 const productSchema = new mongoose.Schema({
-    id: { type: Number, index: true },
+    // Numeric public id shared with carts/price alerts/trade-ins; uniqueness is
+    // load-bearing because stock reservation decrements by this key.
+    id: { type: Number, unique: true },
     externalId: { type: String, trim: true },
     source: {
         type: String,
