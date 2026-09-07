@@ -88,9 +88,10 @@ New tests (all triaged into `server.regression`): `paymentCaptureRace`,
    (never run in CI tiers), including some DB-index/concurrency suites; the
    `noDbFiles` list is basename-matched, so renames silently re-enable DB
    boot for a suite.
-9. **Production backup automation gap** — staging has fsync-lock + mongodump
-   to S3 with a restore drill; production EC2 Mongo has no automated backup
-   sidecar (DR doc admits RPO 24h "until managed backups are formalized").
+9. **Backup automation gap** — the staging stack has fsync-lock + mongodump
+   to S3 with a restore drill; the live EC2 Mongo deployment has no automated
+   backup sidecar (DR doc admits RPO 24h "until managed backups are
+   formalized").
 10. **Mongo version skew** — mongo:7 (dev compose), mongo:7.0.11 binary
     (tests), Mongo 6.0 (CI service), mongo:8.0 (split-runtime compose).
     Pin one version family across environments.
