@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Product = require('../models/Product');
+const CouponRedemption = require('../models/CouponRedemption');
+const COUPON_RULES = require('../config/coupons');
 const AppError = require('../utils/AppError');
 const logger = require('../utils/logger');
 const {
@@ -151,6 +153,25 @@ const executeOrderCreation = async ({
     });
     assertQuoteSnapshot(body.quoteSnapshot, quote.pricing, quote.cart);
 
+    // Coupon enforcement runs inside the placement transaction so a coupon is
+    // consumed exactly once per user. The unique {code, user} index on
+    // CouponRedemption is the hard backstop against concurrent placements.
+    const couponCode = String(quote.normalized.couponCode || '').trim().toUpperCase();
+    const couponRule = couponCode ? COUPON_RULES[couponCode] : null;
+    const couponMaxUsesPerUser = Number(couponRule?.maxUsesPerUser || 0);
+    if (couponCode && couponMaxUsesPerUser > 0) {
+        const priorRedemption = await CouponRedemption.findOne({
+            code: couponCode,
+            user: userId,
+        }).session(session || null);
+        if (priorRedemption) {
+            throw new AppError(
+                `Coupon ${couponCode} has already been used on a previous order`,
+                409
+            );
+        }
+    }
+
     const paymentValidation = await validatePaymentIntentForOrder({
         userId,
         paymentIntentId: body.paymentIntentId,
@@ -240,6 +261,43 @@ const executeOrderCreation = async ({
     });
 
     const createdOrder = session ? await order.save({ session }) : await order.save();
+
+    if (couponCode && couponMaxUsesPerUser > 0) {
+        const redemptionDoc = {
+            code: couponCode,
+            user: userId,
+            order: createdOrder._id,
+            discount: Number(quote.pricing.couponDiscount || 0),
+            discountMinor: orderPricingMinorUnits.couponDiscountMinor || 0,
+            currency: quote.pricing.baseCurrency || quote.pricing.settlementCurrency || 'INR',
+        };
+        try {
+            if (session) {
+                await CouponRedemption.create([redemptionDoc], { session });
+            } else {
+                await CouponRedemption.create([redemptionDoc]);
+            }
+        } catch (redemptionError) {
+            if (redemptionError?.code === 11000) {
+                if (session) {
+                    // A concurrent placement consumed the coupon first; this
+                    // error aborts the whole placement transaction.
+                    throw new AppError(
+                        `Coupon ${couponCode} has already been used on a previous order`,
+                        409
+                    );
+                }
+                logger.warn('coupon.redemption_record_duplicate', {
+                    requestId,
+                    userId: String(userId),
+                    couponCode,
+                });
+            } else {
+                throw redemptionError;
+            }
+        }
+    }
+
     // Maintain the gross lifetime-spend counter read by the profile dashboard.
     // Atomic $inc inside the placement transaction when one exists; a retry of
     // a failed placement re-saves a NEW order document, so each increment maps
