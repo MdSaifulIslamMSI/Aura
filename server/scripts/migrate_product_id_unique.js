@@ -6,10 +6,11 @@
  * only a non-unique index, so a duplicate id could silently persist and make
  * stock decrements hit an arbitrary document.
  *
- * Dry-run by default: audits duplicate ids and reports the current index.
- * With --execute: refuses to proceed while duplicates exist (resolve them
- * first), otherwise drops the old non-unique id_1 index and creates the
- * unique one. Safe to re-run.
+ * Dry-run by default: audits duplicate numeric ids and reports the current
+ * index. With --execute: refuses to proceed while duplicates exist (resolve
+ * them first), otherwise drops any previous products.id index and creates the
+ * partial unique index over numeric ids (id-less rows are exempt). Safe to
+ * re-run.
  *
  * Usage:
  *   node scripts/migrate_product_id_unique.js            # audit only
@@ -17,6 +18,8 @@
  */
 const mongoose = require('mongoose');
 require('dotenv').config();
+
+const UNIQUE_ID_INDEX_NAME = 'id_1_partial_unique_numeric';
 
 const run = async () => {
     if (!process.env.MONGO_URI) {
@@ -28,6 +31,8 @@ const run = async () => {
     await mongoose.connect(process.env.MONGO_URI);
     const collection = mongoose.connection.collection('products');
 
+    // Only numeric ids are unique; id-less catalog rows are exempt from the
+    // partial filter and may coexist.
     const duplicates = await collection.aggregate([
         { $match: { id: { $type: 'number' } } },
         { $group: { _id: '$id', count: { $sum: 1 }, docs: { $push: '$_id' } } },
@@ -56,13 +61,20 @@ const run = async () => {
         );
     }
 
-    if (idIndex && !idIndex.unique) {
+    if (idIndex && idIndex.name !== UNIQUE_ID_INDEX_NAME) {
         await collection.dropIndex(idIndex.name);
-        console.log(`Dropped non-unique index: ${idIndex.name}`);
+        console.log(`Dropped previous products.id index: ${idIndex.name}`);
     }
 
-    await collection.createIndex({ id: 1 }, { unique: true, name: 'id_1' });
-    console.log('Created unique index id_1 on products.id');
+    await collection.createIndex(
+        { id: 1 },
+        {
+            unique: true,
+            partialFilterExpression: { id: { $type: 'number' } },
+            name: UNIQUE_ID_INDEX_NAME,
+        }
+    );
+    console.log(`Created unique partial index ${UNIQUE_ID_INDEX_NAME} on products.id`);
 };
 
 run()

@@ -50,6 +50,23 @@ describe('catalog product id integrity', () => {
         })).rejects.toMatchObject({ code: 11000 });
     });
 
+    test('catalog rows without a numeric id coexist under the partial unique index', async () => {
+        const first = await Product.create({
+            ...makePayload(),
+            externalId: `idless_${Math.random().toString(36).slice(2, 10)}`,
+            source: 'batch',
+        });
+        const second = await Product.create({
+            ...makePayload(),
+            externalId: `idless_${Math.random().toString(36).slice(2, 10)}`,
+            source: 'batch',
+        });
+
+        expect(first.id).toBeUndefined();
+        expect(second.id).toBeUndefined();
+        expect(first._id).not.toEqual(second._id);
+    });
+
     test('createManualProduct re-allocates and succeeds when the counter id is already taken', async () => {
         const state = await SystemState.findOne({ key: 'singleton' });
         const nextCounterId = Number(state?.manualProductCounter || 1000000) + 1;

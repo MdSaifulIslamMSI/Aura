@@ -42,7 +42,7 @@ backup evidence and run-book docs.
 | --- | --- | --- | --- |
 | 1 | Critical | **Payment capture race** — `captureIntentNow` was check-then-act; outbox worker + admin route + listing escrow could capture concurrently → double provider capture and the order stuck `AUTHORIZED`/unpaid on a Mongoose VersionError | TTL capture lock (`metadata.captureLock`) mirroring the refund lock, re-check under lock, conditional `authorized → captured` transition; already-captured is idempotent (`paymentService.js`) |
 | 2 | High | **Loyalty lost updates** — `awardLoyaltyPoints` used read-modify-write `user.save()` on a shared user doc; concurrent orders/logins silently dropped awards | Atomic `$inc`/`$push` update with bounded ledger; daily-login IST-day boundary re-checked in the update filter so concurrent logins cannot double-award (`loyaltyService.js`) |
-| 3 | High | **`products.id` not unique** — the numeric id drives atomic stock reservation, carts, price alerts, trade-ins, but carried only a plain index; the write-blocked fallback allocator (`max(id)+1`) could mint duplicates → inventory corruption | Unique index on `products.id` (+ dry-run-default migration `migrate:product-id-unique` for production), probe-forward fallback allocator, create retries on id collision (`catalogService.js`, `models/Product.js`) |
+| 3 | High | **`products.id` not unique** — the numeric id drives atomic stock reservation, carts, price alerts, trade-ins, but carried only a plain index; the write-blocked fallback allocator (`max(id)+1`) could mint duplicates → inventory corruption | Partial unique index on `products.id` over numeric ids (id-less rows exempt; a plain unique index would collapse them onto `{ id: null }`) + dry-run-default migration `migrate:product-id-unique` for production, probe-forward fallback allocator, create retries on id collision (`catalogService.js`, `models/Product.js`) |
 | 4 | High | **Unlimited coupon reuse** — static `config/coupons.js` with no redemption tracking; any user could reuse every code forever | `CouponRedemption` collection with unique `{code,user}`, enforced inside the placement transaction (409 rolls the order back), `maxUsesPerUser: 1` per rule (`orderPlacementService.js`) |
 | 5 | High | **Unbounded telemetry growth** — `SearchEvent` / `RecommendationEvent` grow one document per interaction with no TTL and no purge | TTL index on `createdAt`, default 90 days, env-overridable (`SEARCH_EVENT_RETENTION_DAYS`, `RECOMMENDATION_EVENT_RETENTION_DAYS`) |
 | 6 | Medium | **Webhook dedupe TOCTOU** — concurrent duplicate deliveries lost the `PaymentEvent` insert race and surfaced E11000 500s, triggering pointless provider retries | `recordWebhookEvent` treats the losing insert as `deduped: true` (`paymentService.js`) |
@@ -108,8 +108,8 @@ New tests (all triaged into `server.regression`): `paymentCaptureRace`,
 
 - Run `npm --prefix server run migrate:product-id-unique` (dry run) against a
   target DB before deploying; it refuses `--execute` while duplicate
-  `products.id` values exist. Mongoose builds the unique index automatically
-  in dev/test and via Product `syncIndexes()` at boot.
+  `products.id` values exist. Mongoose builds the partial unique index
+  automatically in dev/test and via Product `syncIndexes()` at boot.
 - Retention env vars are read at model load; changing them on a live
   deployment requires dropping and recreating the TTL index.
 - Coupon behavior change: each code is once-per-account; redemption rows are
