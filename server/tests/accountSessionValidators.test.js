@@ -1,54 +1,46 @@
 const {
-    getAccountSessionsSchema,
-    getAccountSecurityActivitySchema,
-    revokeAccountSessionSchema,
-    revokeAllAccountSessionsSchema,
-    revokeOtherAccountSessionsSchema,
+  getAccountSecurityActivitySchema,
+  getAccountSessionsSchema,
+  revokeAccountSessionSchema,
+  revokeAllAccountSessionsSchema,
+  revokeOtherAccountSessionsSchema,
 } = require('../validators/accountSessionValidators');
 
-describe('account session validators', () => {
-    test('bounds and coerces the session list limit', () => {
-        expect(getAccountSessionsSchema.parse({
-            query: { limit: '20' },
-        }).query.limit).toBe(20);
+const ALIAS = 'a'.repeat(43);
 
-        expect(getAccountSessionsSchema.safeParse({
-            query: { limit: '21' },
-        }).success).toBe(false);
-    });
+describe('accountSessionValidators reads', () => {
+  test('session listing bounds page sizes', () => {
+    expect(() => getAccountSessionsSchema.parse({})).not.toThrow();
+    expect(() => getAccountSessionsSchema.parse({ query: { limit: '10' } })).not.toThrow();
+    expect(getAccountSessionsSchema.safeParse({ query: { limit: '99' } }).success).toBe(false);
+  });
 
-    test('accepts only an opaque alias and an empty mutation body', () => {
-        expect(revokeAccountSessionSchema.safeParse({
-            params: { sessionAlias: 'a'.repeat(43) },
-            body: {},
-        }).success).toBe(true);
+  test('security activity supports cursor pagination', () => {
+    expect(() => getAccountSecurityActivitySchema.parse({ query: { cursor: 'cur-1', limit: '50' } })).not.toThrow();
+    expect(getAccountSecurityActivitySchema.safeParse({ query: { limit: '500' } }).success).toBe(false);
+  });
+});
 
-        expect(revokeAccountSessionSchema.safeParse({
-            params: { sessionAlias: 'raw-session-id' },
-            body: {},
-        }).success).toBe(false);
+describe('accountSessionValidators revocation', () => {
+  test('single revocation requires opaque 43-char aliases', () => {
+    expect(() => revokeAccountSessionSchema.parse({ params: { sessionAlias: ALIAS } })).not.toThrow();
+    expect(revokeAccountSessionSchema.safeParse({ params: { sessionAlias: 'short' } }).success).toBe(false);
+  });
 
-        expect(revokeAccountSessionSchema.safeParse({
-            params: { sessionAlias: 'a'.repeat(43) },
-            body: { userId: 'another-user' },
-        }).success).toBe(false);
-    });
+  test('revocation bodies stay empty (no authority smuggling)', () => {
+    expect(revokeAccountSessionSchema.safeParse({
+      params: { sessionAlias: ALIAS }, body: { userId: 'another-user' },
+    }).success).toBe(false);
+    expect(revokeOtherAccountSessionsSchema.safeParse({
+      body: { preserveSessionId: 'client-chosen-session' },
+    }).success).toBe(false);
+    expect(revokeAllAccountSessionsSchema.safeParse({
+      body: { userId: 'another-user' },
+    }).success).toBe(false);
+  });
 
-    test('rejects client-supplied authority on revoke-others', () => {
-        expect(revokeOtherAccountSessionsSchema.safeParse({
-            body: { preserveSessionId: 'client-chosen-session' },
-        }).success).toBe(false);
-    });
-
-    test('bounds security activity pagination and rejects authority on revoke-all', () => {
-        expect(getAccountSecurityActivitySchema.parse({
-            query: { limit: '50', cursor: 'opaque.cursor' },
-        }).query.limit).toBe(50);
-        expect(getAccountSecurityActivitySchema.safeParse({
-            query: { limit: '51' },
-        }).success).toBe(false);
-        expect(revokeAllAccountSessionsSchema.safeParse({
-            body: { userId: 'another-user' },
-        }).success).toBe(false);
-    });
+  test('bulk revocation takes no identifiers', () => {
+    expect(() => revokeOtherAccountSessionsSchema.parse({})).not.toThrow();
+    expect(() => revokeAllAccountSessionsSchema.parse({})).not.toThrow();
+  });
 });

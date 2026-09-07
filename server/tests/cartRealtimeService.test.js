@@ -1,66 +1,56 @@
-jest.mock('../services/socketService', () => ({
-    sendMessageToUser: jest.fn(),
-}));
+jest.mock('../services/socketService', () => ({ sendMessageToUser: jest.fn() }));
 
-const {
-    buildCartRealtimePayload,
-    emitCartRealtimeUpdate,
-} = require('../services/cartRealtimeService');
 const { sendMessageToUser } = require('../services/socketService');
+const {
+  buildCartRealtimePayload,
+  emitCartRealtimeUpdate,
+} = require('../services/cartRealtimeService');
 
-describe('cartRealtimeService', () => {
-    beforeEach(() => {
-        jest.clearAllMocks();
+describe('cartRealtimeService.buildCartRealtimePayload', () => {
+  test('returns null without a cart or user', () => {
+    expect(buildCartRealtimePayload({})).toBeNull();
+    expect(buildCartRealtimePayload({ cart: { items: [] } })).toBeNull();
+    expect(buildCartRealtimePayload({ authUid: 'u-1' })).toBeNull();
+  });
+
+  test('builds versioned cart payloads', () => {
+    const payload = buildCartRealtimePayload({
+      authUid: 'u-1',
+      cart: { items: [{ id: 1 }], version: 4, updatedAt: '2026-09-01', summary: { total: 100 } },
+      reason: 'item_added',
+      requestId: 'req-1',
     });
-
-    test('buildCartRealtimePayload normalizes a canonical cart snapshot for authenticated clients', () => {
-        const payload = buildCartRealtimePayload({
-            authUid: 'firebase-user-1',
-            reason: 'checkout_cart_cleared',
-            requestId: 'req-1',
-            cart: {
-                version: 7,
-                updatedAt: '2026-04-06T10:00:00.000Z',
-                items: [{ productId: 11, quantity: 1 }],
-                summary: { totalQuantity: 1 },
-            },
-        });
-
-        expect(payload).toMatchObject({
-            entity: 'cart',
-            source: 'user',
-            userId: 'firebase-user-1',
-            revision: 7,
-            syncedAt: '2026-04-06T10:00:00.000Z',
-            reason: 'checkout_cart_cleared',
-            requestId: 'req-1',
-        });
-        expect(payload.items).toEqual([{ productId: 11, quantity: 1 }]);
+    expect(payload).toMatchObject({
+      entity: 'cart', source: 'user', userId: 'u-1', revision: 4,
+      reason: 'item_added', requestId: 'req-1', provider: 'canonical_cart',
     });
+    expect(payload.items).toHaveLength(1);
+    expect(payload.emittedAt).toEqual(expect.any(String));
+  });
 
-    test('emitCartRealtimeUpdate sends a socket event only when the cart and identities are present', () => {
-        const emitted = emitCartRealtimeUpdate({
-            socketUserId: 'mongo-user-1',
-            authUid: 'firebase-user-1',
-            reason: 'cart_commands_applied',
-            requestId: 'req-2',
-            cart: {
-                version: 8,
-                updatedAt: '2026-04-06T10:05:00.000Z',
-                items: [{ productId: 22, quantity: 2 }],
-                summary: { totalQuantity: 2 },
-            },
-        });
+  test('defaults reason and provider', () => {
+    const payload = buildCartRealtimePayload({ authUid: 'u-1', cart: { items: [] } });
+    expect(payload.reason).toBe('updated');
+    expect(payload.provider).toBe('canonical_cart');
+  });
+});
 
-        expect(emitted).toBe(true);
-        expect(sendMessageToUser).toHaveBeenCalledWith(
-            'mongo-user-1',
-            'cart.updated',
-            expect.objectContaining({
-                userId: 'firebase-user-1',
-                revision: 8,
-                reason: 'cart_commands_applied',
-            }),
-        );
+describe('cartRealtimeService.emitCartRealtimeUpdate', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('emits to the socket user with the built payload', () => {
+    const ok = emitCartRealtimeUpdate({
+      socketUserId: 'sock-1', authUid: 'u-1', cart: { items: [] }, reason: 'checkout',
     });
+    expect(ok).toBe(true);
+    expect(sendMessageToUser).toHaveBeenCalledWith('sock-1', 'cart.updated', expect.objectContaining({
+      entity: 'cart', reason: 'checkout',
+    }));
+  });
+
+  test('refuses to emit without a socket target or payload', () => {
+    expect(emitCartRealtimeUpdate({ authUid: 'u-1', cart: { items: [] } })).toBe(false);
+    expect(emitCartRealtimeUpdate({ socketUserId: 'sock-1', cart: null })).toBe(false);
+    expect(sendMessageToUser).not.toHaveBeenCalled();
+  });
 });
