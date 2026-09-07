@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { resolveRetentionSeconds } = require('../utils/retentionTtl');
 const {
     RECOMMENDATION_EVENT_TYPES,
     RECOMMENDATION_SOURCE_PAGES,
@@ -74,5 +75,12 @@ recommendationEventSchema.index({ productId: 1, eventType: 1 });
 recommendationEventSchema.index({ productNumericId: 1, eventType: 1 });
 recommendationEventSchema.index({ eventType: 1, createdAt: -1 });
 recommendationEventSchema.index({ sourcePage: 1, createdAt: -1 });
+// Recommendation telemetry grows one document per user interaction; expire it
+// after the configured retention window (RECOMMENDATION_EVENT_RETENTION_DAYS,
+// default 90).
+recommendationEventSchema.index({ createdAt: 1 }, {
+    expireAfterSeconds: resolveRetentionSeconds({ envVar: 'RECOMMENDATION_EVENT_RETENTION_DAYS' }),
+    name: 'recommendation_event_created_at_ttl',
+});
 
 module.exports = mongoose.model('RecommendationEvent', recommendationEventSchema);
