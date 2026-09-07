@@ -1458,6 +1458,53 @@ const applyOrderPaymentCapture = async (intent) => {
     );
 };
 
+const acquireCaptureLock = async (intent) => {
+    const lockId = makeEventId('capture_lock');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 2 * 60 * 1000);
+    const lockedIntent = await PaymentIntent.findOneAndUpdate(
+        {
+            _id: intent._id,
+            $or: [
+                { 'metadata.captureLock.locked': { $ne: true } },
+                { 'metadata.captureLock.expiresAt': { $lte: now } },
+            ],
+        },
+        {
+            $set: {
+                'metadata.captureLock': {
+                    locked: true,
+                    lockId,
+                    startedAt: now,
+                    expiresAt,
+                },
+            },
+        },
+        { returnDocument: 'after' }
+    ).lean();
+
+    if (!lockedIntent) {
+        throw new AppError('A capture is already in progress for this payment', 409);
+    }
+
+    return lockId;
+};
+
+const releaseCaptureLock = async ({ intentId, lockId }) => {
+    if (!intentId || !lockId) return;
+    await PaymentIntent.updateOne(
+        {
+            intentId,
+            'metadata.captureLock.lockId': lockId,
+        },
+        {
+            $unset: {
+                'metadata.captureLock': '',
+            },
+        }
+    );
+};
+
 const captureIntentNow = async ({ intentId }) => {
     const intent = await PaymentIntent.findOne({ intentId });
     if (!intent) throw new AppError('Capture intent not found', 404);
@@ -1466,48 +1513,88 @@ const captureIntentNow = async ({ intentId }) => {
         throw new AppError(`Capture not allowed from status ${intent.status}`, 400);
     }
 
-    const provider = await getPaymentProvider({
-        gatewayId: intent.provider,
-        amount: intent.amount,
-        currency: intent.currency,
-        paymentMethod: intent.method,
-        userId: intent.user,
-    });
-    const capturedPayment = await provider.capture({
-        paymentId: intent.providerPaymentId,
-        amount: intent.amount,
-        currency: intent.currency,
-    });
-    const amountInfo = typeof provider.parsePaymentAmounts === 'function'
-        ? provider.parsePaymentAmounts(capturedPayment || {})
-        : null;
+    const captureLockId = await acquireCaptureLock(intent);
 
-    intent.status = PAYMENT_STATUSES.CAPTURED;
-    intent.capturedAt = new Date();
-    if (amountInfo?.baseCurrency && amountInfo.baseAmount !== null) {
-        intent.providerBaseAmount = amountInfo.baseAmount;
-        intent.providerBaseCurrency = amountInfo.baseCurrency;
-        intent.metadata = {
-            ...(intent.metadata || {}),
-            providerSettlement: {
+    try {
+        // Re-read under the lock: another capture may have completed between the
+        // initial read and lock acquisition.
+        const lockedIntent = await PaymentIntent.findOne({ intentId });
+        if (!lockedIntent || lockedIntent.metadata?.captureLock?.lockId !== captureLockId) {
+            throw new AppError('Capture lock was lost before provider mutation', 409);
+        }
+        if (lockedIntent.status === PAYMENT_STATUSES.CAPTURED) return lockedIntent;
+        if (lockedIntent.status !== PAYMENT_STATUSES.AUTHORIZED) {
+            throw new AppError(`Capture not allowed from status ${lockedIntent.status}`, 400);
+        }
+
+        const provider = await getPaymentProvider({
+            gatewayId: lockedIntent.provider,
+            amount: lockedIntent.amount,
+            currency: lockedIntent.currency,
+            paymentMethod: lockedIntent.method,
+            userId: lockedIntent.user,
+        });
+        const capturedPayment = await provider.capture({
+            paymentId: lockedIntent.providerPaymentId,
+            amount: lockedIntent.amount,
+            currency: lockedIntent.currency,
+        });
+        const amountInfo = typeof provider.parsePaymentAmounts === 'function'
+            ? provider.parsePaymentAmounts(capturedPayment || {})
+            : null;
+
+        const capturedAt = new Date();
+        const captureMutation = {
+            status: PAYMENT_STATUSES.CAPTURED,
+            capturedAt,
+        };
+        const metadataMutation = {};
+        if (amountInfo?.baseCurrency && amountInfo.baseAmount !== null) {
+            captureMutation.providerBaseAmount = amountInfo.baseAmount;
+            captureMutation.providerBaseCurrency = amountInfo.baseCurrency;
+            metadataMutation.providerSettlement = {
                 amount: amountInfo.baseAmount,
                 currency: amountInfo.baseCurrency,
                 international: Boolean(amountInfo.international),
-            },
-        };
-        intent.markModified('metadata');
+            };
+        }
+
+        // Conditional transition: only authorized -> captured wins. A concurrent
+        // writer that captured first makes this a no-op we treat as success, so a
+        // provider-side double capture can never strand the order in AUTHORIZED.
+        const mutationUpdate = { $set: { ...captureMutation } };
+        if (Object.keys(metadataMutation).length > 0) {
+            mutationUpdate.$set.metadata = {
+                ...(lockedIntent.metadata || {}),
+                ...metadataMutation,
+            };
+        }
+        const capturedIntent = await PaymentIntent.findOneAndUpdate(
+            { _id: lockedIntent._id, status: PAYMENT_STATUSES.AUTHORIZED },
+            mutationUpdate,
+            { returnDocument: 'after' }
+        );
+
+        if (!capturedIntent) {
+            const current = await PaymentIntent.findOne({ intentId });
+            if (current && current.status === PAYMENT_STATUSES.CAPTURED) {
+                return current;
+            }
+            throw new AppError('Capture state changed concurrently, retry capture', 409);
+        }
+
+        await appendPaymentEvent({
+            intentId,
+            source: 'system',
+            type: 'intent.captured',
+            payload: { capturedAt: capturedIntent.capturedAt.toISOString() },
+        });
+        await applyOrderPaymentCapture(capturedIntent);
+
+        return capturedIntent;
+    } finally {
+        await releaseCaptureLock({ intentId, lockId: captureLockId });
     }
-    await intent.save();
-
-    await appendPaymentEvent({
-        intentId,
-        source: 'system',
-        type: 'intent.captured',
-        payload: { capturedAt: intent.capturedAt.toISOString() },
-    });
-    await applyOrderPaymentCapture(intent);
-
-    return intent;
 };
 
 const acquireRefundLock = async (intent) => {
