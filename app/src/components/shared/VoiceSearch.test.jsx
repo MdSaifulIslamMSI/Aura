@@ -3,8 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { IntlProvider } from 'react-intl';
 
+const stableFns = vi.hoisted(() => ({
+  t: (_key, _opts, fallback) => fallback,
+}));
+
 vi.mock('@/context/MarketContext', () => ({
-  useMarket: () => ({ t: (_key, _opts, fallback) => fallback, voiceLocale: 'en-IN' }),
+  useMarket: () => ({ t: stableFns.t, voiceLocale: 'en-IN' }),
 }));
 
 vi.mock('@/services/aiApi', () => ({
@@ -12,7 +16,7 @@ vi.mock('@/services/aiApi', () => ({
 }));
 
 vi.mock('@/i18n/useStableIcuMessages', () => ({
-  useStableIcuMessages: (t) => t,
+  useStableIcuMessages: () => stableFns.t,
 }));
 
 import { aiApi } from '@/services/aiApi';
