@@ -134,6 +134,10 @@ const loadPlaceOrderService = ({
     jest.doMock('../models/Order', () => FakeOrder);
     jest.doMock('../models/Product', () => ({ updateOne: productUpdateOne }));
     jest.doMock('../models/User', () => ({ updateOne: userUpdateOne }));
+    jest.doMock('../models/CouponRedemption', () => ({
+        findOne: jest.fn(async () => null),
+        create: jest.fn(async () => [{}]),
+    }));
     jest.doMock('../utils/logger', () => logger);
     jest.doMock('../services/orderPricingService', () => ({
         PRICING_VERSION: 'v2',

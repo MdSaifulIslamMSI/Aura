@@ -46,6 +46,19 @@ const toIstDayKey = (dateValue) => {
     return `${yyyy}-${mm}-${dd}`;
 };
 
+const startOfIstDay = (dateValue) => {
+    const date = new Date(dateValue);
+    if (!Number.isFinite(date.getTime())) return null;
+    const shiftedMs = date.getTime() + IST_OFFSET_MINUTES * 60 * 1000;
+    const shifted = new Date(shiftedMs);
+    const istMidnight = Date.UTC(
+        shifted.getUTCFullYear(),
+        shifted.getUTCMonth(),
+        shifted.getUTCDate()
+    );
+    return new Date(istMidnight - IST_OFFSET_MINUTES * 60 * 1000);
+};
+
 const getDayDiff = (fromDate, toDate) => {
     const from = new Date(fromDate);
     const to = new Date(toDate);
@@ -134,6 +147,7 @@ const awardLoyaltyPoints = async ({
     const now = new Date();
     const currentStreak = sanitizeNumber(user.loyalty.streakDays, 0);
     let streakBonus = 0;
+    let nextStreak = currentStreak;
 
     if (action === 'daily_login') {
         const streakState = computeDailyStreak({
@@ -149,8 +163,7 @@ const awardLoyaltyPoints = async ({
             };
         }
 
-        user.loyalty.streakDays = streakState.nextStreak;
-        user.loyalty.lastDailyRewardAt = now;
+        nextStreak = streakState.nextStreak;
         streakBonus = streakState.streakBonus;
     }
 
@@ -163,16 +176,9 @@ const awardLoyaltyPoints = async ({
         };
     }
 
-    user.loyalty.pointsBalance = sanitizeNumber(user.loyalty.pointsBalance, 0) + points;
-    user.loyalty.lifetimeEarned = sanitizeNumber(user.loyalty.lifetimeEarned, 0) + points;
-    user.loyalty.lastEarnedAt = now;
-
-    const tier = resolveTier(user.loyalty.lifetimeEarned);
-    user.loyalty.tier = tier.name;
-    user.loyalty.nextMilestone = tier.nextMilestone;
-
-    if (!Array.isArray(user.loyalty.ledger)) user.loyalty.ledger = [];
-    user.loyalty.ledger.unshift({
+    const projectedLifetimeEarned = sanitizeNumber(user.loyalty.lifetimeEarned, 0) + points;
+    const tier = resolveTier(projectedLifetimeEarned);
+    const ledgerEntry = {
         eventType: action,
         points,
         reason: action === 'daily_login' && streakBonus > 0
@@ -181,18 +187,65 @@ const awardLoyaltyPoints = async ({
         refType: rule.refType,
         refId: refId ? String(refId) : '',
         createdAt: now,
-    });
-    if (user.loyalty.ledger.length > MAX_LEDGER_ITEMS) {
-        user.loyalty.ledger = user.loyalty.ledger.slice(0, MAX_LEDGER_ITEMS);
+    };
+
+    // Atomic award: concurrent orders/logins mutate the same user document, so
+    // a read-modify-write save() silently drops one award. $inc/$push apply
+    // server-side, and the daily_login filter re-checks the IST-day boundary
+    // atomically so two concurrent logins cannot both pass the streak
+    // pre-check and double-award.
+    const awardUpdate = {
+        $inc: {
+            'loyalty.pointsBalance': points,
+            'loyalty.lifetimeEarned': points,
+        },
+        $set: {
+            'loyalty.lastEarnedAt': now,
+            'loyalty.tier': tier.name,
+            'loyalty.nextMilestone': tier.nextMilestone,
+        },
+        $push: {
+            'loyalty.ledger': {
+                $each: [ledgerEntry],
+                $position: 0,
+                $slice: MAX_LEDGER_ITEMS,
+            },
+        },
+    };
+    const awardFilter = { _id: user._id };
+    if (action === 'daily_login') {
+        awardFilter['loyalty.lastDailyRewardAt'] = {
+            $not: { $gte: startOfIstDay(now) },
+        };
+        awardUpdate.$set['loyalty.streakDays'] = nextStreak;
+        awardUpdate.$set['loyalty.lastDailyRewardAt'] = now;
     }
 
-    await user.save({ session: session || null });
+    const awardResult = await User.updateOne(awardFilter, awardUpdate, session ? { session } : {});
+    if (!awardResult || awardResult.modifiedCount === 0) {
+        return {
+            awarded: false,
+            points: 0,
+            snapshot: getRewardSnapshotFromUser(user),
+        };
+    }
 
     return {
         awarded: true,
         points,
         streakBonus,
-        snapshot: getRewardSnapshotFromUser(user),
+        snapshot: {
+            ...getRewardSnapshotFromUser(user),
+            pointsBalance: sanitizeNumber(user.loyalty.pointsBalance, 0) + points,
+            lifetimeEarned: projectedLifetimeEarned,
+            tier: tier.name,
+            nextMilestone: tier.nextMilestone,
+            lastEarnedAt: now,
+            ...(action === 'daily_login' ? {
+                streakDays: nextStreak,
+                lastDailyRewardAt: now,
+            } : {}),
+        },
     };
 };
 

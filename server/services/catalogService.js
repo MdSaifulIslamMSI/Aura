@@ -5,6 +5,7 @@ const readline = require('readline');
 const os = require('os');
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const ProductReview = require('../models/ProductReview');
 const CatalogImportJob = require('../models/CatalogImportJob');
 const CatalogSyncCursor = require('../models/CatalogSyncCursor');
 const CatalogSyncRun = require('../models/CatalogSyncRun');
@@ -1416,11 +1417,21 @@ const allocateManualProductId = async (session = null) => {
     } catch (error) {
         if (!isSystemStateWriteBlocked(error)) throw error;
 
+        // SystemState writes are blocked (shared free-tier cluster): derive the
+        // next id from the highest manual product, then probe forward until an
+        // unused id is found — max(id)+1 alone races with other writers and,
+        // before the unique index existed, could mint duplicate ids.
         const maxManual = await Product.findOne({ source: 'manual' }).sort({ id: -1 }).select('id').lean();
         const nextFromManual = Number(maxManual?.id) + 1;
-        const fallbackId = Number.isFinite(nextFromManual) && nextFromManual > 1000000
+        let fallbackId = Number.isFinite(nextFromManual) && nextFromManual > 1000000
             ? nextFromManual
             : 1000001;
+
+        for (let probe = 0; probe < 50; probe += 1) {
+            const taken = await Product.exists({ id: fallbackId });
+            if (!taken) break;
+            fallbackId += 1;
+        }
 
         logger.warn('catalog.manual_id.fallback_sequence', {
             fallbackId,
@@ -1430,49 +1441,64 @@ const allocateManualProductId = async (session = null) => {
     }
 };
 
+const isProductIdDuplicateError = (error) => (
+    isDuplicateKeyError(error)
+    && Boolean(error?.keyPattern?.id || error?.keyValue?.id !== undefined)
+);
+
 const createManualProduct = async (payload) => {
     const activeVersion = await getActiveCatalogVersion();
-    const productId = await allocateManualProductId();
-    const externalId = `manual_${crypto.randomUUID()}`;
-    const normalized = normalizeProductRecord({
-        raw: { ...payload, id: productId, externalId, source: 'manual' },
-        defaultSource: 'manual',
-        catalogVersion: activeVersion,
-        sourceRef: 'manual:first_party',
-        forSync: false,
-    });
+    let productId = await allocateManualProductId();
 
-    if (normalized.error) {
-        throw new AppError(normalized.error.message, 400);
-    }
-
-    const duplicate = await Product.findOne({
-        $or: [
-            { titleKey: normalized.product.titleKey },
-            { imageKey: normalized.product.imageKey },
-        ],
-    }).select('_id titleKey imageKey').lean();
-    if (duplicate?.titleKey === normalized.product.titleKey) {
-        throw new AppError('Product name already exists. Use a unique product name.', 409);
-    }
-    if (duplicate?.imageKey === normalized.product.imageKey) {
-        throw new AppError('Product image already exists. Use a unique image URL.', 409);
-    }
-
-    try {
-        const product = await Product.create({
-            ...normalized.product,
-            isPublished: true,
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        const externalId = `manual_${crypto.randomUUID()}`;
+        const normalized = normalizeProductRecord({
+            raw: { ...payload, id: productId, externalId, source: 'manual' },
+            defaultSource: 'manual',
             catalogVersion: activeVersion,
+            sourceRef: 'manual:first_party',
+            forSync: false,
         });
-        invalidateCatalogReadCaches(product.id || product._id || externalId);
-        return product;
-    } catch (error) {
-        if (isDuplicateKeyError(error)) {
-            throw mapDuplicateToAppError(error);
+
+        if (normalized.error) {
+            throw new AppError(normalized.error.message, 400);
         }
-        throw error;
+
+        const duplicate = await Product.findOne({
+            $or: [
+                { titleKey: normalized.product.titleKey },
+                { imageKey: normalized.product.imageKey },
+            ],
+        }).select('_id titleKey imageKey').lean();
+        if (duplicate?.titleKey === normalized.product.titleKey) {
+            throw new AppError('Product name already exists. Use a unique product name.', 409);
+        }
+        if (duplicate?.imageKey === normalized.product.imageKey) {
+            throw new AppError('Product image already exists. Use a unique image URL.', 409);
+        }
+
+        try {
+            const product = await Product.create({
+                ...normalized.product,
+                isPublished: true,
+                catalogVersion: activeVersion,
+            });
+            invalidateCatalogReadCaches(product.id || product._id || externalId);
+            return product;
+        } catch (error) {
+            if (isProductIdDuplicateError(error)) {
+                // Lost an id race against a concurrent creator: re-allocate and retry.
+                productId = await allocateManualProductId();
+                continue;
+            }
+            if (isDuplicateKeyError(error)) {
+                throw mapDuplicateToAppError(error);
+            }
+            throw error;
+        }
     }
+
+    throw new AppError('Unable to allocate a unique product id. Please retry.', 503);
 };
 
 const updateManualProduct = async (identifier, payload) => {
@@ -1534,6 +1560,21 @@ const deleteManualProduct = async (identifier) => {
         allowDemoFallback: true,
     });
     if (!existing) throw new AppError('Product not found', 404);
+
+    // Customer reviews would be orphaned by a hard delete, so archive the
+    // product instead: isActive/isPublished=false drops it from checkout and
+    // listings while preserving review history. Carts and orders already
+    // degrade gracefully to snapshots/placeholders either way.
+    const hasReviews = await ProductReview.exists({ product: existing._id });
+    if (hasReviews) {
+        await Product.updateOne(
+            { _id: existing._id },
+            { $set: { isActive: false, isPublished: false } }
+        );
+        invalidateCatalogReadCaches(existing.id || existing._id || identifier);
+        return { message: 'Product archived because customer reviews reference it' };
+    }
+
     await Product.deleteOne({ _id: existing._id });
     invalidateCatalogReadCaches(existing.id || existing._id || identifier);
     return { message: 'Product removed' };

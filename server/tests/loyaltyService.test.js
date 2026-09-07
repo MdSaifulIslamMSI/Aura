@@ -1,4 +1,7 @@
-jest.mock('../models/User', () => ({ findById: jest.fn() }));
+jest.mock('../models/User', () => ({
+  findById: jest.fn(),
+  updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1, acknowledged: true }),
+}));
 
 const User = require('../models/User');
 const {

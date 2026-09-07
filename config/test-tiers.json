@@ -431,7 +431,13 @@
       "tests/uploadAssetController.test.js",
       "tests/uploadSignatureService.test.js",
       "tests/userNotificationController.integration.test.js",
-      "tests/userValidators.test.js"
+      "tests/userValidators.test.js",
+      "tests/paymentCaptureRace.test.js",
+      "tests/loyaltyAtomicAward.test.js",
+      "tests/catalogProductIdIntegrity.test.js",
+      "tests/couponRedemption.test.js",
+      "tests/telemetryRetentionTtl.test.js",
+      "tests/webhookDuplicateDelivery.test.js"
     ],
     "performance-cache": [
       "tests/performanceCache.test.js"

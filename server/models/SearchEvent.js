@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { resolveRetentionSeconds } = require('../utils/retentionTtl');
 
 const searchEventSchema = new mongoose.Schema({
     eventId: { type: String, required: true, unique: true, index: true },
@@ -27,5 +28,11 @@ const searchEventSchema = new mongoose.Schema({
 searchEventSchema.index({ eventType: 1, createdAt: -1 });
 searchEventSchema.index({ searchEventId: 1, eventType: 1, createdAt: -1 });
 searchEventSchema.index({ normalizedQuery: 1, eventType: 1, createdAt: -1 });
+// Search telemetry grows one document per search interaction; expire it after
+// the configured retention window (SEARCH_EVENT_RETENTION_DAYS, default 90).
+searchEventSchema.index({ createdAt: 1 }, {
+    expireAfterSeconds: resolveRetentionSeconds({ envVar: 'SEARCH_EVENT_RETENTION_DAYS' }),
+    name: 'search_event_created_at_ttl',
+});
 
 module.exports = mongoose.model('SearchEvent', searchEventSchema);

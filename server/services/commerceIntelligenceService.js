@@ -5,6 +5,10 @@ const { getActiveCatalogVersion } = require('./catalogService');
 
 const clamp = (value, min, max) => Math.min(Math.max(Number(value) || 0, min), max);
 const safeText = (value) => String(value || '').toLowerCase();
+// Keywords come from product/device-profile text: escape regex metacharacters
+// before joining tokens with .* so user-typed input cannot throw or force
+// pathological scans.
+const escapeRegExp = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const buildActiveCatalogFilter = async () => {
     if (!catalogFlags.catalogActiveVersionRequired) return {};
@@ -200,7 +204,7 @@ const getCompatibilityGraph = async (product, options = {}) => {
     const usedIds = new Set();
 
     for (const keyword of profile.keywords.slice(0, 6)) {
-        const regex = new RegExp(keyword.replace(/\s+/g, '.*'), 'i');
+        const regex = new RegExp(escapeRegExp(keyword).replace(/\s+/g, '.*'), 'i');
         const docs = await Product.find({
             ...activeFilter,
             id: { $ne: product.id },
@@ -299,7 +303,7 @@ const buildSmartBundle = async ({ theme, budget, maxItems = 6 }) => {
     const keywordRegex = profile.keywords
         .filter(Boolean)
         .slice(0, 8)
-        .map((keyword) => new RegExp(keyword.replace(/\s+/g, '.*'), 'i'));
+        .map((keyword) => new RegExp(escapeRegExp(keyword).replace(/\s+/g, '.*'), 'i'));
 
     // 1. Candidate Selection (Heuristic pruning before expensive DP)
     const candidates = await Product.find({

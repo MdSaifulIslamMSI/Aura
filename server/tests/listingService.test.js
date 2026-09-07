@@ -1,5 +1,11 @@
 jest.mock('../services/email', () => ({ sendTransactionalEmail: jest.fn() }));
 jest.mock('../models/PaymentEvent', () => ({ create: jest.fn() }));
+// Pin the provider flag: CI exports PAYMENT_PROVIDER=mock, but marketplace
+// escrow is razorpay-only and buildEscrowCheckoutPayload enforces that at
+// call time.
+jest.mock('../config/paymentFlags', () => ({
+  flags: { paymentProvider: 'razorpay' },
+}));
 
 const AppError = require('../utils/AppError');
 const { sendTransactionalEmail } = require('../services/email');

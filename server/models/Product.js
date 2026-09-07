@@ -84,7 +84,10 @@ const normalizeTagList = (value = [], source = {}) => {
 };
 
 const productSchema = new mongoose.Schema({
-    id: { type: Number, index: true },
+    // Numeric public id shared with carts/price alerts/trade-ins; uniqueness is
+    // load-bearing because stock reservation decrements by this key. Enforced
+    // via the partial unique index below so id-less catalog rows never collide.
+    id: { type: Number },
     externalId: { type: String, trim: true },
     source: {
         type: String,
@@ -403,6 +406,16 @@ productSchema.index(
     {
         unique: true,
         sparse: true,
+    }
+);
+// Partial unique: many catalog rows legitimately have no numeric id, and a
+// plain unique index would collapse them all onto the { id: null } key.
+productSchema.index(
+    { id: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { id: { $type: 'number' } },
+        name: 'id_1_partial_unique_numeric',
     }
 );
 productSchema.index(
