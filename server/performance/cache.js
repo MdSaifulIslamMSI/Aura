@@ -40,6 +40,26 @@ let lastRedisError = null;
 let lastRedisAttemptMs = 0;
 
 const memoryCache = new Map();
+// Bounded because keys digest the full URL including query strings, so unique
+// queries mint unique entries holding response bodies; expired entries are
+// otherwise only reclaimed lazily on re-read.
+const MAX_MEMORY_CACHE_ENTRIES = Number(process.env.CACHE_MEMORY_MAX_ENTRIES || 1000);
+
+const sweepMemoryCache = (now = Date.now()) => {
+    if (memoryCache.size < MAX_MEMORY_CACHE_ENTRIES) return;
+    for (const [key, entry] of memoryCache) {
+        if (!entry || Number(entry.expiresAt || 0) <= now) {
+            memoryCache.delete(key);
+        }
+        if (memoryCache.size < MAX_MEMORY_CACHE_ENTRIES) break;
+    }
+    // Still over cap (all unexpired): drop oldest inserts first (Map preserves order).
+    while (memoryCache.size >= MAX_MEMORY_CACHE_ENTRIES) {
+        const oldest = memoryCache.keys().next().value;
+        if (oldest === undefined) break;
+        memoryCache.delete(oldest);
+    }
+};
 
 const parseBoolean = (value, fallback = false) => {
     if (value === undefined || value === null || value === '') return fallback;
@@ -237,6 +257,7 @@ const getMemoryValue = (key) => {
 };
 
 const setMemoryValue = (key, value, ttlSeconds) => {
+    sweepMemoryCache();
     memoryCache.set(key, {
         value,
         expiresAt: Date.now() + ttlSeconds * 1000,
@@ -465,6 +486,8 @@ const __resetCacheForTests = async () => {
     lastRedisAttemptMs = 0;
 };
 
+const __memoryCacheStats = () => ({ size: memoryCache.size, max: MAX_MEMORY_CACHE_ENTRIES });
+
 module.exports = {
     buildCacheKey,
     connectRedis,
@@ -479,4 +502,5 @@ module.exports = {
     setCache,
     shouldCacheRequest,
     __resetCacheForTests,
+    __memoryCacheStats,
 };

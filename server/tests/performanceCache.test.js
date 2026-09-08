@@ -30,6 +30,7 @@ const buildApp = (overrides = {}) => {
         createPublicCacheMiddleware,
         publicCacheInvalidationMiddleware,
         __resetCacheForTests,
+        __memoryCacheStats,
     } = require('../performance/cache');
 
     const app = express();
@@ -37,7 +38,7 @@ const buildApp = (overrides = {}) => {
     app.use(publicCacheInvalidationMiddleware());
     app.use(createPublicCacheMiddleware());
 
-    return { app, resetCache: __resetCacheForTests };
+    return { app, resetCache: __resetCacheForTests, stats: __memoryCacheStats };
 };
 
 afterEach(() => {
@@ -45,6 +46,21 @@ afterEach(() => {
 });
 
 describe('performance public cache safety', () => {
+    test('memory provider stays bounded under CACHE_MEMORY_MAX_ENTRIES', async () => {
+        const { app, resetCache, stats } = buildApp({ CACHE_MEMORY_MAX_ENTRIES: '5' });
+        app.get('/api/public/products', (req, res) => res.json({ ok: true }));
+
+        for (let i = 0; i < 10; i += 1) {
+            await request(app).get(`/api/public/products?page=${i}`).expect(200);
+        }
+
+        expect(stats().size).toBeLessThanOrEqual(5);
+        // Most recent insert survived eviction; a dropped key recomputes fine.
+        const recent = await request(app).get('/api/public/products?page=9').expect(200);
+        expect(recent.headers['x-cache']).toBe('HIT');
+        await resetCache();
+    });
+
     test('public GET can be cached', async () => {
         const { app, resetCache } = buildApp();
         let calls = 0;
