@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const fs = require('fs/promises');
+const os = require('os');
 const path = require('path');
 const { getApps } = require('firebase-admin/app');
 const mongoose = require('mongoose');
@@ -462,23 +463,63 @@ const enqueueStatusEmail = async ({
     return doc;
 };
 
+const STATUS_WORKER_ID = `${os.hostname()}-${process.pid}`;
+const STATUS_NOTIFICATION_STALE_LOCK_MS = Number(process.env.STATUS_NOTIFICATION_STALE_LOCK_MS || 5 * 60 * 1000);
+const STATUS_NOTIFICATION_MAX_ATTEMPTS = 8;
+
+const claimNextStatusNotificationRow = () => {
+    const now = new Date();
+    const staleCutoff = new Date(now.getTime() - STATUS_NOTIFICATION_STALE_LOCK_MS);
+    // Atomic claim: when the api and worker replicas poll the same outbox,
+    // the losing replica's filter no longer matches after the winner's update.
+    return StatusNotificationOutbox.findOneAndUpdate(
+        {
+            $or: [
+                {
+                    status: { $in: ['queued', 'failed'] },
+                    nextAttemptAt: { $lte: now },
+                    attempts: { $lt: STATUS_NOTIFICATION_MAX_ATTEMPTS },
+                },
+                {
+                    status: 'sending',
+                    lockedAt: { $lte: staleCutoff },
+                    attempts: { $lt: STATUS_NOTIFICATION_MAX_ATTEMPTS },
+                },
+            ],
+        },
+        {
+            $set: {
+                status: 'sending',
+                lockedAt: now,
+                lockedBy: STATUS_WORKER_ID,
+            },
+            $inc: { attempts: 1 },
+        },
+        {
+            sort: { nextAttemptAt: 1, createdAt: 1 },
+            returnDocument: 'after',
+        }
+    );
+};
+
+const releaseStatusNotificationRow = (rowId, patch) => StatusNotificationOutbox.updateOne(
+    { _id: rowId, status: 'sending', lockedBy: STATUS_WORKER_ID },
+    { $set: patch }
+);
+
 const processStatusNotificationOutbox = async ({ limit = 25 } = {}) => {
     if (notificationWorkerRunning) return { skipped: true };
     notificationWorkerRunning = true;
     try {
         if (!shouldSendStatusEmails()) return { skipped: true, reason: 'email_disabled_in_test' };
-        const now = new Date();
-        const rows = await StatusNotificationOutbox.find({
-            status: { $in: ['queued', 'failed'] },
-            nextAttemptAt: { $lte: now },
-            attempts: { $lt: 8 },
-        }).sort({ nextAttemptAt: 1, createdAt: 1 }).limit(Math.min(Math.max(Number(limit || 25), 1), 100));
+        const maxRows = Math.min(Math.max(Number(limit || 25), 1), 100);
         let sent = 0;
         let failed = 0;
-        for (const row of rows) {
-            row.status = 'sending';
-            row.attempts = Number(row.attempts || 0) + 1;
-            await row.save();
+        let checked = 0;
+        while (checked < maxRows) {
+            const row = await claimNextStatusNotificationRow();
+            if (!row) break;
+            checked += 1;
             try {
                 await sendTransactionalEmail({
                     eventType: 'system',
@@ -490,23 +531,30 @@ const processStatusNotificationOutbox = async ({ limit = 25 } = {}) => {
                     securityTags: ['status', row.eventType],
                     meta: row.meta || {},
                 });
-                row.status = 'sent';
-                row.sentAt = new Date();
-                row.lastError = '';
+                await releaseStatusNotificationRow(row._id, {
+                    status: 'sent',
+                    sentAt: new Date(),
+                    lastError: '',
+                    lockedBy: '',
+                    lockedAt: null,
+                });
                 sent += 1;
                 incrementStatusSubscriberNotification({ eventType: row.eventType, status: 'sent' });
             } catch (error) {
-                const delayMs = Math.min(60 * 60 * 1000, Math.pow(2, Math.min(row.attempts, 8)) * 60 * 1000);
-                row.status = 'failed';
-                row.lastError = sanitizeText(error.message || 'send_failed', 1000);
-                row.nextAttemptAt = new Date(Date.now() + delayMs);
+                const delayMs = Math.min(60 * 60 * 1000, Math.pow(2, Math.min(Number(row.attempts) || 1, 8)) * 60 * 1000);
+                await releaseStatusNotificationRow(row._id, {
+                    status: 'failed',
+                    lastError: sanitizeText(error.message || 'send_failed', 1000),
+                    nextAttemptAt: new Date(Date.now() + delayMs),
+                    lockedBy: '',
+                    lockedAt: null,
+                });
                 failed += 1;
                 incrementStatusSubscriberNotification({ eventType: row.eventType, status: 'failed' });
-                logger.warn('status.notification_send_failed', { outboxId: String(row._id), error: row.lastError });
+                logger.warn('status.notification_send_failed', { outboxId: String(row._id), error: error.message });
             }
-            await row.save();
         }
-        return { skipped: false, sent, failed, checked: rows.length };
+        return { skipped: false, sent, failed, checked };
     } finally {
         notificationWorkerRunning = false;
     }

@@ -18,6 +18,8 @@ const statusNotificationOutboxSchema = new mongoose.Schema({
     status: { type: String, enum: STATUS_NOTIFICATION_STATES, default: 'queued', index: true },
     attempts: { type: Number, default: 0, min: 0 },
     nextAttemptAt: { type: Date, default: Date.now, index: true },
+    lockedAt: { type: Date, default: null },
+    lockedBy: { type: String, default: '', maxlength: 120 },
     sentAt: { type: Date, default: null },
     lastError: { type: String, default: '', maxlength: 1000 },
     subscriberId: { type: mongoose.Schema.Types.ObjectId, ref: 'StatusSubscriber', default: null, index: true },

@@ -1,3 +1,7 @@
+jest.mock('../services/email', () => ({
+    sendTransactionalEmail: jest.fn().mockResolvedValue({ queued: true }),
+}));
+
 const StatusComponentGroup = require('../models/StatusComponentGroup');
 const StatusComponent = require('../models/StatusComponent');
 const StatusCheck = require('../models/StatusCheck');
@@ -562,5 +566,96 @@ describe('statusService', () => {
         expect(subscriber.unsubscribeTokenHash).toMatch(/^[a-f0-9]{64}$/);
         expect(JSON.stringify(subscriber)).not.toContain('dev-status-unsubscribe-secret');
         expect(subscriber.notificationLevel).toBe('major');
+    });
+});
+
+describe('status notification outbox worker', () => {
+    const StatusNotificationOutbox = require('../models/StatusNotificationOutbox');
+    const { processStatusNotificationOutbox } = require('../services/statusService');
+    const { sendTransactionalEmail } = require('../services/email');
+
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    const buildRow = (idempotencyKey, overrides = {}) => ({
+        eventType: 'incident',
+        idempotencyKey,
+        recipientEmail: 'ops@example.com',
+        subject: `subject ${idempotencyKey}`,
+        text: 'body',
+        ...overrides,
+    });
+
+    beforeEach(async () => {
+        // shouldSendStatusEmails() skips processing under NODE_ENV=test.
+        process.env.NODE_ENV = 'development';
+        sendTransactionalEmail.mockClear();
+        await StatusNotificationOutbox.deleteMany({});
+    });
+
+    afterEach(async () => {
+        process.env.NODE_ENV = originalNodeEnv;
+        await StatusNotificationOutbox.deleteMany({});
+    });
+
+    test('drains queued rows atomically and marks them sent', async () => {
+        await StatusNotificationOutbox.create(buildRow('drain-1', { status: 'queued' }));
+        await StatusNotificationOutbox.create(buildRow('drain-2', { status: 'queued' }));
+
+        const result = await processStatusNotificationOutbox();
+
+        expect(result.sent).toBe(2);
+        expect(result.checked).toBe(2);
+        const sentRows = await StatusNotificationOutbox.find({ status: 'sent' });
+        expect(sentRows).toHaveLength(2);
+        expect(sentRows.every((row) => !row.lockedBy && row.lockedAt === null)).toBe(true);
+    });
+
+    test('skips rows locked by another replica instead of double-sending', async () => {
+        await StatusNotificationOutbox.create(buildRow('fresh-lock', {
+            status: 'sending',
+            lockedAt: new Date(),
+            lockedBy: 'other-replica-1',
+            attempts: 1,
+        }));
+
+        const result = await processStatusNotificationOutbox();
+
+        expect(result.checked).toBe(0);
+        const row = await StatusNotificationOutbox.findOne({ idempotencyKey: 'fresh-lock' });
+        expect(row.status).toBe('sending');
+        expect(row.lockedBy).toBe('other-replica-1');
+        expect(sendTransactionalEmail).not.toHaveBeenCalled();
+    });
+
+    test('reclaims rows whose lock went stale after a worker crash', async () => {
+        await StatusNotificationOutbox.create(buildRow('stale-lock', {
+            status: 'sending',
+            lockedAt: new Date(Date.now() - 10 * 60 * 1000),
+            lockedBy: 'crashed-replica',
+            attempts: 2,
+        }));
+
+        const result = await processStatusNotificationOutbox();
+
+        expect(result.sent).toBe(1);
+        const row = await StatusNotificationOutbox.findOne({ idempotencyKey: 'stale-lock' });
+        expect(row.status).toBe('sent');
+        expect(row.attempts).toBe(3);
+    });
+
+    test('failed sends back off exponentially and release the lock', async () => {
+        await StatusNotificationOutbox.create(buildRow('send-fail', { status: 'queued' }));
+        sendTransactionalEmail.mockRejectedValueOnce(new Error('smtp down'));
+
+        const result = await processStatusNotificationOutbox();
+
+        expect(result.failed).toBe(1);
+        const row = await StatusNotificationOutbox.findOne({ idempotencyKey: 'send-fail' });
+        expect(row.status).toBe('failed');
+        expect(row.attempts).toBe(1);
+        expect(row.lockedBy).toBe('');
+        expect(row.lockedAt).toBeNull();
+        expect(row.lastError).toContain('smtp down');
+        expect(row.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
     });
 });
