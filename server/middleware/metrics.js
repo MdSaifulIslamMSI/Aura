@@ -35,6 +35,13 @@ const httpRequestsTotal = new client.Counter({
     registers: [registry],
 });
 
+const rateLimitFallbackTotal = new client.Counter({
+    name: 'aura_rate_limit_fallback_total',
+    help: 'Requests enforced by the per-instance in-memory limiter because Redis was unavailable',
+    labelNames: ['limiter'],
+    registers: [registry],
+});
+
 const httpActiveRequests = new client.Gauge({
     name: 'aura_http_active_requests',
     help: 'Number of HTTP requests currently in flight',
@@ -286,6 +293,7 @@ module.exports = {
     recordCacheError,
     recordCacheHit,
     recordCacheMiss,
+    rateLimitFallbackTotal,
     registry,
     setStatusComponentMetric,
     setStatusIncidentsActive,

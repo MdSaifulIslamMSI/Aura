@@ -2,6 +2,7 @@ const { getRedisClient, flags: redisFlags } = require('../config/redis');
 const { isRequestExecutionClosed } = require('./requestTimeouts');
 const logger = require('../utils/logger');
 const { writeSecurityEvent } = require('../security/securityEventLogger');
+const { rateLimitFallbackTotal } = require('./metrics');
 
 const memoryStore = new Map();
 let memoryCleanupEvery = 0;
@@ -193,6 +194,9 @@ const createDistributedRateLimit = ({
             }
 
             if (!state && allowInMemoryFallback) {
+                // Per-instance enforcement: the effective limit multiplies by
+                // replica count, so keep this visible in metrics.
+                rateLimitFallbackTotal.inc({ limiter: limiterName });
                 state = computeMemoryWindow(storeKey, windowMs);
             }
 
