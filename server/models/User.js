@@ -247,6 +247,9 @@ const userSchema = mongoose.Schema({
     // absolutely by scripts/backfill-lifetime-spent.js — never adjusted by
     // refunds, which have their own refundSummary trail on each order.
     lifetimeSpent: { type: Number, default: 0, min: 0 },
+    // Authoritative integer-paise accumulator summed from Order.totalPriceMinor;
+    // the float major above is kept only until every reader has migrated.
+    lifetimeSpentMinor: { type: Number, default: 0, min: 0 },
     loyalty: { type: loyaltySchema, default: () => ({}) }
 }, {
     timestamps: true

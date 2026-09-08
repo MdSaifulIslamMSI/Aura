@@ -6,10 +6,13 @@ const logger = require('../utils/logger');
 
 const BATCH_SIZE = 500;
 
-// Recomputes User.lifetimeSpent as the gross sum of Order.totalPrice per user.
-// Matches the legacy dashboard aggregate semantics exactly: ALL orders
-// (including cancelled), base currency units, no refund subtraction.
+// Recomputes User.lifetimeSpent / User.lifetimeSpentMinor as the gross sums of
+// Order.totalPrice / Order.totalPriceMinor per user. Matches the legacy
+// dashboard aggregate semantics exactly: ALL orders (including cancelled),
+// base currency units, no refund subtraction.
 // Idempotent: sets absolute values, safe to re-run to repair drift.
+// Run server/scripts/audit_money_minor_units.js first so orders carry
+// totalPriceMinor; users whose orders predate minor units keep float-only.
 const run = async () => {
     if (!process.env.MONGO_URI) {
         throw new Error('MONGO_URI is required');
@@ -19,7 +22,13 @@ const run = async () => {
     logger.info('lifetime_spent.backfill.started', {});
 
     const totals = await Order.aggregate([
-        { $group: { _id: '$user', total: { $sum: '$totalPrice' } } },
+        {
+            $group: {
+                _id: '$user',
+                total: { $sum: '$totalPrice' },
+                totalMinor: { $sum: '$totalPriceMinor' },
+            },
+        },
     ]);
 
     let updated = 0;
@@ -27,12 +36,18 @@ const run = async () => {
         const batch = totals.slice(i, i + BATCH_SIZE);
         const operations = batch
             .filter((entry) => entry._id && Number.isFinite(Number(entry.total)))
-            .map((entry) => ({
-                updateOne: {
-                    filter: { _id: entry._id },
-                    update: { $set: { lifetimeSpent: Number(entry.total) } },
-                },
-            }));
+            .map((entry) => {
+                const update = { lifetimeSpent: Number(entry.total) };
+                if (Number.isFinite(Number(entry.totalMinor)) && Number(entry.totalMinor) > 0) {
+                    update.lifetimeSpentMinor = Number(entry.totalMinor);
+                }
+                return {
+                    updateOne: {
+                        filter: { _id: entry._id },
+                        update: { $set: update },
+                    },
+                };
+            });
         if (operations.length === 0) continue;
         const result = await User.bulkWrite(operations, { ordered: false });
         updated += Number(result?.matchedCount || 0);

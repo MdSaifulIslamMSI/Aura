@@ -398,7 +398,7 @@ describe('orderPlacementService hardening', () => {
         expect(result.statusCode).toBe(201);
         expect(userUpdateOne).toHaveBeenCalledWith(
             { _id: 'user_spend' },
-            { $inc: { lifetimeSpent: 1200 } },
+            { $inc: { lifetimeSpent: 1200, lifetimeSpentMinor: 120000 } },
             expect.anything()
         );
     });

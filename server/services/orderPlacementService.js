@@ -302,12 +302,21 @@ const executeOrderCreation = async ({
     // Atomic $inc inside the placement transaction when one exists; a retry of
     // a failed placement re-saves a NEW order document, so each increment maps
     // to exactly one persisted order. Idempotency keys guard double placement.
+    // lifetimeSpentMinor (integer paise) is authoritative; the float major is
+    // still incremented for readers not yet migrated.
     try {
         const spendIncrement = Number(quote.pricing.totalPrice || 0);
-        if (Number.isFinite(spendIncrement) && spendIncrement !== 0) {
+        const spendIncrementMinor = Number(orderPricingMinorUnits.totalPriceMinor || 0);
+        if ((Number.isFinite(spendIncrement) && spendIncrement !== 0)
+            || (Number.isFinite(spendIncrementMinor) && spendIncrementMinor !== 0)) {
             await User.updateOne(
                 { _id: userId },
-                { $inc: { lifetimeSpent: spendIncrement } },
+                {
+                    $inc: {
+                        lifetimeSpent: Number.isFinite(spendIncrement) ? spendIncrement : 0,
+                        lifetimeSpentMinor: Number.isFinite(spendIncrementMinor) ? spendIncrementMinor : 0,
+                    },
+                },
                 session ? { session } : {}
             );
         }
