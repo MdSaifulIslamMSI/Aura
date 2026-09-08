@@ -265,6 +265,7 @@
     ],
     "regression": [
       "tests/access-control.idor.security.test.js",
+      "tests/adaptiveRateLimit.memorySafety.test.js",
       "tests/adminAnalyticsRoutes.integration.test.js",
       "tests/adminAssuranceOverview.test.js",
       "tests/adminFraudRoutes.test.js",
@@ -456,6 +457,7 @@
     ],
     "noDbFiles": [
       "browserSessionCap.test.js",
+      "adaptiveRateLimit.memorySafety.test.js",
       "browserSessionStepDown.test.js",
       "rateLimitHitTelemetry.test.js",
       "cartController.test.js",
