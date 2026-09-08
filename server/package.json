@@ -60,7 +60,9 @@
     "migrate:admin-security-v2": "node scripts/migrate_admin_security_v2.js",
     "avatar:cleanup": "node scripts/cleanup_avatar_media.js",
     "migrate:account-center-v2": "node scripts/migrate_account_center_v2.js",
-    "verify:account-center-queries": "node scripts/verify_account_center_queries.js"
+    "verify:account-center-queries": "node scripts/verify_account_center_queries.js",
+    "migrate:run": "node scripts/run_migrations.js",
+    "migrate:status": "node scripts/run_migrations.js --status"
   },
   "keywords": [],
   "author": "",
