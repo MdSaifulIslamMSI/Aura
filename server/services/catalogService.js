@@ -70,6 +70,26 @@ let baseProductFilterCache = {
     promise: null,
 };
 const productIdentifierCache = new Map();
+// Entries hold cloned product docs under several alias keys, so an unbounded
+// Map would grow toward a full in-memory copy of the catalog; expiry is also
+// only detected lazily on re-read, so cap + sweep here.
+const MAX_PRODUCT_IDENTIFIER_CACHE_ENTRIES = Number(process.env.CATALOG_IDENTIFIER_CACHE_MAX_KEYS || 5000);
+
+const sweepIdentifierCache = (now = Date.now()) => {
+    if (productIdentifierCache.size < MAX_PRODUCT_IDENTIFIER_CACHE_ENTRIES) return;
+    for (const [key, entry] of productIdentifierCache) {
+        if (!entry || Number(entry.expiresAt || 0) <= now) {
+            productIdentifierCache.delete(key);
+        }
+        if (productIdentifierCache.size < MAX_PRODUCT_IDENTIFIER_CACHE_ENTRIES) break;
+    }
+    // Still over cap (all unexpired): drop oldest inserts first (Map preserves order).
+    while (productIdentifierCache.size >= MAX_PRODUCT_IDENTIFIER_CACHE_ENTRIES) {
+        const oldest = productIdentifierCache.keys().next().value;
+        if (oldest === undefined) break;
+        productIdentifierCache.delete(oldest);
+    }
+};
 
 
 const getProviderSourceRef = (provider) => {
@@ -204,6 +224,7 @@ const cacheIdentifierValue = (identifier, value) => {
         keys.add(`id:${String(hydratedValue.id)}`);
     }
 
+    sweepIdentifierCache();
     keys.forEach((cacheKey) => {
         productIdentifierCache.set(cacheKey, {
             value: clonePlain(value),
