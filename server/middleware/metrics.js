@@ -186,10 +186,11 @@ const metricsMiddleware = (req, res, next) => {
 
     res.on('finish', () => {
         const durationSeconds = Number(process.hrtime.bigint() - start) / 1e9;
-        const routePath = typeof req.route?.path === 'string'
-            ? req.route.path
-            : req.path;
-        const route = normalizeRoute(routePath);
+        // Unmatched requests (404 probes, pre-routing aborts) carry no string
+        // route; a fixed label keeps scanner traffic from minting new series.
+        const route = typeof req.route?.path === 'string'
+            ? normalizeRoute(req.route.path)
+            : 'unmatched';
         const labels = {
             method: req.method,
             route,
