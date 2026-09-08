@@ -2,6 +2,25 @@ const { writeSecurityEvent } = require('../security/securityEventLogger');
 const { hashSecurityValue } = require('../security/redactSecurityMetadata');
 
 const buckets = new Map();
+// Bound the in-process bucket store: keys include per-client attributes, so an
+// unbounded Map here becomes a heap-exhaustion vector during bot storms.
+const MAX_BUCKETS = Number(process.env.SECURITY_ADAPTIVE_RATE_LIMIT_MAX_KEYS || 20000);
+
+const sweepBuckets = (now = Date.now()) => {
+    if (buckets.size < MAX_BUCKETS) return;
+    for (const [key, bucket] of buckets) {
+        if (!bucket || Number(bucket.resetAt || 0) <= now) {
+            buckets.delete(key);
+        }
+        if (buckets.size < MAX_BUCKETS) break;
+    }
+    // Still over cap (all unexpired): drop oldest inserts first (Map preserves order).
+    while (buckets.size >= MAX_BUCKETS) {
+        const oldest = buckets.keys().next().value;
+        if (oldest === undefined) break;
+        buckets.delete(oldest);
+    }
+};
 
 const defaultKeyGenerator = (req = {}, action = '') => {
     const parts = [
@@ -11,7 +30,9 @@ const defaultKeyGenerator = (req = {}, action = '') => {
         req.params?.id || req.body?.targetUserId || '',
         req.user?.tenantId || req.body?.tenantId || '',
         req.headers?.['x-device-fingerprint'] || '',
-        req.originalUrl || req.path || '',
+        // Query strings are excluded: cache-busting/rotating queries would mint a
+        // permanent bucket per unique URL.
+        (req.originalUrl || req.path || '').split('?')[0],
     ];
     return hashSecurityValue(parts.join('|'), 32);
 };
@@ -20,6 +41,7 @@ const getBucket = (key, windowMs) => {
     const now = Date.now();
     const current = buckets.get(key);
     if (!current || current.resetAt <= now) {
+        sweepBuckets(now);
         const next = { count: 0, resetAt: now + windowMs, severity: 'normal' };
         buckets.set(key, next);
         return next;
@@ -108,4 +130,5 @@ const adaptiveRateLimit = ({
 module.exports = {
     adaptiveRateLimit,
     __resetAdaptiveRateLimit: () => buckets.clear(),
+    __adaptiveRateLimitStats: () => ({ size: buckets.size, max: MAX_BUCKETS }),
 };

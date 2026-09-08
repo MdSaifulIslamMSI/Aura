@@ -951,7 +951,7 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
     const user = await ensureUserLean({
         email,
         authUser: req.user,
-        projection: '_id loyalty wishlist lifetimeSpent',
+        projection: '_id loyalty wishlist lifetimeSpent lifetimeSpentMinor',
     });
     if (!user) return next(new AppError('Unable to recover user profile', 500));
 
@@ -973,9 +973,13 @@ const getProfileDashboard = asyncHandler(async (req, res, next) => {
 
     const totalOrders = await Order.countDocuments({ user: user._id });
     // Gross lifetime spend maintained incrementally at order placement
-    // (User.lifetimeSpent); the legacy full-collection $sum aggregate this
-    // replaces scanned every order on every dashboard view.
-    const totalSpent = Number(user.lifetimeSpent || 0);
+    // (User.lifetimeSpentMinor); the legacy full-collection $sum aggregate this
+    // replaces scanned every order on every dashboard view. The minor-unit
+    // accumulator is authoritative; fall back to the legacy float major for
+    // users not yet covered by the backfill.
+    const totalSpent = Number.isFinite(user.lifetimeSpentMinor) && user.lifetimeSpentMinor > 0
+        ? user.lifetimeSpentMinor / 100
+        : Number(user.lifetimeSpent || 0);
 
     const listings = { active: 0, sold: 0, totalViews: 0 };
     listingStats.forEach((s) => {

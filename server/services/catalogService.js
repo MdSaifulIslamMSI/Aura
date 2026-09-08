@@ -70,6 +70,26 @@ let baseProductFilterCache = {
     promise: null,
 };
 const productIdentifierCache = new Map();
+// Entries hold cloned product docs under several alias keys, so an unbounded
+// Map would grow toward a full in-memory copy of the catalog; expiry is also
+// only detected lazily on re-read, so cap + sweep here.
+const MAX_PRODUCT_IDENTIFIER_CACHE_ENTRIES = Number(process.env.CATALOG_IDENTIFIER_CACHE_MAX_KEYS || 5000);
+
+const sweepIdentifierCache = (now = Date.now()) => {
+    if (productIdentifierCache.size < MAX_PRODUCT_IDENTIFIER_CACHE_ENTRIES) return;
+    for (const [key, entry] of productIdentifierCache) {
+        if (!entry || Number(entry.expiresAt || 0) <= now) {
+            productIdentifierCache.delete(key);
+        }
+        if (productIdentifierCache.size < MAX_PRODUCT_IDENTIFIER_CACHE_ENTRIES) break;
+    }
+    // Still over cap (all unexpired): drop oldest inserts first (Map preserves order).
+    while (productIdentifierCache.size >= MAX_PRODUCT_IDENTIFIER_CACHE_ENTRIES) {
+        const oldest = productIdentifierCache.keys().next().value;
+        if (oldest === undefined) break;
+        productIdentifierCache.delete(oldest);
+    }
+};
 
 
 const getProviderSourceRef = (provider) => {
@@ -204,6 +224,7 @@ const cacheIdentifierValue = (identifier, value) => {
         keys.add(`id:${String(hydratedValue.id)}`);
     }
 
+    sweepIdentifierCache();
     keys.forEach((cacheKey) => {
         productIdentifierCache.set(cacheKey, {
             value: clonePlain(value),
@@ -501,9 +522,17 @@ const findLatestDevOnlyCatalogVersion = async () => {
     return latestDemo?.catalogVersion || '';
 };
 
+// A failed probe is retried after this window instead of latching the process
+// into regex fallback forever once an Atlas outage ends.
+const ATLAS_SEARCH_PROBE_RETRY_MS = Number(process.env.CATALOG_SEARCH_PROBE_RETRY_MS || 5 * 60 * 1000);
+let atlasSearchUnsupportedAt = 0;
+
 const assertSearchAvailable = async () => {
-    if (atlasSearchSupported !== null) {
-        return atlasSearchSupported;
+    if (atlasSearchSupported === true) {
+        return true;
+    }
+    if (atlasSearchSupported === false && Date.now() - atlasSearchUnsupportedAt < ATLAS_SEARCH_PROBE_RETRY_MS) {
+        return false;
     }
 
     try {
@@ -519,6 +548,7 @@ const assertSearchAvailable = async () => {
         atlasSearchSupported = true;
     } catch (error) {
         atlasSearchSupported = false;
+        atlasSearchUnsupportedAt = Date.now();
         logger.warn('catalog.search.unavailable', { error: error.message });
     }
 

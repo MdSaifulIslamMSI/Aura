@@ -17,7 +17,9 @@ const ALERT_DEDUPE_MINUTES = Math.max(Number(process.env.ADMIN_ANALYTICS_ALERT_D
 let timer = null;
 
 const buildNotificationId = (key) =>
-    `adm_anm_${key}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // Deterministic within the dedupe window: racing replicas derive the same
+    // id, and the notificationId unique index decides the winner.
+    `adm_anm_${key}_${Math.floor(Date.now() / (ALERT_DEDUPE_MINUTES * 60 * 1000))}`;
 
 const upsertAnomalyNotification = async (anomaly) => {
     const dedupeAfter = new Date(Date.now() - (ALERT_DEDUPE_MINUTES * 60 * 1000));
@@ -33,31 +35,38 @@ const upsertAnomalyNotification = async (anomaly) => {
 
     const summary = `${anomaly.title} detected: current=${anomaly.currentCount}, expected=${anomaly.baselineExpected}, ratio=${anomaly.ratio}x`;
 
-    await AdminNotification.create({
-        notificationId: buildNotificationId(anomaly.key),
-        source: 'system',
-        actionKey: `analytics.anomaly.${anomaly.key}`,
-        title: `Analytics Alert: ${anomaly.title}`,
-        summary: summary.slice(0, 500),
-        severity: anomaly.severity === 'critical' ? 'critical' : 'warning',
-        method: 'SYSTEM',
-        path: '/api/admin/analytics/anomalies',
-        statusCode: 200,
-        durationMs: 0,
-        actorRole: 'system',
-        entityType: 'analytics',
-        entityId: anomaly.key,
-        highlights: [
-            `Current: ${anomaly.currentCount}`,
-            `Expected: ${anomaly.baselineExpected}`,
-            `Ratio: ${anomaly.ratio}x`,
-        ],
-        metadata: {
-            windowMinutes: anomaly.windowMinutes,
-            recommendation: anomaly.recommendation,
-        },
-        requestId: '',
-    });
+    try {
+        await AdminNotification.create({
+            notificationId: buildNotificationId(anomaly.key),
+            source: 'system',
+            actionKey: `analytics.anomaly.${anomaly.key}`,
+            title: `Analytics Alert: ${anomaly.title}`,
+            summary: summary.slice(0, 500),
+            severity: anomaly.severity === 'critical' ? 'critical' : 'warning',
+            method: 'SYSTEM',
+            path: '/api/admin/analytics/anomalies',
+            statusCode: 200,
+            durationMs: 0,
+            actorRole: 'system',
+            entityType: 'analytics',
+            entityId: anomaly.key,
+            highlights: [
+                `Current: ${anomaly.currentCount}`,
+                `Expected: ${anomaly.baselineExpected}`,
+                `Ratio: ${anomaly.ratio}x`,
+            ],
+            metadata: {
+                windowMinutes: anomaly.windowMinutes,
+                recommendation: anomaly.recommendation,
+            },
+            requestId: '',
+        });
+    } catch (error) {
+        if (error?.code === 11000) {
+            return { skipped: true, reason: 'duplicate_key' };
+        }
+        throw error;
+    }
 
     return { skipped: false };
 };
@@ -108,4 +117,7 @@ module.exports = {
     startAdminAnalyticsMonitor,
     stopAdminAnalyticsMonitor,
     runAdminAnalyticsMonitorCycle,
+    __testables: {
+        upsertAnomalyNotification,
+    },
 };

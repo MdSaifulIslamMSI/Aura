@@ -1,0 +1,41 @@
+name: Uptime Probe
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Every 30 minutes; the prober itself must stay cheap and regular
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AURA_UPTIME_BACKEND_URL: ${{ vars.AURA_UPTIME_BACKEND_URL || '' }}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe backend health endpoint
+        run: |
+          set -euo pipefail
+          # Configured via repo variable AURA_UPTIME_BACKEND_URL (the backend
+          # host identity is currently ephemeral, so it is not hardcoded here).
+          # Until it is set, this probe reports a no-op success instead of a
+          # false alert; scheduled-workflow failure emails are the alert path.
+          if [ -z "${AURA_UPTIME_BACKEND_URL}" ]; then
+            echo "::notice::AURA_UPTIME_BACKEND_URL is not configured; skipping probe"
+            exit 0
+          fi
+          probe() {
+            curl -fsS --max-time 15 --retry 2 --retry-delay 5 \
+              --connect-timeout 10 \
+              "${AURA_UPTIME_BACKEND_URL%/}/api/health/live" >/dev/null
+          }
+          if ! probe; then
+            echo "::error::Backend health probe failed for ${AURA_UPTIME_BACKEND_URL}"
+            exit 1
+          fi
+          echo "Backend healthy at ${AURA_UPTIME_BACKEND_URL}"

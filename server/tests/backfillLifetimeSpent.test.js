@@ -31,8 +31,8 @@ describe('backfill-lifetime-spent', () => {
 
     test('sets absolute lifetime spend per user from the order aggregate', async () => {
         Order.aggregate.mockResolvedValue([
-            { _id: 'user_a', total: 2500 },
-            { _id: 'user_b', total: 750 },
+            { _id: 'user_a', total: 2500, totalMinor: 250000 },
+            { _id: 'user_b', total: 750, totalMinor: 0 },
         ]);
         User.bulkWrite.mockResolvedValue({ matchedCount: 2, modifiedCount: 2 });
 
@@ -40,14 +40,20 @@ describe('backfill-lifetime-spent', () => {
 
         expect(mongoose.connect).toHaveBeenCalledWith('mongodb://localhost:27017/backfill-test');
         expect(Order.aggregate).toHaveBeenCalledWith([
-            { $group: { _id: '$user', total: { $sum: '$totalPrice' } } },
+            {
+                $group: {
+                    _id: '$user',
+                    total: { $sum: '$totalPrice' },
+                    totalMinor: { $sum: '$totalPriceMinor' },
+                },
+            },
         ]);
         expect(User.bulkWrite).toHaveBeenCalledWith(
             [
                 {
                     updateOne: {
                         filter: { _id: 'user_a' },
-                        update: { $set: { lifetimeSpent: 2500 } },
+                        update: { $set: { lifetimeSpent: 2500, lifetimeSpentMinor: 250000 } },
                     },
                 },
                 {
@@ -63,9 +69,9 @@ describe('backfill-lifetime-spent', () => {
 
     test('skips entries without a user or a finite total', async () => {
         Order.aggregate.mockResolvedValue([
-            { _id: null, total: 100 },
-            { _id: 'user_c', total: Number.NaN },
-            { _id: 'user_d', total: 300 },
+            { _id: null, total: 100, totalMinor: 10000 },
+            { _id: 'user_c', total: Number.NaN, totalMinor: 0 },
+            { _id: 'user_d', total: 300, totalMinor: 30000 },
         ]);
         User.bulkWrite.mockResolvedValue({ matchedCount: 1, modifiedCount: 1 });
 
@@ -77,7 +83,7 @@ describe('backfill-lifetime-spent', () => {
                 {
                     updateOne: {
                         filter: { _id: 'user_d' },
-                        update: { $set: { lifetimeSpent: 300 } },
+                        update: { $set: { lifetimeSpent: 300, lifetimeSpentMinor: 30000 } },
                     },
                 },
             ],

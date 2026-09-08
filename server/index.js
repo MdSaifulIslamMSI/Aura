@@ -472,9 +472,14 @@ app.use(['/api/auth', '/api/otp'], express.urlencoded({
     limit: AUTH_BODY_LIMIT,
     parameterLimit: 25,
 }));
+// Only webhook signature verification needs the exact request bytes; capturing
+// rawBody globally held every large JSON body twice (buffer + string).
+app.use(['/api/payments/webhooks', '/api/status/webhooks', '/api/email-webhooks'], express.json({
+    limit: JSON_BODY_LIMIT,
+    verify: captureRawBody,
+}));
 app.use(['/api/uploads', '/api/listings', '/api/ai'], express.json({
     limit: LARGE_JSON_BODY_LIMIT,
-    verify: captureRawBody,
 }));
 app.use(['/api/uploads', '/api/listings', '/api/ai'], express.urlencoded({
     extended: false,
@@ -483,7 +488,6 @@ app.use(['/api/uploads', '/api/listings', '/api/ai'], express.urlencoded({
 }));
 app.use(express.json({
     limit: JSON_BODY_LIMIT,
-    verify: captureRawBody,
 }));
 app.use(express.urlencoded({
     extended: false,
@@ -997,11 +1001,16 @@ assertProductionRedisConfig();
         process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
         process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-        process.on('unhandledRejection', (reason, promise) => {
-            logger.error('server.unhandled_rejection', { 
+        process.on('unhandledRejection', (reason) => {
+            // Node's default since v15 is to crash; keeping the process alive
+            // let a failed background worker keep serving with half-mutated
+            // state. Log, then exit and let the supervisor restart cleanly.
+            logger.error('server.unhandled_rejection', {
                 reason: reason instanceof Error ? reason.message : String(reason),
                 stack: reason instanceof Error ? reason.stack : undefined
             });
+            // Give the logger time to write before exiting
+            setTimeout(() => process.exit(1), 1000).unref();
         });
 
         process.on('uncaughtException', (error) => {

@@ -1,3 +1,8 @@
+jest.mock('nodemailer', () => ({
+    createTransport: jest.fn(() => ({ sendMail: jest.fn() })),
+}));
+
+const nodemailer = require('nodemailer');
 const GmailProvider = require('../services/email/providers/gmailProvider');
 
 describe('Gmail Provider Error Mapping', () => {
@@ -6,6 +11,20 @@ describe('Gmail Provider Error Mapping', () => {
         pass: 'app-password',
         fromName: 'Aura Marketplace',
         fromAddress: 'test@example.com',
+    });
+
+    test('builds the pooled transporter with explicit socket timeouts', () => {
+        new GmailProvider({
+            user: 'test@example.com',
+            pass: 'app-password',
+        });
+
+        expect(nodemailer.createTransport).toHaveBeenLastCalledWith(expect.objectContaining({
+            pool: true,
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 20000,
+        }));
     });
 
     test('maps auth error as non-retryable', () => {

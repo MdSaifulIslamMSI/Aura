@@ -4,6 +4,16 @@ set -euo pipefail
 dnf update -y
 dnf install -y docker jq awscli git tar gzip util-linux
 
+# Cap container json-file logs before docker starts: a chatty container on the
+# 20GB root volume would otherwise fill the disk (compose files also pin
+# per-service logging as a second guard).
+cat > /etc/docker/daemon.json <<'EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "5" }
+}
+EOF
+
 mkdir -p /usr/local/lib/docker/cli-plugins
 compose_arch="x86_64"
 if [[ "$(uname -m)" == "aarch64" ]]; then

@@ -1,7 +1,14 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   api:
     image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
     restart: unless-stopped
+    logging: *default-logging
     command: ["node", "scripts/start_api_runtime.js"]
     env_file:
       - /opt/aura/shared/base.env
@@ -49,6 +56,7 @@ services:
   edge:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       - api
     env_file:
@@ -64,6 +72,7 @@ services:
   worker:
     image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
     restart: unless-stopped
+    logging: *default-logging
     command: ["node", "scripts/start_worker_runtime.js"]
     env_file:
       - /opt/aura/shared/base.env
@@ -102,6 +111,7 @@ services:
     image: clamav/clamav:1.4
     profiles: ["malware-scan"]
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - aura-clamav-db:/var/lib/clamav
 
@@ -109,6 +119,7 @@ services:
     image: ollama/ollama:latest
     profiles: ["ollama"]
     restart: unless-stopped
+    logging: *default-logging
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-15m}
@@ -136,6 +147,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
     command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
     volumes:
       - aura-redis:/data

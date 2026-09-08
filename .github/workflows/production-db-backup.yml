@@ -1,0 +1,195 @@
+name: Production DB Backup
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # 21:13 UTC daily (02:43 IST) - low-traffic window
+    - cron: "13 21 * * *"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-db-backup
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
+  AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+  AURA_BACKUP_BUCKET: ${{ vars.AURA_BACKUP_BUCKET || '' }}
+  AURA_BACKUP_RETENTION_DAYS: ${{ vars.AURA_BACKUP_RETENTION_DAYS || '35' }}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Validate backup request
+        run: |
+          set -euo pipefail
+          test -n "${AWS_DEPLOY_ROLE_ARN}" || { echo "Missing secret AWS_DEPLOY_ROLE_ARN"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_KEY}" || { echo "Missing variable AWS_INSTANCE_TAG_KEY"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing variable AWS_INSTANCE_TAG_VALUE"; exit 1; }
+          test -n "${AURA_BACKUP_BUCKET}" || { echo "Missing variable AURA_BACKUP_BUCKET (S3 bucket for production Mongo archives)"; exit 1; }
+          case "${AURA_BACKUP_RETENTION_DAYS}" in
+            ''|*[!0-9]*) echo "AURA_BACKUP_RETENTION_DAYS must be a positive integer"; exit 1 ;;
+          esac
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-production-db-backup
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Ensure backup bucket versioning and retention
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { execSync } = require('child_process');
+          const bucket = process.env.AURA_BACKUP_BUCKET;
+          const retention = Number(process.env.AURA_BACKUP_RETENTION_DAYS || '35');
+
+          let versioning = 'None';
+          try {
+            versioning = execSync(
+              `aws s3api get-bucket-versioning --bucket "${bucket}" --query 'Status' --output text`,
+              { encoding: 'utf8' },
+            ).trim() || 'None';
+          } catch (error) {
+            versioning = 'None';
+          }
+          if (versioning !== 'Enabled') {
+            execSync(`aws s3api put-bucket-versioning --bucket "${bucket}" --versioning-configuration Status=Enabled`);
+            console.log('Bucket versioning enabled');
+          }
+
+          let rules = [];
+          try {
+            const raw = execSync(
+              `aws s3api get-bucket-lifecycle-configuration --bucket "${bucket}" --output json`,
+              { encoding: 'utf8' },
+            );
+            rules = JSON.parse(raw).Rules || [];
+          } catch (error) {
+            rules = [];
+          }
+          const ruleId = 'aura-prod-mongo-backup-retention';
+          const nextRules = rules.filter((rule) => rule.ID !== ruleId);
+          nextRules.push({
+            ID: ruleId,
+            Filter: { Prefix: 'production/mongo/' },
+            Status: 'Enabled',
+            Expiration: { Days: retention },
+            NoncurrentVersionExpiration: { NoncurrentDays: retention },
+          });
+          execSync(
+            `aws s3api put-bucket-lifecycle-configuration --bucket "${bucket}" --lifecycle-configuration '${JSON.stringify({ Rules: nextRules })}'`,
+          );
+          console.log(`Retention rule ensured: production/mongo/ expires after ${retention} days`);
+          NODE
+
+      - name: Resolve backend instance
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch backup through SSM
+        id: ssm
+        env:
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          export RUNNER_SCRIPT_B64
+          RUNNER_SCRIPT_B64="$(base64 -w 0 scripts/production/backup-production-mongo.sh)"
+
+          node <<'NODE' > "${RUNNER_TEMP}/ssm-commands.json"
+          const commands = [
+            'set -euo pipefail',
+            `printf '%s' '${process.env.RUNNER_SCRIPT_B64}' | base64 -d > /tmp/aura_prod_backup.sh`,
+            'chmod 700 /tmp/aura_prod_backup.sh',
+            `AURA_BACKUP_BUCKET="${process.env.AURA_BACKUP_BUCKET}" AWS_REGION="${process.env.AWS_REGION}" bash /tmp/aura_prod_backup.sh; status=$?; rm -f /tmp/aura_prod_backup.sh; exit $status`,
+          ];
+          console.log(JSON.stringify({ commands }, null, 2));
+          NODE
+
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura production Mongo backup" \
+            --parameters "file://${RUNNER_TEMP}/ssm-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+          echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for backup completion
+        env:
+          COMMAND_ID: ${{ steps.ssm.outputs.command_id }}
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 120); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for production backup command."
+          exit 1
+
+      - name: Verify backup object in S3
+        env:
+          COMMAND_ID: ${{ steps.ssm.outputs.command_id }}
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          STDOUT_JSON="$(aws ssm get-command-invocation \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${INSTANCE_ID}" \
+            --query "StandardOutputContent" \
+            --output text)"
+          BACKUP_S3_KEY="$(printf '%s\n' "$STDOUT_JSON" | grep '^BACKUP_S3_KEY=' | head -1 | cut -d= -f2-)"
+          test -n "${BACKUP_S3_KEY}" || { echo "Backup runner did not report BACKUP_S3_KEY"; exit 1; }
+          aws s3api head-object \
+            --bucket "${AURA_BACKUP_BUCKET}" \
+            --key "${BACKUP_S3_KEY}" \
+            --query '{Size:ContentLength,VersionId:VersionId,ETag:ETag}' \
+            --output json
+          echo "Verified s3://${AURA_BACKUP_BUCKET}/${BACKUP_S3_KEY}"

@@ -35,6 +35,13 @@ const httpRequestsTotal = new client.Counter({
     registers: [registry],
 });
 
+const rateLimitFallbackTotal = new client.Counter({
+    name: 'aura_rate_limit_fallback_total',
+    help: 'Requests enforced by the per-instance in-memory limiter because Redis was unavailable',
+    labelNames: ['limiter'],
+    registers: [registry],
+});
+
 const httpActiveRequests = new client.Gauge({
     name: 'aura_http_active_requests',
     help: 'Number of HTTP requests currently in flight',
@@ -186,10 +193,11 @@ const metricsMiddleware = (req, res, next) => {
 
     res.on('finish', () => {
         const durationSeconds = Number(process.hrtime.bigint() - start) / 1e9;
-        const routePath = typeof req.route?.path === 'string'
-            ? req.route.path
-            : req.path;
-        const route = normalizeRoute(routePath);
+        // Unmatched requests (404 probes, pre-routing aborts) carry no string
+        // route; a fixed label keeps scanner traffic from minting new series.
+        const route = typeof req.route?.path === 'string'
+            ? normalizeRoute(req.route.path)
+            : 'unmatched';
         const labels = {
             method: req.method,
             route,
@@ -285,6 +293,7 @@ module.exports = {
     recordCacheError,
     recordCacheHit,
     recordCacheMiss,
+    rateLimitFallbackTotal,
     registry,
     setStatusComponentMetric,
     setStatusIncidentsActive,
