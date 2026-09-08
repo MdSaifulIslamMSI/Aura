@@ -522,9 +522,17 @@ const findLatestDevOnlyCatalogVersion = async () => {
     return latestDemo?.catalogVersion || '';
 };
 
+// A failed probe is retried after this window instead of latching the process
+// into regex fallback forever once an Atlas outage ends.
+const ATLAS_SEARCH_PROBE_RETRY_MS = Number(process.env.CATALOG_SEARCH_PROBE_RETRY_MS || 5 * 60 * 1000);
+let atlasSearchUnsupportedAt = 0;
+
 const assertSearchAvailable = async () => {
-    if (atlasSearchSupported !== null) {
-        return atlasSearchSupported;
+    if (atlasSearchSupported === true) {
+        return true;
+    }
+    if (atlasSearchSupported === false && Date.now() - atlasSearchUnsupportedAt < ATLAS_SEARCH_PROBE_RETRY_MS) {
+        return false;
     }
 
     try {
@@ -540,6 +548,7 @@ const assertSearchAvailable = async () => {
         atlasSearchSupported = true;
     } catch (error) {
         atlasSearchSupported = false;
+        atlasSearchUnsupportedAt = Date.now();
         logger.warn('catalog.search.unavailable', { error: error.message });
     }
 
