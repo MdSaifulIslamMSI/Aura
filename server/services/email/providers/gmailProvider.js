@@ -26,6 +26,12 @@ class GmailProvider extends BaseEmailProvider {
             pool: true,
             maxConnections: 3,
             maxMessages: 100,
+            // nodemailer sockets have no default timeout; without these a wedged
+            // SMTP connection holds the claimed order-email queue slot until the
+            // stale-lock reaper runs.
+            connectionTimeout: 15000,
+            greetingTimeout: 15000,
+            socketTimeout: 20000,
             auth: {
                 user: this.user,
                 pass: this.pass,
