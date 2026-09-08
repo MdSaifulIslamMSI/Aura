@@ -22,7 +22,9 @@ const QUEUE_BACKLOG_THRESHOLD = Math.max(Number(process.env.EMAIL_OPS_QUEUE_BACK
 let timer = null;
 
 const buildNotificationId = (key) =>
-    `adm_eml_${key}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    // Deterministic within the dedupe window: racing replicas derive the same
+    // id, and the notificationId unique index decides the winner.
+    `adm_eml_${key}_${Math.floor(Date.now() / (ALERT_DEDUPE_MINUTES * 60 * 1000))}`;
 
 const upsertNotification = async ({ key, title, summary, severity, highlights = [], metadata = {} }) => {
     const dedupeAfter = new Date(Date.now() - (ALERT_DEDUPE_MINUTES * 60 * 1000));
@@ -35,24 +37,31 @@ const upsertNotification = async ({ key, title, summary, severity, highlights = 
 
     if (existing) return { skipped: true, reason: 'recent_duplicate' };
 
-    await AdminNotification.create({
-        notificationId: buildNotificationId(key),
-        source: 'system',
-        actionKey,
-        title,
-        summary: String(summary || '').slice(0, 500),
-        severity,
-        method: 'SYSTEM',
-        path: '/api/admin/email-ops/summary',
-        statusCode: 200,
-        durationMs: 0,
-        actorRole: 'system',
-        entityType: 'email',
-        entityId: key,
-        highlights: highlights.slice(0, 5),
-        metadata,
-        requestId: '',
-    });
+    try {
+        await AdminNotification.create({
+            notificationId: buildNotificationId(key),
+            source: 'system',
+            actionKey,
+            title,
+            summary: String(summary || '').slice(0, 500),
+            severity,
+            method: 'SYSTEM',
+            path: '/api/admin/email-ops/summary',
+            statusCode: 200,
+            durationMs: 0,
+            actorRole: 'system',
+            entityType: 'email',
+            entityId: key,
+            highlights: highlights.slice(0, 5),
+            metadata,
+            requestId: '',
+        });
+    } catch (error) {
+        if (error?.code === 11000) {
+            return { skipped: true, reason: 'duplicate_key' };
+        }
+        throw error;
+    }
 
     return { skipped: false };
 };
@@ -148,4 +157,7 @@ module.exports = {
     runEmailOpsMonitorCycle,
     startEmailOpsMonitor,
     stopEmailOpsMonitor,
+    __testables: {
+        upsertNotification,
+    },
 };

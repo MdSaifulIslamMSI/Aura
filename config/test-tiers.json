@@ -270,6 +270,7 @@
       "tests/adminAssuranceOverview.test.js",
       "tests/adminFraudRoutes.test.js",
       "tests/adminNotificationRoutes.integration.test.js",
+      "tests/adminMonitorAlertDedupe.test.js",
       "tests/adminPaymentRoutes.integration.test.js",
       "tests/adminProductRoutes.integration.test.js",
       "tests/adminUserControllerResilience.test.js",
