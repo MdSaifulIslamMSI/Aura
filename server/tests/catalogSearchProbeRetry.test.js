@@ -26,13 +26,19 @@ describe('catalog Atlas search probe recovery', () => {
         aggregate.mockResolvedValueOnce([]);
 
         await expect(service.assertSearchAvailable()).resolves.toBe(false);
-        await expect(service.assertSearchAvailable()).resolves.toBe(false);
         expect(aggregate).toHaveBeenCalledTimes(1);
 
-        await new Promise((resolve) => setTimeout(resolve, 25));
+        // The 10ms retry window may expire before the next await resumes under
+        // load, so poll until the scheduled recovery probe has run instead of
+        // asserting on the timing of a single immediate call.
+        const deadline = Date.now() + 2000;
+        while (aggregate.mock.calls.length < 2 && Date.now() < deadline) {
+            await service.assertSearchAvailable();
+            await new Promise((resolve) => setTimeout(resolve, 5));
+        }
 
-        await expect(service.assertSearchAvailable()).resolves.toBe(true);
         expect(aggregate).toHaveBeenCalledTimes(2);
+        await expect(service.assertSearchAvailable()).resolves.toBe(true);
     });
 
     test('successful probe stays latched for the process lifetime', async () => {
