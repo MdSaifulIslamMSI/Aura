@@ -1,3 +1,7 @@
+// Real DB round-trips per test (cleanups, ledger writes, lock transitions);
+// the 5s default is too tight on loaded CI runners.
+jest.setTimeout(30000);
+
 const SchemaMigration = require('../models/SchemaMigration');
 const SchemaMigrationLock = require('../models/SchemaMigrationLock');
 const { runMigrations, checksumOf } = require('../migrations/runner');

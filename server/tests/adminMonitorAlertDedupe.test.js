@@ -1,3 +1,7 @@
+// syncIndexes and the race assertions do real DB work; the 5s default hook
+// timeout is not enough on loaded CI runners.
+jest.setTimeout(30000);
+
 const AdminNotification = require('../models/AdminNotification');
 const {
     __testables: { upsertAnomalyNotification },
