@@ -39,8 +39,27 @@ Production restore is blocked unless all are true:
 npm --prefix server test -- --runTestsByPath tests/disasterRecoveryRunbook.test.js --forceExit
 ```
 
+## Production Backup Mechanism
+
+`.github/workflows/production-db-backup.yml` runs daily (21:13 UTC) and on
+manual dispatch. It resolves the backend instance by tag, dispatches
+`scripts/production/backup-production-mongo.sh` over SSM Run Command, and the
+script performs a hot logical `mongodump --archive --gzip --oplog` against the
+live database, uploads the archive plus SHA-256 checksums and a manifest to the
+`AURA_BACKUP_BUCKET` S3 bucket under `production/mongo/<UTC-timestamp>/`, and
+removes local artifacts. The workflow ensures bucket versioning and a merged
+lifecycle expiry rule (default 35 days, `AURA_BACKUP_RETENTION_DAYS`), and
+verifies the uploaded object before reporting success. Restore requires
+`mongorestore --oplogReplay` against a replica-set member; the backup is a hot
+snapshot, so application-level cross-collection consistency within the dump is
+not guaranteed the way an application-quiesced backup is.
+
 ## Remaining Work
 
-- Store signed managed-backup restore drill evidence per release.
-- Add managed-backup API checks once production backup provider ownership is finalized.
-- Add immutable backup retention monitoring.
+- Run the workflow once end to end and store the restore-drill evidence
+  (restore the uploaded archive into a disposable environment, verify
+  collection counts and digests).
+- Add immutable backup retention (S3 Object Lock in compliance mode) and
+  monitoring that the lifecycle rule stays active.
+- Add backup-failure paging beyond GitHub failure emails once a paging vendor
+  is chosen.

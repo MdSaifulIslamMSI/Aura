@@ -60,6 +60,10 @@ New tests (all triaged into `server.regression`): `paymentCaptureRace`,
    `totalPrice` (float) and `totalPriceMinor` (authoritative). Floats remain
    in read paths (e.g. `User.lifetimeSpent` increments float majors). A
    follow-up should route all reads through minor units and deprecate floats.
+   *Update 2026-09-08: `User.lifetimeSpentMinor` is now the authoritative
+   dashboard accumulator (incremented from `totalPriceMinor`, read paths
+   prefer it, backfill covers it); float majors on `Order`/`PaymentIntent`
+   documents remain pending full deprecation.*
 2. **Untyped `Mixed` blobs** (`priceBreakdown`, `riskSnapshot`,
    `routingInsights`, `metadata`, `assistantTurn`) — no schema validation or
    size caps. Cap or type the hot ones.
@@ -73,6 +77,9 @@ New tests (all triaged into `server.regression`): `paymentCaptureRace`,
    `schema_migrations` ledger, no `migrate:status`; CI never runs migrations
    (only staging deploy runs account-center). Consider a minimal runner with
    an applied-migrations collection.
+   *Update 2026-09-08: shipped — `SchemaMigration` ledger, singleton lock with
+   stale reclaim, `migrate:run` / `migrate:status` (`server/migrations/`). The
+   registry starts empty; the nine one-off scripts remain documented legacy.*
 6. **Retention gaps beyond telemetry.** No TTL/purge for `SecurityEvent`,
    `EmailDeliveryLog`, `AdminNotification`, `UserNotification`,
    `AssistantThreadMessage`, `ProductGovernanceLog`, `UserGovernanceLog`,
@@ -92,6 +99,11 @@ New tests (all triaged into `server.regression`): `paymentCaptureRace`,
    to S3 with a restore drill; the live EC2 Mongo deployment has no automated
    backup sidecar (DR doc admits RPO 24h "until managed backups are
    formalized").
+   *Update 2026-09-08: shipped — `production-db-backup.yml` schedules a daily
+   hot oplog-consistent mongodump to S3 with checksums, manifest, versioned
+   bucket and lifecycle expiry (`scripts/production/backup-production-mongo.sh`);
+   first successful run plus a documented restore drill are still pending
+   (see the DR runbook).*
 10. **Mongo version skew** — mongo:7 (dev compose), mongo:7.0.11 binary
     (tests), Mongo 6.0 (CI service), mongo:8.0 (split-runtime compose).
     Pin one version family across environments.
