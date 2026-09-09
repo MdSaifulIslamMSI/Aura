@@ -2,8 +2,10 @@
 # Production Mongo logical backup. Runs ON the backend EC2 host via SSM
 # (dispatched by .github/workflows/production-db-backup.yml) - mongodump is a
 # host-level tool and the database is not part of the api compose stack.
-# Hot, logical, oplog-consistent backup uploaded to S3 with checksums and a
-# manifest; restore requires `mongorestore --oplogReplay`.
+# Hot logical per-collection dump uploaded to S3 with checksums and a
+# manifest. No --oplog: the database is an Atlas shared-tier cluster, which
+# does not expose the oplog (mongodump --oplog exits 1 with no error output
+# there). Restore with `mongorestore --archive --gzip`.
 set -euo pipefail
 
 BACKUP_ID="$(date -u +%Y%m%d-%H%M%S)"
@@ -33,11 +35,11 @@ if ! command -v mongodump >/dev/null 2>&1; then
   sudo dnf install -y "$tools_rpm" >/dev/null
 fi
 
-mongodump --uri "$MONGO_URI" --archive --gzip --oplog --quiet > "$WORK_DIR/mongo.archive.gz"
+mongodump --uri "$MONGO_URI" --archive --gzip --quiet > "$WORK_DIR/mongo.archive.gz"
 test -s "$WORK_DIR/mongo.archive.gz"
 
 (cd "$WORK_DIR" && sha256sum mongo.archive.gz > checksums.sha256)
-printf '{"formatVersion":1,"createdAt":"%s","environment":"production","consistencyMode":"hot-logical-oplog","restoreRequires":"mongorestore --oplogReplay","upload":"ec2-direct-s3"}\n' \
+printf '{"formatVersion":1,"createdAt":"%s","environment":"production","consistencyMode":"hot-logical-per-collection","restoreRequires":"mongorestore --archive --gzip","upload":"ec2-direct-s3"}\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WORK_DIR/manifest.json"
 
 aws s3 cp "$WORK_DIR/mongo.archive.gz" "s3://${AURA_BACKUP_BUCKET}/production/mongo/${BACKUP_ID}/mongo.archive.gz" \
