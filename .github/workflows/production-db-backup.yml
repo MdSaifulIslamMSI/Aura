@@ -1,7 +1,12 @@
 name: Production DB Backup
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      run_drill:
+        description: "Run the isolated restore drill after a successful backup"
+        type: boolean
+        default: false
   schedule:
     # 21:13 UTC daily (02:43 IST) - low-traffic window
     - cron: "13 21 * * *"
@@ -100,6 +105,21 @@ jobs:
             `aws s3api put-bucket-lifecycle-configuration --bucket "${bucket}" --lifecycle-configuration '${JSON.stringify({ Rules: nextRules })}'`,
           );
           console.log(`Retention rule ensured: production/mongo/ expires after ${retention} days`);
+
+          // Best-effort bucket hardening: object uploads are already SSE-S3
+          // per object (--sse aws), so a denied hardening call is logged and
+          // skipped rather than failing the run when the deploy role lacks
+          // the IAM grant.
+          const harden = (label, command) => {
+            try {
+              execSync(command, { stdio: 'pipe' });
+              console.log(`Bucket hardening ok: ${label}`);
+            } catch (error) {
+              console.log(`Bucket hardening skipped (${label}): ${String(error.message).split('\n')[0]}`);
+            }
+          };
+          harden('public access block', `aws s3api put-public-access-block --bucket "${bucket}" --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true`);
+          harden('default encryption', `aws s3api put-bucket-encryption --bucket "${bucket}" --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"},"BucketKeyEnabled":true}]}'`);
           NODE
 
       - name: Resolve backend instance
@@ -267,3 +287,181 @@ jobs:
               process.exit(1);
             }
           " "${AGE_HOURS}"
+
+  ssm-preflight:
+    # Dispatch-only health probe of the SSM execution channel. The opaque
+    # SSM failure "failed to run commands: exit status 1" hides whether the
+    # agent, disk, or docker is the problem; this surfaces it directly.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-prod-ssm-preflight
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Resolve backend instance
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Probe SSM channel, disk, docker
+        env:
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura SSM preflight" \
+            --timeout 120 \
+            --parameters 'commands=["set -euo pipefail","echo SSM_CHANNEL_OK","uname -r","df -h / /opt /tmp","docker version --format \"docker server: {{.Server.Version}}\"","docker ps --format \"{{.Names}}\" | head -10","free -m | head -2"]' \
+            --query "Command.CommandId" \
+            --output text)"
+          for _ in $(seq 1 24); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          echo "Timed out waiting for SSM preflight."
+          exit 1
+
+  restore-drill:
+    # Dispatch-gated drill (run_drill=true): verifies the newest backup is
+    # restorable in an isolated container on the prod host. Never touches
+    # live data. Requires a successful backup in the same run.
+    runs-on: ubuntu-latest
+    needs: backup
+    if: github.event_name == 'workflow_dispatch' && inputs.run_drill == true && needs.backup.result == 'success'
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-prod-restore-drill
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Resolve backend instance
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve newest backup object
+        id: resolve_backup
+        run: |
+          set -euo pipefail
+          RESTORE_S3_KEY="$(aws s3api list-objects-v2 \
+            --bucket "${AURA_BACKUP_BUCKET}" \
+            --prefix "production/mongo/" \
+            --query 'sort_by(Contents[?ends_with(Key, `/mongo.archive.gz`)], &LastModified)[-1].Key' \
+            --output text)"
+          test -n "${RESTORE_S3_KEY}" && test "${RESTORE_S3_KEY}" != "None" || { echo "No backup object to drill against"; exit 1; }
+          echo "restore_s3_key=${RESTORE_S3_KEY}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch restore drill through SSM
+        env:
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+          RESTORE_S3_KEY: ${{ steps.resolve_backup.outputs.restore_s3_key }}
+        run: |
+          set -euo pipefail
+          export RUNNER_SCRIPT_B64
+          RUNNER_SCRIPT_B64="$(base64 -w 0 scripts/production/restore-production-mongo.sh)"
+
+          node <<'NODE' > "${RUNNER_TEMP}/drill-commands.json"
+          const commands = [
+            'set -euo pipefail',
+            `printf '%s' '${process.env.RUNNER_SCRIPT_B64}' | base64 -d > /tmp/aura_prod_restore_drill.sh`,
+            'chmod 700 /tmp/aura_prod_restore_drill.sh',
+            `RESTORE_DRILL=true AURA_BACKUP_BUCKET="${process.env.AURA_BACKUP_BUCKET}" AWS_REGION="${process.env.AWS_REGION}" RESTORE_S3_KEY="${process.env.RESTORE_S3_KEY}" bash /tmp/aura_prod_restore_drill.sh; status=$?; rm -f /tmp/aura_prod_restore_drill.sh; exit $status`,
+          ];
+          console.log(JSON.stringify({ commands }, null, 2));
+          NODE
+
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura production restore drill" \
+            --timeout 3000 \
+            --parameters "file://${RUNNER_TEMP}/drill-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+
+          for _ in $(seq 1 180); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json | tee "${RUNNER_TEMP}/drill-result.json"
+                grep -Fq 'RESTORE_DRILL_PASS' "${RUNNER_TEMP}/drill-result.json"
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for restore drill."
+          exit 1
