@@ -42,11 +42,11 @@ test -s "$WORK_DIR/mongo.archive.gz"
 printf '{"formatVersion":1,"createdAt":"%s","environment":"production","consistencyMode":"hot-logical-per-collection","restoreRequires":"mongorestore --archive --gzip","upload":"ec2-direct-s3"}\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WORK_DIR/manifest.json"
 
-# --sse aws: S3-managed encryption (SSE-S3) so archives are never at rest
+# --sse AES256: S3-managed encryption (SSE-S3) so archives are never at rest
 # unencrypted even if bucket default encryption is misconfigured.
 aws s3 cp "$WORK_DIR/mongo.archive.gz" "s3://${AURA_BACKUP_BUCKET}/production/mongo/${BACKUP_ID}/mongo.archive.gz" \
-  --region "$AWS_REGION" --sse aws --metadata "environment=production,backup-id=${BACKUP_ID}" --only-show-errors
-aws s3 cp "$WORK_DIR/checksums.sha256" "s3://${AURA_BACKUP_BUCKET}/production/mongo/${BACKUP_ID}/checksums.sha256" --sse aws --only-show-errors
-aws s3 cp "$WORK_DIR/manifest.json" "s3://${AURA_BACKUP_BUCKET}/production/mongo/${BACKUP_ID}/manifest.json" --sse aws --only-show-errors
+  --region "$AWS_REGION" --sse AES256 --metadata "environment=production,backup-id=${BACKUP_ID}" --only-show-errors
+aws s3 cp "$WORK_DIR/checksums.sha256" "s3://${AURA_BACKUP_BUCKET}/production/mongo/${BACKUP_ID}/checksums.sha256" --sse AES256 --only-show-errors
+aws s3 cp "$WORK_DIR/manifest.json" "s3://${AURA_BACKUP_BUCKET}/production/mongo/${BACKUP_ID}/manifest.json" --sse AES256 --only-show-errors
 
 echo "BACKUP_S3_KEY=production/mongo/${BACKUP_ID}/mongo.archive.gz"
