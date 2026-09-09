@@ -3,6 +3,15 @@ const PaymentIntent = require('../models/PaymentIntent');
 const PaymentEvent = require('../models/PaymentEvent');
 const { PAYMENT_STATUSES } = require('../services/payments/constants');
 
+// The concurrent-delivery assertions race two webhook inserts against the
+// eventId unique index; sync it before the suite and give hooks headroom on
+// loaded CI runners.
+beforeAll(async () => {
+    await PaymentEvent.syncIndexes();
+}, 30000);
+
+jest.setTimeout(30000);
+
 const mockVerifyWebhookSignature = jest.fn();
 const mockParseWebhook = jest.fn();
 
