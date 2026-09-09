@@ -42,6 +42,12 @@ describe('critical index integrity sync', () => {
 
 describe('migration registry', () => {
     test('applies the coupon backstop and TTL indexes once, then skips on rerun', async () => {
+        // Regression (caught in CI): shared test databases already carry a
+        // plain {createdAt: 1} index built by mongoose autoIndex; the TTL
+        // migration must replace it instead of colliding with it.
+        await mongoose.connection.collection('paymentevents')
+            .createIndex({ createdAt: 1 }, { name: 'createdAt_1' });
+
         const firstRun = await runMigrations({ registry });
         expect(firstRun.ok).toBe(true);
         expect(firstRun.applied).toHaveLength(registry.length);
@@ -55,6 +61,7 @@ describe('migration registry', () => {
         const paymentTtl = paymentIndexes.find((index) => index.name === 'ttl_createdAt_365d');
         expect(paymentTtl).toBeTruthy();
         expect(paymentTtl.expireAfterSeconds).toBe(365 * 24 * 60 * 60);
+        expect(paymentIndexes.find((index) => index.name === 'createdAt_1')).toBeUndefined();
 
         const emailIndexes = await collectionIndexes('emaildeliverylogs');
         const emailTtl = emailIndexes.find((index) => index.name === 'ttl_createdAt_90d');
