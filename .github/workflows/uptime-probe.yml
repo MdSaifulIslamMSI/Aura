@@ -23,11 +23,12 @@ jobs:
           set -euo pipefail
           # Configured via repo variable AURA_UPTIME_BACKEND_URL (the backend
           # host identity is currently ephemeral, so it is not hardcoded here).
-          # Until it is set, this probe reports a no-op success instead of a
-          # false alert; scheduled-workflow failure emails are the alert path.
+          # An unconfigured probe is itself a P0 reliability gap: fail loudly
+          # so the scheduled-workflow failure email keeps flagging it until
+          # the variable is set (see docs/backup-activation-checklist.md).
           if [ -z "${AURA_UPTIME_BACKEND_URL}" ]; then
-            echo "::notice::AURA_UPTIME_BACKEND_URL is not configured; skipping probe"
-            exit 0
+            echo "::error::AURA_UPTIME_BACKEND_URL is not configured; production liveness is unmonitored. Set it via: gh variable set AURA_UPTIME_BACKEND_URL --body https://<prod-origin>"
+            exit 1
           fi
           probe() {
             curl -fsS --max-time 15 --retry 2 --retry-delay 5 \
