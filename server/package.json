@@ -62,7 +62,8 @@
     "migrate:account-center-v2": "node scripts/migrate_account_center_v2.js",
     "verify:account-center-queries": "node scripts/verify_account_center_queries.js",
     "migrate:run": "node scripts/run_migrations.js",
-    "migrate:status": "node scripts/run_migrations.js --status"
+    "migrate:status": "node scripts/run_migrations.js --status",
+    "db:doctor": "node scripts/db_doctor.js"
   },
   "keywords": [],
   "author": "",
