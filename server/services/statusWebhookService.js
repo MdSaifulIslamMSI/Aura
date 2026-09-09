@@ -66,7 +66,9 @@ const assertWebhookSignature = ({ source, req, rawBody = '' }) => {
     const authorization = String(req.get('authorization') || '').trim();
     const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || '';
     const configuredBearer = getWebhookBearerToken();
-    if (source === 'github_actions' && configuredBearer && safeEqual(bearer, configuredBearer)) {
+    // Alertmanager cannot compute the HMAC scheme; like github_actions it
+    // authenticates with the shared bearer token configured on the caller.
+    if ((source === 'github_actions' || source === 'alertmanager') && configuredBearer && safeEqual(bearer, configuredBearer)) {
         return;
     }
 
@@ -97,31 +99,49 @@ const resolveEventId = ({ source, payload = {}, req }) => String(
     || req.get('x-idempotency-key')
     || payload.idempotencyKey
     || payload.eventId
+    // Alertmanager group fingerprint is stable across re-notifications.
+    || payload.groupKey?.split(':')?.[0]
+    || payload.fingerprint
     || payload.heartbeat?.id
     || payload.monitor?.id
     || payload.workflow_run?.id
     || `${source}:${payload.workflow || payload.alertname || payload.name || payload.monitorName || Date.now()}`
 ).trim();
 
+const markDuplicateWebhookEvent = async (existing) => {
+    existing.hitCount = Number(existing.hitCount || 0) + 1;
+    existing.lastSeenAt = new Date();
+    existing.state = 'duplicate';
+    await existing.save();
+    return existing;
+};
+
 const recordWebhookEvent = async ({ source, eventId, rawBody, req, payloadSummary = {} }) => {
     const idempotencyKey = `${source}:${eventId}`;
     const bodyHash = hashPayload(rawBody);
     const existing = await StatusWebhookEvent.findOne({ idempotencyKey });
     if (existing) {
-        existing.hitCount = Number(existing.hitCount || 0) + 1;
-        existing.lastSeenAt = new Date();
-        existing.state = 'duplicate';
-        await existing.save();
-        return { duplicate: true, event: existing };
+        return { duplicate: true, event: await markDuplicateWebhookEvent(existing) };
     }
-    const event = await StatusWebhookEvent.create({
-        source,
-        eventId,
-        idempotencyKey,
-        bodyHash,
-        requestIp: getTrustedRequestIp(req),
-        payloadSummary,
-    });
+    let event;
+    try {
+        event = await StatusWebhookEvent.create({
+            source,
+            eventId,
+            idempotencyKey,
+            bodyHash,
+            requestIp: getTrustedRequestIp(req),
+            payloadSummary,
+        });
+    } catch (error) {
+        // A concurrent delivery won the idempotencyKey unique-index race
+        // between findOne and create; treat the loser as a duplicate instead
+        // of surfacing E11000 as a 500 to the provider.
+        if (error?.code !== 11000) throw error;
+        const winner = await StatusWebhookEvent.findOne({ idempotencyKey });
+        if (!winner) throw error;
+        return { duplicate: true, event: await markDuplicateWebhookEvent(winner) };
+    }
     return { duplicate: false, event };
 };
 
@@ -145,6 +165,9 @@ const resolveMonitorSlug = (payload = {}) => normalizeSlug(
     payload.component
     || payload.componentSlug
     || payload.monitorSlug
+    // Alertmanager rules route to a component via the `component` label.
+    || payload.commonLabels?.component
+    || payload.alerts?.[0]?.labels?.component
     || payload.monitor?.slug
     || payload.monitor?.name
     || payload.heartbeat?.name

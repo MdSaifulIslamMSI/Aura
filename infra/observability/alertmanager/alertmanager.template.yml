@@ -1,0 +1,32 @@
+# Alertmanager config template. The compose entrypoint renders this with sed
+# (__PLACEHOLDERS__) because the prom/alertmanager image has no envsubst.
+#
+# Required env at `docker compose up` time (host env or env_file):
+#   ALERTMANAGER_STATUS_WEBHOOK_TOKEN - bearer token the Aura API expects in
+#     STATUS_WEBHOOK_TOKEN (statusWebhookService.getWebhookBearerToken).
+route:
+  receiver: aura-status-webhook
+  group_by: [alertname, component]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: aura-status-webhook
+    webhook_configs:
+      - url: '__AURA_STATUS_WEBHOOK_URL__'
+        # Authenticated by the Aura API's alertmanager bearer-token path.
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: '__ALERTMANAGER_STATUS_WEBHOOK_TOKEN__'
+        send_resolved: true
+        max_alerts: 0
+
+inhibit_rules:
+  # A critical page suppresses the same alert firing at warning level.
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal: [alertname, component]

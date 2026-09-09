@@ -104,6 +104,12 @@ New tests (all triaged into `server.regression`): `paymentCaptureRace`,
    bucket and lifecycle expiry (`scripts/production/backup-production-mongo.sh`);
    first successful run plus a documented restore drill are still pending
    (see the DR runbook).*
+   *Update 2026-09-09: hot dump corrected to no-oplog for the shared tier;
+   uploads are SSE-S3 encrypted; a freshness job alerts when the newest
+   archive is >26h old; `scripts/production/restore-production-mongo.sh`
+   adds a guarded live restore plus an isolated-container drill mode.
+   Activation (bucket + repo variables + first run/drill) is documented in
+   `docs/backup-activation-checklist.md` and still pending.*
 10. **Mongo version skew** — mongo:7 (dev compose), mongo:7.0.11 binary
     (tests), Mongo 6.0 (CI service), mongo:8.0 (split-runtime compose).
     Pin one version family across environments.
@@ -116,6 +122,25 @@ New tests (all triaged into `server.regression`): `paymentCaptureRace`,
 12. **`OtpSession` dual-unique smell and dead legacy OTP fields on `User`**
     (`otp`, `otpExpiry`, …) — leftover from the pre-OtpSession design; a
     cleanup migration could `$unset` them.
+13. **Non-transactional (shared-tier) checkout has a crash window around
+    stock.** The fallback path decrements stock before the order save, so a
+    process crash between the two writes loses stock with no order to show
+    for it (the commerce reconciliation worker does not cover stock
+    compensation). *Update 2026-09-09: the adjacent correctness bug is fixed —
+    a lost coupon race in the fallback path now compensates (order removed,
+    stock restored) and fails the placement with 409 instead of granting the
+    discount without a redemption row. The crash window itself remains open
+    by design; fixing it properly needs either transaction support or an
+    outbox-style saga.*
+14. **Hot-path keyword search cannot use indexes.**
+    `catalogService` builds unanchored `$regex` `$or` filters over
+    `title/brand/category`; `Product` has no text index and prefix indexes do
+    not apply, so every search is a collection scan. With the default
+    `maxPoolSize` of 10, a few concurrent searches can starve the pool and
+    stall checkout. Proof:
+    `db.products.find({$or:[{title:{$regex:"galaxy",$options:"i"}},...]}).explain("executionStats")`
+    → `totalDocsExamined ≈ collection size`. Fix candidate (behavior-affecting,
+    not done here): a text index plus a `$text` search path behind a flag.
 
 ## 4. Operating notes for this batch
 

@@ -265,6 +265,8 @@
     ],
     "regression": [
       "tests/access-control.idor.security.test.js",
+      "tests/indexIntegrityMigrations.test.js",
+      "tests/statusWebhookDuplicateDelivery.test.js",
       "tests/adaptiveRateLimit.memorySafety.test.js",
       "tests/adminAnalyticsRoutes.integration.test.js",
       "tests/adminAssuranceOverview.test.js",
@@ -459,6 +461,8 @@
       "tests/trafficResponseSmoothness.test.js"
     ],
     "noDbFiles": [
+      "httpServerTimeouts.test.js",
+      "runtimeRoles.test.js",
       "browserSessionCap.test.js",
       "adaptiveRateLimit.memorySafety.test.js",
       "catalogSearchProbeRetry.test.js",

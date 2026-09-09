@@ -113,8 +113,13 @@ const scanners = [
   {
     name: 'osv-scanner',
     binary: 'osv-scanner',
-    binaryArgs: ['-r', '.'],
-    dockerArgs: ['run', '--rm', '-v', dockerMount, dockerImage(scannerImages.osv), '-r', '/src'],
+    // Scan the prepared manifest-only source like trivy does. Mounting the
+    // raw repo root pulls every node_modules lockfile into the table: the
+    // output blows past spawnSync's 1MB buffer (empty report files, exit 1)
+    // and flags installed-tree noise that npm audit already covers. The
+    // filtered source keeps all git-tracked manifests/lockfiles.
+    binaryArgs: ['-r', scannerSource],
+    dockerArgs: ['run', '--rm', '-v', scannerSourceMount, dockerImage(scannerImages.osv), '-r', '/scan'],
   },
   {
     name: 'trivy',

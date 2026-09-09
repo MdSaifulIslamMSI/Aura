@@ -18,10 +18,33 @@ services:
     volumes:
       - ./infra/observability/prometheus/prometheus.ec2.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/observability/prometheus/alerts:/etc/prometheus/alerts:ro
+      - ./infra/observability/alertmanager/traffic-fortress-rules.yml:/etc/prometheus/alerts/traffic-fortress-rules.yml:ro
       - /opt/aura/shared/metrics-secret:/run/secrets/aura_metrics_secret:ro
       - aura-prometheus-data:/prometheus
     depends_on:
       - api
+      - alertmanager
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    restart: unless-stopped
+    logging: *default-logging
+    # The image ships no envsubst; render the token/URL placeholders with sed.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sed -e "s|__AURA_STATUS_WEBHOOK_URL__|${AURA_STATUS_WEBHOOK_URL:-http://api:5000/api/status/webhooks/alertmanager}|g" \
+            -e "s|__ALERTMANAGER_STATUS_WEBHOOK_TOKEN__|${ALERTMANAGER_STATUS_WEBHOOK_TOKEN:?ALERTMANAGER_STATUS_WEBHOOK_TOKEN is required (must match the API's STATUS_WEBHOOK_TOKEN)}|g" \
+            /etc/alertmanager/alertmanager.template.yml > /etc/alertmanager/alertmanager.yml
+        exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    environment:
+      AURA_STATUS_WEBHOOK_URL: ${AURA_STATUS_WEBHOOK_URL:-http://api:5000/api/status/webhooks/alertmanager}
+      ALERTMANAGER_STATUS_WEBHOOK_TOKEN: ${ALERTMANAGER_STATUS_WEBHOOK_TOKEN:-${STATUS_WEBHOOK_TOKEN:-}}
+    volumes:
+      - ./infra/observability/alertmanager/alertmanager.template.yml:/etc/alertmanager/alertmanager.template.yml:ro
+      - aura-alertmanager-data:/alertmanager
 
   grafana:
     image: grafana/grafana-oss:11.4.0
@@ -44,3 +67,4 @@ services:
 volumes:
   aura-prometheus-data:
   aura-grafana-data:
+  aura-alertmanager-data:

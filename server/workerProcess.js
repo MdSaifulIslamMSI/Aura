@@ -40,6 +40,7 @@ const { assertProductionEmailConfig } = require('./config/emailFlags');
 const { assertProductionOtpSmsConfig } = require('./config/otpSmsFlags');
 const {
     startPaymentOutboxWorker,
+    stopPaymentOutboxWorker,
 } = require('./services/payments/paymentService');
 const {
     startOrderEmailWorker,
@@ -47,8 +48,8 @@ const {
 const {
     startCommerceReconciliationWorker,
 } = require('./services/commerceReconciliationService');
-const { startAdminAnalyticsMonitor } = require('./services/adminAnalyticsMonitorService');
-const { startEmailOpsMonitor } = require('./services/email/emailOpsMonitorService');
+const { startAdminAnalyticsMonitor, stopAdminAnalyticsMonitor } = require('./services/adminAnalyticsMonitorService');
+const { startEmailOpsMonitor, stopEmailOpsMonitor } = require('./services/email/emailOpsMonitorService');
 const { startStatusMonitorWorker } = require('./services/statusService');
 const {
     startCatalogWorkers,
@@ -57,6 +58,7 @@ const {
 } = require('./services/catalogService');
 const { IntelligenceTaskMonitor } = require('./services/marketingIntelligenceService');
 const { startOtpSignupMaintenanceWorker } = require('./services/otpSignupMaintenanceService');
+const { syncCriticalIndexes } = require('./services/indexIntegrityService');
 
 const NODE_ENV = process.env.NODE_ENV || 'production';
 const HEALTH_PORT = Number(process.env.WORKER_HEALTH_PORT || process.env.PORT || 8080);
@@ -126,6 +128,12 @@ const startup = async () => {
     logger.info('worker_process.redis_ready');
 
     await ensureSystemState({ syncIndexes: true });
+    const indexSync = await syncCriticalIndexes();
+    if (indexSync.failures.length) {
+        // Fail closed: the worker stays not-ready so the API's split-runtime
+        // probe reports the gap instead of running without integrity indexes.
+        workerRuntimeState.startupError = `index_integrity_failed: ${indexSync.failures.map((f) => f.model).join(',')}`;
+    }
     await enforceCatalogStartupCheck();
 
     // Start all background workers
@@ -154,9 +162,39 @@ startup().catch((error) => {
     process.exit(1);
 });
 
-// Graceful shutdown
+// Fail-fast mirrors index.js: Node's default since v15 crashes on unhandled
+// rejections anyway, but logging first keeps the crash diagnosable in the
+// worker's isolated logs. Exit lets the supervisor restart cleanly.
+process.on('unhandledRejection', (reason) => {
+    logger.error('worker_process.unhandled_rejection', {
+        reason: reason instanceof Error ? reason.message : String(reason),
+        stack: reason instanceof Error ? reason.stack : undefined,
+    });
+    setTimeout(() => process.exit(1), 1000).unref();
+});
+
+process.on('uncaughtException', (error) => {
+    logger.error('worker_process.uncaught_exception', {
+        message: error.message,
+        stack: error.stack,
+    });
+    setTimeout(() => process.exit(1), 1000).unref();
+});
+
+// Graceful shutdown — quiesce poll workers before draining the health server.
 const shutdown = (signal) => {
     logger.info('worker_process.shutdown', { signal });
+    for (const [name, stop] of [
+        ['payment_outbox', stopPaymentOutboxWorker],
+        ['admin_analytics_monitor', stopAdminAnalyticsMonitor],
+        ['email_ops_monitor', stopEmailOpsMonitor],
+    ]) {
+        try {
+            stop();
+        } catch (error) {
+            logger.warn('worker_process.worker_stop_failed', { worker: name, error: error.message });
+        }
+    }
     healthServer.close(() => {
         process.exit(0);
     });

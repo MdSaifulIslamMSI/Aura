@@ -287,14 +287,30 @@ const executeOrderCreation = async ({
                         409
                     );
                 }
-                logger.warn('coupon.redemption_record_duplicate', {
+                // Non-transactional fallback: the discounted order was already
+                // saved. Granting the discount without a redemption row would
+                // let the coupon be reused, so compensate — remove the order
+                // and restore stock — then fail the placement like the
+                // transactional path does.
+                logger.warn('coupon.redemption_record_duplicate_fallback_abort', {
                     requestId,
                     userId: String(userId),
                     couponCode,
+                    orderId: String(createdOrder._id),
                 });
-            } else {
-                throw redemptionError;
+                await Order.deleteOne({ _id: createdOrder._id });
+                for (const item of quote.resolvedItems) {
+                    await Product.updateOne(
+                        { id: item.productId },
+                        { $inc: { stock: item.quantity } }
+                    );
+                }
+                throw new AppError(
+                    `Coupon ${couponCode} has already been used on a previous order`,
+                    409
+                );
             }
+            throw redemptionError;
         }
     }
 
