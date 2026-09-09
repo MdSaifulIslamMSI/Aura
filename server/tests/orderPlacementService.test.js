@@ -122,6 +122,7 @@ const loadPlaceOrderService = ({
             return { ...this };
         }
     }
+    FakeOrder.deleteOne = jest.fn(async () => ({ deletedCount: 1 }));
 
     const productUpdateOne = jest.fn(() => {
         const result = Promise.resolve({ modifiedCount: 1 });
@@ -130,13 +131,20 @@ const loadPlaceOrderService = ({
     });
     const userUpdateOne = jest.fn(async () => ({ modifiedCount: 1 }));
 
+    const couponRedemptionFindOne = jest.fn(() => {
+        const result = Promise.resolve(null);
+        result.session = jest.fn(() => result);
+        return result;
+    });
+    const couponRedemptionCreate = jest.fn(async () => [{}]);
+
     jest.doMock('mongoose', () => ({ startSession }));
     jest.doMock('../models/Order', () => FakeOrder);
     jest.doMock('../models/Product', () => ({ updateOne: productUpdateOne }));
     jest.doMock('../models/User', () => ({ updateOne: userUpdateOne }));
     jest.doMock('../models/CouponRedemption', () => ({
-        findOne: jest.fn(async () => null),
-        create: jest.fn(async () => [{}]),
+        findOne: couponRedemptionFindOne,
+        create: couponRedemptionCreate,
     }));
     jest.doMock('../utils/logger', () => logger);
     jest.doMock('../services/orderPricingService', () => ({
@@ -198,6 +206,9 @@ const loadPlaceOrderService = ({
         endSession,
         productUpdateOne,
         userUpdateOne,
+        couponRedemptionFindOne,
+        couponRedemptionCreate,
+        orderDeleteOne: FakeOrder.deleteOne,
     };
 };
 
@@ -400,6 +411,113 @@ describe('orderPlacementService hardening', () => {
             { _id: 'user_spend' },
             { $inc: { lifetimeSpent: 1200, lifetimeSpentMinor: 120000 } },
             expect.anything()
+        );
+    });
+
+    test('compensates the fallback placement when the coupon race loses the unique-index race', async () => {
+        const {
+            placeOrderWithIdempotency,
+            startSession,
+            couponRedemptionFindOne,
+            couponRedemptionCreate,
+            productUpdateOne,
+            orderDeleteOne,
+            logger,
+        } = loadPlaceOrderService({
+            buildOrderQuoteImpl: async () => ({
+                pricing: {
+                    itemsPrice: 1200,
+                    taxPrice: 0,
+                    shippingPrice: 0,
+                    totalPrice: 1000,
+                    baseAmount: 1000,
+                    baseCurrency: 'INR',
+                    displayAmount: 1000,
+                    displayCurrency: 'INR',
+                    fxRateLocked: 1,
+                    fxTimestamp: '2026-09-09T00:00:00.000Z',
+                    settlementCurrency: 'INR',
+                    settlementAmount: 1000,
+                    presentmentCurrency: 'INR',
+                    presentmentTotalPrice: 1000,
+                    couponDiscount: 200,
+                    paymentAdjustment: 0,
+                    pricingVersion: 'v2',
+                    priceBreakdown: {},
+                    market: { countryCode: 'IN' },
+                    charge: null,
+                },
+                normalized: {
+                    shippingAddress: {
+                        address: '42 Main Road',
+                        city: 'Pune',
+                        postalCode: '411001',
+                        country: 'India',
+                    },
+                    paymentMethod: 'COD',
+                    deliveryOption: 'standard',
+                    deliverySlot: null,
+                    checkoutSource: 'directBuy',
+                    couponCode: 'AURA10',
+                },
+                resolvedItems: [{
+                    title: 'Aura Test Product',
+                    quantity: 1,
+                    image: 'https://example.com/product.jpg',
+                    price: 1200,
+                    mongoProductId: 'prod_1',
+                    productId: 'sku_1',
+                }],
+                cart: null,
+            }),
+        });
+
+        // Force the non-transactional fallback path (shared-tier Mongo).
+        startSession.mockRejectedValue(new Error(
+            'Transaction numbers are only allowed on a replica set member or mongos'
+        ));
+        // A concurrent placement won the coupon; the check-then-act findOne
+        // passed but the redemption insert hits the unique index.
+        couponRedemptionCreate.mockRejectedValue(
+            Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+        );
+
+        await expect(placeOrderWithIdempotency({
+            body: {
+                paymentMethod: 'COD',
+                couponCode: 'AURA10',
+                shippingAddress: {
+                    address: '42 Main Road',
+                    city: 'Pune',
+                    postalCode: '411001',
+                    country: 'India',
+                },
+            },
+            user: {
+                _id: 'user_coupon_race',
+                email: 'coupon-race@example.com',
+                name: 'Coupon Race User',
+            },
+            userId: 'user_coupon_race',
+            authUid: 'auth_uid_coupon_race',
+            requestId: 'req_coupon_fallback_race',
+            idempotencyKey: 'order-key-coupon-race',
+            userKey: 'user-key-coupon-race',
+            market: null,
+        })).rejects.toMatchObject({
+            statusCode: 409,
+            message: expect.stringMatching(/already been used/i),
+        });
+
+        // The discounted order must not survive without its redemption row.
+        expect(orderDeleteOne).toHaveBeenCalledWith({ _id: 'order_test_1' });
+        const restoreCall = productUpdateOne.mock.calls
+            .map(([, update]) => update)
+            .find((update) => update.$inc.stock > 0);
+        expect(restoreCall).toEqual({ $inc: { stock: 1 } });
+        expect(logger.warn).toHaveBeenCalledWith(
+            'coupon.redemption_record_duplicate_fallback_abort',
+            expect.objectContaining({ couponCode: 'AURA10' })
         );
     });
 });
