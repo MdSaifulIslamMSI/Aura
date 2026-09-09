@@ -75,8 +75,11 @@ for (const info of db.adminCommand({ listDatabases: 1, nameOnly: true }).databas
 }
 print(JSON.stringify(out));
 ' > "$WORK_DIR/mongo-stats-restored.json"
-  COLLECTION_COUNT="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).length)' "$WORK_DIR/mongo-stats-restored.json")"
-  echo "RESTORE_DRILL_PASS restored_collections=${COLLECTION_COUNT} stats=${BASE_KEY}/mongo-stats-restored.json"
+  # The host has no node.js (the app runs in containers); count with grep.
+  COLLECTION_COUNT="$(grep -o '"collection"' "$WORK_DIR/mongo-stats-restored.json" | wc -l)"
+  test "${COLLECTION_COUNT}" -gt 0 || { echo "Restore drill produced no restored-collection stats"; cat "$WORK_DIR/mongo-stats-restored.json"; exit 1; }
+  echo "Restored stats: $(cat "$WORK_DIR/mongo-stats-restored.json")"
+  echo "RESTORE_DRILL_PASS restored_collections=${COLLECTION_COUNT}"
   exit 0
 fi
 
