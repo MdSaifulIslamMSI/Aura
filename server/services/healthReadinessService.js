@@ -46,6 +46,20 @@ const buildStartupReadinessFailure = ({
         };
     }
 
+    if (runtimeStartupState.indexSyncFailures?.length && !isWithinGracePeriod) {
+        return {
+            ready: false,
+            reason: 'index_integrity_failed',
+            uptime,
+            timestamp,
+            startup: {
+                asyncStartupComplete: Boolean(runtimeStartupState.asyncStartupComplete),
+                asyncStartupHealthy: true,
+            },
+            indexSyncFailures: runtimeStartupState.indexSyncFailures,
+        };
+    }
+
     if (runtimeNodeEnv === 'production' && !runtimeStartupState.asyncStartupComplete && !isWithinGracePeriod) {
         return {
             ready: false,

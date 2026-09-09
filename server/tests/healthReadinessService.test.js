@@ -91,4 +91,35 @@ describe('healthReadinessService', () => {
             uptime: 3,
         })).toBeNull();
     });
+
+    test('fails closed when critical index sync reports failures after grace', () => {
+        expect(buildStartupReadinessFailure({
+            runtimeNodeEnv: 'production',
+            runtimeStartupState: {
+                asyncStartupComplete: true,
+                asyncStartupError: '',
+                indexSyncFailures: [{ model: 'CouponRedemption', error: 'E11000 duplicate key' }],
+            },
+            isWithinGracePeriod: false,
+            uptime: 40,
+            timestamp: '2026-09-09T00:00:00.000Z',
+        })).toMatchObject({
+            ready: false,
+            reason: 'index_integrity_failed',
+            indexSyncFailures: [{ model: 'CouponRedemption', error: 'E11000 duplicate key' }],
+        });
+    });
+
+    test('ignores index sync failures while still inside grace', () => {
+        expect(buildStartupReadinessFailure({
+            runtimeNodeEnv: 'production',
+            runtimeStartupState: {
+                asyncStartupComplete: true,
+                asyncStartupError: '',
+                indexSyncFailures: [{ model: 'CouponRedemption', error: 'E11000 duplicate key' }],
+            },
+            isWithinGracePeriod: true,
+            uptime: 1,
+        })).toBeNull();
+    });
 });

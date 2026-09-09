@@ -156,6 +156,13 @@ const {
 const { warmChatModel } = require('./services/ai/modelGatewayService');
 const { getChatQuotaHealth } = require('./services/chatQuotaService');
 const { getTrustedRequestIp } = require('./utils/requestIdentity');
+const { applyHttpServerTimeouts } = require('./utils/httpServerTimeouts');
+const {
+    isSplitRuntimeEnabled,
+    shouldRunBackgroundWorkers,
+    checkSplitRuntimeWorkerHealth,
+} = require('./config/runtimeRoles');
+const { syncCriticalIndexes } = require('./services/indexIntegrityService');
 const { createDistributedRateLimit } = require('./middleware/distributedRateLimit');
 const { metricsMiddleware } = require('./middleware/metrics');
 const { createRequestTimeout } = require('./middleware/requestTimeout');
@@ -263,7 +270,7 @@ const contentSecurityPolicyDirectives = {
     workerSrc: ["'self'", 'blob:'],
     manifestSrc: ["'self'"],
 };
-const splitRuntimeEnabled = String(process.env.SPLIT_RUNTIME_ENABLED || 'false').trim().toLowerCase() === 'true';
+const splitRuntimeEnabled = isSplitRuntimeEnabled();
 const metricsEnabled = String(process.env.METRICS_ENABLED || 'true').trim().toLowerCase() !== 'false';
 const rawMetricsPath = String(process.env.METRICS_PATH || '/metrics').trim() || '/metrics';
 const metricsPath = rawMetricsPath.startsWith('/') ? rawMetricsPath : `/${rawMetricsPath}`;
@@ -808,12 +815,11 @@ app.get('/health/ready', healthReadyLimiter, requireHealthReadyAccess, async (re
     }
 
     if (splitRuntimeEnabled) {
-        const workerGaps = getSplitRuntimeWorkerGaps({
-            paymentQueue,
-            emailQueue,
-            catalog,
-            reconciliation,
-        });
+        // When workers are delegated, their liveness lives in the worker
+        // process, not in this process's local timer flags.
+        const workerGaps = shouldRunBackgroundWorkers()
+            ? getSplitRuntimeWorkerGaps({ paymentQueue, emailQueue, catalog, reconciliation })
+            : await checkSplitRuntimeWorkerHealth();
 
         if (workerGaps.length > 0) {
             if (!isWithinGracePeriod) {
@@ -916,6 +922,7 @@ assertProductionRedisConfig();
     connectDB().then(() => {
         // Start listening IMMEDIATELY after DB connection to satisfy Render health checks.
         // Async startup tasks (Redis, Catalog, Workers) will run in the background.
+        applyHttpServerTimeouts(server);
         const httpServer = server.listen(PORT, '0.0.0.0', () => {
             logger.info(`Server running in ${NODE_ENV} mode on port ${PORT}`.yellow.bold);
             logger.info('server.startup_bind_success', { port: PORT, env: NODE_ENV });
@@ -931,6 +938,10 @@ assertProductionRedisConfig();
                 .then(() => initRedis())
                 .then(() => attachSocketBackplane())
                 .then(() => ensureSystemState({ syncIndexes: true }))
+                .then(() => syncCriticalIndexes())
+                .then((indexSync) => {
+                    runtimeStartupState.indexSyncFailures = indexSync.failures;
+                })
                 .then(() => enforceCatalogStartupCheck())
                 .then(() => {
                     Promise.resolve()
@@ -938,13 +949,20 @@ assertProductionRedisConfig();
                         .catch((error) => {
                             logger.warn('server.model_gateway_warmup_failed', { error: error.message });
                         });
-                    startPaymentOutboxWorker();
-                    startOrderEmailWorker();
-                    startCommerceReconciliationWorker();
-                    startAdminAnalyticsMonitor();
-                    startEmailOpsMonitor();
-                    startStatusMonitorWorker();
-                    startCatalogWorkers();
+                    // Split runtime: the dedicated worker process owns the poll
+                    // workers; starting them here too duplicates outbox/email/
+                    // reconciliation claims and steals each other's stale locks.
+                    if (shouldRunBackgroundWorkers()) {
+                        startPaymentOutboxWorker();
+                        startOrderEmailWorker();
+                        startCommerceReconciliationWorker();
+                        startAdminAnalyticsMonitor();
+                        startEmailOpsMonitor();
+                        startStatusMonitorWorker();
+                        startCatalogWorkers();
+                    } else {
+                        logger.info('server.workers_delegated_to_worker_process');
+                    }
                     runtimeStartupState.asyncStartupComplete = true;
                     runtimeStartupState.asyncStartupError = '';
                     runtimeStartupState.asyncStartupCompletedAt = new Date().toISOString();
