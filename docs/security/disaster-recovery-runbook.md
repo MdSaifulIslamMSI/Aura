@@ -44,22 +44,60 @@ npm --prefix server test -- --runTestsByPath tests/disasterRecoveryRunbook.test.
 `.github/workflows/production-db-backup.yml` runs daily (21:13 UTC) and on
 manual dispatch. It resolves the backend instance by tag, dispatches
 `scripts/production/backup-production-mongo.sh` over SSM Run Command, and the
-script performs a hot logical `mongodump --archive --gzip --oplog` against the
-live database, uploads the archive plus SHA-256 checksums and a manifest to the
-`AURA_BACKUP_BUCKET` S3 bucket under `production/mongo/<UTC-timestamp>/`, and
-removes local artifacts. The workflow ensures bucket versioning and a merged
-lifecycle expiry rule (default 35 days, `AURA_BACKUP_RETENTION_DAYS`), and
-verifies the uploaded object before reporting success. Restore requires
-`mongorestore --oplogReplay` against a replica-set member; the backup is a hot
-snapshot, so application-level cross-collection consistency within the dump is
-not guaranteed the way an application-quiesced backup is.
+script performs a hot logical `mongodump --archive --gzip` against the live
+database, uploads the archive plus SHA-256 checksums and a manifest to the
+`AURA_BACKUP_BUCKET` S3 bucket under `production/mongo/<UTC-timestamp>/`
+(SSE-S3 encrypted), and removes local artifacts. The workflow ensures bucket
+versioning and a merged lifecycle expiry rule (default 35 days,
+`AURA_BACKUP_RETENTION_DAYS`), and verifies the uploaded object before
+reporting success.
+
+There is no `--oplog`: the database is an Atlas shared-tier cluster that does
+not expose the oplog. The backup is a hot snapshot, so application-level
+cross-collection consistency within the dump is not guaranteed the way an
+application-quiesced backup is.
+
+Backup failure alerting: the backup job posts to the Aura status webhook
+(`STATUS_WEBHOOK_URL`) on failure, and a `freshness` job in the same workflow
+fails if the newest `production/mongo/` archive is older than 26 hours (or
+absent). Scheduled-workflow failure emails remain the secondary alert path.
+
+## Production Restore And Drill
+
+`scripts/production/restore-production-mongo.sh` runs on the backend EC2 host
+(dispatched via SSM or SSH). It downloads the archive, verifies the SHA-256
+checksum and the production manifest, then either:
+
+- **Drill mode (`RESTORE_DRILL=true`)** — restores into a disposable,
+  network-isolated `mongo:7` container, prints restored collection/index
+  stats, and cleans up. This never touches a live database and is the
+  expected mode for the periodic restore drill.
+- **Live restore mode** — restores with `--drop` into `AURA_RESTORE_URI` and
+  requires `AURA_RESTORE_CONFIRM=YES`. Destructive: incident-commander
+  approval of the exact target URI is mandatory before dispatch.
+
+Example drill (safe, no live data touched):
+
+```sh
+# Dispatched on the prod host (SSM):
+RESTORE_DRILL=true \
+AURA_BACKUP_BUCKET=<bucket> \
+AWS_REGION=<region> \
+RESTORE_S3_KEY=production/mongo/<backup-id>/mongo.archive.gz \
+bash restore-production-mongo.sh
+# Expect: "Archive integrity verified..." then "RESTORE_DRILL_PASS ..."
+```
+
+Capture RTO per drill: time from decision to `RESTORE_DRILL_PASS` (drill) and
+to application-verified cutover (live restore). Record the backup object key,
+drill date, and evidence in the incident log.
 
 ## Remaining Work
 
-- Run the workflow once end to end and store the restore-drill evidence
-  (restore the uploaded archive into a disposable environment, verify
-  collection counts and digests).
+- Run the backup workflow once end to end (see
+  `docs/backup-activation-checklist.md` for the activation steps) and store
+  the first restore-drill evidence.
 - Add immutable backup retention (S3 Object Lock in compliance mode) and
   monitoring that the lifecycle rule stays active.
-- Add backup-failure paging beyond GitHub failure emails once a paging vendor
-  is chosen.
+- Add backup-failure paging beyond the status webhook and GitHub failure
+  emails once a paging vendor is chosen.
