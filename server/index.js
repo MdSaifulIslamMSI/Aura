@@ -345,11 +345,10 @@ const getSplitRuntimeWorkerGaps = ({
 
 app.disable('x-powered-by');
 app.set('etag', 'weak');
-// TRUST_PROXY_HOPS: number of trusted edge hops in front of Express
-// (e.g. Vercel rewrite -> CloudFront -> Caddy = 2-3). Defaults to 1 for
-// direct single-proxy deploys. Set explicitly in production so req.ip and
-// rate-limit keying see the real client IP instead of the edge IP.
-app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
+// Production contract pins a single trusted edge hop (see
+// audit_login_production_env_contract.js). Multi-hop deployments must
+// terminate extra proxies before this app so req.ip still sees the client.
+app.set('trust proxy', 1);
 
 const uploadAssetLimiter = createDistributedRateLimit({
     allowInMemoryFallback: true,
