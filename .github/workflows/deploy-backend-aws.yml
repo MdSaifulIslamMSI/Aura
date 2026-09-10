@@ -196,7 +196,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${AURA_RELEASE_SHA}" || { echo "Checked-out release SHA drifted." >&2; exit 1; }
-          git archive --format=tar.gz --output "${RUNNER_TEMP}/aura-infra-${AURA_RELEASE_SHA}.tar.gz" HEAD infra/aws
+          git archive --format=tar.gz --output "${RUNNER_TEMP}/aura-infra-${AURA_RELEASE_SHA}.tar.gz" HEAD infra/aws infra/observability
           docker save aura-backend:${AURA_RELEASE_SHA} | gzip > "${RUNNER_TEMP}/aura-image-${AURA_RELEASE_SHA}.tar.gz"
           INFRA_SHA256="$(sha256sum "${RUNNER_TEMP}/aura-infra-${AURA_RELEASE_SHA}.tar.gz" | awk '{print $1}')"
           IMAGE_SHA256="$(sha256sum "${RUNNER_TEMP}/aura-image-${AURA_RELEASE_SHA}.tar.gz" | awk '{print $1}')"

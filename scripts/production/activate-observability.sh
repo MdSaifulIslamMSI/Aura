@@ -19,10 +19,25 @@ set -euo pipefail
 
 FIRE_TEST_ALERT="${FIRE_TEST_ALERT:-true}"
 SHARED_ENV=/opt/aura/shared/base.env
-RELEASE_DIR="$(readlink -f /opt/aura/current)"
+
+# The release tree (from deploy-backend-aws) may predate infra/observability;
+# the activation workflow ships the current tree to S3 and passes its key and
+# sha256. Download and verify into a self-contained working directory.
+if [ -n "${AURA_OBS_KEY:-}" ] && [ -n "${AURA_OBS_SHA256:-}" ]; then
+  OBS_DIR=/opt/aura/observability
+  mkdir -p "$OBS_DIR"
+  aws s3 cp "s3://${AWS_DEPLOY_BUCKET}/${AURA_OBS_KEY}" "$OBS_DIR/infra-observability.tar.gz" --region "$AWS_REGION" --only-show-errors
+  echo "${AURA_OBS_SHA256}  $OBS_DIR/infra-observability.tar.gz" | sha256sum --check --status
+  OBS_WORK="$(mktemp -d)"
+  tar -xzf "$OBS_DIR/infra-observability.tar.gz" -C "$OBS_WORK"
+  RELEASE_DIR="$OBS_WORK"
+  trap 'rm -rf "$OBS_WORK"' EXIT
+else
+  RELEASE_DIR="$(readlink -f /opt/aura/current)"
+fi
 
 [ -f "$RELEASE_DIR/infra/observability/docker-compose.ec2.yml" ] || {
-  echo "Observability compose file missing from release at $RELEASE_DIR"; exit 1;
+  echo "Observability compose file missing (neither in release nor shipped bundle)"; exit 1;
 }
 
 grep_env_value() {
