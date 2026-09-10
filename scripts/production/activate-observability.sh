@@ -28,10 +28,12 @@ if [ -n "${AURA_OBS_KEY:-}" ] && [ -n "${AURA_OBS_SHA256:-}" ]; then
   mkdir -p "$OBS_DIR"
   aws s3 cp "s3://${AWS_DEPLOY_BUCKET}/${AURA_OBS_KEY}" "$OBS_DIR/infra-observability.tar.gz" --region "$AWS_REGION" --only-show-errors
   echo "${AURA_OBS_SHA256}  $OBS_DIR/infra-observability.tar.gz" | sha256sum --check --status
-  OBS_WORK="$(mktemp -d)"
+  # Stable workdir: a fresh mktemp dir per run changes every bind-mount
+  # source and recreates all containers on each activation; keep one path.
+  OBS_WORK=/opt/aura/observability/work
+  rm -rf "$OBS_WORK"
   tar -xzf "$OBS_DIR/infra-observability.tar.gz" -C "$OBS_WORK"
   RELEASE_DIR="$OBS_WORK"
-  trap 'rm -rf "$OBS_WORK"' EXIT
 else
   RELEASE_DIR="$(readlink -f /opt/aura/current)"
 fi
@@ -116,23 +118,25 @@ if [ "$FIRE_TEST_ALERT" != "true" ]; then
 fi
 
 echo "=== firing synthetic test alert ==="
-BEFORE_FAILED="$(curl -s --max-time 5 'http://127.0.0.1:9093/api/v2/status' || true)"
-curl -s --max-time 5 -X POST http://127.0.0.1:9093/api/v2/alerts -H 'Content-Type: application/json' -d '[{
-  "labels": {
-    "alertname": "AuraActivationTest",
-    "component": "activation",
-    "severity": "warning"
+ALERT_BODY="[{
+  \"labels\": {
+    \"alertname\": \"AuraActivationTest\",
+    \"component\": \"activation\",
+    \"severity\": \"warning\"
   },
-  "annotations": {
-    "summary": "Synthetic alert verifying the Alertmanager to Aura status webhook channel"
+  \"annotations\": {
+    \"summary\": \"Synthetic alert verifying the Alertmanager to Aura status webhook channel\"
   },
-  "startsAt": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'",
-  "endsAt": "'"$(date -u -d '+10 minutes' +%Y-%m-%dT%H:%M:%SZ)"'"
-}]' || true
+  \"startsAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+  \"endsAt\": \"$(date -u -d '+10 minutes' +%Y-%m-%dT%H:%M:%SZ)\"
+}]"
+POST_CODE="$(curl -s -o /tmp/aura_alert_post.json -w '%{http_code}' --max-time 5 -X POST http://127.0.0.1:9093/api/v2/alerts -H 'Content-Type: application/json' -d "$ALERT_BODY" || true)"
+echo "test alert POST -> ${POST_CODE:-none}: $(head -c 200 /tmp/aura_alert_post.json 2>/dev/null)"
 echo "posted test alert; waiting 45s for group_wait + delivery"
 sleep 45
 
 echo "=== delivery evidence ==="
+echo "active alerts in alertmanager: $(curl -s --max-time 5 http://127.0.0.1:9093/api/v2/alerts | head -c 300)"
 curl -s --max-time 5 http://127.0.0.1:9093/metrics | grep -E 'alertmanager_notifications_(total|failed_total)' | grep -v '#' || true
 FAILED="$(curl -s --max-time 5 http://127.0.0.1:9093/metrics | grep -E '^alertmanager_notifications_failed_total' | awk '{s+=$2} END {print s+0}')"
 SENT="$(curl -s --max-time 5 http://127.0.0.1:9093/metrics | grep -E '^alertmanager_notifications_total' | awk '{s+=$2} END {print s+0}')"
