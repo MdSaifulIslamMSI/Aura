@@ -82,11 +82,11 @@ ensure_env_entry GRAFANA_ADMIN_PASSWORD "$GRAFANA_PASSWORD"
 
 echo "=== starting observability stack from $RELEASE_DIR ==="
 cd "$RELEASE_DIR"
-set -a
-# shellcheck disable=SC1091
-source /opt/aura/shared/base.env
-if [ -f /opt/aura/shared/runtime-secrets.env ]; then source /opt/aura/shared/runtime-secrets.env; fi
-set +a
+# Export only the variables the compose file interpolates — never `source`
+# the shared env files: runtime-secrets.env contains values that are valid
+# for compose's env_file parser but not executable shell.
+export ALERTMANAGER_STATUS_WEBHOOK_TOKEN="$STATUS_TOKEN"
+export GRAFANA_ADMIN_PASSWORD="$GRAFANA_PASSWORD"
 docker compose -f infra/observability/docker-compose.ec2.yml --project-name aura-observability up -d
 
 echo "=== waiting for readiness ==="
