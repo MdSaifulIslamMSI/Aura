@@ -72,7 +72,7 @@ fi
 ensure_env_entry METRICS_SECRET "$METRICS_SECRET_VALUE"
 # Prometheus sends raw file bytes as the x-metrics-key header: no newline.
 printf '%s' "$METRICS_SECRET_VALUE" > /opt/aura/shared/metrics-secret
-chmod 600 /opt/aura/shared/metrics-secret
+chmod 644 /opt/aura/shared/metrics-secret  # prometheus container (user nobody) reads it per scrape
 
 GRAFANA_PASSWORD="$(grep_env_value GRAFANA_ADMIN_PASSWORD)"
 if [ -z "$GRAFANA_PASSWORD" ]; then
