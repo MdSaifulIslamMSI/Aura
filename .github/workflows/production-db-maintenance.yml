@@ -14,6 +14,7 @@ on:
           - execute-status-check-retention
           - dry-run-demo-catalog-purge
           - execute-demo-catalog-purge
+          - run-migrations
       retention_days:
         description: Retention window for status check telemetry cleanup
         required: false
@@ -58,7 +59,7 @@ jobs:
           test -n "${AWS_INSTANCE_TAG_KEY}" || { echo "Missing variable AWS_INSTANCE_TAG_KEY"; exit 1; }
           test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing variable AWS_INSTANCE_TAG_VALUE"; exit 1; }
           case "${MAINTENANCE_ACTION}" in
-            storage-report|dry-run-status-check-retention|execute-status-check-retention|dry-run-demo-catalog-purge|execute-demo-catalog-purge)
+            run-migrations|storage-report|dry-run-status-check-retention|execute-status-check-retention|dry-run-demo-catalog-purge|execute-demo-catalog-purge)
               ;;
             *)
               echo "Unsupported production maintenance action: ${MAINTENANCE_ACTION}"
@@ -121,6 +122,9 @@ jobs:
               ;;
             execute-demo-catalog-purge)
               NODE_COMMAND="node scripts/purge_demo_catalog.js --execute"
+              ;;
+            run-migrations)
+              NODE_COMMAND="npm run migrate:run"
               ;;
           esac
 

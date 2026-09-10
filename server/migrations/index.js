@@ -52,6 +52,7 @@ const TTL_RETENTIONS = [
     ['productgovernancelogs', 'createdAt', 365, 'Product governance log retention'],
     ['usergovernancelogs', 'createdAt', 365, 'User governance log retention'],
     ['paymentevents', 'createdAt', 365, 'Payment event retention (money data)'],
+    ['statuschecks', 'checkedAt', 7, 'Status check telemetry retention (monitor writes every few seconds; raw checks older than 7d have no display value - statusdailymetrics holds the rollups)'],
 ];
 
 const registry = [
