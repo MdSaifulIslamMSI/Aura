@@ -1,0 +1,130 @@
+name: Observability Activation
+
+# Host-side activation and verification of the observability stack
+# (Alertmanager -> Aura status webhook). Everything AWS flows through the
+# deploy role; host changes happen via SSM Run Command, same channel as the
+# production backup.
+#
+# Phase 1 (default): probe_only=true — read-only discovery of the host's
+# observability layout. Writes nothing.
+# Phase 2: probe_only=false — applies activation. Requires the probe output
+# to have confirmed the host layout first.
+
+on:
+  workflow_dispatch:
+    inputs:
+      probe_only:
+        description: "Read-only host discovery (uncheck to apply activation)"
+        type: boolean
+        default: true
+      fire_test_alert:
+        description: "After activation, fire a synthetic alert through Alertmanager"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: observability-activation
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+  AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
+  AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Validate request
+        run: |
+          set -euo pipefail
+          test -n "${AWS_DEPLOY_ROLE_ARN}" || { echo "Missing AWS_DEPLOY_ROLE_ARN"; exit 1; }
+          test -n "${AWS_INSTANCE_TAG_VALUE}" || { echo "Missing AWS_INSTANCE_TAG_VALUE"; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-observability-activation
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Resolve backend instance
+        id: resolve_instance
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="$(aws ec2 describe-instances \
+            --filters "Name=tag:${AWS_INSTANCE_TAG_KEY},Values=${AWS_INSTANCE_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)"
+          test -n "${INSTANCE_ID}" && test "${INSTANCE_ID}" != "None" || { echo "No running EC2 instance matched ${AWS_INSTANCE_TAG_KEY}=${AWS_INSTANCE_TAG_VALUE}"; exit 1; }
+          echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch host probe through SSM
+        env:
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          export RUNNER_SCRIPT_B64
+          RUNNER_SCRIPT_B64="$(base64 -w 0 scripts/production/observability-host-probe.sh)"
+
+          node <<'NODE' > "${RUNNER_TEMP}/probe-commands.json"
+          const commands = [
+            'set -euo pipefail',
+            `printf '%s' '${process.env.RUNNER_SCRIPT_B64}' | base64 -d > /tmp/aura_obs_probe.sh`,
+            'chmod 700 /tmp/aura_obs_probe.sh',
+            'bash /tmp/aura_obs_probe.sh; status=$?; rm -f /tmp/aura_obs_probe.sh; exit $status',
+          ];
+          console.log(JSON.stringify({ commands }, null, 2));
+          NODE
+
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura observability host probe" \
+            --timeout 300 \
+            --parameters "file://${RUNNER_TEMP}/probe-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+
+          for _ in $(seq 1 30); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for the observability probe."
+          exit 1
