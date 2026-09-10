@@ -32,6 +32,7 @@ if [ -n "${AURA_OBS_KEY:-}" ] && [ -n "${AURA_OBS_SHA256:-}" ]; then
   # source and recreates all containers on each activation; keep one path.
   OBS_WORK=/opt/aura/observability/work
   rm -rf "$OBS_WORK"
+  mkdir -p "$OBS_WORK"
   tar -xzf "$OBS_DIR/infra-observability.tar.gz" -C "$OBS_WORK"
   RELEASE_DIR="$OBS_WORK"
 else
