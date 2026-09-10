@@ -7,9 +7,13 @@ const { withTimeout } = require('../utils/timeout');
 const STATE_COOKIE_NAME = 'aura_duo_oidc_state';
 const STATE_TTL_MS = 5 * 60 * 1000;
 const OIDC_HTTP_TIMEOUT_MS = 10 * 1000;
+// IdP endpoint metadata (incl. jwks_uri) rotates without restart; refresh
+// hourly instead of caching for the process lifetime.
+const DISCOVERY_TTL_MS = 60 * 60 * 1000;
 const usedStateDigests = new Map();
 let cachedDiscovery = null;
 let cachedDiscoveryUrl = '';
+let cachedDiscoveryAt = 0;
 
 const base64urlJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 const parseBase64urlJson = (value) => JSON.parse(Buffer.from(String(value || ''), 'base64url').toString('utf8'));
@@ -163,7 +167,8 @@ const assertDuoReady = (flags = getDuoFlags()) => {
 
 const loadDiscovery = async (flags = getDuoFlags()) => {
     assertDuoReady(flags);
-    if (cachedDiscovery?.issuer === flags.oidcIssuer && cachedDiscoveryUrl === flags.discoveryUrl) {
+    if (cachedDiscovery?.issuer === flags.oidcIssuer && cachedDiscoveryUrl === flags.discoveryUrl
+        && Date.now() - cachedDiscoveryAt < DISCOVERY_TTL_MS) {
         return cachedDiscovery;
     }
 
@@ -188,6 +193,7 @@ const loadDiscovery = async (flags = getDuoFlags()) => {
     }
     cachedDiscovery = discovery;
     cachedDiscoveryUrl = flags.discoveryUrl;
+    cachedDiscoveryAt = Date.now();
     return discovery;
 };
 
@@ -402,6 +408,7 @@ const exchangeCodeForClaims = async ({ code = '', statePayload = {} } = {}) => {
 const resetDuoOidcTestState = () => {
     cachedDiscovery = null;
     cachedDiscoveryUrl = '';
+    cachedDiscoveryAt = 0;
     usedStateDigests.clear();
 };
 

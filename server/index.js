@@ -345,6 +345,9 @@ const getSplitRuntimeWorkerGaps = ({
 
 app.disable('x-powered-by');
 app.set('etag', 'weak');
+// Production contract pins a single trusted edge hop (see
+// audit_login_production_env_contract.js). Multi-hop deployments must
+// terminate extra proxies before this app so req.ip still sees the client.
 app.set('trust proxy', 1);
 
 const uploadAssetLimiter = createDistributedRateLimit({
@@ -360,7 +363,9 @@ const healthReadyLimiter = createDistributedRateLimit({
     allowInMemoryFallback: true,
     name: 'health_ready',
     windowMs: 60 * 1000,
-    max: process.env.NODE_ENV === 'development' ? 120 : 30,
+    // Per-IP budget must tolerate k8s/CloudFront/ALB probers sharing a few
+    // egress IPs; 30/min flapped readiness during autoscale events.
+    max: 120,
     message: { status: 'error', message: 'Too many readiness checks, please try again later.' },
     keyGenerator: (req) => getTrustedRequestIp(req),
 });
@@ -977,8 +982,9 @@ assertProductionRedisConfig();
         });
 
         // Graceful shutdown — drain in-flight requests before process exit.
-        // Render sends SIGTERM 10s before SIGKILL during rolling deploys.
-        const GRACEFUL_SHUTDOWN_TIMEOUT_MS = Number(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS) || 15000;
+        // Render sends SIGTERM ~10s before SIGKILL during rolling deploys,
+        // so the default must stay below 10s (overridable for other hosts).
+        const GRACEFUL_SHUTDOWN_TIMEOUT_MS = Number(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS) || 9000;
 
         const gracefulShutdown = (signal) => {
             logger.info('server.shutdown_initiated', { signal, timeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS });

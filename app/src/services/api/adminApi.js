@@ -147,11 +147,19 @@ export const adminApi = {
     },
     getSystemHealth: async () => {
         const headers = await getAuthHeader();
-        const response = await fetch(buildServiceUrl('/health'), {
-            headers: { ...headers, Accept: 'application/json' },
-        });
-        if (!response.ok) return { status: 'down' }; // Graceful fallback
-        return response.json();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+            const response = await fetch(buildServiceUrl('/health'), {
+                headers: { ...headers, Accept: 'application/json' },
+                credentials: 'include',
+                signal: controller.signal,
+            });
+            if (!response.ok) return { status: 'down' }; // Graceful fallback
+            return response.json();
+        } finally {
+            clearTimeout(timeout);
+        }
     },
     getOpsReadiness: async () => {
         const headers = await getAuthHeader();

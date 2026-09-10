@@ -46,7 +46,9 @@ class RazorpayProvider {
                 'Content-Type': 'application/json',
             },
             body: body ? JSON.stringify(body) : undefined,
-            timeoutMs: 15000,
+            // Must stay under the PAYMENT route budget (12s) so the inbound
+            // request never 503s while the Razorpay order was created.
+            timeoutMs: 10000,
         });
 
         const data = await response.json().catch(() => ({}));

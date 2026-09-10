@@ -11,9 +11,13 @@ const { verifyOidcAccessToken } = require('./oidcTokenVerifier');
 const STATE_COOKIE_NAME = 'aura_keycloak_oidc_state';
 const STATE_TTL_MS = 5 * 60 * 1000;
 const OIDC_HTTP_TIMEOUT_MS = 10 * 1000;
+// IdP endpoint metadata (incl. jwks_uri) rotates without restart; refresh
+// hourly instead of caching for the process lifetime.
+const DISCOVERY_TTL_MS = 60 * 60 * 1000;
 const usedStateDigests = new Map();
 let cachedDiscovery = null;
 let cachedDiscoveryUrl = '';
+let cachedDiscoveryAt = 0;
 
 const base64urlJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
 const parseBase64urlJson = (value) => JSON.parse(Buffer.from(String(value || ''), 'base64url').toString('utf8'));
@@ -191,7 +195,8 @@ const assertKeycloakReady = () => {
 };
 
 const loadDiscovery = async (config = assertKeycloakReady()) => {
-    if (cachedDiscovery?.issuer === config.issuerUrl && cachedDiscoveryUrl === config.discoveryUrl) {
+    if (cachedDiscovery?.issuer === config.issuerUrl && cachedDiscoveryUrl === config.discoveryUrl
+        && Date.now() - cachedDiscoveryAt < DISCOVERY_TTL_MS) {
         return cachedDiscovery;
     }
 
@@ -216,6 +221,7 @@ const loadDiscovery = async (config = assertKeycloakReady()) => {
     }
     cachedDiscovery = discovery;
     cachedDiscoveryUrl = config.discoveryUrl;
+    cachedDiscoveryAt = Date.now();
     return discovery;
 };
 
@@ -333,6 +339,7 @@ const exchangeCodeForAuthContext = async ({ code = '', statePayload = {} } = {})
 const resetKeycloakOidcTestState = () => {
     cachedDiscovery = null;
     cachedDiscoveryUrl = '';
+    cachedDiscoveryAt = 0;
     usedStateDigests.clear();
 };
 

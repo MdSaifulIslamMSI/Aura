@@ -2,6 +2,17 @@ const nodemailer = require('nodemailer');
 const AppError = require('../../../utils/AppError');
 const BaseEmailProvider = require('./baseProvider');
 
+const clampPositiveInt = (value, fallback, min, max) => {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isSafeInteger(parsed)) return fallback;
+    return Math.min(Math.max(parsed, min), max);
+};
+
+// Pool defaults stay small for Gmail's per-account connection limits;
+// raise via env on dedicated sending accounts only.
+const getPoolMaxConnections = () => clampPositiveInt(process.env.GMAIL_POOL_MAX_CONNECTIONS, 3, 1, 10);
+const getPoolMaxMessages = () => clampPositiveInt(process.env.GMAIL_POOL_MAX_MESSAGES, 100, 10, 1000);
+
 class GmailProvider extends BaseEmailProvider {
     constructor({
         user,
@@ -24,8 +35,8 @@ class GmailProvider extends BaseEmailProvider {
         this.transporter = nodemailer.createTransport({
             service: 'gmail',
             pool: true,
-            maxConnections: 3,
-            maxMessages: 100,
+            maxConnections: getPoolMaxConnections(),
+            maxMessages: getPoolMaxMessages(),
             // nodemailer sockets have no default timeout; without these a wedged
             // SMTP connection holds the claimed order-email queue slot until the
             // stale-lock reaper runs.

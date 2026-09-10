@@ -200,6 +200,7 @@ export const catalogApi = {
             await fetch(`${BASE_URL}/products/telemetry/search-click`, {
                 method: 'POST',
                 keepalive: true,
+                credentials: 'include',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
