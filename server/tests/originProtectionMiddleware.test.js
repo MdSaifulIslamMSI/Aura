@@ -23,6 +23,7 @@ const buildApp = () => {
     app.use(originProtectionMiddleware);
     app.get('/api/private', (req, res) => res.json({ ok: true, requestId: req.requestId }));
     app.post('/api/payments/webhooks/stripe', (req, res) => res.json({ accepted: true }));
+    app.post('/api/status/webhooks/alertmanager', (req, res) => res.json({ accepted: true }));
     app.get('/health/live', (req, res) => res.json({ alive: true }));
     app.get('/metrics', (req, res) => res.type('text/plain').send('aura_metric 1\n'));
     return app;
@@ -84,5 +85,10 @@ describe('originProtectionMiddleware', () => {
         await request(buildApp()).get('/health/live').expect(200);
         await request(buildApp()).get('/metrics').expect(200);
         await request(buildApp()).post('/api/payments/webhooks/stripe').expect(200);
+        // Alertmanager posts container-to-container and never traverses
+        // CloudFront; the status webhook route carries its own HMAC/bearer
+        // auth, matching the payment-webhook contract.
+        await request(buildApp()).post('/api/status/webhooks/alertmanager').expect(200);
+        await request(buildApp()).get('/api/private').expect(403);
     });
 });
