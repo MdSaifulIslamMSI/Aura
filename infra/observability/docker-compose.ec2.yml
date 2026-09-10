@@ -21,9 +21,9 @@ services:
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
-      - ./infra/observability/prometheus/prometheus.ec2.yml:/etc/prometheus/prometheus.yml:ro
-      - ./infra/observability/prometheus/alerts:/etc/prometheus/alerts:ro
-      - ./infra/observability/alertmanager/traffic-fortress-rules.yml:/etc/prometheus/alerts/traffic-fortress-rules.yml:ro
+      - ./prometheus/prometheus.ec2.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts:/etc/prometheus/alerts:ro
+      - ./alertmanager/traffic-fortress-rules.yml:/etc/prometheus/alerts/traffic-fortress-rules.yml:ro
       - /opt/aura/shared/metrics-secret:/run/secrets/aura_metrics_secret:ro
       - aura-prometheus-data:/prometheus
     networks:
@@ -49,7 +49,7 @@ services:
       AURA_STATUS_WEBHOOK_URL: ${AURA_STATUS_WEBHOOK_URL:-http://api:5000/api/status/webhooks/alertmanager}
       ALERTMANAGER_STATUS_WEBHOOK_TOKEN: ${ALERTMANAGER_STATUS_WEBHOOK_TOKEN:-${STATUS_WEBHOOK_TOKEN:-}}
     volumes:
-      - ./infra/observability/alertmanager/alertmanager.template.yml:/etc/alertmanager/alertmanager.template.yml:ro
+      - ./alertmanager/alertmanager.template.yml:/etc/alertmanager/alertmanager.template.yml:ro
       - aura-alertmanager-data:/alertmanager
     networks:
       - aws_default
@@ -66,8 +66,8 @@ services:
     ports:
       - "127.0.0.1:3001:3000"
     volumes:
-      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - aura-grafana-data:/var/lib/grafana
     networks:
       - aws_default
