@@ -1,3 +1,8 @@
+# Runs alongside the production api stack (infra/aws/docker-compose.ec2.yml,
+# compose project "aws" on the aws_default network). The api/worker containers
+# register the "api" DNS alias on aws_default, so scrapes and webhook posts
+# resolve without sharing a compose project; the network is joined as external
+# because these services are defined in a different file.
 x-default-logging: &default-logging
   driver: json-file
   options:
@@ -21,8 +26,9 @@ services:
       - ./infra/observability/alertmanager/traffic-fortress-rules.yml:/etc/prometheus/alerts/traffic-fortress-rules.yml:ro
       - /opt/aura/shared/metrics-secret:/run/secrets/aura_metrics_secret:ro
       - aura-prometheus-data:/prometheus
+    networks:
+      - aws_default
     depends_on:
-      - api
       - alertmanager
 
   alertmanager:
@@ -45,6 +51,8 @@ services:
     volumes:
       - ./infra/observability/alertmanager/alertmanager.template.yml:/etc/alertmanager/alertmanager.template.yml:ro
       - aura-alertmanager-data:/alertmanager
+    networks:
+      - aws_default
 
   grafana:
     image: grafana/grafana-oss:11.4.0
@@ -61,6 +69,8 @@ services:
       - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - aura-grafana-data:/var/lib/grafana
+    networks:
+      - aws_default
     depends_on:
       - prometheus
 
@@ -68,3 +78,7 @@ volumes:
   aura-prometheus-data:
   aura-grafana-data:
   aura-alertmanager-data:
+
+networks:
+  aws_default:
+    external: true

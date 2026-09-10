@@ -41,6 +41,24 @@ for env_file in /opt/aura/shared/base.env /opt/aura/shared/runtime-secrets.env /
   fi
 done
 
+echo "=== api-side webhook + metrics auth env (presence only, no values) ==="
+for env_file in /opt/aura/shared/base.env /opt/aura/shared/runtime-secrets.env /opt/aura/shared/release.env; do
+  [ -f "$env_file" ] || continue
+  for key in STATUS_WEBHOOK_TOKEN STATUS_WEBHOOK_SECRET STATUS_WEBHOOK_IP_ALLOWLIST METRICS_SECRET CRON_SECRET; do
+    count="$(grep -c "^${key}=" "$env_file" 2>/dev/null || true)"
+    [ "${count:-0}" != "0" ] && echo "$env_file: $key present"
+  done
+done
+
+echo "=== metrics secret file for prometheus mount ==="
+ls -la /opt/aura/shared/metrics-secret 2>/dev/null || echo "(missing)"
+
+echo "=== release layout (compose context) ==="
+readlink -f /opt/aura/current 2>/dev/null || true
+ls /opt/aura/current 2>/dev/null | head -12
+find /opt/aura/current -maxdepth 3 -name 'docker-compose*' 2>/dev/null | head -5
+ls /opt/aura/current/infra/observability 2>/dev/null || echo "(no observability dir in release)"
+
 echo "=== alertmanager reachable on 9093? ==="
 code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:9093/-/ready 2>/dev/null || true)"
 echo "127.0.0.1:9093/-/ready -> ${code:-unreachable}"
