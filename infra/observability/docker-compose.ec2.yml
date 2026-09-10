@@ -23,7 +23,6 @@ services:
     volumes:
       - ./prometheus/prometheus.ec2.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alerts:/etc/prometheus/alerts:ro
-      - ./alertmanager/traffic-fortress-rules.yml:/etc/prometheus/alerts/traffic-fortress-rules.yml:ro
       - /opt/aura/shared/metrics-secret:/run/secrets/aura_metrics_secret:ro
       - aura-prometheus-data:/prometheus
     networks:
