@@ -74,6 +74,7 @@ jobs:
           echo "instance_id=${INSTANCE_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch host probe through SSM
+        if: inputs.probe_only
         env:
           INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
         run: |
@@ -127,4 +128,62 @@ jobs:
             sleep 10
           done
           echo "Timed out waiting for the observability probe."
+          exit 1
+
+      - name: Dispatch activation through SSM
+        if: ${{ !inputs.probe_only }}
+        env:
+          INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+          FIRE_TEST_ALERT: ${{ inputs.fire_test_alert && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          export RUNNER_SCRIPT_B64
+          RUNNER_SCRIPT_B64="$(base64 -w 0 scripts/production/activate-observability.sh)"
+
+          node <<'NODE' > "${RUNNER_TEMP}/activate-commands.json"
+          const commands = [
+            'set -euo pipefail',
+            `printf '%s' '${process.env.RUNNER_SCRIPT_B64}' | base64 -d > /tmp/aura_obs_activate.sh`,
+            'chmod 700 /tmp/aura_obs_activate.sh',
+            `FIRE_TEST_ALERT="${process.env.FIRE_TEST_ALERT}" bash /tmp/aura_obs_activate.sh; status=$?; rm -f /tmp/aura_obs_activate.sh; exit $status`,
+          ];
+          console.log(JSON.stringify({ commands }, null, 2));
+          NODE
+
+          COMMAND_ID="$(aws ssm send-command \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Aura observability activation" \
+            --timeout 1200 \
+            --parameters "file://${RUNNER_TEMP}/activate-commands.json" \
+            --query "Command.CommandId" \
+            --output text)"
+
+          for _ in $(seq 1 60); do
+            STATUS="$(aws ssm get-command-invocation \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query "Status" \
+              --output text)"
+            case "${STATUS}" in
+              Success)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 0
+                ;;
+              Failed|Cancelled|TimedOut|Cancelling)
+                aws ssm get-command-invocation \
+                  --command-id "${COMMAND_ID}" \
+                  --instance-id "${INSTANCE_ID}" \
+                  --query "{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}" \
+                  --output json
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "Timed out waiting for observability activation."
           exit 1
