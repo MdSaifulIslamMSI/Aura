@@ -124,7 +124,7 @@ jobs:
               NODE_COMMAND="node scripts/purge_demo_catalog.js --execute"
               ;;
             run-migrations)
-              NODE_COMMAND="npm run migrate:run"
+              NODE_COMMAND="node scripts/run_migrations.js"
               ;;
           esac
 
