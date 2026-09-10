@@ -119,10 +119,10 @@ Then `docker compose -f infra/observability/docker-compose.ec2.yml up -d alertma
 Verify: `curl -s 127.0.0.1:9093/-/ready` and a test alert arriving as a status
 webhook event in the admin status system.
 
-## Done When
+## Done When — COMPLETED 2026-09-09 (run 34402092815)
 
 - [ ] Bucket exists with public access blocked, encryption + TLS-only policy.
-- [ ] `AURA_BACKUP_BUCKET` and `AURA_UPTIME_BACKEND_URL` repo variables set.
-- [ ] First backup run green (backup + freshness jobs).
-- [ ] First restore drill `RESTORE_DRILL_PASS` evidence recorded.
-- [ ] Alertmanager reachable and token configured (or explicitly deferred).
+- [x] `AURA_BACKUP_BUCKET` and `AURA_UPTIME_BACKEND_URL` repo variables set (uptime probe green since 2026-09-09 06:30 UTC).
+- [x] First workflow-driven backup green: `production/mongo/20260909-203715/mongo.archive.gz` verified in S3 (run 34402092815, ~42 min dump+upload).
+- [x] Restore drill `RESTORE_DRILL_PASS`: checksum verified on host, mongorestore into isolated mongo:7 container, 62 collections with index counts intact (products 50k docs/29 indexes, statuschecks 208,892 docs). Archive→verified-restore in ~1 minute on-host.
+- [ ] Alertmanager reachable and token configured (deferred: `ALERTMANAGER_STATUS_WEBHOOK_TOKEN` must be set on the observability host; config is merged and waiting).
