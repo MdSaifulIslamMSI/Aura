@@ -2,7 +2,7 @@ const { Server } = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter');
 const firebaseAdmin = require('../config/firebase');
 const { allowedOrigins } = require('../config/corsFlags');
-const { getRedisClient } = require('../config/redis');
+const { getRedisClient, isRedisEnabled } = require('../config/redis');
 const User = require('../models/User');
 const logger = require('../utils/logger');
 const {
@@ -836,6 +836,22 @@ const updateSocketHealth = (partial = {}) => {
     Object.assign(socketHealth, partial);
 };
 
+// attachSocketBackplane runs once at boot, so a Redis instance that is not
+// reachable yet would leave multi-replica presence split-brained for the
+// process lifetime. When Redis is enabled but unavailable, retry on a slow
+// unrefed timer until the adapter attaches; single outstanding timer only.
+let backplaneRetryTimer = null;
+const BACKPLANE_RETRY_DELAY_MS = 30_000;
+const scheduleBackplaneRetry = () => {
+    if (backplaneRetryTimer) return;
+    if (socketHealth.backplaneReady && socketHealth.adapterMode === 'redis') return;
+    backplaneRetryTimer = setTimeout(() => {
+        backplaneRetryTimer = null;
+        attachSocketBackplane().catch(() => null);
+    }, BACKPLANE_RETRY_DELAY_MS);
+    backplaneRetryTimer.unref?.();
+};
+
 const getSocketHealth = () => ({
     initialized: Boolean(io) && socketHealth.initialized,
     adapterMode: socketHealth.adapterMode,
@@ -867,6 +883,9 @@ const attachSocketBackplane = async () => {
             lastAdapterError: 'redis_backplane_unavailable',
         });
         logger.warn('socket.backplane_unavailable', { reason: 'redis_client_unavailable' });
+        if (typeof isRedisEnabled === 'function' && isRedisEnabled()) {
+            scheduleBackplaneRetry();
+        }
         return getSocketHealth();
     }
 
@@ -894,6 +913,9 @@ const attachSocketBackplane = async () => {
             lastAdapterError: error?.message || 'socket_backplane_failed',
         });
         logger.warn('socket.backplane_failed', { error: socketHealth.lastAdapterError });
+        if (typeof isRedisEnabled === 'function' && isRedisEnabled()) {
+            scheduleBackplaneRetry();
+        }
     }
 
     return getSocketHealth();

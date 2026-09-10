@@ -77,6 +77,7 @@ export const trackRecommendationEvent = async (payload = {}) => {
         const response = await fetch(`${BASE_URL}/recommendation-events`, {
             method: 'POST',
             keepalive: body.length < 60000,
+            credentials: hasAuthorizationHeader(headers) ? 'include' : 'omit',
             headers,
             body,
         });

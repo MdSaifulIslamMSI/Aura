@@ -345,7 +345,11 @@ const getSplitRuntimeWorkerGaps = ({
 
 app.disable('x-powered-by');
 app.set('etag', 'weak');
-app.set('trust proxy', 1);
+// TRUST_PROXY_HOPS: number of trusted edge hops in front of Express
+// (e.g. Vercel rewrite -> CloudFront -> Caddy = 2-3). Defaults to 1 for
+// direct single-proxy deploys. Set explicitly in production so req.ip and
+// rate-limit keying see the real client IP instead of the edge IP.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 
 const uploadAssetLimiter = createDistributedRateLimit({
     allowInMemoryFallback: true,
@@ -360,7 +364,9 @@ const healthReadyLimiter = createDistributedRateLimit({
     allowInMemoryFallback: true,
     name: 'health_ready',
     windowMs: 60 * 1000,
-    max: process.env.NODE_ENV === 'development' ? 120 : 30,
+    // Per-IP budget must tolerate k8s/CloudFront/ALB probers sharing a few
+    // egress IPs; 30/min flapped readiness during autoscale events.
+    max: 120,
     message: { status: 'error', message: 'Too many readiness checks, please try again later.' },
     keyGenerator: (req) => getTrustedRequestIp(req),
 });
@@ -977,8 +983,9 @@ assertProductionRedisConfig();
         });
 
         // Graceful shutdown — drain in-flight requests before process exit.
-        // Render sends SIGTERM 10s before SIGKILL during rolling deploys.
-        const GRACEFUL_SHUTDOWN_TIMEOUT_MS = Number(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS) || 15000;
+        // Render sends SIGTERM ~10s before SIGKILL during rolling deploys,
+        // so the default must stay below 10s (overridable for other hosts).
+        const GRACEFUL_SHUTDOWN_TIMEOUT_MS = Number(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS) || 9000;
 
         const gracefulShutdown = (signal) => {
             logger.info('server.shutdown_initiated', { signal, timeoutMs: GRACEFUL_SHUTDOWN_TIMEOUT_MS });

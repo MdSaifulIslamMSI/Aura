@@ -25,7 +25,10 @@ const AUTO_AUDIO_MODEL_CANDIDATES = [
     'models/gemma-3n-e2b-it',
 ];
 const DEFAULT_EMBED_MODEL = 'models/gemini-embedding-001';
-const DEFAULT_TIMEOUT_MS = 45_000;
+// Must stay under the AI_EXPENSIVE route budget (25s) and the assistant
+// chat timeout (25s) so a slow model aborts outbound before the inbound
+// request is killed mid-stream while still holding a breaker permit.
+const DEFAULT_TIMEOUT_MS = 23_000;
 const HEALTH_CACHE_MS = 20_000;
 const DEFAULT_MODEL_DEGRADE_MS = 180_000;
 const MAX_INLINE_MEDIA_BYTES = 20 * 1024 * 1024;

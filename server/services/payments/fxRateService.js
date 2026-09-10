@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const Decimal = require('decimal.js');
 const AppError = require('../../utils/AppError');
 const logger = require('../../utils/logger');
+const { guardedFetch } = require('../../security/remoteFetchGuardService');
 const FxRateSnapshot = require('../../models/FxRateSnapshot');
 const {
     normalizeCurrencyCode,
@@ -31,15 +32,6 @@ const state = {
     hydratePromise: null,
     refreshPromise: null,
     schedulerTask: null,
-};
-
-const getHttpFetch = () => {
-    if (typeof global.fetch === 'function') {
-        return global.fetch.bind(global);
-    }
-
-    // eslint-disable-next-line global-require
-    return require('node-fetch');
 };
 
 const parseBoolean = (value, fallback = false) => {
@@ -547,24 +539,34 @@ const parseRetryAfterMs = (response) => {
     return Math.max(retryDate.getTime() - Date.now(), 0);
 };
 
-const fetchWithTimeout = async (url, options = {}) => {
-    const controller = new AbortController();
-    const timeoutMs = getHttpTimeoutMs();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
+const hostnameOf = (url) => {
     try {
-        const httpFetch = getHttpFetch();
-        return await httpFetch(url, {
-            ...options,
-            signal: controller.signal,
+        return new URL(String(url)).hostname.toLowerCase();
+    } catch {
+        return '';
+    }
+};
+
+const fetchWithTimeout = async (url, options = {}) => {
+    const timeoutMs = getHttpTimeoutMs();
+    const host = hostnameOf(url);
+    try {
+        // Route FX egress through the shared guard: the request hostname is
+        // pinned as the allowlist (env URL overrides stay functional) with
+        // connect-time private/metadata-IP denial via the safe egress agent,
+        // so a poisoned PAYMENT_FX_*_URL cannot reach instance metadata.
+        return await guardedFetch(String(url), {
+            allowedHosts: host ? [host] : [],
+            validateDns: false,
+            method: 'GET',
+            headers: options.headers,
+            timeoutMs,
         });
     } catch (error) {
-        if (error?.name === 'AbortError') {
+        if (error?.name === 'AbortError' || /timed out|timeout/i.test(error?.message || '')) {
             throw new AppError(`FX provider timed out after ${timeoutMs}ms`, 502);
         }
         throw error;
-    } finally {
-        clearTimeout(timeout);
     }
 };
 

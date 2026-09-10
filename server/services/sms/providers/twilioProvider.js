@@ -97,7 +97,9 @@ class TwilioProvider extends BaseSmsProvider {
                     'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
                 },
                 body: payload.toString(),
-                timeoutMs: 15000,
+                // Must stay under the OTP route budget (7s) so the user never
+                // sees TRAFFIC_ROUTE_TIMEOUT after the SMS was already sent.
+                timeoutMs: 6000,
             });
         } catch (networkError) {
             const normalized = normalizeTwilioError(networkError, 503);

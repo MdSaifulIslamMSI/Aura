@@ -381,7 +381,16 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
+
+    // Comment heartbeat keeps CloudFront/ALB/nginx idle timeouts from killing
+    // slow-model streams. Comment frames carry no data, so the fetch-reader
+    // client drops them silently.
+    const heartbeat = setInterval(() => {
+        if (!res.writableEnded && !res.destroyed) res.write(': ping\n\n');
+    }, 15000);
+    heartbeat.unref?.();
 
     const writeEvent = (eventName, data) => {
         if (res.writableEnded || res.destroyed) return false;
@@ -431,6 +440,7 @@ const handleAiChatStream = asyncHandler(async (req, res, next) => {
             res.end();
         }
     } finally {
+        clearInterval(heartbeat);
         requestAbort.cleanup();
     }
 });

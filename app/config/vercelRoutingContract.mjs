@@ -161,6 +161,10 @@ export const FRONTEND_DEVELOPMENT_CONTENT_SECURITY_POLICY = buildFrontendContent
 
 export const buildFrontendSecurityHeaderValues = (origin = HOSTED_BACKEND_ORIGIN) => [
     {
+        key: 'Strict-Transport-Security',
+        value: 'max-age=31536000; includeSubDomains',
+    },
+    {
         key: 'Content-Security-Policy',
         value: buildFrontendContentSecurityPolicy(origin),
     },
