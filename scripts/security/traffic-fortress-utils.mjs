@@ -325,7 +325,7 @@ export const buildTrafficObservabilityReport = (options = {}) => {
   const checks = [
     fileCheck(root, 'docs/security/traffic-observability-alerting.md', 'observability.doc'),
     fileCheck(root, 'server/metrics/trafficResilienceMetrics.js', 'observability.runtime'),
-    fileCheck(root, 'infra/observability/alertmanager/traffic-fortress-rules.yml', 'observability.alerts'),
+    fileCheck(root, 'infra/observability/prometheus/alerts/traffic-fortress-rules.yml', 'observability.alerts'),
     fileCheck(root, 'infra/observability/grafana/dashboards/traffic-fortress.json', 'observability.dashboard'),
   ];
   const metricsSource = readSource(root, 'server/metrics/trafficResilienceMetrics.js');

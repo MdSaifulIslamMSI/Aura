@@ -9,6 +9,11 @@ const DEFAULT_BYPASS_PATHS = [
     /^\/metrics(?:\/|$)/i,
     /^\/api\/payments\/webhooks\/(?:razorpay|stripe)(?:\/|$)/i,
     /^\/api\/email-webhooks\/resend(?:\/|$)/i,
+    // Status webhooks authenticate via their own per-source HMAC or the
+    // shared bearer token, and internal callers (Alertmanager on the same
+    // host) never traverse CloudFront, so they cannot present the
+    // origin-verify header. Same contract as the payment/email webhooks.
+    /^\/api\/status\/webhooks\/(?:uptime-kuma|gatus|alertmanager|github-actions)(?:\/|$)/i,
 ];
 
 const normalizeText = (value = '') => String(value || '').trim();
