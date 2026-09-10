@@ -98,7 +98,10 @@ for _ in $(seq 1 30); do
 done
 echo "prometheus /-/ready -> ${p:-none}"
 echo "alertmanager /-/ready -> ${a:-none}"
-[ "${p:-}" = "200" ] || { echo "Prometheus did not become ready"; docker compose -f infra/observability/docker-compose.ec2.yml --project-name aura-observability logs --tail=40 prometheus; exit 1; }
+  # Alertmanager gates dispatch on cluster gossip settling (~10s); posting
+  # earlier silently drops the alert.
+  sleep 12
+  [ "${p:-}" = "200" ] || { echo "Prometheus did not become ready"; docker compose -f infra/observability/docker-compose.ec2.yml --project-name aura-observability logs --tail=40 prometheus; exit 1; }
 [ "${a:-}" = "200" ] || { echo "Alertmanager did not become ready"; docker compose -f infra/observability/docker-compose.ec2.yml --project-name aura-observability logs --tail=40 alertmanager; exit 1; }
 
 echo "=== prometheus targets ==="
