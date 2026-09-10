@@ -36,6 +36,7 @@ env:
   AWS_INSTANCE_TAG_KEY: ${{ vars.AWS_INSTANCE_TAG_KEY || 'Name' }}
   AWS_INSTANCE_TAG_VALUE: ${{ vars.AWS_INSTANCE_TAG_VALUE || '' }}
   AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+  AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
 
 jobs:
   probe:
@@ -130,11 +131,26 @@ jobs:
           echo "Timed out waiting for the observability probe."
           exit 1
 
+      - name: Ship observability tree to S3
+        id: ship
+        if: ${{ !inputs.probe_only }}
+        run: |
+          set -euo pipefail
+          test -n "${AWS_DEPLOY_BUCKET}" || { echo "Missing variable AWS_DEPLOY_BUCKET"; exit 1; }
+          OBS_KEY="observability/infra-observability-${GITHUB_SHA}.tar.gz"
+          git archive --format=tar.gz --output "${RUNNER_TEMP}/infra-observability.tar.gz" HEAD infra/observability
+          OBS_SHA256="$(sha256sum "${RUNNER_TEMP}/infra-observability.tar.gz" | awk '{print $1}')"
+          aws s3 cp "${RUNNER_TEMP}/infra-observability.tar.gz" "s3://${AWS_DEPLOY_BUCKET}/${OBS_KEY}"
+          echo "obs_key=${OBS_KEY}" >> "$GITHUB_OUTPUT"
+          echo "obs_sha256=${OBS_SHA256}" >> "$GITHUB_OUTPUT"
+
       - name: Dispatch activation through SSM
         if: ${{ !inputs.probe_only }}
         env:
           INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
           FIRE_TEST_ALERT: ${{ inputs.fire_test_alert && 'true' || 'false' }}
+          OBS_KEY: ${{ steps.ship.outputs.obs_key }}
+          OBS_SHA256: ${{ steps.ship.outputs.obs_sha256 }}
         run: |
           set -euo pipefail
           export RUNNER_SCRIPT_B64
@@ -145,7 +161,7 @@ jobs:
             'set -euo pipefail',
             `printf '%s' '${process.env.RUNNER_SCRIPT_B64}' | base64 -d > /tmp/aura_obs_activate.sh`,
             'chmod 700 /tmp/aura_obs_activate.sh',
-            `FIRE_TEST_ALERT="${process.env.FIRE_TEST_ALERT}" bash /tmp/aura_obs_activate.sh; status=$?; rm -f /tmp/aura_obs_activate.sh; exit $status`,
+            `AURA_OBS_KEY="${process.env.OBS_KEY}" AURA_OBS_SHA256="${process.env.OBS_SHA256}" FIRE_TEST_ALERT="${process.env.FIRE_TEST_ALERT}" bash /tmp/aura_obs_activate.sh; status=$?; rm -f /tmp/aura_obs_activate.sh; exit $status`,
           ];
           console.log(JSON.stringify({ commands }, null, 2));
           NODE
