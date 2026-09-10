@@ -108,8 +108,13 @@ New tests (all triaged into `server.regression`): `paymentCaptureRace`,
    uploads are SSE-S3 encrypted; a freshness job alerts when the newest
    archive is >26h old; `scripts/production/restore-production-mongo.sh`
    adds a guarded live restore plus an isolated-container drill mode.
-   Activation (bucket + repo variables + first run/drill) is documented in
-   `docs/backup-activation-checklist.md` and still pending.*
+   Activation completed 2026-09-09: bucket live, workflow-driven backup
+   `production/mongo/20260909-203715` verified in S3, and the restore drill
+   passed (62 collections restored in an isolated container, run 34402092815).
+   Two follow-up fixes shipped for it: `--sse AES256` (was an invalid flag
+   value) and a node-free drill stats counter (EC2 host has no node).*
+   *Update 2026-09-09: alertmanager wiring merged; receiver token on the
+   observability host still needs setting (see docs/backup-activation-checklist.md).*
 10. **Mongo version skew** — mongo:7 (dev compose), mongo:7.0.11 binary
     (tests), Mongo 6.0 (CI service), mongo:8.0 (split-runtime compose).
     Pin one version family across environments.
