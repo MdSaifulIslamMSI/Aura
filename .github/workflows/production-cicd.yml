@@ -1891,6 +1891,8 @@ jobs:
 
       - name: Create and push production tag
         id: tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -1902,7 +1904,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git tag -a "${tag}" -m "Production release ${tag} from ${GITHUB_SHA}"
-          git push origin "${tag}"
+          # Checkout runs with persist-credentials: false, so plain `git push
+          # origin` has no auth; push through an explicitly token'd remote URL.
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${tag}"
 
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "Created production tag: ${tag}"
