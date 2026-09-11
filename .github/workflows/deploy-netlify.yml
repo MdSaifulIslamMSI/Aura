@@ -284,6 +284,8 @@ jobs:
         # context in conditions, so the guard lives in the shell instead.
         # Skipped cleanly until Sentry secrets exist; never blocks deploys.
         # Covers the Netlify + Vercel storefront artifacts from this shared build.
+        # Runs at the repo root: this job defaults to ./app.
+        working-directory: .
         env:
           SENTRY_RELEASE: ${{ github.sha }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
