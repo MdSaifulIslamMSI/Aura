@@ -114,6 +114,8 @@ const Home = () => {
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [recommendationCopy, setRecommendationCopy] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [homeError, setHomeError] = useState(false);
+  const [homeReloadKey, setHomeReloadKey] = useState(0);
   const { currentUser = null, isAuthenticated = false } = useContext(AuthContext) || {};
   const { cartItems = [], isLoading: cartLoading = false } = useContext(CartContext) || {};
   const { wishlistItems = [], isLoading: wishlistLoading = false } = useContext(WishlistContext) || {};
@@ -167,6 +169,10 @@ const Home = () => {
         const hasAnySuccess = [dealsResult, trendingResult, arrivalsResult]
           .some((result) => result.status === 'fulfilled');
 
+        if (hasAnySuccess) {
+          setHomeError(false);
+        }
+
         if (dealsResult.status === 'fulfilled') {
           setDealsOfTheDay(dealsResult.value?.products || []);
         }
@@ -185,6 +191,10 @@ const Home = () => {
           }, 5000);
           return;
         }
+
+        if (!hasAnySuccess) {
+          setHomeError(true);
+        }
       } catch (error) {
         console.error("Home Data Fetch Failed:", error);
       } finally {
@@ -201,7 +211,11 @@ const Home = () => {
         window.clearTimeout(retryTimer);
       }
     };
-  }, []);
+  }, [homeReloadKey]);
+
+  const handleHomeRetry = () => {
+    setHomeReloadKey((key) => key + 1);
+  };
 
   useEffect(() => {
     let active = true;
@@ -549,9 +563,9 @@ const Home = () => {
 
   const shouldShowResumeSection = resumeLoading || resumeProducts.length > 0;
   const shouldShowRecommendationSection = recommendationsLoading || recommendedProducts.length > 0;
-  const shouldShowDealsSection = loading || dealsOfTheDay.length > 0;
-  const shouldShowTrendingSection = loading || trendingProducts.length > 0;
-  const shouldShowNewArrivalsSection = loading || newArrivals.length > 0;
+  const shouldShowDealsSection = loading || !homeError;
+  const shouldShowTrendingSection = loading || !homeError;
+  const shouldShowNewArrivalsSection = loading || !homeError;
 
   return (
     <div className={cn('premium-page-shell min-h-screen pb-16 pt-3 sm:pt-4', pageShellClass)}>
@@ -775,6 +789,31 @@ const Home = () => {
               />
             </SectionErrorBoundary>
           </RevealOnScroll>
+        ) : null}
+
+        {/* Feed failure state — surface it instead of silently dropping the shelves */}
+        {!loading && homeError ? (
+          <section
+            className="aura-product-shelf premium-grid-backdrop mb-8 rounded-3xl border p-6 text-center sm:p-8"
+            style={heroStyle}
+            role="alert"
+          >
+            <h2 className={cn('text-xl font-black tracking-tight md:text-2xl', titleClass)}>
+              {t('home.feedError.title', {}, 'Products could not load right now')}
+            </h2>
+            <p className={cn('mx-auto mt-2 max-w-xl text-sm leading-6', mutedTextClass)}>
+              {t('home.feedError.body', {}, 'We could not reach the catalog for deals, trending picks, and new arrivals. Check your connection and retry.')}
+            </p>
+            <button
+              type="button"
+              onClick={handleHomeRetry}
+              className="mt-5 inline-flex items-center gap-2 rounded-full border px-5 py-2 text-sm font-bold uppercase tracking-[0.22em] transition-all"
+              style={accentSoftStyle}
+            >
+              {t('home.feedError.retry', {}, 'Retry')}
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </section>
         ) : null}
 
         {/* Deals of the Day */}
