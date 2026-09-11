@@ -362,6 +362,7 @@
       "tests/securityMaturityScorecard.test.js",
       "tests/securitySanitizers.test.js",
       "tests/sellerActivation.test.js",
+      "tests/sentryService.test.js",
       "tests/stagingFrontendCors.test.js",
       "tests/stagingSmokeSafety.test.js",
       "tests/supportRoutes.security.test.js",
