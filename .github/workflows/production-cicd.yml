@@ -57,6 +57,12 @@ on:
         default: false
         type: boolean
 
+      staging_off_acknowledged:
+        description: "Set true ONLY when staging is intentionally kept stopped: live staging-parity gates skip and a proof job verifies staging really is off. Keep false for full gates."
+        required: false
+        default: false
+        type: boolean
+
 permissions:
   contents: read
 
@@ -750,6 +756,8 @@ jobs:
       needs.plan.outputs.planned_production_action == 'true' &&
       needs.plan.outputs.requested_deploy_or_release_action == 'true'
     uses: ./.github/workflows/giant-release-gates.yml
+    with:
+      staging_off_acknowledged: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.confirm_production == 'PRODUCTION' && github.event.inputs.staging_off_acknowledged == 'true' || false }}
     permissions:
       contents: read
       id-token: write
