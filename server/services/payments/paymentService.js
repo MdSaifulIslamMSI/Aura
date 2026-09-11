@@ -73,6 +73,7 @@ const {
     requirePaymentAllowed,
 } = require('../emergencyControlService');
 const logger = require('../../utils/logger');
+const { withCronMonitor } = require('../../utils/sentry');
 
 const appendPaymentEvent = async ({
     eventId = makeEventId('evt'),
@@ -2321,7 +2322,11 @@ let outboxTimer = null;
 const startPaymentOutboxWorker = () => {
     if (outboxTimer || !flags.paymentsEnabled) return;
     outboxTimer = setInterval(() => {
-        runOutboxCycle().catch((error) => {
+        withCronMonitor(
+            'payment-outbox',
+            () => runOutboxCycle(),
+            { schedule: { type: 'interval', value: 1, unit: 'minute' } },
+        ).catch((error) => {
             logger.error('payment_outbox.cycle_failed', { error: error.message });
         });
     }, OUTBOX_POLL_MS);

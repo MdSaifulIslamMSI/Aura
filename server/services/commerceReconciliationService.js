@@ -6,6 +6,7 @@ const PaymentOutboxTask = require('../models/PaymentOutboxTask');
 const OrderEmailNotification = require('../models/OrderEmailNotification');
 const AdminNotification = require('../models/AdminNotification');
 const logger = require('../utils/logger');
+const { withCronMonitor } = require('../utils/sentry');
 const { scheduleCaptureTask, scheduleRefundTask } = require('./payments/outboxState');
 const { enqueueOrderPlacedEmail } = require('./email/orderEmailQueueService');
 
@@ -335,7 +336,11 @@ const runCommerceReconciliationCycle = async () => {
 const startCommerceReconciliationWorker = () => {
     if (!WORKER_ENABLED || reconciliationTimer) return;
     reconciliationTimer = setInterval(() => {
-        runCommerceReconciliationCycle().catch((error) => {
+        withCronMonitor(
+            'commerce-reconciliation',
+            () => runCommerceReconciliationCycle(),
+            { schedule: { type: 'interval', value: 1, unit: 'minute' } },
+        ).catch((error) => {
             logger.error('commerce_reconciliation.cycle_failed', {
                 error: error.message,
             });

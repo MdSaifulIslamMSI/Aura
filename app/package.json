@@ -46,6 +46,7 @@
     "@capacitor-firebase/authentication": "^8.5.1",
     "@capacitor/app": "^8.1.1",
     "@radix-ui/react-slot": "^1.3.3",
+    "@sentry/react": "^10.74.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "firebase": "^12.19.0",

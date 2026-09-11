@@ -1,6 +1,17 @@
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
+// Sentry first: the SDK auto-instruments modules required below (express,
+// http, mongoose), so env loading + init must run before those requires.
+// Guarded: no-op without SENTRY_DSN, never blocks boot.
+const { loadLocalEnvFiles } = require('./config/runtimeConfig');
+loadLocalEnvFiles();
+try {
+    require('./utils/sentry').initSentry();
+} catch {
+    // Sentry must never prevent the API from booting.
+}
+
 const crypto = require('crypto');
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');
@@ -9,7 +20,6 @@ const path = require('path');
 const compression = require('compression');
 const helmet = require('helmet');
 const cors = require('cors');
-const { loadLocalEnvFiles } = require('./config/runtimeConfig');
 const logger = require('./utils/logger');
 const mongoSanitize = require('./middleware/securityMiddleware');
 const xssSanitizer = require('./middleware/xssSanitizer');
@@ -39,8 +49,6 @@ require('colors');
 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const AppError = require('./utils/AppError');
-
-loadLocalEnvFiles();
 
 const connectDB = require('./config/db');
 const { getMongoDeploymentHealth } = require('./config/db');

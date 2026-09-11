@@ -169,6 +169,9 @@ export default defineConfig(({ mode }) => {
     __AURA_RELEASE__: JSON.stringify(releaseInfo),
   },
   build: {
+    // Sourcemaps power Sentry stack-trace un-minification via
+    // `npm run student-pack:sentry:release` after build.
+    sourcemap: true,
     // LiveKit's vendor ESM bundle is route-split but lands just above Vite's 500 kB default.
     chunkSizeWarningLimit: 520,
     modulePreload: {

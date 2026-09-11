@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const Decimal = require('decimal.js');
 const AppError = require('../../utils/AppError');
 const logger = require('../../utils/logger');
+const { withCronMonitor } = require('../../utils/sentry');
 const { guardedFetch } = require('../../security/remoteFetchGuardService');
 const FxRateSnapshot = require('../../models/FxRateSnapshot');
 const {
@@ -1046,7 +1047,11 @@ const startFxRateScheduler = () => {
     state.schedulerTask = cron.schedule(
         cronExpression,
         () => {
-            refreshFxRates({ trigger: 'scheduler' }).catch((error) => {
+            withCronMonitor(
+                'fx-refresh',
+                () => refreshFxRates({ trigger: 'scheduler' }),
+                { schedule: { type: 'crontab', value: cronExpression } },
+            ).catch((error) => {
                 logger.error('fx.scheduler_cycle_failed', { error: error.message });
             });
         },
@@ -1063,7 +1068,11 @@ const startFxRateScheduler = () => {
 
     if (isBootstrapEnabled()) {
         Promise.resolve()
-            .then(() => refreshFxRates({ trigger: 'startup' }))
+            .then(() => withCronMonitor(
+                'fx-refresh',
+                () => refreshFxRates({ trigger: 'startup' }),
+                { schedule: { type: 'crontab', value: cronExpression } },
+            ))
             .catch((error) => {
                 logger.error('fx.bootstrap_refresh_failed', { error: error.message });
             });
