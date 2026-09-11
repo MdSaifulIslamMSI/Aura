@@ -75,7 +75,7 @@
       "interpolationTokens": [],
       "kind": "dynamic-lookup",
       "legacyEnglishTemplate": "",
-      "line": 380,
+      "line": 382,
       "reason": "First t() argument is computed or interpolated and requires manual review."
     },
     {
@@ -2763,7 +2763,7 @@
       "importsLegacyPacks": false,
       "isTestFile": false,
       "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 81,
+      "messageIdCount": 84,
       "messageIds": [
         "category.books",
         "category.electronics",
@@ -2788,6 +2788,9 @@
         "home.categories.cleanEyebrow",
         "home.categories.openLane",
         "home.categories.title",
+        "home.feedError.body",
+        "home.feedError.retry",
+        "home.feedError.title",
         "home.flashSales.cleanBody",
         "home.flashSales.cleanEyebrow",
         "home.flashSales.title",
@@ -2848,7 +2851,7 @@
         "product.fastDispatch"
       ],
       "risk": "medium",
-      "stableLiteralCount": 94,
+      "stableLiteralCount": 97,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -5224,29 +5227,6 @@
     },
     {
       "dynamicLookupCount": 0,
-      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
-      "importsLegacyPacks": false,
-      "isTestFile": false,
-      "runtimeEnumCompatibilityCount": 0,
-      "messageIdCount": 9,
-      "messageIds": [
-        "welcomeCurtain.action.skip",
-        "welcomeCurtain.ariaLabel",
-        "welcomeCurtain.kicker",
-        "welcomeCurtain.message.ready",
-        "welcomeCurtain.message.thanks",
-        "welcomeCurtain.message.welcome",
-        "welcomeCurtain.soundOff",
-        "welcomeCurtain.soundOn",
-        "welcomeCurtain.subcopy"
-      ],
-      "risk": "low",
-      "stableLiteralCount": 9,
-      "isRuntimeEnumCompatibilityFile": false,
-      "usesDynamicRuntimeTranslation": false
-    },
-    {
-      "dynamicLookupCount": 0,
       "file": "app/src/pages/Profile/components/AccountStatusBanner.jsx",
       "importsLegacyPacks": false,
       "isTestFile": false,
@@ -5286,6 +5266,27 @@
       ],
       "risk": "low",
       "stableLiteralCount": 8,
+      "isRuntimeEnumCompatibilityFile": false,
+      "usesDynamicRuntimeTranslation": false
+    },
+    {
+      "dynamicLookupCount": 0,
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "importsLegacyPacks": false,
+      "isTestFile": false,
+      "runtimeEnumCompatibilityCount": 0,
+      "messageIdCount": 7,
+      "messageIds": [
+        "welcomeCurtain.action.skip",
+        "welcomeCurtain.ariaLabel",
+        "welcomeCurtain.kicker",
+        "welcomeCurtain.message.welcome",
+        "welcomeCurtain.soundOff",
+        "welcomeCurtain.soundOn",
+        "welcomeCurtain.subcopy"
+      ],
+      "risk": "low",
+      "stableLiteralCount": 7,
       "isRuntimeEnumCompatibilityFile": false,
       "usesDynamicRuntimeTranslation": false
     },
@@ -6055,7 +6056,7 @@
       "usesDynamicRuntimeTranslation": false
     }
   ],
-  "generatedAt": "2026-09-05T17:01:54.361Z",
+  "generatedAt": "2026-09-11T20:12:33.596Z",
   "legacyPackInternalFiles": [
     "app/src/config/marketConfig.js",
     "app/src/config/marketMessagePacks/ar.js",
@@ -6111,7 +6112,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 133,
+      "line": 134,
       "reason": ""
     },
     {
@@ -6124,7 +6125,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 134,
+      "line": 135,
       "reason": ""
     },
     {
@@ -6137,7 +6138,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 136,
+      "line": 137,
       "reason": ""
     },
     {
@@ -6150,7 +6151,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 271,
+      "line": 272,
       "reason": ""
     },
     {
@@ -9924,7 +9925,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 96,
+      "line": 98,
       "reason": ""
     },
     {
@@ -9939,7 +9940,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open {{label}}",
-      "line": 104,
+      "line": 106,
       "reason": ""
     },
     {
@@ -9954,7 +9955,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open {{label}} from account menu",
-      "line": 139,
+      "line": 141,
       "reason": ""
     },
     {
@@ -9967,7 +9968,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market Studio",
-      "line": 186,
+      "line": 188,
       "reason": ""
     },
     {
@@ -9980,7 +9981,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tune country, language, and browse currency without losing your place.",
-      "line": 189,
+      "line": 191,
       "reason": ""
     },
     {
@@ -9993,7 +9994,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset to detected market",
-      "line": 197,
+      "line": 199,
       "reason": ""
     },
     {
@@ -10006,7 +10007,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Country",
-      "line": 203,
+      "line": 205,
       "reason": ""
     },
     {
@@ -10019,7 +10020,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Language",
-      "line": 218,
+      "line": 220,
       "reason": ""
     },
     {
@@ -10032,7 +10033,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Currency",
-      "line": 233,
+      "line": 235,
       "reason": ""
     },
     {
@@ -10045,7 +10046,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Detected",
-      "line": 250,
+      "line": 252,
       "reason": ""
     },
     {
@@ -10058,7 +10059,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Region",
-      "line": 253,
+      "line": 255,
       "reason": ""
     },
     {
@@ -10071,7 +10072,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Local prices",
-      "line": 256,
+      "line": 258,
       "reason": ""
     },
     {
@@ -10084,7 +10085,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Catalog prices convert from INR for browsing. Final payment quotes lock at checkout.",
-      "line": 266,
+      "line": 268,
       "reason": ""
     },
     {
@@ -10097,7 +10098,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Voice commands, dates, and UI copy follow the selected language and locale where translated.",
-      "line": 269,
+      "line": 271,
       "reason": ""
     },
     {
@@ -10110,7 +10111,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Native catalog FX",
-      "line": 270,
+      "line": 272,
       "reason": ""
     },
     {
@@ -10123,7 +10124,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Network",
-      "line": 297,
+      "line": 299,
       "reason": ""
     },
     {
@@ -10136,7 +10137,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 304,
+      "line": 306,
       "reason": ""
     },
     {
@@ -10149,7 +10150,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, brands, and live deals",
-      "line": 305,
+      "line": 307,
       "reason": ""
     },
     {
@@ -10162,7 +10163,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 314,
+      "line": 316,
       "reason": ""
     },
     {
@@ -10175,7 +10176,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login",
-      "line": 320,
+      "line": 322,
       "reason": ""
     },
     {
@@ -10188,7 +10189,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 325,
+      "line": 327,
       "reason": ""
     },
     {
@@ -10201,7 +10202,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 391,
+      "line": 393,
       "reason": ""
     },
     {
@@ -10214,7 +10215,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sell",
-      "line": 529,
+      "line": 531,
       "reason": ""
     },
     {
@@ -10227,7 +10228,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 530,
+      "line": 532,
       "reason": ""
     },
     {
@@ -10240,7 +10241,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Color mode",
-      "line": 585,
+      "line": 587,
       "reason": ""
     },
     {
@@ -10253,7 +10254,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Network",
-      "line": 658,
+      "line": 660,
       "reason": ""
     },
     {
@@ -10266,7 +10267,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 668,
+      "line": 670,
       "reason": ""
     },
     {
@@ -10279,7 +10280,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, brands, and live deals",
-      "line": 674,
+      "line": 676,
       "reason": ""
     },
     {
@@ -10292,7 +10293,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 685,
+      "line": 687,
       "reason": ""
     },
     {
@@ -10305,7 +10306,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open market settings",
-      "line": 708,
+      "line": 710,
       "reason": ""
     },
     {
@@ -10318,7 +10319,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market preferences",
-      "line": 723,
+      "line": 725,
       "reason": ""
     },
     {
@@ -10331,7 +10332,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Market Studio",
-      "line": 728,
+      "line": 730,
       "reason": ""
     },
     {
@@ -10344,7 +10345,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Country, language, and currency controls.",
-      "line": 731,
+      "line": 733,
       "reason": ""
     },
     {
@@ -10357,7 +10358,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Tune browsing without disturbing the main navigation rail.",
-      "line": 734,
+      "line": 736,
       "reason": ""
     },
     {
@@ -10370,7 +10371,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open profile menu",
-      "line": 773,
+      "line": 775,
       "reason": ""
     },
     {
@@ -10385,7 +10386,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} AP",
-      "line": 787,
+      "line": 789,
       "reason": ""
     },
     {
@@ -10398,7 +10399,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close profile menu backdrop",
-      "line": 798,
+      "line": 800,
       "reason": ""
     },
     {
@@ -10411,7 +10412,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account",
-      "line": 810,
+      "line": 812,
       "reason": ""
     },
     {
@@ -10424,7 +10425,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Profile, orders, and saved shopping links.",
-      "line": 813,
+      "line": 815,
       "reason": ""
     },
     {
@@ -10437,7 +10438,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close",
-      "line": 821,
+      "line": 823,
       "reason": ""
     },
     {
@@ -10452,7 +10453,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "{{count}} AP",
-      "line": 829,
+      "line": 831,
       "reason": ""
     },
     {
@@ -10465,7 +10466,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 838,
+      "line": 840,
       "reason": ""
     },
     {
@@ -10478,7 +10479,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 845,
+      "line": 847,
       "reason": ""
     },
     {
@@ -10491,7 +10492,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Wishlist",
-      "line": 852,
+      "line": 854,
       "reason": ""
     },
     {
@@ -10504,7 +10505,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My listings",
-      "line": 860,
+      "line": 862,
       "reason": ""
     },
     {
@@ -10517,7 +10518,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 868,
+      "line": 870,
       "reason": ""
     },
     {
@@ -10530,7 +10531,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin portal",
-      "line": 880,
+      "line": 882,
       "reason": ""
     },
     {
@@ -10543,7 +10544,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Logout",
-      "line": 896,
+      "line": 898,
       "reason": ""
     },
     {
@@ -10556,7 +10557,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notifications temporarily unavailable",
-      "line": 905,
+      "line": 907,
       "reason": ""
     },
     {
@@ -10569,7 +10570,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Notifications are temporarily unavailable",
-      "line": 906,
+      "line": 908,
       "reason": ""
     },
     {
@@ -10582,7 +10583,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login",
-      "line": 923,
+      "line": 925,
       "reason": ""
     },
     {
@@ -10595,7 +10596,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 931,
+      "line": 933,
       "reason": ""
     },
     {
@@ -10608,7 +10609,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Toggle menu",
-      "line": 947,
+      "line": 949,
       "reason": ""
     },
     {
@@ -10621,7 +10622,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 958,
+      "line": 960,
       "reason": ""
     },
     {
@@ -10634,7 +10635,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 959,
+      "line": 961,
       "reason": ""
     },
     {
@@ -10647,7 +10648,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 966,
+      "line": 968,
       "reason": ""
     },
     {
@@ -10660,7 +10661,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 986,
+      "line": 988,
       "reason": ""
     },
     {
@@ -10673,7 +10674,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open search",
-      "line": 987,
+      "line": 989,
       "reason": ""
     },
     {
@@ -10686,7 +10687,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products, categories, and actions...",
-      "line": 994,
+      "line": 996,
       "reason": ""
     },
     {
@@ -10699,7 +10700,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Close mobile menu backdrop",
-      "line": 1006,
+      "line": 1008,
       "reason": ""
     },
     {
@@ -10712,7 +10713,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shop",
-      "line": 1023,
+      "line": 1025,
       "reason": ""
     },
     {
@@ -10725,7 +10726,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Marketplace",
-      "line": 1031,
+      "line": 1033,
       "reason": ""
     },
     {
@@ -10738,7 +10739,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sell",
-      "line": 1039,
+      "line": 1041,
       "reason": ""
     },
     {
@@ -10751,7 +10752,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 1039,
+      "line": 1041,
       "reason": ""
     },
     {
@@ -10764,7 +10765,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Wishlist",
-      "line": 1047,
+      "line": 1049,
       "reason": ""
     },
     {
@@ -10777,7 +10778,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart",
-      "line": 1055,
+      "line": 1057,
       "reason": ""
     },
     {
@@ -10790,7 +10791,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Browse by category",
-      "line": 1061,
+      "line": 1063,
       "reason": ""
     },
     {
@@ -10803,7 +10804,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Account control",
-      "line": 1078,
+      "line": 1080,
       "reason": ""
     },
     {
@@ -10816,7 +10817,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My profile",
-      "line": 1083,
+      "line": 1085,
       "reason": ""
     },
     {
@@ -10829,7 +10830,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Orders",
-      "line": 1086,
+      "line": 1088,
       "reason": ""
     },
     {
@@ -10842,7 +10843,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "My listings",
-      "line": 1089,
+      "line": 1091,
       "reason": ""
     },
     {
@@ -10855,7 +10856,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Become seller",
-      "line": 1089,
+      "line": 1091,
       "reason": ""
     },
     {
@@ -10868,7 +10869,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Admin portal",
-      "line": 1096,
+      "line": 1098,
       "reason": ""
     },
     {
@@ -10881,7 +10882,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Color mode",
-      "line": 1128,
+      "line": 1130,
       "reason": ""
     },
     {
@@ -10894,7 +10895,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Login / Sign up",
-      "line": 1172,
+      "line": 1174,
       "reason": ""
     },
     {
@@ -12521,7 +12522,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Welcome to Aura",
-      "line": 416,
+      "line": 257,
       "reason": ""
     },
     {
@@ -12534,7 +12535,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sound off",
-      "line": 418,
+      "line": 259,
       "reason": ""
     },
     {
@@ -12547,46 +12548,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Sound on",
-      "line": 419,
-      "reason": ""
-    },
-    {
-      "column": 5,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Welcome to Aura",
-      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
-      "icuDefaultMessage": "Welcome to Aura",
-      "id": "welcomeCurtain.message.welcome",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 422,
-      "reason": ""
-    },
-    {
-      "column": 5,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Thanks for visiting",
-      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
-      "icuDefaultMessage": "Thanks for visiting",
-      "id": "welcomeCurtain.message.thanks",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 423,
-      "reason": ""
-    },
-    {
-      "column": 5,
-      "defaultMessageSource": "call-site-fallback",
-      "fallback": "Your premium experience is ready",
-      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
-      "icuDefaultMessage": "Your premium experience is ready",
-      "id": "welcomeCurtain.message.ready",
-      "interpolationTokens": [],
-      "kind": "stable-ui-literal",
-      "legacyEnglishTemplate": "",
-      "line": 424,
+      "line": 260,
       "reason": ""
     },
     {
@@ -12599,7 +12561,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 487,
+      "line": 284,
       "reason": ""
     },
     {
@@ -12612,7 +12574,20 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 551,
+      "line": 306,
+      "reason": ""
+    },
+    {
+      "column": 11,
+      "defaultMessageSource": "call-site-fallback",
+      "fallback": "Welcome to Aura",
+      "file": "app/src/components/welcome/PremiumWelcomeCurtain.jsx",
+      "icuDefaultMessage": "Welcome to Aura",
+      "id": "welcomeCurtain.message.welcome",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "",
+      "line": 312,
       "reason": ""
     },
     {
@@ -12625,7 +12600,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 578,
+      "line": 315,
       "reason": ""
     },
     {
@@ -12651,7 +12626,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 15,
+      "line": 16,
       "reason": ""
     },
     {
@@ -12664,7 +12639,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 17,
+      "line": 18,
       "reason": ""
     },
     {
@@ -12677,7 +12652,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "",
-      "line": 28,
+      "line": 29,
       "reason": ""
     },
     {
@@ -32131,7 +32106,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Intent-Based Recommendations",
-      "line": 255,
+      "line": 269,
       "reason": ""
     },
     {
@@ -32144,7 +32119,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Curated for Your Next Move",
-      "line": 256,
+      "line": 270,
       "reason": ""
     },
     {
@@ -32157,7 +32132,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This lane is ranked from what you added, saved, viewed, and searched.",
-      "line": 257,
+      "line": 271,
       "reason": ""
     },
     {
@@ -32170,7 +32145,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cart Momentum",
-      "line": 260,
+      "line": 274,
       "reason": ""
     },
     {
@@ -32185,7 +32160,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Keep building your {{category}} stack",
-      "line": 261,
+      "line": 275,
       "reason": ""
     },
     {
@@ -32198,7 +32173,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "These picks reinforce what is already converting in your basket and shorten the next decision.",
-      "line": 262,
+      "line": 276,
       "reason": ""
     },
     {
@@ -32211,7 +32186,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Wishlist Signal",
-      "line": 264,
+      "line": 278,
       "reason": ""
     },
     {
@@ -32226,7 +32201,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "More from your {{category}} watchlist",
-      "line": 265,
+      "line": 279,
       "reason": ""
     },
     {
@@ -32239,7 +32214,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "This lane expands the products you already marked as high intent.",
-      "line": 266,
+      "line": 280,
       "reason": ""
     },
     {
@@ -32252,7 +32227,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resume Discovery",
-      "line": 268,
+      "line": 282,
       "reason": ""
     },
     {
@@ -32265,7 +32240,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue where your product research left off",
-      "line": 269,
+      "line": 283,
       "reason": ""
     },
     {
@@ -32278,7 +32253,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "These picks follow your recent product-detail visits so the session does not reset to zero.",
-      "line": 270,
+      "line": 284,
       "reason": ""
     },
     {
@@ -32291,7 +32266,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search Intent",
-      "line": 272,
+      "line": 286,
       "reason": ""
     },
     {
@@ -32306,7 +32281,7 @@
       ],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Results shaped around \"{{query}}\"",
-      "line": 273,
+      "line": 287,
       "reason": ""
     },
     {
@@ -32319,7 +32294,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your recent search behavior is steering this lane, even before you add anything to cart.",
-      "line": 274,
+      "line": 288,
       "reason": ""
     },
     {
@@ -32332,7 +32307,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Cold Start Picks",
-      "line": 276,
+      "line": 290,
       "reason": ""
     },
     {
@@ -32345,7 +32320,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Start with high-confidence catalog winners",
-      "line": 277,
+      "line": 291,
       "reason": ""
     },
     {
@@ -32358,7 +32333,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No personal signal yet, so this lane defaults to broad, high-trust discovery.",
-      "line": 278,
+      "line": 292,
       "reason": ""
     },
     {
@@ -32371,7 +32346,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Mobiles",
-      "line": 404,
+      "line": 418,
       "reason": ""
     },
     {
@@ -32384,7 +32359,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Laptops",
-      "line": 405,
+      "line": 419,
       "reason": ""
     },
     {
@@ -32397,7 +32372,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Electronics",
-      "line": 406,
+      "line": 420,
       "reason": ""
     },
     {
@@ -32410,7 +32385,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Men's Fashion",
-      "line": 407,
+      "line": 421,
       "reason": ""
     },
     {
@@ -32423,7 +32398,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Women's Fashion",
-      "line": 408,
+      "line": 422,
       "reason": ""
     },
     {
@@ -32436,7 +32411,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Home & Kitchen",
-      "line": 409,
+      "line": 423,
       "reason": ""
     },
     {
@@ -32449,7 +32424,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Gaming",
-      "line": 410,
+      "line": 424,
       "reason": ""
     },
     {
@@ -32462,7 +32437,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Books",
-      "line": 411,
+      "line": 425,
       "reason": ""
     },
     {
@@ -32475,7 +32450,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Start with search",
-      "line": 416,
+      "line": 430,
       "reason": ""
     },
     {
@@ -32488,7 +32463,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Jump straight into products, brands, and categories without wading through filler blocks first.",
-      "line": 417,
+      "line": 431,
       "reason": ""
     },
     {
@@ -32501,7 +32476,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shop trusted deals",
-      "line": 422,
+      "line": 436,
       "reason": ""
     },
     {
@@ -32514,7 +32489,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Go directly to high-signal discounts and top-rated picks when you already know what you want.",
-      "line": 423,
+      "line": 437,
       "reason": ""
     },
     {
@@ -32527,7 +32502,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Browse local marketplace",
-      "line": 428,
+      "line": 442,
       "reason": ""
     },
     {
@@ -32540,7 +32515,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Switch into nearby listings and resale inventory when you want seller-aware browsing.",
-      "line": 429,
+      "line": 443,
       "reason": ""
     },
     {
@@ -32553,7 +32528,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deal desk",
-      "line": 464,
+      "line": 478,
       "reason": ""
     },
     {
@@ -32566,7 +32541,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live",
-      "line": 465,
+      "line": 479,
       "reason": ""
     },
     {
@@ -32579,7 +32554,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "price-drop picks",
-      "line": 466,
+      "line": 480,
       "reason": ""
     },
     {
@@ -32592,7 +32567,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trust layer",
-      "line": 470,
+      "line": 484,
       "reason": ""
     },
     {
@@ -32605,7 +32580,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Verified",
-      "line": 471,
+      "line": 485,
       "reason": ""
     },
     {
@@ -32618,7 +32593,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "ratings, stock, delivery",
-      "line": 472,
+      "line": 486,
       "reason": ""
     },
     {
@@ -32631,7 +32606,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Your intent",
-      "line": 476,
+      "line": 490,
       "reason": ""
     },
     {
@@ -32644,7 +32619,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "cart and saved signals",
-      "line": 478,
+      "line": 492,
       "reason": ""
     },
     {
@@ -32657,7 +32632,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Explore",
-      "line": 483,
+      "line": 497,
       "reason": ""
     },
     {
@@ -32670,7 +32645,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "No products are available in this section right now. Please check back shortly.",
-      "line": 532,
+      "line": 546,
       "reason": ""
     },
     {
@@ -32683,7 +32658,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Command Deck",
-      "line": 577,
+      "line": 591,
       "reason": ""
     },
     {
@@ -32696,7 +32671,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Market Dispatch",
-      "line": 582,
+      "line": 596,
       "reason": ""
     },
     {
@@ -32709,7 +32684,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "A sharper storefront for product decisions that move.",
-      "line": 585,
+      "line": 599,
       "reason": ""
     },
     {
@@ -32722,7 +32697,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Browse a calmer commerce desk where deals, trusted inventory, and local marketplace lanes stay close to the products themselves.",
-      "line": 588,
+      "line": 602,
       "reason": ""
     },
     {
@@ -32735,7 +32710,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Search products",
-      "line": 592,
+      "line": 606,
       "reason": ""
     },
     {
@@ -32748,7 +32723,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shop deal desk",
-      "line": 596,
+      "line": 610,
       "reason": ""
     },
     {
@@ -32761,7 +32736,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Local marketplace",
-      "line": 599,
+      "line": 613,
       "reason": ""
     },
     {
@@ -32774,7 +32749,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Featured products",
-      "line": 619,
+      "line": 633,
       "reason": ""
     },
     {
@@ -32787,7 +32762,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Live pick",
-      "line": 622,
+      "line": 636,
       "reason": ""
     },
     {
@@ -32800,7 +32775,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Catalog signal board",
-      "line": 624,
+      "line": 638,
       "reason": ""
     },
     {
@@ -32813,7 +32788,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Top",
-      "line": 629,
+      "line": 643,
       "reason": ""
     },
     {
@@ -32826,7 +32801,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Catalog signal board",
-      "line": 641,
+      "line": 655,
       "reason": ""
     },
     {
@@ -32839,7 +32814,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Aura Select",
-      "line": 652,
+      "line": 666,
       "reason": ""
     },
     {
@@ -32852,7 +32827,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fresh inventory",
-      "line": 653,
+      "line": 667,
       "reason": ""
     },
     {
@@ -32865,7 +32840,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Fast dispatch",
-      "line": 674,
+      "line": 688,
       "reason": ""
     },
     {
@@ -32878,7 +32853,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Quick shopping lanes",
-      "line": 684,
+      "line": 698,
       "reason": ""
     },
     {
@@ -32891,7 +32866,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Categories",
-      "line": 708,
+      "line": 722,
       "reason": ""
     },
     {
@@ -32904,7 +32879,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Shop by category",
-      "line": 712,
+      "line": 726,
       "reason": ""
     },
     {
@@ -32917,7 +32892,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Move through the catalog without friction.",
-      "line": 713,
+      "line": 727,
       "reason": ""
     },
     {
@@ -32930,7 +32905,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Use categories as the fastest way into focused product lists when you already know the lane you want.",
-      "line": 716,
+      "line": 730,
       "reason": ""
     },
     {
@@ -32943,7 +32918,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open lane",
-      "line": 737,
+      "line": 751,
       "reason": ""
     },
     {
@@ -32956,7 +32931,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resume Shopping",
-      "line": 745,
+      "line": 759,
       "reason": ""
     },
     {
@@ -32969,7 +32944,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resume Shopping",
-      "line": 746,
+      "line": 760,
       "reason": ""
     },
     {
@@ -32982,7 +32957,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Continue shopping",
-      "line": 748,
+      "line": 762,
       "reason": ""
     },
     {
@@ -32995,7 +32970,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Resume Shopping",
-      "line": 749,
+      "line": 763,
       "reason": ""
     },
     {
@@ -33008,7 +32983,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Pick up recent product research without restarting the session from scratch.",
-      "line": 750,
+      "line": 764,
       "reason": ""
     },
     {
@@ -33021,7 +32996,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Reset history",
-      "line": 752,
+      "line": 766,
       "reason": ""
     },
     {
@@ -33034,7 +33009,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Explore",
-      "line": 752,
+      "line": 766,
       "reason": ""
     },
     {
@@ -33047,7 +33022,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Recommendations",
-      "line": 765,
+      "line": 779,
       "reason": ""
     },
     {
@@ -33060,7 +33035,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "AI Recommendations",
-      "line": 766,
+      "line": 780,
       "reason": ""
     },
     {
@@ -33073,7 +33048,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Open lane",
-      "line": 772,
+      "line": 786,
       "reason": ""
     },
     {
@@ -33086,7 +33061,46 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Explore",
-      "line": 772,
+      "line": 786,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Products could not load right now",
+      "file": "app/src/pages/Home/index.jsx",
+      "icuDefaultMessage": "Products could not load right now",
+      "id": "home.feedError.title",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Products could not load right now",
+      "line": 802,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "We could not reach the catalog for deals, trending picks, and new arrivals. Check your connection and retry.",
+      "file": "app/src/pages/Home/index.jsx",
+      "icuDefaultMessage": "We could not reach the catalog for deals, trending picks, and new arrivals. Check your connection and retry.",
+      "id": "home.feedError.body",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "We could not reach the catalog for deals, trending picks, and new arrivals. Check your connection and retry.",
+      "line": 805,
+      "reason": ""
+    },
+    {
+      "column": 16,
+      "defaultMessageSource": "legacy-english-pack",
+      "fallback": "Retry",
+      "file": "app/src/pages/Home/index.jsx",
+      "icuDefaultMessage": "Retry",
+      "id": "home.feedError.retry",
+      "interpolationTokens": [],
+      "kind": "stable-ui-literal",
+      "legacyEnglishTemplate": "Retry",
+      "line": 813,
       "reason": ""
     },
     {
@@ -33099,7 +33113,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Flash Sales",
-      "line": 782,
+      "line": 821,
       "reason": ""
     },
     {
@@ -33112,7 +33126,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Deals worth opening",
-      "line": 784,
+      "line": 823,
       "reason": ""
     },
     {
@@ -33125,7 +33139,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Flash Sales",
-      "line": 785,
+      "line": 824,
       "reason": ""
     },
     {
@@ -33138,7 +33152,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Current price-drop picks with less surrounding noise and faster paths into the product list.",
-      "line": 786,
+      "line": 825,
       "reason": ""
     },
     {
@@ -33151,7 +33165,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trending Items",
-      "line": 796,
+      "line": 835,
       "reason": ""
     },
     {
@@ -33164,7 +33178,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Popular right now",
-      "line": 798,
+      "line": 837,
       "reason": ""
     },
     {
@@ -33177,7 +33191,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Trending Items",
-      "line": 799,
+      "line": 838,
       "reason": ""
     },
     {
@@ -33190,7 +33204,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "High-rating products surfaced in a cleaner shelf so the strongest signals stand out immediately.",
-      "line": 800,
+      "line": 839,
       "reason": ""
     },
     {
@@ -33203,7 +33217,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New Arrivals",
-      "line": 809,
+      "line": 848,
       "reason": ""
     },
     {
@@ -33216,7 +33230,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Just added",
-      "line": 811,
+      "line": 850,
       "reason": ""
     },
     {
@@ -33229,7 +33243,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "New Arrivals",
-      "line": 812,
+      "line": 851,
       "reason": ""
     },
     {
@@ -33242,7 +33256,7 @@
       "interpolationTokens": [],
       "kind": "stable-ui-literal",
       "legacyEnglishTemplate": "Freshly indexed products gathered into one shelf instead of being buried under another marketing panel.",
-      "line": 813,
+      "line": 852,
       "reason": ""
     },
     {
@@ -60073,14 +60087,14 @@
     "legacyPackInternalFiles": 40,
     "parseErrors": 0,
     "productionFiles": 98,
-    "productionStableReferences": 4090,
+    "productionStableReferences": 4091,
     "runtimeContentFiles": 18,
     "runtimeEnumCompatibilityFiles": 1,
     "runtimeEnumCompatibilityReferences": 1,
-    "sourceFilesScanned": 474,
+    "sourceFilesScanned": 519,
     "testHarnessReferences": 16,
     "totalTrackedFiles": 151,
-    "uniqueProductionStableIds": 3692,
+    "uniqueProductionStableIds": 3693,
     "unresolvedEnglishDefaults": 0
   },
   "testHarnessReferences": [
@@ -61911,6 +61925,9 @@
     "home.categories.cleanEyebrow",
     "home.categories.openLane",
     "home.categories.title",
+    "home.feedError.body",
+    "home.feedError.retry",
+    "home.feedError.title",
     "home.flashSales.cleanBody",
     "home.flashSales.cleanEyebrow",
     "home.flashSales.title",
@@ -63972,8 +63989,6 @@
     "welcomeCurtain.action.skip",
     "welcomeCurtain.ariaLabel",
     "welcomeCurtain.kicker",
-    "welcomeCurtain.message.ready",
-    "welcomeCurtain.message.thanks",
     "welcomeCurtain.message.welcome",
     "welcomeCurtain.soundOff",
     "welcomeCurtain.soundOn",

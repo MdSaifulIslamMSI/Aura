@@ -1,16 +1,16 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-09-05T17:01:54.361Z
+Generated: 2026-09-11T20:12:33.596Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 474
+- Source files scanned: 519
 - Tracked files: 151
 - Production files with stable literal UI copy: 98
-- Production stable literal references: 4090
-- Unique production stable IDs: 3692
+- Production stable literal references: 4091
+- Unique production stable IDs: 3693
 - Dynamic lookup references requiring manual review: 14
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
@@ -68,7 +68,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | medium | `app/src/pages/Marketplace/index.jsx` | 133 | 132 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/Admin/Support.jsx` | 128 | 106 | 0 | runtime-content-nearby |
 | medium | `app/src/pages/ProductDetails/index.jsx` | 108 | 98 | 0 | runtime-content-nearby |
-| medium | `app/src/pages/Home/index.jsx` | 94 | 81 | 0 | stable-ui |
+| medium | `app/src/pages/Home/index.jsx` | 97 | 84 | 0 | stable-ui |
 | medium | `app/src/components/shared/GlobalSearchBar.jsx` | 55 | 53 | 0 | runtime-content-nearby |
 | medium | `app/src/components/layout/Navbar/index.jsx` | 75 | 49 | 1 | stable-ui |
 | medium | `app/src/pages/AICompare/index.jsx` | 45 | 45 | 2 | stable-ui |
@@ -114,9 +114,9 @@ These production references are eligible for reviewed ICU catalog migration.
 | low | `app/src/pages/Profile/components/OrdersSection.jsx` | 11 | 11 | 0 | stable-ui |
 | low | `app/src/pages/Profile/hooks/useProfileDeck.js` | 11 | 11 | 0 | stable-ui |
 | low | `app/src/pages/Wishlist/index.jsx` | 10 | 10 | 0 | stable-ui |
-| low | `app/src/components/welcome/PremiumWelcomeCurtain.jsx` | 9 | 9 | 0 | stable-ui |
 | low | `app/src/pages/Profile/components/AccountStatusBanner.jsx` | 10 | 9 | 0 | stable-ui |
 | low | `app/src/components/shared/MobileUpdateBanner.jsx` | 8 | 7 | 0 | stable-ui |
+| low | `app/src/components/welcome/PremiumWelcomeCurtain.jsx` | 7 | 7 | 0 | stable-ui |
 | low | `app/src/pages/Profile/hooks/useAddresses.js` | 8 | 7 | 0 | stable-ui |
 | low | `app/src/components/layout/Navbar/NotificationDropdown.jsx` | 5 | 5 | 0 | stable-ui |
 | low | `app/src/pages/Profile/hooks/profileUtils.js` | 4 | 4 | 0 | stable-ui |
@@ -138,7 +138,7 @@ These computed keys stay outside automatic migration until manually reviewed.
 | `app/src/components/features/chat/MessageItem.jsx` | 316 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/components/features/chat/MessageItem.jsx` | 317 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/components/features/chat/MessageItem.jsx` | 510 | First t() argument is computed or interpolated and requires manual review. |
-| `app/src/components/layout/Navbar/index.jsx` | 380 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/components/layout/Navbar/index.jsx` | 382 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/i18n/StableText.jsx` | 6 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/AICompare/index.jsx` | 89 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/AICompare/index.jsx` | 360 | First t() argument is computed or interpolated and requires manual review. |
