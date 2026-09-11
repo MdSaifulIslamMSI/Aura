@@ -16,6 +16,10 @@ describe('runtimeConfig helpers', () => {
         expect(DEFAULT_AWS_PARAMETER_KEYS).toContain('OPEN_EXCHANGE_RATES_APP_ID');
     });
 
+    test('loads Sentry DSN from the default AWS secret contract', () => {
+        expect(DEFAULT_AWS_PARAMETER_KEYS).toContain('SENTRY_DSN');
+    });
+
     test('detects AWS Parameter Store reference placeholders', () => {
         expect(isParameterStoreReferencePlaceholder('ssm:/aura/prod/GEMINI_API_KEY')).toBe(true);
         expect(isParameterStoreReferencePlaceholder('ssm:GEMINI_API_KEY')).toBe(true);
