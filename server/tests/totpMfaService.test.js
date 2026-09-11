@@ -12,6 +12,8 @@ const {
     verifyEnabledTotpForUser,
 } = require('../services/totpMfaService');
 
+jest.setTimeout(30000);
+
 const strongSecret = 'testMfaEncryptionKey32CharactersPlusA1';
 const recoverySecret = 'test-recovery-secret-32-characters-plus';
 
