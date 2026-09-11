@@ -29,7 +29,12 @@ const mountLazy = (Lazy) => render(
     ),
 );
 
-const retryKeyFor = (key) => `aura-lazy-retry:${key}:${window.location.pathname}${window.location.search}`;
+const retryKeyFor = (key) => {
+    // Mirrors production: the forced-reload marker must not mint a fresh budget.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('__route-reload');
+    return `aura-lazy-retry:${key}:${url.pathname}${url.search}`;
+};
 
 describe('lazyWithRetry', () => {
     it('returns a lazy React component', () => {
@@ -51,6 +56,19 @@ describe('lazyWithRetry', () => {
     it('rethrows chunk load failures after a retry reload was already attempted', async () => {
         const key = 'chunk-key';
         sessionStorage.setItem(retryKeyFor(key), '1');
+        const factory = () => Promise.reject(new Error('Failed to fetch dynamically imported module: /x.js'));
+        const Lazy = lazyWithRetry(factory, key, 500);
+
+        mountLazy(Lazy);
+        const fallback = await screen.findByTestId('boundary-fallback');
+        expect(fallback.textContent).toContain('Failed to fetch dynamically imported module');
+        expect(sessionStorage.getItem(retryKeyFor(key))).toBeNull();
+    });
+
+    it('does not grant a fresh reload budget to the URL a forced reload lands on', async () => {
+        const key = 'loop-key';
+        sessionStorage.setItem(retryKeyFor(key), '1');
+        window.history.pushState({}, '', '/?__route-reload=123');
         const factory = () => Promise.reject(new Error('Failed to fetch dynamically imported module: /x.js'));
         const Lazy = lazyWithRetry(factory, key, 500);
 
