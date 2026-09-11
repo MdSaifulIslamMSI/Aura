@@ -259,3 +259,51 @@ describe('apiFetch observability', () => {
         expect(response.headers.get('x-request-id')).toBe('srv-health-degraded');
     });
 });
+
+describe('apiFetch DPoP resilience', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+    });
+
+    it('proceeds without DPoP and re-arms the key store when IndexedDB hangs', async () => {
+        vi.resetModules();
+        vi.useFakeTimers();
+
+        const originalIndexedDB = window.indexedDB;
+        const originalCrypto = window.crypto;
+        const openMock = vi.fn(() => ({}) );
+
+        Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open: openMock } });
+        Object.defineProperty(window, 'crypto', { configurable: true, value: globalThis.crypto });
+
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(JSON.stringify({ ok: true }), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Request-Id': 'srv-dpop-bypass',
+                },
+            })
+        );
+
+        try {
+            const { requestWithTrace: freshRequestWithTrace } = await import('./apiBase');
+
+            const first = freshRequestWithTrace('/products', { method: 'GET' });
+            await vi.advanceTimersByTimeAsync(2000);
+            await first;
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+
+            const second = freshRequestWithTrace('/products', { method: 'GET' });
+            await vi.advanceTimersByTimeAsync(2000);
+            await second;
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(openMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+        } finally {
+            vi.useRealTimers();
+            Object.defineProperty(window, 'indexedDB', { configurable: true, value: originalIndexedDB });
+            Object.defineProperty(window, 'crypto', { configurable: true, value: originalCrypto });
+        }
+    });
+});
