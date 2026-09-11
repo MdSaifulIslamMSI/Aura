@@ -5,6 +5,12 @@ on:
     secrets:
       STAGING_AWS_DEPLOY_ROLE_ARN:
         required: false
+    inputs:
+      staging_off_acknowledged:
+        description: 'Set true only when staging is intentionally kept stopped: the seven live staging-parity gates are skipped, and a proof job verifies staging really is off. Leave false to run the full gates.'
+        required: false
+        type: boolean
+        default: false
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -70,6 +76,7 @@ jobs:
 
   smoke-staging:
     name: smoke:staging
+    if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -118,6 +125,7 @@ jobs:
 
   smoke-staging-frontend:
     name: smoke:staging:frontend
+    if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -159,6 +167,7 @@ jobs:
 
   smoke-env-contract:
     name: smoke:env-contract
+    if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -207,6 +216,7 @@ jobs:
 
   aws-cost-guard:
     name: aws:cost-guard
+    if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -292,6 +302,7 @@ jobs:
 
   release-rollback-ready:
     name: release:rollback-ready
+    if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -348,6 +359,7 @@ jobs:
 
   sre-synthetic-staging:
     name: sre:synthetic:staging
+    if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -398,6 +410,7 @@ jobs:
 
   sre-latency-staging:
     name: sre:latency:staging
+    if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -445,3 +458,46 @@ jobs:
           path: artifacts/sre/
           if-no-files-found: ignore
           retention-days: 14
+
+  staging-off-proof:
+    name: staging:off-proof
+    if: inputs.staging_off_acknowledged == true
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Assert staging AWS role is configured
+        run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
+      - name: Configure staging read role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: aura-giant-release-staging-off-proof
+          mask-aws-account-id: true
+          unset-current-credentials: true
+      - name: Prove staging is actually stopped
+        run: |
+          refresh_log="$(npm run staging:state:refresh 2>&1)" && refresh_status=ok || refresh_status=fail
+          printf '%s\n' "$refresh_log"
+          if [ "$refresh_status" = "ok" ]; then
+            echo "::error::staging_off_acknowledged was set, but staging state refreshed successfully - a running staging instance exists. Re-dispatch without the flag so the live gates run."
+            exit 1
+          fi
+          printf '%s\n' "$refresh_log" | grep -q "no running EC2 instance has Environment=staging" || {
+            echo "::error::staging state refresh failed for an unexpected reason; refusing to treat it as staging-off evidence."
+            exit 1
+          }
+          echo "Verified: no running staging instance. Live staging-parity gates skipped by explicit staging_off_acknowledged=true."
