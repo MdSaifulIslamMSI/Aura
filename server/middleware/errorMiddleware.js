@@ -47,6 +47,20 @@ const errorHandler = (err, req, res, next) => {
         statusCode,
     });
 
+    // Guarded: no-op without SENTRY_DSN. Only 5xx (real bugs), never 4xx.
+    if (statusCode >= 500) {
+        try {
+            require('../utils/sentry').captureServerException(err, {
+                route: req.originalUrl || req.url || '',
+                requestId: req.requestId || '',
+                method: req.method || '',
+                statusCode,
+            });
+        } catch {
+            // Sentry must never break error responses.
+        }
+    }
+
     const minimizedResponse = buildMinimizedErrorResponse({ err, req, statusCode });
     if (minimizedResponse) {
         return res.status(minimizedResponse.statusCode).json(minimizedResponse.body);

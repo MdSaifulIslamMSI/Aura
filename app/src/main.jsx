@@ -4,7 +4,8 @@ import './styles/figmaTokens.css'
 import './index.css'
 import App from './App.jsx'
 import { ErrorBoundary } from 'react-error-boundary';
-import { initClientObservability } from './services/clientObservability'
+import { initClientObservability, reportClientError } from './services/clientObservability'
+import { initSentry } from './services/sentryClient'
 import { publishReleaseInfo } from './config/releaseInfo'
 import { StableText } from '@/i18n/StableText';
 
@@ -109,12 +110,13 @@ if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' &&
 }
 
 registerAuraServiceWorker()
+void initSentry()
 initClientObservability()
 publishReleaseInfo()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ErrorBoundary FallbackComponent={RootRenderFallback}>
+    <ErrorBoundary FallbackComponent={RootRenderFallback} onError={(error) => reportClientError(error, { source: 'react.error-boundary' })}>
       <App />
     </ErrorBoundary>
   </StrictMode>,

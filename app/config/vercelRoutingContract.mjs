@@ -123,6 +123,9 @@ export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN, options 
     'https://*.web.app',
     'https://*.livekit.cloud',
     'wss://*.livekit.cloud',
+    // Sentry event + trace ingest (regional + global endpoints).
+    'https://*.ingest.sentry.io',
+    'https://*.ingest.us.sentry.io',
 ].filter(Boolean);
 
 export const FRONTEND_CONNECT_SRC = buildFrontendConnectSrc(HOSTED_BACKEND_ORIGIN);

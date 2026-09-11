@@ -41,6 +41,16 @@ on:
         required: false
       VITE_FIREBASE_WEB_CONFIG:
         required: false
+      SENTRY_AUTH_TOKEN:
+        required: false
+      SENTRY_ORG:
+        required: false
+      SENTRY_PROJECT:
+        required: false
+      SENTRY_URL:
+        required: false
+      VITE_SENTRY_DSN:
+        required: false
 
 permissions:
   contents: read
@@ -116,7 +126,23 @@ jobs:
           VITE_RELEASE_CHANNEL: ${{ inputs.deploy == true && 'production' || 'preview' }}
           VITE_RELEASE_SOURCE: github-actions
           VITE_RELEASE_TIME: ${{ steps.release.outputs.built_at }}
+          # Empty-safe: build is identical to today when no DSN is configured.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
+          VITE_SENTRY_RELEASE: ${{ github.sha }}
         run: npm run build
+
+      - name: Publish Sentry release and sourcemaps
+        # Skipped entirely until Sentry secrets exist; never blocks deploys.
+        if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        env:
+          SENTRY_RELEASE: ${{ github.sha }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          # Regional SaaS host; not a secret.
+          SENTRY_URL: ${{ secrets.SENTRY_URL || 'https://xyz-yra.sentry.io' }}
+        # npx -p puts sentry-cli on PATH for the release script without a new dependency.
+        run: npx --yes -p @sentry/cli@3.4.2 node scripts/student-pack-sentry-release.mjs
 
       - name: Upload AWS frontend dist bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

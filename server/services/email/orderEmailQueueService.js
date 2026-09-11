@@ -3,6 +3,7 @@ const os = require('os');
 const mongoose = require('mongoose');
 const AppError = require('../../utils/AppError');
 const logger = require('../../utils/logger');
+const { withCronMonitor } = require('../../utils/sentry');
 const Order = require('../../models/Order');
 const OrderEmailNotification = require('../../models/OrderEmailNotification');
 const { flags, EMAIL_REGEX } = require('../../config/emailFlags');
@@ -373,7 +374,11 @@ const runOrderEmailQueueCycle = async () => {
 const startOrderEmailWorker = () => {
     if (orderEmailWorkerTimer || !flags.orderEmailsEnabled) return;
     orderEmailWorkerTimer = setInterval(() => {
-        runOrderEmailQueueCycle().catch((error) => {
+        withCronMonitor(
+            'order-email-queue',
+            () => runOrderEmailQueueCycle(),
+            { schedule: { type: 'interval', value: 1, unit: 'minute' } },
+        ).catch((error) => {
             logger.error('order_email.worker_cycle_failed', { error: error.message });
         });
     }, flags.orderEmailWorkerPollMs);

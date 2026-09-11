@@ -11,6 +11,19 @@ This production pipeline is planner-driven. Missing cloud configuration does not
 | `NETLIFY_AUTH_TOKEN` | Netlify frontend deploy | Netlify CLI authentication token. |
 | `VERCEL_TOKEN` | Gateway and Vercel frontend deploys | Vercel CLI authentication token. |
 
+## Optional Sentry Secrets for Error Tracking
+
+Sentry stays a no-op (frontend and backend) until DSNs are configured. The AWS
+frontend deploy uploads releases/sourcemaps only when `SENTRY_AUTH_TOKEN` exists.
+
+| Secret | Used by | Purpose |
+|---|---|---|
+| `VITE_SENTRY_DSN` | AWS frontend build | Enables browser error capture; baked at build time. |
+| `SENTRY_AUTH_TOKEN` | AWS frontend build (Sentry release step) | Creates the Sentry release and uploads `app/dist` sourcemaps. |
+| `SENTRY_ORG` | AWS frontend build (Sentry release step) | Sentry organization slug. |
+| `SENTRY_PROJECT` | AWS frontend build (Sentry release step) | Sentry project slug. |
+| `SENTRY_URL` | AWS frontend build (Sentry release step, optional) | Regional SaaS host, defaults to `https://xyz-yra.sentry.io`. |
+
 ## Required Variables for Production Deploys
 
 | Variable | Used by | Purpose |

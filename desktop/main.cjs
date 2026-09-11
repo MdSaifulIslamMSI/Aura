@@ -1,6 +1,27 @@
 const fs = require('fs');
 const path = require('path');
 const { app, BrowserWindow, dialog, ipcMain, powerMonitor, screen, session, shell } = require('electron');
+
+// Guarded main-process error reporting (the renderer is covered by the web
+// SDK baked into app/dist). No-op without SENTRY_DSN; never blocks boot.
+try {
+    if (process.env.SENTRY_DSN) {
+        const desktopRelease = String(
+            process.env.SENTRY_RELEASE
+            || (typeof app?.getVersion === 'function' ? `aura-desktop@${app.getVersion()}` : '')
+            || 'aura-desktop-unknown'
+        );
+        require('@sentry/electron/main').init({
+            dsn: process.env.SENTRY_DSN,
+            release: desktopRelease,
+            environment: String(process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'production'),
+            tracesSampleRate: Math.min(1, Math.max(0, Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0.1) || 0)),
+            sendDefaultPii: false,
+        });
+    }
+} catch {
+    // Sentry must never prevent the desktop shell from booting.
+}
 const { autoUpdater } = require('electron-updater');
 const {
     DEFAULT_RUNTIME_PORT,
