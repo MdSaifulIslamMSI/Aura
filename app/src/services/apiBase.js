@@ -301,7 +301,13 @@ export const requestWithTrace = async (input, options = {}) => {
             ...getActiveMarketHeaders(),
             ...headers,
         });
-        const dpopProof = await createDpopProof(requestMethod, url);
+        const dpopProof = await Promise.race([
+            createDpopProof(requestMethod, url),
+            // Proof generation runs before the fetch timeout is armed, so bound it
+            // separately: a stalled IndexedDB/crypto call must not park every
+            // request (and the loading UI waiting on it) indefinitely.
+            sleep(DPOP_PROOF_TIMEOUT_MS).then(() => null),
+        ]);
         if (dpopProof) {
             trace.headers.set('DPoP', dpopProof);
         }
@@ -436,6 +442,8 @@ export const apiFetch = async (path, options = {}) => {
 const DPOP_DB_NAME = 'aura_dpop_keys';
 const DPOP_STORE_NAME = 'keys';
 const DPOP_KEY_ID = 'browser-session-binding-v1';
+const DPOP_PROOF_TIMEOUT_MS = 2000;
+const DPOP_DB_OPEN_TIMEOUT_MS = 2000;
 
 let dpopKeyPair = null;
 let dpopKeyPairPromise = null;
@@ -455,22 +463,36 @@ const openDpopDatabase = () => {
 
     dpopDbPromise = new Promise((resolve) => {
         let request;
+        let settled = false;
+        const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(openTimer);
+            resolve(value);
+        };
+        // An open that never fires events would otherwise poison this memoized
+        // promise for the whole session; drop the memo so later requests retry.
+        const openTimer = setTimeout(() => {
+            dpopDbPromise = null;
+            finish(null);
+        }, DPOP_DB_OPEN_TIMEOUT_MS);
+
         try {
             request = window.indexedDB.open(DPOP_DB_NAME, 1);
         } catch {
-            resolve(null);
+            finish(null);
             return;
         }
 
-        request.onerror = () => resolve(null);
-        request.onblocked = () => resolve(null);
+        request.onerror = () => finish(null);
+        request.onblocked = () => finish(null);
         request.onupgradeneeded = () => {
             const db = request.result;
             if (!db.objectStoreNames.contains(DPOP_STORE_NAME)) {
                 db.createObjectStore(DPOP_STORE_NAME, { keyPath: 'id' });
             }
         };
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => finish(request.result);
     });
 
     return dpopDbPromise;

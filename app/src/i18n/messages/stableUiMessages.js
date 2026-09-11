@@ -8078,6 +8078,21 @@ export const stableUiMessages = defineMessages({
         defaultMessage: "Move through the catalog without friction.",
         description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
     },
+    "home.feedError.body": {
+        id: "home.feedError.body",
+        defaultMessage: "We could not reach the catalog for deals, trending picks, and new arrivals. Check your connection and retry.",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "home.feedError.retry": {
+        id: "home.feedError.retry",
+        defaultMessage: "Retry",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
+    "home.feedError.title": {
+        id: "home.feedError.title",
+        defaultMessage: "Products could not load right now",
+        description: 'Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory.',
+    },
     "home.flashSales.cleanBody": {
         id: "home.flashSales.cleanBody",
         defaultMessage: "Current price-drop picks with less surrounding noise and faster paths into the product list.",

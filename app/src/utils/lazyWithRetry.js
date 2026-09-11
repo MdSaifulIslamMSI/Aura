@@ -2,6 +2,7 @@ import { lazy } from 'react';
 
 const RETRY_PREFIX = 'aura-lazy-retry';
 const DEFAULT_TIMEOUT_MS = 10000;
+const RELOAD_PARAM = '__route-reload';
 
 const isChunkLoadFailure = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
@@ -16,7 +17,12 @@ const isChunkLoadFailure = (error) => {
 
 const buildRetryKey = (key) => {
   if (typeof window === 'undefined') return `${RETRY_PREFIX}:${key}`;
-  return `${RETRY_PREFIX}:${key}:${window.location.pathname}${window.location.search}`;
+  // Strip the reload marker from the key: forceRouteReload appends it before
+  // reloading, and keying on it would hand every reload a fresh budget and
+  // turn the single auto-retry into an infinite skeleton/reload loop.
+  const url = new URL(window.location.href);
+  url.searchParams.delete(RELOAD_PARAM);
+  return `${RETRY_PREFIX}:${key}:${url.pathname}${url.search}`;
 };
 
 const forceRouteReload = (retryKey) => {
@@ -31,7 +37,7 @@ const forceRouteReload = (retryKey) => {
 
   sessionStorage.setItem(retryKey, '1');
   const nextUrl = new URL(window.location.href);
-  nextUrl.searchParams.set('__route-reload', Date.now().toString());
+  nextUrl.searchParams.set(RELOAD_PARAM, Date.now().toString());
   window.location.replace(nextUrl.toString());
   return true;
 };
@@ -45,7 +51,7 @@ const withTimeout = (factory, timeoutMs, key) => Promise.race([
   }),
 ]);
 
-export const lazyWithRetry = (factory, key, timeoutMs = DEFAULT_TIMEOUT_MS) => lazy(async () => {
+export const loadWithRetry = async (factory, key, timeoutMs = DEFAULT_TIMEOUT_MS) => {
   const retryKey = buildRetryKey(key);
 
   try {
@@ -60,6 +66,8 @@ export const lazyWithRetry = (factory, key, timeoutMs = DEFAULT_TIMEOUT_MS) => l
     }
     throw error;
   }
-});
+};
+
+export const lazyWithRetry = (factory, key, timeoutMs = DEFAULT_TIMEOUT_MS) => lazy(() => loadWithRetry(factory, key, timeoutMs));
 
 export default lazyWithRetry;
