@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import yaml from 'js-yaml';
 
 const root = process.cwd();
 const workflowDir = path.join(root, '.github', 'workflows');
@@ -667,6 +668,58 @@ addCheck(
   packageJson.scripts?.['security:sarif-contract'] === 'node scripts/security/validate-sarif-contract.mjs' &&
     securityGatesWorkflow.includes('npm run security:sarif-contract'),
   'security:sarif-contract script and Security Gates enforcement'
+);
+
+// GitHub validates the reusable-workflow permission graph at dispatch: a callee
+// job requesting a permission the caller job does not grant makes the entire
+// caller file invalid (startup_failure, zero jobs run).
+const reusablePermissionGraphFailures = (() => {
+  const satisfied = (granted, requested) => {
+    if (granted === 'write-all') return true;
+    if (granted === 'read-all') return requested === 'read';
+    return granted === 'write' || (granted === 'read' && requested === 'read');
+  };
+  const failures = [];
+  const callerPath = path.join(workflowDir, 'production-cicd.yml');
+  if (!fs.existsSync(callerPath)) return ['production-cicd.yml is missing'];
+  const caller = yaml.load(fs.readFileSync(callerPath, 'utf8'));
+  const workflowPerms = caller.permissions;
+  for (const [jobName, job] of Object.entries(caller.jobs || {})) {
+    const uses = job.uses || '';
+    if (!uses.startsWith('./.github/workflows/')) continue;
+    const calleeName = uses.replace('./.github/workflows/', '');
+    const calleePath = path.join(workflowDir, calleeName);
+    if (!fs.existsSync(calleePath)) {
+      failures.push(`${jobName} -> ${calleeName}: callee workflow file missing`);
+      continue;
+    }
+    const callee = yaml.load(fs.readFileSync(calleePath, 'utf8'));
+    const callerEffective = job.permissions ?? workflowPerms;
+    for (const [calleeJobName, calleeJob] of Object.entries(callee.jobs || {})) {
+      const calleeEffective = calleeJob.permissions ?? callee.permissions;
+      if (!calleeEffective) continue;
+      if (typeof calleeEffective === 'string' || typeof callerEffective === 'string') {
+        if (calleeEffective === 'write-all' && callerEffective !== 'write-all') {
+          failures.push(`${jobName} -> ${calleeName}#${calleeJobName}: callee requests write-all, caller grants ${JSON.stringify(callerEffective)}`);
+        }
+        continue;
+      }
+      for (const [perm, requested] of Object.entries(calleeEffective)) {
+        if (!satisfied(callerEffective?.[perm], requested)) {
+          failures.push(`${jobName} -> ${calleeName}#${calleeJobName}: callee requests ${perm}: ${requested}, caller grants ${JSON.stringify(callerEffective?.[perm] ?? null)}`);
+        }
+      }
+    }
+  }
+  return failures;
+})();
+
+addCheck(
+  'production command center grants every reusable callee its requested permissions',
+  reusablePermissionGraphFailures.length === 0,
+  reusablePermissionGraphFailures.length === 0
+    ? 'production-cicd.yml reusable workflow permission graph'
+    : reusablePermissionGraphFailures.join('; ')
 );
 
 const nameWidth = Math.max(...checks.map((check) => check.name.length), 'Check'.length);

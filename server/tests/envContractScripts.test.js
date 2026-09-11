@@ -1540,6 +1540,54 @@ describe('repo environment contract scripts', () => {
         expect(qualityGates[0]).toContain('pull-requests: read');
     });
 
+    test('manual production command center grants every reusable callee the permissions it requests', () => {
+        // GitHub validates the reusable-workflow permission graph at dispatch: a callee
+        // job requesting a permission the caller job does not grant makes the ENTIRE
+        // caller file invalid (startup_failure, zero jobs run). Regression for the
+        // desktop-release publish job requesting id-token/attestations while
+        // release-desktop granted only contents:write (main dispatches dead 2026-09-03..).
+        const workflowsDir = path.join(repoRoot, '.github', 'workflows');
+        const doc = yaml.load(fs.readFileSync(path.join(workflowsDir, 'production-cicd.yml'), 'utf8'));
+        const workflowPerms = doc.permissions;
+        expect(workflowPerms).toBeTruthy();
+
+        const loadWorkflow = (name) => yaml.load(fs.readFileSync(path.join(workflowsDir, name), 'utf8'));
+
+        const permissionSatisfied = (granted, requested) => {
+            if (granted === 'write-all') return true;
+            if (granted === 'read-all') return requested === 'read';
+            return granted === 'write' || (granted === 'read' && requested === 'read');
+        };
+
+        const underGrants = [];
+        for (const [jobName, job] of Object.entries(doc.jobs || {})) {
+            const uses = job.uses || '';
+            if (!uses.startsWith('./.github/workflows/')) continue;
+            const calleeName = uses.replace('./.github/workflows/', '');
+            const callee = loadWorkflow(calleeName);
+
+            const callerEff = job.permissions ?? workflowPerms;
+            for (const [calleeJobName, calleeJob] of Object.entries(callee.jobs || {})) {
+                const calleeEff = calleeJob.permissions ?? callee.permissions;
+                if (!calleeEff) continue;
+                if (typeof calleeEff === 'string' || typeof callerEff === 'string') {
+                    if (calleeEff === 'write-all' && !(callerEff === 'write-all')) {
+                        underGrants.push(`${jobName} -> ${calleeName}#${calleeJobName}: callee requests write-all, caller grants ${JSON.stringify(callerEff)}`);
+                    }
+                    continue;
+                }
+                for (const [perm, requested] of Object.entries(calleeEff)) {
+                    if (!permissionSatisfied(callerEff?.[perm], requested)) {
+                        underGrants.push(`${jobName} -> ${calleeName}#${calleeJobName}: callee requests ${perm}: ${requested}, caller grants ${JSON.stringify(callerEff?.[perm] ?? null)}`);
+                    }
+                }
+            }
+        }
+
+        expect(underGrants).toEqual([]);
+    });
+
+
     test('production admin recovery keeps direct /aura/prod Parameter Store writes available', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'production-admin-access.yml'), 'utf8');
         const bootstrap = fs.readFileSync(path.join(repoRoot, 'infra', 'aws', 'bootstrap-github-oidc.ps1'), 'utf8');
