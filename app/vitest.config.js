@@ -20,7 +20,7 @@ export default defineConfig({
         testTimeout: 15000,
         hookTimeout: 15000,
         alias: {
-            '@': path.resolve(__dirname, './src'),
+            '@': path.resolve(import.meta.dirname, './src'),
         },
         coverage: {
             provider: 'v8',
@@ -35,7 +35,7 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            '@': path.resolve(__dirname, './src'),
+            '@': path.resolve(import.meta.dirname, './src'),
         },
     },
 });

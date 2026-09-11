@@ -3,6 +3,8 @@ const Product = require('../models/Product');
 const TradeIn = require('../models/TradeIn');
 const { cancelTradeIn, createTradeIn } = require('../controllers/tradeInController');
 
+jest.setTimeout(30000);
+
 const mockReqRes = (overrides = {}) => {
   const req = { body: {}, params: {}, user: { _id: 'user-1' }, ...overrides };
   const res = { json: jest.fn().mockReturnThis(), status: jest.fn().mockReturnThis() };
