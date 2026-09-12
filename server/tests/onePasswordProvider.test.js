@@ -69,7 +69,7 @@ describe('onePasswordProvider', () => {
         const { fetcher } = buildFetcher();
         const env = {
             OP_CONNECT_HOST: 'http://connect.local:8080',
-            OP_CONNECT_TOKEN: 'token-abc-123',
+            OP_CONNECT_TOKEN: 'test-connect-token',
             ONEPASSWORD_ENABLED: 'true',
             JWT_SECRET: 'op://prod-aura/jwt/password',
         };
@@ -79,14 +79,14 @@ describe('onePasswordProvider', () => {
         expect(env.JWT_SECRET).toBe('super-secret-value');
         expect(fetcher).toHaveBeenCalled();
         const authHeader = fetcher.mock.calls[0][1].headers.Authorization;
-        expect(authHeader).toBe('Bearer token-abc-123');
+        expect(authHeader).toBe('Bearer test-connect-token');
     });
 
     test('error paths never echo token or secret values', async () => {
         const { fetcher } = buildFetcher();
         const env = {
             OP_CONNECT_HOST: 'http://connect.local:8080',
-            OP_CONNECT_TOKEN: 'token-abc-123',
+            OP_CONNECT_TOKEN: 'test-connect-token',
             ONEPASSWORD_ENABLED: 'true',
             JWT_SECRET: 'op://prod-aura/missing-item/password',
         };
@@ -96,7 +96,7 @@ describe('onePasswordProvider', () => {
         try {
             await primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher });
         } catch (error) {
-            expect(String(error.message)).not.toContain('token-abc-123');
+            expect(String(error.message)).not.toContain('test-connect-token');
             expect(String(error.message)).not.toContain('super-secret-value');
         }
     });
