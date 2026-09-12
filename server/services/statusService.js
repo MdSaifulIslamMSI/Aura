@@ -1386,9 +1386,15 @@ const writeStatusSnapshot = async () => {
     try {
         const payload = await getPublicStatus({ force: true });
         await fs.mkdir(statusSnapshotDir, { recursive: true });
+        const tmpJsonPath = `${statusSnapshotJsonPath}.tmp`;
+        const tmpHtmlPath = `${statusSnapshotHtmlPath}.tmp`;
         await Promise.all([
-            fs.writeFile(statusSnapshotJsonPath, JSON.stringify(payload, null, 2), 'utf8'),
-            fs.writeFile(statusSnapshotHtmlPath, buildStatusSnapshotHtml(payload), 'utf8'),
+            fs.writeFile(tmpJsonPath, JSON.stringify(payload, null, 2), 'utf8'),
+            fs.writeFile(tmpHtmlPath, buildStatusSnapshotHtml(payload), 'utf8'),
+        ]);
+        await Promise.all([
+            fs.rename(tmpJsonPath, statusSnapshotJsonPath),
+            fs.rename(tmpHtmlPath, statusSnapshotHtmlPath),
         ]);
         return {
             skipped: false,
@@ -2224,10 +2230,48 @@ const isHostPrivateOrLocal = (hostname = '') => {
     return false;
 };
 
-const getAllowedMonitorHosts = () => new Set(String(process.env.STATUS_MONITOR_ALLOWED_HOSTS || '')
+const splitHostList = (value = '') => String(value || '')
     .split(',')
     .map((host) => host.trim().toLowerCase())
-    .filter(Boolean));
+    .filter(Boolean);
+
+const hostnameOf = (value = '') => {
+    try {
+        const parsed = new URL(String(value || '').trim());
+        return parsed.hostname ? parsed.hostname.toLowerCase() : '';
+    } catch {
+        return '';
+    }
+};
+
+// Default allowlist derived from the operator's own frontend URLs so the
+// shipped Website/Storefront monitors work without extra configuration.
+// Arbitrary public hosts still require explicit STATUS_MONITOR_ALLOWED_HOSTS;
+// private/local hosts are only probed when explicitly listed.
+const getDefaultMonitorHostnames = () => {
+    const candidates = [
+        resolveDefaultWebAppStatusUrl(),
+        process.env.APP_PUBLIC_URL,
+        process.env.FRONTEND_URL,
+        process.env.APP_BASE_URL,
+        process.env.CORS_ORIGIN,
+        process.env.CORS_ORIGINS,
+    ];
+    const hostnames = new Set();
+    candidates.forEach((candidate) => {
+        String(candidate || '').split(',').forEach((part) => {
+            const host = hostnameOf(part);
+            if (host) hostnames.add(host);
+        });
+    });
+    return hostnames;
+};
+
+const getAllowedMonitorHosts = () => {
+    const hosts = new Set(splitHostList(process.env.STATUS_MONITOR_ALLOWED_HOSTS));
+    getDefaultMonitorHostnames().forEach((host) => hosts.add(host));
+    return hosts;
+};
 
 const assertAllowedMonitorUrl = (rawUrl = '') => {
     const url = new URL(String(rawUrl || ''));
@@ -2853,6 +2897,8 @@ module.exports = {
     writeStatusSnapshot,
     __testables: {
         enqueueStatusEmail,
+        getAllowedMonitorHosts,
+        getDefaultMonitorHostnames,
         normalizeStatusCheckRetentionDays,
         resolveStatusCheckRetentionCutoff,
         resolveInternalHealthSignalStatus,
