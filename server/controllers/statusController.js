@@ -41,48 +41,56 @@ const publicBaseUrl = () => String(process.env.APP_PUBLIC_URL || 'http://localho
 
 const getPublicStatusController = asyncHandler(async (req, res) => {
     const payload = await getPublicStatus();
+    if (res.headersSent) return;
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(payload);
 });
 
 const getStatusComponentsController = asyncHandler(async (req, res) => {
     const payload = await getPublicStatusComponents();
+    if (res.headersSent) return;
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(payload);
 });
 
 const getActiveStatusIncidentsController = asyncHandler(async (req, res) => {
     const payload = await getActiveStatusIncidents();
+    if (res.headersSent) return;
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(payload);
 });
 
 const getStatusHistoryController = asyncHandler(async (req, res) => {
     const result = await getStatusHistory(req.query || {});
+    if (res.headersSent) return;
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(result);
 });
 
 const getStatusMaintenanceController = asyncHandler(async (req, res) => {
     const payload = await getStatusMaintenance({ includePast: req.query.includePast === 'true' });
+    if (res.headersSent) return;
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(payload);
 });
 
 const getStatusSummaryController = asyncHandler(async (req, res) => {
     const payload = await getStatusSummary();
+    if (res.headersSent) return;
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(payload);
 });
 
 const getStatusIncidentController = asyncHandler(async (req, res) => {
     const result = await getIncidentBySlug(req.params.slug);
+    if (res.headersSent) return;
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
     res.json(result);
 });
 
 const getStatusRssController = asyncHandler(async (req, res) => {
     const result = await getStatusHistory({ page: 1, limit: 30, type: 'all' });
+    if (res.headersSent) return;
     const items = result.incidents.map((incident) => {
         const link = `${publicBaseUrl()}/status/incidents/${incident.slug}`;
         const description = [

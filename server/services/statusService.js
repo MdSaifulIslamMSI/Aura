@@ -113,7 +113,7 @@ const DAY_STATUS_RANK = {
 };
 
 const ACTIVE_INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring'];
-const PUBLIC_STATUS_CACHE_MS = Math.max(Number(process.env.STATUS_PUBLIC_CACHE_SECONDS || 30), 5) * 1000;
+const PUBLIC_STATUS_CACHE_MS = Math.max(Number(process.env.STATUS_PUBLIC_CACHE_SECONDS || 60), 5) * 1000;
 const HISTORY_DAYS = 90;
 const DEFAULT_MONITOR_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_MONITOR_INTERVAL_SECONDS || 60), 15);
 const DEFAULT_SNAPSHOT_INTERVAL_SECONDS = Math.max(Number(process.env.STATUS_SNAPSHOT_INTERVAL_SECONDS || 60), 30);
@@ -700,7 +700,7 @@ const DEFAULT_STATUS_CATALOG = [
         name: 'Search',
         slug: 'search',
         description: 'Keyword search, embeddings, and vector retrieval.',
-        components: [{ name: 'Search / Vector Search', slug: 'search-vector-search', checkType: 'internal_health', metadata: { healthSignal: 'catalog' }, dependencies: ['database', 'ai-provider'] }],
+        components: [{ name: 'Search / Vector Search', slug: 'search-vector-search', checkType: 'internal_health', metadata: { healthSignal: 'catalog_search' }, dependencies: ['database', 'ai-provider'] }],
     },
     {
         name: 'Update Service',
@@ -2375,8 +2375,22 @@ const resolveCatalogHealth = (snapshot = {}) => {
     // with staleData: true, which keeps this signal fail-closed.
     const hasSignal = Object.keys(catalog).length > 0;
     const ok = hasSignal
+        && catalog.staleData !== true;
+    return buildSignalResult({
+        ok,
+        errorMessage: ok ? '' : 'catalog_health_degraded',
+    });
+};
+
+// Search / Vector Search additionally requires the Atlas Search provider
+// itself. searchProviderStatus is probed by getCatalogHealth() ('ok' once
+// verified); 'unknown' means not yet probed, which stays fail-closed.
+const resolveCatalogSearchHealth = (snapshot = {}) => {
+    const catalog = snapshot?.services?.catalog || {};
+    const hasSignal = Object.keys(catalog).length > 0;
+    const ok = hasSignal
         && catalog.staleData !== true
-        && !isBadHealthStatus(catalog.searchProviderStatus);
+        && catalog.searchProviderStatus === 'ok';
     return buildSignalResult({
         ok,
         errorMessage: ok ? '' : 'catalog_health_degraded',
@@ -2546,6 +2560,8 @@ const resolveInternalHealthSignalStatus = async (signal = 'api', snapshot = {}) 
             return resolveCoreHealth(snapshot);
         case 'catalog':
             return resolveCatalogHealth(snapshot);
+        case 'catalog_search':
+            return resolveCatalogSearchHealth(snapshot);
         case 'auth':
             return resolveAuthHealth(snapshot);
         case 'payments':

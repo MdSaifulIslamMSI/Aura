@@ -44,6 +44,20 @@ describe('statusController public reads', () => {
     expect(res.json).toHaveBeenCalledWith({ overallStatus: 'operational' });
   });
 
+  test('does not write a second response after the traffic budget already replied', async () => {
+    const { req, res } = mockReqRes();
+    // Simulate the route-budget timeout middleware having already sent its 503
+    // while the controller was still awaiting the payload: the late response
+    // must be dropped instead of throwing ERR_HTTP_HEADERS_SENT.
+    statusService.getPublicStatus.mockImplementation(async () => {
+      res.headersSent = true;
+      return { overallStatus: 'operational' };
+    });
+    await expect(getPublicStatusController(req, res, jest.fn())).resolves.toBeUndefined();
+    expect(res.set).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
+  });
+
   test('forwards history queries to the service', async () => {
     statusService.getStatusHistory.mockResolvedValue([{ date: '2026-09-01' }]);
     const { req, res } = mockReqRes({ query: { page: '2', type: 'incident' } });
