@@ -1042,6 +1042,10 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           BUILT_AT: ${{ needs.build-frontend.outputs.built_at }}
+          BACKEND_ORIGIN: ${{ needs.build-frontend.outputs.backend_origin }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
+          VITE_DD_APPLICATION_ID: ${{ secrets.VITE_DD_APPLICATION_ID || '' }}
+          VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN || '' }}
         run: |
           set -euo pipefail
 
@@ -1070,16 +1074,57 @@ jobs:
             exit 1
           fi
 
-          # Render builds the storefront from source instead of publishing the
-          # shared artifact, so the build needs the exact release metadata the
-          # shared artifact was stamped with or the coherence gate fails on
-          # id/target/channel/builtAt. Previous values are restored afterwards.
-          release_env_keys=(VITE_RELEASE_ID VITE_RELEASE_TIME VITE_DEPLOY_TARGET VITE_RELEASE_CHANNEL)
+          # Render builds the storefront from source instead of receiving the
+          # shared artifact. For its build to be byte-identical to the shared
+          # artifact, Render must see the exact same VITE_* inputs CI used —
+          # release metadata AND every telemetry/firebase value (empty or not),
+          # because import.meta.env inlining changes emitted bytes. All
+          # previous values are restored after the deploy goes live.
+          parity_json="$(node -e '
+            const literals = {
+              VITE_DEPLOY_TARGET: "multi-host",
+              VITE_API_URL: (process.env.BACKEND_ORIGIN || "").replace(/\/+$/, "") + "/api",
+              VITE_RELEASE_ID: process.env.GITHUB_SHA || "",
+              VITE_RELEASE_SHA: process.env.GITHUB_SHA || "",
+              VITE_RELEASE_CHANNEL: "production",
+              VITE_RELEASE_SOURCE: "github-actions",
+              VITE_RELEASE_TIME: process.env.BUILT_AT || "",
+              VITE_SENTRY_RELEASE: process.env.GITHUB_SHA || "",
+              VITE_DD_SITE: "us5.datadoghq.com",
+              NODE_VERSION: (process.env.NODE_VERSION || "24").split(".")[0],
+            };
+            const passthrough = [
+              "VITE_SENTRY_DSN",
+              "VITE_DD_APPLICATION_ID",
+              "VITE_DD_CLIENT_TOKEN",
+              "VITE_FIREBASE_API_KEY",
+              "VITE_FIREBASE_AUTH_DOMAIN",
+              "VITE_FIREBASE_PROJECT_ID",
+              "VITE_FIREBASE_STORAGE_BUCKET",
+              "VITE_FIREBASE_MESSAGING_SENDER_ID",
+              "VITE_FIREBASE_APP_ID",
+              "VITE_FIREBASE_MEASUREMENT_ID",
+              "VITE_FIREBASE_CONFIG",
+              "VITE_FIREBASE_DISABLE_SOCIAL_AUTH",
+              "VITE_DUO_LOGIN_ENABLED",
+              "VITE_ADMIN_SECURITY_STATE_ENGINE_V2",
+            ];
+            const out = { ...literals };
+            for (const key of passthrough) out[key] = process.env[key] ?? "";
+            process.stdout.write(JSON.stringify(out));
+          ')"
+
+          mapfile -t parity_keys < <(printf '%s' "$parity_json" | jq -r 'keys[]')
+
           env_list="$(mktemp)"
           curl --fail --show-error --silent --location \
             --header "${auth_header}" \
             "${api_base}/services/${RENDER_SERVICE_ID}/env-vars" \
             > "${env_list}"
+
+          prior_value() {
+            jq -r --arg key "$1" '.[] | select(.key == $key) | .value // ""' "${env_list}"
+          }
 
           set_release_env() {
             curl --fail --show-error --silent --location \
@@ -1102,10 +1147,11 @@ jobs:
           restore_release_env() {
             local status="$?"
             trap - EXIT
-            for key in "${release_env_keys[@]}"; do
-              original="$(jq -r --arg key "${key}" '.[] | select(.key == $key) | .value // ""' "${env_list}")"
-              if [ -n "${original}" ]; then
-                set_release_env "${key}" "${original}" || true
+            local key prior
+            for key in "${modified_keys[@]}"; do
+              prior="$(printf '%s' "$parity_prior" | jq -r --arg key "$key" '.[$key] // ""')"
+              if [ -n "${prior}" ]; then
+                set_release_env "${key}" "${prior}" || true
               else
                 delete_release_env "${key}"
               fi
@@ -1114,10 +1160,20 @@ jobs:
           }
           trap restore_release_env EXIT
 
-          set_release_env VITE_RELEASE_ID "${GITHUB_SHA}"
-          set_release_env VITE_RELEASE_TIME "${BUILT_AT}"
-          set_release_env VITE_DEPLOY_TARGET "multi-host"
-          set_release_env VITE_RELEASE_CHANNEL "production"
+          modified_keys=()
+          parity_prior='{}'
+          for key in "${parity_keys[@]}"; do
+            parity_prior="$(jq -cn --argjson base "$parity_prior" --arg key "$key" --arg value "$(prior_value "$key")" '$base + {($key): $value}')"
+            value="$(printf '%s' "$parity_json" | jq -r --arg key "$key" '.[$key] // ""')"
+            if set_release_env "${key}" "${value}"; then
+              modified_keys+=("${key}")
+            elif [ -n "${value}" ]; then
+              echo "Failed to set Render env var ${key}; aborting rather than shipping a non-parity build." >&2
+              exit 1
+            else
+              echo "Render rejected an empty value for ${key}; continuing (the byte gate will flag any resulting drift)." >&2
+            fi
+          done
 
           deploy_json="$(mktemp)"
           for attempt in 1 2 3; do
@@ -1224,6 +1280,15 @@ jobs:
             -- --fail --silent --show-error --location \
             > "${RUNNER_TEMP}/aura-release/vercel-preview.html"
 
+          BUNDLE_SRC="$(node -e 'const html=require("fs").readFileSync(0,"utf8");const m=html.match(/<script[^>]+src="([^"]+\.js)"/);if(!m){console.error("No entry script found in the Vercel HTML.");process.exit(1);}process.stdout.write(m[1]);' < "${RUNNER_TEMP}/aura-release/vercel-preview.html")"
+          echo "Vercel entry bundle src: ${BUNDLE_SRC}"
+          VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl "${BUNDLE_SRC}" \
+            --deployment "${VERCEL_DEPLOY_URL}" \
+            -- --fail --silent --show-error --location \
+            > "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js"
+          test -s "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js"
+          echo "Vercel bundle bytes: $(wc -c < "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js")"
+
       - name: Verify Netlify and Vercel preview release coherence
         env:
           AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
@@ -1232,7 +1297,7 @@ jobs:
           AURA_RELEASE_URLS: >-
             [
               {"name":"netlify-preview","url":"${{ needs.deploy-preview.outputs.deploy_url }}"},
-              {"name":"vercel-preview","url":"${{ needs.deploy-vercel-preview.outputs.deploy_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-preview.html"}
+              {"name":"vercel-preview","url":"${{ needs.deploy-vercel-preview.outputs.deploy_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-preview.html","bundlePath":"${{ runner.temp }}/aura-release/vercel-preview-bundle.js"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
 
@@ -1275,6 +1340,15 @@ jobs:
             -- --fail --silent --show-error --location \
             > "${RUNNER_TEMP}/aura-release/vercel-production.html"
 
+          BUNDLE_SRC="$(node -e 'const html=require("fs").readFileSync(0,"utf8");const m=html.match(/<script[^>]+src="([^"]+\.js)"/);if(!m){console.error("No entry script found in the Vercel HTML.");process.exit(1);}process.stdout.write(m[1]);' < "${RUNNER_TEMP}/aura-release/vercel-production.html")"
+          echo "Vercel entry bundle src: ${BUNDLE_SRC}"
+          VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl "${BUNDLE_SRC}" \
+            --deployment "${VERCEL_DEPLOY_URL}" \
+            -- --fail --silent --show-error --location \
+            > "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js"
+          test -s "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js"
+          echo "Vercel bundle bytes: $(wc -c < "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js")"
+
       - name: Verify Netlify, Vercel, AWS, and Render production release coherence
         env:
           AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
@@ -1283,7 +1357,7 @@ jobs:
           AURA_RELEASE_URLS: >-
             [
               {"name":"netlify-production","url":"${{ needs.deploy-production.outputs.site_url }}"},
-              {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html"},
+              {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html","bundlePath":"${{ runner.temp }}/aura-release/vercel-production-bundle.js"},
               {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
               {"name":"render-production","url":"${{ needs.deploy-render-production.outputs.site_url }}"}
             ]
