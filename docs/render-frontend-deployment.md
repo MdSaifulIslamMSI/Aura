@@ -61,6 +61,37 @@ The production coherence check then treats
 same release id, commit, target, channel, and built-at timestamp as the
 Netlify/Vercel/AWS lanes.
 
+## Byte-identical guarantee
+
+Netlify, Vercel, and AWS publish the *same* CI artifact — their files are
+byte-identical by construction (Vercel's copy is `diff -qr`'d against the
+shared bundle). Render rebuilds from source, so byte identity is achieved
+differently and **enforced**, not assumed:
+
+1. **Full build-env parity.** Before triggering a pinned deploy, the
+   `deploy-render-production` job writes CI's *entire* VITE_* build env onto
+   the Render service — release metadata (`VITE_RELEASE_ID/SHA/TIME`,
+   `VITE_SENTRY_RELEASE`) plus every telemetry/firebase value exactly as CI
+   passes it, **including empty strings**, because `import.meta.env`
+   inlining changes emitted bytes when a key is defined vs absent. It also
+   sets `NODE_VERSION` (major from CI's `NODE_VERSION`) and
+   `VITE_API_URL`/`VITE_RELEASE_SOURCE`. All prior values are restored once
+   the deploy goes live. Because the values come from the same GitHub
+   secrets/vars CI builds with, parity can never drift when secrets rotate.
+2. **Byte gate.** `verify_deployed_release_coherence.mjs` extracts the
+   content-hashed entry bundle from every host's HTML and requires the
+   SHA-256 to be identical across all hosts (one CDN-propagation retry).
+   Because the entry chunk references every other JS chunk by content hash,
+   byte-equality of the entry proves the whole JS tree is identical.
+   Index.html itself is *not* compared: Netlify post-processes HTML, so its
+   index.html legitimately differs byte-wise while serving the same app.
+   (Vercel's protected bundle is fetched through `vercel curl` alongside
+   its protected HTML.)
+
+If Render's build infrastructure ever drifts (build image, Node patch), the
+release fails closed with per-host bundle hashes instead of shipping silent
+divergence.
+
 ## Rollback
 
 - Auto: when `auto_rollback_on_failure` (or the command center's

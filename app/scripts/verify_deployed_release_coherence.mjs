@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 const parseArgs = () => {
@@ -62,6 +63,36 @@ const readTargetHtml = async ({ name, url, htmlPath }) => {
     return response.text();
 };
 
+const extractEntryBundleSrc = (html, name) => {
+    const match = html.match(/<script[^>]+src=["']([^"']+\.js)["']/);
+    if (!match) {
+        throw new Error(`${name} HTML does not reference an entry script; cannot verify bundle bytes.`);
+    }
+    return match[1];
+};
+
+const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex');
+
+const readTargetBundle = async (target) => {
+    if (target.bundlePath) {
+        return readFile(target.bundlePath);
+    }
+
+    const bundleUrl = new URL(target.bundleSrc, target.url);
+    const response = await fetch(withCacheBust(bundleUrl.toString()), {
+        headers: {
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(`${target.name} returned HTTP ${response.status} for ${bundleUrl}`);
+    }
+
+    return Buffer.from(await response.arrayBuffer());
+};
+
 const parseBuiltAt = (value, name) => {
     const timestamp = Date.parse(value);
     if (!Number.isFinite(timestamp)) {
@@ -109,7 +140,40 @@ for (const target of urls) {
         throw new Error(`${name} target ${release.target} does not match expected ${expectedTarget}.`);
     }
 
+    release.bundleSrc = extractEntryBundleSrc(html, name);
     results.push(release);
+}
+
+const computeBundleHashes = async () => {
+    for (const release of results) {
+        const bundle = await readTargetBundle(release);
+        release.bundleSha256 = sha256(bundle);
+    }
+};
+
+await computeBundleHashes();
+
+const bundleMismatch = () => {
+    const baseline = results[0];
+    return results.find((release) => release.bundleSha256 !== baseline.bundleSha256);
+};
+
+let offender = bundleMismatch();
+if (offender) {
+    console.error('Entry bundle bytes differ across hosts; retrying once after 10s (CDN propagation).');
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+    await computeBundleHashes();
+    offender = bundleMismatch();
+}
+
+if (offender) {
+    const hashes = results
+        .map((release) => `${release.name}=${release.bundleSha256.slice(0, 16)}`)
+        .join(' ');
+    throw new Error(
+        `${offender.name} entry bundle is not byte-identical to ${results[0].name} (${hashes}). ` +
+        'Multi-host storefronts must serve the same bytes; check that every host builds the pinned commit with the same VITE_* build env.'
+    );
 }
 
 const baseline = results[0];
@@ -141,6 +205,7 @@ console.log(JSON.stringify({
         builtAt: baseline.builtAt,
         builtAtMaxSkewSeconds,
         maxObservedBuiltAtSkewSeconds,
+        bundleSha256: baseline.bundleSha256,
     },
-    hosts: results.map(({ name, url }) => ({ name, url })),
+    hosts: results.map(({ name, url, bundleSha256 }) => ({ name, url, bundleSha256 })),
 }, null, 2));
