@@ -92,10 +92,12 @@ describe('onePasswordProvider', () => {
         };
         // items list only contains 'jwt', so this must fail closed with a redacted error
         await expect(primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher }))
-            .rejects.toThrow(/onepassword_resolve_failed:JWT_SECRET/);
+            .rejects.toThrow('onepassword_resolve_failed');
         try {
             await primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher });
         } catch (error) {
+            expect(error.code).toBe('onepassword_resolve_failed');
+            expect(error.key).toBe('JWT_SECRET');
             expect(String(error.message)).not.toContain('token');
             expect(String(error.message)).not.toContain('plaintext');
         }

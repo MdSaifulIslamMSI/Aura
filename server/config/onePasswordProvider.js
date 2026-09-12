@@ -197,7 +197,10 @@ const primeOnePasswordEnv = async ({ env = process.env, secretKeys = [], logger 
             loadedKeys.push(envName);
         } catch (error) {
             if (failClosed) {
-                throw new Error(`onepassword_resolve_failed:${envName}:${safeString(error.message).slice(0, 80)}`);
+                const failure = new Error(`onepassword_resolve_failed:${envName}:${safeString(error.message).slice(0, 80)}`);
+                failure.code = 'onepassword_resolve_failed';
+                failure.key = envName;
+                throw failure;
             }
             skippedKeys.push(envName);
             logger?.warn?.('runtime.onepassword_skipped', { key: envName });
