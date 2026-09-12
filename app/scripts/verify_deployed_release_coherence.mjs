@@ -148,6 +148,8 @@ const computeBundleHashes = async () => {
     for (const release of results) {
         const bundle = await readTargetBundle(release);
         release.bundleSha256 = sha256(bundle);
+        release.bundleBytes = bundle.length;
+        console.error(`${release.name} entry bundle ${release.bundleSrc} bytes=${bundle.length} sha256=${release.bundleSha256}`);
     }
 };
 
@@ -168,8 +170,8 @@ if (offender) {
 
 if (offender) {
     const hashes = results
-        .map((release) => `${release.name}=${release.bundleSha256.slice(0, 16)}`)
-        .join(' ');
+        .map((release) => `${release.name} ${release.bundleSrc} bytes=${release.bundleBytes} sha256=${release.bundleSha256.slice(0, 16)}`)
+        .join(' | ');
     throw new Error(
         `${offender.name} entry bundle is not byte-identical to ${results[0].name} (${hashes}). ` +
         'Multi-host storefronts must serve the same bytes; check that every host builds the pinned commit with the same VITE_* build env.'

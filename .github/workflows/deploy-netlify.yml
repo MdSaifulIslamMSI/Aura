@@ -1281,11 +1281,14 @@ jobs:
             > "${RUNNER_TEMP}/aura-release/vercel-preview.html"
 
           BUNDLE_SRC="$(node -e 'const html=require("fs").readFileSync(0,"utf8");const m=html.match(/<script[^>]+src="([^"]+\.js)"/);if(!m){console.error("No entry script found in the Vercel HTML.");process.exit(1);}process.stdout.write(m[1]);' < "${RUNNER_TEMP}/aura-release/vercel-preview.html")"
+          echo "Vercel entry bundle src: ${BUNDLE_SRC}"
           VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl "${BUNDLE_SRC}" \
             --deployment "${VERCEL_DEPLOY_URL}" \
             -- --fail --silent --show-error --location \
             > "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js"
           test -s "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js"
+          echo "Vercel bundle bytes: $(wc -c < "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js")"
+          head -c 24 "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js" | od -An -c | head -3
 
       - name: Verify Netlify and Vercel preview release coherence
         env:
@@ -1339,11 +1342,14 @@ jobs:
             > "${RUNNER_TEMP}/aura-release/vercel-production.html"
 
           BUNDLE_SRC="$(node -e 'const html=require("fs").readFileSync(0,"utf8");const m=html.match(/<script[^>]+src="([^"]+\.js)"/);if(!m){console.error("No entry script found in the Vercel HTML.");process.exit(1);}process.stdout.write(m[1]);' < "${RUNNER_TEMP}/aura-release/vercel-production.html")"
+          echo "Vercel entry bundle src: ${BUNDLE_SRC}"
           VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl "${BUNDLE_SRC}" \
             --deployment "${VERCEL_DEPLOY_URL}" \
             -- --fail --silent --show-error --location \
             > "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js"
           test -s "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js"
+          echo "Vercel bundle bytes: $(wc -c < "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js")"
+          head -c 24 "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js" | od -An -c | head -3
 
       - name: Verify Netlify, Vercel, AWS, and Render production release coherence
         env:
