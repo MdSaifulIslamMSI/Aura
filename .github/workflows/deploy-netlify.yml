@@ -267,7 +267,12 @@ jobs:
             > "${render_live_deploys}"
 
           render_ref="$(jq -r '.[0].id // empty' "${render_live_deploys}")"
-          test -n "${render_ref}" || { echo "Render has no live production deploy to restore." >&2; exit 1; }
+          if [ -z "${render_ref}" ]; then
+            # First Render production release: nothing is live yet, so there is
+            # no prior deployment to snapshot for rollback. The rollback hook
+            # still fails closed if it is ever invoked with an empty ref.
+            echo "Render has no live production deploy yet (first release); proceeding without a Render rollback target." >&2
+          fi
 
           echo "render_ref=${render_ref}" >> "$GITHUB_OUTPUT"
 
