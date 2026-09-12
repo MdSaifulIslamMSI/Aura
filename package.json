@@ -63,6 +63,7 @@
     "student-pack:sentry:release": "node scripts/student-pack-sentry-release.mjs",
     "student-pack:datadog:doctor": "node scripts/student-pack-datadog-ci.mjs doctor",
     "student-pack:datadog:junit": "node scripts/student-pack-datadog-ci.mjs junit",
+    "student-pack:datadog:coverage": "node scripts/student-pack-datadog-ci.mjs coverage",
     "student-pack:lambdatest:tunnel": "npm --prefix app run lambdatest:tunnel",
     "student-pack:god": "npm run student-pack:doctor && npm run student-pack:start",
     "aws:frontend:bootstrap": "powershell -ExecutionPolicy Bypass -File .\\infra\\aws\\bootstrap-frontend-s3.ps1",

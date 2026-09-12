@@ -59,6 +59,18 @@ const errorHandler = (err, req, res, next) => {
         } catch {
             // Sentry must never break error responses.
         }
+        // Guarded: no-op without DATADOG_API_KEY/DD_API_KEY. Fire-and-forget.
+        try {
+            void require('../utils/datadog').logToDatadog('error', err.message || 'Unhandled Exception', {
+                error: err,
+                route: req.originalUrl || req.url || '',
+                requestId: req.requestId || '',
+                method: req.method || '',
+                statusCode,
+            });
+        } catch {
+            // Datadog must never break error responses.
+        }
     }
 
     const minimizedResponse = buildMinimizedErrorResponse({ err, req, statusCode });

@@ -332,7 +332,7 @@ jobs:
         run: node ../scripts/check-test-tiers.cjs
 
       - name: Run backend regression suite
-        run: node ../scripts/run-test-tier.cjs server regression --runInBand --shard=${{ matrix.shard }}/3
+        run: node ../scripts/run-test-tier.cjs server regression --runInBand --shard=${{ matrix.shard }}/3 --reporters=default --reporters=jest-junit
         env:
           TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_ci
           TEST_USE_IN_MEMORY_MONGO: "false"
@@ -340,6 +340,21 @@ jobs:
           NODE_ENV: test
           REDIS_ENABLED: "true"
           REDIS_URL: redis://127.0.0.1:6379
+          JEST_JUNIT_OUTPUT_DIR: test-results
+          JEST_JUNIT_OUTPUT_NAME: junit-backend-shard-${{ matrix.shard }}.xml
+
+      - name: Upload JUnit to Datadog CI Visibility
+        if: always()
+        continue-on-error: true
+        env:
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DD_ENV: ci
+        run: |
+          if [ -z "${DATADOG_API_KEY}" ]; then
+            echo "DATADOG_API_KEY not configured; skipping Datadog upload."
+            exit 0
+          fi
+          npx --yes @datadog/datadog-ci@5.17.0 junit upload test-results --service aura-marketplace
 
       - name: Run money minor-unit audit command
         run: |
@@ -566,7 +581,20 @@ jobs:
         run: npm run lint
 
       - name: Run component tests
-        run: npm test -- --shard=${{ matrix.shard }}/2
+        run: npm test -- --shard=${{ matrix.shard }}/2 --reporter=default --reporter=junit --outputFile=test-results/junit-frontend-shard-${{ matrix.shard }}.xml
+
+      - name: Upload JUnit to Datadog CI Visibility
+        if: always()
+        continue-on-error: true
+        env:
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DD_ENV: ci
+        run: |
+          if [ -z "${DATADOG_API_KEY}" ]; then
+            echo "DATADOG_API_KEY not configured; skipping Datadog upload."
+            exit 0
+          fi
+          npx --yes @datadog/datadog-ci@5.17.0 junit upload test-results --service aura-marketplace
 
       - name: Audit locale coverage
         if: matrix.shard == 1

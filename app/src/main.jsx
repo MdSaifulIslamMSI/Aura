@@ -6,6 +6,7 @@ import App from './App.jsx'
 import { ErrorBoundary } from 'react-error-boundary';
 import { initClientObservability, reportClientError } from './services/clientObservability'
 import { initSentry } from './services/sentryClient'
+import { initDatadogRum } from './services/datadogRum'
 import { publishReleaseInfo } from './config/releaseInfo'
 import { StableText } from '@/i18n/StableText';
 
@@ -111,6 +112,8 @@ if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1' &&
 
 registerAuraServiceWorker()
 void initSentry()
+// Datadog RUM via official CDN. Guarded: no-op without VITE_DD_APPLICATION_ID + VITE_DD_CLIENT_TOKEN.
+void initDatadogRum()
 initClientObservability()
 publishReleaseInfo()
 
