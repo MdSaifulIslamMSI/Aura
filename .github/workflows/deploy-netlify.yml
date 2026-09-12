@@ -1288,7 +1288,6 @@ jobs:
             > "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js"
           test -s "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js"
           echo "Vercel bundle bytes: $(wc -c < "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js")"
-          head -c 24 "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js" | od -An -c | head -3
 
       - name: Verify Netlify and Vercel preview release coherence
         env:
@@ -1349,7 +1348,6 @@ jobs:
             > "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js"
           test -s "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js"
           echo "Vercel bundle bytes: $(wc -c < "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js")"
-          head -c 24 "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js" | od -An -c | head -3
 
       - name: Verify Netlify, Vercel, AWS, and Render production release coherence
         env:

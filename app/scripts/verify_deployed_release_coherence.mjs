@@ -107,6 +107,7 @@ for (const target of urls) {
     const name = String(target?.name || '').trim();
     const url = String(target?.url || '').trim();
     const htmlPath = String(target?.htmlPath || '').trim();
+    const bundlePath = String(target?.bundlePath || '').trim();
     if (!name || !url) {
         throw new Error(`Invalid release URL target: ${JSON.stringify(target)}`);
     }
@@ -115,6 +116,7 @@ for (const target of urls) {
     const release = {
         name,
         url,
+        bundlePath,
         id: extractMeta(html, 'aura-release-id'),
         commit: extractMeta(html, 'aura-release-commit'),
         target: extractMeta(html, 'aura-release-target'),
