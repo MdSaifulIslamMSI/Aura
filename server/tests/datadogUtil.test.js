@@ -18,7 +18,11 @@ describe('datadog util config', () => {
         delete process.env.DD_VERSION;
         delete process.env.DD_TRACES_SAMPLE_RATE;
         delete process.env.DD_PROFILING_ENABLED;
+        delete process.env.DD_RUNTIME_METRICS_ENABLED;
         delete process.env.DD_LOGS_ENABLED;
+        // CI-provided fallbacks that resolveDatadogConfig() also reads.
+        delete process.env.RELEASE_ID;
+        delete process.env.GITHUB_SHA;
         Object.assign(process.env, overrides);
     };
 
