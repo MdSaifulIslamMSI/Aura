@@ -349,6 +349,8 @@ jobs:
         env:
           DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
           DD_ENV: ci
+          # Org site: US5. datadog-ci has no other way to target it.
+          DD_SITE: us5.datadoghq.com
         run: |
           if [ -z "${DATADOG_API_KEY}" ]; then
             echo "DATADOG_API_KEY not configured; skipping Datadog upload."
@@ -589,6 +591,8 @@ jobs:
         env:
           DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
           DD_ENV: ci
+          # Org site: US5. datadog-ci has no other way to target it.
+          DD_SITE: us5.datadoghq.com
         run: |
           if [ -z "${DATADOG_API_KEY}" ]; then
             echo "DATADOG_API_KEY not configured; skipping Datadog upload."

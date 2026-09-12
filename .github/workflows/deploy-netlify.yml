@@ -283,6 +283,8 @@ jobs:
           # Empty-safe: RUM stays disabled until both IDs are configured.
           VITE_DD_APPLICATION_ID: ${{ secrets.VITE_DD_APPLICATION_ID || '' }}
           VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN || '' }}
+          # Org site: US5 (matches the RUM application).
+          VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
         run: npm run build
 
