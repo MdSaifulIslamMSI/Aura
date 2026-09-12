@@ -48,11 +48,11 @@ GitHub's 10-input `workflow_dispatch` limit:
 - `deploy_targets=backend,frontend-multihost,gateway`
 - `release_targets=desktop,mobile`
 - `rollback_targets=backend,frontend-multihost,gateway`
-- `rollback_refs_json={"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","gateway":"deployment-id"}`
+- `rollback_refs_json={"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","render":"deploy-id","gateway":"deployment-id"}`
 
 Leave target inputs blank for no-op validation runs. Use only the target names
 you intend to run. `frontend-multihost` always covers Netlify, the Vercel
-storefront, and AWS CloudFront together. A lane cannot appear in both
+storefront, AWS CloudFront, and Render together. A lane cannot appear in both
 `deploy_targets` and `rollback_targets` in the same run; the command center
 rejects that request before any production mutation. Supply only the
 provider-specific keys needed by the selected rollback lanes in
@@ -80,6 +80,7 @@ Required repository secrets:
 
 - `VERCEL_TOKEN`
 - `NETLIFY_AUTH_TOKEN`
+- `RENDER_API_KEY`
 
 Optional for trusted Windows desktop releases:
 
@@ -105,11 +106,13 @@ Required repository variables or secrets:
 - `NETLIFY_SITE_ID`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
+- `RENDER_SERVICE_ID`
 
 Optional repository variables:
 
 - `NETLIFY_SITE_NAME`, defaults to `aurapilot`
 - `VERCEL_PROJECT_NAME`, defaults to `app`
+- `RENDER_PRODUCTION_URL`, defaults to `https://aura-storefront.onrender.com`
 
 AWS deployment is configured through OIDC in `.github/workflows/deploy-backend-aws.yml`:
 
