@@ -20,7 +20,7 @@ const buildFetcher = () => {
         if (String(url).endsWith('/v1/vaults/vault-1/items/item-1')) {
             return {
                 ok: true,
-                json: async () => ({ fields: [{ id: 'password', label: 'password', value: 'super-secret-value' }] }),
+                json: async () => ({ fields: [{ id: 'password', label: 'password', value: 'super-secret' }] }),
             };
         }
         return { ok: false, status: 404, json: async () => ({}) };
@@ -69,24 +69,24 @@ describe('onePasswordProvider', () => {
         const { fetcher } = buildFetcher();
         const env = {
             OP_CONNECT_HOST: 'http://connect.local:8080',
-            OP_CONNECT_TOKEN: 'test-connect-token',
+            OP_CONNECT_TOKEN: 'token',
             ONEPASSWORD_ENABLED: 'true',
             JWT_SECRET: 'op://prod-aura/jwt/password',
         };
         const result = await primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher });
         expect(result.enabled).toBe(true);
         expect(result.source).toBe('onepassword_connect');
-        expect(env.JWT_SECRET).toBe('super-secret-value');
+        expect(env.JWT_SECRET).toBe('super-secret');
         expect(fetcher).toHaveBeenCalled();
         const authHeader = fetcher.mock.calls[0][1].headers.Authorization;
-        expect(authHeader).toBe('Bearer test-connect-token');
+        expect(authHeader).toBe('Bearer token');
     });
 
     test('error paths never echo token or secret values', async () => {
         const { fetcher } = buildFetcher();
         const env = {
             OP_CONNECT_HOST: 'http://connect.local:8080',
-            OP_CONNECT_TOKEN: 'test-connect-token',
+            OP_CONNECT_TOKEN: 'token',
             ONEPASSWORD_ENABLED: 'true',
             JWT_SECRET: 'op://prod-aura/missing-item/password',
         };
@@ -96,8 +96,8 @@ describe('onePasswordProvider', () => {
         try {
             await primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher });
         } catch (error) {
-            expect(String(error.message)).not.toContain('test-connect-token');
-            expect(String(error.message)).not.toContain('super-secret-value');
+            expect(String(error.message)).not.toContain('token');
+            expect(String(error.message)).not.toContain('super-secret');
         }
     });
 
@@ -126,7 +126,7 @@ describe('onePasswordProvider', () => {
         };
         const result = await primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher });
         expect(result.loadedKeys).toEqual(['JWT_SECRET']);
-        expect(env.JWT_SECRET).toBe('super-secret-value');
+        expect(env.JWT_SECRET).toBe('super-secret');
     });
 
     test('rejects a malformed OP_CONNECT_ITEM_MAP without applying partial state', async () => {
