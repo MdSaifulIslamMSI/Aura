@@ -330,6 +330,7 @@
       "tests/moneyMinorBackfillAudit.test.js",
       "tests/moneyMinorStorage.test.js",
       "tests/ollamaGatewayService.test.js",
+      "tests/onePasswordProvider.test.js",
       "tests/orderControllerCreate.test.js",
       "tests/orderPlacementService.test.js",
       "tests/otpEmailFailClosed.test.js",
