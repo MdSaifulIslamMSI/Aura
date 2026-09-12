@@ -636,6 +636,38 @@ describe('statusService', () => {
         expect(allowed.has('127.0.0.1')).toBe(false);
     });
 
+    test('built-in default storefront host stays allowlisted when env resolves elsewhere', () => {
+        const relevantKeys = [
+            'STATUS_WEB_APP_URL',
+            'APP_PUBLIC_URL',
+            'FRONTEND_URL',
+            'APP_BASE_URL',
+            'CORS_ORIGIN',
+            'CORS_ORIGINS',
+            'STATUS_MONITOR_ALLOWED_HOSTS',
+        ];
+        const original = Object.fromEntries(relevantKeys.map((key) => [key, process.env[key]]));
+        try {
+            relevantKeys.forEach((key) => { delete process.env[key]; });
+            // Simulates the production split-runtime worker whose env points at a
+            // different storefront host while the seeded components still store
+            // the built-in default check URL.
+            process.env.STATUS_WEB_APP_URL = 'https://dbtrhsolhec1s.cloudfront.net';
+
+            const defaults = __testables.getDefaultMonitorHostnames();
+            expect(defaults.has('dbtrhsolhec1s.cloudfront.net')).toBe(true);
+            expect(defaults.has('aurapilot.vercel.app')).toBe(true);
+
+            const allowed = __testables.getAllowedMonitorHosts();
+            expect(allowed.has('aurapilot.vercel.app')).toBe(true);
+        } finally {
+            relevantKeys.forEach((key) => {
+                if (original[key] === undefined) delete process.env[key];
+                else process.env[key] = original[key];
+            });
+        }
+    });
+
     test('incident lifecycle creates, updates, and resolves', async () => {
         const { components } = await seedDefaultStatusCatalog({ includeDemoMetrics: false });
         expect(components).toBeGreaterThan(0);
