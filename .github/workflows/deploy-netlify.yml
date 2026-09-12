@@ -1111,6 +1111,8 @@ jobs:
               "VITE_FIREBASE_MEASUREMENT_ID",
               "VITE_FIREBASE_CONFIG",
               "VITE_FIREBASE_DISABLE_SOCIAL_AUTH",
+              "VITE_FIREBASE_ENABLE_MICROSOFT_AUTH",
+              "VITE_FIREBASE_ENABLE_APPLE_AUTH",
               "VITE_DUO_LOGIN_ENABLED",
               "VITE_ADMIN_SECURITY_STATE_ENGINE_V2",
             ];
