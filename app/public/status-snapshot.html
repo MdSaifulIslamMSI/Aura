@@ -6,16 +6,59 @@
   <title>Aura Status Snapshot</title>
   <style>
     body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
-    main { max-width: 760px; margin: 0 auto; padding: 40px 16px; }
+    main { max-width: 900px; margin: 0 auto; padding: 40px 16px; }
     section { margin-top: 16px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { padding: 10px; border-top: 1px solid #e2e8f0; text-align: left; }
+    .badge { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 700; background: #f1f5f9; color: #475569; }
   </style>
 </head>
 <body>
   <main>
     <h1>Aura Status</h1>
+    <p>Status snapshot pending — the live monitor has not published yet. Live data is served by <code>/api/status/public</code>; this file is only a fallback.</p>
     <section>
-      <h2>Status temporarily unavailable</h2>
-      <p>The live status API and last generated snapshot are not available yet.</p>
+      <h2>Active Incidents</h2>
+      <ul><li>No active incidents</li></ul>
+    </section>
+    <section>
+      <h2>Scheduled Maintenance</h2>
+      <ul><li>No scheduled maintenance</li></ul>
+    </section>
+    <section>
+      <h2>Components</h2>
+      <table>
+        <thead><tr><th>Group</th><th>Component</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Web App</td><td>Website</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Web App</td><td>Storefront</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Web App</td><td>Product Experience</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>API</td><td>API</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>API</td><td>Public API</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>API</td><td>Commerce API</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>API</td><td>Webhooks</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Auth</td><td>Firebase Auth</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Auth</td><td>Authentication</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Database</td><td>Database</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Database</td><td>MongoDB</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Cache / Redis</td><td>Redis</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Payments</td><td>Payment Processing</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Payments</td><td>Stripe</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Payments</td><td>Razorpay</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Email</td><td>Email Delivery</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Email</td><td>Resend Email</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Email</td><td>Status Subscriptions</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>AI Services</td><td>AI Provider</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>AI Services</td><td>Commerce Assistant</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>File Uploads</td><td>File Uploads</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>File Uploads</td><td>Media Uploads</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Realtime</td><td>LiveKit</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Realtime</td><td>Realtime Messaging</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Admin Panel</td><td>Admin Console</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Search</td><td>Search / Vector Search</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+          <tr><td>Update Service</td><td>Mobile/Desktop Update Service</td><td><span class="badge">Unknown — awaiting first monitor run</span></td></tr>
+        </tbody>
+      </table>
     </section>
   </main>
 </body>

@@ -535,6 +535,14 @@ describe('statusService', () => {
         })).rejects.toThrow('STATUS_MONITOR_ALLOWED_HOSTS');
     });
 
+    test('monitor allowlist derives the default web app host without explicit config', () => {
+        const defaults = __testables.getDefaultMonitorHostnames();
+        expect(defaults.size).toBeGreaterThan(0);
+        const allowed = __testables.getAllowedMonitorHosts();
+        defaults.forEach((host) => expect(allowed.has(host)).toBe(true));
+        expect(allowed.has('127.0.0.1')).toBe(false);
+    });
+
     test('incident lifecycle creates, updates, and resolves', async () => {
         const { components } = await seedDefaultStatusCatalog({ includeDemoMetrics: false });
         expect(components).toBeGreaterThan(0);
