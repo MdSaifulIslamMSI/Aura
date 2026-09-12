@@ -285,7 +285,7 @@ const TRAFFIC_BUDGETS = Object.freeze({
         routeClass: ROUTE_CLASSES.STATUS_PUBLIC,
         categoryName: 'searchRequests',
         maxBodyBytes: 16 * KB,
-        timeoutMs: 3000,
+        timeoutMs: 5000,
         perIp: 600,
         perAccount: 0,
         perSession: 0,

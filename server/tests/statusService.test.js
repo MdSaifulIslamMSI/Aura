@@ -426,13 +426,14 @@ describe('statusService', () => {
             services: { catalog: realCatalogShape },
         };
 
+        // The plain catalog signal is data health only: stale data degrades it,
+        // the search provider state does not.
         await expect(__testables.resolveInternalHealthSignalStatus('catalog', snapshot))
             .resolves.toMatchObject({ ok: true, status: 'operational' });
 
-        // Undetermined Atlas search support is not proof of degradation.
         await expect(__testables.resolveInternalHealthSignalStatus('catalog', {
             ...snapshot,
-            services: { catalog: { ...realCatalogShape, searchProviderStatus: 'unknown' } },
+            services: { catalog: { ...realCatalogShape, searchProviderStatus: 'degraded' } },
         })).resolves.toMatchObject({ ok: true, status: 'operational' });
 
         await expect(__testables.resolveInternalHealthSignalStatus('catalog', {
@@ -444,19 +445,55 @@ describe('statusService', () => {
             errorMessage: 'catalog_health_degraded',
         });
 
+        // Missing catalog signal stays fail-closed, matching the ai signal convention.
         await expect(__testables.resolveInternalHealthSignalStatus('catalog', {
+            core: snapshot.core,
+            services: {},
+        })).resolves.toMatchObject({
+            ok: false,
+            status: 'degraded_performance',
+            errorMessage: 'catalog_health_degraded',
+        });
+    });
+
+    test('catalog_search signal additionally requires the probed search provider', async () => {
+        const healthyCatalog = {
+            activeVersion: 'cat-2026-09-12',
+            staleData: false,
+            searchProviderStatus: 'ok',
+            queueLagSec: 0,
+        };
+        const snapshot = {
+            core: { dbConnected: true, redisConnected: true },
+            services: { catalog: healthyCatalog },
+        };
+
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog_search', snapshot))
+            .resolves.toMatchObject({ ok: true, status: 'operational' });
+
+        // 'unknown' means the probe has not run yet; stay fail-closed so the
+        // status does not depend on which runtime process built the snapshot.
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog_search', {
             ...snapshot,
-            services: { catalog: { ...realCatalogShape, searchProviderStatus: 'degraded' } },
+            services: { catalog: { ...healthyCatalog, searchProviderStatus: 'unknown' } },
         })).resolves.toMatchObject({
             ok: false,
             status: 'degraded_performance',
             errorMessage: 'catalog_health_degraded',
         });
 
-        // Missing catalog signal stays fail-closed, matching the ai signal convention.
-        await expect(__testables.resolveInternalHealthSignalStatus('catalog', {
-            core: snapshot.core,
-            services: {},
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog_search', {
+            ...snapshot,
+            services: { catalog: { ...healthyCatalog, searchProviderStatus: 'degraded' } },
+        })).resolves.toMatchObject({
+            ok: false,
+            status: 'degraded_performance',
+            errorMessage: 'catalog_health_degraded',
+        });
+
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog_search', {
+            ...snapshot,
+            services: { catalog: { ...healthyCatalog, staleData: true } },
         })).resolves.toMatchObject({
             ok: false,
             status: 'degraded_performance',

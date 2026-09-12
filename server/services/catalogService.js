@@ -2425,6 +2425,10 @@ const getCatalogHealth = async () => {
     ]);
 
     const now = Date.now();
+    // Converge the search-provider determination in every runtime process so
+    // searchProviderStatus never flaps between 'unknown' (not yet probed) and
+    // the probed verdict depending on which process built the snapshot.
+    await assertSearchAvailable();
     const lastImportAt = state.catalogLastImportAt ? new Date(state.catalogLastImportAt).getTime() : null;
     const lastSyncAt = state.catalogLastSyncAt ? new Date(state.catalogLastSyncAt).getTime() : null;
     const importAgeSec = lastImportAt ? Math.floor((now - lastImportAt) / 1000) : null;
