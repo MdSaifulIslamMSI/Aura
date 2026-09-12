@@ -309,7 +309,7 @@ jobs:
             echo "| Preflight: CI/auth contracts | ${PREFLIGHT_RESULT} |"
             echo "| Staging: same-commit promotion gate | ${STAGING_RESULT} |"
             echo "| Backend: AWS production deploy | ${BACKEND_RESULT} |"
-            echo "| Storefront: Netlify/Vercel/AWS production deploy | ${STOREFRONT_RESULT} |"
+            echo "| Storefront: Netlify/Vercel/AWS/Render production deploy | ${STOREFRONT_RESULT} |"
             echo "| Gateway: Vercel production deploy | ${GATEWAY_RESULT} |"
             echo "| Desktop: Windows/macOS/Linux GitHub release | ${DESKTOP_RESULT} |"
             echo "| Mobile: Android/iOS GitHub release | ${MOBILE_RESULT} |"

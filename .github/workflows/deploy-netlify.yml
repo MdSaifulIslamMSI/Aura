@@ -1,4 +1,4 @@
-name: Deploy Frontend To Netlify, Vercel, And AWS
+name: Deploy Frontend To Netlify, Vercel, AWS, And Render
 
 on:
   pull_request:
@@ -52,6 +52,9 @@ on:
       aws_frontend_rollback_ref:
         description: AWS snapshot key created for this release
         value: ${{ jobs.deploy-aws-production.outputs.rollback_ref }}
+      render_storefront_rollback_ref:
+        description: Render deploy id that was live before this release
+        value: ${{ jobs.build-frontend.outputs.render_rollback_ref }}
       netlify_production_url:
         description: Netlify production URL published by this release
         value: ${{ jobs.deploy-production.outputs.site_url }}
@@ -61,6 +64,9 @@ on:
       aws_frontend_production_url:
         description: AWS CloudFront production URL published by this release
         value: ${{ jobs.deploy-aws-production.outputs.site_url }}
+      render_production_url:
+        description: Render production URL published by this release
+        value: ${{ jobs.deploy-render-production.outputs.site_url }}
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN:
         required: false
@@ -73,6 +79,10 @@ on:
       VERCEL_PROJECT_ID:
         required: false
       VERCEL_TOKEN:
+        required: false
+      RENDER_API_KEY:
+        required: false
+      RENDER_SERVICE_ID:
         required: false
       VITE_FIREBASE_API_KEY:
         required: false
@@ -123,6 +133,8 @@ env:
   VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID || secrets.VERCEL_PROJECT_ID }}
   VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME || 'app' }}
   VERCEL_PRODUCTION_URL: ${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}
+  RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID || secrets.RENDER_SERVICE_ID }}
+  RENDER_PRODUCTION_URL: ${{ vars.RENDER_PRODUCTION_URL || 'https://aura-storefront.onrender.com' }}
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
   AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
   AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
@@ -152,6 +164,7 @@ jobs:
       built_at: ${{ steps.release.outputs.built_at }}
       netlify_rollback_ref: ${{ steps.rollback_targets.outputs.netlify_ref }}
       vercel_storefront_rollback_ref: ${{ steps.rollback_targets.outputs.vercel_ref }}
+      render_rollback_ref: ${{ steps.rollback_targets.outputs.render_ref }}
     defaults:
       run:
         working-directory: ./app
@@ -168,11 +181,13 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
 
-      - name: Validate Netlify deployment configuration
+      - name: Validate storefront deployment configuration
         working-directory: .
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          DEPLOY_TARGET: ${{ inputs.target || '' }}
           DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' }}
         run: |
           if [ "${DEPENDABOT_PR}" = "true" ]; then
@@ -184,6 +199,12 @@ jobs:
           test -n "${VERCEL_TOKEN}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
           test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
           test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
+          # Render is production-only in CI (previews stay native), so its
+          # configuration is required only where the lane actually mutates.
+          if [ "${DEPLOY_TARGET}" = "production" ]; then
+            test -n "${RENDER_API_KEY}" || { echo "Missing GitHub secret RENDER_API_KEY"; exit 1; }
+            test -n "${RENDER_SERVICE_ID}" || { echo "Missing GitHub variable or secret RENDER_SERVICE_ID"; exit 1; }
+          fi
 
       - name: Capture provider-specific production rollback targets
         if: inputs.target == 'production'
@@ -192,6 +213,7 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -237,6 +259,17 @@ jobs:
 
           echo "netlify_ref=${netlify_ref}" >> "$GITHUB_OUTPUT"
           echo "vercel_ref=${vercel_ref}" >> "$GITHUB_OUTPUT"
+
+          render_live_deploys="$(mktemp)"
+          curl --fail --show-error --silent --location \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys?status=live&limit=5" \
+            > "${render_live_deploys}"
+
+          render_ref="$(jq -r '.[0].id // empty' "${render_live_deploys}")"
+          test -n "${render_ref}" || { echo "Render has no live production deploy to restore." >&2; exit 1; }
+
+          echo "render_ref=${render_ref}" >> "$GITHUB_OUTPUT"
 
       - name: Install frontend dependencies
         run: npm ci
@@ -985,6 +1018,175 @@ jobs:
             echo "- Shared build time: ${BUILT_AT}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  deploy-render-production:
+    needs:
+      - build-frontend
+      - validate-aws-production-access
+    if: inputs.target == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: render-production
+      url: ${{ steps.deploy.outputs.site_url }}
+    outputs:
+      site_url: ${{ steps.deploy.outputs.site_url }}
+      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
+
+    steps:
+      - name: Mark Render production mutation attempt
+        id: mutation
+        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish Render production deploy
+        id: deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          BUILT_AT: ${{ needs.build-frontend.outputs.built_at }}
+        run: |
+          set -euo pipefail
+
+          RENDER_API_KEY="$(printf '%s' "${RENDER_API_KEY}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -z "${RENDER_API_KEY}" ]; then
+            echo "GitHub secret RENDER_API_KEY is empty after trimming whitespace." >&2
+            exit 1
+          fi
+          echo "::add-mask::${RENDER_API_KEY}"
+
+          api_base="https://api.render.com/v1"
+          auth_header="Authorization: Bearer ${RENDER_API_KEY}"
+
+          # The service must be CI-managed: Render's own branch auto-deploys
+          # would rebuild main without the release metadata below and race
+          # this coordinated deploy.
+          service_state="$(mktemp)"
+          curl --fail --show-error --silent --location \
+            --header "${auth_header}" \
+            "${api_base}/services/${RENDER_SERVICE_ID}" \
+            > "${service_state}"
+          auto_deploy="$(jq -r '.autoDeploy // "yes"' "${service_state}")"
+          if [ "${auto_deploy}" != "no" ]; then
+            echo "Render service ${RENDER_SERVICE_ID} still has auto-deploy enabled (${auto_deploy})." >&2
+            echo "Disable auto-deploy for the branch in the Render dashboard; GitHub Actions now drives production deploys." >&2
+            exit 1
+          fi
+
+          # Render builds the storefront from source instead of publishing the
+          # shared artifact, so the build needs the exact release metadata the
+          # shared artifact was stamped with or the coherence gate fails on
+          # id/target/channel/builtAt. Previous values are restored afterwards.
+          release_env_keys=(VITE_RELEASE_ID VITE_RELEASE_TIME VITE_DEPLOY_TARGET VITE_RELEASE_CHANNEL)
+          env_list="$(mktemp)"
+          curl --fail --show-error --silent --location \
+            --header "${auth_header}" \
+            "${api_base}/services/${RENDER_SERVICE_ID}/env-vars" \
+            > "${env_list}"
+
+          set_release_env() {
+            curl --fail --show-error --silent --location \
+              --request PUT \
+              --header "${auth_header}" \
+              --header "Content-Type: application/json" \
+              --data "$(jq -n --arg value "$2" '{value: $value}')" \
+              "${api_base}/services/${RENDER_SERVICE_ID}/env-vars/$1" \
+              > /dev/null
+          }
+
+          delete_release_env() {
+            curl --fail --show-error --silent --location \
+              --request DELETE \
+              --header "${auth_header}" \
+              "${api_base}/services/${RENDER_SERVICE_ID}/env-vars/$1" \
+              > /dev/null || true
+          }
+
+          restore_release_env() {
+            local status="$?"
+            trap - EXIT
+            for key in "${release_env_keys[@]}"; do
+              original="$(jq -r --arg key "${key}" '.[] | select(.key == $key) | .value // ""' "${env_list}")"
+              if [ -n "${original}" ]; then
+                set_release_env "${key}" "${original}" || true
+              else
+                delete_release_env "${key}"
+              fi
+            done
+            exit "${status}"
+          }
+          trap restore_release_env EXIT
+
+          set_release_env VITE_RELEASE_ID "${GITHUB_SHA}"
+          set_release_env VITE_RELEASE_TIME "${BUILT_AT}"
+          set_release_env VITE_DEPLOY_TARGET "multi-host"
+          set_release_env VITE_RELEASE_CHANNEL "production"
+
+          deploy_json="$(mktemp)"
+          for attempt in 1 2 3; do
+            if curl --fail --show-error --silent --location \
+                --request POST \
+                --header "${auth_header}" \
+                --header "Content-Type: application/json" \
+                --data "{\"commitId\":\"${GITHUB_SHA}\"}" \
+                "${api_base}/services/${RENDER_SERVICE_ID}/deploys" \
+                > "${deploy_json}"; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              echo "Render deploy trigger failed after ${attempt} attempts." >&2
+              exit 1
+            fi
+            echo "Retrying Render deploy trigger (attempt $((attempt + 1))/3)..." >&2
+            sleep 20
+          done
+
+          deploy_id="$(jq -r '.id // empty' "${deploy_json}")"
+          if [ -z "${deploy_id}" ]; then
+            echo "Render API did not return a deploy id." >&2
+            cat "${deploy_json}" >&2 || true
+            exit 1
+          fi
+
+          poll_attempts=45
+          for attempt in $(seq 1 "${poll_attempts}"); do
+            status="$(curl --fail --show-error --silent --location \
+              --header "${auth_header}" \
+              "${api_base}/services/${RENDER_SERVICE_ID}/deploys/${deploy_id}" \
+              | jq -r '.status // empty' || true)"
+            case "${status}" in
+              live)
+                echo "Render deploy ${deploy_id} is live."
+                break
+                ;;
+              build_failed|update_failed|pre_deploy_failed|canceled|deactivated)
+                echo "Render deploy ${deploy_id} ended in status '${status}'." >&2
+                exit 1
+                ;;
+            esac
+            echo "Render deploy ${deploy_id} status: ${status:-unknown} (attempt ${attempt}/${poll_attempts})." >&2
+            if [ "${attempt}" -eq "${poll_attempts}" ]; then
+              echo "Render deploy ${deploy_id} did not go live after ${poll_attempts} attempts." >&2
+              exit 1
+            fi
+            sleep 20
+          done
+
+          echo "deploy_id=${deploy_id}" >> "$GITHUB_OUTPUT"
+          echo "site_url=${RENDER_PRODUCTION_URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Add Render production deploy to job summary
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          DEPLOY_ID: ${{ steps.deploy.outputs.deploy_id }}
+          BUILT_AT: ${{ needs.build-frontend.outputs.built_at }}
+        run: |
+          {
+            echo "### Render Production"
+            echo
+            echo "- Service: ${RENDER_SERVICE_ID}"
+            echo "- Production URL: ${SITE_URL}"
+            echo "- Deploy: ${DEPLOY_ID}"
+            echo "- Shared build time: ${BUILT_AT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   verify-preview-coherence:
     needs:
       - build-frontend
@@ -1040,6 +1242,7 @@ jobs:
       - deploy-production
       - deploy-vercel-production
       - deploy-aws-production
+      - deploy-render-production
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1072,7 +1275,7 @@ jobs:
             -- --fail --silent --show-error --location \
             > "${RUNNER_TEMP}/aura-release/vercel-production.html"
 
-      - name: Verify Netlify, Vercel, and AWS production release coherence
+      - name: Verify Netlify, Vercel, AWS, and Render production release coherence
         env:
           AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
           AURA_EXPECTED_COMMIT: ${{ github.sha }}
@@ -1081,7 +1284,8 @@ jobs:
             [
               {"name":"netlify-production","url":"${{ needs.deploy-production.outputs.site_url }}"},
               {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html"},
-              {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"}
+              {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
+              {"name":"render-production","url":"${{ needs.deploy-render-production.outputs.site_url }}"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
 
@@ -1155,3 +1359,27 @@ jobs:
       parent_holds_production_lock: true
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
+
+  rollback-render-storefront-on-production-failure:
+    needs:
+      - build-frontend
+      - deploy-production
+      - deploy-vercel-production
+      - deploy-aws-production
+      - deploy-render-production
+      - verify-production-coherence
+    if: >-
+      always() &&
+      inputs.target == 'production' &&
+      inputs.auto_rollback_on_failure == true &&
+      needs.deploy-render-production.outputs.deployment_attempted == 'true' &&
+      needs.verify-production-coherence.result != 'success'
+    uses: ./.github/workflows/rollback-render.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.build-frontend.outputs.render_rollback_ref }}
+      parent_holds_production_lock: true
+    secrets:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}

@@ -10,6 +10,7 @@ This production pipeline is planner-driven. Missing cloud configuration does not
 | `AWS_FRONTEND_DEPLOY_ROLE_ARN` | AWS frontend deploy and rollback | GitHub OIDC role for S3 / CloudFront deployment. |
 | `NETLIFY_AUTH_TOKEN` | Netlify frontend deploy | Netlify CLI authentication token. |
 | `VERCEL_TOKEN` | Gateway and Vercel frontend deploys | Vercel CLI authentication token. |
+| `RENDER_API_KEY` | Render frontend deploy and rollback | Render API key for the coordinated multi-host storefront release. |
 
 ## Optional Sentry Secrets for Error Tracking
 
@@ -39,6 +40,7 @@ frontend deploy uploads releases/sourcemaps only when `SENTRY_AUTH_TOKEN` exists
 | `AWS_FRONTEND_PUBLIC_URL` | AWS frontend deploy and smoke tests | Public CloudFront or custom domain URL. |
 | `VERCEL_ORG_ID` | Gateway and Vercel deploy readiness | Vercel organization/team id. |
 | `VERCEL_PROJECT_ID` | Gateway and Vercel deploy readiness | Vercel project id. |
+| `RENDER_SERVICE_ID` | Render frontend deploy and rollback | Render service id (`srv-…`) for `aura-storefront`; may also be a secret. |
 | `GATEWAY_PRODUCTION_URL` | Gateway smoke tests | Public gateway production URL. |
 | `BACKEND_HEALTH_PATH` | Optional smoke tests | Backend health path, defaults to `/health`. |
 | `GATEWAY_HEALTH_PATH` | Optional smoke tests | Gateway health path, defaults to `/`. |

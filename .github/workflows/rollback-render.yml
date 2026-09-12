@@ -1,0 +1,60 @@
+name: Rollback Render Storefront
+
+on:
+  workflow_call:
+    inputs:
+      rollback_ref:
+        description: Optional Render deploy id that was live before the failed release
+        required: false
+        default: ""
+        type: string
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      RENDER_API_KEY:
+        required: false
+      RENDER_SERVICE_ID:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-rollback-render', github.run_id) || 'aura-production-mutation' }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  rollback:
+    name: Roll back Render storefront
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout current rollback tooling
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Execute Render rollback hook
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID || secrets.RENDER_SERVICE_ID }}
+          RENDER_PRODUCTION_URL: ${{ vars.RENDER_PRODUCTION_URL || '' }}
+        run: |
+          set -euo pipefail
+
+          if [ -f "scripts/rollback-render.sh" ]; then
+            bash scripts/rollback-render.sh
+          else
+            echo "::error::Missing rollback hook: scripts/rollback-render.sh"
+            echo "Create one hook that restores the previous Render production deploy."
+            exit 1
+          fi
