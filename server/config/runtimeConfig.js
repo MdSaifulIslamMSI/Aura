@@ -334,11 +334,61 @@ const getRuntimeSecretBootstrapState = () => ({
     enabled: Boolean(runtimePrimeResult.enabled),
 });
 
+const resolveRuntimeSecretsProvider = () => safeString(
+    process.env.RUNTIME_SECRETS_PROVIDER || process.env.RUNTIME_SECRETS_PROVIDERS || ''
+).toLowerCase();
+
+/**
+ * Unified bootstrapper: AWS SSM first (unchanged behavior), then 1Password
+ * Connect for any `op://` references or explicit OP_CONNECT_ITEM_MAP entries.
+ * 1Password is opt-in and fail-closed only when explicitly enabled/required.
+ */
+const primeRuntimeSecretsEnv = async ({ logger = console } = {}) => {
+    const awsResult = await primeAwsParameterStoreEnv({ logger });
+
+    let onePasswordResult = { enabled: false, source: 'onepassword_disabled', loadedKeys: [], skippedKeys: [] };
+    try {
+        const { primeOnePasswordEnv } = require('./onePasswordProvider');
+        onePasswordResult = await primeOnePasswordEnv({
+            env: process.env,
+            secretKeys: resolveParameterStoreSecretKeys(),
+            logger,
+        });
+    } catch (error) {
+        throw new Error(safeString(error && error.message).slice(0, 200) || 'onepassword_bootstrap_failed');
+    }
+
+    const sources = [awsResult.source, onePasswordResult.enabled ? onePasswordResult.source : '']
+        .map((s) => safeString(s))
+        .filter((s) => s && s !== 'local_env_only' && s !== 'onepassword_disabled');
+    const loadedKeys = uniq([...(awsResult.loadedKeys || []), ...(onePasswordResult.loadedKeys || [])]);
+    const skippedKeys = uniq([...(awsResult.skippedKeys || []), ...(onePasswordResult.skippedKeys || [])]);
+
+    runtimePrimeResult = {
+        enabled: Boolean(awsResult.enabled || onePasswordResult.enabled),
+        source: sources.length > 0 ? sources.join('+') : 'local_env_only',
+        loadedKeys,
+        skippedKeys,
+        region: awsResult.region || '',
+        pathPrefix: awsResult.pathPrefix || '',
+        providers: resolveRuntimeSecretsProvider(),
+        onePassword: {
+            enabled: Boolean(onePasswordResult.enabled),
+            loadedKeyCount: onePasswordResult.loadedKeys.length,
+            skippedKeyCount: onePasswordResult.skippedKeys.length,
+        },
+    };
+
+    return { ...runtimePrimeResult };
+};
+
 module.exports = {
     DEFAULT_AWS_PARAMETER_KEYS,
     getRuntimeSecretBootstrapState,
     loadLocalEnvFiles,
     primeAwsParameterStoreEnv,
+    primeRuntimeSecretsEnv,
+    resolveRuntimeSecretsProvider,
     __testables: {
         isParameterStoreReferencePlaceholder,
         parseExplicitParameterReference,
