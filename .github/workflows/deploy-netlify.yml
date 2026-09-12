@@ -324,7 +324,19 @@ jobs:
           # Org site: US5 (matches the RUM application).
           VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
-        run: npm run build
+        run: |
+          # Render's env-vars API rejects empty values, so a Render build can
+          # never see an empty-string VITE_ var that CI defines. Drop them on
+          # this side too so both hosts inline the identical import.meta.env
+          # object and the byte-identity gate compares like for like.
+          while IFS='=' read -r key value; do
+            [ -n "$key" ] || continue
+            if [ -z "$value" ]; then
+              unset "$key"
+              echo "dropped empty ${key}"
+            fi
+          done < <(env | grep -E '^VITE_[A-Za-z0-9_]*=' || true)
+          npm run build
 
       - name: Publish Sentry release and sourcemaps
         # No `if:` on secrets here: reusable workflows forbid the secrets
@@ -1178,7 +1190,10 @@ jobs:
               echo "Failed to set Render env var ${key}; aborting rather than shipping a non-parity build." >&2
               exit 1
             else
-              echo "Render rejected an empty value for ${key}; continuing (the byte gate will flag any resulting drift)." >&2
+              # Render rejects empty values; delete any prior key so the stale
+              # value cannot leak into Render's build while CI dropped it.
+              delete_release_env "${key}"
+              echo "Render rejects empty values for ${key}; key removed for parity."
             fi
           done
 
