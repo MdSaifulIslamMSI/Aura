@@ -20,7 +20,7 @@ const buildFetcher = () => {
         if (String(url).endsWith('/v1/vaults/vault-1/items/item-1')) {
             return {
                 ok: true,
-                json: async () => ({ fields: [{ id: 'password', label: 'password', value: 'super-secret' }] }),
+                json: async () => ({ fields: [{ id: 'password', label: 'password', value: 'plaintext' }] }),
             };
         }
         return { ok: false, status: 404, json: async () => ({}) };
@@ -76,7 +76,7 @@ describe('onePasswordProvider', () => {
         const result = await primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher });
         expect(result.enabled).toBe(true);
         expect(result.source).toBe('onepassword_connect');
-        expect(env.JWT_SECRET).toBe('super-secret');
+        expect(env.JWT_SECRET).toBe('plaintext');
         expect(fetcher).toHaveBeenCalled();
         const authHeader = fetcher.mock.calls[0][1].headers.Authorization;
         expect(authHeader).toBe('Bearer token');
@@ -97,7 +97,7 @@ describe('onePasswordProvider', () => {
             await primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher });
         } catch (error) {
             expect(String(error.message)).not.toContain('token');
-            expect(String(error.message)).not.toContain('super-secret');
+            expect(String(error.message)).not.toContain('plaintext');
         }
     });
 
@@ -126,7 +126,7 @@ describe('onePasswordProvider', () => {
         };
         const result = await primeOnePasswordEnv({ env, secretKeys: ['JWT_SECRET'], logger: silentLogger, fetcher });
         expect(result.loadedKeys).toEqual(['JWT_SECRET']);
-        expect(env.JWT_SECRET).toBe('super-secret');
+        expect(env.JWT_SECRET).toBe('plaintext');
     });
 
     test('rejects a malformed OP_CONNECT_ITEM_MAP without applying partial state', async () => {
