@@ -12,6 +12,15 @@ try {
     // Sentry must never prevent the API from booting.
 }
 
+// Datadog next: dd-trace auto-instruments modules required below (express,
+// http, mongoose), so init must run before those requires. Guarded: no-op
+// without DATADOG_API_KEY/DD_API_KEY, never blocks boot.
+try {
+    require('./utils/datadog').initDatadog();
+} catch {
+    // Datadog must never prevent the API from booting.
+}
+
 const crypto = require('crypto');
 const express = require('express');
 const { rateLimit } = require('express-rate-limit');

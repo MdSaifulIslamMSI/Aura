@@ -69,6 +69,20 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload coverage to Datadog CI Visibility
+        if: always()
+        continue-on-error: true
+        env:
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          # Org site: US5. datadog-ci has no other way to target it.
+          DD_SITE: us5.datadoghq.com
+        run: |
+          if [ -z "${DATADOG_API_KEY}" ]; then
+            echo "DATADOG_API_KEY not configured; skipping Datadog upload."
+            exit 0
+          fi
+          npx --yes @datadog/datadog-ci@5.17.0 coverage upload app/coverage/lcov.info server/coverage/lcov.info
+
       - name: Build frontend bundle
         working-directory: app
         run: npx vite build

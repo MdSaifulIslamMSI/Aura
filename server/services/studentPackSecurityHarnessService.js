@@ -106,7 +106,7 @@ const SECURITY_HARNESS_PROVIDERS = [
                 detail: 'Either Datadog API key variable is accepted.',
             },
         ],
-        commands: ['npm run student-pack:datadog:doctor', 'npm run student-pack:datadog:junit -- test-results'],
+        commands: ['npm run student-pack:datadog:doctor', 'npm run student-pack:datadog:junit -- test-results', 'npm run student-pack:datadog:coverage -- coverage --dry-run'],
     },
     {
         id: 'testmail',

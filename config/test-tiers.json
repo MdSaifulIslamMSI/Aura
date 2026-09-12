@@ -312,6 +312,7 @@
       "tests/csrfAuthRoutes.integration.test.js",
       "tests/csrfMiddleware.test.js",
       "tests/dpopVerifier.security.test.js",
+      "tests/datadogUtil.test.js",
       "tests/ecommerce.business-logic.security.test.js",
       "tests/emergencyControlController.test.js",
       "tests/envContractScripts.test.js",
