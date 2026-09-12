@@ -2364,7 +2364,13 @@ const resolveCoreHealth = (snapshot = {}) => {
 
 const resolveCatalogHealth = (snapshot = {}) => {
     const catalog = snapshot?.services?.catalog || {};
-    const ok = isOkHealthStatus(catalog.status) && catalog.staleData !== true;
+    // getCatalogHealth() exposes no `status` field; judge from the fields it
+    // actually returns. The snapshot builder's error path marks the catalog
+    // with staleData: true, which keeps this signal fail-closed.
+    const hasSignal = Object.keys(catalog).length > 0;
+    const ok = hasSignal
+        && catalog.staleData !== true
+        && !isBadHealthStatus(catalog.searchProviderStatus);
     return buildSignalResult({
         ok,
         errorMessage: ok ? '' : 'catalog_health_degraded',

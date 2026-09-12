@@ -2,6 +2,12 @@ jest.mock('../services/email', () => ({
     sendTransactionalEmail: jest.fn().mockResolvedValue({ queued: true }),
 }));
 
+jest.mock('../services/healthService', () => ({
+    getCachedHealthSnapshot: jest.fn(),
+}));
+
+const { getCachedHealthSnapshot } = require('../services/healthService');
+
 const StatusComponentGroup = require('../models/StatusComponentGroup');
 const StatusComponent = require('../models/StatusComponent');
 const StatusCheck = require('../models/StatusCheck');
@@ -22,6 +28,7 @@ const {
     measureStatusPagePower,
     pruneStatusChecks,
     resolveIncident,
+    runStatusCheckForComponent,
     seedDefaultStatusCatalog,
     subscribeToStatus,
     __testables,
@@ -361,7 +368,7 @@ describe('statusService', () => {
         const snapshot = {
             core: { dbConnected: true, redisConnected: true },
             services: {
-                catalog: { status: 'ok', staleData: false },
+                catalog: { activeVersion: 'legacy-v1', staleData: false, searchProviderStatus: 'ok', queueLagSec: 0 },
                 paymentQueue: { status: 'ok', workerRunning: true },
                 reconciliation: { status: 'ok' },
                 fx: { status: 'ok' },
@@ -393,6 +400,92 @@ describe('statusService', () => {
         const emailResult = await __testables.resolveInternalHealthSignalStatus('email', snapshot);
         expect(emailResult.ok).toBe(true);
         expect(['operational', 'maintenance']).toContain(emailResult.status);
+    });
+
+    test('catalog health signal judges the fields getCatalogHealth() actually returns', async () => {
+        // Shape mirrors server/services/catalogService.js getCatalogHealth(), which
+        // exposes no `status` field - the resolver must not depend on one.
+        const realCatalogShape = {
+            activeVersion: 'cat-2026-09-12',
+            previousVersion: null,
+            publicReadPolicy: 'published_only',
+            demoPreviewAvailable: false,
+            lastSuccessfulImportAt: null,
+            lastSuccessfulSyncAt: null,
+            lastImportAgeSec: null,
+            lastSyncAgeSec: null,
+            queueLagSec: 0,
+            staleData: false,
+            searchProviderStatus: 'ok',
+            syncCursor: '',
+            workers: { importWorkerRunning: true, syncWorkerRunning: true },
+            quality: { publishedProductCount: 10, publishReadyProducts: 10, devOnlyProducts: 0, syntheticRejectedProducts: 0 },
+        };
+        const snapshot = {
+            core: { dbConnected: true, redisConnected: true },
+            services: { catalog: realCatalogShape },
+        };
+
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog', snapshot))
+            .resolves.toMatchObject({ ok: true, status: 'operational' });
+
+        // Undetermined Atlas search support is not proof of degradation.
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog', {
+            ...snapshot,
+            services: { catalog: { ...realCatalogShape, searchProviderStatus: 'unknown' } },
+        })).resolves.toMatchObject({ ok: true, status: 'operational' });
+
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog', {
+            ...snapshot,
+            services: { catalog: { ...realCatalogShape, staleData: true } },
+        })).resolves.toMatchObject({
+            ok: false,
+            status: 'degraded_performance',
+            errorMessage: 'catalog_health_degraded',
+        });
+
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog', {
+            ...snapshot,
+            services: { catalog: { ...realCatalogShape, searchProviderStatus: 'degraded' } },
+        })).resolves.toMatchObject({
+            ok: false,
+            status: 'degraded_performance',
+            errorMessage: 'catalog_health_degraded',
+        });
+
+        // Missing catalog signal stays fail-closed, matching the ai signal convention.
+        await expect(__testables.resolveInternalHealthSignalStatus('catalog', {
+            core: snapshot.core,
+            services: {},
+        })).resolves.toMatchObject({
+            ok: false,
+            status: 'degraded_performance',
+            errorMessage: 'catalog_health_degraded',
+        });
+    });
+
+    test('catalog-signal component recovers to operational on the next passing check', async () => {
+        await seedDefaultStatusCatalog({ includeDemoMetrics: false });
+        const component = await StatusComponent.findOne({ slug: 'product-experience' }).lean();
+        expect(component).toBeTruthy();
+
+        await StatusComponent.updateOne(
+            { _id: component._id },
+            { $set: { currentStatus: 'degraded_performance', consecutiveFailures: 7 } },
+        );
+
+        getCachedHealthSnapshot.mockResolvedValue({
+            core: { dbConnected: true, redisConnected: true },
+            services: { catalog: { activeVersion: 'legacy-v1', staleData: false, searchProviderStatus: 'ok', queueLagSec: 0 } },
+        });
+
+        const outcome = await runStatusCheckForComponent({ ...component, currentStatus: 'degraded_performance', consecutiveFailures: 7 });
+        expect(outcome).toMatchObject({ ok: true, status: 'operational' });
+
+        const updated = await StatusComponent.findById(component._id).lean();
+        expect(updated.currentStatus).toBe('operational');
+        expect(updated.consecutiveFailures).toBe(0);
+        expect(updated.lastSuccessAt).toBeTruthy();
     });
 
     test('development seed can create demo metrics outside production', async () => {
