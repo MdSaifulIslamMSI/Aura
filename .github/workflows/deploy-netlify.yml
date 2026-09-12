@@ -187,6 +187,7 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          DEPLOY_TARGET: ${{ inputs.target || '' }}
           DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' }}
         run: |
           if [ "${DEPENDABOT_PR}" = "true" ]; then
@@ -198,8 +199,12 @@ jobs:
           test -n "${VERCEL_TOKEN}" || { echo "Missing GitHub secret VERCEL_TOKEN"; exit 1; }
           test -n "${VERCEL_ORG_ID}" || { echo "Missing GitHub variable or secret VERCEL_ORG_ID"; exit 1; }
           test -n "${VERCEL_PROJECT_ID}" || { echo "Missing GitHub variable or secret VERCEL_PROJECT_ID"; exit 1; }
-          test -n "${RENDER_API_KEY}" || { echo "Missing GitHub secret RENDER_API_KEY"; exit 1; }
-          test -n "${RENDER_SERVICE_ID}" || { echo "Missing GitHub variable or secret RENDER_SERVICE_ID"; exit 1; }
+          # Render is production-only in CI (previews stay native), so its
+          # configuration is required only where the lane actually mutates.
+          if [ "${DEPLOY_TARGET}" = "production" ]; then
+            test -n "${RENDER_API_KEY}" || { echo "Missing GitHub secret RENDER_API_KEY"; exit 1; }
+            test -n "${RENDER_SERVICE_ID}" || { echo "Missing GitHub variable or secret RENDER_SERVICE_ID"; exit 1; }
+          fi
 
       - name: Capture provider-specific production rollback targets
         if: inputs.target == 'production'
