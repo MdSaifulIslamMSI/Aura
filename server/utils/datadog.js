@@ -62,6 +62,33 @@ const resolveDatadogConfig = (env = process.env) => {
 
 const logIntakeUrl = (site) => `https://http-intake.logs.${site}/api/v2/logs`;
 
+// api.datadoghq.com is itself the US1 API host; every other site prefixes it.
+const apiBaseUrl = (site) => {
+    const normalized = String(site || '').trim().toLowerCase() || 'datadoghq.com';
+    if (normalized.startsWith('api.')) return `https://${normalized}`;
+    return `https://api.${normalized}`;
+};
+
+// Read-only API key validity probe (GET /api/v1/validate, 200 = valid).
+// fetchImpl is injectable so tests never touch the network.
+const validateApiKey = async (apiKey, site, { fetchImpl = fetch, timeoutMs = 5000 } = {}) => {
+    const key = trimValue(apiKey);
+    if (!key) return { ok: false, status: 0, reason: 'missing_api_key' };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetchImpl(`${apiBaseUrl(site)}/api/v1/validate`, {
+            headers: { 'DD-API-KEY': key },
+            signal: controller.signal,
+        });
+        return { ok: response.status === 200, status: response.status };
+    } catch (error) {
+        return { ok: false, status: 0, reason: error && error.message ? error.message : 'request_failed' };
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+
 const defaultTracerLoader = () => require('dd-trace');
 
 const initDatadog = (env = process.env, deps = {}) => {
@@ -130,6 +157,19 @@ const logToDatadog = async (level = 'error', message = '', context = {}) => {
                 body: JSON.stringify(payload),
                 signal: controller.signal,
             });
+            if (!response.ok) {
+                // Debug-only: observability must explain its own failures
+                // without ever leaking the key or breaking the request.
+                try {
+                    require('./logger').debug('datadog.log_intake_rejected', {
+                        status: response.status,
+                        site: config.site,
+                        service: config.service,
+                    });
+                } catch {
+                    // Logger must never break log forwarding.
+                }
+            }
             return response.ok;
         } finally {
             clearTimeout(timeout);
@@ -151,5 +191,6 @@ module.exports = {
     isDatadogEnabled,
     getDatadogStatus,
     logToDatadog,
+    validateApiKey,
     resetDatadogForTests,
 };

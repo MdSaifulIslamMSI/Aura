@@ -52,6 +52,7 @@ test('help exits 0 and documents doctor, junit, and coverage', () => {
   assert.match(result.stdout, /doctor/);
   assert.match(result.stdout, /junit/);
   assert.match(result.stdout, /coverage/);
+  assert.match(result.stdout, /--validate/);
 });
 
 test('unknown command exits non-zero with usage hint', () => {
@@ -97,6 +98,14 @@ test('doctor reports a missing binary instead of crashing', () => {
   const result = runScript(['doctor'], env);
   assert.notEqual(result.status, 0);
   assert.match(`${result.stdout}${result.stderr}`, /not runnable|Hint/);
+});
+
+test('doctor --validate rejects a bogus key instead of passing presence-only', () => {
+  const env = cleanEnv();
+  env.DATADOG_API_KEY = 'dummy-key-for-validation-only';
+  const result = runScript(['doctor', '--validate'], env);
+  assert.notEqual(result.status, 0, result.stderr || result.stdout);
+  assert.match(`${result.stdout}${result.stderr}`, /API key/i);
 });
 
 test('junit forwards service, env, and dry-run to datadog-ci', (t) => {

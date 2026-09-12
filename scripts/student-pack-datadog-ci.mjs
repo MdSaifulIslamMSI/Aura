@@ -40,9 +40,12 @@ const run = (args, options = {}) => {
 const usage = () => {
   console.log([
     'Usage:',
-    '  node scripts/student-pack-datadog-ci.mjs doctor',
+    '  node scripts/student-pack-datadog-ci.mjs doctor [--validate]',
     '  node scripts/student-pack-datadog-ci.mjs junit [path] [--service NAME] [--env ENV] [--tags TAGS] [--dry-run]',
     '  node scripts/student-pack-datadog-ci.mjs coverage [paths...] [--dry-run]',
+    '',
+    'doctor checks the binary and key presence; --validate also probes the',
+    'live API (GET /api/v1/validate) so a revoked key fails here, not in CI.',
     '',
     'Env:',
     '  DATADOG_API_KEY or DD_API_KEY (required for uploads)',
@@ -80,7 +83,28 @@ const parseUploadOptions = (argv) => {
   return { paths, service, env, tags, dryRun };
 };
 
-const main = () => {
+const datadogApiBaseUrl = (site) => {
+  const normalized = String(site || '').trim().toLowerCase() || 'datadoghq.com';
+  return normalized.startsWith('api.') ? `https://${normalized}` : `https://api.${normalized}`;
+};
+
+const validateApiKeyLive = async (apiKey, site) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(`${datadogApiBaseUrl(site)}/api/v1/validate`, {
+      headers: { 'DD-API-KEY': apiKey },
+      signal: controller.signal,
+    });
+    return { ok: response.status === 200, status: response.status };
+  } catch (error) {
+    return { ok: false, status: 0, reason: error && error.message ? error.message : 'request_failed' };
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const main = async () => {
   if (!process.env.STUDENT_PACK_ENV_SKIP_LOAD) loadStudentPackEnv();
   const command = process.argv[2] || 'doctor';
 
@@ -104,6 +128,19 @@ const main = () => {
     }
     console.log('Datadog API key env is present.');
     console.log(`Site: ${getSite()} Service: ${getService()}${process.env.DD_ENV ? ` Env: ${process.env.DD_ENV}` : ''}`);
+    if (process.argv.includes('--validate')) {
+      const site = getSite();
+      const check = await validateApiKeyLive(apiKey, site);
+      if (!check.ok) {
+        console.error(
+          check.status
+            ? `Datadog API key is invalid (HTTP ${check.status} from ${site}). Generate a new key in Datadog Organization Settings.`
+            : `Datadog API key validation failed (${check.reason || 'network error'}). Check connectivity and DD_SITE (${site}).`,
+        );
+        process.exit(1);
+      }
+      console.log(`Datadog API key is valid (site ${site}).`);
+    }
     process.exit(0);
   }
 
@@ -160,4 +197,7 @@ const main = () => {
   process.exit(2);
 };
 
-main();
+main().catch((error) => {
+  console.error(error && error.message ? error.message : error);
+  process.exit(1);
+});
