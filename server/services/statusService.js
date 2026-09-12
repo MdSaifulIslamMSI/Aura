@@ -414,10 +414,12 @@ const buildPublicStatusUrl = (path = '/status') => {
     return `${appPublicUrl}${path}`;
 };
 
+const DEFAULT_WEB_APP_STATUS_URL = 'https://aurapilot.vercel.app';
+
 const resolveDefaultWebAppStatusUrl = () => String(
     process.env.STATUS_WEB_APP_URL
     || process.env.APP_PUBLIC_URL
-    || 'https://aurapilot.vercel.app'
+    || DEFAULT_WEB_APP_STATUS_URL
 ).trim();
 
 const shouldSendStatusEmails = () => process.env.NODE_ENV !== 'test';
@@ -2251,6 +2253,10 @@ const hostnameOf = (value = '') => {
 const getDefaultMonitorHostnames = () => {
     const candidates = [
         resolveDefaultWebAppStatusUrl(),
+        // Seeded Website/Storefront monitors store the built-in default target;
+        // keep it allowlisted even when this process resolves the app URL to a
+        // different host (e.g. a split-runtime worker with narrower env).
+        DEFAULT_WEB_APP_STATUS_URL,
         process.env.APP_PUBLIC_URL,
         process.env.FRONTEND_URL,
         process.env.APP_BASE_URL,
@@ -2364,7 +2370,13 @@ const resolveCoreHealth = (snapshot = {}) => {
 
 const resolveCatalogHealth = (snapshot = {}) => {
     const catalog = snapshot?.services?.catalog || {};
-    const ok = isOkHealthStatus(catalog.status) && catalog.staleData !== true;
+    // getCatalogHealth() exposes no `status` field; judge from the fields it
+    // actually returns. The snapshot builder's error path marks the catalog
+    // with staleData: true, which keeps this signal fail-closed.
+    const hasSignal = Object.keys(catalog).length > 0;
+    const ok = hasSignal
+        && catalog.staleData !== true
+        && !isBadHealthStatus(catalog.searchProviderStatus);
     return buildSignalResult({
         ok,
         errorMessage: ok ? '' : 'catalog_health_degraded',
