@@ -153,7 +153,10 @@ const DEV_SECURITY_HEADERS = Object.freeze({
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'Cross-Origin-Opener-Policy': 'same-origin',
-  'Cross-Origin-Embedder-Policy': 'require-corp',
+  // credentialless (not require-corp): third-party telemetry without CORP
+  // headers (e.g. Datadog RUM) must load in local dev/preview. Production
+  // static hosts send no COEP header at all; this is dev-only.
+  'Cross-Origin-Embedder-Policy': 'credentialless',
   'Cross-Origin-Resource-Policy': 'same-origin',
   'Permissions-Policy': 'camera=(self), microphone=(self), geolocation=(), payment=(self), usb=(), serial=(), bluetooth=()',
   'Cache-Control': 'no-store',

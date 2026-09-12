@@ -80,7 +80,6 @@
     "colors": "^1.4.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
-    "dd-trace": "^6.16.0",
     "decimal.js": "^10.6.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -107,6 +106,9 @@
     "voyageai": "^0.4.0",
     "xss": "^1.0.15",
     "zod": "^4.6.2"
+  },
+  "optionalDependencies": {
+    "dd-trace": "^6.16.0"
   },
   "overrides": {
     "@tootallnate/once": "^3.0.1",

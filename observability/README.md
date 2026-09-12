@@ -54,7 +54,8 @@ blocks boot, requests, or tests:
 - **Server APM** — `server/utils/datadog.js` initializes `dd-trace`
   (auto-instruments Express/HTTP/Mongoose) when `DATADOG_API_KEY` (or
   `DD_API_KEY`) is set. Wired in `server/index.js` before the Express require
-  so hooks apply. Install: `npm --prefix server install dd-trace`.
+  so hooks apply. Install: `npm --prefix server install dd-trace`
+  (declared optional; omitting it only disables APM, never boot).
   Knobs: `DD_SERVICE` (default `aura-marketplace-api`), `DD_ENV`,
   `DD_VERSION`, `DD_SITE` (default `datadoghq.com`),
   `DD_TRACES_SAMPLE_RATE` (default `0.1`), `DD_PROFILING_ENABLED`,

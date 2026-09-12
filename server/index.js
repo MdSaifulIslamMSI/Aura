@@ -247,6 +247,8 @@ const cspConnectSources = Array.from(new Set([
     'https://*.web.app',
     'https://*.livekit.cloud',
     'wss://*.livekit.cloud',
+    'https://www.datadoghq-browser-agent.com',
+    'https://browser-intake-us5-datadoghq.com',
 ].filter(Boolean)));
 const contentSecurityPolicyDirectives = {
     defaultSrc: ["'self'"],
@@ -264,6 +266,7 @@ const contentSecurityPolicyDirectives = {
         'https://www.gstatic.com',
         'https://www.recaptcha.net',
         'https://challenges.cloudflare.com',
+        'https://www.datadoghq-browser-agent.com',
     ],
     styleSrc: ["'self'", 'https://fonts.googleapis.com'],
     styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],

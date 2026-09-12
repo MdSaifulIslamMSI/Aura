@@ -82,6 +82,8 @@ const buildFrontendScriptSrc = ({ allowInlineScriptElement = false } = {}) => [
     'https://www.gstatic.com',
     'https://www.recaptcha.net',
     'https://challenges.cloudflare.com',
+    // Datadog RUM browser-agent bundle (US5 org).
+    'https://www.datadoghq-browser-agent.com',
 ].join(' ');
 
 const buildFrontendStyleSrc = ({ allowInlineStyleElement = false } = {}) => [
@@ -126,6 +128,8 @@ export const buildFrontendConnectSrc = (origin = HOSTED_BACKEND_ORIGIN, options 
     // Sentry event + trace ingest (regional + global endpoints).
     'https://*.ingest.sentry.io',
     'https://*.ingest.us.sentry.io',
+    // Datadog RUM browser intake (US5 org).
+    'https://browser-intake-us5-datadoghq.com',
 ].filter(Boolean);
 
 export const FRONTEND_CONNECT_SRC = buildFrontendConnectSrc(HOSTED_BACKEND_ORIGIN);
