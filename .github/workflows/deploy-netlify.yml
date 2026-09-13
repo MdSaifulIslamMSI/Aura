@@ -995,11 +995,17 @@ jobs:
             ]
           }
           JSON
-          aws s3api put-bucket-lifecycle-configuration \
+          # Hygiene, not a release gate: the deploy role may lack
+          # s3:PutLifecycleConfiguration. A denied rule must never fail a
+          # release; bootstrap tooling applies the same rule idempotently.
+          if aws s3api put-bucket-lifecycle-configuration \
             --bucket "${AWS_FRONTEND_BUCKET}" \
             --region "${AWS_REGION}" \
-            --lifecycle-configuration "file://${RUNNER_TEMP}/aura-frontend-lifecycle.json"
-          echo "Rollback snapshot lifecycle rule applied (expire _aura-rollback/ after 30 days)."
+            --lifecycle-configuration "file://${RUNNER_TEMP}/aura-frontend-lifecycle.json"; then
+            echo "Rollback snapshot lifecycle rule applied (expire _aura-rollback/ after 30 days)."
+          else
+            echo "WARNING: could not apply the rollback-snapshot lifecycle rule (s3:PutLifecycleConfiguration denied?); _aura-rollback/ snapshots are not expiring. Apply the rule via bootstrap-frontend-s3.ps1." >&2
+          fi
 
       - name: Mark AWS production mutation attempt
         id: mutation
