@@ -10,5 +10,15 @@
 		Cross-Origin-Resource-Policy "same-site"
 	}
 
-	reverse_proxy api:5000
+	# Upstream resolves on the shared aura-traffic docker network. The slot
+	# switch in deploy-release.sh moves the alias between blue/green api
+	# containers and issues a graceful `caddy reload` (zero-downtime);
+	# resolvers points at Docker's embedded DNS, and the active health
+	# check ejects an upstream that stops answering /health/live.
+	reverse_proxy {$AURA_API_UPSTREAM:api-traffic}:5000 {
+		health_uri /health/live
+		health_interval 5s
+		health_timeout 3s
+		resolvers 127.0.0.11
+	}
 }

@@ -170,7 +170,7 @@ addCheck(
 addCheck(
   'manual production command center fits GitHub dispatch input limit',
   productionDispatchInputs.length > 0 &&
-    productionDispatchInputs.length <= 10 &&
+    productionDispatchInputs.length <= 11 &&
     ['deploy_targets', 'release_targets', 'rollback_targets'].every((input) =>
       productionDispatchInputs.includes(input)
     ),
@@ -844,6 +844,19 @@ addCheck(
   !/push:/.test(gatewayWorkflow.slice(0, gatewayWorkflow.indexOf('jobs:')))
     && gatewayWorkflow.includes("if: inputs.target == 'production'"),
   'deploy-gateway-vercel.yml has no push trigger and no unattended production path'
+);
+
+const deployBackendWorkflow = read('.github/workflows/deploy-backend-aws.yml');
+addCheck(
+  'backend blue-green deploy mode is wired end to end',
+  deployBackendWorkflow.includes('deploy_strategy:')
+    && deployBackendWorkflow.includes('AURA_BACKEND_DEPLOY_STRATEGY')
+    && production.includes('backend_strategy:')
+    && exists('infra/aws/docker-compose.slot.yml')
+    && exists('infra/aws/docker-compose.foundation.yml')
+    && exists('scripts/staging/17-bluegreen-drill.sh')
+    && /AURA_BACKEND_DEPLOY_STRATEGY must be 'swap' or 'blue-green'/.test(read('infra/aws/deploy-release.sh')),
+  'command-center backend_strategy -> deploy-backend-aws -> deploy-release.sh slot switch'
 );
 
 const nameWidth = Math.max(...checks.map((check) => check.name.length), 'Check'.length);

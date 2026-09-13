@@ -57,6 +57,15 @@ on:
         default: false
         type: boolean
 
+      backend_strategy:
+        description: "Backend activation strategy: swap (recreate, brief downtime) or blue-green (zero-downtime; requires a green staging drill)"
+        required: false
+        default: swap
+        type: choice
+        options:
+          - swap
+          - blue-green
+
       staging_off_acknowledged:
         description: "Set true ONLY when staging is intentionally kept stopped: live staging-parity gates skip and a proof job verifies staging really is off. Keep false for full gates."
         required: false
@@ -1072,6 +1081,7 @@ jobs:
       id-token: write
     with:
       git_ref: ${{ github.sha }}
+      deploy_strategy: ${{ inputs.backend_strategy || 'swap' }}
       skip_healthcheck: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_backend_healthcheck == 'true' || false }}
     secrets:
       AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -1550,16 +1560,23 @@ jobs:
           persist-credentials: false
 
       - name: Build last-known-good pointer
+        env:
+          BACKEND_ROLLBACK_REF: ${{ needs.deploy-backend.outputs.backend_rollback_ref }}
+          NETLIFY_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.netlify_rollback_ref }}
+          VERCEL_STOREFRONT_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_rollback_ref }}
+          AWS_FRONTEND_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.aws_frontend_rollback_ref }}
+          RENDER_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.render_storefront_rollback_ref }}
+          GATEWAY_ROLLBACK_REF: ${{ needs.deploy-gateway.outputs.gateway_rollback_ref }}
         run: |
           set -euo pipefail
-          REFS_JSON="$(ROLLBACK_REFS_JSON="$(cat <<'JSON'
+          REFS_JSON="$(ROLLBACK_REFS_JSON="$(cat <<JSON
           {
-            "backend": "${{ needs.deploy-backend.outputs.backend_rollback_ref }}",
-            "netlify": "${{ needs.deploy-frontend-netlify.outputs.netlify_rollback_ref }}",
-            "vercel-storefront": "${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_rollback_ref }}",
-            "aws-frontend": "${{ needs.deploy-frontend-netlify.outputs.aws_frontend_rollback_ref }}",
-            "render": "${{ needs.deploy-frontend-netlify.outputs.render_storefront_rollback_ref }}",
-            "gateway": "${{ needs.deploy-gateway.outputs.gateway_rollback_ref }}"
+            "backend": "${BACKEND_ROLLBACK_REF}",
+            "netlify": "${NETLIFY_ROLLBACK_REF}",
+            "vercel-storefront": "${VERCEL_STOREFRONT_ROLLBACK_REF}",
+            "aws-frontend": "${AWS_FRONTEND_ROLLBACK_REF}",
+            "render": "${RENDER_ROLLBACK_REF}",
+            "gateway": "${GATEWAY_ROLLBACK_REF}"
           }
           JSON
           )" node <<'NODE'

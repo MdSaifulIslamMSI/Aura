@@ -510,6 +510,179 @@ prepare_docker_disk_space() {
   df -h "${deploy_root}" / || true
 }
 
+ensure_aura_networks() {
+  for network_name in aura-traffic aura-slot; do
+    if ! docker network inspect "${network_name}" >/dev/null 2>&1; then
+      echo "Creating Docker network ${network_name}."
+      docker network create "${network_name}" >/dev/null
+    fi
+  done
+}
+
+# Blue-green slot activation: the incoming slot (api + worker) starts beside
+# the active one, is health-checked on its own host port, then traffic moves
+# by re-pointing the api-traffic alias on the shared aura-traffic network and
+# issuing graceful Caddy reloads. The active slot keeps serving during the
+# entire activation; failure at any point before the commit leaves it
+# untouched, which is the instant-rollback story.
+activate_blue_green() {
+  local staged_dir="$1"
+  local incoming_slot="$2"
+  local active_slot="$3"
+  local incoming_port="$4"
+  local foundation_dir="${deploy_root}/foundation"
+  local slot_dir="${deploy_root}/slots/${incoming_slot}"
+  local active_slot_dir="${deploy_root}/slots/${active_slot}"
+  local incoming_project="aura-${incoming_slot}"
+  local active_project="aura-${active_slot}"
+  local foundation_project="aura-foundation"
+  local incoming_api_container="${incoming_project}-api-1"
+  local active_api_container="${active_project}-api-1"
+  local edge_container="${foundation_project}-edge-1"
+  local incoming_ready=false
+  local edge_ready=false
+  local traffic_alias="api-traffic"
+
+  green_down() {
+    docker compose \
+      -p "${incoming_project}" \
+      --project-directory "${slot_dir}/infra/aws" \
+      -f "${slot_dir}/infra/aws/docker-compose.slot.yml" \
+      --env-file "${shared_dir}/base.env" \
+      --env-file "${shared_dir}/runtime-secrets.env" \
+      --env-file "${slot_dir}/release.env" \
+      down --remove-orphans >/dev/null 2>&1 || true
+  }
+
+  # The first blue-green deploy on a legacy host: the swap-mode project still
+  # owns the 80/443 listeners. Bring up foundation edge + redis by stopping
+  # the legacy edge first — a one-time, seconds-long gap, validated by the
+  # staging drill — after which every subsequent deploy is alias-only.
+  if ! docker ps --format '{{.Names}}' | grep -qx "${edge_container}"; then
+    local legacy_edge=""
+    legacy_edge="$(docker ps --format '{{.Names}} {{.Ports}}' | grep -E ':(443)->' | awk '{print $1}' | head -n 1 || true)"
+    if [[ -n "${legacy_edge}" ]]; then
+      echo "One-time migration: stopping legacy edge container ${legacy_edge} to hand over 80/443." >&2
+      docker stop "${legacy_edge}" >/dev/null
+    fi
+    docker compose -p "${foundation_project}" -f "${foundation_dir}/docker-compose.foundation.yml" \
+      --env-file "${shared_dir}/base.env" up -d --remove-orphans
+  fi
+
+  rm -rf "${slot_dir}"
+  mkdir -p "${slot_dir}"
+  cp -a "${staged_dir}" "${slot_dir}"
+
+  cat > "${slot_dir}/release.env" <<EOF
+AURA_BACKEND_IMAGE=aura-backend:${release_sha}
+AURA_APP_BUILD_SHA=${release_sha}
+AURA_PREVIOUS_SUCCESSFUL_SHA=${previous_active_sha}
+COMPOSE_PROFILES=${compose_profiles}
+UPLOAD_MALWARE_SCAN_ENABLED=false
+UPLOAD_MALWARE_SCAN_FAIL_CLOSED=true
+CLAMAV_ENABLED=false
+YARA_ENABLED=false
+AI_MODEL_PROVIDER=disabled
+AI_MODEL_PROVIDER_FALLBACKS=
+ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA=false
+ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED=false
+EOF
+  chmod 600 "${slot_dir}/release.env"
+
+  # Sync the contract-upserted shared env for the incoming release. Running
+  # containers keep their baked-in env, so this cannot disturb the active
+  # slot even if the activation fails later.
+  cp -p "${staged_base_env}" "${shared_dir}/base.env"
+  cp -p "${staged_runtime_env}" "${shared_dir}/runtime-secrets.env"
+
+  echo "Starting incoming slot ${incoming_slot} (project ${incoming_project}, api host port ${incoming_port})."
+  if ! docker compose \
+    -p "${incoming_project}" \
+    --project-directory "${slot_dir}/infra/aws" \
+    -f "${slot_dir}/infra/aws/docker-compose.slot.yml" \
+    --env-file "${shared_dir}/base.env" \
+    --env-file "${shared_dir}/runtime-secrets.env" \
+    --env-file "${slot_dir}/release.env" \
+    up -d --remove-orphans; then
+    echo "Blue-green activation failed: incoming slot ${incoming_slot} did not start." >&2
+    return 1
+  fi
+
+  for _ in $(seq 1 30); do
+    if curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+      --header "x-health-token: ${health_ready_token}" \
+      "http://127.0.0.1:${incoming_port}/health/ready" > /dev/null; then
+      incoming_ready=true
+      break
+    fi
+    sleep 10
+  done
+  if [[ "${incoming_ready}" != "true" ]]; then
+    echo "Blue-green activation failed: incoming slot ${incoming_slot} failed readiness on 127.0.0.1:${incoming_port}." >&2
+    docker compose -p "${incoming_project}" -f "${slot_dir}/infra/aws/docker-compose.slot.yml" \
+      --env-file "${shared_dir}/base.env" \
+      --env-file "${shared_dir}/runtime-secrets.env" \
+      --env-file "${slot_dir}/release.env" \
+      logs --tail 100 >&2 || true
+    return 1
+  fi
+
+  # Traffic switch: attach the incoming api under the shared alias first (the
+  # active slot still serves, so the overlap window is healthy on both
+  # sides), gracefully reload Caddy, then detach the previous slot.
+  if [[ "${active_api_container}" != "${incoming_api_container}" ]] && \
+    docker network inspect aura-traffic --format '{{range .Containers}}{{.Name}} {{end}}' | grep -qw "${active_api_container}"; then
+    docker network connect --alias "${traffic_alias}" aura-traffic "${incoming_api_container}" >/dev/null
+    docker exec "${edge_container}" caddy reload --config /etc/caddy/Caddyfile >/dev/null
+    docker network disconnect aura-traffic "${active_api_container}" >/dev/null
+    docker exec "${edge_container}" caddy reload --config /etc/caddy/Caddyfile >/dev/null
+  else
+    # No active slot container on the traffic network (legacy host): the
+    # incoming slot simply claims the alias.
+    docker network connect --alias "${traffic_alias}" aura-traffic "${incoming_api_container}" >/dev/null
+    docker exec "${edge_container}" caddy reload --config /etc/caddy/Caddyfile >/dev/null
+  fi
+
+  for _ in $(seq 1 30); do
+    if curl --fail --silent --show-error \
+      --connect-timeout 5 \
+      --max-time 15 \
+      --resolve "${backend_public_host}:443:127.0.0.1" \
+      "https://${backend_public_host}/health/live" > /dev/null; then
+      edge_ready=true
+      break
+    fi
+    sleep 10
+  done
+  if [[ "${edge_ready}" != "true" ]]; then
+    echo "Blue-green activation failed: TLS edge did not serve ${backend_public_host} after the switch. Reverting alias to ${active_slot}." >&2
+    docker network disconnect aura-traffic "${incoming_api_container}" >/dev/null || true
+    if docker ps --format '{{.Names}}' | grep -qx "${active_api_container}"; then
+      docker network connect --alias "${traffic_alias}" aura-traffic "${active_api_container}" >/dev/null || true
+      docker exec "${edge_container}" caddy reload --config /etc/caddy/Caddyfile >/dev/null || true
+    fi
+    return 1
+  fi
+
+  echo "Aura backend release ${release_sha} is live on slot ${incoming_slot} behind TLS edge ${backend_public_host}."
+
+  # Commit: record the new active slot, then retire the previous one.
+  mkdir -p "${deploy_root}/slots"
+  printf '%s\n' "${incoming_slot}" > "${deploy_root}/slots/active"
+  rm -rf "${deploy_root}/slots/${active_slot}"
+  docker compose -p "${active_project}" -f "${slot_dir}/infra/aws/docker-compose.slot.yml" \
+    --env-file "${shared_dir}/base.env" \
+    --env-file "${shared_dir}/runtime-secrets.env" \
+    --env-file "${slot_dir}/release.env" \
+    down --remove-orphans >/dev/null 2>&1 || true
+
+  activation_committed=true
+  rm -rf "${activation_backup_dir}" "${activation_backup_env}" \
+    "${activation_backup_base_env}" "${activation_backup_runtime_env}"
+  cleanup_old_release_dirs "${deploy_root}/releases" 3 "${release_sha}" "${previous_active_sha}"
+  return 0
+}
+
 verify_sha256() {
   local file="$1"
   local expected="$2"
@@ -723,6 +896,65 @@ for recovery_path in \
     exit 1
   fi
 done
+
+deploy_strategy="$(to_lower "${AURA_BACKEND_DEPLOY_STRATEGY:-swap}")"
+case "${deploy_strategy}" in
+  swap|blue-green)
+    ;;
+  *)
+    echo "Refusing deploy: AURA_BACKEND_DEPLOY_STRATEGY must be 'swap' or 'blue-green' (got '${deploy_strategy}')." >&2
+    exit 1
+    ;;
+esac
+
+if [[ "${deploy_strategy}" == "blue-green" ]]; then
+  ensure_aura_networks
+  mkdir -p "${deploy_root}/foundation"
+  cp -p "${staged_current_dir}/infra/aws/docker-compose.foundation.yml" "${deploy_root}/foundation/docker-compose.foundation.yml"
+  cp -p "${staged_current_dir}/infra/aws/Caddyfile" "${deploy_root}/foundation/Caddyfile"
+  upsert_env_value "${staged_base_env}" "AURA_API_UPSTREAM" "api-traffic"
+
+  backend_public_host="$(resolve_env_value "AURA_BACKEND_PUBLIC_HOST" "${staged_base_env}" "${staged_runtime_env}" "${shared_dir}/release.env")"
+  if [[ -z "${backend_public_host}" ]]; then
+    echo "Refusing deploy: blue-green activation requires AURA_BACKEND_PUBLIC_HOST for TLS edge validation." >&2
+    exit 1
+  fi
+
+  active_slot="$(cat "${deploy_root}/slots/active" 2>/dev/null || true)"
+  if [[ "${active_slot}" != "blue" && "${active_slot}" != "green" ]]; then
+    # No slot bookkeeping yet: this host serves via the legacy swap-mode
+    # project. Treat it as the (virtual) blue slot; the incoming green slot
+    # migrates traffic and the migration branch below retires the legacy
+    # project after commit.
+    active_slot="blue"
+  fi
+  if [[ "${active_slot}" == "green" ]]; then
+    incoming_slot="blue"
+    incoming_port="5000"
+  else
+    incoming_slot="green"
+    incoming_port="5001"
+  fi
+
+  echo "Deploy strategy: blue-green (active slot ${active_slot}, incoming slot ${incoming_slot})."
+  activation_started=true
+  if activate_blue_green "${staged_current_dir}" "${incoming_slot}" "${active_slot}" "${incoming_port}"; then
+    # Retire the legacy swap-mode project after a first successful migration.
+    if [[ ! -f "${deploy_root}/.blue-green-migrated" ]]; then
+      legacy_project="$(docker ps -a --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}' | grep -E 'edge' | head -n 1 | awk -F'\t' '{print $2}' || true)"
+      if [[ -n "${legacy_project}" && "${legacy_project}" != "aura-foundation" && "${legacy_project}" != "aura-blue" && "${legacy_project}" != "aura-green" ]]; then
+        echo "Retiring legacy swap-mode compose project '${legacy_project}'."
+        docker compose -p "${legacy_project}" down --remove-orphans >/dev/null 2>&1 || true
+      fi
+      printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${deploy_root}/.blue-green-migrated"
+    fi
+    docker image prune --all --force || true
+    exit 0
+  fi
+  echo "Aura backend release ${release_sha} failed blue-green activation; the ${active_slot} slot was never interrupted." >&2
+  exit 1
+fi
+
 if [[ -n "${previous_active_sha}" ]]; then
   cp -a "${current_dir}" "${activation_backup_dir}"
   previous_current_present=true
@@ -761,6 +993,10 @@ docker compose \
   -f "${compose_file}" \
   --profile malware-scan \
   rm --stop --force clamav
+
+# The Compose file declares the shared aura-traffic network as external (the
+# blue-green slot switch uses it); create it idempotently before up.
+ensure_aura_networks
 
 docker compose \
   --env-file "${shared_dir}/base.env" \
