@@ -34,6 +34,10 @@ invalid_parameter_names="$(
     | .[]
     | .Name as $name
     | ($name | split("/")[-1]) as $key
+    # /last-known-good is reserved runtime metadata written by the command
+    # center (rollback pointer), not a secret — exclude it from the
+    # env-key shape check rather than failing the whole render.
+    | select(($key == "last-known-good") | not)
     | select(($key | test("^[A-Za-z_][A-Za-z0-9_]*$")) | not)
     | $name
   ' "${parameters_file}"
