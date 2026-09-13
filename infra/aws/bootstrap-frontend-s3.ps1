@@ -135,6 +135,16 @@ function Configure-FrontendBucket {
                 NoncurrentVersionExpiration = @{
                     NoncurrentDays = 7
                 }
+            },
+            @{
+                ID = "ExpireRollbackSnapshots"
+                Status = "Enabled"
+                Filter = @{
+                    Prefix = "_aura-rollback/"
+                }
+                Expiration = @{
+                    Days = 30
+                }
             }
         )
     }

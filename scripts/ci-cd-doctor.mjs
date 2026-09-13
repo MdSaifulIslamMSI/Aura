@@ -788,6 +788,64 @@ addCheck(
   'docs/github/main-branch-protection.md + scripts/github/assert-main-protection.mjs'
 );
 
+// Main protection: docs and live-protection doctor agree on enforced vs
+// promotion-candidate checks (kept from the wave-1 section above).
+const deployNetlifyWorkflow = read('.github/workflows/deploy-netlify.yml');
+const gatewayWorkflow = read('.github/workflows/deploy-gateway-vercel.yml');
+
+addCheck(
+  'multihost auto-rollback is on by default and fails closed without targets',
+  deployNetlifyWorkflow.includes('auto_rollback_on_failure:') && /auto_rollback_on_failure:\s*\n\s*description:[^\n]*\n\s*required: false\s*\n\s*default: true/.test(deployNetlifyWorkflow)
+    && deployNetlifyWorkflow.includes('allow_missing_rollback_target:')
+    && deployNetlifyWorkflow.includes('allow_missing_rollback_target=true to accept a first-ever release'),
+  'deploy-netlify.yml rollback defaults + missing-target acknowledgement'
+);
+
+// The only storefront host that BUILDS is Render; its deploy job injects the
+// exact VITE_* set at deploy time (literals + passthrough). Every VITE_ var
+// the CI build can inline must be covered by that injection, or Render's
+// bytes diverge from the shared artifact.
+const renderParityCoverageFailures = (() => {
+  const envVarNames = new Set(
+    [...deployNetlifyWorkflow.matchAll(/^\s*(VITE_[A-Z0-9_]+):\s*\$\{\{/gm)].map((m) => m[1])
+  );
+  const literalsBlock = deployNetlifyWorkflow.match(/const literals = \{([\s\S]*?)\};/);
+  const passthroughBlock = deployNetlifyWorkflow.match(/const passthrough = \[([\s\S]*?)\];/);
+  if (!literalsBlock || !passthroughBlock) {
+    return ['deploy-netlify.yml Render deploy job no longer declares its parity literals/passthrough'];
+  }
+  const covered = new Set([
+    ...[...literalsBlock[1].matchAll(/(VITE_[A-Z0-9_]+):/g)].map((m) => m[1]),
+    ...[...passthroughBlock[1].matchAll(/"(VITE_[A-Z0-9_]+)"/g)].map((m) => m[1]),
+  ]);
+  return [...envVarNames].filter((name) => !covered.has(name))
+    .map((name) => `Render parity injection does not cover ${name}`);
+})();
+
+addCheck(
+  'render parity injection covers the CI VITE_ build contract',
+  renderParityCoverageFailures.length === 0,
+  renderParityCoverageFailures.length === 0
+    ? 'every VITE_ var the build inlines is injected into the Render build at deploy time'
+    : renderParityCoverageFailures.join('; ')
+);
+
+addCheck(
+  'last-known-good rollback pointer is recorded and resolvable',
+  exists('.github/workflows/production-cicd.yml')
+    && production.includes('resolve-last-known-good')
+    && production.includes('record-last-known-good')
+    && production.includes('prod/last-known-good'),
+  'production-cicd.yml writes the pointer after smoke and accepts rollback_refs_json=last-known-good'
+);
+
+addCheck(
+  'gateway production deploys only through the command center',
+  !/push:/.test(gatewayWorkflow.slice(0, gatewayWorkflow.indexOf('jobs:')))
+    && gatewayWorkflow.includes("if: inputs.target == 'production'"),
+  'deploy-gateway-vercel.yml has no push trigger and no unattended production path'
+);
+
 const nameWidth = Math.max(...checks.map((check) => check.name.length), 'Check'.length);
 const statusWidth = 'Status'.length;
 

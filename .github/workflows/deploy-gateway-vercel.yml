@@ -6,11 +6,6 @@ on:
     paths:
       - "gateway/**"
       - ".github/workflows/deploy-gateway-vercel.yml"
-  push:
-    branches: ["main"]
-    paths:
-      - "gateway/**"
-      - ".github/workflows/deploy-gateway-vercel.yml"
   workflow_dispatch:
     inputs:
       target:
@@ -191,9 +186,10 @@ jobs:
             }
 
   deploy-production:
-    # Push-to-main auto-publishes gateway changes (static links page with
-    # alias capture + auto-restore); PRs still only build previews.
-    if: inputs.target == 'production' || github.event_name == 'push'
+    # Production gateway deploys only run through the command center (dispatch
+    # or workflow_call); push to main runs build/previews but never mutates
+    # production outside the confirm-PRODUCTION chain.
+    if: inputs.target == 'production'
     runs-on: ubuntu-latest
     # Leave deterministic headroom for the bounded deploy plus in-job restore.
     timeout-minutes: 60

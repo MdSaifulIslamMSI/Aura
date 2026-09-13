@@ -35,6 +35,11 @@ on:
       auto_rollback_on_failure:
         description: Restore every mutated storefront host if the multi-host release fails
         required: false
+        default: true
+        type: boolean
+      allow_missing_rollback_target:
+        description: Allow the release to proceed when a host has no prior deploy to restore (first-ever release); auto-rollback for that host then fails closed
+        required: false
         default: false
         type: boolean
       parent_holds_production_lock:
@@ -214,6 +219,7 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          ALLOW_MISSING_ROLLBACK_TARGET: ${{ inputs.allow_missing_rollback_target == true && 'true' || 'false' }}
         run: |
           set -euo pipefail
 
@@ -269,9 +275,15 @@ jobs:
           render_ref="$(jq -r '.[0].id // empty' "${render_live_deploys}")"
           if [ -z "${render_ref}" ]; then
             # First Render production release: nothing is live yet, so there is
-            # no prior deployment to snapshot for rollback. The rollback hook
-            # still fails closed if it is ever invoked with an empty ref.
-            echo "Render has no live production deploy yet (first release); proceeding without a Render rollback target." >&2
+            # no prior deployment to snapshot for rollback. Fail closed unless
+            # the operator explicitly accepted a rollback-target-less release;
+            # the Render rollback hook itself also fails closed on an empty ref.
+            if [ "${ALLOW_MISSING_ROLLBACK_TARGET}" != "true" ]; then
+              echo "Render has no live production deploy to restore, so auto-rollback could not protect this release." >&2
+              echo "Re-run with allow_missing_rollback_target=true to accept a first-ever release without a Render rollback target." >&2
+              exit 1
+            fi
+            echo "Render has no live production deploy yet (first release); proceeding WITHOUT a Render rollback target by explicit acknowledgement." >&2
           fi
 
           echo "render_ref=${render_ref}" >> "$GITHUB_OUTPUT"
@@ -957,6 +969,37 @@ jobs:
           echo "rollback_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           trap - EXIT
 
+      - name: Apply rollback-snapshot lifecycle rule
+        # Idempotent: put-bucket-lifecycle-configuration replaces the whole
+        # rule set, so this re-states the bootstrap rule too. Keeps the
+        # _aura-rollback/ snapshot prefixes bounded (30-day expiry).
+        run: |
+          set -euo pipefail
+          cat > "${RUNNER_TEMP}/aura-frontend-lifecycle.json" <<'JSON'
+          {
+            "Rules": [
+              {
+                "ID": "AbortIncompleteUploads",
+                "Status": "Enabled",
+                "Filter": { "Prefix": "" },
+                "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 1 },
+                "NoncurrentVersionExpiration": { "NoncurrentDays": 7 }
+              },
+              {
+                "ID": "ExpireRollbackSnapshots",
+                "Status": "Enabled",
+                "Filter": { "Prefix": "_aura-rollback/" },
+                "Expiration": { "Days": 30 }
+              }
+            ]
+          }
+          JSON
+          aws s3api put-bucket-lifecycle-configuration \
+            --bucket "${AWS_FRONTEND_BUCKET}" \
+            --region "${AWS_REGION}" \
+            --lifecycle-configuration "file://${RUNNER_TEMP}/aura-frontend-lifecycle.json"
+          echo "Rollback snapshot lifecycle rule applied (expire _aura-rollback/ after 30 days)."
+
       - name: Mark AWS production mutation attempt
         id: mutation
         run: echo "attempted=true" >> "$GITHUB_OUTPUT"
@@ -1304,12 +1347,34 @@ jobs:
 
           BUNDLE_SRC="$(node -e 'const html=require("fs").readFileSync(0,"utf8");const m=html.match(/<script[^>]+src="([^"]+\.js)"/);if(!m){console.error("No entry script found in the Vercel HTML.");process.exit(1);}process.stdout.write(m[1]);' < "${RUNNER_TEMP}/aura-release/vercel-preview.html")"
           echo "Vercel entry bundle src: ${BUNDLE_SRC}"
-          VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl "${BUNDLE_SRC}" \
-            --deployment "${VERCEL_DEPLOY_URL}" \
-            -- --fail --silent --show-error --location \
-            > "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js"
-          test -s "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js"
-          echo "Vercel bundle bytes: $(wc -c < "${RUNNER_TEMP}/aura-release/vercel-preview-bundle.js")"
+          # Fetch every asset the shell HTML references (entry, modulepreload
+          # chunks, stylesheets) so the coherence verifier hashes all of them
+          # for this protection-gated deployment, not just the entry bundle.
+          node -e '
+            const html = require("fs").readFileSync(0, "utf8");
+            const assets = new Set();
+            for (const re of [
+              /<script[^>]+src=["'"'"']([^"'"'"']+\.js)["'"'"']/gi,
+              /<link[^>]+rel=["'"'"']modulepreload["'"'"'][^>]*href=["'"'"']([^"'"'"']+)["'"'"']/gi,
+              /<link[^>]+rel=["'"'"'](?:stylesheet|modulepreload)["'"'"'][^>]*href=["'"'"']([^"'"'"']+\.(?:css|js))["'"'"']/gi,
+              /<link[^>]+href=["'"'"']([^"'"'"']+\.(?:css|js))["'"'"'][^>]*rel=["'"'"'](?:stylesheet|modulepreload)["'"'"']/gi,
+            ]) {
+              for (const match of html.matchAll(re)) assets.add(match[1]);
+            }
+            const verifiable = [...assets].filter((asset) => !/^(https?:)?\/\//i.test(asset));
+            if (verifiable.length === 0) { console.error("No verifiable same-origin assets found in the Vercel HTML."); process.exit(1); }
+            for (const asset of verifiable.sort()) process.stdout.write(asset + "\n");
+          ' < "${RUNNER_TEMP}/aura-release/vercel-preview.html" > "${RUNNER_TEMP}/aura-release/preview-assets.txt"
+          mkdir -p "${RUNNER_TEMP}/aura-release/assets"
+          while IFS= read -r ASSET; do
+            OUT_NAME="$(basename "${ASSET}")"
+            VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl "${ASSET}" \
+              --deployment "${VERCEL_DEPLOY_URL}" \
+              -- --fail --silent --show-error --location \
+              > "${RUNNER_TEMP}/aura-release/assets/${OUT_NAME}"
+            test -s "${RUNNER_TEMP}/aura-release/assets/${OUT_NAME}"
+          done < "${RUNNER_TEMP}/aura-release/preview-assets.txt"
+          echo "Vercel assets fetched: $(wc -l < "${RUNNER_TEMP}/aura-release/preview-assets.txt")"
 
       - name: Verify Netlify and Vercel preview release coherence
         env:
@@ -1319,7 +1384,7 @@ jobs:
           AURA_RELEASE_URLS: >-
             [
               {"name":"netlify-preview","url":"${{ needs.deploy-preview.outputs.deploy_url }}"},
-              {"name":"vercel-preview","url":"${{ needs.deploy-vercel-preview.outputs.deploy_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-preview.html","bundlePath":"${{ runner.temp }}/aura-release/vercel-preview-bundle.js"}
+              {"name":"vercel-preview","url":"${{ needs.deploy-vercel-preview.outputs.deploy_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-preview.html","assetsDir":"${{ runner.temp }}/aura-release/assets"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
 
@@ -1364,12 +1429,34 @@ jobs:
 
           BUNDLE_SRC="$(node -e 'const html=require("fs").readFileSync(0,"utf8");const m=html.match(/<script[^>]+src="([^"]+\.js)"/);if(!m){console.error("No entry script found in the Vercel HTML.");process.exit(1);}process.stdout.write(m[1]);' < "${RUNNER_TEMP}/aura-release/vercel-production.html")"
           echo "Vercel entry bundle src: ${BUNDLE_SRC}"
-          VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl "${BUNDLE_SRC}" \
-            --deployment "${VERCEL_DEPLOY_URL}" \
-            -- --fail --silent --show-error --location \
-            > "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js"
-          test -s "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js"
-          echo "Vercel bundle bytes: $(wc -c < "${RUNNER_TEMP}/aura-release/vercel-production-bundle.js")"
+          # Fetch every asset the shell HTML references (entry, modulepreload
+          # chunks, stylesheets) so the coherence verifier hashes all of them
+          # for this protection-gated deployment, not just the entry bundle.
+          node -e '
+            const html = require("fs").readFileSync(0, "utf8");
+            const assets = new Set();
+            for (const re of [
+              /<script[^>]+src=["'"'"']([^"'"'"']+\.js)["'"'"']/gi,
+              /<link[^>]+rel=["'"'"']modulepreload["'"'"'][^>]*href=["'"'"']([^"'"'"']+)["'"'"']/gi,
+              /<link[^>]+rel=["'"'"'](?:stylesheet|modulepreload)["'"'"'][^>]*href=["'"'"']([^"'"'"']+\.(?:css|js))["'"'"']/gi,
+              /<link[^>]+href=["'"'"']([^"'"'"']+\.(?:css|js))["'"'"'][^>]*rel=["'"'"'](?:stylesheet|modulepreload)["'"'"']/gi,
+            ]) {
+              for (const match of html.matchAll(re)) assets.add(match[1]);
+            }
+            const verifiable = [...assets].filter((asset) => !/^(https?:)?\/\//i.test(asset));
+            if (verifiable.length === 0) { console.error("No verifiable same-origin assets found in the Vercel HTML."); process.exit(1); }
+            for (const asset of verifiable.sort()) process.stdout.write(asset + "\n");
+          ' < "${RUNNER_TEMP}/aura-release/vercel-production.html" > "${RUNNER_TEMP}/aura-release/production-assets.txt"
+          mkdir -p "${RUNNER_TEMP}/aura-release/assets"
+          while IFS= read -r ASSET; do
+            OUT_NAME="$(basename "${ASSET}")"
+            VERCEL_TOKEN="${SANITIZED_VERCEL_TOKEN}" npx vercel curl "${ASSET}" \
+              --deployment "${VERCEL_DEPLOY_URL}" \
+              -- --fail --silent --show-error --location \
+              > "${RUNNER_TEMP}/aura-release/assets/${OUT_NAME}"
+            test -s "${RUNNER_TEMP}/aura-release/assets/${OUT_NAME}"
+          done < "${RUNNER_TEMP}/aura-release/production-assets.txt"
+          echo "Vercel assets fetched: $(wc -l < "${RUNNER_TEMP}/aura-release/production-assets.txt")"
 
       - name: Verify Netlify, Vercel, AWS, and Render production release coherence
         env:
@@ -1379,7 +1466,7 @@ jobs:
           AURA_RELEASE_URLS: >-
             [
               {"name":"netlify-production","url":"${{ needs.deploy-production.outputs.site_url }}"},
-              {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html","bundlePath":"${{ runner.temp }}/aura-release/vercel-production-bundle.js"},
+              {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html","assetsDir":"${{ runner.temp }}/aura-release/assets"},
               {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
               {"name":"render-production","url":"${{ needs.deploy-render-production.outputs.site_url }}"}
             ]

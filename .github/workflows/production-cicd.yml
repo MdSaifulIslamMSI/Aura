@@ -46,7 +46,7 @@ on:
         type: string
 
       rollback_refs_json:
-        description: 'Optional provider-specific refs JSON, for example {"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","render":"deploy-id","gateway":"deployment-id"}'
+        description: 'Provider-specific refs JSON ({"backend":"sha","netlify":"deploy-id","vercel-storefront":"deployment-id","aws-frontend":"snapshot-ref","render":"deploy-id","gateway":"deployment-id"}) or the literal last-known-good to resolve the recorded pointer from Parameter Store'
         required: false
         default: "{}"
         type: string
@@ -75,10 +75,87 @@ env:
   NODE_VERSION: 24.x
 
 jobs:
+  resolve-last-known-good:
+    name: Resolve last-known-good rollback refs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.confirm_production == 'PRODUCTION' &&
+      github.event.inputs.rollback_refs_json == 'last-known-good'
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      refs_json: ${{ steps.resolve.outputs.refs_json }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Read last-known-good pointer from Parameter Store
+        id: resolve
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
+          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
+        run: |
+          set -euo pipefail
+          test -n "${AWS_DEPLOY_ROLE_ARN}" || { echo "AWS_DEPLOY_ROLE_ARN is not configured; cannot resolve last-known-good." >&2; exit 1; }
+          test -n "${AWS_PARAMETER_STORE_PATH_PREFIX}" || { echo "AWS_PARAMETER_STORE_PATH_PREFIX is not configured; cannot resolve last-known-good." >&2; exit 1; }
+          echo "Resolving rollback refs from ${AWS_PARAMETER_STORE_PATH_PREFIX}/prod/last-known-good"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 900
+
+      - name: Fetch and validate the pointer
+        id: fetch
+        run: |
+          set -euo pipefail
+          PARAMETER_NAME="${AWS_PARAMETER_STORE_PATH_PREFIX}/prod/last-known-good"
+          PARAMETER_VALUE="$(aws ssm get-parameter --name "${PARAMETER_NAME}" --query 'Parameter.Value' --output text)" || {
+            echo "No last-known-good pointer at ${PARAMETER_NAME}. Record one by running a successful deploy, or pass rollback_refs_json directly." >&2
+            exit 1
+          }
+          REFS_JSON="$(ROLLBACK_REFS_JSON="${PARAMETER_VALUE}" node <<'NODE'
+          const allowed = new Set(['backend', 'netlify', 'vercel-storefront', 'aws-frontend', 'render', 'gateway']);
+          let refs;
+          try {
+            refs = JSON.parse(process.env.ROLLBACK_REFS_JSON || '{}');
+          } catch (error) {
+            console.error(`last-known-good pointer is not valid JSON: ${error.message}`);
+            process.exit(1);
+          }
+          if (!refs || Array.isArray(refs) || typeof refs !== 'object') {
+            console.error('last-known-good pointer must be a JSON object.');
+            process.exit(1);
+          }
+          for (const [key, value] of Object.entries(refs)) {
+            if (!allowed.has(key)) {
+              console.error(`last-known-good pointer contains unsupported provider '${key}'.`);
+              process.exit(1);
+            }
+            if (typeof value !== 'string' || /[\r\n]/.test(value) || value.length === 0) {
+              console.error(`last-known-good pointer provider '${key}' must be a non-empty single-line string.`);
+              process.exit(1);
+            }
+          }
+          process.stdout.write(JSON.stringify(refs));
+          NODE
+          )"
+          echo "refs_json=${REFS_JSON}" >> "$GITHUB_OUTPUT"
+
   plan:
     name: Plan production actions
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs:
+      - resolve-last-known-good
+    if: always() && (needs.resolve-last-known-good.result == 'success' || needs.resolve-last-known-good.result == 'skipped')
     permissions:
       contents: read
 
@@ -147,7 +224,7 @@ jobs:
           INPUT_DEPLOY_TARGETS: ${{ github.event.inputs.deploy_targets || '' }}
           INPUT_RELEASE_TARGETS: ${{ github.event.inputs.release_targets || '' }}
           INPUT_ROLLBACK_TARGETS: ${{ github.event.inputs.rollback_targets || '' }}
-          INPUT_ROLLBACK_REFS_JSON: ${{ github.event.inputs.rollback_refs_json || '{}' }}
+          INPUT_ROLLBACK_REFS_JSON: ${{ github.event.inputs.rollback_refs_json == 'last-known-good' && needs.resolve-last-known-good.outputs.refs_json || github.event.inputs.rollback_refs_json || '{}' }}
           INPUT_AUTO_ROLLBACK_ON_SMOKE_FAILURE: ${{ github.event.inputs.auto_rollback_on_smoke_failure == 'true' }}
           AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN || '' }}
           AWS_DEPLOY_BUCKET: ${{ vars.AWS_DEPLOY_BUCKET || '' }}
@@ -1077,7 +1154,7 @@ jobs:
       pull-requests: write
     with:
       target: production
-      auto_rollback_on_failure: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.auto_rollback_on_smoke_failure == 'true' || false }}
+      auto_rollback_on_failure: true
       parent_holds_production_lock: true
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
@@ -1415,6 +1492,116 @@ jobs:
           smoke_if_deployed "aws storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${AWS_FRONTEND_PUBLIC_URL}"
           smoke_if_deployed "render storefront" "${FRONTEND_NETLIFY_DEPLOY_RESULT}" "${RENDER_PRODUCTION_URL}"
           smoke_if_deployed "gateway" "${GATEWAY_DEPLOY_RESULT}" "${GATEWAY_PRODUCTION_URL}${GATEWAY_HEALTH_PATH}"
+
+          # Deep smoke: the login-flow security smoke exercises the real auth
+          # surface (headers, CSRF posture, login endpoints) instead of only a
+          # health GET whenever the storefront lane deployed.
+          if [ "${FRONTEND_NETLIFY_DEPLOY_RESULT}" = "success" ]; then
+            DEEP_SMOKE_FRONTEND_URL="${NETLIFY_PRODUCTION_URL:-${PROD_BASE_URL:-}}"
+            if [ -z "${DEEP_SMOKE_FRONTEND_URL}" ]; then
+              echo "Frontend lane deployed but no production URL resolved for deep smoke." >&2
+              exit 1
+            fi
+            echo "Running production login-flow smoke against ${DEEP_SMOKE_FRONTEND_URL}"
+            PROD_FRONTEND_URL="${DEEP_SMOKE_FRONTEND_URL}" \
+            PROD_BACKEND_ORIGIN="${AURA_BACKEND_ORIGIN}" \
+              node scripts/smoke-production-login.mjs
+          fi
+
+          # Catalog read probe: prove the deployed backend still serves real
+          # product data, not just its health endpoint.
+          if [ "${BACKEND_DEPLOY_RESULT}" = "success" ] && [ -n "${AURA_BACKEND_ORIGIN}" ]; then
+            echo "Running catalog read probe against ${AURA_BACKEND_ORIGIN}"
+            catalog_probe="failed"
+            for attempt in 1 2 3; do
+              if curl --fail --show-error --silent --max-time 30 "${AURA_BACKEND_ORIGIN}/api/products?limit=1" | grep -q '"'; then
+                echo "Catalog read probe passed."
+                catalog_probe="passed"
+                break
+              fi
+              echo "Catalog read probe attempt ${attempt}/3 failed." >&2
+              [ "${attempt}" -lt 3 ] && sleep 5
+            done
+            if [ "${catalog_probe}" != "passed" ]; then
+              echo "Catalog read probe did not pass after 3 attempts." >&2
+              exit 1
+            fi
+          fi
+
+  record-last-known-good:
+    name: Record last-known-good rollback pointer
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - deploy-backend
+      - deploy-frontend-netlify
+      - deploy-gateway
+      - smoke-tests
+    # Non-blocking on purpose: a failed pointer recording must not fail a
+    # healthy release, but it stays visible in the summary and logs.
+    continue-on-error: true
+    if: always() && needs.smoke-tests.result == 'success' && (needs.deploy-backend.result == 'success' || needs.deploy-frontend-netlify.result == 'success' || needs.deploy-gateway.result == 'success')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Build last-known-good pointer
+        run: |
+          set -euo pipefail
+          REFS_JSON="$(ROLLBACK_REFS_JSON="$(cat <<'JSON'
+          {
+            "backend": "${{ needs.deploy-backend.outputs.backend_rollback_ref }}",
+            "netlify": "${{ needs.deploy-frontend-netlify.outputs.netlify_rollback_ref }}",
+            "vercel-storefront": "${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_rollback_ref }}",
+            "aws-frontend": "${{ needs.deploy-frontend-netlify.outputs.aws_frontend_rollback_ref }}",
+            "render": "${{ needs.deploy-frontend-netlify.outputs.render_storefront_rollback_ref }}",
+            "gateway": "${{ needs.deploy-gateway.outputs.gateway_rollback_ref }}"
+          }
+          JSON
+          )" node <<'NODE'
+          const refs = JSON.parse(process.env.ROLLBACK_REFS_JSON);
+          const cleaned = {};
+          for (const [key, value] of Object.entries(refs)) {
+            if (typeof value === 'string' && value.trim() !== '') cleaned[key] = value.trim();
+          }
+          if (Object.keys(cleaned).length === 0) {
+            console.error('No rollback refs captured in this run; nothing to record.');
+            process.exit(1);
+          }
+          const pointer = {
+            recorded_at: new Date().toISOString(),
+            sha: process.env.GITHUB_SHA,
+            run_id: process.env.GITHUB_RUN_ID,
+            refs: cleaned,
+          };
+          process.stdout.write(JSON.stringify(pointer));
+          NODE
+          )"
+          printf '%s' "${REFS_JSON}" > "${RUNNER_TEMP}/last-known-good.json"
+          node -e 'const p=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));console.log("last-known-good refs:", Object.keys(p.refs).join(", "));' "${RUNNER_TEMP}/last-known-good.json"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-south-1' }}
+          role-duration-seconds: 900
+
+      - name: Write pointer to Parameter Store
+        env:
+          AWS_PARAMETER_STORE_PATH_PREFIX: ${{ vars.AWS_PARAMETER_STORE_PATH_PREFIX || '' }}
+        run: |
+          set -euo pipefail
+          test -n "${AWS_PARAMETER_STORE_PATH_PREFIX}" || { echo "AWS_PARAMETER_STORE_PATH_PREFIX is not configured; skipping last-known-good recording." >&2; exit 1; }
+          aws ssm put-parameter \
+            --name "${AWS_PARAMETER_STORE_PATH_PREFIX}/prod/last-known-good" \
+            --type String \
+            --value "file://${RUNNER_TEMP}/last-known-good.json" \
+            --overwrite
 
   smoke-tests-noop:
     name: Smoke tests no-op
