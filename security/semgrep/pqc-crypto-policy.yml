@@ -75,6 +75,8 @@ rules:
     paths:
       exclude:
         - tests/fixtures/security/pqc/**
+        # Accepted in config/security/pqc-allowlist.json (MD5_USAGE):
+        - server/services/listingService.js
 
   - id: nodejs-sha1
     message: Do not add SHA1 for signatures or integrity. Use SHA-256 or stronger where hashing is required.
@@ -95,6 +97,12 @@ rules:
     paths:
       exclude:
         - tests/fixtures/security/pqc/**
+        # Accepted in config/security/pqc-allowlist.json (SHA1_SIGNATURE_OR_INTEGRITY);
+        # deterministic identifiers, not security primitives:
+        - server/services/productImageResolver.js
+        - server/services/catalogArtworkService.js
+        - scripts/i18n/codemod-jsx-stable-text.mjs
+        - scripts/i18n/discover-stable-ui-text.mjs
 
   - id: hardcoded-private-key
     message: Remove hardcoded private key material and load secrets from approved runtime secret storage.
@@ -117,6 +125,9 @@ rules:
         - config/security/**
         - scripts/security/**
         - tests/fixtures/security/pqc/**
+        # Server tests assert the readiness scanners' behavior and contain the
+        # forbidden protocol names as literal fixtures:
+        - server/tests/**
 
   - id: tls-v1-1-config
     message: Disable TLS 1.1 in executable configuration; TLS 1.3 is the production-ready baseline.
@@ -130,6 +141,7 @@ rules:
         - config/security/**
         - scripts/security/**
         - tests/fixtures/security/pqc/**
+        - server/tests/**
 
   - id: insecure-cipher-config
     message: Remove weak cipher or protocol configuration from executable proxy/TLS files.
@@ -143,6 +155,7 @@ rules:
         - config/security/**
         - scripts/security/**
         - tests/fixtures/security/pqc/**
+        - server/tests/**
 
   - id: risky-jwt-classical-signing-warning
     message: Classical JWT signatures are not bad today everywhere, but long-lived classical-only signing must stay tracked until PQ signatures are ecosystem-ready.
@@ -153,10 +166,14 @@ rules:
     patterns:
       - pattern-either:
           - pattern: jwt.sign(...)
-          - pattern: $JWT.sign(...)
+          - pattern: new SignJWT(...)
     paths:
       exclude:
         - tests/fixtures/security/pqc/**
+        # Test suites mint throwaway tokens; the policy targets long-lived
+        # production signing decisions:
+        - server/tests/**
+        - tests/**
 
 # Notes:
 # - These rules do not claim RSA or ECC are universally broken today.
@@ -165,7 +182,10 @@ rules:
 # - Algorithm-name mentions (RS256/ES256/PS256 literals) are intentionally NOT
 #   flagged; mere mentions — including the RFC 9449-mandated DPoP ES256 alg
 #   header and config denylists — are tracked by the node-side crypto
-#   inventory (scripts/security/crypto-inventory.mjs) instead. Only actual
-#   signing calls (jwt.sign) are reported.
+#   inventory (scripts/security/crypto-inventory.mjs) instead. Only real JWT
+#   library signing calls (jwt.sign / SignJWT) are reported; generic
+#   crypto.sign calls such as window.crypto.subtle.sign are out of scope.
 # - sha1/md5 exceptions are documented per file in config/security/pqc-allowlist.json
-#   with reasons and expiry; in-code sites carry matching // nosemgrep comments.
+#   with reasons and expiry and are excluded at the rule level above; the
+#   in-code // nosemgrep comments mirror them for scanners that do not apply
+#   the path-based namespace.
