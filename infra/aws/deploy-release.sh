@@ -896,6 +896,11 @@ if ! docker run --rm \
   exit 1
 fi
 
+# Caddyfile must adapt while the staged env files still exist here — the
+# activation below moves them into shared/ before containers are recreated.
+validate_caddyfile "${staged_current_dir}/infra/aws/Caddyfile"
+echo "Release Caddyfile adapts cleanly."
+
 for recovery_path in \
   "${activation_backup_dir}" \
   "${activation_backup_env}" \
