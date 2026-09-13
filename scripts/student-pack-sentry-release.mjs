@@ -31,6 +31,15 @@ if (!release) {
   process.exit(1);
 }
 
+// The release id reaches `cmd.exe /c sentry-cli.cmd <args>` on Windows, so
+// restrict it to the Sentry release charset before any spawn (CodeQL
+// js/indirect-command-line-injection). Sentry release names are
+// alphanumerics plus . _ + @ / — this rejects every shell metacharacter.
+if (!/^[A-Za-z0-9][A-Za-z0-9._+@/-]{0,199}$/.test(release)) {
+  console.error(`Refusing unsafe Sentry release id: ${JSON.stringify(release.slice(0, 64))}`);
+  process.exit(1);
+}
+
 const isWindows = process.platform === 'win32';
 const run = (args, { allowFailure = false } = {}) => {
   // .cmd shims cannot be spawned directly on Windows (EINVAL); route through
