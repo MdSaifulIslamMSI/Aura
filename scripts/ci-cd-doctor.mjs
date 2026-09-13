@@ -24,7 +24,6 @@ const requiredWorkflows = [
   'production-admin-access.yml',
   'quality.yml',
   'codeql.yml',
-  'security.yml',
   'security-gates.yml',
   'status-watch.yml',
 ];
@@ -725,6 +724,68 @@ addCheck(
   reusablePermissionGraphFailures.length === 0
     ? 'production-cicd.yml reusable workflow permission graph'
     : reusablePermissionGraphFailures.join('; ')
+);
+
+// Consolidated security surface: the former security.yml duplicate was merged
+// into security-gates.yml; a reintroduction would double every PR scan again.
+addCheck(
+  'security scanning stays consolidated in one PR workflow',
+  exists('.github/workflows/security.yml') === false
+    && securityGatesWorkflow.includes('name: Security Gates')
+    && securityGatesWorkflow.includes('category: trivy-image'),
+  'security.yml removed; Security Gates owns scanners, SBOM, ZAP, and Trivy image scan'
+);
+
+// Every package.json script that points at a repo script file must point at a
+// file that exists (dev:on/dev:off/codex:* once shipped dead references).
+const ps1ScriptFailures = Object.entries(packageJson.scripts || {})
+  .filter(([, command]) => /-File \.\\scripts\\[\w-]+\.ps1/.test(command))
+  .filter(([, command]) => {
+    const match = /-File (\.\\scripts\\[\w-]+\.ps1)/.exec(command);
+    return match && !exists(match[1].replace(/^\.\\/, ''));
+  })
+  .map(([name, command]) => `${name} -> ${command}`);
+
+addCheck(
+  'package.json PowerShell scripts reference existing files',
+  ps1ScriptFailures.length === 0,
+  ps1ScriptFailures.length === 0
+    ? 'all -File .\\scripts\\*.ps1 script targets exist'
+    : ps1ScriptFailures.join('; ')
+);
+
+// Nightly full-coverage lane: scheduled shards plus report-only quarantine.
+const nightlyWorkflow = read('.github/workflows/nightly-tests.yml');
+const nightlyCrons = [...nightlyWorkflow.matchAll(/cron:\s*"([^"]+)"/g)].map((match) => match[1]);
+addCheck(
+  'nightly test fleet is wired to the tier manifest',
+  exists('.github/workflows/nightly-tests.yml')
+    && nightlyCrons.length === 1
+    && nightlyWorkflow.includes('run-nightly-tier.cjs server nightly')
+    && nightlyWorkflow.includes('run-nightly-tier.cjs server quarantine')
+    && nightlyWorkflow.includes('continue-on-error: true')
+    && exists('scripts/run-nightly-tier.cjs')
+    && exists('scripts/lib/test-tier-lib.cjs'),
+  nightlyCrons.length === 1
+    ? `nightly-tests.yml shards + report-only quarantine, cron ${nightlyCrons[0]}`
+    : `expected exactly one cron in nightly-tests.yml, found ${nightlyCrons.length}`
+);
+
+// Required-check docs and the live-protection doctor must agree on what is
+// enforced on main versus held as promotion candidates.
+const protectionDoc = read('docs/github/main-branch-protection.md');
+const protectionScript = read('scripts/github/assert-main-protection.mjs');
+addCheck(
+  'main protection enforced checks match the documented set',
+  [
+    'Quality, tests, and coverage',
+    'javascript-typescript',
+    'security',
+    'build-and-smoke',
+  ].every((check) => protectionScript.includes(`'${check}'`))
+    && protectionDoc.includes('`security` (Giant Release Gates')
+    && protectionScript.includes('promotableChecks'),
+  'docs/github/main-branch-protection.md + scripts/github/assert-main-protection.mjs'
 );
 
 const nameWidth = Math.max(...checks.map((check) => check.name.length), 'Check'.length);
