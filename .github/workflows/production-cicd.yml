@@ -847,7 +847,12 @@ jobs:
     name: Same-SHA staging, cost, observability, and rollback gates
     needs:
       - plan
+    # always() is load-bearing: plan runs behind resolve-last-known-good, which
+    # is legitimately skipped unless the rollback_refs_json=last-known-good
+    # mode is used. GitHub skips downstream jobs of a skipped node WITHOUT
+    # evaluating a plain if, so this call needs always() to be evaluated.
     if: |
+      always() &&
       needs.plan.outputs.planned_production_action == 'true' &&
       needs.plan.outputs.requested_deploy_or_release_action == 'true'
     uses: ./.github/workflows/giant-release-gates.yml
