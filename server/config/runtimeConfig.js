@@ -346,7 +346,7 @@ const resolveRuntimeSecretsProvider = () => safeString(
 const primeRuntimeSecretsEnv = async ({ logger = console } = {}) => {
     const awsResult = await primeAwsParameterStoreEnv({ logger });
 
-    let onePasswordResult = { enabled: false, source: 'onepassword_disabled', loadedKeys: [], skippedKeys: [] };
+    let onePasswordResult;
     try {
         const { primeOnePasswordEnv } = require('./onePasswordProvider');
         onePasswordResult = await primeOnePasswordEnv({

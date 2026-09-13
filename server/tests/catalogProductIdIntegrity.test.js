@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const ProductReview = require('../models/ProductReview');
 const User = require('../models/User');
