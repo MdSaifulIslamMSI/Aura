@@ -994,6 +994,10 @@ docker compose \
   --profile malware-scan \
   rm --stop --force clamav
 
+# The Compose file declares the shared aura-traffic network as external (the
+# blue-green slot switch uses it); create it idempotently before up.
+ensure_aura_networks
+
 docker compose \
   --env-file "${shared_dir}/base.env" \
   --env-file "${shared_dir}/runtime-secrets.env" \
