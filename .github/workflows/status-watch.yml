@@ -6,7 +6,6 @@ on:
       - Production Release Gate On Main Push
       - CI
       - Quality Foundation
-      - Security Gate
       - Security Gates
       - CodeQL
       - Payment Architecture
@@ -22,9 +21,14 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: status-watch
+  cancel-in-progress: true
+
 jobs:
   watch:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Notify Aura status system
         run: |

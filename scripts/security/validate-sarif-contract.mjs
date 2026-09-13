@@ -23,7 +23,6 @@ const expectIncludes = (name, content, needles) => {
 
 const codeqlWorkflow = read('.github/workflows/codeql.yml');
 const securityGatesWorkflow = read('.github/workflows/security-gates.yml');
-const securityWorkflow = read('.github/workflows/security.yml');
 const dependabot = read('.github/dependabot.yml');
 const dockerRunner = read('scripts/security/run-docker-tool.mjs');
 
@@ -70,7 +69,7 @@ expectIncludes('Security gate SARIF uploads', securityGatesWorkflow, [
   'category: checkov',
 ]);
 
-expectIncludes('Trivy image SARIF upload', securityWorkflow, [
+expectIncludes('Trivy image SARIF upload', securityGatesWorkflow, [
   'sarif_file: security-reports/trivy-image.sarif',
   'category: trivy-image',
 ]);
