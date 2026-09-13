@@ -317,10 +317,16 @@ jobs:
           INFRA_BUNDLE_SHA256: ${{ steps.package.outputs.infra_sha256 }}
           IMAGE_BUNDLE_SHA256: ${{ steps.package.outputs.image_sha256 }}
           INSTANCE_ID: ${{ steps.resolve_instance.outputs.instance_id }}
+          DEPLOY_STRATEGY: ${{ inputs.deploy_strategy }}
         run: |
           set -euo pipefail
           test -n "${INFRA_BUNDLE_SHA256}" || { echo "Missing infra bundle SHA-256"; exit 1; }
           test -n "${IMAGE_BUNDLE_SHA256}" || { echo "Missing image bundle SHA-256"; exit 1; }
+          # Allowlist before the value may reach the host shell (SSM command).
+          case "${DEPLOY_STRATEGY}" in
+            swap|blue-green) ;;
+            *) echo "Refusing deploy: deploy_strategy must be swap or blue-green (got '${DEPLOY_STRATEGY}')." >&2; exit 1 ;;
+          esac
           cat > "${RUNNER_TEMP}/ssm-commands.json" <<EOF
           {
             "commands": [
@@ -338,7 +344,7 @@ jobs:
               "export AURA_IMAGE_BUNDLE_KEY='${IMAGE_BUNDLE_KEY}'",
               "export AURA_INFRA_BUNDLE_SHA256='${INFRA_BUNDLE_SHA256}'",
               "export AURA_IMAGE_BUNDLE_SHA256='${IMAGE_BUNDLE_SHA256}'",
-              "export AURA_BACKEND_DEPLOY_STRATEGY='${{ inputs.deploy_strategy }}'",
+              "export AURA_BACKEND_DEPLOY_STRATEGY='${DEPLOY_STRATEGY}'",
               "bash /opt/aura/bootstrap/current/infra/aws/deploy-release.sh"
             ]
           }

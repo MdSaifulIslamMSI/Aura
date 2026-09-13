@@ -1560,16 +1560,23 @@ jobs:
           persist-credentials: false
 
       - name: Build last-known-good pointer
+        env:
+          BACKEND_ROLLBACK_REF: ${{ needs.deploy-backend.outputs.backend_rollback_ref }}
+          NETLIFY_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.netlify_rollback_ref }}
+          VERCEL_STOREFRONT_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_rollback_ref }}
+          AWS_FRONTEND_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.aws_frontend_rollback_ref }}
+          RENDER_ROLLBACK_REF: ${{ needs.deploy-frontend-netlify.outputs.render_storefront_rollback_ref }}
+          GATEWAY_ROLLBACK_REF: ${{ needs.deploy-gateway.outputs.gateway_rollback_ref }}
         run: |
           set -euo pipefail
-          REFS_JSON="$(ROLLBACK_REFS_JSON="$(cat <<'JSON'
+          REFS_JSON="$(ROLLBACK_REFS_JSON="$(cat <<JSON
           {
-            "backend": "${{ needs.deploy-backend.outputs.backend_rollback_ref }}",
-            "netlify": "${{ needs.deploy-frontend-netlify.outputs.netlify_rollback_ref }}",
-            "vercel-storefront": "${{ needs.deploy-frontend-netlify.outputs.vercel_storefront_rollback_ref }}",
-            "aws-frontend": "${{ needs.deploy-frontend-netlify.outputs.aws_frontend_rollback_ref }}",
-            "render": "${{ needs.deploy-frontend-netlify.outputs.render_storefront_rollback_ref }}",
-            "gateway": "${{ needs.deploy-gateway.outputs.gateway_rollback_ref }}"
+            "backend": "${BACKEND_ROLLBACK_REF}",
+            "netlify": "${NETLIFY_ROLLBACK_REF}",
+            "vercel-storefront": "${VERCEL_STOREFRONT_ROLLBACK_REF}",
+            "aws-frontend": "${AWS_FRONTEND_ROLLBACK_REF}",
+            "render": "${RENDER_ROLLBACK_REF}",
+            "gateway": "${GATEWAY_ROLLBACK_REF}"
           }
           JSON
           )" node <<'NODE'
