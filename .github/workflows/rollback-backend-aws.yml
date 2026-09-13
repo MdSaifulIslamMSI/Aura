@@ -33,6 +33,7 @@ jobs:
   rollback:
     name: Roll back backend on AWS
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     # The deploy role trusts the main-branch OIDC subject. A GitHub Environment
     # changes that subject, so do not add one without updating and verifying IAM.
 

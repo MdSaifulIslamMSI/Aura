@@ -9,6 +9,10 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: staging-ops-watch
+  cancel-in-progress: true
+
 jobs:
   watch-staging:
     runs-on: ubuntu-latest

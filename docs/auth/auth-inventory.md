@@ -54,7 +54,7 @@ Primary model: `server/models/User.js`
 
 ## CI/CD
 
-- GitHub Actions: `.github/workflows/ci.yml`, `security.yml`, `security-gates.yml`, and scanner workflows.
+- GitHub Actions: `.github/workflows/ci.yml`, `security-gates.yml`, and scanner workflows.
 - Existing scripts include lint, build, test, auth smoke, secret scan, dependency scan, and scanner wrappers.
 - Added scripts:
   - `auth:env:validate`

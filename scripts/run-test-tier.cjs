@@ -11,6 +11,7 @@
  *   node scripts/run-test-tier.mjs server regression --forceExit
  *   node scripts/run-test-tier.mjs server regression --runInBand   (CI)
  *   node scripts/run-test-tier.mjs server regression --dry-run     (print resolved command)
+ *   node scripts/run-test-tier.mjs server nightly --shard=2/6 --forceExit
  *
  * Fails fast with a clear message if the manifest, tier, or any listed file
  * is missing — stale entries can never silently skip tests.
@@ -18,9 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-
-const ROOT = path.resolve(__dirname, '..');
-const MANIFEST_PATH = path.join(ROOT, 'config', 'test-tiers.json');
+const { resolveTier, shardFiles, parseShardArg } = require('./lib/test-tier-lib.cjs');
 
 const fail = (message) => {
     console.error(`[run-test-tier] ${message}`);
@@ -32,37 +31,39 @@ if (!surface || !tier) {
     fail('Usage: node scripts/run-test-tier.mjs <surface> <tier> [extra jest args...]');
 }
 
-if (!fs.existsSync(MANIFEST_PATH)) {
-    fail(`Manifest not found: ${MANIFEST_PATH}`);
+let tierFiles;
+let serverDir;
+try {
+    ({ files: tierFiles, serverDir } = resolveTier(surface, tier));
+} catch (error) {
+    fail(error.message);
+}
+if (tierFiles.length === 0) {
+    fail(`Tier "${tier}" is empty for surface "${surface}".`);
 }
 
-const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
-const surfaceConfig = manifest[surface];
-if (!surfaceConfig) {
-    fail(`Unknown surface "${surface}" in manifest. Available: ${Object.keys(manifest).filter((k) => !k.startsWith('$')).join(', ')}`);
-}
-
-const testFiles = surfaceConfig[tier];
-if (!Array.isArray(testFiles) || testFiles.length === 0) {
-    fail(`Tier "${tier}" missing or empty for surface "${surface}".`);
-}
-
-const serverDir = path.join(ROOT, surface);
-const missing = testFiles.filter((f) => !fs.existsSync(path.join(serverDir, f)));
-if (missing.length > 0) {
-    fail(`Stale manifest entries (files no longer exist):\n  ${missing.join('\n  ')}\nUpdate config/test-tiers.json.`);
+const { shardArgs, shard } = parseShardArg(extraArgs);
+let testFiles = tierFiles;
+let shardLabel = '';
+if (shard) {
+    try {
+        testFiles = shardFiles(tierFiles, shard.index, shard.count);
+    } catch (error) {
+        fail(error.message);
+    }
+    shardLabel = ` (shard ${shard.index}/${shard.count})`;
 }
 
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const jestArgs = ['--runTestsByPath', ...testFiles, ...extraArgs];
+const jestArgs = ['--runTestsByPath', ...testFiles, ...shardArgs];
 const cmd = `${npmCmd} --prefix "${serverDir}" test -- ${jestArgs.join(' ')}`;
 
-if (extraArgs.includes('--dry-run')) {
-    console.log(`[run-test-tier] dry-run (${testFiles.length} files):\n  ${cmd}`);
+if (shardArgs.includes('--dry-run')) {
+    console.log(`[run-test-tier] dry-run (${testFiles.length} files${shardLabel}):\n  ${cmd}`);
     process.exit(0);
 }
 
-console.log(`[run-test-tier] ${surface}/${tier}: ${testFiles.length} suites`);
+console.log(`[run-test-tier] ${surface}/${tier}${shardLabel}: ${testFiles.length} suites`);
 
 // Spawn the jest binary directly (replicating the server package's
 // `cross-env NODE_ENV=test jest` script) — npm.cmd cannot be spawned

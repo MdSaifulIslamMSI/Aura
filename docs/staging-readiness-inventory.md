@@ -14,7 +14,6 @@ Current status: Code is staging-safe, and live staging infrastructure is present
 | `app/config/vercelRoutingContract.mjs` | Hosted frontend routing generator | Safe for production and preview frontend | Yes when preview uses production backend origin | Comments and preflight make this frontend-preview only unless `STAGING_API_BASE_URL` is isolated. |
 | `gateway/vercel.json` | Static gateway deployment | Production/preview gateway only | No backend staging contract | Do not use gateway preview as backend staging. |
 | `.github/workflows/ci.yml` | PR quality gate | Safe after env contract checks run | No live smoke by default | Run `env:validate`, `smoke:preflight`, and `scan:prod-fallbacks` on PRs. |
-| `.github/workflows/security.yml` | Security gate with optional ZAP | Safe after preflight patch | Was guarded only by `STAGING_URL` | Run preflight and fallback scan before scanners; require staging contract before ZAP. |
 | `.github/workflows/security-gates.yml` | Security and DAST gate | Safe after guarded target resolution | Local preview fallback only for ZAP | Validate staging vars before external staging scans. |
 | `.github/workflows/free-security-scanners.yml` | Scheduled/manual free scanners | Safe after preflight env wiring | Was guarded only by `STAGING_URL` | Pass staging contract vars into scanner script. |
 | `.github/workflows/production-cicd.yml` | Production deployment | Production-only | Intended production URLs | Keep production smoke read-only and guarded by `ALLOW_PRODUCTION_SMOKE=true`. |

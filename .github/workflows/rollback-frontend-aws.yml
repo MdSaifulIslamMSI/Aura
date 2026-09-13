@@ -39,6 +39,7 @@ jobs:
   rollback:
     name: Roll back AWS S3 / CloudFront storefront
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # The deploy role trusts the main-branch OIDC subject. A GitHub Environment
     # changes that subject, so do not add one without updating and verifying IAM.
 

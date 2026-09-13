@@ -13,6 +13,10 @@ on:
 
 permissions: read-all
 
+concurrency:
+  group: ossf-scorecard
+  cancel-in-progress: true
+
 jobs:
   analysis:
     name: Scorecard analysis

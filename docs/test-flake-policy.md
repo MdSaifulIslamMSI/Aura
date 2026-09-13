@@ -42,3 +42,23 @@ surface for pure unit suites (e.g. the four `traffic*.test.js` policy suites).
 ## Aspiration
 
 Zero flakes, full-suite green. Add timeouts only to absorb CI latency — keep suites fast and investigate any suite that needs repeated bumps.
+
+## Nightly lane and the quarantine tier
+
+`config/test-tiers.json` has three lanes: `regression` (every PR),
+`nightly` (the scheduled full-coverage fleet in `.github/workflows/nightly-tests.yml`),
+and `quarantine` (report-only, never blocks anything).
+
+- The nightly fleet shards the `nightly` tier across runners, retries failed
+  suites once in-band, and writes per-shard JSON reports
+  (`reports/nightly/`, uploaded as artifacts). A suite that passes on retry is
+  a **flake**; one that fails twice is a **real failure** and reddens the run.
+- A suite goes to `quarantine` when it fails real-but-unowned (environment
+  sensitive, provider dependent, or historically unstable) and nobody can fix
+  it this week. Quarantine still runs nightly — silently skipping broken
+  suites forever is not allowed.
+- Promotion back: after a quarantine suite passes five consecutive nightly
+  runs, move it to `nightly` (or `regression` if it is PR-relevant) in the same
+  PR that removes the flake cause.
+- The `$untriaged` allowlist is closed: `scripts/check-test-tiers.cjs` fails
+  when any suite is outside `regression`/`nightly`/`quarantine`/`noDbFiles`.

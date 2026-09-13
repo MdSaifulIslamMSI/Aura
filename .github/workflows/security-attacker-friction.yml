@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: security-attacker-friction-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   attacker-friction:
     runs-on: ubuntu-latest

@@ -8,9 +8,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: staging-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   staging-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: staging
     env:
       STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}

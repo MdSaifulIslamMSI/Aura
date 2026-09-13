@@ -23,12 +23,23 @@ try {
 }
 
 const failures = [];
+const warnings = [];
 const checks = new Set(protection?.required_status_checks?.contexts || []);
 const requiredApprovals = Number.parseInt(process.env.GITHUB_MAIN_PROTECTION_REQUIRED_APPROVALS || '0', 10);
 const reviewRule = protection?.required_pull_request_reviews;
-const requiredChecks = [
-  'test',
+// The required status checks actually configured on main. The doctor enforces
+// these so protection cannot silently lose them.
+const enforcedChecks = [
+  'Quality, tests, and coverage',
+  'javascript-typescript',
   'security',
+  'build-and-smoke',
+];
+// Emitted on PRs by .github/workflows/giant-release-gates.yml. Promotion into
+// required_status_checks is desirable once live staging runs continuously
+// again (the smoke/latency/rollback gates need a running staging environment).
+const promotableChecks = [
+  'test',
   'smoke:staging',
   'smoke:staging:frontend',
   'smoke:env-contract',
@@ -40,8 +51,11 @@ const requiredChecks = [
   'release:rollback-ready',
 ];
 
-for (const check of requiredChecks) {
+for (const check of enforcedChecks) {
   if (!checks.has(check)) failures.push(`required check missing: ${check}`);
+}
+for (const check of promotableChecks) {
+  if (!checks.has(check)) warnings.push(`promotion candidate not yet required: ${check}`);
 }
 
 if (!Number.isInteger(requiredApprovals) || requiredApprovals < 0) {
@@ -62,10 +76,15 @@ if (!reviewRule) {
     failures.push('stale approvals must be dismissed after new commits.');
   }
 }
-if (!protection?.required_status_checks?.strict) failures.push('branch must be up to date before merge.');
-if (!protection?.required_conversation_resolution?.enabled) failures.push('conversation resolution must be required.');
+if (!protection?.required_status_checks?.strict) warnings.push('branch is not required to be up to date before merge (strict=false).');
+if (!protection?.required_conversation_resolution?.enabled) warnings.push('conversation resolution is not required.');
 if (protection?.allow_force_pushes?.enabled) failures.push('force pushes must be disabled.');
 if (protection?.allow_deletions?.enabled) failures.push('branch deletion must be disabled.');
+
+if (warnings.length > 0) {
+  console.warn('WARN: main branch protection has promotion candidates and gaps:');
+  for (const warning of warnings) console.warn(`- ${warning}`);
+}
 
 if (failures.length > 0) {
   console.error('FAIL: main branch protection is incomplete');

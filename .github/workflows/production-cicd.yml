@@ -78,6 +78,7 @@ jobs:
   plan:
     name: Plan production actions
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
 
@@ -650,6 +651,7 @@ jobs:
   security-gates:
     name: Security gates and SBOM
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
 
@@ -774,6 +776,7 @@ jobs:
   production-approval:
     name: Production approval gate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - plan
       - quality-gates
@@ -828,6 +831,7 @@ jobs:
   production-approval-noop:
     name: Production approval no-op
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - plan
       - quality-gates
@@ -873,6 +877,7 @@ jobs:
   release-manifest:
     name: Create release manifest
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - plan
       - production-approval
@@ -997,6 +1002,7 @@ jobs:
   deploy-backend-noop:
     name: Deploy backend no-op
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - plan
       - quality-gates
@@ -1095,6 +1101,7 @@ jobs:
   deploy-frontend-netlify-noop:
     name: Deploy Netlify frontend no-op
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - plan
       - quality-gates
@@ -1183,6 +1190,7 @@ jobs:
   deploy-frontend-aws-noop:
     name: Deploy AWS frontend no-op
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - plan
       - quality-gates
@@ -1263,6 +1271,7 @@ jobs:
   deploy-gateway-noop:
     name: Deploy gateway no-op
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - plan
       - quality-gates
@@ -1317,6 +1326,7 @@ jobs:
   smoke-tests:
     name: Production smoke tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs:
       - deploy-backend
       - deploy-frontend-netlify
@@ -1409,6 +1419,7 @@ jobs:
   smoke-tests-noop:
     name: Smoke tests no-op
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - deploy-backend
       - deploy-frontend-netlify
@@ -1618,6 +1629,7 @@ jobs:
   rollback-decisions:
     name: Rollback decision summary
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs:
       - plan
       - smoke-tests
@@ -1730,6 +1742,7 @@ jobs:
   release-desktop-noop:
     name: Desktop release no-op
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - plan
       - quality-gates
@@ -1844,6 +1857,7 @@ jobs:
   release-mobile-noop:
     name: Mobile release no-op
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - plan
       - quality-gates
@@ -1901,6 +1915,7 @@ jobs:
   production-tag:
     name: Create production traceability tag
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs:
       - deploy-backend
       - deploy-frontend-netlify
@@ -1957,6 +1972,7 @@ jobs:
   production-summary:
     name: Production release summary
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: always()
     needs:
       - plan

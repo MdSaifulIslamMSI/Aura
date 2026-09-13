@@ -14,26 +14,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tests:
-    name: Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-      - name: Use Node.js 24.x
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24.x
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Install server dependencies
-        run: npm --prefix server ci
-      - name: Run regression tests
-        run: npm test
-
   environment-contract:
     name: Environment Contract
     runs-on: ubuntu-latest
@@ -307,7 +287,6 @@ jobs:
     name: DAST - OWASP ZAP Baseline
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [tests]
     env:
       STAGING_URL: ${{ vars.STAGING_URL || '' }}
     steps:
@@ -386,7 +365,6 @@ jobs:
     name: Focused Security Tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: [tests]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -439,4 +417,41 @@ jobs:
             reports/security/security-maturity-scorecard.json
             reports/security/security-maturity-scorecard.md
           if-no-files-found: ignore
+          retention-days: 14
+
+  docker-image-security:
+    name: Docker Image Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Run Trivy image scan
+        run: npm run security:trivy:image
+
+      - name: Upload Trivy image SARIF
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        if: always() && hashFiles('security-reports/trivy-image.sarif') != ''
+        with:
+          sarif_file: security-reports/trivy-image.sarif
+          category: trivy-image
+
+      - name: Upload image security reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: docker-image-security-reports
+          path: security-reports/
           retention-days: 14

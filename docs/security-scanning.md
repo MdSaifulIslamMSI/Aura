@@ -44,8 +44,7 @@ Run `npm run security:sarif-contract` after changing scanner wrappers or securit
 
 ## Existing workflows
 
-- `.github/workflows/security-gates.yml`: Gitleaks, Semgrep, Trivy, IaC scanners, SBOM, ZAP, security tests.
-- `.github/workflows/security.yml`: integrated security release gate and image scanning.
+- `.github/workflows/security-gates.yml`: Gitleaks, Semgrep, Trivy (filesystem and image), IaC scanners, SBOM, ZAP, security tests, dependency review.
 - `.github/workflows/quality.yml`: lint, tests, coverage, OSV, hygiene, optional Sonar gate.
 - `.github/workflows/codeql.yml`: semantic code scanning.
 

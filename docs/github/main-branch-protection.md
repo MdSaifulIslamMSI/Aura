@@ -8,17 +8,21 @@
   appear in the branch protection API are not enough for
   `npm run github:main-protection`.
 - Direct pushes to `main` are blocked by requiring a pull request before merge.
-- Required status checks must be enabled and the branch must be up to date before
-  merge.
-- Exact required checks:
-  - `test`
-  - `security`
-  - `smoke:staging`
-  - `smoke:staging:frontend`
-  - `smoke:env-contract`
-  - `aws:cost-guard`
-  - `aws:observability:guard`
-  - `release:rollback-ready`
+- Required status checks must be enabled.
+- Exact required checks (enforced by `npm run github:main-protection`):
+  - `Quality, tests, and coverage` (Quality Foundation)
+  - `javascript-typescript` (CodeQL)
+  - `security` (Giant Release Gates `security` job; Security Gates supplies the scanner fleet)
+  - `build-and-smoke` (Docker build and smoke)
+- Promotion candidates: the Giant Release Gates PR checks (`test`,
+  `smoke:staging`, `smoke:staging:frontend`, `smoke:env-contract`,
+  `aws:cost-guard`, `aws:observability:guard`, `sre:synthetic:staging`,
+  `sre:latency:staging`, `test:reliability`, `release:rollback-ready`) should be
+  promoted into required status checks once live staging runs continuously
+  again; while staging is intentionally stopped they cannot pass, so the guard
+  reports them as warnings instead of failures. "Up to date before merge" and
+  conversation resolution are also recommended and currently reported as
+  warnings.
 - Conversations must be resolved.
 - Pull requests are required before merge.
 - For this single-owner repository, required approving review count is `0`.
