@@ -285,15 +285,18 @@ requireIncludes(awsCompose, 'ADMIN_REQUIRE_PASSKEY: "true"', 'AWS API service mu
 requireIncludes(awsCompose, 'MFA_ENABLED: "true"', 'AWS API service must keep the MFA subsystem enabled.');
 requireIncludes(awsCompose, 'MFA_PASSKEY_ENABLED: "true"', 'AWS API service must keep passkey MFA enabled.');
 requireIncludes(awsCompose, 'AURA_DESKTOP_OWNER_ACCESS_ENABLED: "false"', 'AWS API service must disable shared-key desktop owner access.');
-requireIncludes(awsCompose, '"127.0.0.1:5000:5000"', 'AWS API port 5000 must bind to loopback only.');
-if (/["']?5000:5000["']?/.test(awsCompose) && !awsCompose.includes('"127.0.0.1:5000:5000"')) {
+requireRegex(awsCompose, /["']127\.0\.0\.1:\$\{AURA_API_HOST_PORT:-5000\}:5000["']/, 'AWS API port 5000 must bind to loopback only.');
+if (/["']?5000:5000["']?/.test(awsCompose) && !/127\.0\.0\.1:[^"']*:5000["']/.test(awsCompose)) {
     addFailure('AWS Compose must not publish API port 5000 on all interfaces.');
 }
 requireIncludes(awsCompose, '"80:80"', 'AWS TLS edge must publish HTTP port 80 for ACME challenges.');
 requireIncludes(awsCompose, '"443:443"', 'AWS TLS edge must publish HTTPS port 443.');
 requireIncludes(awsCompose, './Caddyfile:/etc/caddy/Caddyfile:ro', 'AWS TLS edge must mount the checked-in Caddyfile.');
 requireIncludes(caddyfile, '{$AURA_BACKEND_PUBLIC_HOST}', 'Caddyfile must serve the configured public backend host.');
-requireIncludes(caddyfile, 'reverse_proxy api:5000', 'Caddyfile must reverse proxy to the internal API container.');
+requireRegex(caddyfile, /reverse_proxy\s+\{\$AURA_API_UPSTREAM:[a-z0-9-]+\}:5000/, 'Caddyfile must reverse proxy to the internal API container (slot alias upstream).');
+if (/reverse_proxy\s+https?:\/\//i.test(caddyfile)) {
+    addFailure('Caddyfile must not reverse proxy to a public URL; the upstream must be an internal container.');
+}
 requireIncludes(caddyfile, 'Strict-Transport-Security', 'Caddyfile must set HSTS for the backend TLS origin.');
 requireIncludes(bootstrapUserData, 'AURA_BACKEND_PUBLIC_HOST=', 'AWS bootstrap base.env must define the public TLS backend host.');
 requireIncludes(bootstrapFreeTier, 'FromPort"":80', 'AWS bootstrap security group must allow inbound port 80 for ACME.');
