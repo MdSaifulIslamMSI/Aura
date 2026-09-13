@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useSpeechInput } from './useSpeechInput';
 
 const installRecognition = (impl = {}) => {
-  const listeners = {};
   const recognition = {
     continuous: false,
     interimResults: true,

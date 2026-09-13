@@ -55,7 +55,7 @@ describe('trust orderPolicies', () => {
 
 describe('trust paymentPolicies', () => {
   test('every payment action audits and gates risk', () => {
-    for (const [action, policy] of Object.entries(paymentPolicies)) {
+    for (const [, policy] of Object.entries(paymentPolicies)) {
       expect(policy.audit).toBe(true);
       expect(policy.riskThreshold).toBeGreaterThan(0);
       expect(policy.resourceType).toMatch(/^payment/);

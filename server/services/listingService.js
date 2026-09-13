@@ -187,7 +187,7 @@ const appendEscrowPaymentEvent = async ({
     payload = {},
 }) => {
     // Simple hash function for payload integrity in logs
-    const hashPayload = (p) => crypto.createHash('md5').update(JSON.stringify(p)).digest('hex').slice(0, 8);
+    const hashPayload = (p) => crypto.createHash('md5').update(JSON.stringify(p)).digest('hex').slice(0, 8); // nosemgrep: security.semgrep.nodejs-md5 — non-secret 8-char log correlation hash; accepted in config/security/pqc-allowlist.json (MD5_USAGE)
 
     await PaymentEvent.create({
         eventId: makeEventId('evt'),

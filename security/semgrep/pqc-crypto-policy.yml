@@ -9,6 +9,12 @@ rules:
       - pattern-either:
           - pattern: crypto.publicEncrypt(...)
           - pattern: publicEncrypt(...)
+    paths:
+      exclude:
+        # Deliberate bad-example fixtures consumed by the node-side PQC policy
+        # checks (scripts/security/pqc-*.mjs); they are the policy's own test
+        # corpus, not production violations.
+        - tests/fixtures/security/pqc/**
 
   - id: nodejs-crypto-private-decrypt
     message: Do not add RSA privateDecrypt application payload paths; keep production crypto standards-aligned and config-driven.
@@ -20,6 +26,9 @@ rules:
       - pattern-either:
           - pattern: crypto.privateDecrypt(...)
           - pattern: privateDecrypt(...)
+    paths:
+      exclude:
+        - tests/fixtures/security/pqc/**
 
   - id: nodejs-create-ecdh
     message: Do not add custom ECDH key exchange. This policy prevents new quantum-vulnerable long-lived crypto from entering the app.
@@ -31,6 +40,9 @@ rules:
       - pattern-either:
           - pattern: crypto.createECDH(...)
           - pattern: createECDH(...)
+    paths:
+      exclude:
+        - tests/fixtures/security/pqc/**
 
   - id: nodejs-create-diffie-hellman
     message: Do not add custom DH/Diffie-Hellman key exchange; prefer TLS 1.3 and staged hybrid PQC experiments.
@@ -44,6 +56,9 @@ rules:
           - pattern: createDiffieHellman(...)
           - pattern: crypto.diffieHellman(...)
           - pattern: diffieHellman(...)
+    paths:
+      exclude:
+        - tests/fixtures/security/pqc/**
 
   - id: nodejs-md5
     message: Do not add MD5 usage. Use modern integrity/signature primitives and document legacy exceptions with expiring allowlists.
@@ -57,6 +72,9 @@ rules:
           - pattern: crypto.createHash('md5')
           - pattern: createHash("md5")
           - pattern: createHash('md5')
+    paths:
+      exclude:
+        - tests/fixtures/security/pqc/**
 
   - id: nodejs-sha1
     message: Do not add SHA1 for signatures or integrity. Use SHA-256 or stronger where hashing is required.
@@ -74,6 +92,9 @@ rules:
           - pattern: crypto.createSign('sha1')
           - pattern: createSign("sha1")
           - pattern: createSign('sha1')
+    paths:
+      exclude:
+        - tests/fixtures/security/pqc/**
 
   - id: hardcoded-private-key
     message: Remove hardcoded private key material and load secrets from approved runtime secret storage.
@@ -88,6 +109,14 @@ rules:
     languages:
       - generic
     pattern-regex: "\\bTLSv1(\\.0)?\\b(?!\\.\\d)"
+    paths:
+      exclude:
+        # The policy surfaces themselves list forbidden protocols/ciphers in
+        # order to forbid them; flagging them is self-referential noise.
+        - security/semgrep/**
+        - config/security/**
+        - scripts/security/**
+        - tests/fixtures/security/pqc/**
 
   - id: tls-v1-1-config
     message: Disable TLS 1.1 in executable configuration; TLS 1.3 is the production-ready baseline.
@@ -95,6 +124,12 @@ rules:
     languages:
       - generic
     pattern-regex: "\\bTLSv1\\.1\\b"
+    paths:
+      exclude:
+        - security/semgrep/**
+        - config/security/**
+        - scripts/security/**
+        - tests/fixtures/security/pqc/**
 
   - id: insecure-cipher-config
     message: Remove weak cipher or protocol configuration from executable proxy/TLS files.
@@ -102,6 +137,12 @@ rules:
     languages:
       - generic
     pattern-regex: "\\b(SSLv2|SSLv3|RC4|DES-CBC|3DES|MD5)\\b"
+    paths:
+      exclude:
+        - security/semgrep/**
+        - config/security/**
+        - scripts/security/**
+        - tests/fixtures/security/pqc/**
 
   - id: risky-jwt-classical-signing-warning
     message: Classical JWT signatures are not bad today everywhere, but long-lived classical-only signing must stay tracked until PQ signatures are ecosystem-ready.
@@ -113,9 +154,18 @@ rules:
       - pattern-either:
           - pattern: jwt.sign(...)
           - pattern: $JWT.sign(...)
-          - pattern-regex: "\\b(RS256|ES256|PS256)\\b"
+    paths:
+      exclude:
+        - tests/fixtures/security/pqc/**
 
 # Notes:
 # - These rules do not claim RSA or ECC are universally broken today.
 # - The goal is to prevent new quantum-vulnerable, long-lived crypto from entering the app.
 # - Existing third-party classical crypto may remain until WebPKI, JWT, SDK, and provider ecosystems support production-ready PQ signatures.
+# - Algorithm-name mentions (RS256/ES256/PS256 literals) are intentionally NOT
+#   flagged; mere mentions — including the RFC 9449-mandated DPoP ES256 alg
+#   header and config denylists — are tracked by the node-side crypto
+#   inventory (scripts/security/crypto-inventory.mjs) instead. Only actual
+#   signing calls (jwt.sign) are reported.
+# - sha1/md5 exceptions are documented per file in config/security/pqc-allowlist.json
+#   with reasons and expiry; in-code sites carry matching // nosemgrep comments.

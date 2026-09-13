@@ -15,7 +15,7 @@ const MagicString = appRequire('magic-string');
 const artifactPath = path.join(repoDir, 'artifacts/i18n/discovered-stable-ui-text.json');
 const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
 
-const hashText = (value = '') => crypto.createHash('sha1').update(value).digest('hex').slice(0, 8);
+const hashText = (value = '') => crypto.createHash('sha1').update(value).digest('hex').slice(0, 8); // nosemgrep: security.semgrep.nodejs-sha1 — stable i18n message id suffix (changing it churns all generated ids); accepted in config/security/pqc-allowlist.json
 const toMessageId = (candidate) => {
     const base = String(candidate.suggestedIcuId || '')
         .replace(/[^A-Za-z0-9.]+/g, '.')

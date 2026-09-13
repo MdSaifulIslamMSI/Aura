@@ -87,4 +87,59 @@ describe('code scanning hardening contracts', () => {
         expect(cloudFormation).toContain('DestinationBucketName: !Ref AccessLogBucket');
         expect(cloudFormation).toContain('#checkov:skip=CKV_AWS_111:');
     });
+
+    test('operator-controlled workflow_dispatch inputs stay explicitly accepted for CKV_GHA_7', () => {
+        const dockerRunner = readRepoFile('scripts/security/run-docker-tool.mjs');
+        for (const workflow of [
+            '.github/workflows/production-on-push.yml',
+            '.github/workflows/production-db-backup.yml',
+            '.github/workflows/observability-activation.yml',
+        ]) {
+            const accepted = dockerRunner.includes(`path: '${workflow}'`);
+            expect(accepted).toBe(true);
+        }
+    });
+
+    test('AWS OIDC workflows scope id-token to the jobs that mint tokens', () => {
+        const expectedJobTokens = {
+            '.github/workflows/production-db-backup.yml': 4,
+            '.github/workflows/observability-activation.yml': 1,
+        };
+        for (const [relativePath, expectedCount] of Object.entries(expectedJobTokens)) {
+            const source = readRepoFile(relativePath);
+            // The first (workflow-level) permissions block grants only
+            // contents: read; id-token: write belongs to individual jobs.
+            expect(source).toMatch(/^permissions:\r?\n\s+contents: read\r?\n\r?\n/m);
+            expect((source.match(/id-token: write/g) || []).length).toBe(expectedCount);
+        }
+    });
+
+    test('Sentry release uploads validate the release id before shell dispatch', () => {
+        const source = readRepoFile('scripts/student-pack-sentry-release.mjs');
+        expect(source).toContain("'/d', '/c', sentryCommand");
+        expect(source).toContain('/^[A-Za-z0-9][A-Za-z0-9._+@/-]{0,199}$/.test(release)');
+    });
+
+    test('PQC semgrep policy only flags signing operations, not algorithm mentions', () => {
+        const policy = readRepoFile('security/semgrep/pqc-crypto-policy.yml');
+        expect(policy).toContain('pattern: jwt.sign(...)');
+        expect(policy).not.toContain('RS256|ES256|PS256');
+        expect(policy).toContain('tests/fixtures/security/pqc/**');
+    });
+
+    test('allowlisted hash sites carry fully qualified nosemgrep annotations', () => {
+        // Semgrep namespaces local-config rules by their config path, so the
+        // effective rule id is security.semgrep.<rule> and the inline
+        // annotation must use the fully qualified form to match.
+        const expectations = [
+            ['server/services/listingService.js', 'nosemgrep: security.semgrep.nodejs-md5'],
+            ['server/services/productImageResolver.js', 'nosemgrep: security.semgrep.nodejs-sha1'],
+            ['server/services/catalogArtworkService.js', 'nosemgrep: security.semgrep.nodejs-sha1'],
+            ['scripts/i18n/codemod-jsx-stable-text.mjs', 'nosemgrep: security.semgrep.nodejs-sha1'],
+            ['scripts/i18n/discover-stable-ui-text.mjs', 'nosemgrep: security.semgrep.nodejs-sha1'],
+        ];
+        for (const [relativePath, annotation] of expectations) {
+            expect(readRepoFile(relativePath)).toContain(annotation);
+        }
+    });
 });

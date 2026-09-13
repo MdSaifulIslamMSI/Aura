@@ -12,11 +12,18 @@ Security reports are in scope when they affect:
 
 Only the default branch and the latest deployed production release are actively supported for security fixes.
 
+## Supported Versions
+
+| Version | Channel | Supported |
+| --- | --- | --- |
+| `main` branch | Rolling (latest deploy from default branch) | Yes |
+| Older tags or forks | Not deployed by maintainers | No |
+
 ## Reporting A Vulnerability
 
-Use GitHub private vulnerability reporting or a GitHub Security Advisory for this repository when available.
+Preferred: open a private vulnerability report via GitHub's security advisory flow for this repository at <https://github.com/MdSaifulIslamMSI/Aura/security/advisories/new>.
 
-If private reporting is not available, contact the maintainer through a private channel first and do not open a public issue with exploit details.
+If that is unavailable, contact the maintainer privately (see the GitHub profile page for the current contact channel) and do not open a public issue with exploit details.
 
 Include:
 

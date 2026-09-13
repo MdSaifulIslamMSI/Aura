@@ -90,6 +90,25 @@ const acceptedCheckovFindings = [
     path: 'infra/aws/cloudformation-bootstrap.yml',
     reason: "Bootstrap EC2 create and describe actions require Resource '*'; IAM, S3, KMS, and SSM permissions remain scoped.",
   },
+  // CKV_GHA_7: graph checks ignore inline `# checkov:skip=` comments, so the
+  // operator-controlled workflow_dispatch inputs below are accepted here.
+  // Each input only gates job-level `if` conditions and is never interpolated
+  // into build steps. See docs/security/code-scanning-triage-2026-09-14.md.
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/production-on-push.yml',
+    reason: 'confirm_production gates production deploys behind typed confirmation in job-level if conditions; never interpolated into build steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/production-db-backup.yml',
+    reason: 'run_drill is a boolean gate for the isolated restore-drill job; never interpolated into build steps.',
+  },
+  {
+    ruleId: 'CKV_GHA_7',
+    path: '.github/workflows/observability-activation.yml',
+    reason: 'probe_only/fire_test_alert booleans gate read-only discovery versus activation; never interpolated into build steps.',
+  },
 ];
 
 const acceptedSemgrepFindings = [

@@ -418,7 +418,6 @@ describe('orderPlacementService hardening', () => {
         const {
             placeOrderWithIdempotency,
             startSession,
-            couponRedemptionFindOne,
             couponRedemptionCreate,
             productUpdateOne,
             orderDeleteOne,
