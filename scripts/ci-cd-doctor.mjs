@@ -788,6 +788,43 @@ addCheck(
   'docs/github/main-branch-protection.md + scripts/github/assert-main-protection.mjs'
 );
 
+// Main protection: docs and live-protection doctor agree on enforced vs
+// promotion-candidate checks (kept from the wave-1 section above).
+const deployNetlifyWorkflow = read('.github/workflows/deploy-netlify.yml');
+const gatewayWorkflow = read('.github/workflows/deploy-gateway-vercel.yml');
+
+addCheck(
+  'multihost auto-rollback is on by default and fails closed without targets',
+  deployNetlifyWorkflow.includes('auto_rollback_on_failure:') && /auto_rollback_on_failure:\s*\n\s*description:[^\n]*\n\s*required: false\s*\n\s*default: true/.test(deployNetlifyWorkflow)
+    && deployNetlifyWorkflow.includes('allow_missing_rollback_target:')
+    && deployNetlifyWorkflow.includes('allow_missing_rollback_target=true to accept a first-ever release'),
+  'deploy-netlify.yml rollback defaults + missing-target acknowledgement'
+);
+
+addCheck(
+  'host env-parity gate guards the shared storefront build',
+  exists('app/scripts/verify_host_env_parity.mjs')
+    && deployNetlifyWorkflow.includes('verify_host_env_parity.mjs --expected-file')
+    && deployNetlifyWorkflow.includes('AURA_VERIFY_ENV_PARITY'),
+  'deploy-netlify.yml verifies host VITE_* env against the build contract before building'
+);
+
+addCheck(
+  'last-known-good rollback pointer is recorded and resolvable',
+  exists('.github/workflows/production-cicd.yml')
+    && production.includes('resolve-last-known-good')
+    && production.includes('record-last-known-good')
+    && production.includes('prod/last-known-good'),
+  'production-cicd.yml writes the pointer after smoke and accepts rollback_refs_json=last-known-good'
+);
+
+addCheck(
+  'gateway production deploys only through the command center',
+  !/push:/.test(gatewayWorkflow.slice(0, gatewayWorkflow.indexOf('jobs:')))
+    && gatewayWorkflow.includes("if: inputs.target == 'production'"),
+  'deploy-gateway-vercel.yml has no push trigger and no unattended production path'
+);
+
 const nameWidth = Math.max(...checks.map((check) => check.name.length), 'Check'.length);
 const statusWidth = 'Status'.length;
 

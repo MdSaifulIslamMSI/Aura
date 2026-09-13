@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { join as pathJoin } from 'node:path';
 
 const parseArgs = () => {
     const args = new Map();
@@ -71,14 +72,41 @@ const extractEntryBundleSrc = (html, name) => {
     return match[1];
 };
 
+// Every build asset the shell HTML references: scripts, modulepreload
+// chunks, and stylesheets. Byte-identity must hold for all of them — hashing
+// only the entry bundle lets lazy chunks and CSS drift across hosts silently.
+const extractReferencedAssets = (html, name) => {
+    const assets = new Set();
+    const patterns = [
+        /<script[^>]+src=["']([^"']+\.js)["']/gi,
+        /<link[^>]+rel=["']modulepreload["'][^>]*href=["']([^"']+)["']/gi,
+        /<link[^>]+href=["']([^"']+\.(?:css|js))["'][^>]*rel=["'](?:stylesheet|modulepreload)["']/gi,
+        /<link[^>]+rel=["'](?:stylesheet|modulepreload)["'][^>]*href=["']([^"']+\.(?:css|js))["']/gi,
+    ];
+    for (const pattern of patterns) {
+        for (const match of html.matchAll(pattern)) {
+            assets.add(match[1]);
+        }
+    }
+    if (assets.size === 0) {
+        throw new Error(`${name} HTML references no verifiable assets; cannot verify bundle bytes.`);
+    }
+    return [...assets].sort();
+};
+
 const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex');
 
-const readTargetBundle = async (target) => {
-    if (target.bundlePath) {
+const readTargetBundle = async (target, assetSrc) => {
+    if (target.assetsDir) {
+        // Protection-gated hosts (Vercel) materialize every referenced asset
+        // into a local directory keyed by basename before this script runs.
+        return readFile(pathJoin(target.assetsDir, assetSrc.split('/').pop()));
+    }
+    if (!assetSrc && target.bundlePath) {
         return readFile(target.bundlePath);
     }
 
-    const bundleUrl = new URL(target.bundleSrc, target.url);
+    const bundleUrl = new URL(assetSrc || target.bundleSrc, target.url);
     const response = await fetch(withCacheBust(bundleUrl.toString()), {
         headers: {
             'Cache-Control': 'no-cache',
@@ -116,7 +144,9 @@ for (const target of urls) {
     const release = {
         name,
         url,
+        htmlPath,
         bundlePath,
+        assetsDir: String(target?.assetsDir || '').trim(),
         id: extractMeta(html, 'aura-release-id'),
         commit: extractMeta(html, 'aura-release-commit'),
         target: extractMeta(html, 'aura-release-target'),
@@ -143,39 +173,65 @@ for (const target of urls) {
     }
 
     release.bundleSrc = extractEntryBundleSrc(html, name);
+    release.assetRefs = extractReferencedAssets(html, name);
     results.push(release);
 }
 
-const computeBundleHashes = async () => {
+const computeAssetHashes = async () => {
     for (const release of results) {
-        const bundle = await readTargetBundle(release);
-        release.bundleSha256 = sha256(bundle);
-        release.bundleBytes = bundle.length;
-        console.error(`${release.name} entry bundle ${release.bundleSrc} bytes=${bundle.length} sha256=${release.bundleSha256}`);
+        const hashes = {};
+        for (const assetSrc of release.assetRefs) {
+            const bytes = await readTargetBundle(release, assetSrc);
+            hashes[assetSrc] = sha256(bytes);
+        }
+        release.assetHashes = hashes;
+        const entryBytes = release.assetRefs.includes(release.bundleSrc);
+        release.bundleSha256 = hashes[release.bundleSrc] || '';
+        if (!entryBytes) {
+            throw new Error(`${release.name} entry bundle ${release.bundleSrc} was not fetched among referenced assets.`);
+        }
+        console.error(`${release.name} verified ${Object.keys(hashes).length} asset(s); entry ${release.bundleSrc} sha256=${release.bundleSha256}`);
     }
 };
 
-await computeBundleHashes();
+await computeAssetHashes();
 
-const bundleMismatch = () => {
+const findAssetMismatch = () => {
     const baseline = results[0];
-    return results.find((release) => release.bundleSha256 !== baseline.bundleSha256);
+    for (const release of results.slice(1)) {
+        const baselineAssets = new Set(baseline.assetRefs);
+        const releaseAssets = new Set(release.assetRefs);
+        for (const asset of baselineAssets) {
+            if (!releaseAssets.has(asset)) return { release, asset, reason: 'missing from HTML' };
+        }
+        for (const asset of releaseAssets) {
+            if (!baselineAssets.has(asset)) return { release, asset, reason: 'referenced only by this host' };
+        }
+        for (const asset of baselineAssets) {
+            if (release.assetHashes[asset] !== baseline.assetHashes[asset]) {
+                return { release, asset, reason: 'bytes differ' };
+            }
+        }
+    }
+    return null;
 };
 
-let offender = bundleMismatch();
-if (offender) {
-    console.error('Entry bundle bytes differ across hosts; retrying once after 10s (CDN propagation).');
+let mismatch = findAssetMismatch();
+if (mismatch) {
+    console.error(`Asset mismatch (${mismatch.reason}: ${mismatch.asset}); retrying once after 10s (CDN propagation).`);
     await new Promise((resolve) => setTimeout(resolve, 10000));
-    await computeBundleHashes();
-    offender = bundleMismatch();
+    await computeAssetHashes();
+    mismatch = findAssetMismatch();
 }
 
-if (offender) {
-    const hashes = results
-        .map((release) => `${release.name} ${release.bundleSrc} bytes=${release.bundleBytes} sha256=${release.bundleSha256.slice(0, 16)}`)
-        .join(' | ');
+if (mismatch) {
+    const baseline = results[0];
+    const detail =
+        mismatch.reason === 'bytes differ'
+            ? `${mismatch.release.name} sha256=${(mismatch.release.assetHashes[mismatch.asset] || '').slice(0, 16)} vs ${baseline.name} sha256=${(baseline.assetHashes[mismatch.asset] || '').slice(0, 16)}`
+            : mismatch.reason;
     throw new Error(
-        `${offender.name} entry bundle is not byte-identical to ${results[0].name} (${hashes}). ` +
+        `${mismatch.release.name} asset ${mismatch.asset} is not coherent with ${baseline.name} (${mismatch.reason}: ${detail}). ` +
         'Multi-host storefronts must serve the same bytes; check that every host builds the pinned commit with the same VITE_* build env.'
     );
 }
@@ -210,6 +266,7 @@ console.log(JSON.stringify({
         builtAtMaxSkewSeconds,
         maxObservedBuiltAtSkewSeconds,
         bundleSha256: baseline.bundleSha256,
+        verifiedAssetCount: baseline.assetRefs.length,
     },
-    hosts: results.map(({ name, url, bundleSha256 }) => ({ name, url, bundleSha256 })),
+    hosts: results.map(({ name, url, bundleSha256, assetRefs }) => ({ name, url, bundleSha256, assetCount: assetRefs.length })),
 }, null, 2));
