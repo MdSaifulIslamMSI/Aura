@@ -1479,6 +1479,39 @@ jobs:
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
 
+      - name: Verify public aliases serve the release
+        # The coherence verifier checks Vercel through its authenticated
+        # deployment URL, which cannot see a pinned or misrouted production
+        # domain. Every host's PUBLIC alias must serve the release commit to
+        # real users; a stale alias (e.g. a domain pinned to an old
+        # deployment in the Vercel dashboard) fails the release here.
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+          PUBLIC_ALIASES: >-
+            [
+              {"name":"netlify","url":"${{ needs.deploy-production.outputs.site_url }}"},
+              {"name":"vercel","url":"${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}"},
+              {"name":"aws","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
+              {"name":"render","url":"${{ needs.deploy-render-production.outputs.site_url }}"}
+            ]
+        run: |
+          set -euo pipefail
+          failures=0
+          while IFS='|' read -r name url; do
+            [ -n "${name}" ] || continue
+            observed="$(curl --fail --silent --show-error --max-time 30 --header 'Cache-Control: no-cache' --header 'Pragma: no-cache' "${url}/?aura_alias_check=${EXPECTED_COMMIT}" 2>/dev/null | grep -oE 'aura-release-commit" content="[0-9a-f]+' | cut -d'"' -f3 || true)"
+            if [ "${observed}" = "${EXPECTED_COMMIT}" ]; then
+              echo "${name}: public alias serves ${observed}."
+            else
+              echo "${name}: public alias serves '${observed:-nothing}', expected ${EXPECTED_COMMIT}." >&2
+              failures=$((failures + 1))
+            fi
+          done < <(jq -r '.[] | "\(.name)|\(.url)"' <<< "${PUBLIC_ALIASES}")
+          if [ "${failures}" -gt 0 ]; then
+            echo "${failures} public alias(es) do not serve the release. Check domain pinning/routing (Vercel: project > Domains must point at production, not a pinned deployment)." >&2
+            exit 1
+          fi
+
   rollback-netlify-on-production-failure:
     needs:
       - build-frontend
