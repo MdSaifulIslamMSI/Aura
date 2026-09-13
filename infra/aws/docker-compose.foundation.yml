@@ -1,0 +1,49 @@
+# Persistent foundation services: the TLS edge and Redis live OUTSIDE the
+# blue/green slot lifecycle so that api deploys never touch the 80/443
+# listeners or flush session/rate-limit state. Managed as compose project
+# "aura-foundation" (see deploy-release.sh blue-green mode).
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  edge:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    env_file:
+      - /opt/aura/shared/base.env
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - traffic
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - aura-caddy-data:/data
+      - aura-caddy-config:/config
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    networks:
+      - slot
+    volumes:
+      - aura-redis:/data
+
+volumes:
+  aura-redis:
+  aura-caddy-data:
+  aura-caddy-config:
+
+networks:
+  traffic:
+    name: aura-traffic
+    external: true
+  slot:
+    name: aura-slot
+    external: true

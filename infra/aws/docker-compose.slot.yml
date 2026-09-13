@@ -1,0 +1,102 @@
+# Slot overlay: a blue/green slot runs ONLY the api and worker. The edge and
+# redis live in docker-compose.foundation.yml (project aura-foundation) and
+# survive every slot switch. Slot identity comes from environment:
+#   AURA_SLOT_NAME      blue | green (compose project: aura-$AURA_SLOT_NAME)
+#   AURA_API_HOST_PORT  host port this slot's api publishes (5000 or 5001)
+# The environment blocks mirror infra/aws/docker-compose.ec2.yml so the
+# deterministic no-model compose contract assertions keep applying per slot.
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  api:
+    image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
+    restart: unless-stopped
+    logging: *default-logging
+    command: ["node", "scripts/start_api_runtime.js"]
+    env_file:
+      - /opt/aura/shared/base.env
+      - /opt/aura/shared/runtime-secrets.env
+      - /opt/aura/shared/release.env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      SPLIT_RUNTIME_ENABLED: "true"
+      WORKER_HEALTH_URL: http://worker:8080
+      ORDER_EMAIL_PROVIDER: gmail
+      AI_PUBLIC_CHAT_ACCESS_ENABLED: ${AI_PUBLIC_CHAT_ACCESS_ENABLED:-false}
+      AI_PUBLIC_VOICE_ACCESS_ENABLED: ${AI_PUBLIC_VOICE_ACCESS_ENABLED:-false}
+      AI_CHAT_TIMEOUT_MS: ${AI_CHAT_TIMEOUT_MS:-45000}
+      AI_MODEL_PROVIDER: disabled
+      AI_MODEL_PROVIDER_FALLBACKS: ""
+      ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA: "false"
+      ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED: "false"
+      AUTH_DEVICE_CHALLENGE_MODE: admin
+      AUTH_DEVICE_CHALLENGE_ALLOW_VAULT_FALLBACK: "true"
+      ADMIN_REQUIRE_PASSKEY: "true"
+      MFA_ENABLED: "true"
+      MFA_PASSKEY_ENABLED: "true"
+      AURA_DESKTOP_OWNER_ACCESS_ENABLED: "false"
+      UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
+      UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      YARA_ENABLED: ${YARA_ENABLED:-false}
+      YARA_RULES_PATH: ${YARA_RULES_PATH:-/security/yara-rules}
+    ports:
+      - "127.0.0.1:${AURA_API_HOST_PORT:?AURA_API_HOST_PORT is required}:5000"
+    networks:
+      - default
+      - traffic
+      - slot
+    volumes:
+      - aura-uploads:/app/uploads
+      - /opt/aura/security/yara-rules:/security/yara-rules:ro
+
+  worker:
+    image: ${AURA_BACKEND_IMAGE:?AURA_BACKEND_IMAGE is required}
+    restart: unless-stopped
+    logging: *default-logging
+    command: ["node", "scripts/start_worker_runtime.js"]
+    env_file:
+      - /opt/aura/shared/base.env
+      - /opt/aura/shared/runtime-secrets.env
+      - /opt/aura/shared/release.env
+    environment:
+      NODE_ENV: production
+      SPLIT_RUNTIME_ENABLED: "true"
+      PORT: 8080
+      WORKER_HEALTH_PORT: 8080
+      ORDER_EMAIL_PROVIDER: gmail
+      AI_MODEL_PROVIDER: disabled
+      AI_MODEL_PROVIDER_FALLBACKS: ""
+      ASSISTANT_COMMERCE_REQUIRE_HOSTED_GEMMA: "false"
+      ASSISTANT_COMMERCE_MODEL_SUMMARY_ENABLED: "false"
+      UPLOAD_MALWARE_SCAN_ENABLED: ${UPLOAD_MALWARE_SCAN_ENABLED:-false}
+      UPLOAD_MALWARE_SCAN_FAIL_CLOSED: ${UPLOAD_MALWARE_SCAN_FAIL_CLOSED:-true}
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-false}
+      CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+      CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+      YARA_ENABLED: ${YARA_ENABLED:-false}
+      YARA_RULES_PATH: ${YARA_RULES_PATH:-/security/yara-rules}
+    networks:
+      - default
+      - slot
+    volumes:
+      - aura-uploads:/app/uploads
+      - /opt/aura/security/yara-rules:/security/yara-rules:ro
+
+volumes:
+  aura-uploads:
+
+networks:
+  traffic:
+    name: aura-traffic
+    external: true
+  slot:
+    name: aura-slot
+    external: true

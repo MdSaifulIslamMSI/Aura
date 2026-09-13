@@ -19,6 +19,11 @@ on:
         required: false
         default: main
         type: string
+      deploy_strategy:
+        description: Activation strategy, swap (recreate, brief downtime) or blue-green (zero-downtime slot switch)
+        required: false
+        default: swap
+        type: string
       skip_healthcheck:
         description: Skip the final readiness probe
         required: false
@@ -333,6 +338,7 @@ jobs:
               "export AURA_IMAGE_BUNDLE_KEY='${IMAGE_BUNDLE_KEY}'",
               "export AURA_INFRA_BUNDLE_SHA256='${INFRA_BUNDLE_SHA256}'",
               "export AURA_IMAGE_BUNDLE_SHA256='${IMAGE_BUNDLE_SHA256}'",
+              "export AURA_BACKEND_DEPLOY_STRATEGY='${{ inputs.deploy_strategy }}'",
               "bash /opt/aura/bootstrap/current/infra/aws/deploy-release.sh"
             ]
           }

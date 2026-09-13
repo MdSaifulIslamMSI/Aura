@@ -57,6 +57,15 @@ on:
         default: false
         type: boolean
 
+      backend_strategy:
+        description: "Backend activation strategy: swap (recreate, brief downtime) or blue-green (zero-downtime; requires a green staging drill)"
+        required: false
+        default: swap
+        type: choice
+        options:
+          - swap
+          - blue-green
+
       staging_off_acknowledged:
         description: "Set true ONLY when staging is intentionally kept stopped: live staging-parity gates skip and a proof job verifies staging really is off. Keep false for full gates."
         required: false
@@ -1072,6 +1081,7 @@ jobs:
       id-token: write
     with:
       git_ref: ${{ github.sha }}
+      deploy_strategy: ${{ inputs.backend_strategy || 'swap' }}
       skip_healthcheck: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_backend_healthcheck == 'true' || false }}
     secrets:
       AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
