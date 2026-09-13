@@ -179,7 +179,7 @@ const buildStableUid = ({
     title = '',
     brand = '',
     category = '',
-}) => crypto.createHash('sha1')
+}) => crypto.createHash('sha1') // nosemgrep: nodejs-sha1 — deterministic product UID hash (identity stability, not a security primitive); accepted in config/security/pqc-allowlist.json
     .update(`${source}|${catalogVersion}|${externalId}|${id}|${title}|${brand}|${category}`)
     .digest('hex');
 

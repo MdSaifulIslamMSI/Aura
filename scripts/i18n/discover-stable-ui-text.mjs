@@ -325,7 +325,7 @@ const slugify = (text) => {
     return slug || 'message';
 };
 
-const shortHash = (value) => crypto.createHash('sha1').update(value).digest('hex').slice(0, 6);
+const shortHash = (value) => crypto.createHash('sha1').update(value).digest('hex').slice(0, 6); // nosemgrep: nodejs-sha1 — stable i18n discovery id suffix (changing it churns all generated ids); accepted in config/security/pqc-allowlist.json
 
 const suggestId = ({ file, text, classification, context }) => {
     const area = inferArea(file, text);

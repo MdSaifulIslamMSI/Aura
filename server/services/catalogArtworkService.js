@@ -94,7 +94,7 @@ const escapeXml = (value = '') => String(value)
     .replace(/'/g, '&apos;');
 
 const hashString = (value = '') => {
-    const digest = crypto.createHash('sha1').update(String(value)).digest('hex');
+    const digest = crypto.createHash('sha1').update(String(value)).digest('hex'); // nosemgrep: nodejs-sha1 - deterministic artwork bucketing hash (identity stability, not a security primitive); accepted in config/security/pqc-allowlist.json
     return parseInt(digest.slice(0, 8), 16);
 };
 
