@@ -510,6 +510,16 @@ prepare_docker_disk_space() {
   df -h "${deploy_root}" / || true
 }
 
+# Validate the release Caddyfile through Caddy's own adapter BEFORE any
+# container moves. A Caddyfile the edge cannot parse crash-loops the TLS
+# terminator and fails the release at the edge-health phase — after the
+# storefront containers were already recreated. Adapt errors refuse the
+# deploy pre-mutation instead.
+validate_caddyfile() {
+  local caddyfile="$1"
+  docker run --rm     --env-file "${staged_base_env}"     -v "${caddyfile}:/etc/caddy/Caddyfile:ro"     caddy:2-alpine     caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+}
+
 ensure_aura_networks() {
   for network_name in aura-traffic aura-slot; do
     if ! docker network inspect "${network_name}" >/dev/null 2>&1; then
@@ -908,6 +918,7 @@ case "${deploy_strategy}" in
 esac
 
 if [[ "${deploy_strategy}" == "blue-green" ]]; then
+  validate_caddyfile "${staged_current_dir}/infra/aws/Caddyfile"
   ensure_aura_networks
   mkdir -p "${deploy_root}/foundation"
   cp -p "${staged_current_dir}/infra/aws/docker-compose.foundation.yml" "${deploy_root}/foundation/docker-compose.foundation.yml"
@@ -993,6 +1004,9 @@ docker compose \
   -f "${compose_file}" \
   --profile malware-scan \
   rm --stop --force clamav
+
+validate_caddyfile "${staged_current_dir}/infra/aws/Caddyfile"
+echo "Release Caddyfile adapts cleanly."
 
 # The Compose file declares the shared aura-traffic network as external (the
 # blue-green slot switch uses it); create it idempotently before up.

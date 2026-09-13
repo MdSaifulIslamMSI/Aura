@@ -272,7 +272,8 @@ jobs:
             "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys?status=live&limit=5" \
             > "${render_live_deploys}"
 
-          render_ref="$(jq -r '.[0].id // empty' "${render_live_deploys}")"
+          # Render nests each deploy under .deploy in the list-deploys response.
+          render_ref="$(jq -r '.[0].deploy.id // .[0].id // empty' "${render_live_deploys}")"
           if [ -z "${render_ref}" ]; then
             # First Render production release: nothing is live yet, so there is
             # no prior deployment to snapshot for rollback. Fail closed unless
