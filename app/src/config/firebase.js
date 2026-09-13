@@ -55,7 +55,8 @@ const isHostedDeploymentHost = (host = '') => {
     return normalizedHost === 'aurapilot.aws.app'
         || normalizedHost.endsWith('.vercel.app')
         || normalizedHost.endsWith('.netlify.app')
-        || normalizedHost.endsWith('.cloudfront.net');
+        || normalizedHost.endsWith('.cloudfront.net')
+        || normalizedHost.endsWith('.onrender.com');
 };
 
 const sanitizeHostValue = (value) => {
