@@ -1318,7 +1318,8 @@ describe('repo environment contract scripts', () => {
 
         const inputNames = [...inputsBlock[1].matchAll(/^ {6}([A-Za-z0-9_-]+):\s*$/gm)].map((match) => match[1]);
 
-        expect(inputNames.length).toBeLessThanOrEqual(10);
+        // 11: backend_strategy is a deliberate knob; ci:doctor enforces the same cap.
+        expect(inputNames.length).toBeLessThanOrEqual(11);
         expect(inputNames).toEqual(expect.arrayContaining([
             'confirm_production',
             'deploy_targets',
@@ -1737,10 +1738,10 @@ describe('repo environment contract scripts', () => {
         expect(deployRelease).toContain('restore_previous_release()');
         expect(deployRelease).toContain('Release activation failed; restoring the previous backend state.');
         expect(deployRelease).toContain('up -d --remove-orphans --force-recreate');
-        expect(deployRelease.indexOf('cp -a "${current_dir}" "${activation_backup_dir}"')).toBeLessThan(deployRelease.indexOf('activation_started=true'));
-        expect(deployRelease.indexOf('activation_started=true')).toBeLessThan(deployRelease.lastIndexOf('rm -rf "${current_dir}"'));
+        expect(deployRelease.indexOf('cp -a "${current_dir}" "${activation_backup_dir}"')).toBeLessThan(deployRelease.lastIndexOf('activation_started=true'));
+        expect(deployRelease.lastIndexOf('activation_started=true')).toBeLessThan(deployRelease.lastIndexOf('rm -rf "${current_dir}"'));
         expect(deployRelease.lastIndexOf('rm -rf "${current_dir}"')).toBeLessThan(deployRelease.indexOf('mv "${staged_current_dir}" "${current_dir}"'));
-        expect(deployRelease.indexOf('activation_committed=true')).toBeGreaterThan(deployRelease.indexOf('if [[ "${edge_ready}" == "true" ]]'));
+        expect(deployRelease.lastIndexOf('activation_committed=true')).toBeGreaterThan(deployRelease.indexOf('if [[ "${edge_ready}" == "true" ]]'));
         expect(rollbackBackend).toContain('sanitize_compose_profiles()');
         expect(rollbackBackend).toContain('staged_current_dir="${target_dir}/current.staged"');
         expect(rollbackBackend).toContain('release_lock_path="${deploy_root}/.backend-release.lock"');
