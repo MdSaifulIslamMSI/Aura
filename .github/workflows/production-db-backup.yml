@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: production-db-backup
@@ -34,6 +33,9 @@ jobs:
     # Full dump of the Atlas shared-tier cluster over WAN can take well over
     # an hour; every downstream step is bounded by the SSM command itself.
     timeout-minutes: 90
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -246,6 +248,9 @@ jobs:
   freshness:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Validate freshness check request
@@ -294,6 +299,9 @@ jobs:
     # agent, disk, or docker is the problem; this surfaces it directly.
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -370,6 +378,9 @@ jobs:
     needs: backup
     if: github.event_name == 'workflow_dispatch' && inputs.run_drill == true && needs.backup.result == 'success'
     timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
