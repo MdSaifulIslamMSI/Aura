@@ -40,7 +40,7 @@ Generated for `codex/extreme-performance-free-stack` from package files, route f
 
 ## CI, Docker, And Infra
 
-- CI workflows: `.github/workflows/ci.yml`, `security.yml`, `security-gates.yml`, `free-security-scanners.yml`, `production-cicd.yml`, deploy/rollback workflows for AWS, Netlify, Vercel gateway, desktop, mobile, staging, and status watch.
+- CI workflows: `.github/workflows/ci.yml`, `security-gates.yml`, `free-security-scanners.yml`, `production-cicd.yml`, deploy/rollback workflows for AWS, Netlify, Vercel gateway, desktop, mobile, staging, and status watch.
 - Docker/compose files:
   - Root `docker-compose.yml`, `docker-compose.status.yml`, `docker-compose.split-runtime.yml`, and `docker-compose.observability.yml`.
   - Backend `server/Dockerfile`.
