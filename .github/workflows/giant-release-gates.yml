@@ -43,10 +43,6 @@ env:
   ROLLBACK_ARTIFACT_URI: ${{ vars.ROLLBACK_ARTIFACT_URI }}
   ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA }}
 
-concurrency:
-  group: giant-release-gates-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
     name: test
