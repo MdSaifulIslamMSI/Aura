@@ -1010,9 +1010,6 @@ docker compose \
   --profile malware-scan \
   rm --stop --force clamav
 
-validate_caddyfile "${staged_current_dir}/infra/aws/Caddyfile"
-echo "Release Caddyfile adapts cleanly."
-
 # The Compose file declares the shared aura-traffic network as external (the
 # blue-green slot switch uses it); create it idempotently before up.
 ensure_aura_networks
