@@ -81,6 +81,21 @@ test('coherence fails naming the lazy chunk whose bytes diverge', (t) => {
   assert.match(result.stderr, /bytes differ/);
 });
 
+test('coherence passes when a host injects third-party runtime scripts (vercel.live widget)', (t) => {
+  const assets = { '/assets/index-abc.js': 'entry', '/assets/index-abc.css': 'body{}' };
+  const hostA = makeHost(t, 'a', assets);
+  const hostB = makeHost(t, 'b', assets);
+  // Vercel preview HTML carries its own injected feedback widget script.
+  writeFileSync(path.join(hostB.dir, 'index.html'),
+    shellHtml(Object.keys(assets)) +
+    '<script src="https://vercel.live/_next-live/feedback/feedback.js"></script>');
+  const result = runVerifier([
+    { name: 'host-a', url: 'https://host-a.example', htmlPath: path.join(hostA.dir, 'index.html'), assetsDir: hostA.assetsDir },
+    { name: 'host-b', url: 'https://host-b.example', htmlPath: path.join(hostB.dir, 'index.html'), assetsDir: hostB.assetsDir },
+  ]);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
 test('coherence fails when a host references a different asset set', (t) => {
   const hostA = makeHost(t, 'a', { '/assets/index-abc.js': 'entry' });
   const hostB = makeHost(t, 'b', { '/assets/index-xyz.js': 'entry' });

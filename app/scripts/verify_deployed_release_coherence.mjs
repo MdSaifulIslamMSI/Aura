@@ -88,10 +88,14 @@ const extractReferencedAssets = (html, name) => {
             assets.add(match[1]);
         }
     }
-    if (assets.size === 0) {
-        throw new Error(`${name} HTML references no verifiable assets; cannot verify bundle bytes.`);
+    // Hosts inject their own runtime scripts into served HTML (e.g. Vercel's
+    // vercel.live preview feedback widget). Those are not build output; only
+    // same-origin (relative) asset paths are verifiable build bytes.
+    const verifiable = [...assets].filter((asset) => !/^(https?:)?\/\//i.test(asset)).sort();
+    if (verifiable.length === 0) {
+        throw new Error(`${name} HTML references no verifiable same-origin assets; cannot verify bundle bytes.`);
     }
-    return [...assets].sort();
+    return verifiable;
 };
 
 const sha256 = (buffer) => createHash('sha256').update(buffer).digest('hex');

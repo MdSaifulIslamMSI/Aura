@@ -1361,8 +1361,9 @@ jobs:
             ]) {
               for (const match of html.matchAll(re)) assets.add(match[1]);
             }
-            if (assets.size === 0) { console.error("No verifiable assets found in the Vercel HTML."); process.exit(1); }
-            for (const asset of [...assets].sort()) process.stdout.write(asset + "\n");
+            const verifiable = [...assets].filter((asset) => !/^(https?:)?\/\//i.test(asset));
+            if (verifiable.length === 0) { console.error("No verifiable same-origin assets found in the Vercel HTML."); process.exit(1); }
+            for (const asset of verifiable.sort()) process.stdout.write(asset + "\n");
           ' < "${RUNNER_TEMP}/aura-release/vercel-preview.html" > "${RUNNER_TEMP}/aura-release/preview-assets.txt"
           mkdir -p "${RUNNER_TEMP}/aura-release/assets"
           while IFS= read -r ASSET; do
@@ -1442,8 +1443,9 @@ jobs:
             ]) {
               for (const match of html.matchAll(re)) assets.add(match[1]);
             }
-            if (assets.size === 0) { console.error("No verifiable assets found in the Vercel HTML."); process.exit(1); }
-            for (const asset of [...assets].sort()) process.stdout.write(asset + "\n");
+            const verifiable = [...assets].filter((asset) => !/^(https?:)?\/\//i.test(asset));
+            if (verifiable.length === 0) { console.error("No verifiable same-origin assets found in the Vercel HTML."); process.exit(1); }
+            for (const asset of verifiable.sort()) process.stdout.write(asset + "\n");
           ' < "${RUNNER_TEMP}/aura-release/vercel-production.html" > "${RUNNER_TEMP}/aura-release/production-assets.txt"
           mkdir -p "${RUNNER_TEMP}/aura-release/assets"
           while IFS= read -r ASSET; do
