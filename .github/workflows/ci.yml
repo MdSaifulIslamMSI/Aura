@@ -98,6 +98,7 @@ env:
 jobs:
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       backend: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.backend || steps.filter.outputs.backend }}
       desktop: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call') && steps.manual.outputs.desktop || steps.filter.outputs.desktop }}

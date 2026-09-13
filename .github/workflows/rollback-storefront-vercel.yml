@@ -35,6 +35,7 @@ jobs:
   rollback:
     name: Roll back Vercel storefront
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment:
       name: production
 

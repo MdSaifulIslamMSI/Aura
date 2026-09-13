@@ -13,6 +13,10 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   AURA_UPTIME_BACKEND_URL: ${{ vars.AURA_UPTIME_BACKEND_URL || '' }}
 
+concurrency:
+  group: uptime-probe
+  cancel-in-progress: true
+
 jobs:
   probe:
     runs-on: ubuntu-latest

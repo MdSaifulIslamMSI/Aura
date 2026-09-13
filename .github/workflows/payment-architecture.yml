@@ -41,6 +41,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: payment-architecture-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   payment-architecture:
     name: Payment foundation validation

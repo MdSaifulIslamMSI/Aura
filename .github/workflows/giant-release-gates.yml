@@ -43,10 +43,15 @@ env:
   ROLLBACK_ARTIFACT_URI: ${{ vars.ROLLBACK_ARTIFACT_URI }}
   ROLLBACK_TARGET_SHA: ${{ vars.ROLLBACK_TARGET_SHA }}
 
+concurrency:
+  group: giant-release-gates-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: test
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -62,6 +67,7 @@ jobs:
   security:
     name: security
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -78,6 +84,7 @@ jobs:
     name: smoke:staging
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: staging
     permissions:
       contents: read
@@ -127,6 +134,7 @@ jobs:
     name: smoke:staging:frontend
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: staging
     permissions:
       contents: read
@@ -169,6 +177,7 @@ jobs:
     name: smoke:env-contract
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: staging
     permissions:
       contents: read
@@ -218,6 +227,7 @@ jobs:
     name: aws:cost-guard
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: staging
     permissions:
       contents: read
@@ -264,6 +274,7 @@ jobs:
   aws-observability-guard:
     name: aws:observability:guard
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: staging
     permissions:
       contents: read
@@ -304,6 +315,7 @@ jobs:
     name: release:rollback-ready
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: staging
     permissions:
       contents: read
@@ -343,6 +355,7 @@ jobs:
   test-reliability:
     name: test:reliability
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -361,6 +374,7 @@ jobs:
     name: sre:synthetic:staging
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: staging
     permissions:
       contents: read
@@ -412,6 +426,7 @@ jobs:
     name: sre:latency:staging
     if: inputs.staging_off_acknowledged != true
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: staging
     permissions:
       contents: read
@@ -463,6 +478,7 @@ jobs:
     name: staging:off-proof
     if: inputs.staging_off_acknowledged == true
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment: staging
     permissions:
       contents: read

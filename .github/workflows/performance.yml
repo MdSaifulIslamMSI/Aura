@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   performance-smoke:
     # PR smoke only — the nightly stress/spike lane covers scheduled runs.

@@ -33,6 +33,7 @@ jobs:
   rollback:
     name: Roll back Render storefront
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment:
       name: production
 
