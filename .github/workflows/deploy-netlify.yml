@@ -132,8 +132,6 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   NODE_VERSION: 24.x
-  # Build-contract plumbing for the host env-parity gate (production only).
-  AURA_VERIFY_ENV_PARITY: ${{ inputs.target == 'production' && 'true' || 'false' }}
   NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID || secrets.NETLIFY_SITE_ID }}
   NETLIFY_SITE_NAME: ${{ vars.NETLIFY_SITE_NAME || 'aurapilot' }}
   VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID || secrets.VERCEL_ORG_ID }}
@@ -338,29 +336,7 @@ jobs:
           # Org site: US5 (matches the RUM application).
           VITE_DD_SITE: us5.datadoghq.com
           VITE_SENTRY_RELEASE: ${{ github.sha }}
-          # Host env-parity gate (production lane only): the exact VITE_* set
-          # this build inlines is the contract each storefront host must match.
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
         run: |
-          # Emit the build's VITE_* contract (pre-drop, names + emptiness) so
-          # the parity verifier compares hosts against what THIS build inlines.
-          AURA_VITE_ENV_MANIFEST="${RUNNER_TEMP}/vite-env-manifest.json"
-          node -e '
-            const fs = require("fs");
-            const vars = Object.keys(process.env)
-              .filter((key) => key.startsWith("VITE_") && /^[A-Za-z0-9_]+$/.test(key))
-              .sort()
-              .map((name) => ({ name, empty: String(process.env[name]).length === 0 }));
-            fs.writeFileSync(process.env.AURA_VITE_ENV_MANIFEST, JSON.stringify({ vars }, null, 2));
-            console.log(`recorded ${vars.length} VITE_ vars in the build contract`);
-          '
-          if [ "${AURA_VERIFY_ENV_PARITY}" = "true" ]; then
-            node ./app/scripts/verify_host_env_parity.mjs --expected-file "${AURA_VITE_ENV_MANIFEST}"
-          else
-            echo "Host env-parity gate skipped (non-production lane)."
-          fi
           # Render's env-vars API rejects empty values, so a Render build can
           # never see an empty-string VITE_ var that CI defines. Drop them on
           # this side too so both hosts inline the identical import.meta.env

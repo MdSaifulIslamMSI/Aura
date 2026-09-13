@@ -801,12 +801,33 @@ addCheck(
   'deploy-netlify.yml rollback defaults + missing-target acknowledgement'
 );
 
+// The only storefront host that BUILDS is Render; its deploy job injects the
+// exact VITE_* set at deploy time (literals + passthrough). Every VITE_ var
+// the CI build can inline must be covered by that injection, or Render's
+// bytes diverge from the shared artifact.
+const renderParityCoverageFailures = (() => {
+  const envVarNames = new Set(
+    [...deployNetlifyWorkflow.matchAll(/^\s*(VITE_[A-Z0-9_]+):\s*\$\{\{/gm)].map((m) => m[1])
+  );
+  const literalsBlock = deployNetlifyWorkflow.match(/const literals = \{([\s\S]*?)\};/);
+  const passthroughBlock = deployNetlifyWorkflow.match(/const passthrough = \[([\s\S]*?)\];/);
+  if (!literalsBlock || !passthroughBlock) {
+    return ['deploy-netlify.yml Render deploy job no longer declares its parity literals/passthrough'];
+  }
+  const covered = new Set([
+    ...[...literalsBlock[1].matchAll(/(VITE_[A-Z0-9_]+):/g)].map((m) => m[1]),
+    ...[...passthroughBlock[1].matchAll(/"(VITE_[A-Z0-9_]+)"/g)].map((m) => m[1]),
+  ]);
+  return [...envVarNames].filter((name) => !covered.has(name))
+    .map((name) => `Render parity injection does not cover ${name}`);
+})();
+
 addCheck(
-  'host env-parity gate guards the shared storefront build',
-  exists('app/scripts/verify_host_env_parity.mjs')
-    && deployNetlifyWorkflow.includes('verify_host_env_parity.mjs --expected-file')
-    && deployNetlifyWorkflow.includes('AURA_VERIFY_ENV_PARITY'),
-  'deploy-netlify.yml verifies host VITE_* env against the build contract before building'
+  'render parity injection covers the CI VITE_ build contract',
+  renderParityCoverageFailures.length === 0,
+  renderParityCoverageFailures.length === 0
+    ? 'every VITE_ var the build inlines is injected into the Render build at deploy time'
+    : renderParityCoverageFailures.join('; ')
 );
 
 addCheck(
