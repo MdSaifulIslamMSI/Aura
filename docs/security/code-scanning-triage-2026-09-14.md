@@ -37,7 +37,10 @@ only flags signing operations, not algorithm mentions").
 
 All five are already accepted with reasons and expiry (2026-12-31) in
 `config/security/pqc-allowlist.json` on the node-side policy lane; the
-semgrep lane now carries matching in-code suppressions.
+semgrep lane now carries matching in-code suppressions. The annotations use
+fully qualified rule ids (`security.semgrep.<rule>`) because semgrep
+namespaces local-config rules by their config path — the short form does not
+match.
 
 | Alert | Rule | Site | Suppression rationale |
 | --- | --- | --- | --- |

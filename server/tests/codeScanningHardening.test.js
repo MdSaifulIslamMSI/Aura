@@ -126,4 +126,20 @@ describe('code scanning hardening contracts', () => {
         expect(policy).not.toContain('RS256|ES256|PS256');
         expect(policy).toContain('tests/fixtures/security/pqc/**');
     });
+
+    test('allowlisted hash sites carry fully qualified nosemgrep annotations', () => {
+        // Semgrep namespaces local-config rules by their config path, so the
+        // effective rule id is security.semgrep.<rule> and the inline
+        // annotation must use the fully qualified form to match.
+        const expectations = [
+            ['server/services/listingService.js', 'nosemgrep: security.semgrep.nodejs-md5'],
+            ['server/services/productImageResolver.js', 'nosemgrep: security.semgrep.nodejs-sha1'],
+            ['server/services/catalogArtworkService.js', 'nosemgrep: security.semgrep.nodejs-sha1'],
+            ['scripts/i18n/codemod-jsx-stable-text.mjs', 'nosemgrep: security.semgrep.nodejs-sha1'],
+            ['scripts/i18n/discover-stable-ui-text.mjs', 'nosemgrep: security.semgrep.nodejs-sha1'],
+        ];
+        for (const [relativePath, annotation] of expectations) {
+            expect(readRepoFile(relativePath)).toContain(annotation);
+        }
+    });
 });
