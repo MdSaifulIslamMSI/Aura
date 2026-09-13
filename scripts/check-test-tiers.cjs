@@ -13,6 +13,9 @@
  *   5. A test suite is listed in no tier and not in the surface's
  *      "$untriaged" allowlist (new suites must be triaged explicitly —
  *      tiered for CI, or consciously allowlisted as untriaged).
+ *   6. Ratchet: "$untriaged" is no longer a parking lot — it must stay
+ *      empty. Every suite belongs in regression (every PR), nightly
+ *      (scheduled full lane), or quarantine (report-only flake pool).
  *
  * Usage: node scripts/check-test-tiers.cjs
  * Exit 0 = manifest healthy; exit 1 = problems listed.
@@ -25,6 +28,9 @@ const MANIFEST_PATH = path.join(ROOT, 'config', 'test-tiers.json');
 const WORKFLOWS_DIR = path.join(ROOT, '.github', 'workflows');
 const TIER_SURFACES = ['server'];
 const noDbTierNames = new Set(['noDbFiles']);
+// Quarantine starts empty and shrinks/grows with the flake pool; every other
+// tier must hold at least one suite.
+const allowEmptyTiers = new Set(['quarantine']);
 
 const fail = (message) => {
     console.error(`[check-test-tiers] ${message}`);
@@ -99,7 +105,7 @@ for (const surface of TIER_SURFACES) {
             continue;
         }
         tierCount += 1;
-        if (!Array.isArray(files) || files.length === 0) {
+        if (!Array.isArray(files) || (files.length === 0 && !allowEmptyTiers.has(tier))) {
             problems.push(`${surface}/${tier}: tier is empty`);
             continue;
         }
@@ -127,8 +133,13 @@ for (const surface of TIER_SURFACES) {
     for (const file of testFiles) {
         const relative = `tests/${path.relative(path.join(serverDir, 'tests'), file).split(path.sep).join('/')}`;
         if (!coveredSuites.has(relative)) {
-            problems.push(`${relative}: suite is in no tier and not in ${surface}/$untriaged (triage it: add to a CI tier or the allowlist)`);
+            problems.push(`${relative}: suite is in no tier and not in ${surface}/$untriaged (triage it: add to regression, nightly, or quarantine)`);
         }
+    }
+
+    // 6: ratchet — $untriaged triage debt must stay at zero.
+    if (untriagedCount > 0) {
+        problems.push(`${surface}/$untriaged: ${untriagedCount} allowlisted suite(s) — the untriaged parking lot is closed; move every suite into regression, nightly, or quarantine`);
     }
 
     // 3: dead suites — test-like files jest's testMatch will never pick up
@@ -160,4 +171,4 @@ if (problems.length > 0) {
     process.exit(1);
 }
 
-console.log(`[check-test-tiers] OK — ${tierCount} tiers validated, ${suiteCount} server suites reachable (${suiteCount - untriagedCount} tiered, ${untriagedCount} allowlisted untriaged), ${workflowFiles.length} workflows drift-free.`);
+console.log(`[check-test-tiers] OK — ${tierCount} tiers validated, ${suiteCount} server suites tiered (${untriagedCount} untriaged — ratchet requires 0), ${workflowFiles.length} workflows drift-free.`);

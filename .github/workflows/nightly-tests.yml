@@ -1,0 +1,196 @@
+name: Nightly Test Fleet
+
+# Full-coverage lane for the suites that must not block PRs: the `nightly`
+# tier (everything not fit for per-PR regression) plus the report-only
+# `quarantine` flake pool. Real failures redden the run; pass-on-retry suites
+# land in reports/nightly as flakes for triage.
+on:
+  schedule:
+    - cron: "33 0 * * *" # 00:33 UTC daily — staggered away from every other cron in the repo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-tests
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+
+jobs:
+  nightly-server:
+    if: vars.NIGHTLY_TESTS_ENABLED != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: ./server
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
+        with:
+          mongodb-image: mirror.gcr.io/library/mongo
+          mongodb-version: "6.0"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run nightly shard (failed suites retried once, in-band)
+        run: node ../scripts/run-nightly-tier.cjs server nightly --shard=${{ matrix.shard }}/6 --runInBand --report=${{ github.workspace }}/reports/nightly/server-nightly-shard-${{ matrix.shard }}of6.json
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_nightly
+          TEST_USE_IN_MEMORY_MONGO: "false"
+          TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
+          NODE_ENV: test
+          REDIS_ENABLED: "true"
+          REDIS_URL: redis://127.0.0.1:6379
+
+      - name: Upload nightly shard report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nightly-server-shard-${{ matrix.shard }}
+          path: reports/nightly/
+          retention-days: 14
+
+  quarantine-report:
+    # Report-only: quarantine failures never redden the run, they surface in
+    # the flake report so suites can be fixed or promoted back to nightly.
+    if: vars.NIGHTLY_TESTS_ENABLED != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: ./server
+
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@315db7fe45ac2880b7758f1933e6e5d59afd5e94 # 1.12.1
+        with:
+          mongodb-image: mirror.gcr.io/library/mongo
+          mongodb-version: "6.0"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run quarantine tier (report-only)
+        continue-on-error: true
+        run: node ../scripts/run-nightly-tier.cjs server quarantine --runInBand --report=${{ github.workspace }}/reports/nightly/server-quarantine.json
+        env:
+          TEST_MONGO_URI: mongodb://127.0.0.1:27017/aura_nightly_quarantine
+          TEST_USE_IN_MEMORY_MONGO: "false"
+          TEST_FALLBACK_TO_IN_MEMORY_MONGO: "false"
+          NODE_ENV: test
+          REDIS_ENABLED: "true"
+          REDIS_URL: redis://127.0.0.1:6379
+
+      - name: Upload quarantine report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nightly-quarantine
+          path: reports/nightly/
+          retention-days: 14
+
+  nightly-summary:
+    needs: [nightly-server, quarantine-report]
+    if: always() && vars.NIGHTLY_TESTS_ENABLED != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download shard reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: nightly-artifacts
+
+      - name: Aggregate nightly results into the run summary
+        shell: bash
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const rootDir = "nightly-artifacts";
+            const reports = [];
+            const walk = (dir) => {
+              if (!fs.existsSync(dir)) return;
+              for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) walk(full);
+                else if (entry.name.endsWith(".json")) {
+                  try { reports.push(JSON.parse(fs.readFileSync(full, "utf8"))); }
+                  catch (error) { console.warn(`unreadable report ${full}: ${error.message}`); }
+                }
+              }
+            };
+            walk(rootDir);
+            const lines = ["## Nightly Test Fleet", ""];
+            const flakes = reports.flatMap((r) => (r.flakes || []).map((s) => `${s} (${r.tier}${r.shard ? ` shard ${r.shard.index}/${r.shard.count}` : ""})`));
+            const failed = reports.flatMap((r) => (r.failed || []).map((s) => `${s} (${r.tier}${r.shard ? ` shard ${r.shard.index}/${r.shard.count}` : ""})`));
+            const total = reports.reduce((sum, r) => sum + (r.firstRun?.totalSuites || 0), 0);
+            lines.push(`Suites executed: **${total}** across ${reports.length} report(s).`);
+            lines.push(`Flakes (passed after retry): **${flakes.length}**.`);
+            lines.push(`Real failures: **${failed.length}**.`);
+            if (flakes.length > 0) lines.push("", "### Flakes", ...flakes.map((s) => `- ${s}`));
+            if (failed.length > 0) lines.push("", "### Failures", ...failed.map((s) => `- ${s}`));
+            lines.push("", "Triage guide: docs/test-flake-policy.md. Fix or quarantine failures; a flake seen on multiple nights moves to the quarantine tier.");
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n"));
+          '
+
+      - name: Upload merged reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nightly-fleet-reports
+          path: nightly-artifacts/
+          retention-days: 14
