@@ -21,7 +21,7 @@ define or exercise the policy.
 
 | Rule | Alerts | Change |
 | --- | --- | --- |
-| `risky-jwt-classical-signing-warning` | 48 (1047–1049, 1076–1081, 1083–1084, 1087–1105, 1109–1124, 1131–1132) | Removed the loose `\b(RS256\|ES256\|PS256)\b` mention regex; the rule now reports only actual `jwt.sign(...)` calls. Mere algorithm mentions — including the RFC 9449-mandated DPoP `alg: 'ES256'` header — stay tracked by the node-side crypto inventory (`scripts/security/crypto-inventory.mjs`). Repo has zero production `jwt.sign` call sites. |
+| `risky-jwt-classical-signing-warning` | 48 (1047–1049, 1076–1081, 1083–1084, 1087–1105, 1109–1124, 1131–1132) | Removed the loose `\b(RS256\|ES256\|PS256)\b` mention regex; round 2 additionally narrowed the call patterns from `$JWT.sign(...)` (which matched any `.sign` method, e.g. WebCrypto `crypto.subtle.sign` used by DPoP) to real JWT library calls (`jwt.sign(...)`, `new SignJWT(...)`), and excluded test suites that mint throwaway tokens. Mere algorithm mentions — including the RFC 9449-mandated DPoP `alg: 'ES256'` header — stay tracked by the node-side crypto inventory (`scripts/security/crypto-inventory.mjs`). The repo has zero JWT-library signing call sites in production code. |
 | `insecure-cipher-config` | 17 (1052–1054, 1057–1062, 1069–1075, 1106) | Rule-level `paths.exclude` for `security/semgrep/`, `config/security/`, `scripts/security/`, `tests/fixtures/security/pqc/`. |
 | `tls-v1-config` | 7 (1050, 1063–1066, 1107, 1129) | Same `paths.exclude`. |
 | `tls-v1-1-config` | 5 (1051, 1067–1068, 1108, 1130) | Same `paths.exclude`. |
@@ -33,14 +33,15 @@ define or exercise the policy.
 Pinned by `server/tests/codeScanningHardening.test.js` ("PQC semgrep policy
 only flags signing operations, not algorithm mentions").
 
-### 2. Hash identifiers with documented accepted-risk (suppressed in code) — 5 alerts
+### 2. Hash identifiers with documented accepted-risk (excluded at rule level) — 5 alerts
 
 All five are already accepted with reasons and expiry (2026-12-31) in
 `config/security/pqc-allowlist.json` on the node-side policy lane; the
-semgrep lane now carries matching in-code suppressions. The annotations use
-fully qualified rule ids (`security.semgrep.<rule>`) because semgrep
-namespaces local-config rules by their config path — the short form does not
-match.
+semgrep lane excludes them at the rule level via `paths.exclude`
+(post-merge round 2). Inline `// nosemgrep` annotations — short or fully
+qualified (`security.semgrep.nodejs-sha1`) — did not suppress findings in
+the pinned CI semgrep image, so the path exclusion is the operative
+mechanism; the in-code comments remain as documentation.
 
 | Alert | Rule | Site | Suppression rationale |
 | --- | --- | --- | --- |
@@ -56,7 +57,7 @@ Recorded in `docs/code-quality-baseline.md`.
 
 | Alert | Rule | Site | Fix |
 | --- | --- | --- | --- |
-| 1146 | `js/indirect-command-line-injection` (medium) | `scripts/student-pack-sentry-release.mjs` | Release id is validated against `^[A-Za-z0-9][A-Za-z0-9._+@/-]{0,199}$` before any spawn; every cmd.exe metacharacter is rejected. Pinned in `codeScanningHardening.test.js`. |
+| 1146 | `js/indirect-command-line-injection` (medium) | `scripts/student-pack-sentry-release.mjs` | Round 1 added a strict charset allowlist (`^[A-Za-z0-9][A-Za-z0-9._+@/-]{0,199}$`) that CodeQL's taint model does not recognize as a sanitizer. Round 2 restructured per CodeQL's own remediation guidance: the release id travels to sentry-cli via the child `SENTRY_RELEASE` env var (sentry-cli's native fallback) and every argv is a constant string, so environment-controlled values never reach cmd.exe's argument parser. |
 | 1147 | `js/useless-assignment-to-local` | `server/config/runtimeConfig.js:349` | Removed the dead `onePasswordResult` initializer (unconditionally overwritten or thrown past). |
 | 1135–1140, 1143 | `js/unused-local-variable` (7) | `app/src/hooks/useSpeechInput.test.jsx:6`, `app/src/components/shared/SkeletonLoader/SkeletonLoader.test.jsx:1`, `app/src/hooks/useDismissableLayer.test.jsx:1`, `app/src/pages/Login/CountryCodePicker.test.jsx:1`, `server/tests/trustPolicies.test.js:58`, `server/tests/catalogProductIdIntegrity.test.js:1`, `server/tests/orderPlacementService.test.js:421` | Removed the unused imports/variables/bindings. |
 | 1142 | `zizmor/excessive-permissions` | `.github/workflows/production-db-backup.yml:16` | `id-token: write` narrowed from workflow level to the four jobs that mint AWS OIDC tokens. `observability-activation.yml` (same class) narrowed preventively. |
@@ -105,6 +106,30 @@ workflow_dispatch inputs stay explicitly accepted for CKV_GHA_7").
 - Hash-identifier suppressions expire with `pqc-allowlist.json` on
   2026-12-31; the semgrep `// nosemgrep` comments must be revisited in the
   same review.
+
+## Post-merge round 2 (same day)
+
+The first post-merge scan of the round-1 changes on `main` dropped open
+alerts from 104 to 25. Two suppression mechanisms needed rework, plus one
+residual:
+
+1. **Inline `// nosemgrep` did not suppress** (neither short nor fully
+   qualified rule ids) in the pinned CI semgrep image → the five hash sites
+   are now excluded via rule-level `paths.exclude`, the mechanism already
+   proven by the fixture/policy clusters (49 alerts closed as designed).
+2. **`$JWT.sign(...)` was too broad** — it matched any `.sign` method,
+   including WebCrypto `crypto.subtle.sign` (DPoP, apiBase.js /
+   deviceTrustClient.js) and test stubs → narrowed to real JWT library
+   calls (`jwt.sign(...)`, `new SignJWT(...)`) with test suites excluded.
+3. **CodeQL #1146 did not clear from the charset validation** (not modeled
+   as a sanitizer) → restructured per CodeQL's remediation guidance: release
+   passed via child env, argv fully constant.
+
+`server/tests/tlsConfigReadiness.test.js` / `pqcPolicyScripts.test.js`
+tls/cipher literals are excluded with `server/tests/**` (scanner-behavior
+assertions). Residual dismissals after the round-2 scan: #1133 (false
+positive), Scorecard #1013 / #1027 / #1028 / #1040, and #1146 if it
+survives the restructure.
 
 ## Verification
 

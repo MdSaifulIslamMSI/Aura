@@ -118,13 +118,25 @@ describe('code scanning hardening contracts', () => {
         const source = readRepoFile('scripts/student-pack-sentry-release.mjs');
         expect(source).toContain("'/d', '/c', sentryCommand");
         expect(source).toContain('/^[A-Za-z0-9][A-Za-z0-9._+@/-]{0,199}$/.test(release)');
+        // The release id travels via the child SENTRY_RELEASE env var, never
+        // through cmd.exe argv:
+        expect(source).toContain('SENTRY_RELEASE: release');
+        expect(source).not.toContain("'releases', 'new', release");
+        expect(source).not.toContain("'--release', release");
     });
 
     test('PQC semgrep policy only flags signing operations, not algorithm mentions', () => {
         const policy = readRepoFile('security/semgrep/pqc-crypto-policy.yml');
         expect(policy).toContain('pattern: jwt.sign(...)');
+        expect(policy).toContain('pattern: new SignJWT(...)');
+        expect(policy).not.toContain('$JWT.sign(...)');
         expect(policy).not.toContain('RS256|ES256|PS256');
         expect(policy).toContain('tests/fixtures/security/pqc/**');
+        // Accepted hash sites are excluded at the rule level (the operative
+        // mechanism; inline nosemgrep comments alone did not suppress):
+        expect(policy).toContain('- server/services/productImageResolver.js');
+        expect(policy).toContain('- server/services/catalogArtworkService.js');
+        expect(policy).toContain('- server/services/listingService.js');
     });
 
     test('allowlisted hash sites carry fully qualified nosemgrep annotations', () => {
