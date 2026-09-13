@@ -738,11 +738,13 @@ addCheck(
 
 // Every package.json script that points at a repo script file must point at a
 // file that exists (dev:on/dev:off/codex:* once shipped dead references).
+// Backslashes in the script commands are Windows-style; normalize them so the
+// existence check also works on Linux CI where '\' is a plain filename char.
 const ps1ScriptFailures = Object.entries(packageJson.scripts || {})
-  .filter(([, command]) => /-File \.\\scripts\\[\w-]+\.ps1/.test(command))
+  .filter(([, command]) => /-File (?:\.)?[\\/]scripts[\\/][\w-]+\.ps1/.test(command))
   .filter(([, command]) => {
-    const match = /-File (\.\\scripts\\[\w-]+\.ps1)/.exec(command);
-    return match && !exists(match[1].replace(/^\.\\/, ''));
+    const match = /-File (?:\.)?[\\/](scripts[\\/][\w-]+\.ps1)/.exec(command);
+    return match && !exists(match[1].replace(/\\/g, '/'));
   })
   .map(([name, command]) => `${name} -> ${command}`);
 
