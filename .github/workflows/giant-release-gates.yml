@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -95,7 +95,7 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-staging" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
@@ -111,7 +111,7 @@ jobs:
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -122,7 +122,7 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run smoke:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && github.event_name != 'pull_request'
         with:
           name: staging-smoke-evidence
@@ -145,7 +145,7 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-staging-frontend" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
@@ -161,7 +161,7 @@ jobs:
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -188,7 +188,7 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for smoke-env-contract" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
@@ -204,7 +204,7 @@ jobs:
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -215,7 +215,7 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run smoke:env-contract
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && github.event_name != 'pull_request'
         with:
           name: env-contract-evidence
@@ -238,7 +238,7 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for aws-cost-guard" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
@@ -254,7 +254,7 @@ jobs:
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -263,7 +263,7 @@ jobs:
           unset-current-credentials: true
       - run: npm run aws:cost-guard
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && github.event_name != 'pull_request'
         with:
           name: cost-guard-evidence
@@ -285,7 +285,7 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for aws-observability-guard" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
@@ -301,7 +301,7 @@ jobs:
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -326,7 +326,7 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for release-rollback-ready" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
@@ -342,7 +342,7 @@ jobs:
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role for optional S3 rollback proof
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -357,7 +357,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -387,7 +387,7 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for sre-synthetic-staging" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
@@ -403,7 +403,7 @@ jobs:
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -414,7 +414,7 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run sre:synthetic:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && github.event_name != 'pull_request'
         with:
           name: sre-synthetic-evidence
@@ -439,7 +439,7 @@ jobs:
       - name: Staging paused on PR - skip live checks
         if: github.event_name == 'pull_request'
         run: echo "::warning::staging is paused on PRs - live EC2/S3 checks skipped for sre-latency-staging" && exit 0
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name != 'pull_request'
         with:
           persist-credentials: false
@@ -455,7 +455,7 @@ jobs:
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
@@ -466,7 +466,7 @@ jobs:
         if: github.event_name != 'pull_request'
       - run: npm run sre:latency:staging
         if: github.event_name != 'pull_request'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && github.event_name != 'pull_request'
         with:
           name: sre-latency-evidence
@@ -486,7 +486,7 @@ jobs:
     env:
       STAGING_AWS_DEPLOY_ROLE_ARN: ${{ vars.STAGING_AWS_DEPLOY_ROLE_ARN || secrets.STAGING_AWS_DEPLOY_ROLE_ARN || '' }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -497,7 +497,7 @@ jobs:
       - name: Assert staging AWS role is configured
         run: test -n "${STAGING_AWS_DEPLOY_ROLE_ARN}" || { echo "Missing STAGING_AWS_DEPLOY_ROLE_ARN."; exit 1; }
       - name: Configure staging read role
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ env.STAGING_AWS_DEPLOY_ROLE_ARN }}
