@@ -30,6 +30,7 @@ const hostedProductionOrigins = [
     'https://aurapilot.vercel.app',
     'https://aurapilot.netlify.app',
     'https://dbtrhsolhec1s.cloudfront.net',
+    'https://aura-storefront.onrender.com',
     'https://aurapilot.aws.app',
 ];
 
