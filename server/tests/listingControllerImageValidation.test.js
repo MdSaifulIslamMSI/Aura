@@ -31,6 +31,7 @@ jest.mock('../services/payments/providerFactory', () => ({
     getPaymentProvider: jest.fn(),
 }));
 jest.mock('../services/payments/paymentService', () => ({
+    setTerminalCaptureFailureHandler: jest.fn(),
     captureIntentNow: jest.fn(),
 }));
 jest.mock('../services/socketService', () => ({

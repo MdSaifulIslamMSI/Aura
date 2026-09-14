@@ -55,6 +55,7 @@ const mockScheduleRefundTask = jest.fn();
 jest.mock('../services/payments/paymentService', () => ({
     createRefundForIntent: mockCreateRefundForIntent,
     scheduleRefundTask: mockScheduleRefundTask,
+    setTerminalCaptureFailureHandler: jest.fn(),
 }));
 
 const Order = require('../models/Order');

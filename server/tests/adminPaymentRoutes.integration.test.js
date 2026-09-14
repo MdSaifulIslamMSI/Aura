@@ -51,6 +51,7 @@ jest.mock('../services/notificationService', () => ({
 }));
 
 jest.mock('../services/payments/paymentService', () => ({
+    setTerminalCaptureFailureHandler: jest.fn(),
     createPaymentIntent: jest.fn(),
     confirmPaymentIntent: jest.fn(),
     getPaymentIntentForUser: jest.fn(),

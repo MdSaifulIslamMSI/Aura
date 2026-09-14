@@ -1,4 +1,5 @@
 jest.mock('../services/payments/paymentService', () => ({
+    setTerminalCaptureFailureHandler: jest.fn(),
   listUserPaymentMethods: jest.fn(),
   listPaymentCapabilities: jest.fn(),
   listNetbankingBanks: jest.fn(),
