@@ -7,6 +7,11 @@ const {
     cancelOrderByActor,
     getOrderTimelineData,
     DIGITAL_PAYMENT_METHODS,
+    getReturnWindowDays,
+    isOrderDelivered,
+    isPreShipmentOrder,
+    isInsideReturnWindow,
+    hasActiveCommandRequest,
 } = require('../services/orderService');
 const { getRequiredIdempotencyKey, getStableUserKey } = require('../services/payments/idempotencyService');
 const { placeOrderWithIdempotency } = require('../services/orderPlacementService');
@@ -629,8 +634,12 @@ const getMyOrderCommandCenter = asyncHandler(async (req, res, next) => {
             deliveryOption: order.deliveryOption || 'standard',
         },
         actionAvailability: {
-            canRequestRefund: !order.refundSummary?.fullyRefunded,
-            canRequestReplacement: order.orderStatus !== 'cancelled' && !isOrderFullyRefunded(order),
+            canRequestRefund: !isOrderFullyRefunded(order)
+                && !hasActiveCommandRequest(order, 'refunds')
+                && isInsideReturnWindow(order),
+            canRequestReplacement: (['shipped', 'delivered'].includes(String(order.orderStatus || '')) || isOrderDelivered(order))
+                && !isOrderFullyRefunded(order)
+                && isInsideReturnWindow(order),
             canOpenWarrantyClaim: true,
             canOpenSupportChat: true,
             canCancelOrder: !order.isDelivered && order.orderStatus !== 'cancelled',
@@ -652,10 +661,28 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
     const now = new Date();
     const reason = String(req.body.reason || '').trim();
     const requestedAmount = Number(req.body.amount);
+
+    // Policy gates: one active request per order, return window for delivered
+    // orders, and the amount is capped at what is actually still refundable.
+    if (!isInsideReturnWindow(order)) {
+        return next(new AppError(
+            `Refunds for delivered orders must be requested within ${getReturnWindowDays()} day(s) of delivery.`,
+            409
+        ));
+    }
+    if (hasActiveCommandRequest(order, 'refunds')) {
+        return next(new AppError('An active refund request already exists for this order', 409));
+    }
+
     const orderTotal = Number(order.totalPrice || 0);
+    const alreadyRefunded = Number(order.refundSummary?.totalRefunded || 0);
+    const refundableTotal = Math.max(0, orderTotal - alreadyRefunded);
+    if (refundableTotal <= 0) {
+        return next(new AppError('This order has already been fully refunded', 409));
+    }
     const amount = Number.isFinite(requestedAmount) && requestedAmount > 0
-        ? Math.min(requestedAmount, orderTotal)
-        : orderTotal;
+        ? Math.min(requestedAmount, refundableTotal)
+        : refundableTotal;
     const fraudDecision = await assessFraudDecision({
         action: 'order_refund_request',
         user: req.user,
@@ -705,10 +732,18 @@ const createOrderRefundRequest = asyncHandler(async (req, res, next) => {
         }
     );
 
+    // Auto-execution is limited to pre-shipment cancellations-style refunds;
+    // once an order has shipped, every refund request goes through admin
+    // review via the command-center admin endpoint.
+    const canProcessAutomatically = isPreShipmentOrder(order)
+        && Boolean(order.paymentIntentId)
+        && DIGITAL_PAYMENT_METHODS.has(String(order.paymentMethod || '').toUpperCase());
+
     let message = requiresFraudReview
         ? 'Refund request submitted for fraud review'
-        : 'Refund request submitted';
-    const canProcessAutomatically = Boolean(order.paymentIntentId) && DIGITAL_PAYMENT_METHODS.has(String(order.paymentMethod || '').toUpperCase());
+        : canProcessAutomatically
+            ? 'Refund request submitted'
+            : 'Refund request submitted for admin review';
 
     if (canProcessAutomatically && !requiresFraudReview) {
         try {
@@ -785,6 +820,17 @@ const createOrderReplacementRequest = asyncHandler(async (req, res, next) => {
     if (isOrderFullyRefunded(order)) {
         return next(new AppError('Fully refunded orders cannot be replaced', 409));
     }
+    const replacementEligible = ['shipped', 'delivered'].includes(String(order.orderStatus || ''))
+        || isOrderDelivered(order);
+    if (!replacementEligible) {
+        return next(new AppError('Replacements are available once the order has shipped', 409));
+    }
+    if (!isInsideReturnWindow(order)) {
+        return next(new AppError(
+            `Replacements for delivered orders must be requested within ${getReturnWindowDays()} day(s) of delivery.`,
+            409
+        ));
+    }
 
     const targetOrderItem = resolveOrderItemForCommand(order, req.body);
     if (!targetOrderItem) {
@@ -808,55 +854,36 @@ const createOrderReplacementRequest = asyncHandler(async (req, res, next) => {
     const itemProductId = String(targetOrderItem.product || targetOrderItem.productId || '');
     const itemTitle = targetOrderItem.title || String(req.body.itemTitle || '').trim() || 'Unknown item';
 
-    let status = 'pending';
-    let message = 'Replacement request created. Awaiting stock allocation.';
-    let trackingId = '';
-    let processedAt = null;
-
-    const stockUpdate = await Product.findOneAndUpdate(
-        { _id: targetOrderItem.product, stock: { $gte: quantity } },
-        { $inc: { stock: -quantity } },
-        { returnDocument: 'after' }
+    // Requests never touch stock or fabricate fulfillment state — stock is
+    // decremented and tracking is assigned only when an admin dispatches the
+    // replacement via the command-center admin endpoint.
+    const requestId = createCommandId('rplc');
+    const now = new Date();
+    const message = 'Replacement request submitted. Awaiting admin approval.';
+    await Order.updateOne(
+        { _id: order._id, user: req.user._id },
+        {
+            $push: {
+                'commandCenter.replacements': {
+                    requestId,
+                    reason: String(req.body.reason || '').trim(),
+                    itemProductId,
+                    itemTitle,
+                    quantity,
+                    status: 'pending',
+                    message,
+                    createdAt: now,
+                },
+            },
+            $set: { 'commandCenter.lastUpdatedAt': now },
+        }
     );
 
-    if (stockUpdate) {
-        status = 'shipped';
-        trackingId = createCommandId('trk');
-        processedAt = new Date();
-        message = 'Replacement approved and dispatched.';
-    }
-
-    order.commandCenter = order.commandCenter || {};
-    order.commandCenter.replacements = Array.isArray(order.commandCenter.replacements) ? order.commandCenter.replacements : [];
-    order.commandCenter.replacements.push({
-        requestId: createCommandId('rplc'),
-        reason: String(req.body.reason || '').trim(),
-        itemProductId,
-        itemTitle,
-        quantity,
-        status,
-        message,
-        trackingId,
-        createdAt: new Date(),
-        processedAt,
-    });
-    order.commandCenter.lastUpdatedAt = new Date();
-    if (status === 'shipped' && order.orderStatus !== 'cancelled') {
-        order.orderStatus = 'processing';
-        order.statusTimeline = Array.isArray(order.statusTimeline) ? order.statusTimeline : [];
-        order.statusTimeline.push({
-            status: 'processing',
-            message: `Replacement dispatched for ${itemTitle}`,
-            actor: 'system',
-            at: new Date(),
-        });
-    }
-    await order.save();
-
+    const updatedOrder = await Order.findById(order._id).lean();
     res.status(201).json({
         success: true,
         message,
-        commandCenter: normalizeCommandCenter(order),
+        commandCenter: normalizeCommandCenter(updatedOrder),
     });
 });
 
@@ -869,21 +896,28 @@ const createOrderSupportMessage = asyncHandler(async (req, res, next) => {
         return next(new AppError('Order not found', 404));
     }
 
-    order.commandCenter = order.commandCenter || {};
-    order.commandCenter.supportChats = Array.isArray(order.commandCenter.supportChats) ? order.commandCenter.supportChats : [];
-    order.commandCenter.supportChats.push({
-        messageId: createCommandId('msg'),
-        actor: 'customer',
-        message: String(req.body.message || '').trim(),
-        createdAt: new Date(),
-    });
-    order.commandCenter.lastUpdatedAt = new Date();
-    await order.save();
+    const messageId = createCommandId('msg');
+    const now = new Date();
+    await Order.updateOne(
+        { _id: order._id, user: req.user._id },
+        {
+            $push: {
+                'commandCenter.supportChats': {
+                    messageId,
+                    actor: 'customer',
+                    message: String(req.body.message || '').trim(),
+                    createdAt: now,
+                },
+            },
+            $set: { 'commandCenter.lastUpdatedAt': now },
+        }
+    );
 
+    const updatedOrder = await Order.findById(order._id).lean();
     res.status(201).json({
         success: true,
         message: 'Support message sent',
-        commandCenter: normalizeCommandCenter(order),
+        commandCenter: normalizeCommandCenter(updatedOrder),
     });
 });
 
@@ -896,25 +930,37 @@ const createOrderWarrantyClaim = asyncHandler(async (req, res, next) => {
         return next(new AppError('Order not found', 404));
     }
 
-    const { itemProductId, itemTitle } = getItemFromOrderForCommand(order, req.body);
+    const targetOrderItem = resolveOrderItemForCommand(order, req.body);
+    if (!targetOrderItem) {
+        return next(new AppError('No order item found for warranty claim', 400));
+    }
+    const itemProductId = String(targetOrderItem.product || targetOrderItem.productId || '');
+    const itemTitle = targetOrderItem.title || String(req.body.itemTitle || '').trim() || 'Unknown item';
 
-    order.commandCenter = order.commandCenter || {};
-    order.commandCenter.warrantyClaims = Array.isArray(order.commandCenter.warrantyClaims) ? order.commandCenter.warrantyClaims : [];
-    order.commandCenter.warrantyClaims.push({
-        claimId: createCommandId('wrnty'),
-        issue: String(req.body.issue || '').trim(),
-        itemProductId,
-        itemTitle,
-        status: 'pending',
-        createdAt: new Date(),
-    });
-    order.commandCenter.lastUpdatedAt = new Date();
-    await order.save();
+    const claimId = createCommandId('wrnty');
+    const now = new Date();
+    await Order.updateOne(
+        { _id: order._id, user: req.user._id },
+        {
+            $push: {
+                'commandCenter.warrantyClaims': {
+                    claimId,
+                    issue: String(req.body.issue || '').trim(),
+                    itemProductId,
+                    itemTitle,
+                    status: 'pending',
+                    createdAt: now,
+                },
+            },
+            $set: { 'commandCenter.lastUpdatedAt': now },
+        }
+    );
 
+    const updatedOrder = await Order.findById(order._id).lean();
     res.status(201).json({
         success: true,
         message: 'Warranty claim submitted',
-        commandCenter: normalizeCommandCenter(order),
+        commandCenter: normalizeCommandCenter(updatedOrder),
     });
 });
 

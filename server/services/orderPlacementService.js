@@ -357,13 +357,16 @@ const executeOrderCreation = async ({
     }
 
     try {
-        await awardLoyaltyPoints({
+        const rewardResult = await awardLoyaltyPoints({
             userId,
             action: 'order_placed',
             orderTotal: quote.pricing.totalPrice,
             refId: String(createdOrder._id),
             session,
         });
+        if (rewardResult?.awarded && Number(rewardResult.points) > 0) {
+            createdOrder.loyaltyPointsAwarded = Number(rewardResult.points);
+        }
     } catch (rewardError) {
         logger.warn('loyalty.order_reward_failed', {
             requestId,
