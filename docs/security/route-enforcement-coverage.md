@@ -89,6 +89,8 @@ npm run security:routes:coverage:strict
 | PATCH /api/orders/:id/command-center/replace/:requestId/admin | ORDER_STATUS_CHANGE | `protect`, `admin`, `sensitiveActions.orderStatusChange` |
 | POST /api/orders/:id/command-center/support/admin-reply | ORDER_STATUS_CHANGE | `protect`, `admin`, `sensitiveActions.orderStatusChange` |
 | PATCH /api/orders/:id/command-center/warranty/:claimId/admin | ORDER_STATUS_CHANGE | `protect`, `admin`, `sensitiveActions.orderStatusChange` |
+| POST /api/orders/:id/shipments | ORDER_STATUS_CHANGE | `protect`, `admin`, rate limits, validation, transition-guarded shipment dispatch, `sensitiveActions.orderStatusChange` |
+| POST /api/orders/:id/shipments/:shipmentId/checkpoints | ORDER_STATUS_CHANGE | `protect`, `admin`, rate limits, validation, transition-guarded checkpoint append, `sensitiveActions.orderStatusChange` |
 | POST /api/orders/:id/cancel | ORDER_STATUS_CHANGE | `protect`, active account, `authorizeOrderOwner`, `sensitiveActions.orderStatusChange` |
 | POST /api/orders/:id/admin-cancel | ORDER_STATUS_CHANGE | `protect`, `admin`, `sensitiveActions.orderStatusChange` |
 | PATCH /api/orders/:id/status | ORDER_STATUS_CHANGE | `protect`, `admin`, `sensitiveActions.orderStatusChange` |
