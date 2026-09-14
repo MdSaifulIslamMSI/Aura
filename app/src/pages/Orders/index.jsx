@@ -487,6 +487,11 @@ export const OrderCard = ({ order, autoExpand = false }) => {
     });
     const cardRef = useRef(null);
 
+    // Legacy or partial order records must never crash the card render.
+    const safeOrderId = String(order?._id || '');
+    const safeOrderItems = Array.isArray(order?.orderItems) ? order.orderItems : [];
+    const safeShippingAddress = order?.shippingAddress || {};
+
     const refreshTimeline = useCallback(async ({ silent = false } = {}) => {
         if (!silent) {
             setTimelineLoading(true);
@@ -820,7 +825,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                         <Package className="w-6 h-6 text-neo-cyan" />
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{t('orders.orderId', {}, 'Order ID')}: <span className="font-mono text-neo-fuchsia tracking-normal ml-1">#{order._id.slice(-8).toUpperCase()}</span></p>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{t('orders.orderId', {}, 'Order ID')}: <span className="font-mono text-neo-fuchsia tracking-normal ml-1">#{safeOrderId.slice(-8).toUpperCase()}</span></p>
                         <h3 className="font-black text-white text-xl tracking-tight">{formatPrice(order.totalPrice)}</h3>
                     </div>
                 </div>
@@ -854,7 +859,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                 <div className="p-6 border-t border-white/5 bg-zinc-950/50 relative z-10 animate-fade-in">
                     <div className="space-y-4">
                         <h4 className="font-bold text-xs text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">{t('orders.itemsTitle', {}, 'Items in Order')}</h4>
-                        {order.orderItems.map((item, index) => (
+                        {safeOrderItems.map((item, index) => (
                             <div key={index} className="flex gap-6 items-center bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
                                 <div className="w-16 h-16 bg-zinc-950/80 rounded-lg p-2 border border-white/5 flex items-center justify-center">
                                     <img src={item.image} alt={item.title} className="w-full h-full object-contain mix-blend-screen" />
@@ -875,9 +880,9 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                                 {t('orders.addressTitle', {}, 'Target Coordinates')}
                             </h4>
                             <div className="space-y-1 text-slate-300 font-medium leading-relaxed">
-                                <p className="text-white">{order.shippingAddress.address}</p>
-                                <p>{order.shippingAddress.city}, {order.shippingAddress.postalCode}</p>
-                                <p>{order.shippingAddress.country}</p>
+                                <p className="text-white">{safeShippingAddress.address || '—'}</p>
+                                <p>{safeShippingAddress.city}, {safeShippingAddress.postalCode}</p>
+                                <p>{safeShippingAddress.country}</p>
                             </div>
                         </div>
                         <div className="bg-white/5 p-6 rounded-2xl border border-white/10">

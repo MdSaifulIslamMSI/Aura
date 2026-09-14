@@ -620,15 +620,27 @@ const Checkout = () => {
         return Date.now() - lastQuoteAt > 5 * 60 * 1000;
     }, [quote, lastQuoteAt, lastQuoteSignature, quoteSignature]);
 
+    // Out-of-order quote responses must never overwrite a newer quote: the
+    // signature guard below drops responses that a newer request superseded.
+    const latestQuoteRequestRef = useRef('');
+
     const requestQuote = async (payload, signature) => {
+        latestQuoteRequestRef.current = signature;
+        const requestSignature = signature;
         try {
             setIsQuoting(true);
             setQuoteError('');
             const response = await orderApi.quoteOrder(payload);
+            if (latestQuoteRequestRef.current !== requestSignature) {
+                return;
+            }
             setQuote(response);
             setLastQuoteSignature(signature);
             setLastQuoteAt(Date.now());
         } catch (error) {
+            if (latestQuoteRequestRef.current !== requestSignature) {
+                return;
+            }
             setQuoteError(error.message || t('checkout.error.livePricing', {}, 'Unable to fetch live pricing'));
         } finally {
             setIsQuoting(false);
