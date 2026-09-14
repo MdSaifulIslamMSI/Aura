@@ -4,21 +4,44 @@ import { orderApi } from '@/services/api';
 import { AuthContext } from '@/context/AuthContext';
 import { useMarket } from '@/context/MarketContext';
 import { criticalMessages } from '@/i18n/messages/criticalMessages';
-import { Package, Clock, CheckCircle, ChevronDown, ChevronUp, Zap, Server, ShieldCheck, AlertTriangle, Loader2, MessageSquare, RefreshCw, ShieldAlert, Wallet, XCircle, Download, RotateCcw, Search } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Package, Clock, CheckCircle, ChevronDown, ChevronUp, Zap, Server, ShieldCheck, AlertTriangle, Loader2, MessageSquare, RefreshCw, ShieldAlert, Wallet, XCircle, Download, RotateCcw, Search, Printer } from 'lucide-react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useActiveWindowRefresh } from '@/hooks/useActiveWindowRefresh';
+import { useSocketDemand } from '@/context/SocketContext';
 import { useStableIcuMessages } from '@/i18n/useStableIcuMessages';
 import { ACCOUNT_TELEMETRY_EVENTS, trackAccountEvent } from '@/services/accountTelemetry';
 
+const ORDER_FLOW_STAGES = ['placed', 'packed', 'shipped', 'out_for_delivery', 'delivered'];
+const SHIPMENT_STATUS_RANK = { pending: 1, packed: 2, shipped: 3, out_for_delivery: 4, delivered: 5 };
+const STAGE_LABEL_FALLBACKS = {
+    placed: 'Order Confirmed',
+    packed: 'Packed',
+    shipped: 'Shipped',
+    out_for_delivery: 'Out for Delivery',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
+};
+
+const getShipmentStage = (orderMeta = {}) => {
+    if (orderMeta.orderStatus === 'cancelled' || orderMeta.cancelledAt) return 'cancelled';
+    if (orderMeta.isDelivered || orderMeta.orderStatus === 'delivered') return 'delivered';
+    const shipments = Array.isArray(orderMeta.shipments) ? orderMeta.shipments : [];
+    // 'processing' stays on the confirmed stage until a real packed/shipped
+    // checkpoint exists — the legacy admin status alone never claimed packing.
+    let rank = orderMeta.orderStatus === 'shipped' ? 3 : 1;
+    for (const shipment of shipments) {
+        rank = Math.max(rank, SHIPMENT_STATUS_RANK[String(shipment?.status || '')] || 0);
+    }
+    return ORDER_FLOW_STAGES[Math.min(Math.max(rank, 1), 5) - 1];
+};
+
 const getOrderStatusLabel = (orderMeta, t, intl) => {
-    if (orderMeta.orderStatus === 'cancelled') {
-        return t('orders.status.cancelled', {}, 'Cancelled');
+    const stage = getShipmentStage(orderMeta);
+    if (stage === 'placed') {
+        return intl.formatMessage(criticalMessages.orderConfirmed);
     }
-    if (orderMeta.isDelivered) {
-        return t('orders.status.delivered', {}, 'Delivered');
-    }
-    return intl.formatMessage(criticalMessages.orderConfirmed);
+    return t(`orders.status.${stage}`, {}, STAGE_LABEL_FALLBACKS[stage]);
 };
 
 const getCommandStatusLabel = (status, t) => {
@@ -78,12 +101,100 @@ const getPaymentStepIcon = (state) => {
     return Clock;
 };
 
+// Progress tracker: placed → packed → shipped → out for delivery → delivered.
+// Stage is derived from the order status plus any shipment checkpoints the
+// lifecycle engine has recorded; legacy orders without shipments still land
+// on placed/processing correctly.
+const OrderProgressStepper = ({ orderMeta, t, intl }) => {
+    const stage = getShipmentStage(orderMeta);
+    if (stage === 'cancelled') {
+        return (
+            <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-200">
+                    {t('orders.status.cancelled', {}, 'Cancelled')}
+                </p>
+            </div>
+        );
+    }
+
+    const activeIndex = ORDER_FLOW_STAGES.indexOf(stage);
+    const shipments = Array.isArray(orderMeta.shipments) ? orderMeta.shipments : [];
+    const latestShipment = shipments.length > 0 ? shipments[shipments.length - 1] : null;
+    const latestCheckpoint = latestShipment && Array.isArray(latestShipment.checkpoints)
+        ? latestShipment.checkpoints[latestShipment.checkpoints.length - 1]
+        : null;
+
+    return (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="flex items-center justify-between">
+                {ORDER_FLOW_STAGES.map((stageKey, index) => {
+                    const done = index < activeIndex;
+                    const active = index === activeIndex;
+                    return (
+                        <div key={stageKey} className="flex flex-1 items-center last:flex-none">
+                            <div className="flex flex-col items-center gap-2">
+                                <div
+                                    className={cn(
+                                        'h-3 w-3 rounded-full border transition-all duration-300',
+                                        done && 'border-neo-cyan bg-neo-cyan shadow-[0_0_8px_rgba(6,182,212,0.7)]',
+                                        active && 'h-4 w-4 border-neo-fuchsia bg-neo-fuchsia shadow-[0_0_12px_rgba(217,70,239,0.8)]',
+                                        !done && !active && 'border-white/20 bg-zinc-950'
+                                    )}
+                                    aria-hidden="true"
+                                />
+                                <span
+                                    className={cn(
+                                        'whitespace-nowrap text-[9px] font-black uppercase tracking-wider sm:text-[10px]',
+                                        active ? 'text-neo-fuchsia' : done ? 'text-neo-cyan' : 'text-slate-500'
+                                    )}
+                                >
+                                    {stageKey === 'placed'
+                                        ? intl.formatMessage(criticalMessages.orderConfirmed)
+                                        : t(`orders.status.${stageKey}`, {}, STAGE_LABEL_FALLBACKS[stageKey])}
+                                </span>
+                            </div>
+                            {index < ORDER_FLOW_STAGES.length - 1 && (
+                                <div
+                                    className={cn(
+                                        'mx-1 h-[2px] flex-1 rounded sm:mx-2',
+                                        index < activeIndex ? 'bg-neo-cyan/70' : 'bg-white/10'
+                                    )}
+                                    aria-hidden="true"
+                                />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+            {latestCheckpoint && (
+                <p className="mt-3 text-center text-[11px] font-medium text-slate-400">
+                    {latestCheckpoint.message
+                        || t('orders.progress.latest', {}, 'Latest update received')}
+                    {latestShipment?.courier
+                        ? ` · ${latestShipment.courier}`
+                        : ''}
+                    {latestShipment?.trackingId
+                        ? ` · ${latestShipment.trackingId}`
+                        : ''}
+                </p>
+            )}
+        </div>
+    );
+};
+
 const EMPTY_ORDER_FILTERS = Object.freeze({
     search: '',
     status: '',
     createdAfter: '',
     createdBefore: '',
 });
+
+const ORDER_STATUS_FILTER_VALUES = ['placed', 'processing', 'shipped', 'delivered', 'cancelled'];
+
+const readStatusFromParams = (searchParams) => {
+    const status = String(searchParams.get('status') || '').trim().toLowerCase();
+    return ORDER_STATUS_FILTER_VALUES.includes(status) ? status : '';
+};
 
 const Orders = () => {
     const [orders, setOrders] = useState([]);
@@ -92,15 +203,62 @@ const Orders = () => {
     const [loadError, setLoadError] = useState('');
     const [pagination, setPagination] = useState({ hasMore: false, nextCursor: null });
     const [draftFilters, setDraftFilters] = useState({ ...EMPTY_ORDER_FILTERS });
-    const [appliedFilters, setAppliedFilters] = useState({ ...EMPTY_ORDER_FILTERS });
+    const [appliedFilters, setAppliedFilters] = useState(() => ({
+        ...EMPTY_ORDER_FILTERS,
+        status: readStatusFromParams(new URLSearchParams(window.location.search)),
+    }));
+    const [livePatches, setLivePatches] = useState({});
+    const [placedBanner, setPlacedBanner] = useState(null);
     const { currentUser } = useContext(AuthContext);
     const { t: legacyT, formatPrice } = useMarket();
     const t = useStableIcuMessages(legacyT);
     const intl = useIntl();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
     const focusOrderId = String(searchParams.get('focus') || '').trim();
     const shouldExpandFocus = searchParams.get('expand') === '1' || searchParams.get('support') === '1';
+    const socketContext = useSocketDemand('orders-live', Boolean(currentUser?.uid));
+    const socket = socketContext?.socket || null;
+
+    // Checkout hands off success via location.state; consume it once and
+    // clear it so a refresh doesn't re-show the banner.
+    useEffect(() => {
+        if (location.state?.orderPlaced) {
+            const orderId = String(location.state?.orderId || '');
+            setPlacedBanner({ orderId });
+            if (orderId && !focusOrderId) {
+                setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.set('focus', orderId);
+                    next.set('expand', '1');
+                    return next;
+                }, { replace: true });
+            }
+            navigate('.', { replace: true, state: null });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Live order updates: the server broadcasts order.updated on every
+    // lifecycle event; patch the matching card and let it silently refresh.
+    useEffect(() => {
+        if (!socket) return undefined;
+        const handleOrderUpdated = (payload) => {
+            const orderId = String(payload?.orderId || '');
+            if (!orderId) return;
+            setLivePatches((prev) => ({
+                ...prev,
+                [orderId]: {
+                    ...(prev[orderId] || {}),
+                    ...payload,
+                    seq: (prev[orderId]?.seq || 0) + 1,
+                },
+            }));
+        };
+        socket.on('order.updated', handleOrderUpdated);
+        return () => socket.off('order.updated', handleOrderUpdated);
+    }, [socket]);
 
     const filtersActive = useMemo(
         () => Object.values(appliedFilters).some((value) => Boolean(String(value || '').trim())),
@@ -247,14 +405,27 @@ const Orders = () => {
 
     if (loading) {
         return (
-            <div className="orders-theme-shell min-h-screen flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-zinc-950 flex flex-col items-center justify-center">
-                    <div className="relative w-24 h-24 flex items-center justify-center mb-6">
-                        <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
-                        <div className="absolute inset-0 border-4 border-neo-cyan rounded-full border-t-transparent animate-spin" />
-                        <Server className="w-8 h-8 text-neo-cyan animate-pulse shadow-[0_0_10px_rgba(6,182,212,0.8)]" />
+            <div className="orders-theme-shell min-h-screen relative overflow-hidden">
+                <div className="absolute inset-0 bg-zinc-950" />
+                <div className="container-custom py-10 relative">
+                    <div className="mb-8 h-10 w-64 animate-pulse rounded-2xl bg-white/5" />
+                    <div className="mb-8 h-40 animate-pulse rounded-[1.75rem] bg-white/5" />
+                    <div className="space-y-4" aria-busy="true" aria-label={t('orders.loading', {}, 'Loading Orders...')}>
+                        {[0, 1, 2].map((key) => (
+                            <div key={key} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                                <div className="flex items-center justify-between gap-6">
+                                    <div className="flex items-center gap-5">
+                                        <div className="h-14 w-14 animate-pulse rounded-xl bg-white/10" />
+                                        <div className="space-y-2">
+                                            <div className="h-3 w-24 animate-pulse rounded bg-white/10" />
+                                            <div className="h-5 w-32 animate-pulse rounded bg-white/10" />
+                                        </div>
+                                    </div>
+                                    <div className="h-6 w-32 animate-pulse rounded-full bg-white/10" />
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                    <p className="text-neo-cyan font-bold tracking-[0.3em] uppercase text-xs">{t('orders.loading', {}, 'Loading Orders...')}</p>
                 </div>
             </div>
         );
@@ -296,6 +467,37 @@ const Orders = () => {
                     </div>
                 </div>
 
+                {placedBanner && (
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        className="mb-8 overflow-hidden rounded-[1.75rem] border border-neo-cyan/40 bg-gradient-to-br from-neo-cyan/15 via-neo-cyan/5 to-transparent p-6 shadow-[0_0_30px_rgba(6,182,212,0.15)]"
+                    >
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="rounded-2xl border border-neo-cyan/40 bg-neo-cyan/15 p-3">
+                                    <CheckCircle className="h-6 w-6 text-neo-cyan" />
+                                </div>
+                                <div>
+                                    <p className="text-lg font-black tracking-tight text-white">
+                                        {t('orders.placed.title', {}, 'Order placed successfully!')}
+                                    </p>
+                                    <p className="text-sm font-medium text-slate-300">
+                                        {t('orders.placed.subtitle', {}, 'Your order is confirmed. Track every step right here — we update this page live.')}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                className="rounded-xl border border-white/15 px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-200 hover:bg-white/10"
+                                onClick={() => setPlacedBanner(null)}
+                            >
+                                {t('orders.placed.dismiss', {}, 'Dismiss')}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <form
                     className="mb-8 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 shadow-glass"
                     onSubmit={(event) => {
@@ -305,6 +507,15 @@ const Orders = () => {
                             search: draftFilters.search.trim(),
                         };
                         setAppliedFilters(nextFilters);
+                        setSearchParams((prev) => {
+                            const next = new URLSearchParams(prev);
+                            if (nextFilters.status) {
+                                next.set('status', nextFilters.status);
+                            } else {
+                                next.delete('status');
+                            }
+                            return next;
+                        }, { replace: true });
                         trackAccountEvent(ACCOUNT_TELEMETRY_EVENTS.ORDER_SEARCHED, {
                             hasQuery: Boolean(nextFilters.search),
                             status: nextFilters.status,
@@ -371,6 +582,11 @@ const Orders = () => {
                             onClick={() => {
                                 setDraftFilters({ ...EMPTY_ORDER_FILTERS });
                                 setAppliedFilters({ ...EMPTY_ORDER_FILTERS });
+                                setSearchParams((prev) => {
+                                    const next = new URLSearchParams(prev);
+                                    next.delete('status');
+                                    return next;
+                                }, { replace: true });
                             }}
                         >
                             {t('orders.filters.clear', {}, 'Clear Filters')}
@@ -436,6 +652,7 @@ const Orders = () => {
                             key={order._id}
                             order={order}
                             autoExpand={shouldExpandFocus && String(order._id) === focusOrderId}
+                            livePatch={livePatches[String(order._id)]}
                         />
                     ))}
                     {pagination.hasMore && pagination.nextCursor && (
@@ -456,7 +673,7 @@ const Orders = () => {
     );
 };
 
-export const OrderCard = ({ order, autoExpand = false }) => {
+export const OrderCard = ({ order, autoExpand = false, livePatch = null }) => {
     const [expanded, setExpanded] = useState(false);
     const { t: legacyT, formatDateTime, formatPrice } = useMarket();
     const t = useStableIcuMessages(legacyT);
@@ -466,6 +683,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
         orderStatus: order.orderStatus || (order.isDelivered ? 'delivered' : 'placed'),
         isDelivered: Boolean(order.isDelivered),
         isPaid: Boolean(order.isPaid),
+        shipments: Array.isArray(order.shipments) ? order.shipments : [],
     });
     const [timeline, setTimeline] = useState([]);
     const [timelineLoading, setTimelineLoading] = useState(false);
@@ -491,6 +709,23 @@ export const OrderCard = ({ order, autoExpand = false }) => {
     const safeOrderId = String(order?._id || '');
     const safeOrderItems = Array.isArray(order?.orderItems) ? order.orderItems : [];
     const safeShippingAddress = order?.shippingAddress || {};
+
+    // A live `order.updated` broadcast patches the card in place and silently
+    // re-syncs the timeline + command center (the 30s poll stays as fallback).
+    useEffect(() => {
+        if (!livePatch) return;
+        setOrderMeta((prev) => ({
+            ...prev,
+            orderStatus: livePatch.orderStatus || prev.orderStatus,
+            isDelivered: livePatch.orderStatus === 'delivered' ? true : prev.isDelivered,
+            shipments: Array.isArray(livePatch.shipments) && livePatch.shipments.length > 0
+                ? livePatch.shipments
+                : prev.shipments,
+        }));
+        refreshTimeline({ silent: true });
+        refreshCommandCenter({ silent: true });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [livePatch?.seq]);
 
     const refreshTimeline = useCallback(async ({ silent = false } = {}) => {
         if (!silent) {
@@ -552,8 +787,9 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             orderStatus: order.orderStatus || (order.isDelivered ? 'delivered' : 'placed'),
             isDelivered: Boolean(order.isDelivered),
             isPaid: Boolean(order.isPaid),
+            shipments: Array.isArray(order.shipments) ? order.shipments : [],
         });
-    }, [order._id, order.isDelivered, order.isPaid, order.orderStatus]);
+    }, [order._id, order.isDelivered, order.isPaid, order.orderStatus, order.shipments]);
 
     useEffect(() => {
         if (!expanded || timelineLoading || timeline.length > 0 || timelineError) {
@@ -817,8 +1053,20 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             {expanded && <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-neo-cyan to-neo-fuchsia z-10" />}
 
             {/* Header */}
-            <div className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 cursor-pointer relative z-10"
-                onClick={() => setExpanded(!expanded)}>
+            <div
+                className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 cursor-pointer relative z-10"
+                role="button"
+                tabIndex={0}
+                aria-expanded={expanded}
+                aria-label={t('orders.card.toggle', {}, 'Toggle order details')}
+                onClick={() => setExpanded(!expanded)}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setExpanded(!expanded);
+                    }
+                }}
+            >
 
                 <div className="flex gap-5 items-center">
                     <div className="bg-zinc-950/80 border border-white/10 p-4 rounded-xl shadow-inner group-hover:border-neo-cyan/40 transition-colors">
@@ -858,6 +1106,7 @@ export const OrderCard = ({ order, autoExpand = false }) => {
             {expanded && (
                 <div className="p-6 border-t border-white/5 bg-zinc-950/50 relative z-10 animate-fade-in">
                     <div className="space-y-4">
+                        <OrderProgressStepper orderMeta={orderMeta} t={t} intl={intl} />
                         <h4 className="font-bold text-xs text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">{t('orders.itemsTitle', {}, 'Items in Order')}</h4>
                         {safeOrderItems.map((item, index) => (
                             <div key={index} className="flex gap-6 items-center bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
@@ -919,6 +1168,14 @@ export const OrderCard = ({ order, autoExpand = false }) => {
                                     ? <Loader2 className="h-4 w-4 animate-spin" />
                                     : <Download className="h-4 w-4" />}
                                 {t('orders.actions.receipt', {}, 'Download Receipt')}
+                            </button>
+                            <button
+                                type="button"
+                                className="flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-black text-white"
+                                onClick={() => navigate(`/orders/${safeOrderId}/invoice`)}
+                            >
+                                <Printer className="h-4 w-4" />
+                                {t('orders.actions.invoice', {}, 'Invoice')}
                             </button>
                             <button
                                 type="button"
