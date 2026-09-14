@@ -298,6 +298,13 @@ const orderSchema = mongoose.Schema({
         default: 0,
         min: 0
     },
+    deliveryPromise: {
+        estimateText: { type: String, default: '' },
+        promisedDate: { type: Date, default: null },
+        serviceable: { type: Boolean, default: true },
+        zone: { type: String, default: '' },
+        computedAt: { type: Date, default: null },
+    },
     pricingVersion: {
         type: String,
         default: 'v1'
@@ -324,6 +331,46 @@ const orderSchema = mongoose.Schema({
     }
 }, {
     timestamps: true
+});
+
+const shipmentCheckpointSchema = mongoose.Schema({
+    status: {
+        type: String,
+        enum: ['packed', 'shipped', 'out_for_delivery', 'delivered', 'returned', 'exception'],
+        required: true,
+    },
+    message: { type: String, default: '' },
+    location: { type: String, default: '' },
+    actor: { type: String, default: 'system' },
+    at: { type: Date, default: Date.now },
+}, { _id: false });
+
+const shipmentSchema = mongoose.Schema({
+    shipmentId: { type: String, required: true },
+    items: [{
+        productId: { type: String, default: '' },
+        title: { type: String, default: '' },
+        quantity: { type: Number, default: 1, min: 1 },
+    }],
+    courier: { type: String, default: '' },
+    trackingId: { type: String, default: '' },
+    status: {
+        type: String,
+        enum: ['pending', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled', 'returned', 'exception'],
+        default: 'pending',
+    },
+    // Hard-capped at append time ($slice) so webhook storms cannot grow the
+    // order document without bound.
+    checkpoints: { type: [shipmentCheckpointSchema], default: [] },
+    promisedDate: { type: Date, default: null },
+    dispatchedAt: { type: Date, default: null },
+    deliveredAt: { type: Date, default: null },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: null },
+}, { _id: false });
+
+orderSchema.add({
+    shipments: { type: [shipmentSchema], default: [] },
 });
 
 orderSchema.index({ user: 1, createdAt: -1, _id: -1 });

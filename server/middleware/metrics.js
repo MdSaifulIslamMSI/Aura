@@ -55,6 +55,21 @@ const httpErrorsTotal = new client.Counter({
     registers: [registry],
 });
 
+const orderLifecycleEventsTotal = new client.Counter({
+    name: 'aura_order_lifecycle_events_total',
+    help: 'Order lifecycle events: placed, cancelled, captured, refunded, capture_failed, auto_cancelled, shipment_<status>',
+    labelNames: ['event'],
+    registers: [registry],
+});
+
+const recordOrderEvent = (event) => {
+    try {
+        orderLifecycleEventsTotal.inc({ event: String(event || 'unknown') });
+    } catch {
+        // Metric emission must never break the order path (e.g. registry reset mid-test).
+    }
+};
+
 const httpRequestDurationStandard = new client.Histogram({
     name: 'http_request_duration_seconds',
     help: 'Duration of HTTP requests in seconds',
@@ -294,6 +309,7 @@ module.exports = {
     recordCacheHit,
     recordCacheMiss,
     rateLimitFallbackTotal,
+    recordOrderEvent,
     registry,
     setStatusComponentMetric,
     setStatusIncidentsActive,

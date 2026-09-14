@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const { recordOrderEvent } = require('../middleware/metrics');
+const { checkServiceability } = require('./deliveryServiceabilityService');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Product = require('../models/Product');
@@ -192,6 +194,10 @@ const executeOrderCreation = async ({
     
     const paymentIntent = paymentValidation.paymentIntent;
     const orderPricingMinorUnits = buildOrderPricingMinorUnits(quote.pricing);
+    const serviceability = checkServiceability({
+        postalCode: quote.normalized.shippingAddress?.postalCode,
+        deliveryOption: quote.normalized.deliveryOption,
+    });
     const order = new Order({
         user: userId,
         orderItems: mapToDbOrderItems(quote.resolvedItems, quote.pricing),
@@ -218,6 +224,11 @@ const executeOrderCreation = async ({
         ...orderPricingMinorUnits,
         deliveryOption: quote.normalized.deliveryOption,
         deliverySlot: quote.normalized.deliverySlot || undefined,
+        deliveryPromise: {
+            ...serviceability,
+            estimateText: quote.pricing.deliveryEstimate?.text || serviceability.estimateText,
+            computedAt: new Date(),
+        },
         checkoutSource: quote.normalized.checkoutSource,
         pricingVersion: quote.pricing.pricingVersion || PRICING_VERSION,
         priceBreakdown: {
@@ -405,6 +416,7 @@ const executeOrderCreation = async ({
         }
     }
 
+    recordOrderEvent('placed');
     const cartSnapshot = quote.normalized.checkoutSource !== 'directBuy'
         ? await clearCartAfterCheckout({
             userId,
