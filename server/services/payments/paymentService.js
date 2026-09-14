@@ -55,6 +55,7 @@ const {
     scheduleCaptureTask,
     scheduleRefundTask,
     updateOrderCommandRefundEntry,
+    getRefundEntryStatus,
     getPaymentOutboxStats,
 } = require('./outboxState');
 const {
@@ -2150,36 +2151,118 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
         }
     }
 
+    // Conditional write: the intent snapshot above was read before the
+    // provider assertions ran, and a concurrent confirm/capture may have
+    // changed the status meanwhile. The status precondition makes a stale
+    // snapshot no-op instead of clobbering newer state (same pattern as
+    // captureIntentNow). No status change rides along when the event type
+    // maps to nothing.
+    const webhookMutation = { $set: {} };
     if (mapped) {
-        intent.status = mapped;
+        webhookMutation.$set.status = mapped;
     }
     if (parsedEvent.paymentId) {
-        intent.providerPaymentId = parsedEvent.paymentId;
+        webhookMutation.$set.providerPaymentId = parsedEvent.paymentId;
     }
     const webhookPayment = parsed?.payload?.payment?.entity || null;
     if (webhookPayment && typeof provider.parsePaymentAmounts === 'function') {
         const amountInfo = provider.parsePaymentAmounts(webhookPayment);
         if (amountInfo?.baseCurrency && amountInfo.baseAmount !== null) {
-            intent.providerBaseAmount = amountInfo.baseAmount;
-            intent.providerBaseCurrency = amountInfo.baseCurrency;
-            intent.metadata = {
-                ...(intent.metadata || {}),
-                providerSettlement: {
-                    amount: amountInfo.baseAmount,
-                    currency: amountInfo.baseCurrency,
-                    international: Boolean(amountInfo.international),
-                },
+            webhookMutation.$set.providerBaseAmount = amountInfo.baseAmount;
+            webhookMutation.$set.providerBaseCurrency = amountInfo.baseCurrency;
+            webhookMutation.$set['metadata.providerSettlement'] = {
+                amount: amountInfo.baseAmount,
+                currency: amountInfo.baseCurrency,
+                international: Boolean(amountInfo.international),
             };
-            intent.markModified('metadata');
         }
     }
     if (parsedEvent.eventType === 'payment.authorized') {
-        intent.authorizedAt = new Date();
+        webhookMutation.$set.authorizedAt = new Date();
     }
     if (parsedEvent.eventType === 'payment.captured') {
-        intent.capturedAt = new Date();
+        webhookMutation.$set.capturedAt = new Date();
     }
-    await intent.save();
+
+    let mutatedIntent = null;
+    let preconditionStatus = currentStatus;
+    if (Object.keys(webhookMutation.$set).length === 0) {
+        // Event maps to no status and carries no other fields; nothing to
+        // persist (the previous read-modify-save was a no-op here too).
+        mutatedIntent = intent;
+    }
+    for (let attempt = 0; attempt < 3 && !mutatedIntent; attempt += 1) {
+        mutatedIntent = await PaymentIntent.findOneAndUpdate(
+            { _id: intent._id, status: preconditionStatus },
+            webhookMutation,
+            { returnDocument: 'after' }
+        );
+
+        if (!mutatedIntent) {
+            const fresh = await PaymentIntent.findById(intent._id).select('status').lean();
+            if (!fresh) {
+                throw new AppError('Payment intent not found for webhook', 404);
+            }
+            if (!canTransitionPaymentStatus({ currentStatus: fresh.status, targetStatus: mapped })) {
+                // A concurrent writer moved the intent into a state where this
+                // event no longer applies; record the event as discarded.
+                await recordWebhookEvent({
+                    eventId: parsedEvent.eventId,
+                    intentId: intent.intentId,
+                    source: 'webhook',
+                    type: parsedEvent.eventType,
+                    payloadHash: hashPayload(parsed),
+                    payload: {
+                        ...parsed,
+                        processingMeta: {
+                            discarded: true,
+                            reason: 'concurrent_status_change',
+                            currentStatus: fresh.status,
+                            targetStatus: mapped,
+                        },
+                    },
+                    receivedAt: new Date(),
+                });
+                return {
+                    received: true,
+                    deduped: false,
+                    intentId: intent.intentId,
+                    discarded: true,
+                    reason: 'concurrent_status_change',
+                };
+            }
+            preconditionStatus = fresh.status;
+        }
+    }
+
+    if (!mutatedIntent) {
+        // Persistently contested write: leave the intent untouched and keep
+        // the event on the ledger for reconciliation instead of guessing.
+        await recordWebhookEvent({
+            eventId: parsedEvent.eventId,
+            intentId: intent.intentId,
+            source: 'webhook',
+            type: parsedEvent.eventType,
+            payloadHash: hashPayload(parsed),
+            payload: {
+                ...parsed,
+                processingMeta: {
+                    discarded: true,
+                    reason: 'concurrent_status_change_unresolved',
+                    currentStatus,
+                    targetStatus: mapped,
+                },
+            },
+            receivedAt: new Date(),
+        });
+        return {
+            received: true,
+            deduped: false,
+            intentId: intent.intentId,
+            discarded: true,
+            reason: 'concurrent_status_change_unresolved',
+        };
+    }
 
     const recordedEvent = await recordWebhookEvent({
         eventId: parsedEvent.eventId,
@@ -2198,7 +2281,7 @@ const processProviderWebhook = async ({ gatewayId, signature, rawBody }) => {
     }
 
     if (statusTransitionedToCaptured) {
-        await applyOrderPaymentCapture(intent);
+        await applyOrderPaymentCapture(mutatedIntent);
     }
 
     return { received: true, deduped: false, intentId: intent.intentId };
@@ -2216,6 +2299,34 @@ const processStripeWebhook = async ({ signature, rawBody }) => processProviderWe
     rawBody,
 });
 
+// Terminal capture failures must cancel the stranded order (restock +
+// notify), but that order-domain logic lives in orderService, which imports
+// this module — so orderService registers its handler here via its require
+// side effect and the payment runtime stays cycle-free.
+let terminalCaptureFailureHandler = null;
+const setTerminalCaptureFailureHandler = (handler) => {
+    terminalCaptureFailureHandler = typeof handler === 'function' ? handler : null;
+};
+
+const handleTerminalCaptureFailure = async ({ intentId }) => {
+    if (!terminalCaptureFailureHandler) {
+        logger.warn('payment.capture_terminal_failure_no_handler', { intentId });
+        return { handled: false, reason: 'no_handler' };
+    }
+    try {
+        return await terminalCaptureFailureHandler({
+            intentId,
+            reason: 'Payment capture failed after retries',
+        });
+    } catch (error) {
+        logger.error('payment.capture_terminal_failure_handler_error', {
+            intentId,
+            error: error.message,
+        });
+        return { handled: false, reason: 'handler_error', error: error.message };
+    }
+};
+
 const processOutboxTask = async (task) => {
     task.status = 'processing';
     await task.save();
@@ -2224,6 +2335,21 @@ const processOutboxTask = async (task) => {
         if (task.taskType === 'capture') {
             await captureIntentNow({ intentId: task.intentId });
         } else if (task.taskType === 'refund') {
+            // A write-ahead refund task may have been queued before an inline
+            // refund succeeded; skip already-resolved requests instead of
+            // double-executing or clobbering the resolved entry status.
+            const entryStatus = await getRefundEntryStatus({
+                orderId: task.payload?.orderId,
+                requestId: task.payload?.requestId,
+            });
+            if (['processed', 'rejected'].includes(entryStatus)) {
+                task.status = 'done';
+                task.lastError = '';
+                task.lockedAt = null;
+                task.lockedBy = null;
+                await task.save();
+                return;
+            }
             const refundResult = await createRefundForIntent({
                 actorUserId: task.payload?.actorUserId || null,
                 isAdmin: true,
@@ -2266,6 +2392,9 @@ const processOutboxTask = async (task) => {
                     message: error.message || 'Refund retry exhausted',
                     processedAt: new Date(),
                 });
+            }
+            if (task.taskType === 'capture') {
+                await handleTerminalCaptureFailure({ intentId: task.intentId });
             }
         } else {
             task.status = 'pending';
@@ -2758,6 +2887,7 @@ module.exports = {
     runOutboxCycle,
     startPaymentOutboxWorker,
     stopPaymentOutboxWorker,
+    setTerminalCaptureFailureHandler,
     getPaymentOutboxStats: getPaymentOutboxStatsWithWorker,
     markChallengeVerified,
     listUserPaymentMethods,

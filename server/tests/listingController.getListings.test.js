@@ -36,6 +36,7 @@ jest.mock('../services/payments/riskEngine', () => ({
 }));
 
 jest.mock('../services/payments/paymentService', () => ({
+    setTerminalCaptureFailureHandler: jest.fn(),
     captureIntentNow: jest.fn(),
 }));
 

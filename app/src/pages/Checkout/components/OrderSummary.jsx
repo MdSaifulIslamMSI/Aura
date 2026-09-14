@@ -148,7 +148,7 @@ const OrderSummary = ({
                                         <span>{t('checkout.mergingAt', { hub: logistics.hub }, `Merging at ${logistics.hub}`)}</span>
                                     </div>
                                 )}
-                                {logistics.containers.map((c, i) => (
+                                {(Array.isArray(logistics.containers) ? logistics.containers : []).map((c, i) => (
                                     <div key={i} className="flex items-center justify-between text-[11px] text-slate-300">
                                         <div className="flex items-center gap-2">
                                             <div className="w-1 h-1 rounded-full bg-neo-cyan/50" />

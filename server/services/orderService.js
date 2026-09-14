@@ -1,17 +1,23 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const User = require('../models/User');
 const PaymentIntent = require('../models/PaymentIntent');
 const PaymentEvent = require('../models/PaymentEvent');
+const PaymentOutboxTask = require('../models/PaymentOutboxTask');
 const OrderEmailNotification = require('../models/OrderEmailNotification');
+const CouponRedemption = require('../models/CouponRedemption');
+const AdminNotification = require('../models/AdminNotification');
 const AppError = require('../utils/AppError');
 const { notifyAdminActionToUser } = require('./email/adminActionEmailService');
 const { sendPersistentNotification } = require('./notificationService');
 const {
     createRefundForIntent,
     scheduleRefundTask,
+    setTerminalCaptureFailureHandler,
 } = require('./payments/paymentService');
+const { reverseLoyaltyPoints } = require('./loyaltyService');
 const { DIGITAL_METHODS } = require('./payments/constants');
 const { toStoredMinorUnits } = require('./payments/moneyStorage');
 
@@ -74,6 +80,189 @@ const resolveOrderItemForCommand = (order, payload = {}) => {
 
     return orderItems[0];
 };
+
+/**
+ * Post-purchase policy gates shared by the command-center endpoints.
+ */
+const DEFAULT_RETURN_WINDOW_DAYS = 7;
+const PRE_SHIPMENT_STATUSES = new Set(['placed', 'processing']);
+const ACTIVE_COMMAND_REQUEST_STATUSES = new Set(['pending', 'approved']);
+
+const getReturnWindowDays = () => {
+    const parsed = Number.parseInt(String(process.env.ORDER_RETURN_WINDOW_DAYS || ''), 10);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : DEFAULT_RETURN_WINDOW_DAYS;
+};
+
+const isOrderDelivered = (order) => order?.isDelivered === true || String(order?.orderStatus || '') === 'delivered';
+
+const isPreShipmentOrder = (order) => (
+    !isOrderDelivered(order) && PRE_SHIPMENT_STATUSES.has(String(order?.orderStatus || ''))
+);
+
+// Delivered orders accept refund/replacement requests only inside the return
+// window. Legacy orders without deliveredAt stay reviewable rather than being
+// silently locked out.
+const isInsideReturnWindow = (order, now = new Date()) => {
+    if (!isOrderDelivered(order)) return true;
+    const deliveredAt = order?.deliveredAt ? new Date(order.deliveredAt) : null;
+    if (!Number.isFinite(deliveredAt?.getTime())) return true;
+    return (now.getTime() - deliveredAt.getTime()) <= getReturnWindowDays() * 24 * 60 * 60 * 1000;
+};
+
+const hasActiveCommandRequest = (order, listKey) => (
+    Array.isArray(order?.commandCenter?.[listKey]) ? order.commandCenter[listKey] : []
+).some((entry) => ACTIVE_COMMAND_REQUEST_STATUSES.has(String(entry?.status || '').toLowerCase()));
+
+/**
+ * Reverses the commerce side effects of a cancelled order: frees the
+ * one-per-user coupon redemption consumed by THIS order and claws back the
+ * loyalty points captured at placement.
+ */
+const releaseCouponRedemptionForOrder = async ({ order, session }) => {
+    const couponCode = String(order?.couponCode || '').trim().toUpperCase();
+    const ownerId = order?.user?._id || order?.user;
+    if (!couponCode || !ownerId) return false;
+    const result = await CouponRedemption.deleteOne(
+        { code: couponCode, user: ownerId, order: order._id },
+        session ? { session } : {}
+    );
+    return Boolean(result?.deletedCount);
+};
+
+const reverseLoyaltyPointsForOrder = async ({ order, session }) => {
+    const points = Number(order?.loyaltyPointsAwarded || 0);
+    const ownerId = order?.user?._id || order?.user;
+    if (!Number.isFinite(points) || points <= 0 || !ownerId) return 0;
+    const result = await reverseLoyaltyPoints({
+        userId: ownerId,
+        points,
+        refId: String(order._id),
+        reason: 'Order cancellation clawback',
+        session,
+    });
+    return Number(result?.reversed || 0);
+};
+
+/**
+ * Retires a write-ahead refund task after the inline refund already succeeded,
+ * so the outbox worker never executes it a second time.
+ */
+const retireRefundOutboxTask = async ({ intentId, requestId }) => {
+    if (!intentId || !requestId) return;
+    await PaymentOutboxTask.updateOne(
+        {
+            taskType: 'refund',
+            intentId,
+            'payload.requestId': String(requestId),
+            status: { $in: ['pending', 'processing'] },
+        },
+        { $set: { status: 'done', lastError: '', lockedAt: null, lockedBy: null } }
+    );
+};
+
+/**
+ * Compensation for a payment capture that permanently failed in the outbox:
+ * the order sits in placed/processing holding reserved stock and will never
+ * be paid. Cancels with a system actor (no auto-refund — nothing was
+ * captured; the provider releases the authorization), restocks, reverses
+ * coupon/loyalty, notifies the customer and raises a critical admin alert.
+ */
+const cancelOrderForFailedCapture = async ({ intentId, reason = 'Payment capture failed after retries' }) => {
+    const order = await Order.findOne({
+        paymentIntentId: intentId,
+        orderStatus: { $in: Array.from(PRE_SHIPMENT_STATUSES) },
+        cancelledAt: null,
+        isDelivered: { $ne: true },
+    });
+    if (!order) return { handled: false, reason: 'no_cancelable_order' };
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+        const cancelUpdate = await Order.updateOne(
+            {
+                _id: order._id,
+                orderStatus: { $in: Array.from(PRE_SHIPMENT_STATUSES) },
+                cancelledAt: null,
+            },
+            {
+                $set: {
+                    orderStatus: 'cancelled',
+                    cancelledAt: new Date(),
+                    cancelReason: String(reason),
+                },
+                $push: {
+                    statusTimeline: {
+                        status: 'cancelled',
+                        message: String(reason),
+                        actor: 'system',
+                        at: new Date(),
+                    },
+                },
+            },
+            { session }
+        );
+        if (!cancelUpdate.modifiedCount) {
+            await session.abortTransaction();
+            session.endSession();
+            return { handled: false, reason: 'order_state_changed' };
+        }
+
+        for (const item of order.orderItems || []) {
+            await Product.updateOne(
+                { _id: item.product },
+                { $inc: { stock: Number(item.quantity || 0) } },
+                { session }
+            );
+        }
+
+        await releaseCouponRedemptionForOrder({ order, session });
+        await reverseLoyaltyPointsForOrder({ order, session });
+
+        await session.commitTransaction();
+        session.endSession();
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error(`Capture-failure compensation failed for order ${order._id}:`, error.message);
+        return { handled: false, reason: 'compensation_failed', error: error.message };
+    }
+
+    try {
+        await sendPersistentNotification(
+            order.user,
+            'Order Cancelled Automatically',
+            'We could not confirm your payment, so the order was cancelled and the items were released. No money was captured.',
+            'order',
+            { relatedEntity: String(order._id), actionUrl: '/orders' }
+        );
+    } catch (notifyError) {
+        console.error(`Capture-failure customer notification failed for order ${order._id}:`, notifyError.message);
+    }
+
+    try {
+        await AdminNotification.create({
+            notificationId: crypto.randomUUID(),
+            source: 'system',
+            actionKey: 'order_capture_failed_cancelled',
+            title: 'Order auto-cancelled after capture failure',
+            summary: `Order ${order._id} was cancelled and restocked after capture retries were exhausted (intent ${intentId}).`,
+            severity: 'critical',
+            actorRole: 'system',
+            entityType: 'order',
+            entityId: String(order._id),
+            highlights: [`Intent: ${intentId}`, `Order total: ${order.totalPrice}`],
+            metadata: { intentId, orderId: String(order._id), reason },
+            requestId: 'capture_failure_compensation',
+        });
+    } catch (alertError) {
+        console.error(`Capture-failure admin alert failed for order ${order._id}:`, alertError.message);
+    }
+
+    return { handled: true, orderId: String(order._id) };
+};
+
+setTerminalCaptureFailureHandler(cancelOrderForFailedCapture);
 
 /**
  * Notifies the order owner about an admin action
@@ -168,6 +357,11 @@ const cancelOrderByActor = async ({
             ).session(session);
         }
 
+        // Clawback: free the coupon consumed by this order and reverse the
+        // loyalty points awarded at placement.
+        await releaseCouponRedemptionForOrder({ order: txOrder, session });
+        await reverseLoyaltyPointsForOrder({ order: txOrder, session });
+
         txOrder.orderStatus = 'cancelled';
         txOrder.cancelledAt = new Date();
         txOrder.cancelReason = cancelReason;
@@ -218,6 +412,24 @@ const cancelOrderByActor = async ({
             }
         );
 
+        // Write-ahead: the retry task exists before the provider call, so a
+        // crash after the cancel commit can never strand a cancelled paid
+        // order without a refund path. The task is deduped by requestId and
+        // starts after 20s — long enough for the immediate attempt below to
+        // retire it on success.
+        try {
+            await scheduleRefundTask({
+                intentId: order.paymentIntentId,
+                amount: Number(order.totalPrice || 0),
+                reason: `order_cancelled:${cancelReason}`,
+                orderId: order._id,
+                requestId,
+                actorUserId,
+            });
+        } catch (scheduleError) {
+            console.error(`Write-ahead refund scheduling failed for order ${order._id}:`, scheduleError.message);
+        }
+
         try {
             const refundResult = await createRefundForIntent({
                 actorUserId,
@@ -225,6 +437,8 @@ const cancelOrderByActor = async ({
                 intentId: order.paymentIntentId,
                 reason: `order_cancelled:${cancelReason}`,
             });
+
+            await retireRefundOutboxTask({ intentId: order.paymentIntentId, requestId });
 
             await Order.updateOne(
                 { _id: order._id, 'commandCenter.refunds.requestId': requestId },
@@ -298,6 +512,14 @@ module.exports = {
     resolveOrderItemForCommand,
     notifyOrderOwnerAdminAction,
     cancelOrderByActor,
+    getReturnWindowDays,
+    isOrderDelivered,
+    isPreShipmentOrder,
+    isInsideReturnWindow,
+    hasActiveCommandRequest,
+    releaseCouponRedemptionForOrder,
+    reverseLoyaltyPointsForOrder,
+    cancelOrderForFailedCapture,
     getOrderTimelineData,
     DIGITAL_PAYMENT_METHODS,
 };

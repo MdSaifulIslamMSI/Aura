@@ -81,7 +81,10 @@ export const orderApi = {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/orders/${orderId}/command-center/refund`, {
             method: 'POST',
-            headers,
+            headers: {
+                ...headers,
+                'Idempotency-Key': createIdempotencyKey(`refund-${orderId}`),
+            },
             body: JSON.stringify(payload),
         });
         return data;
@@ -90,7 +93,10 @@ export const orderApi = {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/orders/${orderId}/cancel`, {
             method: 'POST',
-            headers,
+            headers: {
+                ...headers,
+                'Idempotency-Key': createIdempotencyKey(`cancel-${orderId}`),
+            },
             body: JSON.stringify(payload),
         });
         return data;
@@ -108,7 +114,10 @@ export const orderApi = {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/orders/${orderId}/command-center/replace`, {
             method: 'POST',
-            headers,
+            headers: {
+                ...headers,
+                'Idempotency-Key': createIdempotencyKey(`replace-${orderId}`),
+            },
             body: JSON.stringify(payload),
         });
         return data;
@@ -117,7 +126,10 @@ export const orderApi = {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/orders/${orderId}/command-center/support`, {
             method: 'POST',
-            headers,
+            headers: {
+                ...headers,
+                'Idempotency-Key': createIdempotencyKey(`support-${orderId}`),
+            },
             body: JSON.stringify(payload),
         });
         return data;
@@ -126,7 +138,10 @@ export const orderApi = {
         const headers = await getAuthHeader();
         const { data } = await apiFetch(`/orders/${orderId}/command-center/warranty`, {
             method: 'POST',
-            headers,
+            headers: {
+                ...headers,
+                'Idempotency-Key': createIdempotencyKey(`warranty-${orderId}`),
+            },
             body: JSON.stringify(payload),
         });
         return data;

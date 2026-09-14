@@ -291,6 +291,13 @@ const orderSchema = mongoose.Schema({
         enum: ['cart', 'directBuy'],
         default: 'cart'
     },
+    // Points actually granted for this order; the cancel path reverses exactly
+    // this amount, so it must be captured at award time, not recomputed.
+    loyaltyPointsAwarded: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
     pricingVersion: {
         type: String,
         default: 'v1'

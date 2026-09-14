@@ -117,11 +117,17 @@ describe('code scanning hardening contracts', () => {
     test('Sentry release uploads validate the release id before shell dispatch', () => {
         const source = readRepoFile('scripts/student-pack-sentry-release.mjs');
         expect(source).toContain("'/d', '/c', sentryCommand");
+        // The release id is charset-validated BEFORE any dispatch: every argv
+        // token is a constant string except `release`, which the strict
+        // allowlist strips of all shell metacharacters.
         expect(source).toContain('/^[A-Za-z0-9][A-Za-z0-9._+@/-]{0,199}$/.test(release)');
-        // The release id travels via the child SENTRY_RELEASE env var, never
-        // through cmd.exe argv:
+        expect(source).toContain("run(['releases', 'new', release]);");
+        expect(source).toContain("run(['releases', 'finalize', release]);");
+        // The env var still rides along for sentry-cli subcommands that do
+        // read it, but the version-bearing commands pass the validated id as
+        // argv: sentry-cli 3.4.2 has no SENTRY_RELEASE fallback for
+        // `releases new <VERSION>` (verified against the pinned CLI).
         expect(source).toContain('SENTRY_RELEASE: release');
-        expect(source).not.toContain("'releases', 'new', release");
         expect(source).not.toContain("'--release', release");
     });
 

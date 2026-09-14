@@ -122,9 +122,22 @@ const updateOrderCommandRefundEntry = async ({
     if (refundId !== undefined) update['commandCenter.refunds.$.refundId'] = refundId;
 
     await Order.updateOne(
-        { _id: orderId, 'commandCenter.refunds.requestId': requestId },
+        {
+            _id: orderId,
+            // Only transition entries still awaiting processing so a stale
+            // task can never clobber an entry the inline path already resolved.
+            'commandCenter.refunds': { $elemMatch: { requestId: String(requestId), status: 'pending' } },
+        },
         { $set: update }
     );
+};
+
+const getRefundEntryStatus = async ({ orderId, requestId }) => {
+    if (!orderId || !requestId) return '';
+    const order = await Order.findOne({ _id: orderId }).select('commandCenter.refunds').lean();
+    const entry = (order?.commandCenter?.refunds || [])
+        .find((refund) => String(refund?.requestId || '') === String(requestId));
+    return String(entry?.status || '');
 };
 
 const getPaymentOutboxStats = async () => {
@@ -161,5 +174,6 @@ module.exports = {
     scheduleCaptureTask,
     scheduleRefundTask,
     updateOrderCommandRefundEntry,
+    getRefundEntryStatus,
     getPaymentOutboxStats,
 };

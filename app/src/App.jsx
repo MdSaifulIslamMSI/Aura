@@ -104,7 +104,7 @@ function renderRoute(element) {
 }
 
 function renderCriticalRoute(element) {
-  return element;
+  return <AppErrorBoundary>{element}</AppErrorBoundary>;
 }
 
 function LoginRoute() {

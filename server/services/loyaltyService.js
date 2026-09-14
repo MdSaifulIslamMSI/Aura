@@ -249,6 +249,52 @@ const awardLoyaltyPoints = async ({
     };
 };
 
+// Clawback companion to awardLoyaltyPoints: reverses at most the current
+// balance (pointsBalance has a min: 0 constraint) and appends a negative
+// manual_adjustment ledger entry for audit. lifetimeEarned stays gross,
+// mirroring how lifetimeSpent is never reduced by refunds.
+const reverseLoyaltyPoints = async ({
+    userId,
+    points,
+    refId = '',
+    reason = 'Order cancellation clawback',
+    session,
+}) => {
+    const requested = Math.floor(sanitizeNumber(points, 0));
+    if (requested <= 0 || !userId) return { reversed: 0 };
+
+    const user = await User.findById(userId).select('loyalty').session(session || null);
+    if (!user) return { reversed: 0 };
+
+    const balance = sanitizeNumber(user.loyalty?.pointsBalance, 0);
+    const reversed = Math.min(requested, Math.max(0, balance));
+    if (reversed <= 0) return { reversed: 0 };
+
+    await User.updateOne(
+        { _id: user._id },
+        {
+            $inc: { 'loyalty.pointsBalance': -reversed },
+            $push: {
+                'loyalty.ledger': {
+                    $each: [{
+                        eventType: 'manual_adjustment',
+                        points: -reversed,
+                        reason,
+                        refType: 'order',
+                        refId: refId ? String(refId) : '',
+                        createdAt: new Date(),
+                    }],
+                    $position: 0,
+                    $slice: MAX_LEDGER_ITEMS,
+                },
+            },
+        },
+        session ? { session } : {}
+    );
+
+    return { reversed };
+};
+
 const getUserRewards = async ({ userId, limit = 20 }) => {
     const user = await User.findById(userId).select('loyalty').lean();
     const snapshot = getRewardSnapshotFromUser(user);
@@ -262,6 +308,7 @@ const getUserRewards = async ({ userId, limit = 20 }) => {
 
 module.exports = {
     awardLoyaltyPoints,
+    reverseLoyaltyPoints,
     getUserRewards,
     getRewardSnapshotFromUser,
 };

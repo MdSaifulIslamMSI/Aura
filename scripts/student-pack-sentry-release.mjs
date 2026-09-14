@@ -43,10 +43,13 @@ if (!/^[A-Za-z0-9][A-Za-z0-9._+@/-]{0,199}$/.test(release)) {
 const isWindows = process.platform === 'win32';
 const run = (args, { allowFailure = false } = {}) => {
   // .cmd shims cannot be spawned directly on Windows (EINVAL); route through
-  // cmd.exe like scripts/student-pack-cli-doctor.mjs does. The release id is
-  // passed via the child SENTRY_RELEASE env var (sentry-cli's native
-  // fallback) instead of argv, so every argv stays a constant string and
-  // environment-controlled values never reach cmd.exe's argument parser.
+  // cmd.exe like scripts/student-pack-cli-doctor.mjs does. The release id
+  // reaches argv only after the strict charset validation above, which
+  // rejects every shell metacharacter, so it cannot alter command parsing on
+  // either platform. (sentry-cli has no SENTRY_RELEASE env fallback for
+  // `releases new <VERSION>` — the positional argument is required; passing
+  // it via env alone made the CLI fail with "required arguments were not
+  // provided" on CI.)
   const childEnv = { ...process.env, SENTRY_RELEASE: release };
   const result = isWindows
     ? spawnSync('cmd.exe', ['/d', '/c', sentryCommand, ...args], {
@@ -69,9 +72,9 @@ const run = (args, { allowFailure = false } = {}) => {
   }
 };
 
-run(['releases', 'new']);
+run(['releases', 'new', release]);
 // Best-effort: shallow CI clones may not have the history needed for --auto.
-run(['releases', 'set-commits', '--auto'], { allowFailure: true });
+run(['releases', 'set-commits', release, '--auto'], { allowFailure: true });
 
 if (existsSync(appDist)) {
   run(['sourcemaps', 'upload', appDist, '--url-prefix', '~/assets', '--validate']);
@@ -79,5 +82,5 @@ if (existsSync(appDist)) {
   console.warn('app/dist does not exist; skipping sourcemap upload.');
 }
 
-run(['releases', 'finalize']);
+run(['releases', 'finalize', release]);
 console.log(`Sentry release finalized: ${release}`);
