@@ -9,8 +9,23 @@ const OrderEmailNotification = require('../../models/OrderEmailNotification');
 const { flags, EMAIL_REGEX } = require('../../config/emailFlags');
 const { sendTransactionalEmail } = require('./index');
 const { renderOrderPlacedTemplate } = require('./templates/orderPlacedTemplate');
+const { renderOrderEventTemplate } = require('./templates/orderEventTemplate');
 
 const EVENT_ORDER_PLACED = 'order_placed';
+// Post-purchase lifecycle events the queue can deliver. The placed event
+// keeps its dedicated template and the confirmationEmail* bookkeeping; the
+// rest share the generic event template and never touch those fields.
+const ORDER_EVENT_TYPES = new Set([
+    'order_placed',
+    'order_confirmed',
+    'order_shipped',
+    'order_out_for_delivery',
+    'order_delivered',
+    'order_cancelled',
+    'order_refunded',
+    'replacement_approved',
+    'replacement_dispatched',
+]);
 const DEFAULT_RETRY_SCHEDULE_MINUTES = [1, 2, 5, 10, 30, 60, 180, 360];
 const MAX_NOTIFICATIONS_PER_CYCLE = 20;
 
@@ -91,6 +106,72 @@ const enqueueOrderPlacedEmail = async ({
     if (existing) return existing;
 
     const payloadSnapshot = buildPayloadSnapshot({ order, user });
+    const notificationDoc = {
+        notificationId: makeNotificationId(),
+        order: order._id,
+        user: user?._id || order.user,
+        recipientEmail,
+        eventType,
+        status: 'pending',
+        dedupeKey,
+        attemptCount: 0,
+        maxAttempts: flags.orderEmailMaxRetries,
+        nextAttemptAt: new Date(),
+        provider: flags.orderEmailProvider,
+        requestId: String(requestId || ''),
+        payloadSnapshot,
+        attempts: [],
+        adminActions: [],
+    };
+
+    try {
+        const createResult = await OrderEmailNotification.create([notificationDoc], { session });
+        return createResult[0];
+    } catch (error) {
+        if (error?.code === 11000) {
+            const duplicateQuery = OrderEmailNotification.findOne({ dedupeKey });
+            if (session) duplicateQuery.session(session);
+            return duplicateQuery;
+        }
+        throw error;
+    }
+};
+
+const enqueueOrderEventEmail = async ({
+    order,
+    user,
+    eventType,
+    message = '',
+    details = [],
+    trackingId = '',
+    requestId = '',
+    session = null,
+}) => {
+    if (!flags.orderEmailsEnabled) {
+        return null;
+    }
+    if (!ORDER_EVENT_TYPES.has(eventType)) {
+        throw new AppError(`Unsupported order email event type: ${eventType}`, 400);
+    }
+
+    const recipientEmail = assertRecipientEmail(user?.email);
+    const dedupeKey = buildNotificationDedupeKey({
+        orderId: order._id,
+        eventType,
+        recipientEmail,
+    });
+
+    const existingQuery = OrderEmailNotification.findOne({ dedupeKey });
+    if (session) existingQuery.session(session);
+    const existing = await existingQuery;
+    if (existing) return existing;
+
+    const payloadSnapshot = {
+        ...buildPayloadSnapshot({ order, user }),
+        message,
+        details,
+        trackingId,
+    };
     const notificationDoc = {
         notificationId: makeNotificationId(),
         order: order._id,
@@ -225,9 +306,14 @@ const processNotification = async (notification) => {
     const notificationId = notification.notificationId;
     const orderId = String(notification.order);
     const nextAttempt = Number(notification.attemptCount || 0) + 1;
+    // Only the placed event owns the confirmationEmail* projection on the
+    // order; lifecycle events must not overwrite that bookkeeping.
+    const isPlacedEvent = (notification.eventType || EVENT_ORDER_PLACED) === EVENT_ORDER_PLACED;
 
     try {
-        const rendered = renderOrderPlacedTemplate(notification.payloadSnapshot || {});
+        const rendered = isPlacedEvent
+            ? renderOrderPlacedTemplate(notification.payloadSnapshot || {})
+            : renderOrderEventTemplate(notification.eventType, notification.payloadSnapshot || {});
         const sendResult = await sendTransactionalEmail({
             eventType: notification.eventType || EVENT_ORDER_PLACED,
             to: notification.recipientEmail,
@@ -271,12 +357,14 @@ const processNotification = async (notification) => {
                 },
             }
         );
-        await markOrderEmailStatus({
-            orderId: notification.order,
-            status: 'sent',
-            sentAt: new Date(),
-            notificationId: notification.notificationId,
-        });
+        if (isPlacedEvent) {
+            await markOrderEmailStatus({
+                orderId: notification.order,
+                status: 'sent',
+                sentAt: new Date(),
+                notificationId: notification.notificationId,
+            });
+        }
 
         logger.info('order_email.sent', {
             notificationId,
@@ -322,13 +410,15 @@ const processNotification = async (notification) => {
                 { _id: notification._id },
                 { $set: { alertSent } }
             );
-            await markOrderEmailStatus({
-                orderId: notification.order,
-                status: 'failed',
-                sentAt: null,
-                notificationId: notification.notificationId,
-            });
-        } else {
+            if (isPlacedEvent) {
+                await markOrderEmailStatus({
+                    orderId: notification.order,
+                    status: 'failed',
+                    sentAt: null,
+                    notificationId: notification.notificationId,
+                });
+            }
+        } else if (isPlacedEvent) {
             await markOrderEmailStatus({
                 orderId: notification.order,
                 status: 'pending',
@@ -494,10 +584,12 @@ const retryOrderEmailNotification = async ({
 
 module.exports = {
     EVENT_ORDER_PLACED,
+    ORDER_EVENT_TYPES,
     DEFAULT_RETRY_SCHEDULE_MINUTES,
     buildNotificationDedupeKey,
     computeRetryDelayMs,
     enqueueOrderPlacedEmail,
+    enqueueOrderEventEmail,
     runOrderEmailQueueCycle,
     startOrderEmailWorker,
     getOrderEmailQueueStats,
