@@ -43,6 +43,7 @@ const MOUNT_PREFIXES = {
     userRoutes: ['/api/users'],
     cartRoutes: ['/api/cart'],
     orderRoutes: ['/api/orders'],
+    shippingRoutes: ['/api/shipping'],
     checkoutRoutes: ['/api/checkout'],
     aiRoutes: ['/api/ai'],
     otpRoutes: ['/api/otp', '/api/auth/otp'],
@@ -150,6 +151,9 @@ const ROUTE_POSTURES = {
     // Files with intentionally mixed or open surfaces declare per-route
     // postures below; the file default only fills undeclared leftovers.
     emailWebhookRoutes: 'webhook',
+    // Courier checkpoint webhooks: HMAC-verified per provider and deduped on
+    // the ShippingEvent ledger (shippingWebhookService suite).
+    shippingRoutes: 'webhook',
     healthRoutes: 'public',
     i18nRoutes: 'public',
     observabilityRoutes: 'public',

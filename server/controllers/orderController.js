@@ -12,7 +12,10 @@ const {
     isPreShipmentOrder,
     isInsideReturnWindow,
     hasActiveCommandRequest,
+    dispatchOrderShipment,
+    recordShipmentCheckpoint,
 } = require('../services/orderService');
+const { checkServiceability } = require('../services/deliveryServiceabilityService');
 const { getRequiredIdempotencyKey, getStableUserKey } = require('../services/payments/idempotencyService');
 const { placeOrderWithIdempotency } = require('../services/orderPlacementService');
 const {
@@ -1087,9 +1090,25 @@ const processOrderRefundRequestAdmin = asyncHandler(async (req, res, next) => {
     }
 
     touchCommandCenter(order);
+
+    // Return receipt: processed refunds on shipped/delivered orders may put
+    // the units back into inventory (opt-in per admin decision).
+    let restocked = 0;
+    if (finalStatus === 'processed' && req.body.restock === true && order.orderStatus !== 'cancelled') {
+        for (const item of order.orderItems || []) {
+            const result = await Product.updateOne(
+                { _id: item.product },
+                { $inc: { stock: Number(item.quantity || 0) } }
+            );
+            restocked += result.modifiedCount || 0;
+        }
+    }
+
     appendOrderStatusEvent(order, {
         status: order.orderStatus || 'placed',
-        message: `Admin set refund request ${requestId} to ${finalStatus}`,
+        message: restocked > 0
+            ? `Admin set refund request ${requestId} to ${finalStatus} (${restocked} item(s) restocked)`
+            : `Admin set refund request ${requestId} to ${finalStatus}`,
         actor: 'admin',
     });
     order.markModified('commandCenter');
@@ -1492,6 +1511,62 @@ const updateOrderStatusAdmin = asyncHandler(async (req, res, next) => {
     });
 });
 
+// @desc    Dispatch a shipment for an order (admin fulfillment)
+// @route   POST /api/orders/:id/shipments
+// @access  Private/Admin
+const dispatchOrderShipmentAdmin = asyncHandler(async (req, res, next) => {
+    const updatedOrder = await dispatchOrderShipment({
+        orderId: req.params.id,
+        items: req.body.items || [],
+        courier: req.body.courier || '',
+        trackingId: req.body.trackingId || '',
+        initialStatus: req.body.initialStatus || 'shipped',
+        promisedDate: req.body.promisedDate || null,
+        requestId: req.requestId || '',
+    });
+
+    res.status(201).json({
+        success: true,
+        message: 'Shipment created',
+        shipments: updatedOrder.shipments,
+        orderStatus: updatedOrder.orderStatus,
+    });
+});
+
+// @desc    Append a tracking checkpoint to a shipment (admin/courier)
+// @route   POST /api/orders/:id/shipments/:shipmentId/checkpoints
+// @access  Private/Admin
+const recordShipmentCheckpointAdmin = asyncHandler(async (req, res, next) => {
+    const updatedOrder = await recordShipmentCheckpoint({
+        orderId: req.params.id,
+        shipmentId: req.params.shipmentId,
+        status: req.body.status,
+        message: req.body.message || '',
+        location: req.body.location || '',
+        actor: 'admin',
+        requestId: req.requestId || '',
+    });
+
+    res.status(201).json({
+        success: true,
+        message: 'Checkpoint recorded',
+        shipments: updatedOrder.shipments,
+        orderStatus: updatedOrder.orderStatus,
+        isDelivered: updatedOrder.isDelivered,
+    });
+});
+
+// @desc    Check pincode serviceability and delivery promise
+// @route   POST /api/orders/serviceability
+// @access  Private
+const checkOrderServiceability = asyncHandler(async (req, res) => {
+    const result = checkServiceability({
+        postalCode: req.body.postalCode,
+        deliveryOption: req.body.deliveryOption || 'standard',
+    });
+    res.json({ success: true, serviceability: result });
+});
+
 // @desc    Download an owner-scoped order receipt
 // @route   GET /api/orders/:id/receipt
 // @access  Private
@@ -1632,6 +1707,9 @@ module.exports = {
     processOrderReplacementRequestAdmin,
     replyOrderSupportMessageAdmin,
     processOrderWarrantyClaimAdmin,
+    dispatchOrderShipmentAdmin,
+    recordShipmentCheckpointAdmin,
+    checkOrderServiceability,
     cancelOrder,
     cancelOrderAdmin,
     updateOrderStatusAdmin,

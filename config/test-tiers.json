@@ -72,6 +72,7 @@
       "tests/onePasswordProvider.test.js",
       "tests/orderCommandCenterIntegrity.test.js",
       "tests/orderControllerCreate.test.js",
+      "tests/orderLifecycleDelivery.test.js",
       "tests/orderPlacementService.test.js",
       "tests/otpEmailFailClosed.test.js",
       "tests/otpSystem.test.js",

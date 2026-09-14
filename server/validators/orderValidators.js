@@ -202,6 +202,42 @@ const adminOrderStatusSchema = z.object({
     }),
 });
 
+const adminShipmentDispatchSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+    }),
+    body: z.object({
+        initialStatus: z.enum(['packed', 'shipped']).default('shipped'),
+        courier: z.string().trim().max(120).optional(),
+        trackingId: z.string().trim().max(120).optional(),
+        promisedDate: z.string().datetime({ offset: true }).optional(),
+        items: z.array(z.object({
+            productId: z.string().trim().max(120),
+            title: z.string().trim().max(300).optional(),
+            quantity: z.number().int().positive().max(999),
+        })).max(50).optional(),
+    }),
+});
+
+const adminShipmentCheckpointSchema = z.object({
+    params: z.object({
+        id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
+        shipmentId: z.string().trim().min(4).max(120),
+    }),
+    body: z.object({
+        status: z.enum(['shipped', 'out_for_delivery', 'delivered', 'returned', 'exception']),
+        message: z.string().trim().max(300).optional(),
+        location: z.string().trim().max(160).optional(),
+    }),
+});
+
+const serviceabilityCheckSchema = z.object({
+    body: z.object({
+        postalCode: z.string().trim().regex(/^[0-9]{5,6}$/, 'Enter a valid pincode'),
+        deliveryOption: z.enum(['standard', 'express']).default('standard'),
+    }),
+});
+
 const adminCancelOrderSchema = z.object({
     params: z.object({
         id: z.string().trim().regex(/^[a-f0-9]{24}$/i, 'Invalid order id'),
@@ -221,6 +257,8 @@ const adminCommandRefundDecisionSchema = z.object({
         note: z.string().trim().max(300).optional(),
         amount: z.coerce.number().positive().optional(),
         externalReference: z.string().trim().max(120).optional(),
+        // Returned units re-enter inventory when the admin confirms receipt.
+        restock: z.coerce.boolean().optional(),
     }),
 });
 
@@ -270,6 +308,9 @@ module.exports = {
     buyAgainSchema,
     adminOrderStatusSchema,
     adminCancelOrderSchema,
+    adminShipmentDispatchSchema,
+    adminShipmentCheckpointSchema,
+    serviceabilityCheckSchema,
     adminCommandRefundDecisionSchema,
     adminCommandReplacementDecisionSchema,
     adminCommandSupportReplySchema,

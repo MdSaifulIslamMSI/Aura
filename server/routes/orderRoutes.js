@@ -16,6 +16,9 @@ const {
     cancelOrder,
     cancelOrderAdmin,
     updateOrderStatusAdmin,
+    dispatchOrderShipmentAdmin,
+    recordShipmentCheckpointAdmin,
+    checkOrderServiceability,
     getMyOrderReceipt,
     buyOrderAgain,
     getMyOrders,
@@ -50,6 +53,9 @@ const {
     adminCommandReplacementDecisionSchema,
     adminCommandSupportReplySchema,
     adminCommandWarrantyDecisionSchema,
+    adminShipmentDispatchSchema,
+    adminShipmentCheckpointSchema,
+    serviceabilityCheckSchema,
 } = require('../validators/orderValidators');
 
 const actorRateLimitKey = (req) => (
@@ -158,5 +164,11 @@ router.route('/:id/admin-cancel')
     .post(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminCancelOrderSchema), sensitiveActions.orderStatusChange, cancelOrderAdmin);
 router.route('/:id/status')
     .patch(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminOrderStatusSchema), sensitiveActions.orderStatusChange, updateOrderStatusAdmin);
+router.route('/serviceability')
+    .post(protect, orderCommandCenterRateLimit, orderCommandCenterLimiter, validate(serviceabilityCheckSchema), checkOrderServiceability);
+router.route('/:id/shipments')
+    .post(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminShipmentDispatchSchema), sensitiveActions.orderStatusChange, dispatchOrderShipmentAdmin);
+router.route('/:id/shipments/:shipmentId/checkpoints')
+    .post(protect, admin, orderAdminMutationRateLimit, orderAdminMutationLimiter, validate(adminShipmentCheckpointSchema), sensitiveActions.orderStatusChange, recordShipmentCheckpointAdmin);
 
 module.exports = router;

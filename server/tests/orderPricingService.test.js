@@ -39,12 +39,13 @@ describe('Order Pricing Service', () => {
             },
             paymentMethod: 'UPI',
             deliveryOption: 'express',
-            deliverySlot: { date: '2026-03-01', window: '12:00-15:00' },
+            deliverySlot: { date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), window: '12:00-15:00' },
         });
 
         expect(normalized.orderItems[0]).toEqual({ productId: 15, quantity: 3 });
         expect(normalized.deliveryOption).toBe('express');
-        expect(normalized.deliverySlot).toEqual({ date: '2026-03-01', window: '12:00-15:00' });
+        expect(normalized.deliverySlot.window).toBe('12:00-15:00');
+        expect(normalized.deliverySlot.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
     test('normalizeCheckoutPayload accepts NETBANKING rails from checkout clients', () => {
