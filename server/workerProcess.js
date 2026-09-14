@@ -48,6 +48,7 @@ const {
 const {
     startCommerceReconciliationWorker,
 } = require('./services/commerceReconciliationService');
+const { startOrderLifecycleWorker } = require('./services/orderLifecycleWorkerService');
 const { startAdminAnalyticsMonitor, stopAdminAnalyticsMonitor } = require('./services/adminAnalyticsMonitorService');
 const { startEmailOpsMonitor, stopEmailOpsMonitor } = require('./services/email/emailOpsMonitorService');
 const { startStatusMonitorWorker } = require('./services/statusService');
@@ -140,6 +141,7 @@ const startup = async () => {
     startPaymentOutboxWorker();
     startOrderEmailWorker();
     startCommerceReconciliationWorker();
+    startOrderLifecycleWorker();
     startAdminAnalyticsMonitor();
     startEmailOpsMonitor();
     startStatusMonitorWorker();
