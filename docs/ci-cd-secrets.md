@@ -11,6 +11,7 @@ This production pipeline is planner-driven. Missing cloud configuration does not
 | `NETLIFY_AUTH_TOKEN` | Netlify frontend deploy | Netlify CLI authentication token. |
 | `VERCEL_TOKEN` | Gateway and Vercel frontend deploys | Vercel CLI authentication token. |
 | `RENDER_API_KEY` | Render frontend deploy and rollback | Render API key for the coordinated multi-host storefront release. |
+| `RAILWAY_API_TOKEN` | Railway frontend deploy and rollback | Railway account/workspace API token (`Authorization: Bearer` against `https://backboard.railway.com/graphql/v2`). |
 
 ## Optional Sentry Secrets for Error Tracking
 
@@ -41,6 +42,10 @@ frontend deploy uploads releases/sourcemaps only when `SENTRY_AUTH_TOKEN` exists
 | `VERCEL_ORG_ID` | Gateway and Vercel deploy readiness | Vercel organization/team id. |
 | `VERCEL_PROJECT_ID` | Gateway and Vercel deploy readiness | Vercel project id. |
 | `RENDER_SERVICE_ID` | Render frontend deploy and rollback | Render service id (`srv-…`) for `aura-storefront`; may also be a secret. |
+| `RAILWAY_SERVICE_ID` | Railway frontend deploy and rollback | Railway storefront service id/name; may also be a secret. |
+| `RAILWAY_PROJECT_ID` | Railway frontend deploy and rollback | Railway project id used to link the CLI before mutating. |
+| `RAILWAY_ENVIRONMENT_ID` | Railway frontend deploy and rollback | Railway environment id (production) for the storefront service. |
+| `RAILWAY_PRODUCTION_URL` | Railway frontend deploy and smoke tests | Public Railway storefront URL, e.g. `https://aura-storefront.up.railway.app`. |
 | `GATEWAY_PRODUCTION_URL` | Gateway smoke tests | Public gateway production URL. |
 | `BACKEND_HEALTH_PATH` | Optional smoke tests | Backend health path, defaults to `/health`. |
 | `GATEWAY_HEALTH_PATH` | Optional smoke tests | Gateway health path, defaults to `/`. |
