@@ -6,9 +6,9 @@ This report proves the large human-review queue is compressed without dropping a
 
 - Stable UI candidates discovered: 418
 - Uncovered stable UI candidates: 0
-- Locale key coverage: 100% (103425/103425 required locale/message pairs)
+- Locale key coverage: 100% (103824/103824 required locale/message pairs)
 - Required locales: 21
-- Source message keys: 4925
+- Source message keys: 4944
 - Missing locale/message pairs: 0
 - Empty locale/message pairs: 0
 - Duplicate review locale/id pairs: 0
@@ -16,12 +16,12 @@ This report proves the large human-review queue is compressed without dropping a
 
 ## Breakthrough Result
 
-- Total tracked review pairs preserved: 92803
-- Unique review locale/id pairs: 92803
-- Actionable grouped queue entries: 1737
-- Actionable affected locale/message pairs: 29029
+- Total tracked review pairs preserved: 93164
+- Unique review locale/id pairs: 93164
+- Actionable grouped queue entries: 1755
+- Actionable affected locale/message pairs: 29409
 - Native-review audit grouped entries: 3047
-- Native-review audit affected locale/message pairs: 63774
+- Native-review audit affected locale/message pairs: 63755
 
 Actionable queue entries are unresolved English fallback or safety-review items. Native-review audit entries are structurally valid promotions kept visible for locale signoff without blocking machine QA.
 
@@ -29,7 +29,7 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Priority | Grouped entries | Affected pairs | Locale spread |
 | --- | ---: | ---: | --- |
-| critical | 880 | 15874 | bn 783, hi 767, te 845, mr 846, ur 830, gu 859, pa 850, ml 844, kn 845, or 857, as 842, sa 849, es 844, fr 865, de 863, ar 781, ja 830, pt 849, zh 825 |
+| critical | 898 | 16254 | bn 803, hi 787, te 865, mr 866, ur 850, gu 879, pa 870, ml 864, kn 865, or 877, as 862, sa 869, es 864, fr 885, de 883, ar 801, ja 850, pt 869, zh 845 |
 | high | 46 | 217 | bn 9, hi 20, te 19, mr 14, ur 20, gu 13, pa 18, ml 25, kn 19, or 30, as 4, sa 9, es 1, fr 6, de 6, ar 1, ja 1, pt 2 |
 | medium | 765 | 12822 | bn 676, hi 628, te 680, mr 682, ur 680, gu 704, pa 695, ml 682, kn 677, or 695, as 681, sa 697, es 684, fr 668, de 673, ar 669, ja 638, pt 674, zh 639 |
 | low | 46 | 116 | bn 3, hi 2, te 7, mr 3, ur 4, gu 4, pa 3, ml 3, kn 7, or 8, as 6, sa 8, es 10, fr 19, de 17, ar 1, ja 2, pt 8, zh 1 |
@@ -41,11 +41,11 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 | critical | high | 57 | Recheck your email and phone details, then request a new code. | auth.error.noAccountFound.hint, auth.error.noAccountFoundWithThisEmail.hint, auth.error.noAccountFoundWithThisPhone.hint |
 | critical | high | 57 | Sign in for support | securePathDock.support.guest.title, support.jsx.text.sign.in.for.support, supportLauncher.guest.title |
 | critical | high | 57 | We could not verify those account details for OTP. | auth.error.noAccountFound.detail, auth.error.noAccountFoundWithThisEmail.detail, auth.error.noAccountFoundWithThisPhone.detail |
+| critical | high | 38 | Invoice | orders.actions.invoice, orders.invoice.title |
 | critical | high | 38 | Active incidents | status.incidents.active, support.jsx.prop.label.active.incidents |
 | critical | high | 38 | Authorize the exact live domain in Firebase Authentication settings, or continue with email and OTP sign-in. | auth.error.illegalIframe.hint, auth.error.illegalUrlForNewIframe.hint |
 | critical | high | 38 | Firebase rejected the current site host for popup-based sign-in. | auth.error.illegalIframe.detail, auth.error.illegalUrlForNewIframe.detail |
 | critical | high | 38 | Frontier AI Layer | common.jsx.text.frontier.ai.layer.21e85bce, common.jsx.text.frontier.ai.layer.39f8bb96 |
-| critical | high | 38 | Guest | assistant.context.guest, common.jsx.expression.guest.c539652f |
 | high | high | 9 | Aura Support can move this same thread into voice or video without losing the written history or the resolution summary. | profile.support.arch.defaultBody |
 | high | high | 9 | Aura never asks for your OTP outside this secure verification step. | login.trust.otp.default.2 |
 | high | high | 9 | Enter your password, verify the email code, then verify the phone code. Keep Aura Desktop open; the request expires after 10 minutes. | desktopLogin.handoff.stepsDetail |
@@ -75,25 +75,25 @@ Actionable queue entries are unresolved English fallback or safety-review items.
 
 | Locale | Affected pairs |
 | --- | ---: |
-| bn | 3250 |
-| hi | 3304 |
-| te | 3374 |
-| mr | 3380 |
-| ur | 3231 |
-| gu | 3345 |
-| pa | 3359 |
-| ml | 3371 |
-| kn | 3377 |
-| or | 3335 |
-| as | 3392 |
-| sa | 3362 |
-| es | 3386 |
-| fr | 3367 |
-| de | 3366 |
-| ar | 3269 |
-| ja | 3454 |
-| pt | 3392 |
-| zh | 3460 |
+| bn | 3249 |
+| hi | 3303 |
+| te | 3373 |
+| mr | 3379 |
+| ur | 3230 |
+| gu | 3344 |
+| pa | 3358 |
+| ml | 3370 |
+| kn | 3376 |
+| or | 3334 |
+| as | 3391 |
+| sa | 3361 |
+| es | 3385 |
+| fr | 3366 |
+| de | 3365 |
+| ar | 3268 |
+| ja | 3453 |
+| pt | 3391 |
+| zh | 3459 |
 
 ## Files
 

@@ -62,6 +62,52 @@ describe('OrderCard', () => {
         vi.clearAllMocks();
     });
 
+    it('shows granular shipment stages on the badge and progress stepper', async () => {
+        const shippedOrder = {
+            ...baseOrder,
+            orderStatus: 'shipped',
+            shipments: [{
+                shipmentId: 'shp-1',
+                status: 'out_for_delivery',
+                courier: 'AuraExpress',
+                trackingId: 'AWB-1',
+                checkpoints: [{ status: 'out_for_delivery', message: 'On the van', at: '2026-03-21T08:00:00.000Z' }],
+            }],
+        };
+
+        render(
+            <MemoryRouter>
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <LocaleProvider>
+                        <OrderCard order={shippedOrder} />
+                    </LocaleProvider>
+                </MarketProvider>
+            </MemoryRouter>
+        );
+
+        expect(screen.getAllByText('Out for Delivery').length).toBeGreaterThan(0);
+
+        fireEvent.click(screen.getByRole('button', { name: /toggle order details/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/On the van/)).toBeInTheDocument();
+        });
+    });
+
+    it('keeps legacy placed orders on the confirmed label', () => {
+        render(
+            <MemoryRouter>
+                <MarketProvider initialPreference={{ countryCode: 'IN', language: 'en', currency: 'INR' }}>
+                    <LocaleProvider>
+                        <OrderCard order={baseOrder} />
+                    </LocaleProvider>
+                </MarketProvider>
+            </MemoryRouter>
+        );
+
+        expect(screen.getAllByText(/order confirmed/i).length).toBeGreaterThan(0);
+    });
+
     it('settles trust timeline and command center requests after expansion', async () => {
         orderApi.getOrderTimeline.mockResolvedValue({
             timeline: [

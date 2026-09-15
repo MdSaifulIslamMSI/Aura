@@ -18,6 +18,8 @@ const {
     setTerminalCaptureFailureHandler,
 } = require('./payments/paymentService');
 const { reverseLoyaltyPoints } = require('./loyaltyService');
+const { emitOrderEventNotification } = require('./orderNotificationService');
+const { recordOrderEvent } = require('../middleware/metrics');
 const { DIGITAL_METHODS } = require('./payments/constants');
 const { toStoredMinorUnits } = require('./payments/moneyStorage');
 
@@ -161,13 +163,255 @@ const retireRefundOutboxTask = async ({ intentId, requestId }) => {
 };
 
 /**
+ * Shipment lifecycle. The order-level orderStatus enum stays untouched;
+ * granular progress (packed / out_for_delivery / returned) lives on the
+ * shipment checkpoints and is projected onto the order only at the two
+ * delivery-relevant moments (shipped, delivered).
+ */
+const MAX_SHIPMENT_CHECKPOINTS = 50;
+const SHIPMENT_STATUS_TRANSITIONS = {
+    pending: new Set(['packed', 'cancelled']),
+    packed: new Set(['shipped', 'cancelled']),
+    shipped: new Set(['out_for_delivery', 'returned', 'exception']),
+    out_for_delivery: new Set(['delivered', 'exception']),
+    delivered: new Set(['returned']),
+    exception: new Set(['shipped', 'cancelled']),
+    cancelled: new Set([]),
+    returned: new Set([]),
+};
+
+const canTransitionShipmentStatus = ({ currentStatus, targetStatus }) => {
+    const allowed = SHIPMENT_STATUS_TRANSITIONS[currentStatus];
+    return Boolean(allowed && allowed.has(targetStatus));
+};
+
+const syncOrderFromShipmentStatus = (targetStatus) => {
+    if (targetStatus === 'shipped') {
+        return { orderStatus: 'shipped' };
+    }
+    if (targetStatus === 'delivered') {
+        return { orderStatus: 'delivered', isDelivered: true, deliveredAt: new Date() };
+    }
+    return null;
+};
+
+const SHIPMENT_EVENT_TITLES = {
+    shipped: 'Your order has shipped',
+    out_for_delivery: 'Your order is out for delivery',
+    delivered: 'Your order was delivered',
+    returned: 'Your return was received',
+    exception: 'Your delivery hit a snag',
+};
+
+/**
+ * Admin dispatch: creates a shipment on the order and stamps its first
+ * checkpoint. Stock is expected to have been decremented by the caller
+ * (replacement dispatch does that itself; forward fulfillment ships units
+ * that were decremented at placement).
+ */
+const dispatchOrderShipment = async ({
+    orderId,
+    items = [],
+    courier = '',
+    trackingId = '',
+    initialStatus = 'shipped',
+    promisedDate = null,
+    requestId = '',
+}) => {
+    if (!['packed', 'shipped'].includes(initialStatus)) {
+        throw new AppError(`Invalid initial shipment status: ${initialStatus}`, 400);
+    }
+
+    const order = await Order.findById(orderId).select('_id user orderStatus orderItems shipments couponCode statusTimeline totalPrice');
+    if (!order) {
+        throw new AppError('Order not found', 404);
+    }
+    if (order.orderStatus === 'cancelled' || order.cancelledAt) {
+        throw new AppError('Cancelled orders cannot be shipped', 409);
+    }
+
+    const resolvedItems = (Array.isArray(items) && items.length > 0
+        ? items
+        : (order.orderItems || []).map((item) => ({
+            productId: String(item.product || item.productId || ''),
+            title: item.title || '',
+            quantity: Number(item.quantity || 1),
+        }))).map((item) => ({
+        productId: String(item.productId || ''),
+        title: String(item.title || ''),
+        quantity: Math.max(Number(item.quantity || 1), 1),
+    }));
+
+    const now = new Date();
+    const shipmentId = createCommandId('shp');
+    const checkpoint = {
+        status: initialStatus,
+        message: initialStatus === 'shipped' ? 'Shipment dispatched' : 'Packed at warehouse',
+        actor: 'admin',
+        at: now,
+    };
+
+    const updatedOrder = await Order.findOneAndUpdate(
+        {
+            _id: order._id,
+            orderStatus: { $ne: 'cancelled' },
+        },
+        {
+            $push: {
+                shipments: {
+                    shipmentId,
+                    items: resolvedItems,
+                    courier: String(courier || '').trim(),
+                    trackingId: String(trackingId || '').trim(),
+                    status: initialStatus,
+                    checkpoints: [checkpoint],
+                    promisedDate: promisedDate || null,
+                    dispatchedAt: initialStatus === 'shipped' ? now : null,
+                    createdAt: now,
+                },
+                statusTimeline: {
+                    status: initialStatus === 'shipped' ? 'shipped' : (order.orderStatus || 'placed'),
+                    message: initialStatus === 'shipped'
+                        ? `Shipment ${shipmentId} dispatched${courier ? ` via ${courier}` : ''}`
+                        : `Shipment ${shipmentId} packed`,
+                    actor: 'admin',
+                    at: now,
+                },
+            },
+            $set: {
+                ...(initialStatus === 'shipped' && !['delivered'].includes(order.orderStatus)
+                    ? { orderStatus: 'shipped' }
+                    : {}),
+                updatedAt: now,
+            },
+        },
+        { returnDocument: 'after' }
+    );
+
+    if (!updatedOrder) {
+        throw new AppError('Order state changed concurrently, retry dispatch', 409);
+    }
+
+    await emitOrderEventNotification({
+        order: updatedOrder,
+        eventType: initialStatus === 'shipped' ? 'order_shipped' : 'order_confirmed',
+        title: initialStatus === 'shipped' ? SHIPMENT_EVENT_TITLES.shipped : 'Your order is being packed',
+        message: initialStatus === 'shipped'
+            ? `Your order has shipped${courier ? ` via ${courier}` : ''}.`
+            : 'Your order has been packed and will ship soon.',
+        trackingId,
+        requestId,
+    });
+
+    return updatedOrder;
+};
+
+/**
+ * Admin/courier checkpoint advance. The transition is guarded by the shipment
+ * map and executed with a status precondition so two concurrent webhook or
+ * admin writers cannot double-apply.
+ */
+const recordShipmentCheckpoint = async ({
+    orderId,
+    shipmentId,
+    status,
+    message = '',
+    location = '',
+    actor = 'admin',
+    requestId = '',
+}) => {
+    if (!SHIPMENT_STATUS_TRANSITIONS[status]) {
+        throw new AppError(`Unknown shipment status: ${status}`, 400);
+    }
+
+    const order = await Order.findOne(
+        { _id: orderId, 'shipments.shipmentId': shipmentId },
+        { _id: 1, user: 1, orderStatus: 1, shipments: { $elemMatch: { shipmentId } } }
+    );
+    if (!order || !Array.isArray(order.shipments) || order.shipments.length === 0) {
+        throw new AppError('Shipment not found', 404);
+    }
+
+    const shipment = order.shipments[0];
+    if (!canTransitionShipmentStatus({ currentStatus: shipment.status, targetStatus: status })) {
+        throw new AppError(`Invalid shipment transition from ${shipment.status} to ${status}`, 409);
+    }
+
+    const now = new Date();
+    const checkpoint = {
+        status,
+        message: String(message || '').trim(),
+        location: String(location || '').trim(),
+        actor,
+        at: now,
+    };
+    const orderSync = syncOrderFromShipmentStatus(status);
+    const shipmentSets = {
+        'shipments.$.status': status,
+        'shipments.$.updatedAt': now,
+    };
+    if (status === 'shipped' && !shipment.dispatchedAt) {
+        shipmentSets['shipments.$.dispatchedAt'] = now;
+    }
+    if (status === 'delivered') {
+        shipmentSets['shipments.$.deliveredAt'] = now;
+    }
+
+    const updatedOrder = await Order.findOneAndUpdate(
+        {
+            _id: order._id,
+            orderStatus: { $ne: 'cancelled' },
+            shipments: { $elemMatch: { shipmentId, status: shipment.status } },
+        },
+        {
+            $set: {
+                ...shipmentSets,
+                ...(orderSync || {}),
+            },
+            $push: {
+                'shipments.$.checkpoints': { $each: [checkpoint], $slice: -MAX_SHIPMENT_CHECKPOINTS },
+                statusTimeline: {
+                    status: orderSync?.orderStatus || order.orderStatus || 'placed',
+                    message: message || `Shipment ${shipmentId} marked ${status.replace(/_/g, ' ')}`,
+                    actor,
+                    at: now,
+                },
+            },
+        },
+        { returnDocument: 'after' }
+    );
+
+    recordOrderEvent(`shipment_${status}`);
+    if (!updatedOrder) {
+        throw new AppError('Shipment state changed concurrently, retry checkpoint', 409);
+    }
+
+    await emitOrderEventNotification({
+        order: updatedOrder,
+        eventType: status === 'delivered' ? 'order_delivered' : `order_${status}`,
+        title: SHIPMENT_EVENT_TITLES[status] || 'Your order has an update',
+        message: message || `Your order shipment is now ${status.replace(/_/g, ' ')}.`,
+        trackingId: shipment.trackingId || '',
+        requestId,
+    });
+
+    return updatedOrder;
+};
+
+/**
  * Compensation for a payment capture that permanently failed in the outbox:
  * the order sits in placed/processing holding reserved stock and will never
  * be paid. Cancels with a system actor (no auto-refund — nothing was
  * captured; the provider releases the authorization), restocks, reverses
  * coupon/loyalty, notifies the customer and raises a critical admin alert.
  */
-const cancelOrderForFailedCapture = async ({ intentId, reason = 'Payment capture failed after retries' }) => {
+const cancelOrderForFailedCapture = async ({
+    intentId,
+    reason = 'Payment capture failed after retries',
+    alertActionKey = 'order_capture_failed_cancelled',
+    alertTitle = 'Order auto-cancelled after capture failure',
+    alertSummary = '',
+}) => {
     const order = await Order.findOne({
         paymentIntentId: intentId,
         orderStatus: { $in: Array.from(PRE_SHIPMENT_STATUSES) },
@@ -176,56 +420,76 @@ const cancelOrderForFailedCapture = async ({ intentId, reason = 'Payment capture
     });
     if (!order) return { handled: false, reason: 'no_cancelable_order' };
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-        const cancelUpdate = await Order.updateOne(
-            {
-                _id: order._id,
-                orderStatus: { $in: Array.from(PRE_SHIPMENT_STATUSES) },
-                cancelledAt: null,
-            },
-            {
-                $set: {
-                    orderStatus: 'cancelled',
-                    cancelledAt: new Date(),
-                    cancelReason: String(reason),
+    const isTransientTxError = (error) => (
+        Array.isArray(error?.errorLabels) && error.errorLabels.includes('TransientTransactionError')
+    ) || /please retry the operation|catalog changes|TransactionExceededLifetimeLimitSeconds/i.test(String(error?.message || ''));
+
+    // Multi-document transactions are documented as retryable on
+    // TransientTransactionError labels (also emitted by replica-set catalog
+    // churn), so a bounded retry is the correct behavior in production, not
+    // just in tests.
+    const MAX_COMPENSATION_TX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_COMPENSATION_TX_ATTEMPTS; attempt += 1) {
+        const session = await mongoose.startSession();
+        session.startTransaction();
+        try {
+            const cancelUpdate = await Order.updateOne(
+                {
+                    _id: order._id,
+                    orderStatus: { $in: Array.from(PRE_SHIPMENT_STATUSES) },
+                    cancelledAt: null,
                 },
-                $push: {
-                    statusTimeline: {
-                        status: 'cancelled',
-                        message: String(reason),
-                        actor: 'system',
-                        at: new Date(),
+                {
+                    $set: {
+                        orderStatus: 'cancelled',
+                        cancelledAt: new Date(),
+                        cancelReason: String(reason),
+                    },
+                    $push: {
+                        statusTimeline: {
+                            status: 'cancelled',
+                            message: String(reason),
+                            actor: 'system',
+                            at: new Date(),
+                        },
                     },
                 },
-            },
-            { session }
-        );
-        if (!cancelUpdate.modifiedCount) {
-            await session.abortTransaction();
-            session.endSession();
-            return { handled: false, reason: 'order_state_changed' };
-        }
-
-        for (const item of order.orderItems || []) {
-            await Product.updateOne(
-                { _id: item.product },
-                { $inc: { stock: Number(item.quantity || 0) } },
                 { session }
             );
+            if (!cancelUpdate.modifiedCount) {
+                await session.abortTransaction();
+                session.endSession();
+                return { handled: false, reason: 'order_state_changed' };
+            }
+
+            for (const item of order.orderItems || []) {
+                await Product.updateOne(
+                    { _id: item.product },
+                    { $inc: { stock: Number(item.quantity || 0) } },
+                    { session }
+                );
+            }
+
+            await releaseCouponRedemptionForOrder({ order, session });
+            await reverseLoyaltyPointsForOrder({ order, session });
+
+            await session.commitTransaction();
+            session.endSession();
+            break;
+        } catch (error) {
+            await session.abortTransaction().catch(() => {});
+            session.endSession();
+            if (isTransientTxError(error) && attempt < MAX_COMPENSATION_TX_ATTEMPTS) {
+                // Single-node replica sets (CI in-memory Mongo, catalog churn
+                // from concurrent index builds) can reject every immediate
+                // retry with a catalog-changes TransientTransactionError, so
+                // back off briefly instead of retrying in a hot loop.
+                await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
+                continue;
+            }
+            console.error(`Capture-failure compensation failed for order ${order._id}:`, error.message);
+            return { handled: false, reason: 'compensation_failed', error: error.message };
         }
-
-        await releaseCouponRedemptionForOrder({ order, session });
-        await reverseLoyaltyPointsForOrder({ order, session });
-
-        await session.commitTransaction();
-        session.endSession();
-    } catch (error) {
-        await session.abortTransaction();
-        session.endSession();
-        console.error(`Capture-failure compensation failed for order ${order._id}:`, error.message);
-        return { handled: false, reason: 'compensation_failed', error: error.message };
     }
 
     try {
@@ -244,9 +508,10 @@ const cancelOrderForFailedCapture = async ({ intentId, reason = 'Payment capture
         await AdminNotification.create({
             notificationId: crypto.randomUUID(),
             source: 'system',
-            actionKey: 'order_capture_failed_cancelled',
-            title: 'Order auto-cancelled after capture failure',
-            summary: `Order ${order._id} was cancelled and restocked after capture retries were exhausted (intent ${intentId}).`,
+            actionKey: alertActionKey,
+            title: alertTitle,
+            summary: alertSummary
+                || `Order ${order._id} was cancelled and restocked after capture retries were exhausted (intent ${intentId}).`,
             severity: 'critical',
             actorRole: 'system',
             entityType: 'order',
@@ -480,6 +745,20 @@ const cancelOrderByActor = async ({
         }
     }
 
+    recordOrderEvent('cancelled');
+    try {
+        await emitOrderEventNotification({
+            order,
+            eventType: 'order_cancelled',
+            title: 'Your order was cancelled',
+            message: refundMessage
+                ? `Your order was cancelled. ${refundMessage}.`
+                : 'Your order has been cancelled and the items were released.',
+        });
+    } catch (notifyError) {
+        console.error(`Cancellation notification failed for order ${order._id}:`, notifyError.message);
+    }
+
     const updatedOrder = await Order.findById(order._id).lean();
     return { updatedOrder, refundMessage };
 };
@@ -520,6 +799,9 @@ module.exports = {
     releaseCouponRedemptionForOrder,
     reverseLoyaltyPointsForOrder,
     cancelOrderForFailedCapture,
+    canTransitionShipmentStatus,
+    dispatchOrderShipment,
+    recordShipmentCheckpoint,
     getOrderTimelineData,
     DIGITAL_PAYMENT_METHODS,
 };

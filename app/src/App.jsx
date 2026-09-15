@@ -60,6 +60,7 @@ const Cart = lazyWithRetry(() => import('./pages/Cart'), 'cart');
 const Wishlist = lazyWithRetry(() => import('./pages/Wishlist'), 'wishlist');
 const Checkout = lazyWithRetry(() => import('./pages/Checkout'), 'checkout');
 const Orders = lazyWithRetry(() => import('./pages/Orders'), 'orders');
+const OrderInvoice = lazyWithRetry(() => import('./pages/Orders/Invoice'), 'order-invoice');
 const StatusPage = lazyWithRetry(() => import('./pages/Status'), 'status');
 const StatusHistoryPage = lazyWithRetry(() => import('./pages/Status/History'), 'status-history');
 const StatusIncidentDetailPage = lazyWithRetry(() => import('./pages/Status/IncidentDetail'), 'status-incident');
@@ -356,6 +357,7 @@ function AppContent() {
               <Route path="/wishlist" element={renderRoute(<Wishlist />)} />
               <Route path="/checkout" element={renderCriticalRoute(<ProtectedRoute><Checkout /></ProtectedRoute>)} />
               <Route path="/orders" element={renderCriticalRoute(<ProtectedRoute><Orders /></ProtectedRoute>)} />
+              <Route path="/orders/:orderId/invoice" element={renderCriticalRoute(<ProtectedRoute><OrderInvoice /></ProtectedRoute>)} />
               <Route path="/status" element={renderCriticalRoute(<StatusPage />)} />
               <Route path="/status/history" element={renderCriticalRoute(<StatusHistoryPage />)} />
               <Route path="/status/incidents/:slug" element={renderCriticalRoute(<StatusIncidentDetailPage />)} />

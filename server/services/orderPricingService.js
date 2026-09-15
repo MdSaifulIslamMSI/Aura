@@ -97,6 +97,13 @@ const normalizeDeliverySlot = (deliverySlot) => {
         throw new AppError('deliverySlot.date must be in YYYY-MM-DD format', 400);
     }
 
+    // Reject slot dates before today (client clock skew tolerated by one day).
+    const slotDate = new Date(`${date}T00:00:00.000Z`);
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    if (Number.isFinite(slotDate.getTime()) && slotDate < yesterday) {
+        throw new AppError('deliverySlot.date cannot be in the past', 400);
+    }
+
     if (!SLOT_WINDOWS.includes(window)) {
         throw new AppError('Invalid delivery slot window', 400);
     }

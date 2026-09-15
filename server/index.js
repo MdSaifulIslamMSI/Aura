@@ -101,6 +101,7 @@ const internalOpsRoutes = require('./routes/internalOpsRoutes');
 const observabilityRoutes = require('./routes/observabilityRoutes');
 const { buildPrivacySafeRequestLogContext } = require('./utils/requestObservability');
 const emailWebhookRoutes = require('./routes/emailWebhookRoutes');
+const shippingRoutes = require('./routes/shippingRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const intelligenceRoutes = require('./routes/intelligenceRoutes');
 const supportRoutes = require('./routes/supportRoutes');
@@ -127,6 +128,7 @@ const {
     startCommerceReconciliationWorker,
     getCommerceReconciliationStatus,
 } = require('./services/commerceReconciliationService');
+const { startOrderLifecycleWorker } = require('./services/orderLifecycleWorkerService');
 const {
     startFxRateScheduler,
     stopFxRateScheduler,
@@ -506,7 +508,7 @@ app.use(['/api/auth', '/api/otp'], express.urlencoded({
 }));
 // Only webhook signature verification needs the exact request bytes; capturing
 // rawBody globally held every large JSON body twice (buffer + string).
-app.use(['/api/payments/webhooks', '/api/status/webhooks', '/api/email-webhooks'], express.json({
+app.use(['/api/payments/webhooks', '/api/status/webhooks', '/api/email-webhooks', '/api/shipping/webhooks'], express.json({
     limit: JSON_BODY_LIMIT,
     verify: captureRawBody,
 }));
@@ -618,6 +620,7 @@ app.use('/api/admin/status', adminStatusRoutes);
 app.use('/api/internal', internalOpsRoutes);
 app.use('/api/observability', observabilityRoutes);
 app.use('/api/email-webhooks', emailWebhookRoutes);
+app.use('/api/shipping', shippingRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/support', supportRoutes);
@@ -981,6 +984,7 @@ assertProductionRedisConfig();
                         startPaymentOutboxWorker();
                         startOrderEmailWorker();
                         startCommerceReconciliationWorker();
+                        startOrderLifecycleWorker();
                         startAdminAnalyticsMonitor();
                         startEmailOpsMonitor();
                         startStatusMonitorWorker();

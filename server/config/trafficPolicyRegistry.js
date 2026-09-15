@@ -222,7 +222,7 @@ const POLICY_DEFINITIONS = [
         componentName: 'Email/SMS/webhooks',
         profile: PROFILES.WEBHOOK_INTERNAL,
         routeClass: ROUTE_CLASSES.WEBHOOK,
-        pathPrefixes: ['/api/payments/webhooks', '/api/email-webhooks', '/api/status/webhooks'],
+        pathPrefixes: ['/api/payments/webhooks', '/api/email-webhooks', '/api/status/webhooks', '/api/shipping/webhooks'],
         methodGroup: 'mutation',
         methods: ['POST'],
         userIntent: 'Accept signed provider callbacks and monitor webhooks.',

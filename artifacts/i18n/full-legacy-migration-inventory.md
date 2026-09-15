@@ -1,17 +1,17 @@
 # Complete Legacy ICU Migration Inventory
 
-Generated: 2026-09-11T20:12:33.596Z
+Generated: 2026-09-15T08:55:07.575Z
 
 Complete pre-migration inventory for legacy market-pack t() usage. Stable UI literals are ICU migration candidates. Dynamic lookups, runtime content, pack internals, and test harness calls remain explicit review buckets.
 
 ## Summary
 
-- Source files scanned: 519
-- Tracked files: 151
-- Production files with stable literal UI copy: 98
-- Production stable literal references: 4091
-- Unique production stable IDs: 3693
-- Dynamic lookup references requiring manual review: 14
+- Source files scanned: 523
+- Tracked files: 152
+- Production files with stable literal UI copy: 99
+- Production stable literal references: 4111
+- Unique production stable IDs: 3712
+- Dynamic lookup references requiring manual review: 16
 - Runtime enum compatibility references: 1
 - Runtime-content translation files: 18
 - Runtime enum compatibility files: 1
@@ -30,7 +30,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | --- | --- | ---: | ---: | ---: | --- |
 | high | `app/src/pages/Login/useLoginController.js` | 170 | 159 | 1 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepPayment.jsx` | 151 | 133 | 0 | stable-ui |
-| high | `app/src/pages/Orders/index.jsx` | 129 | 126 | 0 | stable-ui |
+| high | `app/src/pages/Orders/index.jsx` | 134 | 131 | 2 | stable-ui |
 | high | `app/src/pages/Profile/components/SettingsSection.jsx` | 129 | 126 | 0 | stable-ui |
 | high | `app/src/pages/ListingDetail/index.jsx` | 123 | 116 | 0 | runtime-content-nearby |
 | high | `app/src/pages/Checkout/index.jsx` | 103 | 92 | 0 | stable-ui |
@@ -54,6 +54,7 @@ These production references are eligible for reviewed ICU catalog migration.
 | high | `app/src/components/shared/ProtectedRoute.jsx` | 17 | 17 | 0 | stable-ui |
 | high | `app/src/pages/Bundles/index.jsx` | 17 | 17 | 0 | stable-ui |
 | high | `app/src/pages/Contact/index.jsx` | 15 | 15 | 0 | stable-ui |
+| high | `app/src/pages/Orders/Invoice.jsx` | 15 | 15 | 0 | stable-ui |
 | high | `app/src/pages/Checkout/components/StepReview.jsx` | 14 | 14 | 0 | stable-ui |
 | high | `app/src/pages/Login/BrandVisualPanel.jsx` | 12 | 12 | 0 | stable-ui |
 | high | `app/src/pages/Login/CountryCodePicker.jsx` | 11 | 11 | 0 | stable-ui |
@@ -144,6 +145,8 @@ These computed keys stay outside automatic migration until manually reviewed.
 | `app/src/pages/AICompare/index.jsx` | 360 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/Login/useLoginController.js` | 519 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/MissionControl/index.jsx` | 285 | StableText id is computed and requires manual review. |
+| `app/src/pages/Orders/index.jsx` | 44 | First t() argument is computed or interpolated and requires manual review. |
+| `app/src/pages/Orders/index.jsx` | 153 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/pages/ProductListing/index.jsx` | 491 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/utils/authErrors.js` | 2147 | First t() argument is computed or interpolated and requires manual review. |
 | `app/src/utils/supportArchitecture.js` | 148 | First t() argument is computed or interpolated and requires manual review. |
