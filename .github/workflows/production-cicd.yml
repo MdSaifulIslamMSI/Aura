@@ -33,6 +33,12 @@ on:
         default: false
         type: boolean
 
+      allow_missing_rollback_target:
+        description: Allow the storefront release to proceed when a host has no prior deploy to restore (first-ever release for that host); auto-rollback for that host then fails closed
+        required: false
+        default: false
+        type: boolean
+
       desktop_version:
         description: Optional desktop version, for example 1.2.0
         required: false
@@ -1208,6 +1214,7 @@ jobs:
     with:
       target: production
       auto_rollback_on_failure: true
+      allow_missing_rollback_target: ${{ github.event.inputs.allow_missing_rollback_target == 'true' }}
       parent_holds_production_lock: true
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN: ${{ secrets.AWS_FRONTEND_DEPLOY_ROLE_ARN }}
