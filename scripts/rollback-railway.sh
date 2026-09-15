@@ -40,6 +40,9 @@ require_env RAILWAY_SERVICE_ID
 require_env RAILWAY_ENVIRONMENT_ID
 
 export RAILWAY_API_TOKEN RAILWAY_ENVIRONMENT_ID RAILWAY_SERVICE_ID
+# Project tokens authenticate the CLI through RAILWAY_TOKEN (RAILWAY_API_TOKEN
+# is our GitHub-secret name; account tokens are a different Railway concept).
+export RAILWAY_TOKEN="${RAILWAY_API_TOKEN}"
 
 if [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
   railway link --project "${RAILWAY_PROJECT_ID}" \
@@ -123,9 +126,11 @@ fi
 # restore the captured deployment's snapshot (image + variables) via GraphQL.
 echo "Restoring Railway deployment ${rollback_ref} via snapshot rollback."
 rollback_response="$(mktemp)"
+# Project tokens authenticate with the Project-Access-Token header; Bearer is
+# rejected for project-scoped operations.
 mutation='mutation($id: String!) { deploymentRollback(id: $id) }'
 if ! curl --fail --show-error --silent --location \
-    --header "Authorization: Bearer ${RAILWAY_API_TOKEN}" \
+    --header "Project-Access-Token: ${RAILWAY_API_TOKEN}" \
     --header "Content-Type: application/json" \
     --data "$(jq -n --arg q "${mutation}" --arg id "${rollback_ref}" '{query: $q, variables: {id: $id}}')" \
     "https://backboard.railway.com/graphql/v2" \

@@ -21,6 +21,9 @@ command -v railway >/dev/null 2>&1 || { echo "missing command: railway" >&2; exi
 [ -n "${BUILT_AT:-}" ] || { echo "missing env: BUILT_AT" >&2; exit 1; }
 
 export RAILWAY_API_TOKEN RAILWAY_ENVIRONMENT_ID RAILWAY_SERVICE_ID
+# Project tokens authenticate the CLI through RAILWAY_TOKEN (RAILWAY_API_TOKEN
+# is our GitHub-secret name; account tokens are a different Railway concept).
+export RAILWAY_TOKEN="${RAILWAY_API_TOKEN}"
 
 if [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
   railway link --project "${RAILWAY_PROJECT_ID}" \

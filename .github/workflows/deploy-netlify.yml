@@ -272,6 +272,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
           RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -349,19 +350,20 @@ jobs:
 
           # Railway rollback restores the deployment SNAPSHOT (image + variables,
           # no rebuild) via the GraphQL deploymentRollback mutation, so the
-          # target is the deployment id Railway is currently serving. Query the
-          # GraphQL API directly; the CLI is not installed in this job.
+          # target is the deployment id Railway is currently serving. Project
+          # tokens authenticate with the Project-Access-Token header (Bearer is
+          # rejected) and can only traverse the graph from their own project,
+          # hence the nested project -> environments -> deployments shape.
           railway_ref=""
-          if [ -n "${RAILWAY_API_TOKEN:-}" ] && [ -n "${RAILWAY_SERVICE_ID:-}" ]; then
+          if [ -n "${RAILWAY_API_TOKEN:-}" ] && [ -n "${RAILWAY_SERVICE_ID:-}" ] && [ -n "${RAILWAY_ENVIRONMENT_ID:-}" ] && [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
             railway_deployments="$(mktemp)"
-            RAILWAY_QUERY='query($serviceId: String!, $environmentId: String!, $first: Int!) { deployments(serviceId: $serviceId, environmentId: $environmentId, first: $first) { edges { node { id status meta } } } }'
             if curl --fail --show-error --silent --location \
-                --header "Authorization: Bearer ${RAILWAY_API_TOKEN}" \
+                --header "Project-Access-Token: ${RAILWAY_API_TOKEN}" \
                 --header "Content-Type: application/json" \
-                --data "$(jq -n --arg q "${RAILWAY_QUERY}" --arg s "${RAILWAY_SERVICE_ID}" --arg e "${RAILWAY_ENVIRONMENT_ID}" '{query: $q, variables: {serviceId: $s, environmentId: $e, first: 10}}')" \
+                --data "$(jq -n --arg p "${RAILWAY_PROJECT_ID}" '{query: "query($p: String!) { project(id: $p) { environments { edges { node { id deployments(first: 5) { edges { node { id status } } } } } } } }", variables: { p: $p }}')" \
                 "https://backboard.railway.com/graphql/v2" \
                 > "${railway_deployments}" 2>/dev/null; then
-              railway_ref="$(jq -r '[.data.deployments.edges[]?.node] | map(select(.status == "SUCCESS")) | .[0].id // empty' "${railway_deployments}" 2>/dev/null || true)"
+              railway_ref="$(jq -r --arg env "${RAILWAY_ENVIRONMENT_ID}" '[.data.project.environments.edges[]? | select(.node.id == $env) | .node.deployments.edges[]?.node] | map(select(.status == "SUCCESS")) | .[0].id // empty' "${railway_deployments}" 2>/dev/null || true)"
             fi
           fi
           if [ -z "${railway_ref}" ]; then
