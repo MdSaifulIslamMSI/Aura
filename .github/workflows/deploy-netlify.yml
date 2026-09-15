@@ -60,6 +60,9 @@ on:
       render_storefront_rollback_ref:
         description: Render deploy id that was live before this release
         value: ${{ jobs.build-frontend.outputs.render_rollback_ref }}
+      railway_rollback_commit:
+        description: Commit SHA captured before the Railway release deploy
+        value: ${{ jobs.build-frontend.outputs.railway_rollback_commit }}
       netlify_production_url:
         description: Netlify production URL published by this release
         value: ${{ jobs.deploy-production.outputs.site_url }}
@@ -72,6 +75,9 @@ on:
       render_production_url:
         description: Render production URL published by this release
         value: ${{ jobs.deploy-render-production.outputs.site_url }}
+      railway_production_url:
+        description: Railway production URL published by this release
+        value: ${{ jobs.deploy-railway-production.outputs.site_url }}
     secrets:
       AWS_FRONTEND_DEPLOY_ROLE_ARN:
         required: false
@@ -88,6 +94,14 @@ on:
       RENDER_API_KEY:
         required: false
       RENDER_SERVICE_ID:
+        required: false
+      RAILWAY_API_TOKEN:
+        required: false
+      RAILWAY_PROJECT_ID:
+        required: false
+      RAILWAY_ENVIRONMENT_ID:
+        required: false
+      RAILWAY_SERVICE_ID:
         required: false
       VITE_FIREBASE_API_KEY:
         required: false
@@ -140,6 +154,7 @@ env:
   VERCEL_PRODUCTION_URL: ${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}
   RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID || secrets.RENDER_SERVICE_ID }}
   RENDER_PRODUCTION_URL: ${{ vars.RENDER_PRODUCTION_URL || 'https://aura-storefront.onrender.com' }}
+  RAILWAY_PRODUCTION_URL: ${{ vars.RAILWAY_PRODUCTION_URL || '' }}
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
   AWS_FRONTEND_BUCKET: ${{ vars.AWS_FRONTEND_BUCKET || '' }}
   AWS_FRONTEND_DISTRIBUTION_ID: ${{ vars.AWS_FRONTEND_DISTRIBUTION_ID || '' }}
@@ -170,6 +185,7 @@ jobs:
       netlify_rollback_ref: ${{ steps.rollback_targets.outputs.netlify_ref }}
       vercel_storefront_rollback_ref: ${{ steps.rollback_targets.outputs.vercel_ref }}
       render_rollback_ref: ${{ steps.rollback_targets.outputs.render_ref }}
+      railway_rollback_commit: ${{ steps.rollback_targets.outputs.railway_commit }}
     defaults:
       run:
         working-directory: ./app
@@ -192,6 +208,8 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
           DEPLOY_TARGET: ${{ inputs.target || '' }}
           DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' }}
         run: |
@@ -209,6 +227,8 @@ jobs:
           if [ "${DEPLOY_TARGET}" = "production" ]; then
             test -n "${RENDER_API_KEY}" || { echo "Missing GitHub secret RENDER_API_KEY"; exit 1; }
             test -n "${RENDER_SERVICE_ID}" || { echo "Missing GitHub variable or secret RENDER_SERVICE_ID"; exit 1; }
+            test -n "${RAILWAY_API_TOKEN}" || { echo "Missing GitHub secret RAILWAY_API_TOKEN"; exit 1; }
+            test -n "${RAILWAY_SERVICE_ID}" || { echo "Missing GitHub variable or secret RAILWAY_SERVICE_ID"; exit 1; }
           fi
 
       - name: Capture provider-specific production rollback targets
@@ -219,6 +239,7 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           ALLOW_MISSING_ROLLBACK_TARGET: ${{ inputs.allow_missing_rollback_target == true && 'true' || 'false' }}
         run: |
           set -euo pipefail
@@ -288,6 +309,25 @@ jobs:
           fi
 
           echo "render_ref=${render_ref}" >> "$GITHUB_OUTPUT"
+
+          # Railway's rollback hook rebuilds a pinned commit, so the target is
+          # the commit Railway is currently serving, not a deployment id.
+          # railway deployment list --json is newest-first; take the first
+          # SUCCESS deployment's meta.commitSha, falling back to the release
+          # SHA (GITHUB_SHA) when Railway is not reachable or nothing is live
+          # yet — the Railway rollback hook fails closed on a non-SHA ref.
+          railway_commit=""
+          if [ -n "${RAILWAY_API_TOKEN:-}" ] && command -v railway >/dev/null 2>&1; then
+            railway_commit="$(RAILWAY_API_TOKEN="${RAILWAY_API_TOKEN}" railway deployment list \
+              --service "${RAILWAY_SERVICE_ID}" --environment "${RAILWAY_ENVIRONMENT_ID}" --json 2>/dev/null \
+              | jq -r '[.[]?] | map(select(.status == "SUCCESS")) | .[0].meta.commitSha // .[0].meta.commit // empty' 2>/dev/null || true)"
+          fi
+          if [ -z "${railway_commit}" ]; then
+            railway_commit="${GITHUB_SHA}"
+            echo "Railway live commit could not be resolved; using release SHA ${GITHUB_SHA} as the rollback ref." >&2
+          fi
+
+          echo "railway_commit=${railway_commit}" >> "$GITHUB_OUTPUT"
 
       - name: Install frontend dependencies
         run: npm ci
@@ -1085,6 +1125,77 @@ jobs:
             echo "- Shared build time: ${BUILT_AT}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  deploy-railway-production:
+    needs:
+      - build-frontend
+    if: inputs.target == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: railway-production
+      url: ${{ steps.deploy.outputs.site_url }}
+    outputs:
+      site_url: ${{ steps.deploy.outputs.site_url }}
+      deployment_attempted: ${{ steps.mutation.outputs.attempted }}
+
+    steps:
+      - name: Mark Railway production mutation attempt
+        id: mutation
+        run: echo "attempted=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@5
+
+      - name: Publish Railway production deploy
+        id: deploy
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
+          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
+          BUILT_AT: ${{ needs.build-frontend.outputs.built_at }}
+          BACKEND_ORIGIN: ${{ needs.build-frontend.outputs.backend_origin }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
+          VITE_DD_APPLICATION_ID: ${{ secrets.VITE_DD_APPLICATION_ID || '' }}
+          VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN || '' }}
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY || '' }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN || secrets.VITE_FIREBASE_AUTH_DOMAIN || '' }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || '' }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET || secrets.VITE_FIREBASE_STORAGE_BUCKET || '' }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID || secrets.VITE_FIREBASE_MESSAGING_SENDER_ID || '' }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || secrets.VITE_FIREBASE_APP_ID || '' }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID || secrets.VITE_FIREBASE_MEASUREMENT_ID || '' }}
+          VITE_FIREBASE_CONFIG: ${{ vars.VITE_FIREBASE_CONFIG || secrets.VITE_FIREBASE_CONFIG || '' }}
+          VITE_FIREBASE_DISABLE_SOCIAL_AUTH: ${{ vars.VITE_FIREBASE_DISABLE_SOCIAL_AUTH || 'false' }}
+          VITE_FIREBASE_ENABLE_MICROSOFT_AUTH: ${{ vars.VITE_FIREBASE_ENABLE_MICROSOFT_AUTH || 'false' }}
+          VITE_FIREBASE_ENABLE_APPLE_AUTH: ${{ vars.VITE_FIREBASE_ENABLE_APPLE_AUTH || 'false' }}
+          VITE_DUO_LOGIN_ENABLED: ${{ vars.VITE_DUO_LOGIN_ENABLED || 'false' }}
+          VITE_ADMIN_SECURITY_STATE_ENGINE_V2: ${{ vars.VITE_ADMIN_SECURITY_STATE_ENGINE_V2 || 'false' }}
+        run: bash scripts/deploy-railway.sh
+
+      - name: Add Railway production deploy to job summary
+        env:
+          SITE_URL: ${{ steps.deploy.outputs.site_url }}
+          BUILT_AT: ${{ needs.build-frontend.outputs.built_at }}
+        run: |
+          {
+            echo "### Railway Production"
+            echo
+            echo "- Service: ${RAILWAY_SERVICE_ID}"
+            echo "- Production URL: ${SITE_URL}"
+            echo "- Shared build time: ${BUILT_AT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+
   deploy-render-production:
     needs:
       - build-frontend
@@ -1402,6 +1513,7 @@ jobs:
       - deploy-vercel-production
       - deploy-aws-production
       - deploy-render-production
+      - deploy-railway-production
     if: inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1465,7 +1577,7 @@ jobs:
           done < "${RUNNER_TEMP}/aura-release/production-assets.txt"
           echo "Vercel assets fetched: $(wc -l < "${RUNNER_TEMP}/aura-release/production-assets.txt")"
 
-      - name: Verify Netlify, Vercel, AWS, and Render production release coherence
+      - name: Verify Netlify, Vercel, AWS, Render, and Railway production release coherence
         env:
           AURA_EXPECTED_RELEASE_ID: ${{ github.sha }}
           AURA_EXPECTED_COMMIT: ${{ github.sha }}
@@ -1475,7 +1587,8 @@ jobs:
               {"name":"netlify-production","url":"${{ needs.deploy-production.outputs.site_url }}"},
               {"name":"vercel-production","url":"${{ needs.deploy-vercel-production.outputs.site_url }}","htmlPath":"${{ runner.temp }}/aura-release/vercel-production.html","assetsDir":"${{ runner.temp }}/aura-release/assets"},
               {"name":"aws-cloudfront-production","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
-              {"name":"render-production","url":"${{ needs.deploy-render-production.outputs.site_url }}"}
+              {"name":"render-production","url":"${{ needs.deploy-render-production.outputs.site_url }}"},
+              {"name":"railway-production","url":"${{ needs.deploy-railway-production.outputs.site_url }}"}
             ]
         run: node app/scripts/verify_deployed_release_coherence.mjs
 
@@ -1492,7 +1605,8 @@ jobs:
               {"name":"netlify","url":"${{ needs.deploy-production.outputs.site_url }}"},
               {"name":"vercel","url":"${{ vars.VERCEL_PRODUCTION_URL || 'https://aurapilot.vercel.app' }}"},
               {"name":"aws","url":"${{ needs.deploy-aws-production.outputs.site_url }}"},
-              {"name":"render","url":"${{ needs.deploy-render-production.outputs.site_url }}"}
+              {"name":"render","url":"${{ needs.deploy-render-production.outputs.site_url }}"},
+              {"name":"railway","url":"${{ needs.deploy-railway-production.outputs.site_url }}"}
             ]
         run: |
           set -euo pipefail
@@ -1606,3 +1720,39 @@ jobs:
     secrets:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+
+  rollback-railway-storefront-on-production-failure:
+    needs:
+      - build-frontend
+      - deploy-production
+      - deploy-vercel-production
+      - deploy-aws-production
+      - deploy-render-production
+      - deploy-railway-production
+      - verify-production-coherence
+    if: >-
+      always() &&
+      inputs.target == 'production' &&
+      inputs.auto_rollback_on_failure == true &&
+      needs.deploy-railway-production.outputs.deployment_attempted == 'true' &&
+      needs.verify-production-coherence.result != 'success'
+    uses: ./.github/workflows/rollback-railway.yml
+    permissions:
+      contents: read
+    with:
+      rollback_ref: ${{ needs.build-frontend.outputs.railway_rollback_commit }}
+      parent_holds_production_lock: true
+    secrets:
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+      RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_CONFIG: ${{ secrets.VITE_FIREBASE_CONFIG }}
+      VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+

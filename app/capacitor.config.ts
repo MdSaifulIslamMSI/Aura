@@ -14,6 +14,7 @@ const config: CapacitorConfig = {
     allowNavigation: [
       'aurapilot.vercel.app',
       'aurapilot.netlify.app',
+      '*.up.railway.app',
       'aura-gateway.vercel.app',
       'accounts.google.com',
       'google.com',

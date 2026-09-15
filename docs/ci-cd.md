@@ -52,7 +52,7 @@ GitHub's 10-input `workflow_dispatch` limit:
 
 Leave target inputs blank for no-op validation runs. Use only the target names
 you intend to run. `frontend-multihost` always covers Netlify, the Vercel
-storefront, AWS CloudFront, and Render together. A lane cannot appear in both
+storefront, AWS CloudFront, Render, and Railway together. A lane cannot appear in both
 `deploy_targets` and `rollback_targets` in the same run; the command center
 rejects that request before any production mutation. Supply only the
 provider-specific keys needed by the selected rollback lanes in
@@ -81,6 +81,7 @@ Required repository secrets:
 - `VERCEL_TOKEN`
 - `NETLIFY_AUTH_TOKEN`
 - `RENDER_API_KEY`
+- `RAILWAY_API_TOKEN`
 
 Optional for trusted Windows desktop releases:
 
@@ -107,12 +108,16 @@ Required repository variables or secrets:
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
 - `RENDER_SERVICE_ID`
+- `RAILWAY_SERVICE_ID`
+- `RAILWAY_PROJECT_ID`
+- `RAILWAY_ENVIRONMENT_ID`
 
 Optional repository variables:
 
 - `NETLIFY_SITE_NAME`, defaults to `aurapilot`
 - `VERCEL_PROJECT_NAME`, defaults to `app`
 - `RENDER_PRODUCTION_URL`, defaults to `https://aura-storefront.onrender.com`
+- `RAILWAY_PRODUCTION_URL`, defaults to unset (Railway deploy/rollback skip the URL probe when empty)
 
 AWS deployment is configured through OIDC in `.github/workflows/deploy-backend-aws.yml`:
 

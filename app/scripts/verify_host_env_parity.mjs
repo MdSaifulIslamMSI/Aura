@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // Verifies that the VITE_* build-env contract in deploy-netlify.yml matches
 // what is actually configured on each storefront host BEFORE a build is
-// produced. Byte-identity across Netlify/Vercel/AWS/Render depends on every
-// host inlining the same import.meta.env object, so:
+// produced. Byte-identity across Netlify/Vercel/AWS/Render/Railway depends on
+// every host inlining the same import.meta.env object, so:
 //   - every expected non-empty VITE_ var must exist on the host,
 //   - every expected-empty VITE_ var must be empty on hosts that allow it and
-//     absent on Render (its env-vars API rejects empty values),
+//     absent on Render (its env-vars API rejects empty values; Railway allows
+//     empty values via `railway variable set KEY=`, so it follows the
+//     Netlify/Vercel rule, not the Render rule),
 //   - any host-side VITE_ var the build contract does not define is drift.
 //
 // Usage (all hosts optional — a host is checked only when its creds exist):
@@ -126,6 +128,39 @@ async function collectRenderVars(token, serviceId) {
   return { vars };
 }
 
+// Railway public API is GraphQL-only: POST https://backboard.railway.com/graphql/v2
+// with `Authorization: Bearer <RAILWAY_API_TOKEN>`. Variables query shape:
+//   query variables($projectId: String!, $environmentId: String!, $serviceId: String) {
+//     variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
+//   }
+// Values arrive masked for secrets, so masked entries carry value null
+// (presence-only evidence, same as the Vercel collector below).
+async function collectRailwayVars(apiToken, projectId, environmentId, serviceId) {
+  const response = await fetch('https://backboard.railway.com/graphql/v2', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: 'query variables($projectId: String!, $environmentId: String!, $serviceId: String) { variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId) }',
+      variables: { projectId, environmentId, serviceId },
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`https://backboard.railway.com/graphql/v2 -> HTTP ${response.status}`);
+  }
+  const payload = await response.json();
+  if (payload.errors?.length) {
+    throw new Error(`railway variables query failed: ${payload.errors[0]?.message || 'unknown error'}`);
+  }
+  const variables = payload?.data?.variables || {};
+  const vars = Object.entries(variables)
+    .filter(([key]) => key.startsWith('VITE_'))
+    .map(([key, value]) => ({ key, value: value === undefined ? null : value }));
+  return { vars };
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const flag = (name) => {
@@ -164,6 +199,18 @@ async function main() {
       hosts.render = await collectRenderVars(process.env.RENDER_API_KEY, process.env.RENDER_SERVICE_ID);
     } catch (error) {
       errors.push(`render collection failed: ${error.message}`);
+    }
+  }
+  if (process.env.RAILWAY_API_TOKEN && process.env.RAILWAY_PROJECT_ID && process.env.RAILWAY_ENVIRONMENT_ID && process.env.RAILWAY_SERVICE_ID) {
+    try {
+      hosts.railway = await collectRailwayVars(
+        process.env.RAILWAY_API_TOKEN,
+        process.env.RAILWAY_PROJECT_ID,
+        process.env.RAILWAY_ENVIRONMENT_ID,
+        process.env.RAILWAY_SERVICE_ID
+      );
+    } catch (error) {
+      errors.push(`railway collection failed: ${error.message}`);
     }
   }
 

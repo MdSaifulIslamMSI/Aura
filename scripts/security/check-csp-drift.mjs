@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Phase 5B: CSP drift check. The Content-Security-Policy is maintained in five
-// places (app/index.html meta, vercel.json, netlify.toml, render.yaml, and the
-// Helmet config in server/index.js). This script asserts:
-//   1. The three static copies are semantically identical to the canonical
+// Phase 5B: CSP drift check. The Content-Security-Policy is maintained in six
+// places (app/index.html meta, vercel.json, netlify.toml, render.yaml,
+// app/Caddyfile, and the Helmet config in server/index.js). This script asserts:
+//   1. The four static copies are semantically identical to the canonical
 //      policy in app/index.html (directive-by-directive, order-insensitive).
 //   2. The server-side imgSrc directive matches the canonical img-src sources.
 // Exit 1 on any drift.
@@ -78,6 +78,17 @@ const extractFromNetlifyToml = () => {
     return [...values];
 };
 
+const extractFromCaddyfile = () => {
+    const source = read('app/Caddyfile');
+    const values = new Set();
+    const pattern = /Content-Security-Policy\s+"((?:[^"\\]|\\.)*)"/g;
+    let match;
+    while ((match = pattern.exec(source)) !== null) {
+        values.add(normalize(match[1].replace(/\\"/g, '"')));
+    }
+    return [...values];
+};
+
 const extractServerImgSrc = () => {
     const source = read('server/index.js');
     const match = source.match(/imgSrc:\s*\[([^\]]+)\]/);
@@ -107,6 +118,7 @@ const others = [
     ...extractFromVercelJson().map((value, i) => ({ file: `vercel.json#${i + 1}`, value })),
     ...extractFromNetlifyToml().map((value, i) => ({ file: `netlify.toml#${i + 1}`, value })),
     ...extractFromRenderYaml().map((value, i) => ({ file: `render.yaml#${i + 1}`, value })),
+    ...extractFromCaddyfile().map((value, i) => ({ file: `app/Caddyfile#${i + 1}`, value })),
 ];
 const canonicalDirectives = parseDirectives(canonical);
 for (const other of others) {
@@ -141,4 +153,4 @@ if (failures.length > 0) {
     process.exit(1);
 }
 
-console.log('[csp-drift] OK — CSP copies in app/index.html, vercel.json, netlify.toml, render.yaml, and server/index.js are in sync.');
+console.log('[csp-drift] OK — CSP copies in app/index.html, vercel.json, netlify.toml, render.yaml, app/Caddyfile, and server/index.js are in sync.');

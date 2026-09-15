@@ -44,6 +44,7 @@ const collectConfiguredOrigins = () => {
         normalizeOrigin(process.env.STAGING_BASE_URL),
         normalizeOrigin(process.env.VERCEL_STAGING_FRONTEND_URL),
         normalizeOrigin(process.env.NETLIFY_FRONTEND_URL),
+        normalizeOrigin(process.env.RAILWAY_FRONTEND_URL),
         normalizeOrigin(process.env.AWS_FRONTEND_URL),
         normalizeOrigin(process.env.S3_FRONTEND_URL),
     ].filter(Boolean);
