@@ -150,7 +150,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -184,7 +184,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -287,7 +287,7 @@ jobs:
         include: ${{ fromJSON(inputs.release_mode == 'full' && '[{"platform":"windows","os":"windows-2025","command":"npm run desktop:dist:win:all -- --publish never"},{"platform":"macos","os":"macos-latest","command":"npm run desktop:dist:mac -- --publish never"},{"platform":"linux","os":"ubuntu-latest","command":"npm run desktop:dist:linux -- --publish never"}]' || '[{"platform":"windows","os":"windows-2025","command":"npm run desktop:dist:win -- --publish never"}]') }}
 
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -464,7 +464,7 @@ jobs:
       attestations: write
 
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -477,7 +477,7 @@ jobs:
           merge-multiple: true
 
       - name: Generate desktop SPDX SBOM
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           path: release-artifacts
           format: spdx-json
