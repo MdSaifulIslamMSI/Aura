@@ -1,23 +1,23 @@
 # Legacy Market-Pack Usage Report
 
-Generated: 2026-09-11T20:12:35.190Z
+Generated: 2026-09-15T08:55:13.187Z
 
 This report separates reviewed ICU stable UI copy from the explicit compatibility surfaces that remain for computed keys, runtime content, legacy packs, and test harnesses.
 
 ## Summary
 
-- Tracked files: 157
-- Stable ICU hook files: 96
+- Tracked files: 158
+- Stable ICU hook files: 97
 - Delegated stable ICU translator files: 10
-- Migrated stable ICU message IDs observed across files: 3446
+- Migrated stable ICU message IDs observed across files: 3466
 - Residual production legacy literal message IDs: 0
 - Test-harness legacy literal message IDs: 4
 - Production files with direct residual stable literals: 0
-- Computed-key translator lookup files: 37
+- Computed-key translator lookup files: 38
 - Runtime enum compatibility files: 0
 - High-risk files: 0
 - Medium-risk files: 18
-- Low-risk files: 139
+- Low-risk files: 140
 - Dynamic runtime translation files: 18
 - Legacy pack import files: 40
 
@@ -46,7 +46,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/pages/Login/useLoginController.js` | 159 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Sell/index.jsx` | 140 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Checkout/components/StepPayment.jsx` | 133 | 0 | useMarket, stable-icu-hook |
-| low | `app/src/pages/Orders/index.jsx` | 126 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Orders/index.jsx` | 131 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/components/SettingsSection.jsx` | 126 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Admin/Payments.jsx` | 99 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Admin/Users.jsx` | 99 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
@@ -91,6 +91,7 @@ This report separates reviewed ICU stable UI copy from the explicit compatibilit
 | low | `app/src/components/features/auth/AuraTrustedDeviceChallenge.jsx` | 17 | 0 | stable-icu-hook |
 | low | `app/src/components/features/chat/MessageItem.jsx` | 16 | 0 | useMarket, stable-icu-hook, computed-key-compatibility |
 | low | `app/src/components/layout/Footer/index.jsx` | 15 | 0 | useMarket, stable-icu-hook |
+| low | `app/src/pages/Orders/Invoice.jsx` | 15 | 0 | useMarket, stable-icu-hook |
 | low | `app/src/pages/Profile/components/AccountCenterShell.jsx` | 15 | 0 | stable-icu-hook, computed-key-compatibility |
 | low | `app/src/pages/Profile/hooks/usePaymentHub.js` | 15 | 0 | delegated-stable-icu |
 | low | `app/src/components/shared/VoiceSearch.jsx` | 14 | 0 | useMarket, stable-icu-hook |

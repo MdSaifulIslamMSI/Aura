@@ -12429,6 +12429,10 @@
     "defaultMessage": "Available items were added to your cart.",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "orders.actions.invoice": {
+    "defaultMessage": "Invoice",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "orders.actions.receipt": {
     "defaultMessage": "Download Receipt",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -12455,6 +12459,10 @@
   },
   "orders.authRequiredTitle": {
     "defaultMessage": "Authentication Required",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.card.toggle": {
+    "defaultMessage": "Toggle order details",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "orders.command.cancel.already": {
@@ -12717,6 +12725,62 @@
     "defaultMessage": "To date",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "orders.invoice.amount": {
+    "defaultMessage": "Amount",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.back": {
+    "defaultMessage": "Back to order",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.deliveryTo": {
+    "defaultMessage": "Delivery address",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.error": {
+    "defaultMessage": "Unable to load this invoice.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.footer": {
+    "defaultMessage": "This invoice was generated from your Aura order record.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.item": {
+    "defaultMessage": "Item",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.items": {
+    "defaultMessage": "Items",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.loading": {
+    "defaultMessage": "Preparing invoice...",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.orderId": {
+    "defaultMessage": "Order",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.payment": {
+    "defaultMessage": "Payment",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.placedOn": {
+    "defaultMessage": "Placed on",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.print": {
+    "defaultMessage": "Print / Save as PDF",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.title": {
+    "defaultMessage": "Invoice",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.invoice.total": {
+    "defaultMessage": "Total",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "orders.itemFallback": {
     "defaultMessage": "Item",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -12825,6 +12889,22 @@
     "defaultMessage": "Verification",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
+  "orders.placed.dismiss": {
+    "defaultMessage": "Dismiss",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.placed.subtitle": {
+    "defaultMessage": "Your order is confirmed. Track every step right here — we update this page live.",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.placed.title": {
+    "defaultMessage": "Order placed successfully!",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
+  "orders.progress.latest": {
+    "defaultMessage": "Latest update received",
+    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
+  },
   "orders.qty": {
     "defaultMessage": "Qty",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
@@ -12839,10 +12919,6 @@
   },
   "orders.status.cancelled": {
     "defaultMessage": "Cancelled",
-    "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
-  },
-  "orders.status.delivered": {
-    "defaultMessage": "Delivered",
     "description": "Stable UI message migrated from legacy market-pack lookup. Review context in the localization migration inventory."
   },
   "orders.subtitle": {

@@ -480,6 +480,11 @@ const cancelOrderForFailedCapture = async ({
             await session.abortTransaction().catch(() => {});
             session.endSession();
             if (isTransientTxError(error) && attempt < MAX_COMPENSATION_TX_ATTEMPTS) {
+                // Single-node replica sets (CI in-memory Mongo, catalog churn
+                // from concurrent index builds) can reject every immediate
+                // retry with a catalog-changes TransientTransactionError, so
+                // back off briefly instead of retrying in a hot loop.
+                await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
                 continue;
             }
             console.error(`Capture-failure compensation failed for order ${order._id}:`, error.message);
