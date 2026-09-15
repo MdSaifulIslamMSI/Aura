@@ -111,7 +111,18 @@ if [[ "${rollback_ref}" =~ ^[0-9a-fA-F]{40}$ ]]; then
   echo "Pushing the release VITE_* build contract onto Railway service ${RAILWAY_SERVICE_ID}."
   node scripts/railway-vars.cjs push
 
-  railway up ./app --path-as-root \
+  # Repo-root build context — same staging as scripts/deploy-railway.sh
+  # (app/ plus the repo-root inputs the Vite build graph imports).
+  stage_dir="${RUNNER_TEMP:-/tmp}/railway-upload-rollback"
+  rm -rf "${stage_dir}"
+  mkdir -p "${stage_dir}/config" "${stage_dir}/shared"
+  cp -a app/. "${stage_dir}/app/"
+  cp config/desktopAuthLoopback.cjs "${stage_dir}/config/desktopAuthLoopback.cjs"
+  cp shared/assistantCapabilities.json "${stage_dir}/shared/assistantCapabilities.json"
+  cp app/railway.toml "${stage_dir}/railway.toml"
+  cp .dockerignore "${stage_dir}/.dockerignore"
+
+  railway up "${stage_dir}" --path-as-root \
     --environment "${RAILWAY_ENVIRONMENT_ID}" \
     --service "${RAILWAY_SERVICE_ID}" \
     --ci --detach
