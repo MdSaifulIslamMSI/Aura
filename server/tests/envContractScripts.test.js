@@ -1354,12 +1354,14 @@ describe('repo environment contract scripts', () => {
     test('multi-host deploy rolls back every provider whose mutation was attempted', () => {
         const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'deploy-netlify.yml'), 'utf8');
 
-        expect(workflow.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g)).toHaveLength(5);
+        expect(workflow.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g)).toHaveLength(7);
         expect(workflow).toContain("needs.deploy-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-vercel-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-aws-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-render-production.outputs.deployment_attempted == 'true'");
         expect(workflow).toContain("needs.deploy-railway-production.outputs.deployment_attempted == 'true'");
+        expect(workflow).toContain("needs.deploy-cloudflare-production.outputs.deployment_attempted == 'true'");
+        expect(workflow).toContain("needs.deploy-github-pages-production.outputs.deployment_attempted == 'true'");
         expect(workflow).not.toContain("needs.deploy-production.outputs.deploy_url != ''");
         expect(workflow).not.toContain("needs.deploy-vercel-production.outputs.deploy_url != ''");
         expect(workflow).not.toContain("needs.deploy-aws-production.outputs.site_url != ''");
@@ -1492,12 +1494,14 @@ describe('repo environment contract scripts', () => {
             'rollback-frontend-aws.yml',
             'rollback-render.yml',
             'rollback-railway.yml',
+            'rollback-cloudflare.yml',
+            'rollback-github-pages.yml',
             'rollback-gateway-vercel.yml',
         ].map((filename) => fs.readFileSync(path.join(repoRoot, '.github', 'workflows', filename), 'utf8'));
 
         expect(production).toContain('group: aura-production-mutation');
         expect(production).toContain('cancel-in-progress: false');
-        expect(production.match(/parent_holds_production_lock: true/g)).toHaveLength(8);
+        expect(production.match(/parent_holds_production_lock: true/g)).toHaveLength(11);
 
         serializedChildren.forEach((workflow) => {
             expect(workflow).toContain('parent_holds_production_lock:');
@@ -1505,7 +1509,7 @@ describe('repo environment contract scripts', () => {
             expect(workflow).toContain('cancel-in-progress: false');
         });
 
-        expect(multiHost.match(/parent_holds_production_lock: true/g)).toHaveLength(5);
+        expect(multiHost.match(/parent_holds_production_lock: true/g)).toHaveLength(7);
         [multiHost, gateway].forEach((workflow) => {
             expect(workflow).toContain("inputs.target == 'production' && 'aura-production-mutation'");
             expect(workflow).toContain("cancel-in-progress: ${{ inputs.target != 'production' }}");

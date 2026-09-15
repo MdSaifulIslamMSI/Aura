@@ -52,6 +52,8 @@ const rollbackFrontendAwsScript = read('infra/aws/rollback-frontend-s3.sh');
 const rollbackStorefrontVercel = read('.github/workflows/rollback-storefront-vercel.yml');
 const rollbackRender = read('.github/workflows/rollback-render.yml');
 const rollbackRailway = read('.github/workflows/rollback-railway.yml');
+const rollbackCloudflare = read('.github/workflows/rollback-cloudflare.yml');
+const rollbackGithubPages = read('.github/workflows/rollback-github-pages.yml');
 const rollbackGateway = read('.github/workflows/rollback-gateway-vercel.yml');
 const rollbackStorefrontVercelScript = read('scripts/rollback-storefront-vercel.sh');
 const ciCdDocs = read('docs/ci-cd.md');
@@ -208,14 +210,14 @@ addCheck(
   'production mutations share one non-canceling parent lock',
   production.includes('group: aura-production-mutation') &&
     production.includes('cancel-in-progress: false') &&
-    (production.match(/parent_holds_production_lock: true/g) || []).length === 8 &&
-    [deployFrontendAws, rollbackNetlify, rollbackFrontendAws, rollbackStorefrontVercel, rollbackRender, rollbackRailway, rollbackGateway]
+    (production.match(/parent_holds_production_lock: true/g) || []).length === 11 &&
+    [deployFrontendAws, rollbackNetlify, rollbackFrontendAws, rollbackStorefrontVercel, rollbackRender, rollbackRailway, rollbackCloudflare, rollbackGithubPages, rollbackGateway]
       .every((workflow) =>
         workflow.includes('parent_holds_production_lock:') &&
         workflow.includes("|| 'aura-production-mutation'") &&
         workflow.includes('cancel-in-progress: false')
       ) &&
-    (deployFrontendNetlify.match(/parent_holds_production_lock: true/g) || []).length === 5,
+    (deployFrontendNetlify.match(/parent_holds_production_lock: true/g) || []).length === 7,
   'command-center and standalone frontend/gateway operations serialize without child reusable-workflow deadlock'
 );
 
@@ -247,7 +249,7 @@ addCheck(
   'production rollback refs are provider-specific',
   productionDispatchInputs.includes('rollback_refs_json') &&
     !productionDispatchInputs.includes('rollback_ref') &&
-    ['rollback_backend_ref', 'rollback_netlify_ref', 'rollback_vercel_storefront_ref', 'rollback_aws_frontend_ref', 'rollback_render_ref', 'rollback_gateway_ref']
+    ['rollback_backend_ref', 'rollback_netlify_ref', 'rollback_vercel_storefront_ref', 'rollback_aws_frontend_ref', 'rollback_render_ref', 'rollback_railway_ref', 'rollback_cloudflare_ref', 'rollback_github_pages_ref', 'rollback_gateway_ref']
       .every((name) => production.includes(`${name}: \${{ steps.plan.outputs.${name} }}`)),
   'one JSON object carries independently keyed backend and provider rollback identifiers'
 );
@@ -260,21 +262,30 @@ addCheck(
     deployFrontendNetlify.includes('rollback-aws-storefront-on-production-failure:') &&
     deployFrontendNetlify.includes('rollback-render-storefront-on-production-failure:') &&
     deployFrontendNetlify.includes('rollback-railway-storefront-on-production-failure:') &&
+    deployFrontendNetlify.includes('rollback-cloudflare-storefront-on-production-failure:') &&
+    deployFrontendNetlify.includes('rollback-github-pages-storefront-on-production-failure:') &&
     production.includes('rollback-frontend-netlify:') &&
     production.includes('rollback-frontend-vercel-storefront:') &&
     production.includes('rollback-frontend-aws:') &&
     production.includes('rollback-frontend-render:') &&
+    production.includes('rollback-frontend-railway:') &&
+    production.includes('rollback-frontend-cloudflare:') &&
+    production.includes('rollback-frontend-github-pages:') &&
     rollbackStorefrontVercel.includes('scripts/rollback-storefront-vercel.sh') &&
     rollbackStorefrontVercelScript.includes('npx vercel rollback') &&
     rollbackRender.includes('scripts/rollback-render.sh') &&
     rollbackRailway.includes('scripts/rollback-railway.sh') &&
-    (deployFrontendNetlify.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g) || []).length === 5 &&
+    rollbackCloudflare.includes('scripts/rollback-cloudflare.sh') &&
+    rollbackGithubPages.includes('scripts/rollback-github-pages.sh') &&
+    (deployFrontendNetlify.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g) || []).length === 7 &&
     deployFrontendNetlify.includes("needs.deploy-production.outputs.deployment_attempted == 'true'") &&
     deployFrontendNetlify.includes("needs.deploy-vercel-production.outputs.deployment_attempted == 'true'") &&
     deployFrontendNetlify.includes("needs.deploy-aws-production.outputs.deployment_attempted == 'true'") &&
     deployFrontendNetlify.includes("needs.deploy-render-production.outputs.deployment_attempted == 'true'") &&
-    deployFrontendNetlify.includes("needs.deploy-railway-production.outputs.deployment_attempted == 'true'"),
-  'partial deploy failures and post-deploy smoke failures restore Netlify, Vercel, AWS, Render, and Railway independently'
+    deployFrontendNetlify.includes("needs.deploy-railway-production.outputs.deployment_attempted == 'true'") &&
+    deployFrontendNetlify.includes("needs.deploy-cloudflare-production.outputs.deployment_attempted == 'true'") &&
+    deployFrontendNetlify.includes("needs.deploy-github-pages-production.outputs.deployment_attempted == 'true'"),
+  'partial deploy failures and post-deploy smoke failures restore Netlify, Vercel, AWS, Render, Railway, Cloudflare Pages, and GitHub Pages independently'
 );
 
 addCheck(
@@ -366,7 +377,7 @@ addCheck(
     'Quality Foundation',
     'Security Gates',
     'Deploy Backend To AWS',
-    'Deploy Frontend To Netlify, Vercel, AWS, And Render',
+    'Deploy Storefront To Multi-Host Platforms',
     'Deploy Gateway To Vercel',
     'Desktop Release',
     'Mobile Release',
