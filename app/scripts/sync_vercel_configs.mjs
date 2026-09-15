@@ -7,6 +7,8 @@ import {
     buildFrontendSecurityHeaderValues,
     buildHostedBackendRewrites,
     buildNetlifyHostedBackendRedirects,
+    buildRailwayCaddyfile,
+    buildRailwayToml,
     buildRenderBlueprint,
     assertDeployableHostedBackendOrigin,
     DEFAULT_HOSTED_BACKEND_ORIGIN,
@@ -43,6 +45,12 @@ for (const target of targets) {
 
 const renderBlueprint = buildRenderBlueprint(hostedBackendOrigin);
 await writeFile(path.join(repoRoot, 'render.yaml'), renderBlueprint);
+
+const railwayCaddyfile = buildRailwayCaddyfile(hostedBackendOrigin);
+await writeFile(path.join(repoRoot, 'app', 'Caddyfile'), railwayCaddyfile);
+
+const railwayToml = buildRailwayToml(hostedBackendOrigin);
+await writeFile(path.join(repoRoot, 'app', 'railway.toml'), railwayToml);
 
 const appIndexTarget = path.join(repoRoot, 'app', 'index.html');
 const appIndexHtml = await readFile(appIndexTarget, 'utf8');

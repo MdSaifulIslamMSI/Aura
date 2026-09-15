@@ -65,6 +65,8 @@ const releaseTarget = firstNonEmptyValue(
   process.env.DEPLOY_TARGET,
   process.env.VERCEL === '1' ? 'vercel' : '',
   process.env.NETLIFY === 'true' ? 'netlify' : '',
+  process.env.RAILWAY_SERVICE_NAME || process.env.RAILWAY_PROJECT_ID ? 'railway' : '',
+  process.env.RENDER === 'true' || process.env.RENDER_SERVICE_ID ? 'render' : '',
   process.env.CI ? 'ci' : 'local'
 )
 

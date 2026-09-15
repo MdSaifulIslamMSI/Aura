@@ -112,3 +112,27 @@ test('unconfigured hosts and null states are skipped', () => {
   assert.equal(verdict.ok, false); // render: non-empty vars missing
   assert.ok(verdict.violations.every((v) => v.startsWith('render')));
 });
+
+test('railway follows the netlify rule: expected-empty vars must be empty, not absent', () => {
+  // Railway allows empty values (`railway variable set KEY=`), so unlike
+  // Render it must carry expected-empty vars as empty, not drop them.
+  const ok = checkParity(expected, {
+    railway: { vars: [
+      { key: 'VITE_API_URL', value: 'https://x/api' },
+      { key: 'VITE_FIREBASE_API_KEY', value: 'key' },
+      { key: 'VITE_SENTRY_DSN', value: '' },
+      { key: 'VITE_DD_APPLICATION_ID', value: '' },
+    ] },
+  });
+  assert.equal(ok.ok, true, JSON.stringify(ok.violations));
+
+  const valued = checkParity(expected, {
+    railway: { vars: [
+      { key: 'VITE_API_URL', value: 'https://x/api' },
+      { key: 'VITE_FIREBASE_API_KEY', value: 'key' },
+      { key: 'VITE_SENTRY_DSN', value: 'https://o11.ingest.sentry.io/1' },
+    ] },
+  });
+  assert.equal(valued.ok, false);
+  assert.ok(valued.violations.some((v) => v.includes('railway') && v.includes('VITE_SENTRY_DSN') && v.includes('bundle divergence')));
+});

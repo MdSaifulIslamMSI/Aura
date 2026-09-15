@@ -1,0 +1,114 @@
+name: Rollback Railway Storefront
+
+on:
+  workflow_call:
+    inputs:
+      rollback_ref:
+        description: Full 40-hex commit SHA that was live before the failed release
+        required: false
+        default: ""
+        type: string
+      parent_holds_production_lock:
+        description: Internal only; the reusable-workflow caller already owns the shared production mutation lock
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      RAILWAY_API_TOKEN:
+        required: false
+      RAILWAY_PROJECT_ID:
+        required: false
+      RAILWAY_ENVIRONMENT_ID:
+        required: false
+      RAILWAY_SERVICE_ID:
+        required: false
+      VITE_FIREBASE_API_KEY:
+        required: false
+      VITE_FIREBASE_APP_ID:
+        required: false
+      VITE_FIREBASE_AUTH_DOMAIN:
+        required: false
+      VITE_FIREBASE_CONFIG:
+        required: false
+      VITE_FIREBASE_MEASUREMENT_ID:
+        required: false
+      VITE_FIREBASE_MESSAGING_SENDER_ID:
+        required: false
+      VITE_FIREBASE_PROJECT_ID:
+        required: false
+      VITE_FIREBASE_STORAGE_BUCKET:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ inputs.parent_holds_production_lock == true && format('aura-production-parent-{0}-rollback-railway', github.run_id) || 'aura-production-mutation' }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: 24.x
+  RAILWAY_PRODUCTION_URL: ${{ vars.RAILWAY_PRODUCTION_URL || '' }}
+  VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY || '' }}
+  VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN || secrets.VITE_FIREBASE_AUTH_DOMAIN || '' }}
+  VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID || secrets.VITE_FIREBASE_PROJECT_ID || '' }}
+  VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET || secrets.VITE_FIREBASE_STORAGE_BUCKET || '' }}
+  VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID || secrets.VITE_FIREBASE_MESSAGING_SENDER_ID || '' }}
+  VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID || secrets.VITE_FIREBASE_APP_ID || '' }}
+  VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID || secrets.VITE_FIREBASE_MEASUREMENT_ID || '' }}
+  VITE_FIREBASE_CONFIG: ${{ vars.VITE_FIREBASE_CONFIG || secrets.VITE_FIREBASE_CONFIG || vars.VITE_FIREBASE_WEB_CONFIG || secrets.VITE_FIREBASE_WEB_CONFIG || '' }}
+  VITE_FIREBASE_DISABLE_SOCIAL_AUTH: ${{ vars.VITE_FIREBASE_DISABLE_SOCIAL_AUTH || 'false' }}
+  VITE_FIREBASE_ENABLE_MICROSOFT_AUTH: ${{ vars.VITE_FIREBASE_ENABLE_MICROSOFT_AUTH || 'false' }}
+  VITE_FIREBASE_ENABLE_APPLE_AUTH: ${{ vars.VITE_FIREBASE_ENABLE_APPLE_AUTH || 'false' }}
+  VITE_DUO_LOGIN_ENABLED: ${{ vars.VITE_DUO_LOGIN_ENABLED || 'false' }}
+  VITE_ADMIN_SECURITY_STATE_ENGINE_V2: ${{ vars.VITE_ADMIN_SECURITY_STATE_ENGINE_V2 || 'false' }}
+  VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN || '' }}
+  VITE_DD_APPLICATION_ID: ${{ secrets.VITE_DD_APPLICATION_ID || '' }}
+  VITE_DD_CLIENT_TOKEN: ${{ secrets.VITE_DD_CLIENT_TOKEN || '' }}
+
+jobs:
+  rollback:
+    name: Roll back Railway storefront
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout rollback source with history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@5
+
+      - name: Resolve rollback build time
+        id: built_at
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Execute Railway rollback hook
+        env:
+          ROLLBACK_REF: ${{ inputs.rollback_ref }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ vars.RAILWAY_ENVIRONMENT_ID || secrets.RAILWAY_ENVIRONMENT_ID }}
+          RAILWAY_SERVICE_ID: ${{ vars.RAILWAY_SERVICE_ID || secrets.RAILWAY_SERVICE_ID }}
+          RAILWAY_PRODUCTION_URL: ${{ vars.RAILWAY_PRODUCTION_URL || '' }}
+          BACKEND_ORIGIN: ${{ vars.AURA_BACKEND_ORIGIN || vars.AWS_BACKEND_BASE_URL || '' }}
+          BUILT_AT: ${{ steps.built_at.outputs.value }}
+          VITE_DEPLOY_TARGET: multi-host
+          VITE_RELEASE_ID: ${{ inputs.rollback_ref }}
+          VITE_RELEASE_SHA: ${{ inputs.rollback_ref }}
+          VITE_RELEASE_CHANNEL: production
+          VITE_RELEASE_SOURCE: github-actions
+          VITE_SENTRY_RELEASE: ${{ inputs.rollback_ref }}
+          VITE_DD_SITE: us5.datadoghq.com
+        run: bash scripts/rollback-railway.sh

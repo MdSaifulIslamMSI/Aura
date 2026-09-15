@@ -51,6 +51,7 @@ const rollbackFrontendAws = read('.github/workflows/rollback-frontend-aws.yml');
 const rollbackFrontendAwsScript = read('infra/aws/rollback-frontend-s3.sh');
 const rollbackStorefrontVercel = read('.github/workflows/rollback-storefront-vercel.yml');
 const rollbackRender = read('.github/workflows/rollback-render.yml');
+const rollbackRailway = read('.github/workflows/rollback-railway.yml');
 const rollbackGateway = read('.github/workflows/rollback-gateway-vercel.yml');
 const rollbackStorefrontVercelScript = read('scripts/rollback-storefront-vercel.sh');
 const ciCdDocs = read('docs/ci-cd.md');
@@ -208,13 +209,13 @@ addCheck(
   production.includes('group: aura-production-mutation') &&
     production.includes('cancel-in-progress: false') &&
     (production.match(/parent_holds_production_lock: true/g) || []).length === 8 &&
-    [deployFrontendAws, rollbackNetlify, rollbackFrontendAws, rollbackStorefrontVercel, rollbackRender, rollbackGateway]
+    [deployFrontendAws, rollbackNetlify, rollbackFrontendAws, rollbackStorefrontVercel, rollbackRender, rollbackRailway, rollbackGateway]
       .every((workflow) =>
         workflow.includes('parent_holds_production_lock:') &&
         workflow.includes("|| 'aura-production-mutation'") &&
         workflow.includes('cancel-in-progress: false')
       ) &&
-    (deployFrontendNetlify.match(/parent_holds_production_lock: true/g) || []).length === 4,
+    (deployFrontendNetlify.match(/parent_holds_production_lock: true/g) || []).length === 5,
   'command-center and standalone frontend/gateway operations serialize without child reusable-workflow deadlock'
 );
 
@@ -258,6 +259,7 @@ addCheck(
     deployFrontendNetlify.includes('rollback-vercel-storefront-on-production-failure:') &&
     deployFrontendNetlify.includes('rollback-aws-storefront-on-production-failure:') &&
     deployFrontendNetlify.includes('rollback-render-storefront-on-production-failure:') &&
+    deployFrontendNetlify.includes('rollback-railway-storefront-on-production-failure:') &&
     production.includes('rollback-frontend-netlify:') &&
     production.includes('rollback-frontend-vercel-storefront:') &&
     production.includes('rollback-frontend-aws:') &&
@@ -265,12 +267,14 @@ addCheck(
     rollbackStorefrontVercel.includes('scripts/rollback-storefront-vercel.sh') &&
     rollbackStorefrontVercelScript.includes('npx vercel rollback') &&
     rollbackRender.includes('scripts/rollback-render.sh') &&
-    (deployFrontendNetlify.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g) || []).length === 4 &&
+    rollbackRailway.includes('scripts/rollback-railway.sh') &&
+    (deployFrontendNetlify.match(/deployment_attempted: \$\{\{ steps\.mutation\.outputs\.attempted \}\}/g) || []).length === 5 &&
     deployFrontendNetlify.includes("needs.deploy-production.outputs.deployment_attempted == 'true'") &&
     deployFrontendNetlify.includes("needs.deploy-vercel-production.outputs.deployment_attempted == 'true'") &&
     deployFrontendNetlify.includes("needs.deploy-aws-production.outputs.deployment_attempted == 'true'") &&
-    deployFrontendNetlify.includes("needs.deploy-render-production.outputs.deployment_attempted == 'true'"),
-  'partial deploy failures and post-deploy smoke failures restore Netlify, Vercel, AWS, and Render independently'
+    deployFrontendNetlify.includes("needs.deploy-render-production.outputs.deployment_attempted == 'true'") &&
+    deployFrontendNetlify.includes("needs.deploy-railway-production.outputs.deployment_attempted == 'true'"),
+  'partial deploy failures and post-deploy smoke failures restore Netlify, Vercel, AWS, Render, and Railway independently'
 );
 
 addCheck(
@@ -803,33 +807,36 @@ addCheck(
   'deploy-netlify.yml rollback defaults + missing-target acknowledgement'
 );
 
-// The only storefront host that BUILDS is Render; its deploy job injects the
-// exact VITE_* set at deploy time (literals + passthrough). Every VITE_ var
-// the CI build can inline must be covered by that injection, or Render's
-// bytes diverge from the shared artifact.
-const renderParityCoverageFailures = (() => {
+// Render and Railway both BUILD from source; the Render lane injects the
+// exact VITE_* set at deploy time (literals + passthrough) while the Railway
+// lanes share scripts/railway-release-env.cjs (pushed by railway-vars.cjs).
+// Every VITE_ var the CI build can inline must be covered by both, or that
+// host's bytes diverge from the shared artifact.
+const parityCoverageFailures = (() => {
   const envVarNames = new Set(
     [...deployNetlifyWorkflow.matchAll(/^\s*(VITE_[A-Z0-9_]+):\s*\$\{\{/gm)].map((m) => m[1])
   );
-  const literalsBlock = deployNetlifyWorkflow.match(/const literals = \{([\s\S]*?)\};/);
-  const passthroughBlock = deployNetlifyWorkflow.match(/const passthrough = \[([\s\S]*?)\];/);
-  if (!literalsBlock || !passthroughBlock) {
-    return ['deploy-netlify.yml Render deploy job no longer declares its parity literals/passthrough'];
+  const literalsBlocks = [...deployNetlifyWorkflow.matchAll(/const literals = \{([\s\S]*?)\};/g)];
+  const passthroughBlocks = [...deployNetlifyWorkflow.matchAll(/const passthrough = \[([\s\S]*?)\];/g)];
+  const railwayVars = read('scripts/railway-release-env.cjs');
+  if (literalsBlocks.length < 1 || passthroughBlocks.length < 1 || !railwayVars) {
+    return ['deploy-netlify.yml Render deploy job / scripts/railway-release-env.cjs no longer declare their parity literals/passthrough'];
   }
   const covered = new Set([
-    ...[...literalsBlock[1].matchAll(/(VITE_[A-Z0-9_]+):/g)].map((m) => m[1]),
-    ...[...passthroughBlock[1].matchAll(/"(VITE_[A-Z0-9_]+)"/g)].map((m) => m[1]),
+    ...literalsBlocks.flatMap((block) => [...block[1].matchAll(/(VITE_[A-Z0-9_]+):/g)].map((m) => m[1])),
+    ...passthroughBlocks.flatMap((block) => [...block[1].matchAll(/"(VITE_[A-Z0-9_]+)"/g)].map((m) => m[1])),
+    ...[...railwayVars.matchAll(/VITE_[A-Z0-9_]+/g)].map((m) => m[0]),
   ]);
   return [...envVarNames].filter((name) => !covered.has(name))
-    .map((name) => `Render parity injection does not cover ${name}`);
+    .map((name) => `Render/Railway parity injection does not cover ${name}`);
 })();
 
 addCheck(
-  'render parity injection covers the CI VITE_ build contract',
-  renderParityCoverageFailures.length === 0,
-  renderParityCoverageFailures.length === 0
-    ? 'every VITE_ var the build inlines is injected into the Render build at deploy time'
-    : renderParityCoverageFailures.join('; ')
+  'render and railway parity injection covers the CI VITE_ build contract',
+  parityCoverageFailures.length === 0,
+  parityCoverageFailures.length === 0
+    ? 'every VITE_ var the build inlines is injected into the Render/Railway builds at deploy time'
+    : parityCoverageFailures.join('; ')
 );
 
 addCheck(

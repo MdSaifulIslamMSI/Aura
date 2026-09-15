@@ -82,6 +82,12 @@ export const resolveRuntimeHost = (origin = '') => {
     return 'netlify';
   }
 
+  const railwayUrl = import.meta.env.VITE_RAILWAY_FRONTEND_URL;
+  const railwayOrigin = railwayUrl ? resolveOrigin(railwayUrl) : '';
+  if (railwayOrigin && runtimeOrigin === railwayOrigin) {
+    return 'railway';
+  }
+
   try {
     const hostname = new URL(runtimeOrigin).hostname.toLowerCase();
 
@@ -95,6 +101,10 @@ export const resolveRuntimeHost = (origin = '') => {
 
     if (hostname.includes('netlify.app')) {
       return 'netlify';
+    }
+
+    if (hostname.includes('railway.app')) {
+      return 'railway';
     }
 
     return hostname;

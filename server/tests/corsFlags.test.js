@@ -12,6 +12,7 @@ const loadCorsFlags = ({ nodeEnv = 'production', env = {} } = {}) => {
         STAGING_BASE_URL: '',
         VERCEL_STAGING_FRONTEND_URL: '',
         NETLIFY_FRONTEND_URL: '',
+        RAILWAY_FRONTEND_URL: '',
         AWS_FRONTEND_URL: '',
         S3_FRONTEND_URL: '',
         APP_ENV: '',

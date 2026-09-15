@@ -32,9 +32,12 @@ describe('releaseInfo', () => {
     // platform origins, so the test pins them instead of trusting ambient env.
     vi.stubEnv('VITE_VERCEL_FRONTEND_URL', 'https://aura.example.vercel.app');
     vi.stubEnv('VITE_NETLIFY_FRONTEND_URL', 'https://aura.example.netlify.app');
+    vi.stubEnv('VITE_RAILWAY_FRONTEND_URL', 'https://aura.example.up.railway.app');
 
     expect(resolveRuntimeHost('https://aura.example.vercel.app')).toBe('vercel');
     expect(resolveRuntimeHost('https://aura.example.netlify.app')).toBe('netlify');
+    expect(resolveRuntimeHost('https://aura.example.up.railway.app')).toBe('railway');
+    expect(resolveRuntimeHost('https://other-service.up.railway.app')).toBe('railway');
     expect(resolveRuntimeHost('http://localhost:5173')).toBe('local');
     expect(resolveRuntimeHost('https://aura.example.com')).toBe('aura.example.com');
     // An empty origin falls back to window.location.origin, which is jsdom's
