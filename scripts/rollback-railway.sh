@@ -1,30 +1,43 @@
 #!/usr/bin/env bash
-# Railway storefront rollback: overwrite app/ with ROLLBACK_REF's tree, push
-# the same VITE_* build contract a release build uses, re-upload, wait for
-# SUCCESS, then restore prior service variables. Called by rollback-railway.yml.
+# Railway storefront rollback.
+#
+# ROLLBACK_REF accepts two shapes:
+#   - a Railway deployment id (preferred): restore that deployment's snapshot
+#     (image + variables) via the GraphQL deploymentRollback mutation — no
+#     rebuild, exact prior bytes and configuration.
+#   - a full 40-hex commit SHA (fallback): rebuild that commit from source by
+#     re-uploading the app/ tree with the release VITE_* build contract. Used
+#     when the snapshot is outside Railway's retention window or only a SHA
+#     is known (manual rollback_refs_json entries from older releases).
+# Called by rollback-railway.yml and scripts/rollback-railway.sh callers.
 set -euo pipefail
 
-command -v git >/dev/null 2>&1 || { echo "missing command: git" >&2; exit 1; }
-command -v jq >/dev/null 2>&1 || { echo "missing command: jq" >&2; exit 1; }
-command -v node >/dev/null 2>&1 || { echo "missing command: node" >&2; exit 1; }
-command -v railway >/dev/null 2>&1 || { echo "missing command: railway" >&2; exit 1; }
-
-[ -n "${ROLLBACK_REF:-}" ] || { echo "missing env: ROLLBACK_REF" >&2; exit 1; }
-[ -n "${RAILWAY_API_TOKEN:-}" ] || { echo "missing env: RAILWAY_API_TOKEN" >&2; exit 1; }
-[ -n "${RAILWAY_SERVICE_ID:-}" ] || { echo "missing env: RAILWAY_SERVICE_ID" >&2; exit 1; }
-[ -n "${RAILWAY_ENVIRONMENT_ID:-}" ] || { echo "missing env: RAILWAY_ENVIRONMENT_ID" >&2; exit 1; }
-
-case "${ROLLBACK_REF}" in
-  *[!0-9a-fA-F]*)
-    echo "ROLLBACK_REF must be a hex commit SHA (received '${ROLLBACK_REF}')." >&2
-    echo "Roll back from the Railway dashboard (Deployments > last good > Rollback) when only a deployment id is known." >&2
+require_command() {
+  local name="$1"
+  if ! command -v "${name}" >/dev/null 2>&1; then
+    echo "Required command '${name}' was not found on PATH." >&2
     exit 1
-    ;;
-esac
-if [ "${#ROLLBACK_REF}" -ne 40 ]; then
-  echo "ROLLBACK_REF must be a full 40-hex commit SHA (received ${#ROLLBACK_REF} chars)." >&2
-  exit 1
-fi
+  fi
+}
+
+require_env() {
+  local name="$1"
+  local value="${!name:-}"
+  if [[ -z "${value}" ]]; then
+    echo "Missing required environment variable: ${name}" >&2
+    exit 1
+  fi
+}
+
+require_command curl
+require_command jq
+require_command railway
+require_command git
+require_command node
+require_env ROLLBACK_REF
+require_env RAILWAY_API_TOKEN
+require_env RAILWAY_SERVICE_ID
+require_env RAILWAY_ENVIRONMENT_ID
 
 export RAILWAY_API_TOKEN RAILWAY_ENVIRONMENT_ID RAILWAY_SERVICE_ID
 
@@ -33,74 +46,101 @@ if [ -n "${RAILWAY_PROJECT_ID:-}" ]; then
     --environment "${RAILWAY_ENVIRONMENT_ID}" </dev/null || true
 fi
 
-echo "Restoring app/ from rollback commit ${ROLLBACK_REF}."
-git fetch --no-tags --depth 1 origin "${ROLLBACK_REF}" >/dev/null 2>&1 || true
-git cat-file -e "${ROLLBACK_REF}^{commit}" 2>/dev/null || {
-  echo "Rollback commit ${ROLLBACK_REF} is not present in this checkout; refusing to mutate Railway." >&2
-  exit 1
+wait_for_success_deployment() {
+  local attempts=60
+  local attempt=0
+  local deployments status
+  while [ "${attempt}" -lt "${attempts}" ]; do
+    attempt=$((attempt + 1))
+    deployments="$(railway deployment list \
+      --service "${RAILWAY_SERVICE_ID}" \
+      --environment "${RAILWAY_ENVIRONMENT_ID}" \
+      --json 2>/dev/null || echo '[]')"
+    status="$(printf '%s' "${deployments}" | jq -r '[.[]?] | map(select(.status != null)) | .[0].status // empty' 2>/dev/null || true)"
+
+    if [ "${status}" = "SUCCESS" ]; then
+      echo "Railway deployment is live."
+      return 0
+    fi
+    if [ "${status}" = "FAILED" ] || [ "${status}" = "CRASHED" ] || [ "${status}" = "REMOVED" ]; then
+      echo "Railway deployment ended in status '${status}'." >&2
+      return 1
+    fi
+    echo "Railway deployment status: ${status:-unknown} (attempt ${attempt}/${attempts})." >&2
+    if [ "${attempt}" -ge "${attempts}" ]; then
+      echo "Railway deployment did not go live after ${attempts} attempts." >&2
+      return 1
+    fi
+    sleep 15
+  done
 }
-git checkout "${ROLLBACK_REF}" -- app
 
-state_file="$(mktemp)"
-restored=0
-
-restore_vars() {
-  if [ "${restored}" -eq 1 ]; then
-    return 0
+verify_production_url() {
+  local production_url="${RAILWAY_PRODUCTION_URL%/}"
+  if [ -n "${production_url}" ]; then
+    curl --fail --show-error --silent --location --max-time 30 "${production_url}" >/dev/null
   fi
-  restored=1
-  if [ ! -s "${state_file}" ]; then
-    return 0
-  fi
-  echo "Restoring prior Railway service variables."
-  RAILWAY_STATE_FILE="${state_file}" node scripts/railway-vars.cjs restore || true
 }
 
-cleanup() {
-  local status="$?"
-  restore_vars
-  rm -f "${state_file}"
-  exit "${status}"
-}
-trap cleanup EXIT
+rollback_ref="${ROLLBACK_REF}"
+case "${rollback_ref}" in
+  *[!0-9a-zA-Z-]*)
+    echo "ROLLBACK_REF must be a Railway deployment id or a 40-hex commit SHA (received '${rollback_ref}')." >&2
+    exit 1
+    ;;
+esac
 
-echo "Pushing the release VITE_* build contract onto Railway service ${RAILWAY_SERVICE_ID}."
-RAILWAY_STATE_FILE="${state_file}" node scripts/railway-vars.cjs push
+if [[ "${rollback_ref}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  # ---------------------------------------------------------------- fallback:
+  # rebuild the pinned commit from source (snapshot outside retention, or a
+  # manual SHA-only ref). Byte-comparable with a normal release build because
+  # the same VITE_* contract is pushed before the upload.
+  echo "ROLLBACK_REF is a commit SHA; rebuilding commit ${rollback_ref} from source."
 
-railway up ./app --path-as-root \
-  --environment "${RAILWAY_ENVIRONMENT_ID}" \
-  --service "${RAILWAY_SERVICE_ID}" \
-  --ci --detach
+  echo "Restoring app/ from rollback commit ${rollback_ref}."
+  git fetch --no-tags --depth 1 origin "${rollback_ref}" >/dev/null 2>&1 || true
+  git cat-file -e "${rollback_ref}^{commit}" 2>/dev/null || {
+    echo "Rollback commit ${rollback_ref} is not present in this checkout; refusing to mutate Railway." >&2
+    exit 1
+  }
+  git checkout "${rollback_ref}" -- app
 
-attempts=60
-attempt=0
-while [ "${attempt}" -lt "${attempts}" ]; do
-  attempt=$((attempt + 1))
-  deployments="$(railway deployment list \
-    --service "${RAILWAY_SERVICE_ID}" \
+  echo "Pushing the release VITE_* build contract onto Railway service ${RAILWAY_SERVICE_ID}."
+  node scripts/railway-vars.cjs push
+
+  railway up ./app --path-as-root \
     --environment "${RAILWAY_ENVIRONMENT_ID}" \
-    --json 2>/dev/null || echo '[]')"
-  status="$(printf '%s' "${deployments}" | jq -r '[.[]?] | map(select(.status != null)) | .[0].status // empty' 2>/dev/null || true)"
+    --service "${RAILWAY_SERVICE_ID}" \
+    --ci --detach
 
-  if [ "${status}" = "SUCCESS" ]; then
-    echo "Railway rollback deployment is live."
-    break
-  fi
-  if [ "${status}" = "FAILED" ] || [ "${status}" = "CRASHED" ] || [ "${status}" = "REMOVED" ]; then
-    echo "Railway rollback deployment ended in status '${status}'." >&2
-    exit 1
-  fi
-  if [ "${attempt}" -ge "${attempts}" ]; then
-    echo "Railway rollback did not go live after ${attempts} attempts." >&2
-    exit 1
-  fi
-  echo "Railway rollback status: ${status:-unknown} (attempt ${attempt}/${attempts})." >&2
-  sleep 15
-done
-
-production_url="${RAILWAY_PRODUCTION_URL%/}"
-if [ -n "${production_url}" ]; then
-  curl --fail --show-error --silent --location --max-time 30 "${production_url}" >/dev/null
+  wait_for_success_deployment
+  verify_production_url
+  echo "Railway rollback to commit ${rollback_ref} completed."
+  exit 0
 fi
 
-echo "Railway rollback to ${ROLLBACK_REF} completed."
+# ------------------------------------------------------------------- primary:
+# restore the captured deployment's snapshot (image + variables) via GraphQL.
+echo "Restoring Railway deployment ${rollback_ref} via snapshot rollback."
+rollback_response="$(mktemp)"
+mutation='mutation($id: String!) { deploymentRollback(id: $id) }'
+if ! curl --fail --show-error --silent --location \
+    --header "Authorization: Bearer ${RAILWAY_API_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --data "$(jq -n --arg q "${mutation}" --arg id "${rollback_ref}" '{query: $q, variables: {id: $id}}')" \
+    "https://backboard.railway.com/graphql/v2" \
+    > "${rollback_response}"; then
+  echo "Railway rollback mutation call failed." >&2
+  exit 1
+fi
+
+if jq -e '.errors != null and (.errors | length > 0)' "${rollback_response}" >/dev/null 2>&1; then
+  jq -r '.errors[].message' "${rollback_response}" >&2
+  echo "Railway rejected the snapshot rollback of ${rollback_ref}." >&2
+  exit 1
+fi
+
+echo "Railway snapshot rollback triggered; waiting for it to go live."
+wait_for_success_deployment
+verify_production_url
+echo "Railway snapshot rollback to deployment ${rollback_ref} completed."
