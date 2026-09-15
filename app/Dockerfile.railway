@@ -21,14 +21,27 @@ RUN npm run build
 
 FROM caddy:2-alpine
 
+# Trivy DS-0002: never run the edge container as root. The build steps above
+# stay root-owned; only the final runtime drops privileges.
+RUN addgroup -S caddy && adduser -S -G caddy caddy
+
 WORKDIR /app
 
 COPY Caddyfile ./
 
-RUN caddy fmt Caddyfile --overwrite
+RUN caddy fmt Caddyfile --overwrite \
+    && chown caddy:caddy /app/Caddyfile
 
-COPY --from=build /app/dist ./dist
+COPY --from=build --chown=caddy:caddy /app/dist ./dist
 
 EXPOSE 3000
+
+# Trivy DS-0026: the Railway platform already healthchecks `/` on deploy;
+# keep an in-container probe too (curl ships in caddy:2-alpine) so local
+# `docker ps` and orchestrators see real readiness.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl --fail --silent --max-time 4 http://127.0.0.1:${PORT:-3000}/ || exit 1
+
+USER caddy
 
 CMD ["caddy", "run", "--config", "Caddyfile", "--adapter", "caddyfile"]
