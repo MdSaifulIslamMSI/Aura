@@ -1318,8 +1318,9 @@ describe('repo environment contract scripts', () => {
 
         const inputNames = [...inputsBlock[1].matchAll(/^ {6}([A-Za-z0-9_-]+):\s*$/gm)].map((match) => match[1]);
 
-        // 11: backend_strategy is a deliberate knob; ci:doctor enforces the same cap.
-        expect(inputNames.length).toBeLessThanOrEqual(11);
+        // GitHub raised the workflow_dispatch input limit from 10 to 25
+        // (changelog 2025-12-04); 25 is the hard cap ci:doctor mirrors.
+        expect(inputNames.length).toBeLessThanOrEqual(25);
         expect(inputNames).toEqual(expect.arrayContaining([
             'confirm_production',
             'deploy_targets',

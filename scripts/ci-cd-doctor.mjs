@@ -173,11 +173,11 @@ addCheck(
 addCheck(
   'manual production command center fits GitHub dispatch input limit',
   productionDispatchInputs.length > 0 &&
-    productionDispatchInputs.length <= 11 &&
+    productionDispatchInputs.length <= 25 &&
     ['deploy_targets', 'release_targets', 'rollback_targets'].every((input) =>
       productionDispatchInputs.includes(input)
     ),
-  `inputs=${productionDispatchInputs.length}/10; target inputs collapse selected deploy/release/rollback lanes`
+  `inputs=${productionDispatchInputs.length}/25; target inputs collapse selected deploy/release/rollback lanes`
 );
 
 addCheck(

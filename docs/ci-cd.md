@@ -43,7 +43,7 @@ Use `Manual Production Command Center` only for controlled operations:
 
 Manual production actions require typing `PRODUCTION` into the workflow input.
 Select lanes with comma-separated target inputs so the workflow remains within
-GitHub's 10-input `workflow_dispatch` limit:
+GitHub's 25-input `workflow_dispatch` limit:
 
 - `deploy_targets=backend,frontend-multihost,gateway`
 - `release_targets=desktop,mobile`
